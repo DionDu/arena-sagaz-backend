@@ -27,11 +27,15 @@
 **Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
-## Constitution Check
+## Verificação da Constituição
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+*PORTÃO: Deve ser aprovado antes da Fase 0 de pesquisa. Reverificar após o design da Fase 1.*
 
-[Gates determined based on constitution file]
+- [ ] **I. Código Limpo**: responsabilidade única, sem duplicação lógica, nomes expressivos?
+- [ ] **II. Tipagem Estática**: todos os contratos de entrada/saída modelados com Pydantic? Type hints em todas as funções públicas?
+- [ ] **III. Testes Unitários**: testes planejados para toda lógica de negócio? Estratégia de mock para dependências externas?
+- [ ] **IV. Documentação**: docstrings e arquivos `.specify/` serão criados/atualizados?
+- [ ] **V. Idioma pt-BR**: nomes de domínio, comentários e documentação em Português do Brasil?
 
 ## Project Structure
 

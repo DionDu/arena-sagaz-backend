@@ -1,0 +1,172 @@
+{
+  "versao": "1.0.0",
+  "atualizado_em": "2026-04-24",
+
+  "sobre_este_arquivo": {
+    "proposito": "Fonte ÚNICA da verdade sobre como a matriz do tabuleiro do jogo dos pontinhos é codificada em cada contexto e como deve ser transformada antes de ser enviada à rede neural convolucional (CNN). Qualquer código que leia, escreva ou transforme a matriz de entrada do modelo DEVE consultar este contrato primeiro.",
+    "publico_alvo": "Modelos de linguagem (LLMs) e desenvolvedores humanos que mantêm, estendem ou depuram qualquer parte do pipeline da CNN deste jogo — geração de dataset no Databricks, treinamento no Colab, simulador Pygame, avaliador de partidas e o aplicativo Flutter em runtime.",
+    "copias_autorizadas": [
+      "gerador_dados/contrato_codificacao_pontinhos.json  <-- FONTE DA VERDADE (repositório backend)",
+      "arena-sagaz-frontend/assets/jogos/pontinhos/contrato_codificacao_pontinhos.json  <-- lida em runtime pelo Flutter; fica dentro do diretório do jogo (ver PRD §5.1)",
+      "Pasta CNN no Databricks  <-- copiada manualmente; atualizar quando este arquivo mudar"
+    ],
+    "sincronizacao_obrigatoria": "As duas cópias versionadas (backend + frontend) DEVEM ter o mesmo hash SHA-256. O teste automatizado tests/test_contrato_codificacao_pontinhos.py falha (exit != 0) se divergirem, travando o merge.",
+    "como_atualizar": "1) Editar o arquivo backend. 2) Copiar o conteúdo IDÊNTICO para o frontend. 3) Copiar manualmente para a pasta CNN do Databricks. 4) Rodar pytest tests/test_contrato_codificacao_pontinhos.py. 5) Commitar os DOIS repos juntos."
+  },
+
+  "glossario_do_jogo": {
+    "traco": "Aresta horizontal ou vertical entre dois pontos fixos da grade. Ocupa posição par×ímpar (horizontal, rotulado H_linha_coluna) ou ímpar×par (vertical, rotulado V_linha_coluna) da matriz.",
+    "caixa": "Célula interior formada quando as 4 arestas ao redor foram preenchidas. Ocupa posição ímpar×ímpar da matriz. Cada caixa fechada vale 1 ponto para o jogador que a fechou.",
+    "ponto_fixo_da_grade": "Vértice estrutural da grade, não ocupável. Ocupa posição par×par da matriz e carrega SEMPRE o valor 8.",
+    "jogador_1": "Agente que marca suas jogadas com o valor +1 na matriz durante a partida.",
+    "jogador_2": "Agente que marca suas jogadas com o valor -1 na matriz durante a partida.",
+    "partida": "Execução interativa do jogo (humano vs IA no simulador, CNN vs Minimax no avaliador, ou humano vs IA no app Flutter). NÃO confundir com treinamento da CNN.",
+    "dataset": "Conjunto de pares (estado, jogada_ótima) gerados sinteticamente em larga escala no Databricks para treinar a CNN. Persistido em arquivos NPZ."
+  },
+
+  "tres_contextos_de_uso": {
+
+    "contexto_1_geracao_dataset": {
+      "onde_roda": "Databricks (PySpark, mapInPandas). Notebook: notebooks/Otimizacao_Topologia_Rede_V3.ipynb. Saída: arquivos .npz em dados/ com chaves 'estados' (matrizes) e 'targets' (soft targets / jogada ótima).",
+      "proposito": "Gerar centenas de milhares de estados sintéticos do tabuleiro com a jogada ótima calculada pelo Minimax, para servir como dataset supervisionado de treino.",
+      "formato_matriz_produzida": {
+        "valores_permitidos": {
+          "0": "Posição vazia — aresta ainda não preenchida OU interior de caixa não fechada",
+          "1": "Interior de caixa fechada (NÃO distingue qual jogador fechou — o dataset é neutro)",
+          "8": "Ponto fixo da grade (posição par×par)",
+          "9": "Aresta preenchida (NÃO distingue qual jogador jogou — o dataset é neutro)"
+        },
+        "dominio_completo": [0, 1, 8, 9],
+        "ausencia_do_valor_-1": "A matriz gerada para treino NUNCA contém -1. Não existe noção de 'dono' aqui. O modelo só precisa aprender o estado estrutural do tabuleiro, não quem jogou cada traço."
+      },
+      "aplica_normalizacao_antes_do_modelo": false,
+      "motivo_de_nao_normalizar_aqui": "A saída deste contexto é um arquivo .npz persistido em disco. Intencionalmente preservamos {0, 1, 8, 9} para permitir inspeção humana, debugging e validação do pipeline de geração. A normalização para {0, 1} acontece no contexto seguinte (treino), em memória, pouco antes de fit()."
+    },
+
+    "contexto_2_treinamento_cnn": {
+      "onde_roda": "Google Colab. Notebook: notebooks/Treinamento_CNN_Arena_Sagaz_V3.ipynb. Entrada: .npz gerado no contexto 1. Saída: modelo .tflite.",
+      "proposito": "Treinar a CNN (BoxNet) a partir dos dados gerados pelo Databricks e exportar o modelo quantizado para TFLite.",
+      "formato_matriz_lida_do_npz": {
+        "comentario": "IDÊNTICO ao formato_matriz_produzida do contexto_1_geracao_dataset.",
+        "dominio": [0, 1, 8, 9]
+      },
+      "aplica_normalizacao_antes_do_modelo": true,
+      "quando_normalizar": "Logo após np.load() do NPZ e ANTES de chamar model.fit(), model.evaluate() ou converter para TFLite. Tipicamente no bloco de preparação do dataset, em memória, sobre o array carregado.",
+      "regras_de_normalizacao_a_aplicar": [
+        {
+          "substituir_valor": 8,
+          "por_valor": 0,
+          "justificativa": "Pontos fixos da grade não carregam informação útil para o modelo. Virar vazio colapsa a codificação."
+        },
+        {
+          "substituir_valor": 9,
+          "por_valor": 1,
+          "justificativa": "Aresta preenchida vira simplesmente 'ocupada'. O modelo só precisa do sinal ocupado/vazio."
+        }
+      ],
+      "regras_que_NAO_se_aplicam_aqui": [
+        {
+          "valor": -1,
+          "motivo": "O NPZ gerado no contexto 1 NUNCA contém -1. Aplicar essa regra aqui é inofensivo (no-op) mas desnecessário — só é relevante no contexto 3 (partidas)."
+        }
+      ],
+      "dominio_apos_normalizacao": [0, 1],
+      "nota_critica": "O NPZ em disco PERMANECE em {0, 1, 8, 9}. A normalização acontece apenas em memória sobre o array em RAM, sem reescrever o arquivo."
+    },
+
+    "contexto_3_partidas_ao_vivo": {
+      "onde_roda": "Simulador Pygame (gerador_dados/simulador/simulador_tatico.py), avaliador de partidas (gerador_dados/avaliador_partidas.py) e aplicativo Flutter em runtime (arena-sagaz-frontend).",
+      "proposito": "Consultar a CNN durante uma partida real para escolher a próxima jogada da IA, ou comparar a qualidade da CNN contra o Minimax.",
+      "formato_matriz_durante_a_partida": {
+        "valores_permitidos": {
+          "0": "Posição vazia — aresta ainda não jogada OU caixa ainda não fechada",
+          "1": "Traço colocado pelo Jogador 1 OU caixa fechada pelo Jogador 1",
+          "-1": "Traço colocado pelo Jogador 2 OU caixa fechada pelo Jogador 2",
+          "8": "Ponto fixo da grade (posição par×par)"
+        },
+        "dominio_completo": [-1, 0, 1, 8],
+        "por_que_existe_valor_negativo_aqui": "Durante a partida é necessário distinguir quem colocou cada traço e quem fechou cada caixa — para contabilizar pontos, pintar cores corretas na tela e decidir o vencedor. O CÓDIGO DO JOGO (não o modelo) usa +1 e -1 para marcar posse. A CNN, por outro lado, foi treinada num encoding neutro (contexto 1) e não deve receber o -1 diretamente."
+      },
+      "aplica_normalizacao_antes_do_modelo": true,
+      "quando_normalizar": "IMEDIATAMENTE antes de chamar interp.set_tensor() no TFLite Interpreter. Faça a normalização sobre uma CÓPIA da matriz (mat.astype(np.float32).copy() ou equivalente) — NUNCA sobre a matriz original da partida, ou o estado do jogo é corrompido (o marcador do Jogador 2 'vira' Jogador 1 e a próxima jogada fica inválida).",
+      "regras_de_normalizacao_a_aplicar": [
+        {
+          "substituir_valor": 8,
+          "por_valor": 0,
+          "justificativa": "Pontos fixos da grade não carregam informação útil para o modelo."
+        },
+        {
+          "substituir_valor": -1,
+          "por_valor": 1,
+          "justificativa": "CRÍTICO — o modelo foi treinado em matrizes que NUNCA contêm -1 (só o contexto 3 tem). Se enviarmos -1 ao modelo, ele recebe uma distribuição fora da vista no treino e as predições degradam drasticamente. Bug histórico de 2026-04-23: sem esta regra, a CNN caiu de 96% para 57% de win-rate contra Minimax(p=1) — regressão de 39 pontos percentuais."
+        },
+        {
+          "substituir_valor": 9,
+          "por_valor": 1,
+          "justificativa": "Defensivo. Na prática, a matriz de partida não deveria conter 9. Mas se alguma integração acidentalmente passar uma matriz no formato de treino, esta regra garante que o tensor final ainda fica em {0, 1}."
+        }
+      ],
+      "dominio_apos_normalizacao": [0, 1]
+    }
+  },
+
+  "invariante_final_do_tensor_da_cnn": {
+    "descricao": "Independentemente do contexto de origem, o tensor enviado ao TFLite Interpreter (via interp.set_tensor) DEVE estar EXCLUSIVAMENTE em {0.0, 1.0}. Qualquer valor fora desse conjunto indica bug de normalização.",
+    "dtype": "float32",
+    "shape_esperado": "(1, altura_matriz, largura_matriz, 1)",
+    "como_verificar": "np.unique(tensor) deve retornar array([0., 1.], dtype=float32) ou subconjunto. Se retornar algo com -1, 8 ou 9, o código não aplicou todas as regras de normalização do contexto correto."
+  },
+
+  "dimensoes_por_tamanho": {
+    "pequeno": {
+      "linhas_caixas_conceituais": 4,
+      "colunas_caixas_conceituais": 3,
+      "forma_matriz": [9, 7],
+      "num_tracos_possiveis_e_neuronios_saida_cnn": 31,
+      "arquivo_mapeamento_labels_frontend": "assets/jogos/pontinhos/ia_mappings/mapeamento_pequeno.json"
+    },
+    "medio": {
+      "linhas_caixas_conceituais": 5,
+      "colunas_caixas_conceituais": 4,
+      "forma_matriz": [11, 9],
+      "num_tracos_possiveis_e_neuronios_saida_cnn": 49,
+      "arquivo_mapeamento_labels_frontend": "assets/jogos/pontinhos/ia_mappings/mapeamento_medio.json"
+    },
+    "grande": {
+      "linhas_caixas_conceituais": 7,
+      "colunas_caixas_conceituais": 5,
+      "forma_matriz": [15, 11],
+      "num_tracos_possiveis_e_neuronios_saida_cnn": 82,
+      "arquivo_mapeamento_labels_frontend": "assets/jogos/pontinhos/ia_mappings/mapeamento_grande.json"
+    }
+  },
+
+  "ordenacao_dos_rotulos_de_saida": {
+    "esquema": "linha_a_linha_canonica",
+    "descricao": "Ao iterar a matriz (altura × largura) da célula (0,0) até (h-1, w-1), linha por linha, da esquerda para a direita, cada slot de traço encontrado recebe um índice sequencial (0, 1, 2, ...). O neurônio de saída i da CNN corresponde ao i-ésimo traço encontrado nessa varredura. Essa ordem INTERCALA H_ e V_ (ex: H_0_1, H_0_3, H_0_5, V_1_0, V_1_2, ...).",
+    "implementacao_referencia_backend": "gerador_dados/tabuleiro.py — função todos_labels_canonicos(linhas, colunas)",
+    "erro_historico_evitado": "Versões anteriores usavam ordem alfabética (sorted() / np.unique()), que agrupa todos os H_ antes dos V_. Essa ordem NÃO corresponde à ordem dos neurônios do modelo treinado — usar alfabético inutiliza 28 de 31 predições no tabuleiro pequeno."
+  },
+
+  "snippet_de_uso_para_notebooks": {
+    "observacao": "Os notebooks (Databricks e Colab) NÃO importam módulos Python externos — carregam este JSON inline. O bloco abaixo é o padrão recomendado; copie-o para a primeira célula de qualquer notebook que toque a matriz.",
+    "codigo_python": [
+      "import json, numpy as np",
+      "with open('contrato_codificacao_pontinhos.json', encoding='utf-8') as _f:",
+      "    CONTRATO = json.load(_f)",
+      "",
+      "def normalizar_para_cnn(mat, contexto):",
+      "    \"\"\"Aplica as regras de normalização do contexto sobre uma CÓPIA da matriz.\"\"\"",
+      "    ctx = CONTRATO['tres_contextos_de_uso'][contexto]",
+      "    out = mat.astype(np.float32).copy()",
+      "    for regra in ctx.get('regras_de_normalizacao_a_aplicar', []):",
+      "        out[out == regra['substituir_valor']] = regra['por_valor']",
+      "    return out",
+      "",
+      "# Uso no Colab (treino):",
+      "# X = normalizar_para_cnn(estados_npz, 'contexto_2_treinamento_cnn')",
+      "",
+      "# Uso no Databricks (geração): NÃO normalizar — salvar matriz crua no NPZ."
+    ]
+  }
+}

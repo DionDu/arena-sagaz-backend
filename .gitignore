@@ -1,0 +1,45 @@
+# Dados gerados e modelos (gitignored conforme plano)
+dados/
+modelos/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Variáveis de ambiente
+.env
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Dataset e modelos
+*.npz
+*.npy
+*.tflite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# SO
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings (não versionar)
+.claude/
