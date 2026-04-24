@@ -20,7 +20,7 @@ relevantes na mesma resposta em que a mudança é feita**. O usuário não deve
 precisar lembrar de pedir.
 
 - **Operação/uso (comandos, parâmetros, formato de arquivo, fluxo do dia-a-dia):**
-  atualizar `docs/guia_geracao_dados.md` e os `.md` correspondentes em `docs/`.
+  atualizar `docs/jogo_pontinhos/guia_geracao_dados.md` e os `.md` correspondentes em `docs/jogo_pontinhos/`.
 - **Arquitetura/decisões/abandono de abordagens:** registrar em
   `docs/historico_decisoes.md` (criar se não existir). Cada entrada deve ter
   data, contexto, decisão, alternativas consideradas e motivo.

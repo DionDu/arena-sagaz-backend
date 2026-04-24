@@ -169,9 +169,9 @@ O que foi feito (não re-executar):
 
 ---
 
-## Fase 1 — Reorganização de `docs/`
+## Fase 1 — Reorganização de `docs/` ✅ CONCLUÍDA
 
-**Objetivo:** separar docs de TCC, docs específicos do pontinhos e docs hub-genéricos.
+**Executada em 2026-04-24.**
 
 ### 1.1 Criar subpastas
 

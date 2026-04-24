@@ -210,7 +210,7 @@ Foi escrito com `==` em vez de `>`. Isso causou a **inversão total das regras d
 
 ## 2026-04-21 — Documento de argumentação CNN vs Minimax criado
 
-**Decisão.** Criar `docs/argumentacao_cnn_vs_minimax.md` com todos os
+**Decisão.** Criar `docs/tcc/argumentacao_cnn_vs_minimax.md` com todos os
 argumentos para justificar a CNN em vez do Minimax puro.
 
 **Motivação.** Banca do TCC certamente questionará a escolha. O documento
@@ -301,13 +301,13 @@ Minimax-ótimo. Implementada no Cell 7 do notebook.
 - `notebooks/Treinamento_CNN_Arena_Sagaz.ipynb` Cell 6: sample_weight removido.
 - `notebooks/Treinamento_CNN_Arena_Sagaz.ipynb` Cell 4: tabela com rodada 3
   (resultados reais) e rodada 4 (planejada); nota sobre OMA como métrica oficial.
-- `docs/historico_tentativas_treinamento.md`: rodada 3 completa + rodada 4 planejada.
+- `docs/jogo_pontinhos/historico_tentativas_treinamento.md`: rodada 3 completa + rodada 4 planejada.
 
 ---
 
 ## 2026-04-21 — Documento detalhado de tentativas de treinamento
 
-**Decisão.** Criar `docs/historico_tentativas_treinamento.md` com registro
+**Decisão.** Criar `docs/jogo_pontinhos/historico_tentativas_treinamento.md` com registro
 narrativo de cada experimento: CNN ingênua → MLP → BoxNet v1 → v2 → v3 rodadas
 1, 2 e 3 (planejada). Para cada tentativa: o que foi feito, por que, o que não
 funcionou, o que aprendemos e o próximo passo.
@@ -467,10 +467,10 @@ diferença encolher para < 10pp, considerar o problema resolvido.
 ## 2026-04-20 — Documentação técnica para defesa do TCC
 
 Criados/atualizados documentos de argumentação acadêmica:
-- `docs/soft_targets_kl_divergence.md` — explicação completa de soft targets,
+- `docs/jogo_pontinhos/soft_targets_kl_divergence.md` — explicação completa de soft targets,
   KL Divergence vs Categorical Crossentropy, onde o argmax ainda existe, e
   resposta modelo para a banca.
-- `docs/justificativa_50k_amostras.md` — atualizado para refletir a nova
+- `docs/jogo_pontinhos/justificativa_50k_amostras.md` — atualizado para refletir a nova
   realidade: 200–300k registros, paralelização (1 semana → ~6h), soft targets,
   e Data Augmentation por simetria D₂. O documento antigo citava 300k como
   "fisicamente impossível" — estava desatualizado após a migração para

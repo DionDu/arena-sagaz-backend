@@ -224,7 +224,7 @@ Reformulamos completamente o pipeline:
 
 ### Por que essa escolha
 
-Ver `docs/soft_targets_kl_divergence.md` para a argumentação completa.
+Ver `docs/jogo_pontinhos/soft_targets_kl_divergence.md` para a argumentação completa.
 Resumo: KLD + soft targets eliminam o ruído de rótulo causado pelo sorteio entre
 empates do Minimax.
 
