@@ -24,9 +24,9 @@ import threading
 import numpy as np
 import concurrent.futures
 
-from gerador_dados.tabuleiro import EstadoTabuleiro, todos_labels_canonicos
-from gerador_dados.minimax import melhor_jogada, _scores_de_todas_jogadas
-from gerador_dados.contrato_codificacao_pontinhos import (
+from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import EstadoTabuleiro, todos_labels_canonicos
+from gerador_dados.jogo_pontinhos.minimax_pontinhos import melhor_jogada, _scores_de_todas_jogadas
+from gerador_dados.jogo_pontinhos.contrato_codificacao_pontinhos import (
     CONTEXTO_PARTIDA,
     normalizar_para_cnn,
 )

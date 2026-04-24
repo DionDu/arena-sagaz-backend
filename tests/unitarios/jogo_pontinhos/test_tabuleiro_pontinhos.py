@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from gerador_dados.tabuleiro import EstadoTabuleiro, TAMANHOS
+from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import EstadoTabuleiro, TAMANHOS
 
 
 @pytest.mark.parametrize("tamanho", ["pequeno", "medio", "grande"])

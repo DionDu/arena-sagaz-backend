@@ -7,10 +7,10 @@ import sys
 import time
 from pathlib import Path
 
-from gerador_dados.tabuleiro import EstadoTabuleiro, TAMANHOS
-from gerador_dados.minimax import melhor_jogada
-from gerador_dados.nucleo_log import obter_logger
-from gerador_dados.contrato_codificacao_pontinhos import (
+from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import EstadoTabuleiro, TAMANHOS
+from gerador_dados.jogo_pontinhos.minimax_pontinhos import melhor_jogada
+from api.nucleo.log import obter_logger
+from gerador_dados.jogo_pontinhos.contrato_codificacao_pontinhos import (
     CONTEXTO_PARTIDA,
     normalizar_para_cnn,
 )
@@ -44,7 +44,7 @@ def _carregar_modelo_tflite(caminho: str):
 
 def _jogada_cnn(estado: EstadoTabuleiro, interpretador) -> tuple[str | None, dict[str, float]]:
     import numpy as np
-    from gerador_dados.tabuleiro import todos_labels_canonicos
+    from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import todos_labels_canonicos
 
     dados_entrada = interpretador.get_input_details()
     dados_saida = interpretador.get_output_details()

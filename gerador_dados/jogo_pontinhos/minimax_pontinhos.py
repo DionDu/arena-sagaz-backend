@@ -1,7 +1,7 @@
 """Minimax com Poda Alpha-Beta para Dots and Boxes."""
 from __future__ import annotations
 
-from gerador_dados.tabuleiro import EstadoTabuleiro
+from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import EstadoTabuleiro
 
 
 def avaliar(estado: EstadoTabuleiro, caixas_ia: int, caixas_humano: int) -> int:

@@ -14,8 +14,8 @@ from pathlib import Path
 
 import numpy as np
 
-from gerador_dados.minimax import melhor_jogada_com_scores
-from gerador_dados.tabuleiro import EstadoTabuleiro, TAMANHOS, todos_labels_canonicos
+from gerador_dados.jogo_pontinhos.minimax_pontinhos import melhor_jogada_com_scores
+from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import EstadoTabuleiro, TAMANHOS, todos_labels_canonicos
 
 DIRETORIO_DADOS = Path("dados")
 TAMANHO_LOTE = 5000

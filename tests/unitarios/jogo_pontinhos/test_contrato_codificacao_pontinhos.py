@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from gerador_dados.contrato_codificacao_pontinhos import (
+from gerador_dados.jogo_pontinhos.contrato_codificacao_pontinhos import (
     CONTEXTO_GERACAO,
     CONTEXTO_PARTIDA,
     CONTEXTO_TREINO,
@@ -26,8 +26,8 @@ from gerador_dados.contrato_codificacao_pontinhos import (
     normalizar_para_cnn,
 )
 
-RAIZ_BACKEND = Path(__file__).resolve().parents[2]
-JSON_BACKEND = RAIZ_BACKEND / "gerador_dados" / "contrato_codificacao_pontinhos.json"
+RAIZ_BACKEND = Path(__file__).resolve().parents[3]
+JSON_BACKEND = RAIZ_BACKEND / "gerador_dados" / "jogo_pontinhos" / "contrato_codificacao_pontinhos.json"
 JSON_FRONTEND = (
     RAIZ_BACKEND.parent
     / "arena-sagaz-frontend"

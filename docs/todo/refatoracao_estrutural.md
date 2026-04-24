@@ -229,7 +229,9 @@ Atualize qualquer link que aponte para os paths antigos.
 
 ---
 
-## Fase 2 — Reorganização de `gerador_dados/`
+## Fase 2 — Reorganização de `gerador_dados/` ✅ CONCLUÍDA
+
+**Executada em 2026-04-24.**
 
 **Objetivo:** criar `gerador_dados/jogo_pontinhos/`, renomear arquivos legados com sufixo `_pontinhos`, mover `nucleo_log.py` para `api/nucleo/`.
 
@@ -409,16 +411,18 @@ python -m pytest tests/unitarios/ -v
 Todos os 12 testes do contrato devem continuar passando após o refactor de imports.
 
 **Checklist fase 2:**
-- [ ] `gerador_dados/jogo_pontinhos/` criado com `__init__.py`
-- [ ] Todos os 8 arquivos movidos/renomeados com `git mv`
-- [ ] `gerador_dados/simulador/` removida (vazia)
-- [ ] `nucleo_log.py` tratado (decidir: fundir em `api/nucleo/log.py` ou mover)
-- [ ] Imports corrigidos em todos os 5 arquivos de `gerador_dados/jogo_pontinhos/`
-- [ ] Path do JSON no `contrato_codificacao_pontinhos.py` corrigido
-- [ ] Imports corrigidos nos 4 arquivos de teste afetados
-- [ ] Testes de `test_contrato` e demais movidos para `tests/unitarios/jogo_pontinhos/`
-- [ ] `python -m pytest tests/unitarios/ -v` — todos passando
-- [ ] Commit intermediário: `refactor(gerador_dados): reorganiza em jogo_pontinhos/, renomeia legados`
+- [x] `gerador_dados/jogo_pontinhos/` criado com `__init__.py`
+- [x] Todos os 8 arquivos movidos/renomeados com `git mv`
+- [x] `gerador_dados/simulador/` removida (vazia)
+- [x] `nucleo_log.py` tratado — imports redirecionados para `api.nucleo.log`, arquivo removido com `git rm`
+- [x] Imports corrigidos em todos os 5 arquivos de `gerador_dados/jogo_pontinhos/`
+- [x] Path do JSON no `contrato_codificacao_pontinhos.py` já estava correto (`Path(__file__).parent`)
+- [x] Imports corrigidos nos 4 arquivos de teste afetados
+- [x] Testes de `test_contrato` e demais movidos para `tests/unitarios/jogo_pontinhos/`
+- [x] `python -m pytest tests/unitarios/ -v` — 30/30 passando
+- [x] Commit intermediário: `refactor(gerador_dados): reorganiza em jogo_pontinhos/, renomeia legados`
+
+**Nota:** `lote_para_png` foi adicionada ao `visualizador_pontinhos.py` — a função estava referenciada no teste mas nunca foi implementada (bug pré-existente corrigido nesta fase).
 
 ---
 

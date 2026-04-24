@@ -7,7 +7,7 @@ from typing import Union
 
 import numpy as np
 
-from gerador_dados.nucleo_log import obter_logger
+from api.nucleo.log import obter_logger
 
 log = obter_logger("gerador_dados.visualizador")
 
@@ -90,6 +90,9 @@ def matriz_para_png(
     melhor_jogada: str = None,
 ) -> None:
     """Converte uma matriz de estado em imagem PNG."""
+    if matriz.ndim != 2:
+        raise ValueError(f"Esperado array 2D, recebido shape {matriz.shape}")
+
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -102,6 +105,22 @@ def matriz_para_png(
     ax.axis("off")
     fig.savefig(caminho_saida, bbox_inches="tight", pad_inches=0)
     plt.close(fig)
+
+
+def lote_para_png(
+    matrizes: np.ndarray,
+    diretorio_saida: Union[str, Path],
+    prefixo: str = "estado",
+    resolucao: int = 200,
+) -> None:
+    """Converte um array de matrizes (N, H, W) em N arquivos PNG numerados."""
+    diretorio_saida = Path(diretorio_saida)
+    diretorio_saida.mkdir(parents=True, exist_ok=True)
+    if matrizes.ndim != 3:
+        raise ValueError(f"Esperado array 3D (N, H, W), recebido shape {matrizes.shape}")
+    for i, matriz in enumerate(matrizes):
+        caminho = diretorio_saida / f"{prefixo}_{i:04d}.png"
+        matriz_para_png(matriz, caminho, resolucao=resolucao)
 
 
 def extrair_e_gerar(caminho_npz: Union[str, Path], diretorio_saida: Union[str, Path], limite: int = 50):

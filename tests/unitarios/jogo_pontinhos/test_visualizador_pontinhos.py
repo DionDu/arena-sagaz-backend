@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from gerador_dados.tabuleiro import EstadoTabuleiro
-from gerador_dados.visualizador import lote_para_png, matriz_para_png
+from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import EstadoTabuleiro
+from gerador_dados.jogo_pontinhos.visualizador_pontinhos import lote_para_png, matriz_para_png
 
 
 def _criar_matriz_simples() -> np.ndarray:

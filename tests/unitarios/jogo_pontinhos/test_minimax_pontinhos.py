@@ -1,8 +1,8 @@
 """Testes unitários para gerador_dados.minimax."""
 import pytest
 
-from gerador_dados.tabuleiro import EstadoTabuleiro
-from gerador_dados.minimax import melhor_jogada, minimax
+from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import EstadoTabuleiro
+from gerador_dados.jogo_pontinhos.minimax_pontinhos import melhor_jogada, minimax
 
 
 def _criar_tabuleiro_quase_completo():
