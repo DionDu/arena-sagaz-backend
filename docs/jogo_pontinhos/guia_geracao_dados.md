@@ -72,7 +72,27 @@ Tudo será salvo automaticamente na pasta **`dados/`** (na raiz do backend), div
   - `scores` — vetor de Q-values do Minimax `(N, 31)` em `float32`. Slots indisponíveis (jogadas já preenchidas) marcados com `-1e9` e devem ser mascarados antes do softmax. **Este é o alvo principal do treino com `KLDivergence`.**
   - `indices` — índice global do registro.
   - `labels_canonicos` — vetor `(31,)` de strings com a ordem canônica dos slots, mapeando posição ↔ rótulo.
+  - `generation_mode` — estratégia de amostragem por registro `(N,)` em `int8`: 0=uniform, 1=sim_l1, 2=sim_l2, 3=sim_l3.
+  - `minimax_depth` — profundidade do Minimax usada no scoring `(1,)` em `int32`, ex.: `[8]`. Permite auditar lotes antigos sem depender de metadados externos.
 - **`checkpoint_pequeno.json`**: Arquivo de controle que salva o status da geração.
+
+### Lotes legados sem `minimax_depth`
+
+Lotes gerados antes do campo existir no notebook precisam ser retroativamente
+atualizados. Use o script abaixo (requer numpy; rode em Colab ou Databricks):
+
+```bash
+# Lotes na raiz de dados/ → depth=7
+python gerador_dados/jogo_pontinhos/patch_minimax_depth_pontinhos.py dados/ 7
+
+# Lotes em dados/profundidade_minimax_6/ → depth=6
+python gerador_dados/jogo_pontinhos/patch_minimax_depth_pontinhos.py dados/profundidade_minimax_6/ 6
+
+# Lotes novos do Databricks (depth=8) — rodar assim que chegarem
+python gerador_dados/jogo_pontinhos/patch_minimax_depth_pontinhos.py dados/profundidade_minimax_8/ 8
+```
+
+O script é idempotente: arquivos que já têm `minimax_depth` são ignorados.
 
 > ⚠️ **Atenção sobre dados antigos:** datasets gerados antes da introdução do campo `scores` **não são compatíveis** com o novo notebook de treino (que usa soft targets). Apague o conteúdo de `dados/` antes de rodar a nova geração:
 >
