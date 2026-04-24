@@ -6,6 +6,49 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-04-24 — Autenticação via Firebase Auth + limpeza do api/ gerado por SpecKit
+
+### Contexto
+O SpecKit gerou automaticamente toda uma camada de API (`api/banco/`, `api/auth/`,
+`api/partidas/`, `api/ranking/`, `api/trofeus/`, `api/usuarios/`) com SQLAlchemy,
+Alembic migrations, JWT e hashing de senha. O usuário não reconheceu nem validou
+esse código — foi gerado sem decisões explícitas sobre banco de dados, modelo de
+dados ou fluxo de autenticação.
+
+Além disso, o usuário definiu que: (a) o cadastro/login é **opcional** — o app
+funciona offline sem conta; (b) quando houver conta, suportará Google e outros
+providers OAuth além de email/senha.
+
+### Decisão
+1. **Deletar integralmente** `api/banco/`, `api/auth/`, `api/partidas/`,
+   `api/ranking/`, `api/trofeus/`, `api/usuarios/` e `alembic.ini`. Nada
+   disso foi validado e criar-se-á do zero no momento oportuno (após o primeiro
+   jogo rodar no frontend).
+
+2. **Autenticação: Firebase Auth.** Elimina a necessidade de implementar
+   hashing de senha, JWT, refresh tokens e OAuth flows no backend. O backend
+   valida tokens Firebase (SDK `firebase-admin`) em vez de emiti-los. Login
+   social (Google, Apple etc.) sai de graça pelo Firebase console.
+   Dependência: `firebase-admin` — adicionada ao `requirements.txt` apenas
+   quando a feature for implementada.
+
+3. **`api/` minimalista por enquanto:**
+   - `api/main.py` — FastAPI app + middleware de log
+   - `api/configuracao.py` — só `AMBIENTE`
+   - `api/nucleo/log.py` — logger JSON estruturado
+   - `api/nucleo/excecoes.py` — exceções de negócio reutilizáveis
+   - `api/nucleo/rotas.py` — `GET /v1/health` sem dependência de banco
+
+### Descartado
+- **Auth própria (JWT + bcrypt):** mais controle, mas exige implementar
+  hashing, refresh tokens e cada provider OAuth manualmente. Custo alto
+  para um app onde o login é opcional.
+- **Manter o código do SpecKit "para depois refatorar":** decisão consciente
+  de não carregar código não-validado no repositório. Mais fácil criar do zero
+  quando as definições estiverem claras.
+
+---
+
 ## 2026-04-24 — Contrato de codificação da CNN como fonte única da verdade
 
 ### Contexto

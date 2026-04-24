@@ -3,8 +3,8 @@
 > **Documento de referência multi-sessão.** Cada fase pode ser executada em janela de tokens separada.
 > Marque cada checkbox quando concluído. Não pule fases — cada uma é pré-requisito da seguinte.
 
-**Branch de partida:** `001-fase-zero-backend` (estado atual, já no GitHub)
-**Branch de execução:** criar `002-refatoracao-estrutural` a partir de `001-fase-zero-backend`
+**Branch de partida:** `001-fase-zero-backend` (estado, já no GitHub)
+**Branch atual:** `002-refatoracao-estrutural` (em execução — Fase 0 concluída, api/ limpa)
 **Branch da api/ nova:** criar `003-api-layer-driven` a partir de `main` (fase separada)
 
 ---
@@ -13,17 +13,19 @@
 
 | Ponto | Decisão |
 |---|---|
-| Plural dos jogos | `jogo_pontinhos`, `jogo_da_velha` |
+| Plural dos jogos | `jogo_pontinhos`, `jogo_da_velha`, `jogo_da_forca` |
 | Modelos TFLite | `gerador_dados/jogo_pontinhos/modelos/` |
 | API versioning | URL path — `/api/v1/`, `/api/v2/` |
-| api/ nova | Branch separada, começar do zero, alinhada com frontend |
+| Autenticação | **Firebase Auth** — valida token no backend, Google/Apple grátis |
+| api/ nova | Branch separada (`003-api-layer-driven`), começar do zero |
 | SpecKit | NÃO usar — gerou docs ilegíveis anteriormente |
-| Backup | Copiar para `arena-sagaz-backend-backup` antes de iniciar |
-| `normalizar_datasets.py` | DELETAR (gerado por IA, sem uso real) |
-| `temp_cells.txt` | DELETAR |
-| `test.py` (raiz) | DELETAR |
-| `visualizador_minimax.html` | MOVER → `docs/jogo_pontinhos/` |
-| `nucleo_log.py` | MOVER → `api/nucleo/` (não para `gerador_dados/jogo_pontinhos/`) |
+| Backup | git history é backup — branch `001-fase-zero-backend` preserva estado anterior |
+| `normalizar_datasets.py` | ✅ DELETADO |
+| `temp_cells.txt` | ✅ DELETADO |
+| `test.py` (raiz) | ✅ DELETADO |
+| `visualizador_minimax.html` | ✅ MOVIDO → `docs/jogo_pontinhos/` |
+| `api/banco/`, `api/auth/`, etc. | ✅ DELETADOS (SpecKit garbage — recriar do zero quando o jogo rodar) |
+| `nucleo_log.py` | MOVER → fundir com `api/nucleo/log.py` (já existe e faz a mesma coisa) |
 | Notebooks Avaliação | Único que precisa de update de paths; demais são contexto histórico |
 | Sufixos legados | Renomear nesta refatoração (era débito técnico declarado) |
 
@@ -34,61 +36,36 @@
 ```
 arena-sagaz-backend/
 │
-├── api/
+├── api/                               ← ESTADO ATUAL (após limpeza)
 │   ├── __init__.py
 │   ├── main.py
 │   ├── configuracao.py
-│   ├── nucleo/
-│   │   ├── __init__.py
-│   │   ├── dependencias.py
-│   │   ├── excecoes.py
-│   │   ├── log.py           ← absorve gerador_dados/nucleo_log.py
-│   │   ├── rotas.py         (health, métricas)
-│   │   └── seguranca.py
-│   ├── banco/
-│   │   ├── __init__.py
-│   │   ├── base.py
-│   │   ├── conexao.py
-│   │   └── migrations/
-│   │       ├── env.py
-│   │       ├── script.py.mako
-│   │       └── versions/
+│   └── nucleo/
+│       ├── __init__.py
+│       ├── log.py           ← absorverá gerador_dados/nucleo_log.py (Fase 2)
+│       ├── excecoes.py
+│       └── rotas.py         (GET /v1/health)
+│
+│   ── [FASE 4 — branch 003-api-layer-driven, criada do zero] ──
+│   ├── banco/               ← SQLAlchemy + Alembic, criar quando definições fechadas
 │   ├── routers/
 │   │   └── v1/
-│   │       ├── __init__.py
 │   │       ├── jogo_pontinhos/
-│   │       │   ├── __init__.py
-│   │       │   └── partidas.py        ← atual api/partidas/rotas.py
-│   │       ├── usuarios.py            ← atual api/usuarios/rotas.py
-│   │       ├── ranking.py             ← atual api/ranking/rotas.py
-│   │       ├── trofeus.py             (ainda não existe, futuro)
-│   │       └── auth.py                ← atual api/auth/rotas.py
+│   │       │   └── partidas.py
+│   │       ├── auth.py      ← Firebase token validation
+│   │       ├── usuarios.py
+│   │       └── ranking.py
 │   ├── schemas/
 │   │   └── v1/
-│   │       ├── __init__.py
 │   │       ├── jogo_pontinhos/
-│   │       │   ├── __init__.py
-│   │       │   └── partida_schema.py  ← atual api/partidas/esquemas.py
-│   │       ├── usuario_schema.py      ← atual api/usuarios/esquemas.py
-│   │       ├── ranking_schema.py      ← atual api/ranking/esquemas.py
-│   │       └── auth_schema.py         ← atual api/auth/esquemas.py
+│   │       └── ...
 │   ├── models/
-│   │   ├── __init__.py
 │   │   ├── jogo_pontinhos/
-│   │   │   ├── __init__.py
-│   │   │   └── partida.py             ← atual api/partidas/modelo.py
-│   │   ├── usuario.py                 ← atual api/usuarios/modelo.py
-│   │   ├── ranking.py                 ← atual api/ranking/modelo.py
-│   │   └── trofeu.py                  ← atual api/trofeus/modelo.py
+│   │   └── ...
 │   └── services/
 │       └── v1/
-│           ├── __init__.py
 │           ├── jogo_pontinhos/
-│           │   ├── __init__.py
-│           │   └── partida_service.py ← atual api/partidas/servico.py
-│           ├── usuario_service.py     ← atual api/usuarios/servico.py
-│           ├── ranking_service.py     ← atual api/ranking/servico.py
-│           └── auth_service.py        ← atual api/auth/servico.py
+│           └── ...
 │
 ├── gerador_dados/
 │   ├── __init__.py
@@ -170,53 +147,25 @@ arena-sagaz-backend/
 
 ---
 
-## Fase 0 — Backup e limpeza (pré-condição de todas as fases)
+## Fase 0 — Backup e limpeza ✅ CONCLUÍDA
 
-**Objetivo:** criar ponto de recuperação e remover lixo antes de qualquer movimentação.
+**Executada em 2026-04-24 na branch `002-refatoracao-estrutural`.**
 
-### 0.1 Backup
+O que foi feito (não re-executar):
+- Branch `002-refatoracao-estrutural` criada a partir de `001-fase-zero-backend`
+- `scripts/normalizar_datasets.py` deletado (git rm)
+- `temp_cells.txt` e `test.py` deletados (eram untracked, rm)
+- `visualizador_minimax.html` movido → `docs/jogo_pontinhos/`
+- `api/banco/`, `api/auth/`, `api/partidas/`, `api/ranking/`, `api/trofeus/`, `api/usuarios/` deletados (git rm)
+- `api/nucleo/dependencias.py`, `api/nucleo/seguranca.py`, `alembic.ini` deletados
+- `api/main.py`, `api/configuracao.py`, `api/nucleo/rotas.py` reescritos (minimalistas)
+- `requirements.txt` limpo (SQLAlchemy, bcrypt, asyncpg, psycopg2, python-jose removidos)
+- `.env.example` simplificado (só AMBIENTE + comentários Firebase)
+- `tests/conftest.py` reescrito (sem DB setup)
+- Testes obsoletos deletados: `test_auth.py`, `test_partidas.py`, `test_ranking.py`, `test_usuarios.py`, `test_seguranca.py`, `test_xp.py`
+- `test_health.py` atualizado (sem checar banco)
 
-```bash
-# Executar no diretório PAI (um nível acima do backend)
-cd /d/Desenvolvimento/arena-sagaz
-cp -r arena-sagaz-backend arena-sagaz-backend-backup
-```
-
-Verifique que a cópia existe antes de continuar.
-
-### 0.2 Criar branch de refatoração
-
-```bash
-cd arena-sagaz-backend
-git checkout -b 002-refatoracao-estrutural
-```
-
-### 0.3 Deletar arquivos de lixo
-
-```bash
-rm scripts/normalizar_datasets.py   # IA garbage — sem uso real
-rm temp_cells.txt                    # arquivo temporário de debug
-rm test.py                           # test.py na raiz — lixo de exploração
-rmdir scripts                        # scripts/ ficará vazia após delete acima
-```
-
-Após deletar `scripts/normalizar_datasets.py`, se `scripts/` ficar vazia, apague-a também.
-
-### 0.4 Mover visualizador HTML (antecipa Fase 1)
-
-```bash
-mkdir -p docs/jogo_pontinhos
-git mv visualizador_minimax.html docs/jogo_pontinhos/visualizador_minimax.html
-```
-
-**Checklist fase 0:**
-- [ ] Backup criado em `../arena-sagaz-backend-backup`
-- [ ] Branch `002-refatoracao-estrutural` criada
-- [ ] `scripts/normalizar_datasets.py` deletado
-- [ ] `temp_cells.txt` deletado
-- [ ] `test.py` (raiz) deletado
-- [ ] `scripts/` pasta deletada (se vazia)
-- [ ] `visualizador_minimax.html` movido para `docs/jogo_pontinhos/`
+**Backup:** o git history de `001-fase-zero-backend` é o backup. `git checkout 001-fase-zero-backend` restaura o estado anterior completo.
 
 ---
 
@@ -307,7 +256,7 @@ touch gerador_dados/jogo_pontinhos/__init__.py
 | `gerador_dados/contrato_codificacao_pontinhos.json` | `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json` |
 | `gerador_dados/nucleo_log.py` | `api/nucleo/nucleo_log_pontinhos.py` (**ver nota abaixo**) |
 
-> **Nota sobre `nucleo_log.py`:** O usuário decidiu que vai para `api/nucleo/`. Porém, `nucleo_log.py` é usado por `simulador_tatico.py` e `visualizador.py` — que são de `gerador_dados`. Após mover, esses imports precisarão apontar para `api.nucleo.log` (que já tem a função equivalente) ou manter uma re-exportação temporária. Avaliar na sessão: se `api/nucleo/log.py` já contém `obter_logger()`, simplesmente redirecionar os imports. Se não, fundir o conteúdo de `nucleo_log.py` em `api/nucleo/log.py`.
+> **Nota sobre `nucleo_log.py`:** `api/nucleo/log.py` já contém `obter_logger()` com implementação idêntica. Ao mover os arquivos de `gerador_dados/`, simplesmente atualizar os imports de `gerador_dados.nucleo_log` para `api.nucleo.log` — sem mover o arquivo. Depois que ninguém mais importar `gerador_dados/nucleo_log.py`, executar `git rm gerador_dados/nucleo_log.py`.
 
 ```bash
 git mv gerador_dados/tabuleiro.py          gerador_dados/jogo_pontinhos/tabuleiro_pontinhos.py
@@ -520,71 +469,82 @@ O guia em `docs/jogo_pontinhos/guia_geracao_dados.md` pode ter instruções de c
 ## Fase 4 — Nova `api/` layer-driven (branch separada)
 
 **Esta fase NÃO é executada na branch `002-refatoracao-estrutural`.**
+**Pré-requisito: primeiro jogo rodando no Frontend.**
 
 ### Estratégia
 
 ```bash
-# Criar branch a partir de main (não de 001 ou 002)
+# Criar a partir de main — não de 001 ou 002
 git checkout main
 git checkout -b 003-api-layer-driven
 ```
 
-A api/ atual (em `001-fase-zero-backend`) fica como referência — não migrar código do SpecKit. Reescrever os routers, schemas, models e services do zero seguindo a estrutura-alvo.
+Partir da `api/` minimalista já existente (nucleo/ + main + configuracao) e adicionar
+as camadas conforme as definições ficarem claras. Não copiar nada do código SpecKit.
+
+### Autenticação: Firebase Auth
+
+Ao implementar auth, instalar:
+```
+firebase-admin>=6.0.0
+```
+
+Descomentar no `requirements.txt` e no `.env.example`.
+
+Fluxo no backend:
+1. Flutter autentica com Firebase e recebe um `idToken`.
+2. Flutter envia `Authorization: Bearer <idToken>` em chamadas à API.
+3. Backend valida com `firebase_admin.auth.verify_id_token(token)`.
+4. Nenhuma senha é armazenada no backend — Firebase gerencia tudo.
+
+O router de auth no backend será mínimo: apenas um endpoint `POST /v1/auth/verificar`
+que valida o token e retorna o `uid` Firebase (para associar com dados no banco).
 
 ### Estrutura-alvo da nova api/
 
 ```
 api/
-├── main.py
-├── configuracao.py
-├── nucleo/             (mantém — já está correto)
-├── banco/              (mantém estrutura, atualizar imports de models)
+├── main.py               (adicionar novos routers aqui conforme criados)
+├── configuracao.py       (adicionar FIREBASE_PROJECT_ID quando implementar auth)
+├── nucleo/               (já existe, não mexer)
+├── banco/                (criar quando modelo de dados definido)
+│   ├── base.py
+│   ├── conexao.py
+│   └── migrations/
 ├── routers/
 │   └── v1/
 │       ├── __init__.py
 │       ├── jogo_pontinhos/
 │       │   ├── __init__.py
-│       │   └── partidas.py     # POST /api/v1/pontinhos/partidas
-│       ├── auth.py             # POST /api/v1/auth/login
-│       ├── usuarios.py         # GET/POST /api/v1/usuarios
-│       └── ranking.py          # GET /api/v1/ranking
+│       │   └── partidas.py     # POST /v1/pontinhos/partidas
+│       ├── auth.py             # POST /v1/auth/verificar (valida Firebase token)
+│       ├── usuarios.py         # GET/PATCH /v1/usuarios/me
+│       └── ranking.py          # GET /v1/ranking
 ├── schemas/
 │   └── v1/
 │       ├── jogo_pontinhos/
 │       └── ...
 ├── models/
 │   ├── jogo_pontinhos/
-│   │   └── partida.py
-│   ├── usuario.py
-│   ├── ranking.py
-│   └── trofeu.py
+│   └── ...
 └── services/
     └── v1/
         ├── jogo_pontinhos/
         └── ...
 ```
 
-### Atenção crítica: Alembic e SQLAlchemy models
+### Nota sobre Alembic
 
-Quando os models mudarem de `api/partidas/modelo.py` para `api/models/jogo_pontinhos/partida.py`:
-1. Atualizar `api/banco/migrations/env.py` — ele importa os models para `target_metadata`.
-2. Qualquer import de model em services/routers deve usar o novo path.
-3. Não criar nova migration por causa do move — é apenas renaming de módulo Python, não mudança de schema SQL.
+Ao criar `api/banco/migrations/env.py`, garantir que todos os models SQLAlchemy
+sejam importados ANTES de `target_metadata = Base.metadata` — Alembic só detecta
+tabelas cujos models foram importados no `env.py`.
 
-### Atualizar `api/main.py`
-
-O `app.include_router()` precisa referenciar `api.routers.v1.jogo_pontinhos.partidas`, etc.
-
-**Checklist fase 4** (executar em sessão separada, na branch `003-api-layer-driven`):
+**Checklist fase 4** (sessão dedicada, branch `003-api-layer-driven`):
 - [ ] Branch `003-api-layer-driven` criada a partir de `main`
-- [ ] Estrutura de pastas criada
-- [ ] `api/routers/v1/` com subpastas por jogo
-- [ ] `api/schemas/v1/` com subpastas por jogo
-- [ ] `api/models/` com subpastas por jogo
-- [ ] `api/services/v1/` com subpastas por jogo
-- [ ] `api/main.py` atualizado com novos routers
-- [ ] `api/banco/migrations/env.py` com imports de models atualizados
-- [ ] Todos os testes de integração passando: `python -m pytest tests/integracao/ -v`
+- [ ] Primeira rota de jogo implementada e testada (ex: `POST /v1/pontinhos/partidas`)
+- [ ] Firebase Auth integrado (opcional nesta fase se auth ainda não for prioridade)
+- [ ] `api/banco/` criado com primeira migration
+- [ ] Testes de integração passando: `python -m pytest tests/integracao/ -v`
 
 ---
 
