@@ -6,6 +6,59 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-04-24 — Refatoração estrutural do repositório (branch `002-refatoracao-estrutural`)
+
+### Contexto
+O repositório acumulou nomes genéricos em `gerador_dados/` (`tabuleiro.py`,
+`minimax.py`, `gerador.py`, etc.) e em `docs/` (arquivos game-specific na raiz
+sem subfolder), criados antes de Arena Sagaz ser tratado explicitamente como um
+**hub de jogos**. Com a regra de nomenclatura hub-de-jogos estabelecida
+(2026-04-24), ficou claro que um segundo jogo criaria colisões imediatas de
+nomes: `gerador_dados/tabuleiro.py` poderia ser do Pontinhos ou da Velha.
+
+### Decisão
+Refatoração em cinco fases executadas na branch `002-refatoracao-estrutural`:
+
+1. **Fase 0 — Limpeza:** deletar arquivos gerados pelo SpecKit que nunca foram
+   validados (`api/banco/`, `api/auth/`, etc.), reescrever `api/` de forma
+   minimalista, limpar `requirements.txt`.
+
+2. **Fase 1 — docs/:** criar `docs/tcc/` e `docs/jogo_pontinhos/`, mover 11
+   documentos game-specific para `docs/jogo_pontinhos/` e
+   `argumentacao_cnn_vs_minimax.md` para `docs/tcc/`.
+
+3. **Fase 2 — gerador_dados/:** criar `gerador_dados/jogo_pontinhos/`, renomear
+   os 8 arquivos game-specific com sufixo `_pontinhos` (usando `git mv` para
+   preservar histórico), atualizar todos os imports, mover testes para
+   `tests/unitarios/jogo_pontinhos/`. `nucleo_log.py` deletado — imports
+   redirecionados para `api.nucleo.log`, que já tinha implementação idêntica.
+
+4. **Fase 3 — notebooks/:** mover 6 notebooks para `notebooks/jogo_pontinhos/`,
+   atualizar paths em `Avaliacao_CNN_vs_Minimax.ipynb` (único que roda
+   ativamente).
+
+5. **Fase 5 — Configurações e documentação:** verificar `pytest.ini`,
+   `Dockerfile`; atualizar `CLAUDE.md` com novos paths do contrato e do teste CI;
+   registrar refatoração no histórico.
+
+### Descartado
+- **Renomear arquivo por arquivo durante outras tarefas (caso a caso):** gerava
+  inconsistência incremental. Preferiu-se sessão dedicada, clean-slate, com
+  checklist explícito.
+- **Manter nomes genéricos e usar só pastas para separar:** insuficiente quando
+  um arquivo legado fica na raiz compartilhada (`gerador_dados/tabuleiro.py` —
+  de qual jogo?).
+
+### Estado final
+- `gerador_dados/jogo_pontinhos/` — 8 arquivos com sufixo `_pontinhos`
+- `notebooks/jogo_pontinhos/` — 6 notebooks
+- `docs/jogo_pontinhos/` — 11 docs game-specific
+- `docs/tcc/` — 1 doc de argumentação acadêmica
+- `tests/unitarios/jogo_pontinhos/` — 4 arquivos de teste
+- 31/31 testes passando
+
+---
+
 ## 2026-04-24 — Autenticação via Firebase Auth + limpeza do api/ gerado por SpecKit
 
 ### Contexto

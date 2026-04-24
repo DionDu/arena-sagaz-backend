@@ -25,7 +25,7 @@
 | `test.py` (raiz) | ✅ DELETADO |
 | `visualizador_minimax.html` | ✅ MOVIDO → `docs/jogo_pontinhos/` |
 | `api/banco/`, `api/auth/`, etc. | ✅ DELETADOS (SpecKit garbage — recriar do zero quando o jogo rodar) |
-| `nucleo_log.py` | MOVER → fundir com `api/nucleo/log.py` (já existe e faz a mesma coisa) |
+| `nucleo_log.py` | ✅ DELETADO — imports redirecionados para `api.nucleo.log` (Fase 2) |
 | Notebooks Avaliação | Único que precisa de update de paths; demais são contexto histórico |
 | Sufixos legados | Renomear nesta refatoração (era débito técnico declarado) |
 
@@ -555,9 +555,9 @@ tabelas cujos models foram importados no `env.py`.
 
 ---
 
-## Fase 5 — Atualizar configurações e documentação
+## Fase 5 — Atualizar configurações e documentação ✅ CONCLUÍDA
 
-**Executar na branch `002-refatoracao-estrutural` após fases 1–3.**
+**Executada em 2026-04-24.**
 
 ### 5.1 pytest.ini
 
@@ -594,13 +594,13 @@ Verificar se menciona paths que mudaram e atualizar.
 Adicionar entrada com data da refatoração, decisões de estrutura e motivação.
 
 **Checklist fase 5:**
-- [ ] `pytest.ini` verificado/atualizado
-- [ ] `Dockerfile` verificado/atualizado
-- [ ] `alembic.ini` verificado
-- [ ] `CLAUDE.md` com paths atualizados
-- [ ] `docs/historico_decisoes.md` com entrada da refatoração
-- [ ] `python -m pytest tests/ -v` — todos passando na nova estrutura
-- [ ] Commit final: `refactor(estrutura): reorganização completa — docs, gerador_dados, notebooks`
+- [x] `pytest.ini` verificado — sem `testpaths`, pytest descobre `tests/` por padrão; correto
+- [x] `Dockerfile` verificado — sem referências a paths antigos; correto
+- [x] `alembic.ini` verificado — foi deletado na Fase 0 junto com `api/banco/`; não se aplica
+- [x] `CLAUDE.md` com paths atualizados (contrato e teste CI apontam para `jogo_pontinhos/`)
+- [x] `docs/historico_decisoes.md` com entrada da refatoração estrutural
+- [x] `python -m pytest tests/ -v` — 31/31 passando na nova estrutura
+- [x] Commit final: `refactor(estrutura): reorganização completa — docs, gerador_dados, notebooks`
 
 ---
 
