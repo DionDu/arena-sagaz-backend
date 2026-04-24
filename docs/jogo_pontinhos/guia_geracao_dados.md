@@ -40,7 +40,7 @@ Para iniciar a geração, execute:
 
 ```bash
 # Recomendado para o tabuleiro pequeno (Q-values + soft targets)
-python -m gerador_dados.gerador --tamanho pequeno --total 200000 --profundidade 6
+python -m gerador_dados.jogo_pontinhos.gerador_pontinhos --tamanho pequeno --total 200000 --profundidade 6
 ```
 
 **Parâmetros disponíveis:**
@@ -57,7 +57,7 @@ python -m gerador_dados.gerador --tamanho pequeno --total 200000 --profundidade 
 **Interromper e retomar:** pressione `Ctrl+C` a qualquer momento. O script termina os cálculos em andamento, salva o lote parcial, atualiza o checkpoint e sai limpo. Para continuar:
 
 ```bash
-python -m gerador_dados.gerador --tamanho pequeno --total 200000 --profundidade 6 --retomar
+python -m gerador_dados.jogo_pontinhos.gerador_pontinhos --tamanho pequeno --total 200000 --profundidade 6 --retomar
 ```
 
 ---
@@ -103,7 +103,7 @@ Para extrair e visualizar as matrizes como imagens PNG, você pode executar o se
 
 ```bash
 # Gera imagens PNG de todas as matrizes de um arquivo .npz específico
-python -c "from gerador_dados.visualizador import lote_para_png; lote_para_png('dados/dataset_pequeno_0001.npz', 'visualizacoes/lote_01/')"
+python -c "from gerador_dados.jogo_pontinhos.visualizador_pontinhos import lote_para_png; lote_para_png('dados/dataset_pequeno_0001.npz', 'visualizacoes/lote_01/')"
 ```
 
 Isso criará a pasta `visualizacoes/lote_01/` com imagens PNG onde:
@@ -126,12 +126,12 @@ Jogue partidas ao vivo contra a IA treinada. É útil para avaliar qualitativame
 
 #### Jogar contra o Minimax (sem modelo treinado)
 ```powershell
-.venv_tf\Scripts\python.exe -m gerador_dados.simulador.simulador_tatico --tamanho pequeno --modo minimax
+.venv_tf\Scripts\python.exe -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos --tamanho pequeno --modo minimax
 ```
 
 #### Jogar contra a CNN treinada
 ```powershell
-.venv_tf\Scripts\python.exe -m gerador_dados.simulador.simulador_tatico --tamanho pequeno --modo cnn --modelo modelos/pontinhos_pequeno_profundidade_8.tflite
+.venv_tf\Scripts\python.exe -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos --tamanho pequeno --modo cnn --modelo modelos/pontinhos_pequeno_profundidade_8.tflite
 ```
 
 **Parâmetros disponíveis:**
@@ -153,7 +153,7 @@ Joga centenas de partidas automatizadas entre a CNN e o Minimax em diferentes pr
 
 #### Via linha de comando (recomendado)
 ```powershell
-.venv_tf\Scripts\python.exe -m gerador_dados.avaliador_partidas --modelo modelos/pontinhos_pequeno_profundidade_7.tflite --tamanho pequeno --partidas 200 --profundidades 1 3 5 6
+.venv_tf\Scripts\python.exe -m gerador_dados.jogo_pontinhos.avaliador_partidas_pontinhos --modelo modelos/pontinhos_pequeno_profundidade_7.tflite --tamanho pequeno --partidas 200 --profundidades 1 3 5 6
 ```
 
 **Parâmetros disponíveis:**
@@ -164,7 +164,7 @@ Joga centenas de partidas automatizadas entre a CNN e o Minimax em diferentes pr
 
 #### Via Notebook (alternativa)
 
-O notebook `notebooks/Avaliacao_CNN_vs_Minimax.ipynb` executa a mesma avaliação. Certifique-se de selecionar o kernel **`.venv_tf`** antes de executar.
+O notebook `notebooks/jogo_pontinhos/Avaliacao_CNN_vs_Minimax.ipynb` executa a mesma avaliação. Certifique-se de selecionar o kernel **`.venv_tf`** antes de executar.
 
 **Estimativa de tempo (Ryzen 5700X, 200 partidas por profundidade, multi-core):**
 

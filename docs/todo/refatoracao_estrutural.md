@@ -426,7 +426,9 @@ Todos os 12 testes do contrato devem continuar passando após o refactor de impo
 
 ---
 
-## Fase 3 — Reorganização de `notebooks/`
+## Fase 3 — Reorganização de `notebooks/` ✅ CONCLUÍDA
+
+**Executada em 2026-04-24.**
 
 **Objetivo:** mover todos os notebooks para `notebooks/jogo_pontinhos/`.
 
@@ -462,11 +464,12 @@ grep -n "gerador_dados\." notebooks/jogo_pontinhos/Avaliacao_CNN_vs_Minimax.ipyn
 O guia em `docs/jogo_pontinhos/guia_geracao_dados.md` pode ter instruções de como executar os notebooks. Verificar se menciona paths e atualizar.
 
 **Checklist fase 3:**
-- [ ] `notebooks/jogo_pontinhos/` criado
-- [ ] Todos os 6 notebooks movidos
-- [ ] `Avaliacao_CNN_vs_Minimax.ipynb` com imports atualizados
-- [ ] `guia_geracao_dados.md` com paths atualizados (se necessário)
-- [ ] Commit intermediário: `refactor(notebooks): move todos para jogo_pontinhos/`
+- [x] `notebooks/jogo_pontinhos/` criado
+- [x] Todos os 6 notebooks movidos
+- [x] `Avaliacao_CNN_vs_Minimax.ipynb` com imports atualizados (`sys.path` corrigido para `'../..'`, import atualizado para `gerador_dados.jogo_pontinhos.avaliador_partidas_pontinhos`, `CAMINHO_MODELO` corrigido para `../../modelos/...`)
+- [x] `guia_geracao_dados.md` com paths atualizados (gerador, visualizador, simulador, avaliador, notebook)
+- [x] `python -m pytest tests/unitarios/ -v` — 30/30 passando
+- [x] Commit intermediário: `refactor(notebooks): move todos para jogo_pontinhos/`
 
 ---
 
