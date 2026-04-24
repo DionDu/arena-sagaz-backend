@@ -20,7 +20,7 @@ relevantes na mesma resposta em que a mudança é feita**. O usuário não deve
 precisar lembrar de pedir.
 
 - **Operação/uso (comandos, parâmetros, formato de arquivo, fluxo do dia-a-dia):**
-  atualizar `docs/guia_geracao_dados.md` e os `.md` correspondentes em `docs/`.
+  atualizar `docs/jogo_pontinhos/guia_geracao_dados.md` e os `.md` correspondentes em `docs/jogo_pontinhos/`.
 - **Arquitetura/decisões/abandono de abordagens:** registrar em
   `docs/historico_decisoes.md` (criar se não existir). Cada entrada deve ter
   data, contexto, decisão, alternativas consideradas e motivo.
@@ -34,7 +34,7 @@ documentar.
 ## Diretriz obrigatória — Contrato de codificação da CNN (LEIA ANTES DE MEXER)
 
 **ANTES** de fazer qualquer mudança em um dos itens abaixo, você DEVE ler o
-arquivo `gerador_dados/contrato_codificacao_pontinhos.json` — ele é a fonte
+arquivo `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json` — ele é a fonte
 única da verdade sobre como a matriz do tabuleiro do jogo dos pontinhos é
 codificada em cada contexto e como deve ser transformada antes de ser enviada à
 rede neural.
@@ -49,11 +49,11 @@ Itens que obrigam a leitura do contrato antes de qualquer alteração:
   `interp.set_tensor()` ou `model.fit()`).
 
 Depois de qualquer mudança nessa área, rode o teste
-`tests/unitarios/test_contrato_codificacao_pontinhos.py`. Ele é obrigatório
+`tests/unitarios/jogo_pontinhos/test_contrato_codificacao_pontinhos.py`. Ele é obrigatório
 no CI e **falha o merge** se:
 - A cópia do JSON no backend divergir da cópia no frontend
   (`arena-sagaz-frontend/assets/jogos/pontinhos/contrato_codificacao_pontinhos.json`).
-- O helper `gerador_dados/contrato_codificacao_pontinhos.py` deixar de aplicar
+- O helper `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.py` deixar de aplicar
   exatamente as regras declaradas no JSON.
 - O tensor pós-normalização sair do domínio `{0, 1}`.
 

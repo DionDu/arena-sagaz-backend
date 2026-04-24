@@ -6,6 +6,102 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-04-24 — Refatoração estrutural do repositório (branch `002-refatoracao-estrutural`)
+
+### Contexto
+O repositório acumulou nomes genéricos em `gerador_dados/` (`tabuleiro.py`,
+`minimax.py`, `gerador.py`, etc.) e em `docs/` (arquivos game-specific na raiz
+sem subfolder), criados antes de Arena Sagaz ser tratado explicitamente como um
+**hub de jogos**. Com a regra de nomenclatura hub-de-jogos estabelecida
+(2026-04-24), ficou claro que um segundo jogo criaria colisões imediatas de
+nomes: `gerador_dados/tabuleiro.py` poderia ser do Pontinhos ou da Velha.
+
+### Decisão
+Refatoração em cinco fases executadas na branch `002-refatoracao-estrutural`:
+
+1. **Fase 0 — Limpeza:** deletar arquivos gerados pelo SpecKit que nunca foram
+   validados (`api/banco/`, `api/auth/`, etc.), reescrever `api/` de forma
+   minimalista, limpar `requirements.txt`.
+
+2. **Fase 1 — docs/:** criar `docs/tcc/` e `docs/jogo_pontinhos/`, mover 11
+   documentos game-specific para `docs/jogo_pontinhos/` e
+   `argumentacao_cnn_vs_minimax.md` para `docs/tcc/`.
+
+3. **Fase 2 — gerador_dados/:** criar `gerador_dados/jogo_pontinhos/`, renomear
+   os 8 arquivos game-specific com sufixo `_pontinhos` (usando `git mv` para
+   preservar histórico), atualizar todos os imports, mover testes para
+   `tests/unitarios/jogo_pontinhos/`. `nucleo_log.py` deletado — imports
+   redirecionados para `api.nucleo.log`, que já tinha implementação idêntica.
+
+4. **Fase 3 — notebooks/:** mover 6 notebooks para `notebooks/jogo_pontinhos/`,
+   atualizar paths em `Avaliacao_CNN_vs_Minimax.ipynb` (único que roda
+   ativamente).
+
+5. **Fase 5 — Configurações e documentação:** verificar `pytest.ini`,
+   `Dockerfile`; atualizar `CLAUDE.md` com novos paths do contrato e do teste CI;
+   registrar refatoração no histórico.
+
+### Descartado
+- **Renomear arquivo por arquivo durante outras tarefas (caso a caso):** gerava
+  inconsistência incremental. Preferiu-se sessão dedicada, clean-slate, com
+  checklist explícito.
+- **Manter nomes genéricos e usar só pastas para separar:** insuficiente quando
+  um arquivo legado fica na raiz compartilhada (`gerador_dados/tabuleiro.py` —
+  de qual jogo?).
+
+### Estado final
+- `gerador_dados/jogo_pontinhos/` — 8 arquivos com sufixo `_pontinhos`
+- `notebooks/jogo_pontinhos/` — 6 notebooks
+- `docs/jogo_pontinhos/` — 11 docs game-specific
+- `docs/tcc/` — 1 doc de argumentação acadêmica
+- `tests/unitarios/jogo_pontinhos/` — 4 arquivos de teste
+- 31/31 testes passando
+
+---
+
+## 2026-04-24 — Autenticação via Firebase Auth + limpeza do api/ gerado por SpecKit
+
+### Contexto
+O SpecKit gerou automaticamente toda uma camada de API (`api/banco/`, `api/auth/`,
+`api/partidas/`, `api/ranking/`, `api/trofeus/`, `api/usuarios/`) com SQLAlchemy,
+Alembic migrations, JWT e hashing de senha. O usuário não reconheceu nem validou
+esse código — foi gerado sem decisões explícitas sobre banco de dados, modelo de
+dados ou fluxo de autenticação.
+
+Além disso, o usuário definiu que: (a) o cadastro/login é **opcional** — o app
+funciona offline sem conta; (b) quando houver conta, suportará Google e outros
+providers OAuth além de email/senha.
+
+### Decisão
+1. **Deletar integralmente** `api/banco/`, `api/auth/`, `api/partidas/`,
+   `api/ranking/`, `api/trofeus/`, `api/usuarios/` e `alembic.ini`. Nada
+   disso foi validado e criar-se-á do zero no momento oportuno (após o primeiro
+   jogo rodar no frontend).
+
+2. **Autenticação: Firebase Auth.** Elimina a necessidade de implementar
+   hashing de senha, JWT, refresh tokens e OAuth flows no backend. O backend
+   valida tokens Firebase (SDK `firebase-admin`) em vez de emiti-los. Login
+   social (Google, Apple etc.) sai de graça pelo Firebase console.
+   Dependência: `firebase-admin` — adicionada ao `requirements.txt` apenas
+   quando a feature for implementada.
+
+3. **`api/` minimalista por enquanto:**
+   - `api/main.py` — FastAPI app + middleware de log
+   - `api/configuracao.py` — só `AMBIENTE`
+   - `api/nucleo/log.py` — logger JSON estruturado
+   - `api/nucleo/excecoes.py` — exceções de negócio reutilizáveis
+   - `api/nucleo/rotas.py` — `GET /v1/health` sem dependência de banco
+
+### Descartado
+- **Auth própria (JWT + bcrypt):** mais controle, mas exige implementar
+  hashing, refresh tokens e cada provider OAuth manualmente. Custo alto
+  para um app onde o login é opcional.
+- **Manter o código do SpecKit "para depois refatorar":** decisão consciente
+  de não carregar código não-validado no repositório. Mais fácil criar do zero
+  quando as definições estiverem claras.
+
+---
+
 ## 2026-04-24 — Contrato de codificação da CNN como fonte única da verdade
 
 ### Contexto
@@ -167,7 +263,7 @@ Foi escrito com `==` em vez de `>`. Isso causou a **inversão total das regras d
 
 ## 2026-04-21 — Documento de argumentação CNN vs Minimax criado
 
-**Decisão.** Criar `docs/argumentacao_cnn_vs_minimax.md` com todos os
+**Decisão.** Criar `docs/tcc/argumentacao_cnn_vs_minimax.md` com todos os
 argumentos para justificar a CNN em vez do Minimax puro.
 
 **Motivação.** Banca do TCC certamente questionará a escolha. O documento
@@ -258,13 +354,13 @@ Minimax-ótimo. Implementada no Cell 7 do notebook.
 - `notebooks/Treinamento_CNN_Arena_Sagaz.ipynb` Cell 6: sample_weight removido.
 - `notebooks/Treinamento_CNN_Arena_Sagaz.ipynb` Cell 4: tabela com rodada 3
   (resultados reais) e rodada 4 (planejada); nota sobre OMA como métrica oficial.
-- `docs/historico_tentativas_treinamento.md`: rodada 3 completa + rodada 4 planejada.
+- `docs/jogo_pontinhos/historico_tentativas_treinamento.md`: rodada 3 completa + rodada 4 planejada.
 
 ---
 
 ## 2026-04-21 — Documento detalhado de tentativas de treinamento
 
-**Decisão.** Criar `docs/historico_tentativas_treinamento.md` com registro
+**Decisão.** Criar `docs/jogo_pontinhos/historico_tentativas_treinamento.md` com registro
 narrativo de cada experimento: CNN ingênua → MLP → BoxNet v1 → v2 → v3 rodadas
 1, 2 e 3 (planejada). Para cada tentativa: o que foi feito, por que, o que não
 funcionou, o que aprendemos e o próximo passo.
@@ -424,10 +520,10 @@ diferença encolher para < 10pp, considerar o problema resolvido.
 ## 2026-04-20 — Documentação técnica para defesa do TCC
 
 Criados/atualizados documentos de argumentação acadêmica:
-- `docs/soft_targets_kl_divergence.md` — explicação completa de soft targets,
+- `docs/jogo_pontinhos/soft_targets_kl_divergence.md` — explicação completa de soft targets,
   KL Divergence vs Categorical Crossentropy, onde o argmax ainda existe, e
   resposta modelo para a banca.
-- `docs/justificativa_50k_amostras.md` — atualizado para refletir a nova
+- `docs/jogo_pontinhos/justificativa_50k_amostras.md` — atualizado para refletir a nova
   realidade: 200–300k registros, paralelização (1 semana → ~6h), soft targets,
   e Data Augmentation por simetria D₂. O documento antigo citava 300k como
   "fisicamente impossível" — estava desatualizado após a migração para
