@@ -481,3 +481,47 @@ A entrada de 2026-04-21 em `historico_decisoes.md` sobre "Regressão da Rodada 3
 ---
 
 ## Tabela Resumida — Todas as Tentativas
+
+| # | Arquitetura | Dataset | Dados | Prof. | Top-1 | Top-3 | Top-5 | OMA | Gap | MM(p=1) | MM(p=3) | MM(p=5) | MM(p=6) | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | CNN ingênua | Aleatório | 50k | 3 | 4% | — | — | — | — | — | — | — | — | ❌ Abaixo aleatório |
+| 2 | MLP flat | Aleatório | 50k | 5 | 42% | — | — | — | 14pp | — | — | — | — | ❌ Overfitting severo |
+| 3 | BoxNet v1 | Aleatório | 50k | 5 | 60% | 58% | 74% | — | 24pp | — | — | — | — | ❌ Overfitting |
+| 4 | BoxNet v2 (CE) | Aleatório | 210k | 5 | 36% | 70% | 83% | — | ~10pp | — | — | — | — | ⚠ Plateau (argmax ambíguo) |
+| 5a | BoxNet v3 (KLD) R1 | Q-values | 55k | 5 | 34.4% | 67.0% | 80.0% | 99% | +0.09pp | — | — | — | — | ⚠ Dataset pequeno |
+| 5b | BoxNet v3 (KLD) R2 | Q-values | 210k | 5 | 35.6% | 68.9% | 83.4% | 99% | −0.19pp | — | — | — | — | ⚠ Teto de T=1.0 confirmado |
+| 6 | BoxNet v3 R3 | Q-values | 300k | 5 | 33.2% | 65.7% | 81.5% | 99.0% | — | — | — | — | — | ❌ T=0.5 + sw piora |
+| 7 | BoxNet v3 R4 (V3 🏆) | Auto-play | 300k | 7 | 42.7% | 62% | 71% | 93.2% | +0.23pp | **96%** | **60%** | **45%** | **40%** | ✅ REFERÊNCIA |
+| 8 | BoxNet v3 R5 (V4) | Auto-play | 344k | 8/9 | 42.71% | 63.66% | 73.13% | 89.2% | +0.24pp | 94.5% | 53% | 40% | 36.5% | ❌ Regressão em MM(p≥3) |
+
+### Leitura da Tabela
+
+**Coluna "Status":**
+- ❌ = não viável ou regressão
+- ⚠ = progresso mas com limitações
+- ✅ = pronto para uso
+
+**Modelo de produção atual:** Tentativa 7 (V3, auto-play d=7, 300k). Win-rates em verde confirmam superioridade.
+
+**Próxima aposta:** aumentar capacidade da rede (BoxNet v4 maior) + repovoar com d=7 ou d=8 (em discussão).
+
+---
+
+## Síntese: O Que Aprendemos
+
+### Sobre a arquitetura
+- **BoxNet v3 (grid-centrado em caixas + blocos residuais SeparableConv2D) é sólida.** Ganho qualitativo massivo vs MLP flat (que tinha overfitting severo).
+- **Capacidade: 74.5k parâmetros é suficiente para depth=7 + 300k dados**, mas satura em depth=8/9. Aumentar para ~180k params é próximo passo natural.
+
+### Sobre o dataset
+- **Auto-play é gamechanger:** o salto Prof 6 (depth=6 aleatório, 1.5% vs MM(p=6)) → Prof 7 (depth=7 auto-play, 40% vs MM(p=6)) foi de 38.5 pp — mais importante que depth sozinho.
+- **300k é ponto de équilíbrio:** mais dados sem nova arquitetura mostram retorno decrescente (como visto em V4).
+- **Distribuição de generation_mode equilibrada:** 15% random, 55% p=2, resulta em modelo forte em meio/fim de jogo, fraco em abertura (desvantagem estrutural de 6.9 jogadas equivalentes por estado).
+
+### Sobre as métricas
+- **OMA (Optimal Move Accuracy) é a métrica principal.** Top-1/3/5 sofrem do "desempate canônico" (label é arbitrário entre equivalentes); OMA ignora isso e mede "está no conjunto ótimo?".
+- **Win-rate em jogo real é a verdade última.** Valida todas as outras métricas. V3 com OMA 93.2% entrega 96% vs MM(p=1) — coerente.
+- **O piso de 13–15% de "caixas deixadas" em profundidades altas é estrutural,** não artefato de treino. Indica classe de erro específica (provavelmente parity/loony endgame) que nem mais dados nem mais profundidade do professor resolvem.
+
+### Sobre o professor (Minimax)
+- **Rendimento decrescente após depth=7.** Aluno saturado não consegue aproveitar professor mais profundo. Isso é bem conhecido em knowledge distillation — existe "teacher capacity" ótima dado um student fixo.
