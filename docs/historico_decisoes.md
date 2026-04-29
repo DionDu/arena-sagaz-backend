@@ -6,6 +6,58 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-04-29 — Tentativa 8 regrediu: manter V3 (depth=7) e aprender sobre saturação de capacidade
+
+### Contexto
+Após o sucesso da Tentativa 7 (V3 auto-play depth=7: 96% vs MM(p=1), 40% vs MM(p=6), OMA 93.2%), a pergunta natural era: **aprofundar o professor ajuda?** Geramos 344k amostras com Minimax depth=8/9 (14% mais dados) e retreinamos com a mesma arquitetura. As métricas estáticas sugeriam "um pouco melhor" (top-3 +1.7pp, top-5 +2.1pp) — até rodar o avaliador de partidas reais.
+
+### Decisão: Manter V3 como modelo de produção
+
+Win-rates confirmaram regressão clara (salvo p=1, onde diferença está no ruído):
+- MM(p=3): 60% → 53% (−7 pp)
+- MM(p=5): 45% → 40% (−4.5 pp)
+- MM(p=6): 40% → 36.5% (−3.5 pp)
+
+OMA também caiu (93.2% → 89.2%), e win-rate concordou com OMA — indicativo de que ambas as métricas detectam um problema real, não artefato de avaliação.
+
+**Veredicto:** V3 (depth=7, 300k) vence V4 (depth=8/9, 344k) em todas as profundidades ≥ 3. Revertemos para V3 como modelo de produção.
+
+### Aprendizado: Saturação de Capacidade do Student
+
+A rede BoxNet v3 de 74.5k parâmetros atingiu o **ponto ótimo de capacidade do teacher** em depth=7. Aprofundar professor acima desse ponto degrada performance em vez de melhorar.
+
+**Evidência de saturação:**
+1. Top-1 estagnou: 42.7 → 42.71% com 14% mais dados.
+2. OMA caiu: professor + profundo transmite nuance que o aluno não consegue reproduzir (fenômeno conhecido em knowledge distillation).
+3. val_loss KLD subiu: alvo intrinsecamente mais difícil de aproximar (soft targets com menos empates, mais precisão de score).
+4. Win-rate em profundidades altas caiu: confirma que OMA não era outlier — modelo realmente ficou pior.
+5. Piso de blunders (~13–15% de caixas deixadas) é estável contra MM(p≥3): indica limite estrutural, não falta de dados.
+
+### Alternativa Descartada
+
+- **"E se aumentássemos a rede primeiro?"** — postergado. Não testamos depth=8/9 + rede maior juntos; testamos depth=8/9 + rede igual. Próxima rodada experimental será justamente isso (rede de ~180k params + depth=8/9).
+
+### Próximos Passos (em Prioridade)
+
+1. **Aproveitar V3 para defesa do TCC** — tem os melhores números absolutos, validados em jogo real. Narrativa centrada em OMA=93.2% + win-rate 96%/60%/45%/40%.
+
+2. **Aumento de capacidade da rede (2–3 semanas futuros)**
+   - Adicionar terceiro bloco residual (48 → 64 filtros)
+   - Dense head 96 → 128
+   - Estimativa: 150–200k parâmetros, ainda < 300 KB tflite
+   - Re-treinar com dataset V4 (344k, depth=8/9)
+   - Hipótese: rede maior + depth=8/9 deve superar V3
+
+3. **Ou explorar largura (mais fácil):** gerar 600k+ amostras em depth=7 com rede atual. Menos dispendiosos que aumentar arquitetura.
+
+4. **Investigar piso de 13–15% de blunders táticos:** gravar `(estado, jogada_cnn, jogada_otima, score_gap)` em casos de erro no avaliador. Pode revelar fraqueza específica (parity, loony endgame) que dataset sozinho não resolve.
+
+### Alinhamento com Literatura
+
+O fenômeno de "aluno saturado" vs "teacher muito forte" é bem documentado em knowledge distillation (Hinton 2015, e sequências). Existe um ponto ótimo de "teacher capacity" dado um student fixo. Ultrapassar esse ponto introduz ruído em vez de sinal. A solução padrão é aumentar student (como planejado acima).
+
+---
+
 ## 2026-04-24 — Refatoração estrutural do repositório (branch `002-refatoracao-estrutural`)
 
 ### Contexto
