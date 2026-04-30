@@ -1,0 +1,43 @@
+ O arquivo ZIP foi gerado com sucesso em D:\Desenvolvimento\arena-sagaz.zip.
+
+  Para reduzir o tamanho ao máximo, eu deixei de fora os diretórios pesados (.venv, .venv_gpu, .venv_tf, além de .git, node_modules,
+  __pycache__ e .pytest_cache).
+
+  Como o seu projeto usa três ambientes isolados diferentes por motivos de compatibilidade (um principal, um para treinamento com
+  DirectML/GPU no TF 2.10 e outro para o TF 2.21+ para ler opcodes novos do TFLite), eu acessei cada um deles, extraí as versões exatas de
+  todas as bibliotecas que você estava usando e adicionei dois novos arquivos de dependências na sua pasta arena-sagaz-backend/:
+   - requirements_gpu.txt
+   - requirements_tf.txt
+  (Ambos já estão devidamente incluídos dentro do ZIP).
+
+  Como recriar os ambientes na nova máquina (Windows)
+
+  Após descompactar o .zip na nova máquina, abra o terminal (PowerShell ou CMD) na pasta arena-sagaz-backend e repita o processo abaixo para
+  cada ambiente:
+
+  1. Ambiente Principal (.venv)
+  Usado para o servidor FastAPI e scripts comuns.
+
+   1 python -m venv .venv
+   2 .venv\Scripts\activate
+   3 pip install -r requirements.txt
+   4 deactivate
+
+  2. Ambiente GPU (.venv_gpu)
+  Usado para treinar as redes neurais (possui tensorflow-directml-plugin e TF 2.10).
+
+   1 python -m venv .venv_gpu
+   2 .venv_gpu\Scripts\activate
+   3 pip install -r requirements_gpu.txt
+   4 deactivate
+
+  3. Ambiente TF Moderno (.venv_tf)
+  Usado para rodar os simuladores táticos e usar os arquivos .tflite com opcodes mais recentes.
+
+   1 python -m venv .venv_tf
+   2 .venv_tf\Scripts\activate
+   3 pip install -r requirements_tf.txt
+   4 deactivate
+
+  > Dica: Se ao rodar o comando .venv\Scripts\activate no PowerShell você receber um erro de permissão vermelha, basta rodar
+  Set-ExecutionPolicy Unrestricted -Scope CurrentUser uma única vez na máquina nova antes de tentar ativar o ambiente.

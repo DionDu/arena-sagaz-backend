@@ -133,15 +133,45 @@ def _cnn_agent_fn(caminho_modelo: str, labels: list[str]):
 # Lógica de partida
 # ---------------------------------------------------------------------------
 
+def _localizar_caixas_prontas(matriz: np.ndarray) -> list[tuple[int, int]]:
+    """Retorna posições (linha, coluna) — em coords de caixa — com 3 arestas preenchidas."""
+    linhas  = (matriz.shape[0] - 1) // 2
+    colunas = (matriz.shape[1] - 1) // 2
+    out: list[tuple[int, int]] = []
+    for r in range(linhas):
+        for c in range(colunas):
+            if matriz[2*r+1, 2*c+1] != 0:
+                continue  # já fechada
+            preenchidas = (
+                int(matriz[2*r,   2*c+1] != 0) +
+                int(matriz[2*r+2, 2*c+1] != 0) +
+                int(matriz[2*r+1, 2*c  ] != 0) +
+                int(matriz[2*r+1, 2*c+2] != 0)
+            )
+            if preenchidas == 3:
+                out.append((r, c))
+    return out
+
+
+def _contar_caixas_prontas(matriz: np.ndarray) -> int:
+    """Conta caixas com exatamente 3 arestas preenchidas (prontas para fechar)."""
+    return len(_localizar_caixas_prontas(matriz))
+
+
 def jogar_partida(
     agente1,
     agente2,
     tamanho: str = "pequeno",
     seed: int | None = None,
+    capturar_misses_de: int | None = None,
 ) -> dict:
     """
     Joga uma partida completa entre dois agentes.
     Retorna dict com pontos, tempos e vencedor.
+
+    Se `capturar_misses_de` for 1 ou 2, cada vez que o agente correspondente
+    deixar de fechar uma caixa pronta, um snapshot do estado é registrado em
+    `result["eventos_misses"]` para visualização posterior.
     """
     if seed is not None:
         random.seed(seed)
@@ -153,11 +183,32 @@ def jogar_partida(
     turno_id = 1
     tempos = {1: [], 2: []}
     profs_alcancadas = {1: [], 2: []}  # profundidades efetivas (para timer)
+    oportunidades_perdidas = {1: 0, 2: 0}  # turno com caixa pronta mas não fechou
+    oportunidades_total    = {1: 0, 2: 0}  # turnos em que havia caixa pronta
     _VALOR_MATRIZ = {1: 1, 2: -1}
 
+    eventos_misses: list[dict] = []
+    numero_jogada = 0
+
     while not estado.esta_terminal():
-        t0 = time.perf_counter()
         agente = agente1 if turno_id == 1 else agente2
+        numero_jogada += 1
+
+        caixas_prontas_pos = _localizar_caixas_prontas(estado.matriz)
+        caixas_prontas = len(caixas_prontas_pos)
+        if caixas_prontas > 0:
+            oportunidades_total[turno_id] += 1
+
+        # Só copia a matriz se houver chance de virar evento (otimização).
+        matriz_antes = None
+        if (
+            capturar_misses_de is not None
+            and capturar_misses_de == turno_id
+            and caixas_prontas > 0
+        ):
+            matriz_antes = estado.matriz.copy()
+
+        t0 = time.perf_counter()
         traco = agente(estado)
         tempos[turno_id].append(time.perf_counter() - t0)
         # Registra profundidade alcançada se o agente suporta (timer)
@@ -165,6 +216,21 @@ def jogar_partida(
             profs_alcancadas[turno_id].append(agente._ultima_prof)
 
         caixas = estado.aplicar_traco(traco, _VALOR_MATRIZ[turno_id])
+
+        if caixas_prontas > 0 and caixas == 0:
+            oportunidades_perdidas[turno_id] += 1
+            if matriz_antes is not None:
+                interior = estado.matriz[1::2, 1::2]
+                eventos_misses.append({
+                    "numero_jogada":      numero_jogada,
+                    "turno_id":           turno_id,
+                    "matriz_antes":       matriz_antes,
+                    "traco_jogado":       traco,
+                    "caixas_prontas_pos": caixas_prontas_pos,
+                    "placar_a1":          int((interior == 1).sum()),
+                    "placar_a2":          int((interior == -1).sum()),
+                })
+
         if caixas == 0:
             turno_id = 3 - turno_id   # alterna apenas se não fechou caixa
 
@@ -186,6 +252,11 @@ def jogar_partida(
         "vencedor": vencedor,          # 1=agente1, 2=agente2, 0=empate
         "tempo_medio_a1_ms": np.mean(tempos[1]) * 1000 if tempos[1] else 0,
         "tempo_medio_a2_ms": np.mean(tempos[2]) * 1000 if tempos[2] else 0,
+        "opp_perdidas_a1": oportunidades_perdidas[1],
+        "opp_total_a1":    oportunidades_total[1],
+        "opp_perdidas_a2": oportunidades_perdidas[2],
+        "opp_total_a2":    oportunidades_total[2],
+        "eventos_misses":  eventos_misses,
     }
     # Adiciona profundidade média alcançada se disponível
     for tid in [1, 2]:
@@ -230,11 +301,19 @@ def _proc_worker_match(args):
     idx, cnn_primeiro, tamanho = args
 
     if cnn_primeiro:
-        r = jogar_partida(_PROC_CNN, _PROC_MM, tamanho, seed=idx)
+        r = jogar_partida(_PROC_CNN, _PROC_MM, tamanho, seed=idx, capturar_misses_de=1)
         r["cnn_primeiro"] = True
+        # Decora cada evento com info que o main process precisa para visualizar.
+        # CNN era turno 1 → _VALOR_MATRIZ[1] = 1 (azul nas caixas dela).
+        for e in r.get("eventos_misses", []):
+            e["partida_idx"]      = idx
+            e["cnn_primeiro"]     = True
+            e["cnn_valor_matriz"] = 1
+            e["placar_cnn"]       = e["placar_a1"]
+            e["placar_mm"]        = e["placar_a2"]
         return r
 
-    r = jogar_partida(_PROC_MM, _PROC_CNN, tamanho, seed=1000 + idx)
+    r = jogar_partida(_PROC_MM, _PROC_CNN, tamanho, seed=1000 + idx, capturar_misses_de=2)
     r_inv = {
         "pontos_a1": r["pontos_a2"],
         "pontos_a2": r["pontos_a1"],
@@ -248,6 +327,20 @@ def _proc_worker_match(args):
         r_inv["prof_media_a2"] = r["prof_media_a1"]
     if "prof_media_a2" in r:
         r_inv["prof_media_a1"] = r["prof_media_a2"]
+    # Inverte oportunidades perdidas (CNN era a2, passa a ser a1)
+    r_inv["opp_perdidas_a1"] = r.get("opp_perdidas_a2", 0)
+    r_inv["opp_total_a1"]    = r.get("opp_total_a2",    0)
+    r_inv["opp_perdidas_a2"] = r.get("opp_perdidas_a1", 0)
+    r_inv["opp_total_a2"]    = r.get("opp_total_a1",    0)
+    # CNN era turno 2 → _VALOR_MATRIZ[2] = -1 (caixas dela aparecem como -1 na matriz).
+    eventos = r.get("eventos_misses", [])
+    for e in eventos:
+        e["partida_idx"]      = idx
+        e["cnn_primeiro"]     = False
+        e["cnn_valor_matriz"] = -1
+        e["placar_cnn"]       = e["placar_a2"]
+        e["placar_mm"]        = e["placar_a1"]
+    r_inv["eventos_misses"] = eventos
     return r_inv
 
 
@@ -260,6 +353,8 @@ def avaliar_paralelo(
     n_partidas: int,
     timer_ms: float = 0,
     max_workers: int = 4,
+    progress_callback=None,
+    salvar_caixas_perdidas_em=None,
 ) -> dict:
     """
     Joga n_partidas em paralelo: metade com CNN como jogador 1, metade como jogador 2.
@@ -284,10 +379,15 @@ def avaliar_paralelo(
     ) as executor:
         futures = [executor.submit(_proc_worker_match, t) for t in tasks]
         for idx, f in enumerate(concurrent.futures.as_completed(futures), 1):
-            resultados.append(f.result())
-            perc = idx / len(tasks) * 100
-            print(f"\r  Progresso: [{idx}/{len(tasks)}] {perc:.1f}% concluído...", end="", flush=True)
-    print()  # quebra a linha ao terminar
+            result = f.result()
+            resultados.append(result)
+            if progress_callback is not None:
+                progress_callback(idx, len(tasks), result)
+            else:
+                perc = idx / len(tasks) * 100
+                print(f"\r  Progresso: [{idx}/{len(tasks)}] {perc:.1f}% concluído...", end="", flush=True)
+    if progress_callback is None:
+        print()  # quebra a linha ao terminar
 
     vitorias_cnn = sum(1 for r in resultados if r["vencedor"] == 1)
     derrotas_cnn = sum(1 for r in resultados if r["vencedor"] == 2)
@@ -295,6 +395,36 @@ def avaliar_paralelo(
 
     tempos_cnn = [r["tempo_medio_a1_ms"] for r in resultados]
     tempos_mm  = [r["tempo_medio_a2_ms"] for r in resultados]
+
+    opp_perdidas_cnn = sum(r.get("opp_perdidas_a1", 0) for r in resultados)
+    opp_total_cnn    = sum(r.get("opp_total_a1",    0) for r in resultados)
+
+    # Salva PNG+MD para cada momento em que a CNN cedeu uma caixa pronta.
+    # A quantidade de arquivos por chamada bate com `opp_perdidas_cnn`.
+    n_eventos_salvos = 0
+    if salvar_caixas_perdidas_em is not None:
+        from pathlib import Path
+        from gerador_dados.jogo_pontinhos.visualizador_pontinhos import (
+            salvar_evento_caixa_perdida,
+        )
+        out_dir = Path(salvar_caixas_perdidas_em)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        contexto = {"adversario": nome_mm, "exec_id": out_dir.parent.name}
+        for r in resultados:
+            for e in r.get("eventos_misses", []):
+                pos = "cnn1" if e.get("cnn_primeiro") else "cnn2"
+                base = (
+                    f"{pos}_partida{int(e['partida_idx']):03d}"
+                    f"_jogada{int(e['numero_jogada']):03d}"
+                )
+                salvar_evento_caixa_perdida(
+                    e,
+                    out_dir / f"{base}.png",
+                    out_dir / f"{base}.md",
+                    contexto,
+                )
+                n_eventos_salvos += 1
+        print(f"  Eventos de caixa perdida salvos: {n_eventos_salvos} -> {out_dir}")
 
     stats = {
         "adversario":     nome_mm,
@@ -308,6 +438,9 @@ def avaliar_paralelo(
         "tempo_cnn_ms":   np.mean(tempos_cnn),
         "tempo_mm_ms":    np.mean(tempos_mm),
         "fator_velocidade": np.mean(tempos_mm) / np.mean(tempos_cnn) if np.mean(tempos_cnn) > 0 else 0,
+        "opp_perdidas_cnn": opp_perdidas_cnn,
+        "opp_total_cnn":    opp_total_cnn,
+        "eventos_salvos":   n_eventos_salvos,
     }
     # Se timer ativo, calcula profundidade média alcançada pelo Minimax
     if timer_ms > 0:
@@ -399,6 +532,10 @@ def imprimir_relatorio(stats_list: list[dict]) -> None:
         print(f"  Tempo médio CNN:  {s['tempo_cnn_ms']:.2f} ms/jogada")
         print(f"  Tempo médio {s['adversario']}: {s['tempo_mm_ms']:.1f} ms/jogada")
         print(f"  CNN é {s['fator_velocidade']:.0f}× mais rápida")
+        if s.get("opp_total_cnn", 0) > 0:
+            opp = s["opp_perdidas_cnn"]
+            tot = s["opp_total_cnn"]
+            print(f"  Caixas deixadas p/ Minimax: {opp:4d} / {tot:4d} oportunidades ({opp/tot*100:.1f}%)")
         if "prof_media_mm" in s:
             print(f"  Profundidade média alcançada pelo Minimax: {s['prof_media_mm']:.1f}")
 
