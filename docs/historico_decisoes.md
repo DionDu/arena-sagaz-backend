@@ -6,6 +6,47 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-01 — Ratificação do plano de arquitetura do agente híbrido `ia-pontinhos-3-4`
+
+### Contexto
+Spec da feature 003 (`specs/003-jogador-hibrido/spec.md`) finalizada com todas as Open Questions resolvidas em sessões de Clarification. Necessário consolidar a arquitetura técnica antes de gerar tasks.
+
+### Decisão: Arquitetura em 3 tiers + 4 módulos novos
+
+Adotada separação rígida entre **Tier 1 — genéricos do jogo Pontinhos** (sufixo `_pontinhos`, parametrizáveis por dimensão) e **Tier 2 — específicos ao agente 3×4** (sufixo `_pontinhos_3_4`). Tier 1 (já existente: `tabuleiro_pontinhos.py`, `minimax_pontinhos.py`, `contrato_codificacao_pontinhos.{json,py}`) é reaproveitável para futuros agentes (ex.: `ia-pontinhos-5-5`); Tier 2 (novo) é específico desta feature.
+
+**Módulos novos** em `gerador_dados/jogo_pontinhos/`:
+- `tipos_pontinhos_3_4.py` — dataclasses (`ConfiguracaoAgente`, `MetadadosTurno`, `ResultadoJogada`) e enums (`NivelDificuldade`, `CodigoSituacao`, `CodigoAcao`).
+- `correntes_pontinhos_3_4.py` — detecção de correntes/ciclos via grafo dual (BFS), trigger de double-dealing, cálculo da aresta de sacrifício.
+- `cnn_inferencia_pontinhos_3_4.py` — wrapper TFLite com cache de interpretadores e `threading.Lock`.
+- `ia_pontinhos_3_4.py` — orquestrador `escolher_jogada(estado, configuracao, metadados) → ResultadoJogada`.
+
+**Mudança em Tier 1** (compatível retroativamente): `minimax_pontinhos.minimax(...)` ganha parâmetro `fn_avaliacao: Callable = avaliar` para Injeção de Dependência da função de avaliação de folhas. Default aponta para a função `avaliar` existente — callers atuais não mudam.
+
+### Decisões técnicas-chave (detalhes em `research.md`)
+
+1. **TFLite via `tensorflow.lite.Interpreter`** (não `tflite_runtime` direto) por estabilidade de build em Python ≥ 3.12; API idêntica permite migração futura.
+2. **Detecção de estruturas via grafo dual + BFS** — algoritmo da literatura (Berlekamp); linear no tamanho.
+3. **Sentinela `numpy.nan` em `np.float32` shape `(31,)`** para `ar_score_minimax` e `ar_probabilidade_cnn` (preserva indexabilidade direta `array[i] == aresta_i`).
+4. **`@dataclass` em vez de `Pydantic.BaseModel`** para os contratos internos. Justificativa: Constituição (II) reserva Pydantic para fronteiras de sistema; aqui tudo é in-process, e `numpy.ndarray` em Pydantic v2 exige custom validator com overhead. Quando `tb002_jogada` for persistido (feature posterior), `ResultadoJogada` será adaptada.
+5. **`threading.Lock` por interpretador TFLite** — defensivo contra paralelização futura (`concurrent.futures` já presente em `avaliador_partidas_pontinhos.py`).
+6. **Política de erros**: erros duros (raise) em qualquer violação de contrato; **sem fallback silencioso para Minimax puro** quando TFLite falha (mascararia bugs, conforme bug histórico de 2026-04-23).
+
+### Alternativas Descartadas
+
+- **`tflite_runtime` direto**: builds frágeis em Python ≥ 3.13. Postergado para feature de portabilidade mobile.
+- **Classe `MinimaxRunner` com método sobrescritível**: quebra a função pura existente; força refator dos callers.
+- **Subclasses por nível de dificuldade**: polimorfismo desnecessário para configuração estática; complica typing.
+- **Pydantic para `ConfiguracaoAgente`/`MetadadosTurno`/`ResultadoJogada`**: overhead de custom validator para `numpy.ndarray`; estruturas são internas, não fronteira de sistema.
+
+### Próximos Passos
+
+1. Gerar `tasks.md` via `/speckit-tasks` com base no plano consolidado.
+2. Implementar (em ordem): `tipos_pontinhos_3_4.py` → `correntes_pontinhos_3_4.py` → DI no `minimax_pontinhos.py` → `cnn_inferencia_pontinhos_3_4.py` → `ia_pontinhos_3_4.py`.
+3. Preencher `docs/jogo_pontinhos/documentacao_ia_pontinhos_3_4.md` ao final da implementação (FR-031).
+
+---
+
 ## 2026-04-29 — Tentativa 8 regrediu: manter V3 (depth=7) e aprender sobre saturação de capacidade
 
 ### Contexto

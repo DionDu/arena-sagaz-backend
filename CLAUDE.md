@@ -1,14 +1,16 @@
 <!-- SPECKIT START -->
-Para contexto sobre tecnologias, estrutura do projeto, comandos e decisões de
-arquitetura, leia o plano de implementação atual:
-`specs/001-fase-zero-backend/plan.md`
+Plano de implementação atual (feature em andamento):
+`specs/003-jogador-hibrido/plan.md`
 
-Artefatos relacionados:
-- Especificação: `specs/001-fase-zero-backend/spec.md`
-- Pesquisa técnica: `specs/001-fase-zero-backend/research.md`
-- Modelo de dados: `specs/001-fase-zero-backend/data-model.md`
-- Contratos de API: `specs/001-fase-zero-backend/contracts/api-v1.md`
-- Guia de início rápido: `specs/001-fase-zero-backend/quickstart.md`
+Artefatos relacionados (feature 003 — Agente Híbrido `ia-pontinhos-3-4`):
+- Especificação: `specs/003-jogador-hibrido/spec.md`
+- Pesquisa técnica: `specs/003-jogador-hibrido/research.md`
+- Modelo de dados: `specs/003-jogador-hibrido/data-model.md`
+- Contrato Python: `specs/003-jogador-hibrido/contracts/api-python-pontinhos-3-4.md`
+- Guia de início rápido: `specs/003-jogador-hibrido/quickstart.md`
+
+Histórico (features anteriores, somente referência):
+- `specs/001-fase-zero-backend/` — Fase Zero do backend e infraestrutura de dados.
 <!-- SPECKIT END -->
 
 ## Diretriz obrigatória — Documentação viva
