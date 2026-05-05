@@ -6,6 +6,63 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-04 — Implementação do timer cooperativo (D10) no agente híbrido
+
+### Contexto
+Plano da feature 003 antecipou que o app Flutter precisará de respostas com
+limite de tempo configurável por jogada (modo "rápido" do hub de jogos). O
+mecanismo escolhido — registrado no plan.md como decisão D10 — foi
+formalmente implementado nesta sessão durante a Phase 6 (US4) e validado
+nos testes de timer e na integração end-to-end.
+
+### Decisão
+**Timer cooperativo síncrono com checkpoints** usando `time.monotonic_ns()`,
+mantendo até 3 respostas candidatas em ordem de prioridade decrescente
+(P1 ≻ P2 ≻ P3):
+
+- **P3** — aresta livre uniformemente aleatória, preparada IMEDIATAMENTE no
+  acionamento (piso garantido de saída).
+- **P2** — argmax da distribuição da CNN sobre arestas livres, preparada
+  após a inferência.
+- **P1** — saída do pipeline completo (Passos 1–4).
+
+Em cada checkpoint (após preparar P3, após CNN, antes de cada iteração do
+laço Minimax sobre TOP-5), se `_elapsed_ms() >= nu_timer_ms`, retorna a
+melhor resposta já disponível. `co_acao` é populado com `cnn_timeout` (P2)
+ou `aleatoria_timeout` (P3).
+
+`nu_timer_ms = None` ou `0` desabilita o timer (modo legado).
+
+### Alternativas consideradas e descartadas
+- **`signal.SIGALRM`** — POSIX-only; quebra no Windows (alvo do app Flutter).
+- **`threading.Timer` + flag**: cancelamento não interrompe o cálculo em
+  curso (precisaria de checkpoint igualmente). Mantém complexidade sem
+  ganho.
+- **`concurrent.futures.ThreadPoolExecutor.submit().result(timeout=)`**:
+  `result(timeout)` apenas faz a thread principal sair da espera; a
+  computação interna continua rodando até terminar. Não é interrupção real.
+- **Reescrita assíncrona com `asyncio`**: alto custo de refatoração; minimax
+  é CPU-bound; não traz benefício real para um único cálculo.
+
+### Motivo
+- **Portabilidade**: `time.monotonic_ns()` funciona idêntico em
+  Windows/macOS/Linux.
+- **Determinismo**: checkpoints síncronos não introduzem race conditions.
+- **Custo zero no caminho feliz**: quando o timer não estoura, overhead é
+  desprezível (~3 chamadas a `time.monotonic_ns()` por jogada).
+- **Garantia de saída**: P3 é preparada antes de qualquer custo computacional,
+  então o agente sempre devolve uma jogada válida enquanto houver uma aresta
+  livre.
+
+### Status
+Implementado em
+`gerador_dados/jogo_pontinhos/ia_pontinhos_3_4.py` e validado por
+`tests/unitarios/jogo_pontinhos/test_ia_pontinhos_3_4.py` (P1, P2, P3,
+sem timer, timer zero) + `tests/integracao/jogo_pontinhos/test_partida_completa_pontinhos_3_4.py`
+(timer de 3000ms produz ≥ 80% de jogadas P1 em auto-jogo).
+
+---
+
 ## 2026-05-01 — Ratificação do plano de arquitetura do agente híbrido `ia-pontinhos-3-4`
 
 ### Contexto

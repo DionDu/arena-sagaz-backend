@@ -1,13 +1,20 @@
 """Minimax com Poda Alpha-Beta para Dots and Boxes."""
 from __future__ import annotations
 
+from typing import Callable
+
 from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import EstadoTabuleiro
+
+# Type alias para a função de avaliação injetável (D3 do plano de
+# `003-jogador-hibrido`). Permite que `ia_pontinhos_3_4` reutilize o motor
+# Minimax com heurísticas alternativas sem refatorar o algoritmo.
+FuncaoAvaliacao = Callable[[EstadoTabuleiro, int, int], int]
 
 
 def avaliar(estado: EstadoTabuleiro, caixas_ia: int, caixas_humano: int) -> int:
     # [NOTA PARA SPECKIT/CLAUDE]: A "Inteligência" nua e crua do algoritmo está nesta função minúscula.
     # O Minimax não entende o jogo de pontinhos de forma consciente. A única coisa que ele sabe
-    # é que ele precisa "Maximizar" o retorno desta conta. 
+    # é que ele precisa "Maximizar" o retorno desta conta.
     # Se o resultado for Positivo (+2), a IA fechou mais caixas que o Humano na simulação.
     # Se o resultado for Negativo (-1), o Humano fechou mais caixas na simulação, e a IA deve fugir desse caminho.
     # Por isso o Humano joga tentando "Minimizar" o valor.
@@ -22,9 +29,10 @@ def minimax(
     maximizando: bool,
     caixas_ia: int = 0,
     caixas_humano: int = 0,
+    fn_avaliacao: FuncaoAvaliacao = avaliar,
 ) -> int:
     if profundidade == 0 or estado.esta_terminal():
-        return avaliar(estado, caixas_ia, caixas_humano)
+        return fn_avaliacao(estado, caixas_ia, caixas_humano)
 
     tracos_originais = estado.tracos_disponiveis()
     
@@ -55,12 +63,14 @@ def minimax(
                 # Jogador atual fecha caixa → mantém turno
                 valor = minimax(
                     estado, profundidade - 1, alpha, beta, True,
-                    caixas_ia + fechadas, caixas_humano
+                    caixas_ia + fechadas, caixas_humano,
+                    fn_avaliacao=fn_avaliacao,
                 )
             else:
                 valor = minimax(
                     estado, profundidade - 1, alpha, beta, False,
-                    caixas_ia, caixas_humano
+                    caixas_ia, caixas_humano,
+                    fn_avaliacao=fn_avaliacao,
                 )
             estado.desfazer_traco(traco)
             melhor = max(melhor, valor)
@@ -76,12 +86,14 @@ def minimax(
                 # Adversário fecha caixa → mantém turno
                 valor = minimax(
                     estado, profundidade - 1, alpha, beta, False,
-                    caixas_ia, caixas_humano + fechadas
+                    caixas_ia, caixas_humano + fechadas,
+                    fn_avaliacao=fn_avaliacao,
                 )
             else:
                 valor = minimax(
                     estado, profundidade - 1, alpha, beta, True,
-                    caixas_ia, caixas_humano
+                    caixas_ia, caixas_humano,
+                    fn_avaliacao=fn_avaliacao,
                 )
             estado.desfazer_traco(traco)
             melhor = min(melhor, valor)
