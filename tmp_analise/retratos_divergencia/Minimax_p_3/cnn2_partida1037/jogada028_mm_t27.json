@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada028_mm_t27.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": -1,
+  "jogada_mm": "H_4_1",
+  "scores_mm": {
+    "V_3_0": -2,
+    "H_4_1": -2,
+    "H_6_1": -2,
+    "H_8_1": -2
+  },
+  "score_max": -2,
+  "score_min": -2,
+  "jogadas_otimas": [
+    "H_4_1",
+    "H_6_1",
+    "H_8_1",
+    "V_3_0"
+  ],
+  "jogadas_piores": [
+    "H_4_1",
+    "H_6_1",
+    "H_8_1",
+    "V_3_0"
+  ],
+  "prof_mm": 3,
+  "n_tracos_antes": 27,
+  "fase": "transicao",
+  "titulo_extra": "part 1037 jog 28 (Minimax(p=3))",
+  "partida_idx": 1037,
+  "cnn_primeiro": false,
+  "adversario": "Minimax(p=3)",
+  "numero_jogada": 28,
+  "n_grau3_disponivel": 0
+}

@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada017_mm_t16.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": 1,
+  "jogada_mm": "H_8_1",
+  "scores_mm": {
+    "H_0_3": -3,
+    "H_0_5": -3,
+    "V_1_4": -3,
+    "V_3_0": -1,
+    "V_3_4": -5,
+    "H_4_1": -1,
+    "H_4_3": -5,
+    "H_4_5": -5,
+    "V_5_6": -5,
+    "H_6_1": -1,
+    "H_6_3": -5,
+    "V_7_2": -5,
+    "V_7_6": -3,
+    "H_8_1": -1,
+    "H_8_5": -3
+  },
+  "score_max": -1,
+  "score_min": -5,
+  "jogadas_otimas": [
+    "H_4_1",
+    "H_6_1",
+    "H_8_1",
+    "V_3_0"
+  ],
+  "jogadas_piores": [
+    "H_4_3",
+    "H_4_5",
+    "H_6_3",
+    "V_3_4",
+    "V_5_6",
+    "V_7_2"
+  ],
+  "prof_mm": 6,
+  "n_tracos_antes": 16,
+  "fase": "meio",
+  "titulo_extra": "part 52 jog 17 (Minimax(p=6))",
+  "partida_idx": 52,
+  "cnn_primeiro": true,
+  "adversario": "Minimax(p=6)",
+  "numero_jogada": 17,
+  "n_grau3_disponivel": 0
+}

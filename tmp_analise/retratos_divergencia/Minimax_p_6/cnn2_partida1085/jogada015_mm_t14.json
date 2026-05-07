@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada015_mm_t14.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": -1,
+  "jogada_mm": "H_2_3",
+  "scores_mm": {
+    "H_0_1": -1,
+    "H_0_3": -1,
+    "H_0_5": -3,
+    "V_1_2": -1,
+    "V_1_6": -3,
+    "H_2_3": -1,
+    "V_3_0": -3,
+    "V_3_4": -4,
+    "H_4_1": -3,
+    "H_4_3": -4,
+    "H_4_5": -4,
+    "V_5_4": -4,
+    "H_6_1": -3,
+    "V_7_4": -3,
+    "V_7_6": -3,
+    "H_8_1": -3,
+    "H_8_3": -3
+  },
+  "score_max": -1,
+  "score_min": -4,
+  "jogadas_otimas": [
+    "H_0_1",
+    "H_0_3",
+    "H_2_3",
+    "V_1_2"
+  ],
+  "jogadas_piores": [
+    "H_4_3",
+    "H_4_5",
+    "V_3_4",
+    "V_5_4"
+  ],
+  "prof_mm": 6,
+  "n_tracos_antes": 14,
+  "fase": "meio",
+  "titulo_extra": "part 1085 jog 15 (Minimax(p=6))",
+  "partida_idx": 1085,
+  "cnn_primeiro": false,
+  "adversario": "Minimax(p=6)",
+  "numero_jogada": 15,
+  "n_grau3_disponivel": 0
+}

@@ -1,16 +1,18 @@
 <!-- SPECKIT START -->
-Plano de implementação atual (feature em andamento):
-`specs/003-jogador-hibrido/plan.md`
+Para contexto sobre tecnologias, estrutura do projeto, comandos e decisões de
+arquitetura, leia o plano de implementação atual:
+`specs/004-melhoria-geracao-dados-cnn/plan.md`
 
-Artefatos relacionados (feature 003 — Agente Híbrido `ia-pontinhos-3-4`):
-- Especificação: `specs/003-jogador-hibrido/spec.md`
-- Pesquisa técnica: `specs/003-jogador-hibrido/research.md`
-- Modelo de dados: `specs/003-jogador-hibrido/data-model.md`
-- Contrato Python: `specs/003-jogador-hibrido/contracts/api-python-pontinhos-3-4.md`
-- Guia de início rápido: `specs/003-jogador-hibrido/quickstart.md`
+Artefatos relacionados:
+- Especificação: `specs/004-melhoria-geracao-dados-cnn/spec.md`
+- PRD técnico: `specs/004-melhoria-geracao-dados-cnn/PRD.md`
+- Pesquisa: `specs/004-melhoria-geracao-dados-cnn/research.md`
+- Modelo de dados: `specs/004-melhoria-geracao-dados-cnn/data-model.md`
+- Contrato dos canais estruturais: `specs/004-melhoria-geracao-dados-cnn/contracts/canais_estruturais.md`
+- Esquema dos NPZ por fase: `specs/004-melhoria-geracao-dados-cnn/contracts/npz_schema.md`
+- Quickstart de execução: `specs/004-melhoria-geracao-dados-cnn/quickstart.md`
 
-Histórico (features anteriores, somente referência):
-- `specs/001-fase-zero-backend/` — Fase Zero do backend e infraestrutura de dados.
+Plano anterior (referência histórica): `specs/001-fase-zero-backend/plan.md`
 <!-- SPECKIT END -->
 
 ## Diretriz obrigatória — Documentação viva

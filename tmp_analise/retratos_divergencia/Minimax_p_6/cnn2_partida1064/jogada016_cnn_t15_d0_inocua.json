@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "matriz_antes_npy": "jogada016_cnn_t15_d0_inocua.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": -1,
+  "jogada_cnn": "V_1_6",
+  "jogada_otima": "V_1_6",
+  "delta": 0,
+  "classe_delta": "inocua",
+  "n_tracos_antes": 15,
+  "fase": "meio",
+  "titulo_extra": "part 1064 jog 16 (Minimax(p=6))",
+  "partida_idx": 1064,
+  "cnn_primeiro": false,
+  "adversario": "Minimax(p=6)",
+  "numero_jogada": 16,
+  "prof_oraculo": 9,
+  "n_grau3_disponivel": 1
+}

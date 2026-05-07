@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada018_mm_t17.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": 1,
+  "jogada_mm": "H_8_3",
+  "scores_mm": {
+    "H_0_1": -5,
+    "H_0_5": -5,
+    "V_1_2": -5,
+    "V_1_4": -5,
+    "V_3_2": -5,
+    "V_3_4": -5,
+    "H_4_1": -5,
+    "H_4_3": -1,
+    "H_4_5": -5,
+    "H_6_1": -5,
+    "H_6_5": -5,
+    "H_8_1": -5,
+    "H_8_3": -1,
+    "H_8_5": -5
+  },
+  "score_max": -1,
+  "score_min": -5,
+  "jogadas_otimas": [
+    "H_4_3",
+    "H_8_3"
+  ],
+  "jogadas_piores": [
+    "H_0_1",
+    "H_0_5",
+    "H_4_1",
+    "H_4_5",
+    "H_6_1",
+    "H_6_5",
+    "H_8_1",
+    "H_8_5",
+    "V_1_2",
+    "V_1_4",
+    "V_3_2",
+    "V_3_4"
+  ],
+  "prof_mm": 6,
+  "n_tracos_antes": 17,
+  "fase": "meio",
+  "titulo_extra": "part 90 jog 18 (Minimax(p=6))",
+  "partida_idx": 90,
+  "cnn_primeiro": true,
+  "adversario": "Minimax(p=6)",
+  "numero_jogada": 18,
+  "n_grau3_disponivel": 2
+}

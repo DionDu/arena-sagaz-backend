@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada017_mm_t16.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": -1,
+  "jogada_mm": "H_2_3",
+  "scores_mm": {
+    "V_1_2": -4,
+    "V_1_4": 1,
+    "V_1_6": 1,
+    "H_2_1": -4,
+    "H_2_3": 4,
+    "V_3_4": -2,
+    "H_4_1": -4,
+    "H_4_3": -1,
+    "H_4_5": -2,
+    "H_6_1": -4,
+    "H_6_3": -1,
+    "H_6_5": -2,
+    "V_7_0": -4,
+    "H_8_3": -1,
+    "H_8_5": -2
+  },
+  "score_max": 4,
+  "score_min": -4,
+  "jogadas_otimas": [
+    "H_2_3"
+  ],
+  "jogadas_piores": [
+    "H_2_1",
+    "H_4_1",
+    "H_6_1",
+    "V_1_2",
+    "V_7_0"
+  ],
+  "prof_mm": 6,
+  "n_tracos_antes": 16,
+  "fase": "meio",
+  "titulo_extra": "part 1074 jog 17 (Minimax(p=6))",
+  "partida_idx": 1074,
+  "cnn_primeiro": false,
+  "adversario": "Minimax(p=6)",
+  "numero_jogada": 17,
+  "n_grau3_disponivel": 0
+}

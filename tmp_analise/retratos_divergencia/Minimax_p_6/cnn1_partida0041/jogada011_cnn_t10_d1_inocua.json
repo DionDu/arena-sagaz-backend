@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "matriz_antes_npy": "jogada011_cnn_t10_d1_inocua.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": 1,
+  "jogada_cnn": "V_7_4",
+  "jogada_otima": "V_7_2",
+  "delta": 1,
+  "classe_delta": "inocua",
+  "n_tracos_antes": 10,
+  "fase": "meio",
+  "titulo_extra": "part 41 jog 11 (Minimax(p=6))",
+  "partida_idx": 41,
+  "cnn_primeiro": true,
+  "adversario": "Minimax(p=6)",
+  "numero_jogada": 11,
+  "prof_oraculo": 7,
+  "n_grau3_disponivel": 0
+}

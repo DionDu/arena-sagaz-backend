@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada030_mm_t29.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": 1,
+  "jogada_mm": "V_1_4",
+  "scores_mm": {
+    "H_0_5": -2,
+    "V_1_4": 2
+  },
+  "score_max": 2,
+  "score_min": -2,
+  "jogadas_otimas": [
+    "V_1_4"
+  ],
+  "jogadas_piores": [
+    "H_0_5"
+  ],
+  "prof_mm": 5,
+  "n_tracos_antes": 29,
+  "fase": "fim",
+  "titulo_extra": "part 16 jog 30 (Minimax(p=5))",
+  "partida_idx": 16,
+  "cnn_primeiro": true,
+  "adversario": "Minimax(p=5)",
+  "numero_jogada": 30,
+  "n_grau3_disponivel": 1
+}

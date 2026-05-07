@@ -2,6 +2,11 @@
 avaliador_partidas.py
 Avalia a CNN jogando partidas reais contra o Minimax em diferentes profundidades.
 
+NOTA: usamos `from __future__ import annotations` porque o módulo contém
+anotações no estilo PEP 604 (`int | None`), que só seriam suportadas em
+runtime a partir do Python 3.10. Adiar a avaliação das anotações deixa o
+código compatível com Python 3.9 sem mudar nenhuma assinatura.
+
 Uso:
     python -m gerador_dados.avaliador_partidas \
         --modelo modelos/arena_sagaz_pequeno.tflite \
@@ -17,6 +22,8 @@ Uso:
         --profundidades 1 3 5 6 \
         --timer 5
 """
+from __future__ import annotations
+
 import argparse
 import time
 import random
@@ -121,15 +128,11 @@ def _cnn_agent_fn(caminho_modelo: str, labels: list[str]):
         interp.set_tensor(inp, X)
         interp.invoke()
         probs = interp.get_tensor(out)[0]          # (31,)
-        # Cópia: o tensor interno do interpreter é reutilizado a cada invoke().
-        agente._ultimas_probs = np.array(probs, copy=True)
         disponiveis = estado.tracos_disponiveis()
         melhor = max(disponiveis, key=lambda t: probs[idx_label[t]])
         return melhor
 
     agente.__name__ = "CNN"
-    agente._labels = list(labels)
-    agente._ultimas_probs = None
     return agente
 
 
@@ -193,8 +196,6 @@ def jogar_partida(
 
     eventos_misses: list[dict] = []
     numero_jogada = 0
-    # Ordem cronológica das jogadas. Index = ordem (0-based) da aresta marcada.
-    historico_jogadas: list[tuple[str, int]] = []
 
     while not estado.esta_terminal():
         agente = agente1 if turno_id == 1 else agente2
@@ -207,14 +208,12 @@ def jogar_partida(
 
         # Só copia a matriz se houver chance de virar evento (otimização).
         matriz_antes = None
-        historico_antes = None
         if (
             capturar_misses_de is not None
             and capturar_misses_de == turno_id
             and caixas_prontas > 0
         ):
             matriz_antes = estado.matriz.copy()
-            historico_antes = historico_jogadas[:]
 
         t0 = time.perf_counter()
         traco = agente(estado)
@@ -237,12 +236,7 @@ def jogar_partida(
                     "caixas_prontas_pos": caixas_prontas_pos,
                     "placar_a1":          int((interior == 1).sum()),
                     "placar_a2":          int((interior == -1).sum()),
-                    "historico_jogadas":  historico_antes,
-                    "probs_cnn":          getattr(agente, "_ultimas_probs", None),
-                    "labels_cnn":         getattr(agente, "_labels", None),
                 })
-
-        historico_jogadas.append((traco, turno_id))
 
         if caixas == 0:
             turno_id = 3 - turno_id   # alterna apenas se não fechou caixa
@@ -319,14 +313,11 @@ def _proc_worker_match(args):
         # Decora cada evento com info que o main process precisa para visualizar.
         # CNN era turno 1 → _VALOR_MATRIZ[1] = 1 (azul nas caixas dela).
         for e in r.get("eventos_misses", []):
-            e["partida_idx"]       = idx
-            e["cnn_primeiro"]      = True
-            e["cnn_valor_matriz"]  = 1
-            e["placar_cnn"]        = e["placar_a1"]
-            e["placar_mm"]         = e["placar_a2"]
-            e["pontos_finais_cnn"] = r["pontos_a1"]
-            e["pontos_finais_mm"]  = r["pontos_a2"]
-            e["vencedor_partida"]  = r["vencedor"]   # 1=CNN, 2=MM, 0=empate
+            e["partida_idx"]      = idx
+            e["cnn_primeiro"]     = True
+            e["cnn_valor_matriz"] = 1
+            e["placar_cnn"]       = e["placar_a1"]
+            e["placar_mm"]        = e["placar_a2"]
         return r
 
     r = jogar_partida(_PROC_MM, _PROC_CNN, tamanho, seed=1000 + idx, capturar_misses_de=2)
@@ -351,15 +342,11 @@ def _proc_worker_match(args):
     # CNN era turno 2 → _VALOR_MATRIZ[2] = -1 (caixas dela aparecem como -1 na matriz).
     eventos = r.get("eventos_misses", [])
     for e in eventos:
-        e["partida_idx"]       = idx
-        e["cnn_primeiro"]      = False
-        e["cnn_valor_matriz"]  = -1
-        e["placar_cnn"]        = e["placar_a2"]
-        e["placar_mm"]         = e["placar_a1"]
-        # r_inv["pontos_a1"] já é a perspectiva da CNN; r_inv["vencedor"] também.
-        e["pontos_finais_cnn"] = r_inv["pontos_a1"]
-        e["pontos_finais_mm"]  = r_inv["pontos_a2"]
-        e["vencedor_partida"]  = r_inv["vencedor"]
+        e["partida_idx"]      = idx
+        e["cnn_primeiro"]     = False
+        e["cnn_valor_matriz"] = -1
+        e["placar_cnn"]       = e["placar_a2"]
+        e["placar_mm"]        = e["placar_a1"]
     r_inv["eventos_misses"] = eventos
     return r_inv
 
@@ -430,17 +417,19 @@ def avaliar_paralelo(
         out_dir = Path(salvar_caixas_perdidas_em)
         out_dir.mkdir(parents=True, exist_ok=True)
         contexto = {"adversario": nome_mm, "exec_id": out_dir.parent.name}
-        _SUFIXO_VENC = {1: "vit_cnn", 2: "vit_mm", 0: "emp"}
         for r in resultados:
             for e in r.get("eventos_misses", []):
                 pos = "cnn1" if e.get("cnn_primeiro") else "cnn2"
-                vit = _SUFIXO_VENC.get(int(e.get("vencedor_partida", 0)), "emp")
                 base = (
                     f"{pos}_partida{int(e['partida_idx']):03d}"
                     f"_jogada{int(e['numero_jogada']):03d}"
-                    f"_{vit}"
                 )
-                salvar_evento_caixa_perdida(e, out_dir / base, contexto)
+                salvar_evento_caixa_perdida(
+                    e,
+                    out_dir / f"{base}.png",
+                    out_dir / f"{base}.md",
+                    contexto,
+                )
                 n_eventos_salvos += 1
         print(f"  Eventos de caixa perdida salvos: {n_eventos_salvos} -> {out_dir}")
 

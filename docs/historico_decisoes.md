@@ -6,101 +6,467 @@ o que foi descartado e por quê**.
 
 ---
 
-## 2026-05-04 — Implementação do timer cooperativo (D10) no agente híbrido
+## 2026-05-07 — Geração local com multiprocessing (V5_Local) e remoção do `closure_lut`
 
 ### Contexto
-Plano da feature 003 antecipou que o app Flutter precisará de respostas com
-limite de tempo configurável por jogada (modo "rápido" do hub de jogos). O
-mecanismo escolhido — registrado no plan.md como decisão D10 — foi
-formalmente implementado nesta sessão durante a Phase 6 (US4) e validado
-nos testes de timer e na integração end-to-end.
+
+Tentativa de rodar `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb`
+em conta gratuita do Databricks (serverless). Performance medida: mais de **8
+minutos para 100 amostras** (≈ 5 s/amostra). Em escala A.1 (347.020 amostras
+novas a gerar), isso sairia da janela operacional.
+
+### Diagnóstico
+
+1. **`closure_lut` em `build_topology_tables`** alocava
+   `np.zeros((n, 1<<n), dtype=np.int8)` — para `n=31`, isso é **66 GB de
+   memória virtual por worker**. Linux com overcommit deixa alocar (calloc
+   lazy), mas o loop só preenchia os primeiros `2²⁰ ≈ 0,05%` da tabela. O
+   LUT cobria pouquíssimos estados; o fallback (3-4 testes de máscara) era
+   chamado quase sempre. **Otimização era prejuízo líquido**: page-faults
+   na alocação, custo de inicialização por partição Spark, sem ganho.
+2. **Spark serverless free** tem cores limitados (~2-4) e overhead
+   significativo de lançamento de task no Spark Connect. Configuração
+   `CHUNK=1000, PARTS=256` resultava em fila de 256 tasks de 4 registros —
+   coordenação dominava sobre computação.
+3. **Worker reconstrói `build_topology_tables`** a cada partição (chamado
+   dentro de `process_batch_v4`) — milhares de reconstruções por rodada.
 
 ### Decisão
-**Timer cooperativo síncrono com checkpoints** usando `time.monotonic_ns()`,
-mantendo até 3 respostas candidatas em ordem de prioridade decrescente
-(P1 ≻ P2 ≻ P3):
 
-- **P3** — aresta livre uniformemente aleatória, preparada IMEDIATAMENTE no
-  acionamento (piso garantido de saída).
-- **P2** — argmax da distribuição da CNN sobre arestas livres, preparada
-  após a inferência.
-- **P1** — saída do pipeline completo (Passos 1–4).
+**Criar versão local autônoma** em
+`notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5_Local.ipynb`,
+delegando o engine ao módulo companheiro
+`notebooks/jogo_pontinhos/v5_local_engine.py`. Característica do V5_Local:
 
-Em cada checkpoint (após preparar P3, após CNN, antes de cada iteração do
-laço Minimax sobre TOP-5), se `_elapsed_ms() >= nu_timer_ms`, retorna a
-melhor resposta já disponível. `co_acao` é populado com `cnn_timeout` (P2)
-ou `aleatoria_timeout` (P3).
+- **Sem Spark.** `multiprocessing.Pool` com `pool.map` em batches; pool
+  inicializado uma única vez via `initializer=init_worker` (tabelas
+  construídas 1× por worker, não por tarefa).
+- **Sem `closure_lut`.** `_closures_fast` é cálculo direto.
+- **Engine em `.py`** (não em célula Jupyter) porque `multiprocessing` no
+  Windows usa `spawn` — funções definidas em células não são picklable.
+- **Loop por cota preserva PRD §4.1.3.** Sorteia célula
+  `(gen_mode, bucket)` ponderada por cota residual em
+  `COMPLEMENTO_POR_CELULA`; worker gera com `gen_mode` e `target_tracos`
+  forçados; rejeita+regera (até 20 tentativas) se duplicado ou fora do
+  bucket; para quando todas as cotas zeram (347.020 estados novos).
+- **Pré-popula `hashes_iniciais`** com os 314.323 únicos do legado em
+  `dados/profundidade_minmax_9/`.
 
-`nu_timer_ms = None` ou `0` desabilita o timer (modo legado).
+### Correção paralela no V5_Databricks
 
-### Alternativas consideradas e descartadas
-- **`signal.SIGALRM`** — POSIX-only; quebra no Windows (alvo do app Flutter).
-- **`threading.Timer` + flag**: cancelamento não interrompe o cálculo em
-  curso (precisaria de checkpoint igualmente). Mantém complexidade sem
-  ganho.
-- **`concurrent.futures.ThreadPoolExecutor.submit().result(timeout=)`**:
-  `result(timeout)` apenas faz a thread principal sair da espera; a
-  computação interna continua rodando até terminar. Não é interrupção real.
-- **Reescrita assíncrona com `asyncio`**: alto custo de refatoração; minimax
-  é CPU-bound; não traz benefício real para um único cálculo.
+`notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5_Databricks.ipynb`
+também teve `closure_lut` removido (mesma motivação). A lógica do laço
+principal foi preservada (TODO de quota-based dispatch já era
+pré-existente — pertence a futura iteração de T-A1-004 no Databricks, fora
+do escopo desta sessão).
 
-### Motivo
-- **Portabilidade**: `time.monotonic_ns()` funciona idêntico em
-  Windows/macOS/Linux.
-- **Determinismo**: checkpoints síncronos não introduzem race conditions.
-- **Custo zero no caminho feliz**: quando o timer não estoura, overhead é
-  desprezível (~3 chamadas a `time.monotonic_ns()` por jogada).
-- **Garantia de saída**: P3 é preparada antes de qualquer custo computacional,
-  então o agente sempre devolve uma jogada válida enquanto houver uma aresta
-  livre.
+### Alternativas consideradas
 
-### Status
-Implementado em
-`gerador_dados/jogo_pontinhos/ia_pontinhos_3_4.py` e validado por
-`tests/unitarios/jogo_pontinhos/test_ia_pontinhos_3_4.py` (P1, P2, P3,
-sem timer, timer zero) + `tests/integracao/jogo_pontinhos/test_partida_completa_pontinhos_3_4.py`
-(timer de 3000ms produz ≥ 80% de jogadas P1 em auto-jogo).
+- **Manter Spark e ajustar `PARTS`**: ajuda no overhead, não resolve o
+  custo do `closure_lut`, e free serverless é fundamentalmente o
+  ferramentas errada para CPU-bound puro.
+- **Numba/Cython no inner loop**: ganho real, mas adiciona dependência
+  pesada e exige alteração arquitetural (tipos numpy fixos). Adiado para
+  Fase B se precisar.
+- **Cluster Databricks pago dedicado**: viável (e ainda recomendável para
+  geração massiva), mas o V5_Local cobre o caso "gerar localmente quando
+  cluster pago não está disponível", que é o cenário atual.
+
+### Métricas estimadas
+
+- Setup atual (Databricks free serverless, `closure_lut` removido):
+  ainda lento (overhead Spark domina; cores muito limitados).
+- V5_Local em máquina Windows com 8-16 cores físicos: estimativa
+  **≈ 0.5-1 s/amostra** (vs 4.8 s/amostra no Databricks free); 347k
+  amostras em **~4-8h** total.
+- Esses números serão substituídos pela medição real após a primeira
+  rodada completa.
 
 ---
 
-## 2026-05-01 — Ratificação do plano de arquitetura do agente híbrido `ia-pontinhos-3-4`
+## 2026-05-07 — Fase A.2 concluída: 11 canais estruturais + sobrescrita atômica + paleta visual (D2/D3/D4)
 
 ### Contexto
-Spec da feature 003 (`specs/003-jogador-hibrido/spec.md`) finalizada com todas as Open Questions resolvidas em sessões de Clarification. Necessário consolidar a arquitetura técnica antes de gerar tasks.
 
-### Decisão: Arquitetura em 3 tiers + 4 módulos novos
+Conclusão da segunda fase do plano `specs/004-melhoria-geracao-dados-cnn/`
+(tasks T-A2-001 a T-A2-008). A Fase A.2 transforma os NPZs gerados pelo
+Databricks (Fase A.1) em datasets prontos para a CNN do V6: cada estado
+recebe seu tensor `canais (4, 3, 11) int8` pré-computado, eliminando a
+camada Lambda `para_grid_de_caixas` que existia em runtime no V5.
 
-Adotada separação rígida entre **Tier 1 — genéricos do jogo Pontinhos** (sufixo `_pontinhos`, parametrizáveis por dimensão) e **Tier 2 — específicos ao agente 3×4** (sufixo `_pontinhos_3_4`). Tier 1 (já existente: `tabuleiro_pontinhos.py`, `minimax_pontinhos.py`, `contrato_codificacao_pontinhos.{json,py}`) é reaproveitável para futuros agentes (ex.: `ia-pontinhos-5-5`); Tier 2 (novo) é específico desta feature.
+### Decisões consolidadas
 
-**Módulos novos** em `gerador_dados/jogo_pontinhos/`:
-- `tipos_pontinhos_3_4.py` — dataclasses (`ConfiguracaoAgente`, `MetadadosTurno`, `ResultadoJogada`) e enums (`NivelDificuldade`, `CodigoSituacao`, `CodigoAcao`).
-- `correntes_pontinhos_3_4.py` — detecção de correntes/ciclos via grafo dual (BFS), trigger de double-dealing, cálculo da aresta de sacrifício.
-- `cnn_inferencia_pontinhos_3_4.py` — wrapper TFLite com cache de interpretadores e `threading.Lock`.
-- `ia_pontinhos_3_4.py` — orquestrador `escolher_jogada(estado, configuracao, metadados) → ResultadoJogada`.
+**D2 — Tensor `canais (4, 3, 11)` materializado no NPZ.** Os 11 canais
+seguem a ordem canônica do PRD §4.2 (`aresta_topo`, `aresta_base`,
+`aresta_esquerda`, `aresta_direita`, `caixa_fechada`, `eh_grau3`,
+`eh_grau2`, `em_cadeia_curta`, `em_cadeia_longa`, `em_loop`,
+`em_cadeia_aberta_uma_ponta`). Implementado em
+`gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py`. Mantido
+**canal único `cadeia_longa` para componentes de comprimento ≥ 3** (não
+separamos `cadeia_media = 3` vs `cadeia_longa ≥ 4`) — clarification
+2026-05-07.
 
-**Mudança em Tier 1** (compatível retroativamente): `minimax_pontinhos.minimax(...)` ganha parâmetro `fn_avaliacao: Callable = avaliar` para Injeção de Dependência da função de avaliação de folhas. Default aponta para a função `avaliar` existente — callers atuais não mudam.
+**D3 — Sobrescrita atômica via `<arquivo>.tmp` + `os.replace()`.**
+Implementada no `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb`.
+Ctrl+C durante o enriquecimento NUNCA corrompe o original; o `os.replace`
+só substitui quando o `.tmp` está integro. Operação idempotente: rodar
+sobre NPZ já enriquecido é seguro (controle por flag `FORCAR_REGRAVAR`).
 
-### Decisões técnicas-chave (detalhes em `research.md`)
+**D4 — Paleta visual estável + borda em caixas fechadas.** Script
+`scripts/pontinhos/validar_canais_visualmente.py` gera PNGs a 150 DPI com:
+- 1 painel esquerdo: matriz crua `(9, 7)`;
+- 11 boxnets `(4, 3)` à direita, **uma cor categórica fixa por canal**
+  (mesma cor entre execuções, para comparabilidade entre lotes);
+- borda destacada em caixas onde `canal[caixa_fechada] == 1`, em todos os
+  11 boxnets (distingue "fechada" de "aberta com grau hipotético");
+- título canônico exatamente igual ao item correspondente em
+  `NOMES_CANAIS`.
 
-1. **TFLite via `tensorflow.lite.Interpreter`** (não `tflite_runtime` direto) por estabilidade de build em Python ≥ 3.12; API idêntica permite migração futura.
-2. **Detecção de estruturas via grafo dual + BFS** — algoritmo da literatura (Berlekamp); linear no tamanho.
-3. **Sentinela `numpy.nan` em `np.float32` shape `(31,)`** para `ar_score_minimax` e `ar_probabilidade_cnn` (preserva indexabilidade direta `array[i] == aresta_i`).
-4. **`@dataclass` em vez de `Pydantic.BaseModel`** para os contratos internos. Justificativa: Constituição (II) reserva Pydantic para fronteiras de sistema; aqui tudo é in-process, e `numpy.ndarray` em Pydantic v2 exige custom validator com overhead. Quando `tb002_jogada` for persistido (feature posterior), `ResultadoJogada` será adaptada.
-5. **`threading.Lock` por interpretador TFLite** — defensivo contra paralelização futura (`concurrent.futures` já presente em `avaliador_partidas_pontinhos.py`).
-6. **Política de erros**: erros duros (raise) em qualquer violação de contrato; **sem fallback silencioso para Minimax puro** quando TFLite falha (mascararia bugs, conforme bug histórico de 2026-04-23).
+### Validação
 
-### Alternativas Descartadas
+- `pytest tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py -v`
+  → **11 passed** nesta máquina (Python 3.9.5, numpy disponível). Cobre:
+  domínio binário, exclusão mútua canal 4 vs 5–10, coerência sob
+  simetrias (ref_H, ref_V, R180), tabuleiro vazio, caixa fechada simples,
+  loop de 4 caixas, half-open chain, double-cross do Buchin.
+- Notebook de enriquecimento e script de validação visual entregues e
+  importáveis.
+- **Bug encontrado e corrigido durante a TDD**: em numpy moderno,
+  `np.bool_ + np.bool_` retorna `np.bool_` (OR lógico), não soma
+  aritmética. Fix em `_grau()` para somar via `int(M[...] == 9)`
+  explícito. Sem essa correção todos os canais 5–10 ficavam zerados.
 
-- **`tflite_runtime` direto**: builds frágeis em Python ≥ 3.13. Postergado para feature de portabilidade mobile.
-- **Classe `MinimaxRunner` com método sobrescritível**: quebra a função pura existente; força refator dos callers.
-- **Subclasses por nível de dificuldade**: polimorfismo desnecessário para configuração estática; complica typing.
-- **Pydantic para `ConfiguracaoAgente`/`MetadadosTurno`/`ResultadoJogada`**: overhead de custom validator para `numpy.ndarray`; estruturas são internas, não fronteira de sistema.
+### Alternativas consideradas (todas rejeitadas)
 
-### Próximos Passos
+- **Doze canais** (separando `cadeia_media = 3` vs `cadeia_longa ≥ 4`):
+  rejeitado por aumentar complexidade do input sem evidência empírica
+  (research.md §1.4).
+- **Gravação direta sem `.tmp`** (`np.savez(arquivo, ...)` sobrescreve in
+  loco): rejeitado por NFR-06 (Ctrl+C durante o save corromperia o
+  arquivo original).
+- **Paleta com gradiente de cor** ou aleatória por execução: rejeitado
+  porque atrapalha comparação visual entre lotes (research.md §1.3).
+- **JSON declarativo único como ground truth do algoritmo dos canais**:
+  mantido como referência (`contracts/canais_estruturais.md` + futuro
+  `referencia_canais_pontinhos.json` em T-D-005), mas a fonte da verdade
+  do dataset continua sendo o módulo Python — coerente com a diretriz do
+  CLAUDE.md "fonte da verdade no contrato JSON" se aplicar apenas ao
+  contrato de codificação backend↔frontend, não ao algoritmo de canais.
 
-1. Gerar `tasks.md` via `/speckit-tasks` com base no plano consolidado.
-2. Implementar (em ordem): `tipos_pontinhos_3_4.py` → `correntes_pontinhos_3_4.py` → DI no `minimax_pontinhos.py` → `cnn_inferencia_pontinhos_3_4.py` → `ia_pontinhos_3_4.py`.
-3. Preencher `docs/jogo_pontinhos/documentacao_ia_pontinhos_3_4.md` ao final da implementação (FR-031).
+### Estado de validação manual pendente
+
+A Fase A.2 só fica oficialmente "fechada" quando o desenvolvedor:
+
+1. Roda o enriquecimento sobre o diretório de NPZs reais da Fase A.1.
+2. Gera os 30 PNGs com `validar_canais_visualmente.py`.
+3. Inspeciona-os manualmente nas 3 faixas (`t∈[12,17]`, `[24,28]`, `[29,30]`).
+4. Assina aqui mesmo, ao final desta entrada, que a inspeção foi OK.
+
+> **Assinatura visual (preencher após T-A2-005)**:
+> _[ ] OK — 30 PNGs revisados, canais 0–10 coerentes com a matriz crua nos casos inspecionados._
+> _Assinado por: ____________ Data: ____________
+
+### Documentação atualizada
+
+- `docs/jogo_pontinhos/guia_geracao_dados.md` ganhou a seção **1A** com o
+  fluxo completo A.1 + A.2 (T-A2-007).
+
+---
+
+## 2026-05-07 — Fase A.1 do plano 004 — V5 do notebook de geração no Databricks (TEMPLATE — aguardando execução)
+
+### Contexto
+
+Tasks T-A1-001 a T-A1-006 do plano `specs/004-melhoria-geracao-dados-cnn/`.
+Esta entrada é deixada como **template** — os números reais (uniques
+gerados, distribuição empírica, mix `gen_mode` por bucket, tempo) só
+existirão após o desenvolvedor rodar o notebook V5 no Databricks. Nenhum
+parâmetro deve ser ajustado fora do que está fixado abaixo (PRD §4.1.3).
+
+### Parâmetros consolidados no V5
+
+- `STRAT_WEIGHTS = [0.05, 0.00, 0.40, 0.55]` — `sim_l1` desligado por
+  gerar estados "lunáticos" sem qualidade estratégica (D1.a do PRD).
+- `FAIXA_TRACOS = (0.15, 0.97)` — equivale a 5..30 traços para `n_edges = 31`
+  (D1).
+- `COMPLEMENTO_POR_CELULA` literal embutido na célula de parâmetros do V5
+  (PRD §4.1.3). Soma das cotas = **347_020**, conforme PRD.
+- Dedup obrigatória por `mat.tobytes()` com **pré-população do set por
+  314.323 únicos do legado** antes de iniciar o laço de geração (D1.b /
+  FR-A-04). Estados duplicados são regerados (até 20 tentativas).
+- DEPTH = 9 (Minimax(p=9)), inalterado em relação ao V4.
+
+### Distribuição-alvo (PRD §4.1.3) — tolerância ±2pp
+
+| Bucket de traços | Cota legado | Quota complemento | Total alvo | % alvo |
+|---|---|---|---|---|
+| 5–11 | 27.515 | 22.484 | 50.000 | 10% |
+| 12–17 | 49.443 | 50.557 | 100.000 | 20% |
+| 18–23 | 56.404 | 83.596 | 140.000 | 28% |
+| 24–28 | 19.617 | 140.383 | 160.000 | 32% |
+| 29–30 | — | 50.000 | 50.000 | 10% |
+
+> **Nota**: a soma `legado + complemento` por bucket pode divergir
+> ligeiramente da tabela acima a depender de quais cotas a auditoria
+> empírica do desenvolvedor decida ajustar dentro da tolerância. Os
+> valores literais embutidos no notebook V5 são os de
+> `COMPLEMENTO_POR_CELULA` na célula de parâmetros — fonte da verdade.
+
+### Resultados (PREENCHER após execução)
+
+```
+Total de estados gravados:    ____________
+Únicos por mat.tobytes():     ____________     (esperado >= 500.000)
+Tempo total de execução:      ____________ h   (NFR-03: ≤ 4 h)
+Tamanho dos NPZs:             ____________ MB
+
+Distribuição empírica por bucket de tracos:
+  (5, 11): ____% (alvo 10%, desvio ____pp)
+  (12, 17): ____% (alvo 20%, desvio ____pp)
+  (18, 23): ____% (alvo 28%, desvio ____pp)
+  (24, 28): ____% (alvo 32%, desvio ____pp)
+  (29, 30): ____% (alvo 10%, desvio ____pp)
+
+Mix de gen_mode (% real):
+  uniform (0): ____%
+  sim_l1  (1): 0% (DESLIGADO — D1.a)
+  sim_l2  (2): ____%
+  sim_l3  (3): ____%
+
+Hashes verificados:
+  Pré-população legado: 314.323
+  Duplicatas regeneradas (laço): ________
+  Estados gerados pelo V5 (complemento): ________
+```
+
+### Decisão
+
+Manter os parâmetros tal como estão fixados na célula `[T-A1-002 + T-A1-003]`
+do V5. Caso a distribuição empírica saia da tolerância em algum bucket, a
+correção primeiro tenta ajustar o `COMPLEMENTO_POR_CELULA` (mantém DEPTH e
+mix); só em segunda instância se reabre `STRAT_WEIGHTS`.
+
+### Alternativas consideradas
+
+- **Não pré-popular o set de hashes** (gerar tudo do zero, dedupando
+  contra o legado durante o laço): rejeitado pelo gasto computacional —
+  a maioria dos estados de início/meio de jogo já existe no legado, e
+  testá-los mid-loop desperdiça Minimax(p=9).
+- **Manter `sim_l1` com peso ≥ 0.05**: rejeitado em D1.a por evidência
+  empírica (estados "lunáticos" — V4 spec §4.1.2).
+- **Otimizar configuração do cluster Databricks no nível da spec**:
+  rejeitado em research.md §1.1 — a configuração depende do dia/cluster
+  e é decidida ad-hoc.
+
+### Motivo
+
+Cobertura terminal expandida (faixa 24–30 traços com 42% do dataset,
+contra ~3% do V4) ataca diretamente a Categoria A de erros táticos
+identificada no relatório de divergência de 2026-05-06 (87.8% das
+divergências fatais concentradas em `t ∈ [28, 30]`).
+
+---
+
+## 2026-05-06 — Análise de divergência estratégica (600 partidas) confirma Cenário X3 e motiva duas novas fases no PRD
+
+### Contexto
+Após descontinuar p=1 (decisão abaixo na mesma data), rodamos
+`tmp_analise/analisa_divergencia_estrategica.py` em **600 partidas** (200
+contra cada um de p=3, p=5, p=6) com o oráculo Minimax adaptativo
+(p=5/7/9 conforme livres). Tempo total: 9370 s (~2.6 h) com 12 workers.
+Modelo avaliado: `modelos/pontinhos_pequeno_profundidade_9.tflite`.
+Relatório completo: `tmp_analise/RELATORIO_DIVERGENCIA_ESTRATEGICA.md`.
+
+### Resultados-chave
+
+**Win-rates (CNN, vencedora):**
+- vs p=3: 109/200 = 54.5%
+- vs p=5: 84/200  = 42.0%
+- vs p=6: 76/200  = 38.0%
+
+**Fatal precoce (≤ 25 traços) entre partidas perdidas:**
+- vs p=3: 7/42  = **16.7%**
+- vs p=5: 11/60 = **18.3%**
+- vs p=6: 14/89 = **15.7%**
+- Média ponderada: 32/191 ≈ **16.8%**
+
+**Distribuição dos fatais (total 410 nas 600 partidas):**
+- Meio (10–24 traços):  50 fatais (12.2%)
+- Transição (25–27):    0 fatais
+- Fim (28–30):         360 fatais (87.8%) — concentrados em t=29 (356/360)
+- **Pico no meio:** t=14 com 28 fatais; também t=12 sangra (4 fatais + 83 moderadas).
+
+**Padrões sistêmicos (top pares ótima → CNN, todos com Δ ≥ 2):**
+- Fim: H_2_1 → V_1_0 (37×), H_2_3 → H_0_3 (32×), H_6_3 → H_8_3 (30×),
+  V_1_4 → V_1_6 (26×), V_1_4 → H_0_5 (24×) — viés de borda externa
+  confirmado.
+- Meio: H_0_3 → V_7_2 (15×), H_4_1 → V_3_2 (12×), H_8_3 → V_7_2 (12×),
+  H_4_1 → V_3_0 (12×) — substituições estruturais que cruzam o tabuleiro,
+  sintoma de paridade/cadeia mal compreendida.
+
+### Veredicto: Cenário X3 confirmado e estável
+
+A taxa de fatal precoce está estável em **15–18% nos três adversários** —
+isso é evidência forte de **erro sistêmico da CNN** (não induzido pelo
+adversário). Se o adversário é mais forte (p=6) ou mais fraco (p=3), a
+CNN comete fatal precoce na mesma proporção das partidas que perde. Isso
+favorece atacar a representação interna (canais estruturais — Fase D do
+PRD) e a calibração de gradiente em meio-jogo (novas fases — ver abaixo),
+não simplesmente "mais dados de fim".
+
+Observação adicional importante: das 89 partidas perdidas vs p=6, **58
+não têm nenhuma divergência fatal** (perdidas por acúmulo de moderadas).
+Isso reforça que cobertura ampla de dados (Fases A/B/C do PRD) continua
+sendo a base obrigatória do plano.
+
+### Decisões derivadas — duas novas fases inseridas no PRD
+
+#### Nova Fase E (entre atual D e atual E, que será renumerada para G):
+**Sample_weight refinado por Δ-top2 — foco em meio-jogo (t=12 a t=17)**
+
+- Foco real: **t=12 a t=17** (faixa de paridade/controle de cadeias),
+  NÃO t=29. Os erros em t=29 já são atacados pelas Fases A/B (cobertura
+  terminal) e pelo canal `eh_grau3` em D.
+- Multiplicador discreto: `peso = 1 + α · Δ_top2_caixas`, com α calibrado
+  para que tabuleiros nessa faixa valham **~10% a mais** que os demais
+  (NÃO 6× — a maioria das jogadas em t=12–17 são boas; só damos um
+  empurrãozinho de gradiente nas poucas que importam).
+- Cap absoluto: nenhum peso individual pode passar de **1.20** (ou seja,
+  20% a mais que o peso 1.0 dos demais tabuleiros).
+- Implementação: cálculo de `Δ_top2` direto dos `scores` já no NPZ;
+  multiplicar pelo coeficiente α apenas em amostras da faixa-alvo.
+
+#### Nova Fase F (entre nova E e atual E renumerada G):
+**Value head AlphaZero-style (multi-task learning)**
+
+- Adicionar segunda saída ao modelo Keras, em paralelo à policy head:
+  - Policy head (existente): Conv → Flatten → Dense(96) → softmax(31).
+  - Value head (nova): Conv 1×1 → Flatten → Dense(64, relu) → Dense(1, tanh).
+- Alvo do value head: `score_max(scores_mm) / 6` (normaliza Q* ao
+  intervalo `[-1, +1]`; 6 = max caixas líquidas em 4×3).
+- Loss conjunta: `loss_total = KLD(policy) + λ · MSE(value)` com
+  **λ ≈ 0.1–0.3** (pequeno para não dominar a policy).
+- **Inferência mobile sem custo:** descartar a value head no export TFLite
+  (manter apenas a policy). Frontend Flutter inalterado.
+- Justificativa: força a representação intermediária a codificar "quem
+  está ganhando", sinal que hoje a CNN só aprende implicitamente pela
+  política. Em jogos com decisões de paridade (caso de pontinhos 4×3),
+  saber o sinal do valor antes de decidir a aresta é estruturalmente útil.
+- Aumenta tempo de treino em ~10–20%; pipeline de dataset não muda
+  (`value_target` é derivado dos `scores` já existentes no NPZ).
+
+#### Renumeração:
+- Atual Fase E (Hard-target ≥26) → **Fase G** (condicional).
+- Atual Fase F (Loss assimétrica) → **Fase H** (condicional).
+
+### Faixa crítica de meio-jogo estendida
+
+PRD original cita faixa "10–25" para fatal precoce e "13-17" como faixa
+crítica em alguns gates. Os dados mostram **t=12 também sangrando** (4
+fatais + 83 moderadas, mais alto que t=13 em moderadas). Faixa crítica
+unificada para **[12, 17]** em todos os gates e na nova Fase E.
+
+### Alternativas descartadas
+- **Sample_weight com cap 6×:** rejeitado pelo usuário — distorceria a
+  loss em demasia. Maioria das jogadas em t=12–17 são boas; queremos
+  empurrão sutil, não sobreposição.
+- **Sample_weight focado em t=29:** redundante. Categoria A já é atacada
+  pelas Fases A/B/C/D; t=29 representa 87.8% dos fatais mas é tática
+  pura (ataque por cobertura + canal `eh_grau3`).
+- **Value head com inferência completa em produção:** descartado
+  porque adicionaria custo no app Flutter (3–5 ms por jogada). Mantemos
+  value head só no treino (regularizador estrutural).
+- **Pular Fase E e ir direto para value head:** descartado porque queremos
+  isolamento causal entre intervenções. Cada fase recebe seu próprio
+  TFLite versionado e avaliação independente.
+
+### Consequências operacionais
+- PRD `specs/004-melhoria-geracao-dados-cnn/PRD.md` atualizado nesta data:
+  - Seção 2.4 reescrita inteira com resultados das 600 partidas.
+  - Faixa crítica unificada `[12, 17]` substituindo `[13, 17]` ou `10-25`
+    onde aplicável.
+  - Seção 5 com novas Fases E e F inseridas; antigas E/F renumeradas G/H.
+  - Decisões D-novas adicionadas em §4 (D9 sample_weight refinado, D10
+    value head).
+- Plano sequencial: A → B → C → D → **E (sw refinado) → F (value head)** → G → H.
+- Métricas operacionais a recalcular após Fase F (tempo treino esperado
+  +10–20%, TFLite exportado sem value head — tamanho inalterado).
+
+---
+
+## 2026-05-06 — Minimax(p=1) descartado como adversário em análises diagnósticas
+
+### Contexto
+Ao revisar PNGs gerados por `tmp_analise/analisa_divergencia_estrategica.py`
+em partidas CNN vs Minimax(p=1), o usuário identificou um padrão estranho:
+em várias jogadas de **abertura** (t=2, t=4, t=12), o adversário Minimax
+**criava caixas de grau-3 em estados que ninguém pediu para serem criados**,
+literalmente "doando" caixas para a CNN. Hipótese inicial: bug no Minimax.
+
+### Investigação
+Reanálise pontual com Minimax(p=5/7/9) sobre o estado salvo em NPY (após
+adicionarmos o salvamento de NPY+JSON irmão por PNG) confirmou que:
+
+1. O motor Minimax **não está bugado**. A função `melhor_jogada()` em
+   `gerador_dados/jogo_pontinhos/minimax_pontinhos.py` calcula corretamente
+   os scores e devolve `random.choice(jogadas_tied)` entre as melhores.
+2. O comportamento "absurdo" decorre de uma propriedade fundamental do
+   **profundidade 1**: ele só simula a própria jogada (zero plies de resposta
+   do adversário). Quando **nenhuma** jogada disponível fecha caixa
+   imediatamente, **todas** ficam com score=0 (a função `avaliar` em
+   profundidade 0 retorna `caixas_ia − caixas_humano` = 0). O motor então
+   sorteia aleatoriamente entre as 27+ jogadas livres — incluindo as que
+   criam grau-3 para o adversário.
+3. Para detectar "abrir caixa para o oponente no próximo turno", o Minimax
+   precisa de **pelo menos p=2** (1 ply próprio + 1 ply do oponente). p=1
+   simplesmente não tem essa capacidade.
+
+### Decisão: descontinuar p=1 como adversário em análises diagnósticas
+A partir desta data, `analisa_divergencia_estrategica.py` (e qualquer
+analisador derivado) **não usará mais Minimax(p=1)** como adversário. Em
+diante, profundidades adversárias diagnósticas válidas são **p=3, p=5, p=6**.
+
+**Por quê:**
+- Partidas vs p=1 são contaminadas por jogadas pseudo-aleatórias do
+  adversário, criando estados não-representativos do que a CNN encontraria
+  em jogo real contra qualquer oponente humano de nível mínimo.
+- Os Δ-scores que o oráculo (p=5/p=7/p=9 adaptativo) calcula sobre tais
+  estados refletem em boa medida a **estranheza do estado** induzida pela
+  aleatoriedade do p=1, não a qualidade tática/estratégica da CNN.
+- Conclusões sobre "Categoria A vs B de erros" e "Cenário X1/X2/X3" exigem
+  adversários minimamente capazes de não doar caixas em abertura.
+- Avaliação de win-rate vs p=1 (em `Avaliacao_CNN_vs_Minimax.ipynb`) **continua
+  válida** como métrica histórica para comparações longitudinais com
+  rodadas anteriores — a decisão se restringe a análises de divergência
+  estratégica, não ao avaliador de partidas em geral.
+
+### Alternativas descartadas
+- **Manter p=1 como controle "ruído de baseline":** rejeitado porque sua
+  presença diluía a leitura visual dos PNGs (muitos d=0 ou d=1 inócuos
+  causados pelo adversário "se sabotando") e custava ~25% do tempo total
+  do run sem entregar sinal correspondente.
+- **Trocar p=1 por p=2:** p=2 já enxerga "doar caixa" (vê 1 ply do
+  oponente), mas a estatística vs p=2 pouco acrescenta sobre p=3 (que já
+  está no padrão). Mantido fora por simplicidade.
+- **Manter p=1 mas em pasta `Minimax_p_1_controle/`:** rejeitado porque
+  ainda gera ~25% de overhead computacional sem benefício diagnóstico.
+
+### Consequência operacional
+- `tmp_analise/retratos_divergencia/Minimax_p_1/` apagada nesta data.
+- Default de `--profundidades` ajustado para `3 5 6` no script.
+- PRD `specs/004-melhoria-geracao-dados-cnn/PRD.md` referencia esta decisão
+  na Seção 2.4 (cenário X1/X2/X3) — a baseline diagnóstica não inclui mais p=1.
+
+### Mudança paralela — visibilidade de jogadas do adversário
+Mesma sessão, identificado que era impossível diagnosticar comportamento
+do MM sem ler matrizes em sequência (jogada-N CNN vs jogada-(N+1) MM exige
+inferir o estado pós-jogada-N para depois ler o estado pré-jogada-(N+2)).
+Adicionada geração de PNG+NPY+JSON também para **jogadas do MM**, com
+formato espelhado ao da CNN: painel esquerdo = jogada que o MM fez (laranja),
+painel direito = todas as ótimas em verde + todas as piores em marrom
+segundo o **mesmo Minimax(p=X) que ele usou para decidir**. Sem custo
+computacional adicional (reaproveita a tabela de scores que `melhor_jogada()`
+já calcula internamente).
 
 ---
 

@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada020_mm_t19.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": 1,
+  "jogada_mm": "H_6_1",
+  "scores_mm": {
+    "V_1_0": -4,
+    "H_2_1": -4,
+    "V_3_4": -5,
+    "H_4_1": -4,
+    "H_4_3": -5,
+    "H_4_5": -5,
+    "V_5_6": -5,
+    "H_6_1": -4,
+    "H_6_3": -5,
+    "V_7_4": -5,
+    "V_7_6": -5,
+    "H_8_1": -4
+  },
+  "score_max": -4,
+  "score_min": -5,
+  "jogadas_otimas": [
+    "H_2_1",
+    "H_4_1",
+    "H_6_1",
+    "H_8_1",
+    "V_1_0"
+  ],
+  "jogadas_piores": [
+    "H_4_3",
+    "H_4_5",
+    "H_6_3",
+    "V_3_4",
+    "V_5_6",
+    "V_7_4",
+    "V_7_6"
+  ],
+  "prof_mm": 6,
+  "n_tracos_antes": 19,
+  "fase": "meio",
+  "titulo_extra": "part 97 jog 20 (Minimax(p=6))",
+  "partida_idx": 97,
+  "cnn_primeiro": true,
+  "adversario": "Minimax(p=6)",
+  "numero_jogada": 20,
+  "n_grau3_disponivel": 0
+}

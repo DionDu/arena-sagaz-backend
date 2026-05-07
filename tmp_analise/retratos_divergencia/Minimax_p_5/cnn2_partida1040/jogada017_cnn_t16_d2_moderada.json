@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "matriz_antes_npy": "jogada017_cnn_t16_d2_moderada.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": -1,
+  "jogada_cnn": "V_3_2",
+  "jogada_otima": "V_3_0",
+  "delta": 2,
+  "classe_delta": "moderada",
+  "n_tracos_antes": 16,
+  "fase": "meio",
+  "titulo_extra": "part 1040 jog 17 (Minimax(p=5))",
+  "partida_idx": 1040,
+  "cnn_primeiro": false,
+  "adversario": "Minimax(p=5)",
+  "numero_jogada": 17,
+  "prof_oraculo": 9,
+  "n_grau3_disponivel": 0
+}

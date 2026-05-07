@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "matriz_antes_npy": "jogada014_cnn_t13_d0_inocua.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": -1,
+  "jogada_cnn": "V_7_4",
+  "jogada_otima": "V_1_6",
+  "delta": 0,
+  "classe_delta": "inocua",
+  "n_tracos_antes": 13,
+  "fase": "meio",
+  "titulo_extra": "part 1019 jog 14 (Minimax(p=3))",
+  "partida_idx": 1019,
+  "cnn_primeiro": false,
+  "adversario": "Minimax(p=3)",
+  "numero_jogada": 14,
+  "prof_oraculo": 7,
+  "n_grau3_disponivel": 0
+}

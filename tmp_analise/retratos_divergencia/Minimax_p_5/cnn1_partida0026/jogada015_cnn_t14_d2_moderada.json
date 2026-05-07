@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "matriz_antes_npy": "jogada015_cnn_t14_d2_moderada.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": 1,
+  "jogada_cnn": "V_7_2",
+  "jogada_otima": "V_5_4",
+  "delta": 2,
+  "classe_delta": "moderada",
+  "n_tracos_antes": 14,
+  "fase": "meio",
+  "titulo_extra": "part 26 jog 15 (Minimax(p=5))",
+  "partida_idx": 26,
+  "cnn_primeiro": true,
+  "adversario": "Minimax(p=5)",
+  "numero_jogada": 15,
+  "prof_oraculo": 9,
+  "n_grau3_disponivel": 0
+}

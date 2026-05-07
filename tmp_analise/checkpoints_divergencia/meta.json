@@ -1,0 +1,13 @@
+{
+  "assinatura": {
+    "schema": 2,
+    "modelo": "C:\\desenvolvimento\\apps_backup_260429\\arena-sagaz\\arena-sagaz-backend\\modelos\\pontinhos_pequeno_profundidade_9.tflite",
+    "tamanho": "pequeno",
+    "oraculo_modo": "adaptativo",
+    "oraculo": null,
+    "partidas": 200,
+    "salvar_retratos": "C:\\desenvolvimento\\apps_backup_260429\\arena-sagaz\\arena-sagaz-backend\\tmp_analise\\retratos_divergencia"
+  },
+  "ultimo_bloco_salvo": 6,
+  "ts_unix": 1778098715.7717166
+}

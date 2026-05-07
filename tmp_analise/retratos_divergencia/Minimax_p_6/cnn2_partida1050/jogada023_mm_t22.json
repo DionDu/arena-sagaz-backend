@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada023_mm_t22.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": -1,
+  "jogada_mm": "V_1_0",
+  "scores_mm": {
+    "H_0_3": -5,
+    "V_1_0": -1,
+    "V_1_4": -5,
+    "H_2_5": -5,
+    "V_3_4": -5,
+    "H_4_3": -5,
+    "H_6_3": -5,
+    "H_8_1": -1,
+    "H_8_3": -5
+  },
+  "score_max": -1,
+  "score_min": -5,
+  "jogadas_otimas": [
+    "H_8_1",
+    "V_1_0"
+  ],
+  "jogadas_piores": [
+    "H_0_3",
+    "H_2_5",
+    "H_4_3",
+    "H_6_3",
+    "H_8_3",
+    "V_1_4",
+    "V_3_4"
+  ],
+  "prof_mm": 6,
+  "n_tracos_antes": 22,
+  "fase": "meio",
+  "titulo_extra": "part 1050 jog 23 (Minimax(p=6))",
+  "partida_idx": 1050,
+  "cnn_primeiro": false,
+  "adversario": "Minimax(p=6)",
+  "numero_jogada": 23,
+  "n_grau3_disponivel": 2
+}

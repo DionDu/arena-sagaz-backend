@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "matriz_antes_npy": "jogada003_cnn_t02_d0_inocua.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": 1,
+  "jogada_cnn": "V_5_0",
+  "jogada_otima": "H_0_1",
+  "delta": 0,
+  "classe_delta": "inocua",
+  "n_tracos_antes": 2,
+  "fase": "abertura",
+  "titulo_extra": "part 8 jog 3 (Minimax(p=5))",
+  "partida_idx": 8,
+  "cnn_primeiro": true,
+  "adversario": "Minimax(p=5)",
+  "numero_jogada": 3,
+  "prof_oraculo": 5,
+  "n_grau3_disponivel": 0
+}

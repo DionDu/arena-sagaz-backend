@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "tipo": "jogada_mm",
+  "matriz_antes_npy": "jogada013_mm_t12.npy",
+  "encoding": "matriz crua do EstadoTabuleiro (caixas: jogador=±1; arestas: ±1; vértices: 0)",
+  "cnn_valor": -1,
+  "jogada_mm": "H_6_3",
+  "scores_mm": {
+    "H_0_3": -2,
+    "H_0_5": -1,
+    "V_1_0": -2,
+    "V_1_2": -2,
+    "V_1_6": -1,
+    "V_3_0": -2,
+    "V_3_4": -4,
+    "H_4_1": -2,
+    "H_4_3": -4,
+    "H_4_5": -4,
+    "V_5_0": -1,
+    "V_5_4": -4,
+    "H_6_1": -2,
+    "H_6_3": 1,
+    "V_7_0": -2,
+    "V_7_4": -1,
+    "V_7_6": 1,
+    "H_8_3": 1,
+    "H_8_5": 1
+  },
+  "score_max": 1,
+  "score_min": -4,
+  "jogadas_otimas": [
+    "H_6_3",
+    "H_8_3",
+    "H_8_5",
+    "V_7_6"
+  ],
+  "jogadas_piores": [
+    "H_4_3",
+    "H_4_5",
+    "V_3_4",
+    "V_5_4"
+  ],
+  "prof_mm": 5,
+  "n_tracos_antes": 12,
+  "fase": "meio",
+  "titulo_extra": "part 1003 jog 13 (Minimax(p=5))",
+  "partida_idx": 1003,
+  "cnn_primeiro": false,
+  "adversario": "Minimax(p=5)",
+  "numero_jogada": 13,
+  "n_grau3_disponivel": 0
+}
