@@ -207,10 +207,16 @@ def detectar_estruturas(estado: EstadoTabuleiro) -> list[Estrutura]:
     altura, largura = matriz.shape
 
     grau_2: set[tuple[int, int]] = set()
+    grau_3_aberto: set[tuple[int, int]] = set()
     for br in range(1, altura, 2):
         for bc in range(1, largura, 2):
-            if _eh_grau_2_aberto(estado, br, bc):
+            if matriz[br, bc] != 0:
+                continue
+            grau = _grau_jogo(estado, br, bc)
+            if grau == 2:
                 grau_2.add((br, bc))
+            elif grau == 3:
+                grau_3_aberto.add((br, bc))
 
     juncoes: set[tuple[int, int]] = set()
     for br in range(1, altura, 2):
@@ -218,7 +224,7 @@ def detectar_estruturas(estado: EstadoTabuleiro) -> list[Estrutura]:
             if _eh_juncao(estado, br, bc, grau_2):
                 juncoes.add((br, bc))
 
-    nodes = grau_2 | juncoes
+    nodes = grau_2 | grau_3_aberto | juncoes
     adj = _adjacencia_dual(estado, nodes)
 
     visitadas: set[tuple[int, int]] = set()
@@ -313,9 +319,11 @@ def detectar_estruturas(estado: EstadoTabuleiro) -> list[Estrutura]:
 def estrutura_ativa(
     estado: EstadoTabuleiro, caixas_grau_3_lista: list[tuple[int, int]]
 ) -> Estrutura | None:
-    """Devolve a estrutura adjacente às caixas grau-3 informadas, se houver
-    apenas uma estrutura tocada por TODAS as caixas grau-3 (i.e., elas
-    pertencem ao final da mesma corrente/ciclo). Caso contrário, None.
+    """Devolve a estrutura que CONTÉM todas as caixas grau-3 informadas,
+    se houver exatamente uma. Caso contrário, None.
+
+    Com caixas grau-3 incluídas em `detectar_estruturas`, basta verificar
+    pertinência direta (subset) em vez de adjacência.
     """
     if not caixas_grau_3_lista:
         return None
@@ -323,21 +331,10 @@ def estrutura_ativa(
     if not estruturas:
         return None
 
-    shape = estado.matriz.shape
+    grau_3_set = set(caixas_grau_3_lista)
     candidatas: list[Estrutura] = []
     for est in estruturas:
-        toca_todas = True
-        for cx in caixas_grau_3_lista:
-            adjacentes = set()
-            for ar in _arestas_livres_da_caixa(estado, *cx):
-                op = _caixa_oposta(ar, cx, shape)
-                if op is not None:
-                    adjacentes.add(op)
-            adjacentes.add(cx)
-            if not (set(est.caixas) & adjacentes):
-                toca_todas = False
-                break
-        if toca_todas:
+        if grau_3_set <= set(est.caixas):
             candidatas.append(est)
 
     if len(candidatas) != 1:
@@ -362,21 +359,48 @@ def _eh_subsequencia_contigua_no_ciclo(
 def trigger_double_dealing(
     estrutura: Estrutura | None, caixas_grau_3_lista: list[tuple[int, int]]
 ) -> bool:
-    """True quando as caixas_grau_3 são exatamente as 2 últimas de uma
-    corrente longa OU as 4 últimas de um ciclo (ciclo de 4 → todas as 4)."""
+    """True quando as caixas grau-3 estão numa extremidade de uma corrente
+    longa (≥ 3) com exatamente 2 caixas não-grau-3 restantes na outra
+    extremidade, OU formam ≥ 4 caixas contíguas de um ciclo.
+
+    A condição 'exatamente 2 restantes' garante que o trigger dispara apenas
+    quando o agente está no ponto correto da cascata — com 2 caixas grau-2
+    para oferecer ao adversário via double-cross.
+    """
     if estrutura is None or not caixas_grau_3_lista:
         return False
     grau_3_set = set(caixas_grau_3_lista)
 
     if estrutura.tipo == "corrente" and estrutura.eh_corrente_longa:
-        if len(caixas_grau_3_lista) != 2:
+        caixas = estrutura.caixas
+        n = len(caixas)
+        n_g3 = len(grau_3_set & set(caixas))
+        if n_g3 == 0:
             return False
-        ultimas = set(estrutura.caixas[-2:])
-        primeiras = set(estrutura.caixas[:2])
-        return grau_3_set == ultimas or grau_3_set == primeiras
+        n_remaining = n - n_g3
+        if n_remaining != 2:
+            return False
+        # Grau-3 deve ser contíguo numa extremidade
+        from_start = 0
+        for c in caixas:
+            if c in grau_3_set:
+                from_start += 1
+            else:
+                break
+        if from_start == n_g3:
+            return True
+        from_end = 0
+        for c in reversed(caixas):
+            if c in grau_3_set:
+                from_end += 1
+            else:
+                break
+        if from_end == n_g3:
+            return True
+        return False
 
     if estrutura.tipo == "ciclo":
-        if len(caixas_grau_3_lista) != 4:
+        if len(caixas_grau_3_lista) < 4:
             return False
         if estrutura.tamanho == 4:
             return grau_3_set == set(estrutura.caixas)
@@ -402,17 +426,30 @@ def primeira_aresta_de_captura(
     return aresta_que_fecha(estado, grau_3_na_estrutura[0])
 
 
+def _par_sacrificio_corrente(
+    estrutura: Estrutura, estado: EstadoTabuleiro
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Retorna as 2 caixas grau-2 a sacrificar (extremidade oposta à abertura
+    grau-3). Usada para correntes longas no cenário de double-dealing."""
+    caixas = estrutura.caixas
+    if _grau_jogo(estado, *caixas[0]) == 3:
+        # Abertura no início → sacrificar as últimas 2
+        return caixas[-2], caixas[-1]
+    else:
+        # Abertura no fim (ou sem grau-3 explícito) → sacrificar as primeiras 2
+        return caixas[0], caixas[1]
+
+
 def aresta_double_cross(
     estrutura: Estrutura, estado: EstadoTabuleiro
 ) -> str:
-    """Aresta de double-cross: a aresta INTERNA entre as 2 últimas caixas
-    grau-3 (corrente) ou entre 2 das 4 últimas caixas (ciclo). Fechá-la
-    transforma o sacrifício — o adversário recebe duas caixas e re-entrega o
-    turno."""
+    """Aresta de double-cross: a aresta INTERNA entre as 2 caixas grau-2 a
+    serem sacrificadas. Preenchê-la faz ambas saltarem para grau-3, oferecendo-as
+    ao adversário sem pontuar."""
     if estrutura.tipo == "corrente":
-        if estrutura.tamanho < 2:
+        if estrutura.tamanho < 3:
             raise ValueError("Corrente curta demais para double-cross.")
-        a, b = estrutura.caixas[-2], estrutura.caixas[-1]
+        a, b = _par_sacrificio_corrente(estrutura, estado)
         return _aresta_entre_caixas(a, b)
     if estrutura.tipo == "ciclo":
         if estrutura.tamanho < 4:
@@ -451,35 +488,18 @@ def estado_apos_captura_completa(
 def estado_apos_double_cross(
     estado: EstadoTabuleiro, estrutura: Estrutura, jogador: int
 ) -> EstadoTabuleiro:
-    """Simula o jogador executando double-cross: captura toda a estrutura
-    EXCETO as 2 últimas caixas, então fecha a aresta entre elas (sacrifício).
+    """Simula o jogador executando o double-cross: preenche a aresta de
+    sacrifício entre as 2 caixas grau-2 na extremidade oposta à abertura.
+
+    Como `escolher_jogada` retorna UMA aresta por chamada, a ação do
+    double-cross é um único movimento: preencher a aresta entre as 2 caixas
+    a sacrificar (ambas grau-2 → ambas viram grau-3, sem pontuar).
     Retorna estado clonado pós-sacrifício.
     """
     novo = estado.clonar()
-    if estrutura.tipo == "corrente":
-        a_preservar = set(estrutura.caixas[-2:])
-    elif estrutura.tipo == "ciclo":
-        a_preservar = set(estrutura.caixas[-2:])
-    else:
-        raise ValueError(
-            f"Estrutura tipo {estrutura.tipo!r} não suporta double-cross."
-        )
-
-    while True:
-        grau_3 = [
-            c
-            for c in estrutura.caixas
-            if c not in a_preservar and _grau_jogo(novo, *c) == 3
-        ]
-        if not grau_3:
-            break
-        grau_3.sort()
-        aresta = aresta_que_fecha(novo, grau_3[0])
-        novo.aplicar_traco(aresta, jogador)
-
     aresta_dc = aresta_double_cross(estrutura, estado)
-    if novo.matriz[
-        int(aresta_dc.split("_")[1]), int(aresta_dc.split("_")[2])
-    ] == 0:
+    r = int(aresta_dc.split("_")[1])
+    c = int(aresta_dc.split("_")[2])
+    if novo.matriz[r, c] == 0:
         novo.aplicar_traco(aresta_dc, jogador)
     return novo
