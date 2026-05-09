@@ -318,13 +318,36 @@ A faixa de preenchimento atual é **15% a 85%** (5 a 26 traços) — *o ponto on
 **Distribuição alvo (peso relativo por nº de traços):**
 
 ```
-Peso por traço (forma de U invertido enviesada para o fim):
-- 5–11 traços (abertura):      peso 0.5    →  ~10% das amostras
-- 12–17 traços (1ª metade):    peso 1.0    →  ~20% das amostras
-- 18–23 traços (2ª metade):    peso 1.7    →  ~28% das amostras
-- 24–28 traços (fase quente):  peso 2.5    →  ~32% das amostras
-- 29–30 traços (final):        peso 1.5    →  ~10% das amostras
+Distribuição final (total = 500.000):
+- 5–11 traços (abertura):      11,10% das amostras ( 55.501) — peso relativo 0.5
+- 12–17 traços (1ª metade):    31,52% das amostras (157.588) — peso relativo 1.0
+- 18–23 traços (2ª metade):    44,12% das amostras (220.623) — peso relativo 1.7
+- 24–28 traços (fase quente):  13,16% das amostras ( 65.792) — CAPEADO (ver nota abaixo)
+- 29–30 traços (final):         0,10% das amostras (    496) — CAPEADO (ver nota abaixo)
 ```
+
+> **Notas de revisão (2026-05-08):**
+>
+> **Bucket (29–30):** apenas C(31,29)+C(31,30) = 465+31 = **496 estados únicos possíveis**
+> no tabuleiro 4×3. Limite físico absoluto — 100% do espaço foi coletado.
+> (Originalmente peso 1.5 → 10% = 50.000. Fisicamente inviável.)
+>
+> **Bucket (24–28):** C(31,24..28) = 991.333 estados teóricos, mas o autoplay
+> Minimax p=2 (sim_l2) e p=3 (sim_l3) converge para ~**57.020 posições práticas**,
+> pois ambos seguem trajetórias de partidas "razoáveis" que cobrem apenas uma fração
+> do espaço teórico. Mode_0 (uniform) contribuiu ~9.170 adicionais. Total coletado:
+> **65.792 únicos** — espaço prático esgotado.
+>
+> **Redistribuição:** a cota liberada de (24–28) foi redistribuída em razão 20:28
+> para (12–17) (+46.587) e (18–23) (+65.222), mantendo o total em 500.000.
+>
+> Ver `docs/historico_decisoes.md` (entrada 2026-05-08) para diagnóstico completo.
+>
+> **Revisão 2026-05-08 rev.5 — Consolidação empírica final:**
+> mode_2 (sim_l2) também satura nos buckets (12–17) e (18–23). Cotas capeadas nos
+> únicos reais; excedente redistribuído para mode_3. Distribuição final consolidada
+> (**499.997 estados**): 55.501 / 169.875 / 223.551 / 50.867 / 203.
+> Mix gen_mode real: 5,00% / 40,06% / 54,94% — praticamente inalterado do alvo.
 
 A **manutenção de uma fração mínima (~10%) de amostras de abertura** é deliberada: a CNN precisa lidar com adversários "irracionais" que joguem aleatoriamente também. Sem essa cobertura ela pode regredir contra Minimax(p=1).
 
@@ -745,11 +768,77 @@ Mix gen_mode alvo final (500k):
 - gen_mode 2 (sim_l2): 83.097 (23,95% do complemento) ← chega aos 40% finais após somar os 116.903 aproveitados.
 - gen_mode 3 (sim_l3): 260.187 (74,98% do complemento) ← peso alto porque o dataset antigo praticamente não tinha sim_l3 (apenas 14.813 únicos = 4,9%).
 
-**Estimativa de tempo de geração:**
+**Estimativa de tempo de geração (original):**
 
 - Cluster Databricks padrão (12 workers, ~72 amostras/s com Minimax(p=9) em V4 otimizado): **347.020 / 72 ≈ 4.820 s ≈ 1,34 h**.
 - Cluster maior (24 workers, ~144 amostras/s): **~0,67 h**.
-- Pior caso (faixa 29–30 é mais cara — Minimax esgota mais nós sem poda agressiva): adicionar ~30% de margem → **~1,7 h** no cluster padrão.
+
+---
+
+> **Revisão 2026-05-08 rev.3 — Saturação dos buckets (29–30) e (24–28); redistribuição final:**
+>
+> **Bucket (29–30):** apenas C(31,29)+C(31,30) = 465+31 = **496 estados únicos possíveis**.
+> Todos os 496 coletados — espaço 100% esgotado.
+>
+> **Bucket (24–28):** C(31,24..28) = 991.333 teórico, mas o autoplay Minimax p=2/p=3
+> (sim_l2/sim_l3) converge para ~**57.020 posições práticas**. Mode_0 contribuiu ~9.170
+> adicionais. Total coletado: **65.792 únicos** — espaço prático esgotado.
+>
+> **Bucket (12–17) concluído:** 166.099 coletados, acima do novo alvo de 157.588.
+>
+> **Redistribuição final (total = 500.000):**
+>
+> | Bucket | Amostras | % | Limite físico/prático |
+> |---|---:|---:|---|
+> | 5–11 | 55.501 | 11,10% | — |
+> | 12–17 | 157.588 | 31,52% | — |
+> | 18–23 | 220.623 | 44,12% | — |
+> | 24–28 | **65.792** | **13,16%** | C(31,24..28)=991.333 teórico; ~57.020 prático (autoplay) |
+> | **29–30** | **496** | **0,10%** | C(31,29)+C(31,30) = 465+31 = **496** |
+>
+> **COMPLEMENTO_POR_CELULA final (V5_Local rev.3)** — gera 12.542 estados em (18,23):
+>
+> ```python
+> COMPLEMENTO_POR_CELULA = {
+>     0: {(5, 11): 0, (12, 17): 0, (18, 23):   627, (24, 28): 0, (29, 30): 0},
+>     2: {(5, 11): 0, (12, 17): 0, (18, 23): 5_017, (24, 28): 0, (29, 30): 0},
+>     3: {(5, 11): 0, (12, 17): 0, (18, 23): 6_898, (24, 28): 0, (29, 30): 0},
+> }
+> # Total: 12_542
+> ```
+>
+> Shortfall esperado no consolidado: até **~6.000 estados** (295 de (29–30) por mode
+> distribution + até ~5.500 de (24–28) por saturação do autoplay). Desvio < 1,2%.
+>
+> Ver `docs/historico_decisoes.md` (entrada 2026-05-08) para diagnóstico completo.
+
+> **Revisão 2026-05-08 rev.5 — Consolidação final concluída (499.997 estados):**
+>
+> A rev.3 subestimava a saturação do autoplay mode_2 (sim_l2) nos buckets (12–17)
+> e (18–23). Após contagem exata dos únicos disponíveis em todas as fontes
+> (legado + v5_databricks + v5_local), **todas as cotas foram capeadas nos
+> valores reais** e o excedente redistribuído para mode_3 (que tinha excedente
+> de únicos em (12–17) e (18–23)).
+>
+> **Distribuição final consolidada (rev.5, total = 499.997):**
+>
+> | Bucket | Amostras | % |
+> |---|---:|---:|
+> | 5–11 | 55.501 | 11,10% |
+> | 12–17 | 169.875 | 33,98% |
+> | 18–23 | 223.551 | 44,71% |
+> | 24–28 | 50.867 | 10,17% |
+> | 29–30 | 203 | 0,04% |
+>
+> **Mix gen_mode:** mode_0 = 5,00% | mode_2 = 40,06% | mode_3 = 54,94%
+> (praticamente inalterado do alvo 5/40/55).
+>
+> **Origem dos aceitos:** legado = 168.661 | v5_databricks = 181.456 | v5_local = 149.880.
+>
+> **Shortfall final: 3 estados** (arredondamento — irrelevante).
+> Auditoria OK. Pronto para `Enriquece_NPZ_Com_Canais.ipynb`.
+>
+> Ver `docs/historico_decisoes.md` (entrada 2026-05-08 rev.5).
 
 #### Fase A.1 — Notebook de geração no Databricks (complemento dos 314k → 500k únicos)
 

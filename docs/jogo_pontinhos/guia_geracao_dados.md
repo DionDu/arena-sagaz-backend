@@ -32,6 +32,195 @@ pip install -r requirements.txt
 
 ---
 
+## 1C. Pipeline V7 — Adaptativo (DAC) `Geracao_Amostras_v7_adaptativo.ipynb`
+
+> **Pipeline atual** acordado em 2026-05-08 (ver `docs/historico_decisoes.md`,
+> entrada V7). Substitui o V6 (§1B) por profundidade Minimax adaptativa,
+> Boltzmann sampling e snapshots por partida. Fundamentação completa em
+> `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md`.
+
+### Visão geral
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Fase 1 — Geração de estados via DAC                                      │
+│   Notebook:  notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb│
+│   Workers:   gerador_dados/jogo_pontinhos/gerador_amostras_v7_pontinhos.py│
+│   Saída:     dados/profundidade_minmax_7_adaptativo/dataset_pequeno_*.npz│
+│              (campos da Fase 2 como placeholder)                         │
+│   Algoritmo: Minimax(p adaptativo por τ) + Boltzmann(T(t)).              │
+│              30 snapshots/partida. Sem faixas, sem quotas.               │
+│   Meta:      ≥ 500.000 estados DISTINTOS                                  │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼  (mesmo notebook, célula seguinte)
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Fase 2 — Cálculo da melhor jogada (Minimax p=7)                          │
+│   - Coleta estados únicos cobrindo TODOS os NPZs pendentes               │
+│   - Roda `melhor_jogada_com_scores` em paralelo (cache por hash)         │
+│   - Reescreve cada NPZ atomicamente (.tmp.npz + os.replace), populando   │
+│     melhor_jogada, score_melhor_jogada, depth_melhor_jogada.             │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### Schema do NPZ V2
+
+| Campo | Shape | Dtype | Fase | Descrição |
+|---|---|---|---|---|
+| `estados` | `(N, 9, 7)` | `int8` | 1 | Matriz neutra `{0,1,8,9}` |
+| `qtd_tracos` | `(N,)` | `int8` | 1 | Número de traços (1..30) |
+| `score_jogada` | `(N, 31)` | `float32` | 1 | Scores Minimax(p adaptativo) no estado atual |
+| `depth_jogada` | `(N,)` | `int8` | 1 | Profundidade Minimax usada NESTE estado |
+| `depth_geracao` | `(N,)` | `int8` | 1 | Profundidade Minimax usada no estado anterior |
+| `melhor_jogada` | `(N,)` | `<U5` | 2 | Argmax de `score_melhor_jogada` |
+| `score_melhor_jogada` | `(N, 31)` | `float32` | 2 | Scores Minimax(p=7) — **verdade-padrão para treino** |
+| `depth_melhor_jogada` | `(N,)` | `int8` | 2 | Profundidade Minimax usada (=7) |
+| `labels_canonicos` | `(31,)` | `<U5` | 1 | Ordem dos slots de score |
+
+### Como rodar
+
+```powershell
+.venv\Scripts\activate
+jupyter lab notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb
+```
+
+Execute as células sequencialmente:
+
+1. **§2 (Recuperação)** — varre `dados/profundidade_minmax_7_adaptativo/`
+   e mostra estados distintos já gerados. Permite retomada idempotente.
+2. **§3 (Fase 1)** — `fase1_gerar(...)` aciona `ProcessPoolExecutor` com
+   `cpu_count()-2` workers. Cada partida emite 30 snapshots (t=1..30).
+   Loop até atingir 500k distintos, depois drena partidas em curso.
+3. **§4 (Fase 2)** — `fase2_scoring()` coleta estados únicos pendentes,
+   roda Minimax(p=7) em paralelo (cache por bytes do tabuleiro) e
+   reescreve cada NPZ atomicamente.
+4. **§5 (Auditoria)** — sanidade do dataset final (domínio do tensor,
+   distribuição por `qtd_tracos`, distribuição de profundidades).
+
+### Retomada
+
+- Interromper qualquer célula → re-executar a partir da §2 reconstrói o
+  estado e continua de onde parou. O último lote em buffer (sub-5.000)
+  é perdido se a Fase 1 cair antes do flush — aceitável.
+- Fase 2 é idempotente: NPZs com `melhor_jogada[0] != ""` são pulados.
+
+### Notas de implementação
+
+- **Algoritmo DAC** está documentado em detalhe (fórmulas, exemplo de
+  partida turno-a-turno, distribuição emergente esperada e justificativa
+  dos pesos) em `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md`.
+  Esse documento é o material de referência para o TCC.
+- **Formato neutro** segue o contrato §`contexto_1_geracao_dataset` em
+  `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json`.
+- **Duplicatas são gravadas no NPZ** — apenas o set de hashes em memória
+  é usado para contar distintos e disparar o stop. Dedup ocorre no
+  notebook de treino.
+- **30 estados por partida** (t=1..30); t=0 (vazio) e t=31 (terminal) são
+  descartados.
+- **Ordem dos campos `score_jogada` vs `score_melhor_jogada`**:
+  `score_jogada` vem de Minimax raso (p adaptativo, qualidade variável)
+  e serve para análise/curriculum. `score_melhor_jogada` é a verdade-padrão
+  para treino. Não confundir.
+
+---
+
+## 1B. Pipeline V6 — Notebook único `Geracao_Amostras_v6.ipynb`
+
+> **Pipeline anterior**, substituído pelo V7 adaptativo (§1C). Mantido aqui
+> para referência histórica e para auditar NPZs já gerados em
+> `dados/profundidade_minmax_7_corrigido/`. Não usar para novas rodadas.
+
+> Pipeline acordado em 2026-05-08 (ver `docs/historico_decisoes.md`).
+> Substitui o fluxo V5 (Databricks + V5_Local + consolidação) por um único
+> notebook local em duas fases, sem dependência de Databricks.
+
+### Visão geral
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Fase 1 — Geração de estados                                              │
+│   Notebook:  notebooks/jogo_pontinhos/Geracao_Amostras_v6.ipynb          │
+│   Workers:   gerador_dados/jogo_pontinhos/gerador_amostras_v6_pontinhos.py │
+│   Saída:     dados/profundidade_minmax_7_corrigido/dataset_pequeno_*.npz │
+│              (rotulos vazios, scores = -1e9 — placeholder)               │
+│   Modo:      95% autoplay Minimax(p=3) × Minimax(p=3) | 5% aleatório     │
+│   Quotas:    501.500 estados DISTINTOS por faixa de traços               │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼  (mesmo notebook, célula seguinte)
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Fase 2 — Cálculo da melhor jogada (Minimax p=7)                          │
+│   - Coleta estados únicos cobrindo TODOS os NPZs                         │
+│   - Roda `melhor_jogada_com_scores` em paralelo (cache por hash)         │
+│   - Reescreve cada NPZ atomicamente (.tmp + os.replace), populando       │
+│     rotulos e scores; estados/generation_mode preservados.               │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### Distribuição-alvo (estados distintos, 501.500 no total)
+
+| Faixa de traços | Quota | % |
+|---|---:|---:|
+| 5–11 (abertura) | 55.000 | 10,97% |
+| 12–17 (1ª metade) | 160.000 | 31,90% |
+| 18–23 (2ª metade) | 220.000 | 43,87% |
+| 24–28 (fase quente) | 66.000 | 13,16% |
+| 29–30 (final) | 500 | 0,10% |
+
+### Schema do NPZ (idêntico ao de referência)
+
+| Campo | Shape | Dtype |
+|---|---|---|
+| `estados` | `(N, 9, 7)` | `int8` (domínio `{0, 1, 8, 9}`) |
+| `rotulos` | `(N,)` | `<U5` |
+| `scores` | `(N, 31)` | `float32` |
+| `generation_mode` | `(N,)` | `int8` — `0`=aleatório, `3`=autoplay p=3 |
+| `labels_canonicos` | `(31,)` | `<U5` |
+| `minimax_depth` | `(1,)` | `int32` (= 7) |
+
+### Como rodar
+
+```powershell
+# Ative o venv e abra o Jupyter
+.venv\Scripts\activate
+jupyter lab notebooks/jogo_pontinhos/Geracao_Amostras_v6.ipynb
+```
+
+Execute as células sequencialmente. As três etapas principais:
+
+1. **Célula §2 (Recuperação)** — varre `dados/profundidade_minmax_7_corrigido/`
+   e mostra o progresso por faixa. Permite retomada: o estado é **inteiramente
+   reconstruído a partir do diretório**, sem sidecar JSON.
+2. **Célula §3 (Fase 1)** — chama `fase1_gerar(...)` que aciona um
+   `ProcessPoolExecutor` com `cpu_count()-2` workers (Ryzen 7 5700X → 14
+   workers). Logs a cada 30 s e a cada NPZ salvo.
+3. **Célula §4 (Fase 2)** — `fase2_scoring()` colete o set de estados únicos
+   pendentes, roda Minimax(p=7) em paralelo (cache por bytes do tabuleiro)
+   e reescreve cada NPZ atomicamente.
+
+### Retomada
+
+- Interromper qualquer célula → re-executar a partir da §2 reconstrói o
+  estado e continua de onde parou. O último lote em buffer (sub-5.000)
+  é perdido se a Fase 1 cair antes do flush — aceitável, basta deixar o
+  motor gerar mais alguns estados.
+- Fase 2 é idempotente: NPZs com `rotulos[0] != ""` são pulados.
+
+### Notas de implementação
+
+- **Formato neutro `{0,1,8,9}`** segue o contrato §`contexto_1_geracao_dataset`
+  em `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json`. A
+  conversão de matriz live → neutra é **posicional** (par/ímpar), não por
+  valor — evita ambiguidade entre traço `+1` e caixa fechada `+1`.
+- **Determinismo**: o main usa `SEED_GLOBAL` para sortear modo (random/auto)
+  e seed por worker; cada worker reseta `random.seed(...)` para o
+  desempate aleatório do Minimax ficar reproduzível por chamada.
+- **Distintos**: chave do set é `estados[i].tobytes()` da matriz já neutra.
+  Tabuleiros gerados por modos diferentes mas estruturalmente idênticos
+  contam como uma única amostra distinta.
+
+---
+
 ## 1A. Pipeline V5/V6 — Fase A.1 + A.2 (cobertura terminal expandida + 11 canais)
 
 > Esta seção documenta o **pipeline atual** definido em `specs/004-melhoria-geracao-dados-cnn/`.
@@ -86,40 +275,78 @@ pip install -r requirements.txt
 Quando não há cluster Databricks pago disponível e o serverless free é
 inviável (overhead de Spark domina; ver entrada 2026-05-07 em
 `docs/historico_decisoes.md`), o pipeline A.1 pode rodar **inteiramente
-local** com `multiprocessing`. A lógica é a mesma do PRD §4.1.3 (loop por
-cota com `COMPLEMENTO_POR_CELULA`, dedup contra `hashes_iniciais`).
+local** com `multiprocessing`. A lógica é a mesma do PRD §4.1.3 rev.3
+(loop por cota com `COMPLEMENTO_POR_CELULA`, dedup contra `hashes_iniciais`).
+
+> **Estado atual (2026-05-08 rev.5 — CONSOLIDAÇÃO CONCLUÍDA):**
+> `Consolidar_500k_Final.ipynb` executado com sucesso — **499.997 estados únicos**
+> (shortfall residual: 3, arredondamento).
+> Distribuição: 55.501 / 169.875 / 223.551 / 50.867 / 203.
+> Mix gen_mode: 5,00% / 40,06% / 54,94%.
+> Origem: legado=168.661, v5_databricks=181.456, v5_local=149.880.
+> Saída: 100 NPZs em `dados/profundidade_minmax_9/`.
+> **Próximo passo: executar `Enriquece_NPZ_Com_Canais.ipynb` (Fase A.2).**
 
 **Artefatos:**
 
 - `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5_Local.ipynb` — notebook orquestrador.
 - `notebooks/jogo_pontinhos/v5_local_engine.py` — engine importável pelos
-  workers spawnados (precisa ser `.py`, não pode estar em célula Jupyter,
-  porque `multiprocessing` no Windows usa modo `spawn`).
+  workers spawnados (precisa ser `.py` porque `multiprocessing` no Windows usa `spawn`).
+
+**Como rodar (para nova geração do zero ou retomada):**
+
+1. **Pré-requisito**: legado em `dados/profundidade_minmax_9/` e
+   V5_Databricks em `dados/profundidade_minmax_9_v5_databricks/` presentes.
+2. Abrir o notebook em VS Code/Jupyter local. Editar `REPO_ROOT` se necessário.
+3. Atualizar `COMPLEMENTO_POR_CELULA` com os alvos por célula (ver PRD §4.1.3).
+4. Executar todas as células sequencialmente. O loop principal:
+   - Pré-popula `hashes_iniciais` com legado + v5_databricks.
+   - Checkpoint lê v5_local existente e decrementa cotas (retoma de onde parou).
+   - Sorteia `(gen_mode, bucket)` ponderado por cota residual.
+   - Pool de `cpu_count()-1` workers gera, dedup, decrementa cota.
+   - Para quando todas as cotas zeram.
+5. **Saída**: `dados/profundidade_minmax_9_v5_local/dataset_pequeno_*.npz`.
+
+**Quando preferir Databricks:** geração massiva em cluster pago dedicado.
+Free serverless **não** é recomendado.
+
+#### 1A.1.cons — Consolidação ~500k (novo passo, entre A.1 e A.2)
+
+A geração da Fase A.1 produz **três diretórios** (consolidado em 2026-05-08 rev.5):
+
+| Diretório | Conteúdo | Aceitos na consolidação |
+|---|---|---:|
+| `dados/profundidade_minmax_9_desbalanceado/` | Legado V4 | 168.661 |
+| `dados/profundidade_minmax_9_v5_databricks/` | V5 Databricks | 181.456 |
+| `dados/profundidade_minmax_9_v5_local/` | V5 Local | 149.880 |
+| **Total consolidado** | | **499.997 únicos** |
+
+**Distribuição final consolidada (rev.5):**
+
+| Bucket | Consolidado | % |
+|---|---:|---:|
+| 5–11 | 55.501 | 11,10% |
+| 12–17 | 169.875 | 33,98% |
+| 18–23 | 223.551 | 44,71% |
+| 24–28 | 50.867 | 10,17% — CAPEADO (autoplay satura) |
+| 29–30 | 203 | 0,04% — LIMITE FÍSICO |
+
+**Notebook:** `notebooks/jogo_pontinhos/Consolidar_500k_Final.ipynb`.
 
 **Como rodar:**
 
-1. **Pré-requisito**: NPZ legado V4 em `dados/profundidade_minmax_9/`
-   (314.323 únicos esperados).
-2. Abrir o notebook V5_Local em VS Code/Jupyter local. Editar `REPO_ROOT`
-   na célula de parâmetros se a árvore do repositório não estiver no
-   caminho default.
-3. Executar todas as células sequencialmente. O loop principal:
-   - Pré-popula `hashes_iniciais` com os 314.323 do legado.
-   - Sorteia `(gen_mode, bucket)` ponderado por cota residual em
-     `COMPLEMENTO_POR_CELULA`.
-   - Pool de `cpu_count()-1` workers gera amostras com `gen_mode` e
-     `target_tracos` forçados, retornando até 20 tentativas por task.
-   - Main deduplica por `mat.tobytes()`, decrementa cota, grava NPZ a cada
-     `TAMANHO_LOTE = 5.000` estados.
-   - Para quando todas as cotas zeram (347.020 estados novos).
-4. **Saída**: `dados/profundidade_minmax_9_v5_local/dataset_pequeno_*.npz`
-   (mesmo schema do V5 Databricks).
-5. Auditoria final compara cotas alvo vs preenchidas e confere
-   distribuição combinada (legado + rodada) dentro de ±2pp por bucket.
+1. Abrir `Consolidar_500k_Final.ipynb`. Editar `REPO_ROOT` se necessário.
+2. Executar todas as células sequencialmente.
+   - **Passo 1**: lê legado, aceita até `cota_alvo[m,b]` rev.5 (descarta `sim_l1`,
+     bucket `<5` e `>30`, duplicatas, excedentes).
+   - **Passo 2**: lê v5_databricks + v5_local, completa células abertas.
+   - **Gravação**: embaralha global (seed=42), grava 100 NPZs em
+     `dados/profundidade_minmax_9/dataset_pequeno_*.npz`.
+   - **Auditoria**: confere total ≥ 499.000 (shortfall ≤ 1.000 aceito),
+     dedup, desvio por bucket ≤ ±2pp, `sim_l1 == 0`.
 
-**Quando preferir Databricks:** geração massiva em cluster pago dedicado
-(maior paralelismo do que máquina única). Free serverless **não** é
-recomendado.
+**Saída**: `dados/profundidade_minmax_9/` com **499.997 estados únicos**
+(100 NPZs), prontos para a Fase A.2.
 
 ### 1A.2 — Fase A.2 local: enriquecer NPZ com 11 canais
 
@@ -132,7 +359,12 @@ py -c "from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import 
 Abra `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb` (Jupyter, Colab ou VSCode). Configure:
 
 ```python
-DIR_NPZ = '/caminho/para/profundidade_9'   # diretório baixado da Fase A.1
+# Para o pipeline novo (V5_Local + consolidação):
+DIR_NPZ = 'dados/profundidade_minmax_9_final'   # saída do Consolidar_500k_Final.ipynb
+
+# Para o pipeline antigo (Databricks direto, sem consolidação):
+# DIR_NPZ = '/caminho/para/profundidade_9'      # diretório baixado da Fase A.1
+
 PADRAO  = 'dataset_pequeno_*.npz'
 FORCAR_REGRAVAR = False                    # True só se o algoritmo de canais mudar
 ```

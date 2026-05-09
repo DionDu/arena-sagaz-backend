@@ -6,6 +6,415 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-08 — Geração V7 Adaptativa (DAC): profundidade por tensão, Boltzmann e snapshots por partida
+
+### Contexto
+
+A V6 produziu ~488k distintos com saturação severa na faixa quente (24–28
+traços): 298 mil tentativas brutas para 53 mil distintos (~82% duplicatas).
+A meta de 500 distintos a 29–30 traços era **fisicamente impossível** —
+limite teórico do espaço é `C(31,29)+C(31,30) = 496`. Discussão em sessão
+de design propôs três mudanças combinadas que simplificam radicalmente o
+pipeline e eliminam o gargalo.
+
+### Decisão
+
+Criar `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb` (mais
+módulo `gerador_dados/jogo_pontinhos/gerador_amostras_v7_pontinhos.py`)
+implementando o algoritmo **DAC — Diversidade Adaptativa em Cascata**.
+
+**Quatro princípios:**
+
+1. **Profundidade adaptativa por tensão estrutural τ.**
+   τ = 4·c₃ + 2·c₂ + 0,5·c₁ (c_k = caixas com k lados preenchidos).
+   p(τ) = clamp(1 + ⌈τ/4⌉, 1, 8). Tabuleiro vazio tem p=1, endgame
+   tenso pode ter p=8. **Substitui o Minimax fixo do V6.**
+
+2. **Desempate por Boltzmann sampling com temperatura T(t) decrescente.**
+   T=1,5 (t<8) / 0,8 (t<18) / 0,5 (t<26) / 0,2 (t≥26). Substitui
+   `random.choice` entre top-1's.
+
+3. **30 snapshots por partida.** Cada partida joga do zero ao terminal e
+   emite UM estado por t∈[1,30] (descarta t=0 sempre-igual e t=31
+   terminal). Substitui o esquema "1 estado por worker".
+
+4. **Sem faixas/quotas.** Meta única: 500.000 estados distintos. A
+   distribuição emerge naturalmente bell-shaped: pontas (t pequeno e t
+   grande) saturam pelo teto teórico do espaço, midgame cresce com N.
+
+### Esquema do NPZ V2
+
+Diretório de saída: `dados/profundidade_minmax_7_adaptativo/`.
+
+| Campo | Shape | Dtype | Fase |
+|---|---|---|---|
+| `estados` | `(N, 9, 7)` | `int8` | 1 |
+| `qtd_tracos` | `(N,)` | `int8` | 1 |
+| `score_jogada` | `(N, 31)` | `float32` | 1 |
+| `depth_jogada` | `(N,)` | `int8` | 1 |
+| `depth_geracao` | `(N,)` | `int8` | 1 |
+| `melhor_jogada` | `(N,)` | `<U5` | 2 |
+| `score_melhor_jogada` | `(N, 31)` | `float32` | 2 |
+| `depth_melhor_jogada` | `(N,)` | `int8` | 2 |
+| `labels_canonicos` | `(31,)` | `<U5` | 1 |
+
+Renomeações vs V6: `rotulos` → `melhor_jogada`; `scores` → `score_melhor_jogada`.
+Removidos: `generation_mode`, `minimax_depth` (global).
+
+### Diferenças vs V6
+
+| Item | V6 | V7 |
+|---|---|---|
+| Profundidade autoplay | Fixa (p=3) | Adaptativa por τ (1..8) |
+| Desempate | `random.choice` entre top-1 | Boltzmann com T(t) |
+| Geração | 1 estado/worker | 30 estados/partida |
+| Faixas/quotas | 5 faixas com cotas rígidas | Sem faixas; meta única 500k |
+| Faixa 29–30 | Cota 500 (impossível) | Saturação natural |
+| `generation_mode` | 3 valores | Removido |
+| `qtd_tracos` | Derivado | Por estado |
+| Custo estimado | ~14h (Fase 1) | ~2–4h (Fase 1) |
+
+### Alternativas consideradas
+
+- **Manter faixas e ajustar quotas**: descartado. Mesmo com cotas
+  realistas (29–30 = 400), o pipeline continua complexo e o gargalo da
+  faixa quente persiste. A solução estrutural é pular a estratificação
+  imposta e deixar a distribuição emergir.
+- **Boot aleatório do meio (começar com K traços aleatórios)**:
+  descartado. A proposta do usuário de começar **sempre do tabuleiro
+  vazio** preserva realismo trajetorial — todos os estados gravados
+  estão no caminho de partidas legais — e a diversidade é garantida
+  por Boltzmann + ε-greedy.
+- **ε-greedy (movimentos uniformes ocasionais)**: descartado em favor
+  do Boltzmann puro. ε-greedy injeta movimentos absurdos no tabuleiro
+  vazio (ex.: lances que criam estruturas inúteis), o que pode produzir
+  estados pouco realísticos. Boltzmann com T alta faz exploração
+  "racional" — ainda escolhe entre lances dentro da árvore Minimax,
+  apenas com mais incerteza.
+- **Gravar duplicatas**: aceito. Stop por contagem de distintos em
+  memória; NPZ contém duplicatas (~770k brutos para 500k distintos).
+  Dedup acontece no notebook de treino. Isso simplifica a Fase 1 (sem
+  rejection) e permite estudar a distribuição empírica de jogos
+  reais (taxa de duplicação por t).
+- **Enumeração direta do endgame (29–30)**: descartado como
+  necessidade — a saturação natural da V7 cobre os 496 estados em ~600
+  partidas. Pode ser adicionada como passo final de auditoria se o
+  fechamento natural não cobrir 100% (raros estados não-alcançáveis
+  por trajetória legal).
+
+### Material de referência (TCC)
+
+Fundamentação técnica completa, com fórmulas, exemplos turno-a-turno,
+distribuição emergente esperada e justificativa dos pesos: ver
+`docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md`. Esse documento é a
+fonte canônica do desenho — entradas neste histórico só registram
+decisões e mudanças de rota.
+
+### Como rodar
+
+Ver `docs/jogo_pontinhos/guia_geracao_dados.md` §1C.
+
+---
+
+## 2026-05-08 — Geração V6: pipeline em 2 fases, autoplay p=3 e scoring p=7
+
+### Contexto
+
+A consolidação rev.5 produziu 499.997 estados, mas com `mode_2` (autoplay
+Minimax p=2 × p=2) saturado e dependente de três fontes diferentes
+(`legado` + `v5_databricks` + `v5_local`). Para a próxima rodada de treino
+quisemos um pipeline **único, reproduzível e local** — sem Databricks — com
+estados gerados num só motor.
+
+### Decisão
+
+Criar `notebooks/jogo_pontinhos/Geracao_Amostras_v6.ipynb` (mais módulo auxiliar
+`gerador_dados/jogo_pontinhos/gerador_amostras_v6_pontinhos.py`) que executa
+o pipeline em duas fases:
+
+1. **Fase 1 — Geração de estados** (95% autoplay Minimax(p=3) × Minimax(p=3),
+   5% tabuleiros aleatórios). Quotas por faixa de traços (alvo de
+   **distintos**, duplicatas gravadas mas não contam):
+
+   | Faixa | Quota distintos | % do total |
+   |---|---:|---:|
+   | 5–11 | 55.000 | 10,97% |
+   | 12–17 | 160.000 | 31,90% |
+   | 18–23 | 220.000 | 43,87% |
+   | 24–28 | 66.000 | 13,16% |
+   | 29–30 | 500 | 0,10% |
+   | **Total** | **501.500** | **100,00%** |
+
+2. **Fase 2 — Cálculo da melhor jogada**. Para cada estado **único** (cache
+   global por `mat.tobytes()` cobrindo TODOS os NPZs), roda
+   `melhor_jogada_com_scores(estado, profundidade=7)` e reescreve cada NPZ
+   atomicamente (`.tmp` + `os.replace`) preenchendo `rotulos` e `scores`.
+   Slots inválidos → `-1e9`. Empates no argmax → escolha aleatória.
+
+Saída: `dados/profundidade_minmax_7_corrigido/dataset_pequeno_NNNN.npz`,
+schema **idêntico** ao NPZ de referência
+(`dados/profundidade_minmax_9/dataset_pequeno_0001.npz`):
+
+| Campo | Shape | Dtype |
+|---|---|---|
+| `estados` | `(N, 9, 7)` | `int8` |
+| `rotulos` | `(N,)` | `<U5` |
+| `scores` | `(N, 31)` | `float32` |
+| `generation_mode` | `(N,)` | `int8` (`{0, 3}`) |
+| `labels_canonicos` | `(31,)` | `<U5` |
+| `minimax_depth` | `(1,)` | `int32` (= 7) |
+
+### Diferenças vs. rev.5
+
+| Item | rev.5 (V4/V5) | V6 (este notebook) |
+|---|---|---|
+| Fontes | 3 (legado + Databricks + local) | 1 (notebook local) |
+| `generation_mode` | {0, 2, 3} | **{0, 3}** — mode_2 abandonado |
+| Profundidade scoring | 9 | **7** |
+| Pipeline | 1 fase (estado+score juntos) | **2 fases** (estado primeiro, score depois) |
+| Cota | 500.000 distintos exatos | **501.500 distintos**, duplicatas extras gravadas |
+| Cache de scores | Não (cada estado recalculava) | **Sim** — duplicata reusa scoring do idêntico |
+
+### Alternativas consideradas
+
+- **Manter mode_2 (p=2)**: descartado. Saturação histórica deixa pouca
+  diversidade incremental e adiciona variação de qualidade no dataset
+  (Minimax p=2 é fraco em endgame). Padronizar tudo em p=3 simplifica.
+- **Profundidade de scoring = 9**: descartado para esta rodada — p=7 já é
+  muito mais forte que o que a CNN consegue aprender no treino atual e
+  reduz tempo total da Fase 2 de forma significativa. Pode ser elevado em
+  rodadas futuras se o gargalo passar a ser o scoring.
+- **Sidecar JSON com progresso (`progresso.json`)**: descartado por risco
+  de dessincronizar com os arquivos NPZ. O diretório de NPZ é a única fonte
+  da verdade; retomada reconstrói tudo a partir dele.
+- **Lote independente por worker (sem dedup global)**: descartado porque
+  permitia ultrapassar a cota de distintos por faixa antes do main perceber.
+  Adotado: workers stateless devolvem 1 amostra; main mantém set global de
+  hashes e fecha a faixa no momento exato.
+
+### Como rodar
+
+Ver `docs/jogo_pontinhos/guia_geracao_dados.md` §1B.
+
+---
+
+## 2026-05-08 rev.5 — Consolidação final concluída: 499.997 estados únicos
+
+### Contexto
+
+Após a rev.3 capear os buckets (29–30) e (24–28) e redistribuir para (12–17) e
+(18–23), a consolidação (`Consolidar_500k_Final.ipynb`) mostrou **51.777 estados
+faltantes**, concentrados em mode_2 (12,17) e mode_2 (18,23). Geração adicional
+pelo V5_Local (rev.4) reduziu o shortfall para **14.615** — mas era impossível
+chegar a zero porque **o autoplay sim_l2 (Minimax p=2 × p=2) também satura**:
+o espaço prático de trajetórias desse modo é finito e estava esgotado.
+
+### Diagnóstico — Saturação do autoplay mode_2
+
+Contagem exata de estados únicos por célula `(gen_mode, bucket)` em TODAS as fontes
+(legado + v5_databricks + v5_local):
+
+| Célula | Únicos disponíveis | Cota rev.4 | Déficit |
+|---|---:|---:|---:|
+| mode_2 (12,17) | 67.898 | 68.597 | 699 |
+| mode_2 (18,23) | 83.787 | 97.705 | 13.918 |
+| mode_2 (29,30) | 84 | 87 | 3 |
+| mode_3 (24,28) | 21.261 | 21.458 | 197 |
+| **Total** | | | **14.817** |
+
+### Decisão (rev.5)
+
+1. **Capear TODAS as cotas nos únicos reais disponíveis** — não apenas (24–28) e
+   (29–30) como na rev.3, mas também mode_2 (12,17), mode_2 (18,23) e mode_3 (24,28).
+2. **Redistribuir os 14.817 liberados para mode_3** em (12–17) e (18–23):
+   - mode_3 (18,23): 121.343 + 7.392 = **128.735** (cap no max disponível: 128.735)
+   - mode_3 (12,17): 86.674 + 7.425 = **94.099** (disponível: 104.010 >> 94.099)
+3. **Total = 500.000 exato** (sem shortfall esperado).
+
+### Resultado da consolidação final
+
+```
+Total consolidado: 499.997 (shortfall: 3 — arredondamento)
+100 NPZs em dados/profundidade_minmax_9/
+
+Distribuição por bucket:
+  (5, 11)    55,501  11.10%  OK
+  (12, 17)  169,875  33.98%  OK
+  (18, 23)  223,551  44.71%  OK
+  (24, 28)   50,867  10.17%  OK
+  (29, 30)      203   0.04%  OK
+
+Mix de gen_mode:
+  mode_0:  24,999 ( 5.00%)
+  mode_2: 200,285 (40.06%)
+  mode_3: 274,713 (54.94%)
+
+Origem dos aceitos:
+  legado:        168,661
+  v5_databricks: 181,456
+  v5_local:      149,880
+
+AUDITORIA OK — 0 duplicatas, sim_l1 = 0.
+```
+
+### Cotas finais por célula (rev.5)
+
+```python
+cota_alvo = {
+    (0, (5, 11)):  2_775,  (0, (12, 17)): 7_879,   (0, (18, 23)): 11_031,
+    (0, (24, 28)): 3_289,  (0, (29, 30)):    25,
+    (2, (5, 11)):  22_200, (2, (12, 17)): 67_898,   (2, (18, 23)): 83_787,
+    (2, (24, 28)): 26_317, (2, (29, 30)):    84,
+    (3, (5, 11)):  30_526, (3, (12, 17)): 94_099,   (3, (18, 23)): 128_735,
+    (3, (24, 28)): 21_261, (3, (29, 30)):    94,
+}
+# mode_0=24.999  mode_2=200.286  mode_3=274.715  total=500.000
+```
+
+### Alternativas consideradas
+
+- **Redistribuir para mode_2 (rev.4):** tentado primeiro — falhou porque mode_2
+  também satura. Autoplay sim_l2 gera trajetórias limitadas.
+- **Redistribuir proporcionalmente entre mode_2 e mode_3:** desnecessário —
+  mode_3 tem excedente de únicos em (12–17) e (18–23) suficiente para absorver
+  toda a redistribuição.
+- **Gerar mais mode_0 (uniform) para cobrir o déficit:** rejeitado —
+  mode_0 gera posições aleatórias sem estrutura estratégica.
+
+### Arquivos alterados nesta sessão
+
+- `notebooks/jogo_pontinhos/Consolidar_500k_Final.ipynb` — cotas rev.5, verificação simplificada, auditoria sem BUCKET_ALVO
+- `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5_Local.ipynb` — COMPLEMENTO_POR_CELULA atualizado (51.777 → geração concluída)
+- `specs/004-melhoria-geracao-dados-cnn/PRD.md` — nota rev.5 adicionada em §4.1.3
+- `docs/historico_decisoes.md` — esta entrada
+
+---
+
+## 2026-05-08 — Saturação dos buckets (29–30) e (24–28); redistribuição final; incorporação do V5_Databricks
+
+### Contexto
+
+Durante a Fase A.1 (`specs/004-melhoria-geracao-dados-cnn/`) o V5_Local gerou 195k
+amostras em ~4h da noite anterior (boa taxa: ~6k/s nas células fáceis). No resumo
+do dia seguinte, em 12 minutos apenas ~900 amostras foram aceitas — **taxa de
+duplicação de 98,6%**. Diagnóstico solicitado.
+
+### Diagnóstico — Bucket (29–30)
+
+O tabuleiro 4×3 com 31 arestas tem apenas **C(31,29)+C(31,30) = 465+31 = 496
+estados únicos possíveis** no bucket (29–30). A função `edges_to_matrix` no engine
+é **pura**: a matriz do jogo é função exclusiva do conjunto de arestas jogadas,
+independentemente do modo de geração (uniform/sim_l2/sim_l3). Portanto todos os
+modos compartilham o mesmo espaço de estados por bucket.
+
+Contagem pós-geração (legado + v5_databricks + v5_local):
+
+| Fonte | mode_0 | mode_2 | mode_3 | Total |
+|---|---:|---:|---:|---:|
+| legado | 0 | 0 | 0 | 0 |
+| v5_databricks | 0 | 0 | 0 | 0 |
+| v5_local | 320 | 80 | 96 | **496** |
+
+**496/496 = espaço de estados 100% esgotado.**
+
+### Diagnóstico — Bucket (24–28)
+
+Após capear (29–30) e reorientar a geração para (24–28), o V5_Local coletou
+65.792 estados únicos nesse bucket — e a taxa de duplicatas voltou a 99%+.
+
+**Causa:** os modos de autoplay sim_l2 (Minimax p=2 × p=2) e sim_l3 (Minimax p=3 × p=3)
+convergem para um conjunto de **~57.020 posições práticas** no bucket (24–28), muito
+abaixo do teórico C(31,24)+...+C(31,28) = 991.333 estados possíveis.
+
+**Por que a saturação acontece:** `edges_to_matrix` é função pura — dada a mesma
+configuração de arestas, a matriz é única independente do modo de geração. O autoplay
+Minimax p=2/p=3 tende a seguir trajetórias de partidas "boas": abre cadeias na ordem
+certa, fecha sequências de caixas similares, e raramente cria as configurações de
+borda ou paridade que só apareceriam em jogo aleatório. O espaço de trajetórias
+razoáveis de partidas Minimax p=2/p=3 no tabuleiro 4×3 converge empiricamente para
+~57.020 posições únicas — os 934.313 estados restantes do teórico C(31,24..28)
+correspondem a configurações "irreais" que dificilmente seriam atingidas por qualquer
+agente que joguem minimamente bem.
+
+**Mode_0 (uniform) não satura:** selecionar arestas ao acaso pode gerar qualquer
+configuração teórica, por isso mode_0 cobriu ~9.170 posições adicionais distintas.
+Porém a proporção de mode_0 no dataset é apenas 5% — insuficiente para cobrir os
+934k estados irreais sem custo absurdo.
+
+Distribuição dos 65.792 únicos coletados em (24–28):
+
+| Modo | Disponível | Observação |
+|---|---:|---|
+| mode_0 (uniform) | ~9.170 | Não satura — range teórico ilimitado |
+| mode_2+3 (autoplay) | ~57.020 | **Saturado** — espaço prático do Minimax |
+| **Total único** | **~65.792** | União dos dois conjuntos (leve overlap ~398) |
+
+### Decisão
+
+1. **Capear bucket (29–30) em 496** (0,10%). Cobertura integral do universo de
+   posições quase-finais — impossível melhorar.
+2. **Capear bucket (24–28) em 65.792** (13,16%). Espaço prático do autoplay
+   Minimax p=2/p=3 esgotado. Gerar mais não acrescenta posições estrategicamente
+   relevantes.
+3. **Redistribuir a cota liberada de (24–28)** em razão 20:28 entre (12–17) e
+   (18–23): +46.587 para (12–17), +65.222 para (18–23).
+4. **Incorporar V5_Databricks** (`dados/profundidade_minmax_9_v5_databricks/`,
+   183.660 brutos / 139.903 únicos) como terceira fonte na consolidação.
+5. **Bucket (12–17) já concluído** — V5_Local acumulou 166.099 únicos no bucket,
+   acima do novo alvo de 157.588.
+6. **Bucket (18–23): gerar 12.542 adicionais** com V5_Local:
+   mode_0 = 627, mode_2 = 5.017, mode_3 = 6.898.
+
+### Parâmetros finais (PRD §4.1.3 rev.3)
+
+**Bucket targets (total = 500.000):**
+
+| Bucket | Amostras | % | Limite físico / prático |
+|---|---:|---:|---|
+| 5–11 | 55.501 | 11,10% | — |
+| 12–17 | 157.588 | 31,52% | — |
+| 18–23 | 220.623 | 44,12% | — |
+| 24–28 | **65.792** | **13,16%** | **C(31,24..28) = 991.333 teórico; ~57.020 prático (autoplay Minimax p=2/p=3)** |
+| **29–30** | **496** | **0,10%** | **C(31,29)+C(31,30) = 465+31 = 496 — limite físico absoluto** |
+
+**COMPLEMENTO_POR_CELULA atualizado para V5_Local** (alvo TOTAL por célula;
+checkpoint subtrai o existente automaticamente):
+
+```python
+COMPLEMENTO_POR_CELULA = {
+    0: {(5, 11): 0, (12, 17): 0, (18, 23):   627, (24, 28): 0, (29, 30): 0},
+    2: {(5, 11): 0, (12, 17): 0, (18, 23): 5_017, (24, 28): 0, (29, 30): 0},
+    3: {(5, 11): 0, (12, 17): 0, (18, 23): 6_898, (24, 28): 0, (29, 30): 0},
+}
+# Total: 12_542 novos estados para (18,23)
+```
+
+Shortfall esperado no consolidado final: até **~6.000 estados** (dois componentes):
+- **~295** de (29–30): mode_2 tem 80 disponíveis mas cota = 198; mode_3 tem 96 mas cota = 273.
+- **até ~5.500** de (24–28): autoplay (sim_l2+sim_l3) disponibiliza ~57.020 estados mas
+  a cota combinada de modes 2+3 é ~62.500. Mode_0 tem excedente descartado.
+- Desvio máximo total < 1,2% do alvo — irrelevante para treinamento de CNN.
+
+### Alternativas consideradas
+
+- **Continuar gerando para (24–28) com mais mode_0:** rejeitado — mode_0 gera posições
+  aleatórias sem estrutura estratégica, dilui a qualidade do dataset.
+- **Redistribuir cota de (24–28) apenas para (18–23):** rejeitado — preferência por
+  manter razão 20:28 entre (12–17) e (18–23) para equilibrar a cobertura.
+- **Aceitar dataset com apenas 65.792 em (24–28) sem redistribuir:** rejeitado —
+  total ficaria abaixo de 500k sem a redistribuição.
+
+### Arquivos alterados nesta sessão
+
+- `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5_Local.ipynb` — COMPLEMENTO_POR_CELULA atualizado para gerar 12.542 estados em (18,23); auditoria com novos alvos
+- `notebooks/jogo_pontinhos/Consolidar_500k_Final.ipynb` — BUCKET_ALVO atualizado com distribuição final; shortfall máximo ajustado para 6.000
+- `specs/004-melhoria-geracao-dados-cnn/PRD.md` — tabela D1 (§4.1.1) e §4.1.3 com revisão rev.3
+- `docs/jogo_pontinhos/guia_geracao_dados.md` — seções 1A.1.alt e 1A.1.cons atualizadas
+- `specs/004-melhoria-geracao-dados-cnn/plan.md` — referências ao complemento atualizadas
+- `specs/004-melhoria-geracao-dados-cnn/quickstart.md` — fase A.1 atualizada
+
+---
+
 ## 2026-05-07 — Geração local com multiprocessing (V5_Local) e remoção do `closure_lut`
 
 ### Contexto
@@ -55,10 +464,21 @@ delegando o engine ao módulo companheiro
 ### Correção paralela no V5_Databricks
 
 `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5_Databricks.ipynb`
-também teve `closure_lut` removido (mesma motivação). A lógica do laço
-principal foi preservada (TODO de quota-based dispatch já era
-pré-existente — pertence a futura iteração de T-A1-004 no Databricks, fora
-do escopo desta sessão).
+também teve `closure_lut` removido **e o laço por cota implementado** (a
+TODO pré-existente de T-A1-004 foi efetivamente cumprida nesta sessão
+após o usuário apontar que os logs mostravam o V4-style loop ignorando
+`COMPLEMENTO_POR_CELULA`). Mudanças:
+
+- **Cell 3** ganhou `_autoplay_edges_v4_bounded(lo, hi)` e
+  `generate_topology_forced(gen_mode, lo, hi)` substituindo o sampler V4
+  (que escolhia gen_mode internamente via `STRAT_WEIGHTS`).
+- **Cell 6** (worker) passa a receber `(gen_mode, lo, hi)` por linha do
+  DataFrame e devolve `n_tracos` no schema, permitindo dedup + decremento
+  de cota no main.
+- **Cell 10** monta `spark.createDataFrame([(m, lo, hi), ...])` com
+  `CHUNK=1000` linhas por iteração, sorteadas com `random.choices` ponderado
+  por cota residual. Resume é robusto: lê NPZs já gerados, decrementa cotas
+  onde casa o bucket, marca o resto como `sobrefluxo_resumo`.
 
 ### Alternativas consideradas
 

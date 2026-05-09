@@ -120,7 +120,7 @@ Como **desenvolvedor**, preciso que a geração e o enriquecimento de dados este
 
 **Acceptance Scenarios**:
 
-1. **Given** o notebook A.1 com a tabela `COMPLEMENTO_POR_CELULA` literal embutida (§4.1.3 do PRD: 347.020 a gerar, 152.980 aproveitados, 500.000 únicos finais), **When** o desenvolvedor executa o notebook no cluster Databricks, **Then** ele NÃO deve ler nenhum arquivo externo de planejamento (CSV/JSON/pickle), e a distribuição empírica final deve ficar dentro de ±2pp das cotas D1/D1.a.
+1. **Given** o notebook A.1 com a tabela `COMPLEMENTO_POR_CELULA` literal embutida (§4.1.3 do PRD rev.5: distribuição final consolidada 55.501/169.875/223.551/50.867/203 = 499.997 únicos; todas as cotas capeadas nos únicos reais disponíveis), **When** o desenvolvedor executa o notebook no cluster Databricks ou local, **Then** ele NÃO deve ler nenhum arquivo externo de planejamento (CSV/JSON/pickle), e a distribuição empírica final deve ficar dentro de ±2pp das cotas D1/D1.a.
 2. **Given** uma execução anterior incompleta interrompida com Ctrl+C no meio da regravação de um NPZ pelo A.2, **When** o desenvolvedor reroda o A.2, **Then** nenhum NPZ original deve ter sido corrompido (graças ao padrão `.tmp` + `os.replace()`), e a re-execução deve completar sobrescrevendo `canais` e `nomes_canais` recalculados.
 3. **Given** o conjunto inicial de 58 NPZs com 344.000 estados brutos, **When** o A.1 inicializa o set de hashes, **Then** ele deve pré-popular o set com os hashes dos 314.323 estados únicos existentes para evitar colisão com o complemento gerado.
 
@@ -146,10 +146,10 @@ Como **desenvolvedor**, preciso que a geração e o enriquecimento de dados este
 #### FR-A — Geração de dados (Fase A.1)
 
 - **FR-A-01**: O sistema MUST gerar estados de tabuleiro 4×3 com Minimax(p=9) como supervisor, na faixa estendida de **5 a 30 traços preenchidos** (`[0.15·n_edges, 0.97·n_edges]`).
-- **FR-A-02**: O sistema MUST aplicar **distribuição U-invertida** de pesos por bucket de traços conforme D1 do PRD: 5–11=10%, 12–17=20%, 18–23=28%, 24–28=32%, 29–30=10%, com tolerância de ±2pp na distribuição empírica final.
+- **FR-A-02**: O sistema MUST aplicar **distribuição U-invertida** de pesos por bucket de traços conforme D1 do PRD rev.3: 5–11=11,10%, 12–17=31,52%, 18–23=44,12%, 24–28=13,16%, 29–30=0,10%, com tolerância de ±2pp na distribuição empírica final (±5pp para (24–28) e (29–30) por restrições físicas/práticas).
 - **FR-A-03**: O sistema MUST aplicar o mix `STRAT_WEIGHTS = [0.05, 0.00, 0.40, 0.55]` (D1.a — modos 0=uniform, 1=sim_l1, 2=sim_l2, 3=sim_l3). O modo 1 fica DESLIGADO por padrão (peso 0).
 - **FR-A-04**: O sistema MUST garantir **deduplicação obrigatória** (D1.b) por hash da matriz crua (`mat.tobytes()`), pré-populando o set com hashes dos NPZs legados antes de iniciar a geração do complemento. Estados duplicados devem ser regenerados (até 20 tentativas).
-- **FR-A-05**: O notebook A.1 (`Otimizacao_Topologia_Rede_V5.ipynb`) MUST conter a tabela `COMPLEMENTO_POR_CELULA` (§4.1.3 do PRD: 347.020 a gerar, 152.980 aproveitados, 500.000 únicos finais) **transcrita literal e diretamente** numa célula de parâmetros, sem ler nenhum arquivo externo de planejamento.
+- **FR-A-05**: O notebook de geração (V5 Databricks ou V5_Local) MUST conter a tabela `COMPLEMENTO_POR_CELULA` (§4.1.3 do PRD rev.5: distribuição consolidada 55.501/169.875/223.551/50.867/203 = 499.997) **transcrita literal e diretamente** numa célula de parâmetros, sem ler nenhum arquivo externo de planejamento. A Fase A.1 usa 3 fontes (legado + v5_databricks + v5_local) consolidadas pelo notebook `Consolidar_500k_Final.ipynb`.
 - **FR-A-06**: O NPZ produzido pelo A.1 MUST conter exatamente os campos `estados (N, 9, 7) int8`, `rotulos (N,) str`, `scores (N, 31) float32`, `generation_mode (N,) int8`, `labels_canonicos (31,) str`, `depth (1,) int32` — **sem `canais` ainda**.
 - **FR-A-07**: O sistema MUST registrar em `docs/historico_decisoes.md` snapshot da `COMPLEMENTO_POR_CELULA` efetivamente usada como prova de auditoria.
 
@@ -235,7 +235,7 @@ Como **desenvolvedor**, preciso que a geração e o enriquecimento de dados este
 - **Label canônico (`rotulos[i]`):** string formato `H_r_c` ou `V_r_c` indicando a melhor aresta segundo o supervisor.
 - **Modo de geração (`generation_mode[i]`):** `int8` ∈ {0=uniform, 1=sim_l1, 2=sim_l2, 3=sim_l3}. Modo 1 fica DESLIGADO em A.1 (peso 0).
 - **NOMES_CANAIS:** constante `(11,) U32` espelhada em código Python (`analisador_estrutural_pontinhos.py`), no NPZ enriquecido (`nomes_canais`) e em §4.2 do PRD. Validada cruzadamente.
-- **COMPLEMENTO_POR_CELULA:** dicionário `{gen_mode: {bucket_tracos: cota}}` literal na célula de parâmetros do A.1, totalizando 347.020 a gerar.
+- **COMPLEMENTO_POR_CELULA:** dicionário `{gen_mode: {bucket_tracos: cota}}` literal na célula de parâmetros do V5_Local. Consolidação final (rev.5): 499.997 estados únicos, feita por `Consolidar_500k_Final.ipynb` (3 fontes: legado=168.661 + v5_databricks=181.456 + v5_local=149.880).
 - **Contrato de codificação:** `contrato_codificacao_pontinhos.json` (backend + cópia idêntica no frontend) declarando o input do TFLite, a regra de derivação de canais e a normalização de domínio.
 
 ---
@@ -295,7 +295,7 @@ Como **desenvolvedor**, preciso que a geração e o enriquecimento de dados este
 
 ### Ator: Desenvolvedor de IA do Arena Sagaz
 
-- **Fluxo Fase A.1 (Databricks):** abre o notebook `Otimizacao_Topologia_Rede_V5.ipynb`, confere a `COMPLEMENTO_POR_CELULA` literal na célula de parâmetros (já preenchida com §4.1.3), executa o cluster, monitora geração até 347.020 amostras únicas; o set de hashes é pré-populado com os 314.323 estados legados antes da geração começar.
+- **Fluxo Fase A.1 (concluído — rev.5 2026-05-08):** geração realizada via V5_Databricks + V5_Local. Consolidação concluída: `Consolidar_500k_Final.ipynb` lê os 3 diretórios (legado/v5_databricks/v5_local), filtra por `cota_alvo[m,b]` rev.5 e produziu `dados/profundidade_minmax_9/` com **499.997 estados únicos** (100 NPZs). Pronto para Fase A.2.
 - **Fluxo Fase A.2 (local):** roda `Enriquece_NPZ_Com_Canais.ipynb` apontando para `dados/profundidade_minmax_9`; o notebook sobrescreve in-place via `.tmp` + `os.replace()`. Em seguida executa `validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` e revisa manualmente os 30 PNGs.
 - **Fluxo Fases B–F (Colab):** roda `Treinamento_CNN_Arena_Sagaz_V6.ipynb` com slice apropriado dos canais, exporta TFLite versionado, registra entrada em `docs/historico_decisoes.md`, atualiza contrato (Fases B e D) propagando cópia idêntica para o frontend na mesma PR.
 

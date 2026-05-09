@@ -20,10 +20,13 @@
 
 ### Comando
 
-1. Abrir `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb` no Databricks.
-2. Conferir a célula de parâmetros — `COMPLEMENTO_POR_CELULA` deve estar literalmente preenchida com a tabela de PRD §4.1.3.
-3. Conferir `STRAT_WEIGHTS = [0.05, 0.00, 0.40, 0.55]` e `FAIXA_TRACOS = (0.15, 0.97)`.
-4. Executar todas as células. Esperar até gerar 347.020 amostras únicas no diretório.
+**Status (2026-05-08 rev.5): ✅ CONSOLIDAÇÃO CONCLUÍDA.**
+`Consolidar_500k_Final.ipynb` executado — **499.997 estados únicos** (100 NPZs em
+`dados/profundidade_minmax_9/`). Shortfall: 3 (arredondamento). Prosseguir para Fase A.2.
+
+> Para gerar do zero (novo cluster): usar `Otimizacao_Topologia_Rede_V5.ipynb` no
+> Databricks com `COMPLEMENTO_POR_CELULA` da PRD §4.1.3 ou V5_Local com a tabela
+> rev.5 atualizada. Ver `docs/jogo_pontinhos/guia_geracao_dados.md` seção 1A.1.
 
 ### Gate de saída
 

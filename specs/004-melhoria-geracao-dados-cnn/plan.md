@@ -225,7 +225,7 @@ Fases G/H (CONDICIONAIS — só executam se F não bater meta de SC-W-* ou SC-A-
 
 ### Fase A.1 — Geração no Databricks
 
-**Objetivo**: gerar o complemento de 347.020 estados únicos (Minimax(p=9), faixa estendida `[0.15, 0.97]`, distribuição U-invertida) que, somados aos 314.323 únicos legados, produzem 500.000 estados únicos no diretório `dados/profundidade_minmax_9/`.
+**Objetivo**: gerar e consolidar ≥ 500.000 estados únicos (Minimax(p=9), faixa estendida `[0.15, 0.97]`, distribuição U-invertida) a partir de três fontes: legado (`dados/profundidade_minmax_9_desbalanceado/`), V5_Databricks (`dados/profundidade_minmax_9_v5_databricks/`) e V5_Local (`dados/profundidade_minmax_9_v5_local/`). Consolidação final (rev.5 de 2026-05-08): **499.997 estados únicos** — distribuição 55.501 / 169.875 / 223.551 / 50.867 / 203 por bucket. Todas as cotas capeadas nos únicos reais disponíveis; mix gen_mode: 5,00% / 40,06% / 54,94%.
 
 **Arquivos criados**:
 - `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb` (clone do V4 + ajustes abaixo).
@@ -238,10 +238,12 @@ Fases G/H (CONDICIONAIS — só executam se F não bater meta de SC-W-* ou SC-A-
 **Modificações pontuais sobre o V4**:
 1. **Célula de parâmetros (topo do notebook)** embute literal a tabela `COMPLEMENTO_POR_CELULA` de PRD §4.1.3 — sem leitura externa de arquivo:
    ```python
+   # V5_Local rev.3 (2026-05-08) — gera 12.542 estados em (18,23).
+   # Buckets (24,28), (29,30), (5,11) e (12,17) todos concluídos.
    COMPLEMENTO_POR_CELULA = {
-       0: {(5, 11): 0,      (12, 17): 0,      (18, 23): 0,      (24, 28): 1_236,  (29, 30): 2_500},
-       2: {(5, 11): 0,      (12, 17): 0,      (18, 23): 10_776, (24, 28): 52_321, (29, 30): 20_000},
-       3: {(5, 11): 22_484, (12, 17): 50_557, (18, 23): 72_820, (24, 28): 86_826, (29, 30): 27_500},
+       0: {(5, 11): 0, (12, 17): 0, (18, 23):   627, (24, 28): 0, (29, 30): 0},
+       2: {(5, 11): 0, (12, 17): 0, (18, 23): 5_017, (24, 28): 0, (29, 30): 0},
+       3: {(5, 11): 0, (12, 17): 0, (18, 23): 6_898, (24, 28): 0, (29, 30): 0},
    }
    STRAT_WEIGHTS = [0.05, 0.00, 0.40, 0.55]   # modo 1 desligado (D1.a)
    FAIXA_TRACOS = (0.15, 0.97)                 # cobre 5–30 traços (D1)

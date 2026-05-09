@@ -168,7 +168,7 @@ Especificação completa em `contracts/canais_estruturais.md`.
 
 ---
 
-## 7. Entidade: `Profundidade do supervisor` (`depth`)
+## 7. Entidade: `Profundidade do supervisor` (`minimax_depth`)
 
 | Campo | Valor |
 |---|---|
@@ -221,21 +221,27 @@ NOMES_CANAIS = (
 
 > Não é campo do NPZ — é entrada documental em `docs/historico_decisoes.md` (FR-A-07, SC-D-06).
 
-### Conteúdo (PRD §4.1.3)
+### Conteúdo (PRD §4.1.3 rev.5 — cotas finais do `Consolidar_500k_Final.ipynb`)
 
 ```python
-COMPLEMENTO_POR_CELULA = {
-    0: {(5, 11):      0, (12, 17):      0, (18, 23):      0, (24, 28):  1_236, (29, 30):  2_500},
-    2: {(5, 11):      0, (12, 17):      0, (18, 23): 10_776, (24, 28): 52_321, (29, 30): 20_000},
-    3: {(5, 11): 22_484, (12, 17): 50_557, (18, 23): 72_820, (24, 28): 86_826, (29, 30): 27_500},
+# cota_alvo rev.5 — todas as cotas capeadas nos únicos reais disponíveis.
+cota_alvo = {
+    (0, (5, 11)):  2_775,  (0, (12, 17)):  7_879,  (0, (18, 23)):  11_031,
+    (0, (24, 28)): 3_289,  (0, (29, 30)):     25,
+    (2, (5, 11)): 22_200,  (2, (12, 17)): 67_898,  (2, (18, 23)):  83_787,
+    (2, (24, 28)):26_317,  (2, (29, 30)):     84,
+    (3, (5, 11)): 30_526,  (3, (12, 17)): 94_099,  (3, (18, 23)): 128_735,
+    (3, (24, 28)):21_261,  (3, (29, 30)):     94,
 }
-# Soma esperada: 347_020
+# mode_0=24.999, mode_2=200.286, mode_3=274.715, total=500.000
+# Consolidação empírica: 499.997 (shortfall 3 — arredondamento)
 ```
 
 ### Transições
 
 - **Fase A.1 (planejamento)**: tabela embutida literalmente na célula de parâmetros do notebook V5 (sem leitura externa).
 - **Fase A.1 (execução)**: gera o complemento.
+- **Consolidação (rev.5)**: `Consolidar_500k_Final.ipynb` filtra 3 fontes (legado + v5_databricks + v5_local) contra `cota_alvo` e produz 100 NPZs com 499.997 estados únicos.
 - **Pós-execução**: snapshot fiel da tabela usada vai para `docs/historico_decisoes.md` como prova de auditoria.
 
 ---
@@ -251,7 +257,7 @@ COMPLEMENTO_POR_CELULA = {
 | `scores` | `(N, 31)` | `float32` |
 | `generation_mode` | `(N,)` | `int8` |
 | `labels_canonicos` | `(31,)` | `<U10` |
-| `depth` | `(1,)` | `int32` |
+| `minimax_depth` | `(1,)` | `int32` |
 
 **Não contém** `canais` nem `nomes_canais`.
 
