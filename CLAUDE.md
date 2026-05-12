@@ -83,3 +83,20 @@ no futuro:
 - Arquivos legados já existentes (sem sufixo) são **débito conhecido** — serão
   renomeados em sessão dedicada; **não renomear caso a caso** durante outras
   tarefas.
+
+## Diretriz obrigatória — Commit e Push após editar documentos em `specs/`
+
+Toda vez que você (Claude) fizer qualquer alteração em arquivos dentro da pasta
+`specs/` (planos, spec, PRD, tasks, contratos, etc.), **realize commit e push
+imediatamente** na mesma resposta em que a edição for feita, detalhando as
+mudanças no corpo do commit.
+
+**Exceção única**: se um comando do speckit restaurar um documento para o estado
+de template padrão (ex.: `/speckit-plan` sobrescreve `plan.md` com o template
+em branco), **NÃO faça commit nem push** — restaure o arquivo com
+`git checkout -- <arquivo>` e informe o usuário.
+
+**Motivação**: comandos do speckit (`/speckit-plan`, `/speckit-tasks`, etc.)
+sobrescrevem arquivos de `specs/` com templates em branco como parte do seu
+fluxo de setup. Se o documento ainda não tiver sido commitado, as edições
+manuais feitas anteriormente são perdidas sem possibilidade de recuperação.

@@ -10,9 +10,11 @@
 
 ## Sumário
 
-Esta feature evolui o pipeline de dados e a arquitetura da CNN BoxNet v3 do Jogo dos Pontinhos (tabuleiro pequeno 4×3) em **fases sequenciais e isoladas** (uma mudança por vez) para atribuir causa de cada ganho/regressão. O entregável central é uma família de modelos TFLite versionados (`pontinhos_pequeno_p9_faseB.tflite`, …, `_faseF.tflite`) gerados a partir de um pipeline de dois notebooks (geração no Databricks + enriquecimento local) que produz NPZs com 500.000 estados únicos e tensor `canais (N, 4, 3, 11) int8` pré-computado.
+Esta feature evolui o pipeline de dados e a arquitetura da CNN BoxNet v3 do Jogo dos Pontinhos (tabuleiro pequeno 4×3) em **fases sequenciais e isoladas** (uma mudança por vez) para atribuir causa de cada ganho/regressão. O entregável central é uma família de modelos TFLite versionados (`pontinhos_pequeno_p9_faseB.tflite`, …, `_faseF.tflite`) gerados a partir de um pipeline de dois notebooks (geração local V7 DAC + enriquecimento com Minimax profundo no Databricks) que produz NPZs com 758k amostras brutas / ~500k distintos e tensor `canais (N, 4, 3, 11) int8` pré-computado.
 
-O plano cobre: (a) Fase A.1 — geração no Databricz herdando config do V4, com `COMPLEMENTO_POR_CELULA` literal; (b) Fase A.2 — enriquecimento local com analisador estrutural + sobrescrita atômica + script de validação visual; (c) Fase B — treino com 5 canais geométricos, eliminando a `Lambda para_grid_de_caixas`; (d) Fase C — augmentação 4×; (e) Fase D — treino com 11 canais + atualização do contrato + vetores de referência; (f) Fase E — sample_weight refinado por Δ-top2 em t=12–17; (g) Fase F — value head AlphaZero-style com export TFLite policy-only; (h) Fases G/H condicionais.
+> **Revisão 2026-05-12 — Fase A.1 CONCLUÍDA com V7 DAC:** A geração usou o algoritmo DAC (Diversidade Adaptativa em Cascata) em vez do notebook V5/cotas especificado originalmente. O dataset produzido tem **758k amostras brutas / ~500k distintos** com distribuição bell-shaped emergente, salvo em `dados/profundidade_minimax_11_v7_adaptativo/` (152 NPZs). Dois bugs críticos de Bitboard foram corrigidos no notebook de Fase 2. Experimentos preliminares de treino com ground truth Minimax p=11 atingiram **63% de vitórias vs Minimax(p=6)** e **90,5% vs Minimax(p=3)**, indicando saturação arquitetural da BoxNet v3 (~74k params). O novo baseline de comparação para Fase B é **63% vs p=6** (não mais 38%).
+
+O plano cobre: (a) Fase A.1 — ✅ **CONCLUÍDA** — geração V7 DAC local (~25.288 partidas × 30 snapshots) + enriquecimento Fase 2 Databricks (Minimax p=7 → p=11) + experimentos preliminares de treino; (b) Fase A.2 — enriquecimento local com analisador estrutural + sobrescrita atômica + script de validação visual; (c) Fase B — treino com 5 canais geométricos, eliminando a `Lambda para_grid_de_caixas`; (d) Fase C — augmentação 4×; (e) Fase D — treino com 11 canais + atualização do contrato + vetores de referência; (f) Fase E — sample_weight refinado por Δ-top2 em t=12–17; (g) Fase F — value head AlphaZero-style com export TFLite policy-only; (h) Fases G/H condicionais.
 
 ---
 
@@ -20,13 +22,13 @@ O plano cobre: (a) Fase A.1 — geração no Databricz herdando config do V4, co
 
 **Linguagem/Versão**: Python 3.11+ (módulos backend Python e notebooks TensorFlow/Keras 2.15)
 **Dependências principais**: `numpy`, `tensorflow==2.15.*` (Keras), `matplotlib` (validação visual), `pyspark` (Databricks no A.1), `scipy` (BFS interno se preferido), `pytest` para testes.
-**Armazenamento**: NPZ em `dados/profundidade_minmax_9/` (input/output do A.1 e A.2). TFLite versionado em `modelos/`.
+**Armazenamento**: NPZ em `dados/profundidade_minimax_11_v7_adaptativo/` (152 NPZs do dataset V7, gerados na Fase A.1 com Minimax p=11). TFLite versionado em `modelos/`.
 **Testes**: `pytest` em `tests/unitarios/jogo_pontinhos/`.
 **Plataforma alvo**: Databricks (cluster Spark V4) para A.1; máquina local (Windows + Python 3.11) para A.2; Colab T4 para Fases B–F; CI Linux para testes obrigatórios.
 **Tipo de projeto**: backend Python (hub de jogos) + pipeline ML offline. **Frontend Flutter está fora do escopo desta spec** — é consumidor downstream apenas.
 **Metas de performance**: TFLite final ≤ 200 KB; inferência mobile ≤ 5 ms/jogada; geração 500k em Databricks ≤ 4 h.
 **Restrições**: contrato `contrato_codificacao_pontinhos.json` byte-a-byte idêntico backend↔frontend; sobrescrita atômica do A.2 (Ctrl+C tolerável); deduplicação obrigatória por `mat.tobytes()`.
-**Escala/Escopo**: NPZ Fase A.2 ≥ 500.000 estados únicos × tensor `(4, 3, 11) int8` + `scores (31,) float32`; 4 simetrias × 500k = 2M amostras de treino em memória (Fase C).
+**Escala/Escopo**: NPZ Fase A.1 = 758k amostras brutas / ~500k distintos (bell-shaped); NPZ Fase A.2 adiciona tensor `canais (N, 4, 3, 11) int8`; 4 simetrias × 758k ≈ 3M amostras de treino em memória (Fase C — ou ~2M se deduplicado antes da augmentação).
 
 ### Arquivos relevantes (espelha PRD §3.1)
 
@@ -41,7 +43,7 @@ O plano cobre: (a) Fase A.1 — geração no Databricz herdando config do V4, co
 | `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json` | Contrato de codificação backend↔frontend | **Modificado em Fase B (input `(4,3,5)`) e Fase D (input `(4,3,11)`)** |
 | `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.py` | Helper Python que aplica regras do contrato | **Atualizado nas Fases B e D para refletir novo input** |
 | `tests/unitarios/jogo_pontinhos/test_contrato_codificacao_pontinhos.py` | Teste obrigatório de paridade backend↔frontend | **Atualizado nas Fases B e D** |
-| `dados/profundidade_minmax_9/` | 58 NPZs com 344.000 estados brutos / 314.323 únicos legados | **Lidos pelo A.1 para popular set de hashes; sobrescritos pelo A.2 com `canais` + `nomes_canais`** |
+| `dados/profundidade_minimax_11_v7_adaptativo/` | 152 NPZs com 758k amostras brutas / ~500k distintos — dataset V7 DAC (schema V2, Minimax p=11) | **Lidos pelo A.2 para enriquecimento com `canais` + `nomes_canais`** |
 | `tmp_analise/analisa_padrao_erros.py` | Avaliador tático (Categoria A) | Não modificado — referência para gates |
 | `tmp_analise/analisa_divergencia_estrategica.py` | Avaliador estratégico (Categoria B) | Não modificado — referência para gates |
 
@@ -49,8 +51,10 @@ O plano cobre: (a) Fase A.1 — geração no Databricz herdando config do V4, co
 
 | Arquivo | Fase | Descrição |
 |---|---|---|
-| `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb` | A.1 | Clone do V4; embute `COMPLEMENTO_POR_CELULA` literal; pré-popula set de hashes com legados; faixa estendida `[0.15, 0.97]`; STRAT_WEIGHTS `[0.05, 0.00, 0.40, 0.55]`. |
-| `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb` | A.2 | Lê NPZs de `dados/profundidade_minmax_9/`, computa `canais (N,4,3,11) int8`, regrava com `.tmp` + `os.replace()`. |
+| `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb` | A.1 ✅ | Fase 1 local V7 DAC: ~25.288 partidas × 30 snapshots; profundidade τ-adaptativa; Boltzmann sampling. Produz 152 NPZs em `dados/profundidade_minimax_11_v7_adaptativo/`. |
+| `gerador_dados/jogo_pontinhos/gerador_amostras_v7_pontinhos.py` | A.1 ✅ | Worker Python do V7 DAC (τ, Boltzmann, snapshots). |
+| `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb` | A.1 ✅ | Fase 2 Databricks: calcula `melhor_jogada`, `score_melhor_jogada`, `depth_melhor_jogada` com Minimax p=7 → p=11. Inclui correção de 2 bugs críticos de Bitboard. |
+| `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb` | A.2 | Lê NPZs de `dados/profundidade_minimax_11_v7_adaptativo/`, computa `canais (N,4,3,11) int8`, regrava com `.tmp` + `os.replace()`. |
 | `gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py` | A.2 | Função `extrair_canais(matriz_estado) -> np.ndarray (4,3,11) int8` + constante `NOMES_CANAIS`. |
 | `gerador_dados/jogo_pontinhos/permutacoes_simetria_pontinhos.py` | C | Tabelas de permutação de labels canônicos para as 4 simetrias + permutação coerente de canais. |
 | `gerador_dados/jogo_pontinhos/referencia_canais_pontinhos.json` (ou `.npz`) | D | Ground truth `(matriz_crua, canais (4,3,11) int8)` para casos canônicos + ≥20 estados sorteados. |
@@ -66,7 +70,7 @@ O plano cobre: (a) Fase A.1 — geração no Databricz herdando config do V4, co
 |---|---|---|
 | `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json` | Fase B (versão refletindo `(4,3,5)`) e Fase D (versão refletindo `(4,3,11)`) | Atualização do input do TFLite + regra de derivação dos canais. **Cópia idêntica para o frontend (`arena-sagaz-frontend/assets/jogos/pontinhos/contrato_codificacao_pontinhos.json`) NA MESMA PR.** |
 | `docs/jogo_pontinhos/guia_geracao_dados.md` | Após cada fase com mudança operacional (A.1, A.2, B, D) | Novo formato de NPZ, regras de dedup, procedimento operacional dos notebooks. |
-| `docs/historico_decisoes.md` | Após cada fase | Entrada datada com win-rates, métricas por faixa (PRD §2.5), diff de configuração; **snapshot da `COMPLEMENTO_POR_CELULA` ao fim do A.1**. |
+| `docs/historico_decisoes.md` | Após cada fase | Entrada datada com win-rates, métricas por faixa (PRD §2.5), diff de configuração; **snapshot do V7 DAC e resultados dos experimentos de treino ao fim do A.1**. |
 | `arena-sagaz-frontend/assets/jogos/pontinhos/contrato_codificacao_pontinhos.json` | Fase B e Fase D | Cópia byte-a-byte do backend, mesma PR. *Repositório frontend é separado; instrução é regra de processo, não item de código deste backend.* |
 
 ---
@@ -116,11 +120,13 @@ arena-sagaz-backend/
 │       ├── contrato_codificacao_pontinhos.json       # (MODIFICADO — Fases B e D)
 │       ├── contrato_codificacao_pontinhos.py         # (MODIFICADO — Fases B e D)
 │       ├── tabuleiro_pontinhos.py                    # (existente, não modificado)
+│       ├── gerador_amostras_v7_pontinhos.py          # (NOVO — Fase A.1 ✅ worker V7 DAC)
 │       └── minimax_pontinhos.py                      # (existente, não modificado)
 ├── notebooks/
 │   └── jogo_pontinhos/
 │       ├── Otimizacao_Topologia_Rede_V4.ipynb        # (existente, não modificado)
-│       ├── Otimizacao_Topologia_Rede_V5.ipynb        # (NOVO — Fase A.1)
+│       ├── Geracao_Amostras_v7_adaptativo.ipynb      # (NOVO — Fase A.1 ✅ Fase 1 local)
+│       ├── Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb  # (NOVO — Fase A.1 ✅ Fase 2 Databricks)
 │       ├── Enriquece_NPZ_Com_Canais.ipynb            # (NOVO — Fase A.2)
 │       ├── Treinamento_CNN_Arena_Sagaz_V5.ipynb      # (existente, não modificado)
 │       └── Treinamento_CNN_Arena_Sagaz_V6.ipynb      # (NOVO — Fases B, C, D, E, F)
@@ -144,7 +150,7 @@ arena-sagaz-backend/
 │   └── jogo_pontinhos/
 │       └── guia_geracao_dados.md                     # (MODIFICADO — fluxo A.1/A.2/V6)
 └── dados/
-    └── profundidade_minmax_9/                        # (NPZs sobrescritos pelo A.2)
+    └── profundidade_minimax_11_v7_adaptativo/        # (152 NPZs do dataset V7 ✅; sobrescritos pelo A.2 com canais)
 ```
 
 **Decisão de estrutura**: Single project (Python backend + notebooks ML offline). Toda nomenclatura de arquivos `pontinhos`-specific carrega o sufixo `_pontinhos` ou fica em pasta `jogo_pontinhos/`, conforme diretriz do `CLAUDE.md` (hub de jogos).
@@ -162,12 +168,15 @@ Veja `research.md` para o registro completo. Resumo:
   - Limite mínimo do canal `em_cadeia_longa` → manter ≥ 3 (canal único; K=11 inalterado).
   - Observabilidade durante notebooks → sem padrão obrigatório (cada notebook decide ad-hoc; resultados manuais em `docs/historico_decisoes.md`).
 
-- **Decisões técnicas herdadas do PRD** (resolvidas antes do plano):
-  - D1 (cobertura terminal `[0.15, 0.97]` + distribuição U-invertida com 5 buckets).
-  - D1.a (mix `STRAT_WEIGHTS = [0.05, 0.00, 0.40, 0.55]`).
-  - D1.b (deduplicação obrigatória pré-populada com hashes legados).
+- **Decisões técnicas herdadas do PRD e revisadas na execução**:
+  - ~~D1 (cobertura terminal `[0.15, 0.97]` + distribuição U-invertida com 5 buckets).~~ → **Substituído por V7 DAC**: distribuição bell-shaped emergente; sem quotas por faixa; meta única de ~500k distintos.
+  - ~~D1.a (mix `STRAT_WEIGHTS`).~~ → **Substituído por Boltzmann sampling** com temperatura T(t) decrescente por fase do jogo.
+  - ~~D1.b (deduplicação pré-populada com hashes legados).~~ → **V7 gera do zero** (sem reaproveitamento do legado); dedup por `mat.tobytes()` em memória.
+  - **V7-DAC** (2026-05-08): profundidade adaptativa por τ = 4·c₃ + 2·c₂ + 0,5·c₁; schedule de temperatura T(t) por fase; 30 snapshots por partida (t=1..30). Ver `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md`.
+  - **V7-Bugs** (2026-05-12): 2 bugs críticos de Bitboard corrigidos no notebook de Fase 2 — (1) caixas pré-fechadas: verificar `(edges & mask) != mask` antes de contar; (2) offsets alpha-beta incremental: ajustar α/β com `−closed`/`+closed`. Ver PRD §4.1.5 e notebook `Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb`.
+  - **V7-Treino** (2026-05-12): experimentos preliminares com p=11 indicam saturação arquitetural BoxNet v3 (~74k params). Melhor config: todas as 758k amostras (com duplicatas) → 63% vs p=6, 90,5% vs p=3.
   - D2 (NPZ pré-computa todos os 11 canais; canal 5 é `caixa_fechada` binário; campo auxiliar `nomes_canais (11,) U32`).
-  - D3 (pipeline em 2 notebooks: A.1 Databricks, A.2 local; sobrescrita atômica `.tmp` + `os.replace()`).
+  - D3 (pipeline em 2 notebooks: A.1 geração local + Databricks, A.2 enriquecimento local; sobrescrita atômica `.tmp` + `os.replace()`).
   - D5 (augmentação 4× — não 8× — porque 4×3 não é quadrado).
   - D9 (sample_weight refinado por Δ-top2 em t=12–17, peso médio 1.05–1.15).
   - D10 (value head AlphaZero-style, descartada no export TFLite).
@@ -195,8 +204,8 @@ Veja `data-model.md` (esquema NPZ Fase A.1, NPZ Fase A.2, tensor `canais`), `con
 ```
 Fase 0 (Análise de divergência estratégica) ✅ CONCLUÍDA em 2026-05-06
     ↓
-Fase A.1 (Geração no Databricks)
-    ↓ gate: 500k únicos com distribuição ±2pp das cotas D1/D1.a; snapshot da COMPLEMENTO_POR_CELULA em historico_decisoes.md
+Fase A.1 (Geração V7 DAC + enriquecimento p=11 + experimentos de treino) ✅ CONCLUÍDA em 2026-05-12
+    ↓ gate atendido: 758k amostras brutas / ~500k distintos; campos melhor_jogada + score_melhor_jogada (p=11); bugs Bitboard corrigidos; snapshot em historico_decisoes.md
     ↓
 Fase A.2 (Enriquecimento local com 11 canais)
     ↓ gate: validação visual de ≥30 estados; testes do analisador passam; nomes_canais byte-a-byte igual à constante
@@ -219,64 +228,85 @@ Fase F (Value head, TFLite policy-only)
 Fases G/H (CONDICIONAIS — só executam se F não bater meta de SC-W-* ou SC-A-*)
 ```
 
-**Cada fase só inicia após o gate da anterior atendido.** Fases A.1 e A.2 são sequenciais no tempo (A.2 depende dos NPZs de A.1, mas processa também os 58 NPZs legados).
+**Cada fase só inicia após o gate da anterior atendido.** A.2 depende dos NPZs gerados em A.1 em `dados/profundidade_minimax_11_v7_adaptativo/`.
 
 ---
 
-### Fase A.1 — Geração no Databricks
+### Fase A.1 — Geração do dataset V7 DAC ✅ CONCLUÍDA (2026-05-12)
 
-**Objetivo**: gerar e consolidar ≥ 500.000 estados únicos (Minimax(p=9), faixa estendida `[0.15, 0.97]`, distribuição U-invertida) a partir de três fontes: legado (`dados/profundidade_minmax_9_desbalanceado/`), V5_Databricks (`dados/profundidade_minmax_9_v5_databricks/`) e V5_Local (`dados/profundidade_minmax_9_v5_local/`). Consolidação final (rev.5 de 2026-05-08): **499.997 estados únicos** — distribuição 55.501 / 169.875 / 223.551 / 50.867 / 203 por bucket. Todas as cotas capeadas nos únicos reais disponíveis; mix gen_mode: 5,00% / 40,06% / 54,94%.
+> **Nota:** Esta fase foi executada com o algoritmo **V7 DAC** (Diversidade Adaptativa em Cascata) — não com o notebook V5/cotas especificado originalmente. Os artefatos entregues diferem do escopo original; ver PRD §4.1.4 e `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md`.
 
-**Arquivos criados**:
-- `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb` (clone do V4 + ajustes abaixo).
+**Objetivo (executado)**: produzir 152 NPZs com ~758k amostras brutas / ~500k distintos cobrindo t=1–30 (distribuição bell-shaped emergente), supervisão Minimax p=11, schema V2. Diretório: `dados/profundidade_minimax_11_v7_adaptativo/`.
 
-**Arquivos modificados**:
-- `dados/profundidade_minmax_9/*.npz` — novos NPZs adicionados (não sobrescreve os legados; A.2 sobrescreve depois com `canais`).
-- `docs/jogo_pontinhos/guia_geracao_dados.md` — novo procedimento operacional do A.1; novo formato dos NPZs (sem `canais` ainda).
-- `docs/historico_decisoes.md` — entrada datada Fase A.1 com snapshot literal da `COMPLEMENTO_POR_CELULA` efetivamente usada (FR-A-07 / SC-D-06).
+**Artefatos criados** (reais):
+- `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb` — Fase 1: geração local DAC. ~25.288 partidas × 30 snapshots.
+- `gerador_dados/jogo_pontinhos/gerador_amostras_v7_pontinhos.py` — worker Python do V7 DAC.
+- `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb` — Fase 2 Databricks: calcula `melhor_jogada`, `score_melhor_jogada`, `depth_melhor_jogada`. Inclui correção de 2 bugs críticos de Bitboard.
+- `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md` — documento de design V7 (material do TCC).
+- `docs/jogo_pontinhos/Aprimoramento_Geracao_Amostras_v7_adaptativo.md` — proposta de otimização Fase 2 via move ordering (não implementada; condicional ao tempo medido da Fase 2).
 
-**Modificações pontuais sobre o V4**:
-1. **Célula de parâmetros (topo do notebook)** embute literal a tabela `COMPLEMENTO_POR_CELULA` de PRD §4.1.3 — sem leitura externa de arquivo:
-   ```python
-   # V5_Local rev.3 (2026-05-08) — gera 12.542 estados em (18,23).
-   # Buckets (24,28), (29,30), (5,11) e (12,17) todos concluídos.
-   COMPLEMENTO_POR_CELULA = {
-       0: {(5, 11): 0, (12, 17): 0, (18, 23):   627, (24, 28): 0, (29, 30): 0},
-       2: {(5, 11): 0, (12, 17): 0, (18, 23): 5_017, (24, 28): 0, (29, 30): 0},
-       3: {(5, 11): 0, (12, 17): 0, (18, 23): 6_898, (24, 28): 0, (29, 30): 0},
-   }
-   STRAT_WEIGHTS = [0.05, 0.00, 0.40, 0.55]   # modo 1 desligado (D1.a)
-   FAIXA_TRACOS = (0.15, 0.97)                 # cobre 5–30 traços (D1)
-   ```
-2. **Pré-população do set de dedup** com hashes (`mat.tobytes()`) dos 314.323 únicos legados, carregando os 58 NPZs em `dados/profundidade_minmax_9/` antes de iniciar a geração.
-3. **Sorteador customizado**: para cada estado a gerar, escolhe célula `(gen_mode, bucket_tracos)` com cota residual em `COMPLEMENTO_POR_CELULA`; usa o gerador correspondente do V4 limitando `target_tracos` ao bucket; rejeita+regera (até 20 tentativas) se hash já no set.
-4. **NPZ contém apenas**: `estados (N,9,7) int8`, `rotulos (N,) str`, `scores (N,31) float32`, `generation_mode (N,) int8`, `labels_canonicos (31,) str`, `depth (1,) int32`. **Sem `canais`** — A.2 adiciona.
-5. **Mantém otimizações V4**: killer move, transposition table profundidade-aware, alpha-beta agressivo, batch sizes, dynamic worker detection, checkpoint/resume por glob ordenado de NPZs em batches de 5.000.
+**Algoritmo V7 DAC** (resumo; ver `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md`):
+- **Profundidade adaptativa**: τ = 4·c₃ + 2·c₂ + 0,5·c₁ → p(τ) = clamp(1 + ⌈τ/4⌉, 1, 8).
+- **Boltzmann sampling**: desempate por P(lance i) ∝ exp(score_i / T), com T(t) decrescente (T=1,5 abertura → T=0,2 endgame).
+- **30 snapshots por partida**: t=1..30; t=0 e t=31 descartados.
+- **Meta única**: ≥500k distintos (sem quotas por faixa; distribuição emergente).
 
-**Não inclui**: otimização de cluster Databricks (workers/timeout/batch são ad-hoc no momento da execução, fora do escopo da spec).
+**Bugs críticos corrigidos no Bitboard** (PRD §4.1.5; notebooks V5 anteriores afetados):
+1. **Caixas pré-fechadas** (falsos positivos): verificação obrigatória `(edges & mask) != mask` antes de contar fechamento — sem ela, o Bitboard injeta pontos fantasmas e corrompe os scores.
+2. **Offsets alpha-beta incremental**: ao chamar a subárvore, repassar α e β com offset de `−closed` (ou `+closed` para o adversário) — sem isso, ocorre poda prematura e o motor escolhe jogadas perdedoras.
 
-**Testes obrigatórios**: nenhum teste unitário direto sobre o notebook (executa fora do CI). **Auditoria pós-execução**:
-- Script ad-hoc (a ser rodado pelo desenvolvedor) que carrega todos os NPZs, deduplica por `mat.tobytes()`, conta ≥ 500.000 únicos e verifica distribuição empírica final dentro de ±2pp das cotas.
+**Dataset produzido** (distribuição real por qtd_traços):
+
+| qtd_traços | Amostras Brutas | Amostras Distintas |
+|---:|---:|---:|
+| 1 | 25.288 | 31 |
+| 2 | 25.288 | 465 |
+| 3 | 25.288 | 4.475 |
+| 4 | 25.288 | 17.247 |
+| 5 | 25.288 | 23.432 |
+| 6–17 | 25.288 cada | 24.851 – 25.276 (quase saturados) |
+| 18 | 25.288 | 25.099 |
+| 19 | 25.288 | 24.654 |
+| 20 | 25.288 | 23.636 |
+| 21 | 25.288 | 21.549 |
+| 22 | 25.288 | 18.437 |
+| 23 | 25.288 | 14.885 |
+| 24 | 25.288 | 10.818 |
+| 25 | 25.288 | 7.200 |
+| 26 | 25.288 | 4.003 |
+| 27 | 25.288 | 1.734 |
+| 28 | 25.288 | 616 |
+| 29 | 25.288 | 168 |
+| 30 | 25.288 | 31 |
+| **Total** | **758.640** | **~500.000** |
+
+**Enriquecimento Fase 2** (executado duas vezes via `Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb`):
+- Rodada 1: Minimax p=7 → `score_melhor_jogada` inicial.
+- Rodada 2: Minimax p=11 → `score_melhor_jogada` final (fonte da verdade para treino). Campo `depth_melhor_jogada = 11`.
+
+**Experimentos preliminares de treino** (antes da Fase A.2; ground truth p=11):
+
+| Configuração | Dataset | vs Minimax p=3 | vs Minimax p=6 |
+|---|---|---:|---:|
+| **Todas as 758k amostras (com dup.)** | 758k brutas | **90,5%** | **63,0%** |
+| Apenas distintos | ~500k únicos | ~87% | ~58% |
+| Distintos + sample_weight (clip 20×) | ~500k únicos | ~88% | ~60% |
+| Distintos + sample_weight (sem clip) | ~500k únicos | ~85% | ~57% |
+
+**Melhor resultado**: todas as 758k amostras (incluindo duplicatas) → **90,5% vs p=3 e 63% vs p=6**. Este é o novo baseline de comparação para as Fases B+.
+
+**Diagnóstico de saturação** (BoxNet v3, ~74k parâmetros): KLD Loss = 0,125; Optimal Move Accuracy estagnada em ~94,4%. A arquitetura atual atingiu seu teto. O gargalo não é mais a qualidade do dataset — é a capacidade da rede. Os canais estruturais (Fases B→D) e o Value Head (Fase F) são as alavancas restantes.
+
+> **Atenção (avaliação de partida):** verificar amostras de que a CNN entregou 2 caixas ao Minimax para capturar cadeias longas no próximo turno — esse é sacrifício estratégico correto, não erro tático.
 
 **Atualizações de contrato**: nenhuma nesta fase.
 
-**Atualizações em `docs/historico_decisoes.md`** (FR-A-07, SC-D-06):
-- Data: data efetiva de execução do A.1.
-- Snapshot completo da `COMPLEMENTO_POR_CELULA` literalmente como aparece na célula de parâmetros do notebook (prova de auditoria).
-- Distribuição empírica medida do dataset final (faixa de traços × gen_mode), com diff vs cotas alvo.
-- Tempo total de geração no Databricks (informativo).
-- Total de estados antes da dedup, total de únicos pós-dedup, % duplicatas regeneradas (até 20 tentativas).
-
-**Atualizações em `docs/jogo_pontinhos/guia_geracao_dados.md`**:
-- Seção nova: "Fase A.1 — Geração no Databricks (notebook V5)" com procedimento passo-a-passo.
-- Atualização do formato do NPZ (campos atuais; `canais` documentado como "adicionado pela Fase A.2").
-
-**Gate de saída A.1** (transcrito de FR-A + SC-D + PRD §5):
-1. ≥ 500.000 estados únicos no diretório (legados + complemento).
-2. Distribuição empírica final dentro de ±2pp das cotas D1 (faixa) e D1.a (gen_mode).
-3. Mix gen_mode final ≈ 0=5%, 1=0%, 2=40%, 3=55%.
-4. Snapshot da `COMPLEMENTO_POR_CELULA` registrado em `docs/historico_decisoes.md`.
-5. NPZ contém os 6 campos canônicos (sem `canais` ainda; A.2 adiciona).
+**Gate de saída A.1 (ATENDIDO)**:
+1. ✅ ~758k amostras brutas gravadas em 152 NPZs.
+2. ✅ ~500k distintos confirmados (auditoria pós-geração).
+3. ✅ Cobertura t=1–30; campos `melhor_jogada` e `score_melhor_jogada` preenchidos.
+4. ✅ 2 bugs críticos de Bitboard corrigidos e aplicados.
+5. ✅ Snapshot em `docs/historico_decisoes.md` (entrada 2026-05-08).
 
 ---
 
@@ -294,12 +324,12 @@ Fases G/H (CONDICIONAIS — só executam se F não bater meta de SC-W-* ou SC-A-
 - `tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py`.
 
 **Arquivos modificados**:
-- `dados/profundidade_minmax_9/*.npz` — todos sobrescritos in-place via `.tmp` + `os.replace()` adicionando `canais` + `nomes_canais`.
+- `dados/profundidade_minimax_11_v7_adaptativo/*.npz` — todos sobrescritos in-place via `.tmp` + `os.replace()` adicionando `canais` + `nomes_canais`.
 - `docs/jogo_pontinhos/guia_geracao_dados.md` — seção nova "Fase A.2 — Enriquecimento local".
 - `docs/historico_decisoes.md` — entrada Fase A.2 (consolidando D2/D3/D4 com data efetiva).
 
 **Layout do notebook A.2** (etapas):
-1. Recebe `--diretorio-npz` (default `dados/profundidade_minmax_9`).
+1. Recebe `--diretorio-npz` (default `dados/profundidade_minimax_11_v7_adaptativo`).
 2. Para cada NPZ no diretório (em ordem):
    a. Carrega TODOS os campos atuais.
    b. Computa `canais = np.stack([extrair_canais(estados[i]) for i in range(N)], axis=0).astype(np.int8)`.
@@ -696,6 +726,7 @@ Formato: `referencia_canais_pontinhos.json` (legível) ou `.npz` (compacto). Dec
 | Win-rate vs p=1 cai (CNN ficou "muito sofisticada", erra contra jogador aleatório) | Baixa | Manutenção de 10% de amostras de abertura (5–11 traços) na D1. Gate de não-regressão por fase em SC-W-04 (vs p=1 ≥ 92%). |
 | Tempo de geração 500k Minimax(p=9) no Databricks excede orçamento (NFR-03 = 4h) | Baixa | Estimativa do PRD §4.1.3 é 1.34 h em 12 workers (pior caso ~1.7 h). Folga grande sobre as 4 h. Otimização de cluster fica ad-hoc no momento da execução (fora do escopo). |
 | Ctrl+C durante o A.2 corrompe NPZ original | Baixa | **Sobrescrita atômica via `.tmp` + `os.replace()`** (FR-B-03, NFR-06). O `.tmp` é descartado em caso de interrupção; o original nunca fica corrompido pela metade. |
+| **Bugs de Bitboard ao adaptar notebook de Fase 2** | **Alta** | **Dois bugs críticos já identificados e corrigidos** em `Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb`: (1) caixas pré-fechadas injetam pontos fantasmas; (2) offsets α/β incremental causam poda prematura. Se adaptar o código do Bitboard para outro notebook, rever obrigatoriamente esses dois pontos. Ver PRD §4.1.5. |
 
 ---
 
