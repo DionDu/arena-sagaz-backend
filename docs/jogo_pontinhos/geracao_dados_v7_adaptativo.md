@@ -266,8 +266,8 @@ NPZs gerados pelo pipeline V7 seguem o esquema abaixo:
 **Slots inválidos (jogadas já preenchidas)**: recebem `SCORE_INDISPONIVEL = -1e9`
 em ambos `score_jogada` e `score_melhor_jogada`.
 
-**Diretório de saída**: `dados/profundidade_minmax_{DEPTH_MELHOR_JOGADA}_adaptativo/`,
-ou seja, `dados/profundidade_minmax_7_adaptativo/` na configuração padrão.
+**Diretório de saída**: `dados/profundidade_minimax_{DEPTH_MELHOR_JOGADA}_v7_adaptativo/`,
+ou seja, `dados/profundidade_minimax_11_v7_adaptativo/` na execução de 2026-05-12 (p=11).
 
 ### 7.1 Distinção score_jogada vs score_melhor_jogada
 

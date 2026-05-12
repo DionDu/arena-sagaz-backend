@@ -44,7 +44,7 @@ implementando o algoritmo **DAC — Diversidade Adaptativa em Cascata**.
 
 ### Esquema do NPZ V2
 
-Diretório de saída: `dados/profundidade_minmax_7_adaptativo/`.
+Diretório de saída: `dados/profundidade_minimax_11_v7_adaptativo/`.
 
 | Campo | Shape | Dtype | Fase |
 |---|---|---|---|
@@ -1473,3 +1473,15 @@ Criados/atualizados documentos de argumentação acadêmica:
 recomendados ou de rota técnica deve atualizar os `.md` relevantes na mesma
 resposta. Diretriz codificada em `CLAUDE.md` para não depender da memória do
 usuário.
+
+---
+
+## 2026-05-09 — Resolução de Divergência Matemática na Fase 2 (Databricks)
+
+**Contexto:** Ao auditar os arquivos `.npz` recém gerados pela Fase 2 (Databricks), o motor Minimax Otimizado (Bitboard) estava produzindo scores inflados (ex: `+1` quando o correto era `0`) em ~14.5% das amostras analisadas (focadas no midgame).
+
+**Causa Raiz (Dupla):**
+1. **Contagem de caixas:** A álgebra booleana do Bitboard não descontava caixas que já se encontravam fechadas no tabuleiro antes do lance avaliado, injetando pontos fantasmas durante a recursão.
+2. **Offsets na Poda Alpha-Beta Incremental:** Diferente do motor local que retorna o score *absoluto* ao final da árvore, o Bitboard retornava o score *incremental* (pontos acumulados dali para a frente). Com isso, ao repassar os limites `alpha` e `beta` para as subárvores, os valores exigiam aplicação de um *offset* (ex: `alpha - cl`). A ausência dessa compensação causava podas severas incorretas, eliminando os ramos ideais e resultando em scores piores/errados.
+
+**Decisão:** O notebook `Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb` foi retificado implementando o controle estrito de `and edges & bm != bm` nas máscaras de caixas e as devidas compensações `+/- cl` nos limites do Alpha-Beta. A Transposition Table (TT) também passou a operar isoladamente para cada traço da raiz. As amostras geradas incorretamente precisam ser regeradas. Os detalhes matemáticos da investigação estão em `docs/jogo_pontinhos/Aprimoramento_Geracao_Amostras_v7_adaptativo.md`.

@@ -1,10 +1,11 @@
 # PRD — CNN Pontinhos com Canais Estruturais e Cobertura de Final de Jogo
 
-> **Status:** Draft — pronto para servir de input ao `/speckit-plan` e em seguida `/speckit-specify`.
+> **Status:** Em execução — Fase A.1 concluída; Fase A.2 pendente.
 > **Autor:** Time Arena Sagaz — sessão de revisão de modelo CNN para o Jogo dos Pontinhos.
 > **Data inicial:** 2026-05-05.
-> **Última revisão:** 2026-05-07 — revisão sobre proporção de sampling (eliminação de p=1, novo mix 5/0/40/55), deduplicação obrigatória, aproveitamento dos 314.323 únicos já gerados (cálculo do complemento fixado em §4.1.3, sem notebook de planejamento separado), separação do enriquecedor de canais em notebook próprio (com sobrescrita), pré-computação dos 11 canais no NPZ, ajustes nas decisões D2/D3/D4 e na Fase A (agora dividida em A.1 = geração + A.2 = enriquecimento; o antigo "A.1 planejamento" foi eliminado). **Correção 2026-05-07 (tarde):** canal 5 renomeado de `dono_caixa` (ternário `{-1, 0, +1}`) para `caixa_fechada` (binário `{0, 1}`) — alinhamento com o domínio real do dataset (`contexto_1_geracao_dataset` no contrato nunca tem -1). Adicionado campo `nomes_canais` ao NPZ enriquecido (auto-descrição) com validação cruzada contra a PRD §4.2.
-> **Última revisão anterior:** 2026-05-06 — Fase 0 concluída (Cenário X3 confirmado em 600 partidas); inseridas novas Fases E (sample_weight refinado — D9) e F (value head — D10); antigas E/F renumeradas G/H; faixa crítica de meio-jogo unificada para [12, 17].
+> **Última revisão:** 2026-05-12 — mudanças de rota executadas: (1) pipeline V5/cotas substituído por V7 DAC; (2) bugs críticos encontrados e corrigidos no Bitboard V5 Databricks; (3) experimentos de treino preliminares concluídos (p=7 × 4 configurações + p=11); (4) melhor modelo atual atinge 63% vs Minimax(p=6) e 90,5% vs p=3; (5) saturação arquitetural identificada (BoxNet v3 ~74k params esgotada); (6) schema NPZ atualizado para V2. Detalhes em §4.1.x e §6. Fase A.2 (canais estruturais) ainda não executada.
+> **Revisão 2026-05-07 (anterior):** revisão sobre proporção de sampling, deduplicação obrigatória, aproveitamento dos 314.323 únicos legados, separação do enriquecedor de canais em notebook próprio, pré-computação dos 11 canais no NPZ, ajustes nas decisões D2/D3/D4 e na Fase A. Canal 5 renomeado de `dono_caixa` para `caixa_fechada`. Adicionado `nomes_canais` ao NPZ enriquecido.
+> **Revisão 2026-05-06:** Fase 0 concluída (Cenário X3 confirmado em 600 partidas); Fases E (sample_weight) e F (value head) inseridas; antigas E/F renumeradas G/H; faixa crítica unificada para [12, 17].
 > **Escopo do feature branch sugerido:** `004-melhoria-geracao-dados-cnn`.
 
 ---
@@ -83,12 +84,14 @@ A magnitude relativa de cada categoria foi **medida empiricamente** pela anális
 
 Métrica primária — win-rate contra Minimax:
 
-| Métrica | Baseline (medido em 600 partidas, 2026-05-06) | Meta final (Fase H) |
-|---|---|---|
-| Vitórias vs Minimax(p=1) | 92% (medição anterior; p=1 descartado em diagnósticos) | ≥ 96% |
-| Vitórias vs Minimax(p=3) | **54.5%** | ≥ 80% |
-| Vitórias vs Minimax(p=5) | **42.0%** | ≥ 70% |
-| Vitórias vs Minimax(p=6) | **38.0%** | ≥ 60% |
+| Métrica | Baseline original (600 partidas, 2026-05-06) | Pós-V7 sem canais estruturais (2026-05-12) | Meta final (Fase F) |
+|---|---|---|---|
+| Vitórias vs Minimax(p=1) | 92% (p=1 descartado) | — | ≥ 96% |
+| Vitórias vs Minimax(p=3) | **54,5%** | **90,5%** ✅ | ≥ 80% |
+| Vitórias vs Minimax(p=5) | **42,0%** | — | ≥ 70% |
+| Vitórias vs Minimax(p=6) | **38,0%** | **63,0%** | ≥ 60% |
+
+> **Nota 2026-05-12:** os resultados "Pós-V7 sem canais estruturais" são do melhor modelo treinado com V7 DAC + Minimax p=11, **sem** Fase A.2 (canais estruturais), **sem** augmentação (Fase C) e **sem** value head (Fase F). A meta vs p=3 já foi atingida. As Fases A.2 → B → C → D → E → F visam fechar os gaps restantes, especialmente vs p=5 e p=6.
 
 Métrica secundária — erros táticos (Categoria A):
 
@@ -275,18 +278,27 @@ Critérios definidos pré-execução:
 
 ### 3.2 Estado atual do dataset NPZ
 
-O NPZ atual contém:
+> **Revisão 2026-05-12:** o dataset foi regenerado com o pipeline V7 DAC. Schema V2 vigente. Ver `contracts/npz_schema.md` para especificação completa e tabela de versionamento.
 
-| Campo | Shape | Conteúdo |
-|---|---|---|
-| `estados` | (N, 9, 7) int8 | Matriz crua: `0` (livre), `9` (aresta jogada), `8` (ponto fixo), `1`/`-1` (caixa fechada) |
-| `rotulos` | (N,) str | Label canônico da melhor aresta (ex: `H_2_3`) |
-| `scores` | (N, 31) float32 | Q-values do Minimax(p=9) por aresta canônica (`-1e9` para arestas inválidas) |
-| `generation_mode` | (N,) int8 | 0=uniform, 1=sim_l1, 2=sim_l2, 3=sim_l3 |
-| `labels_canonicos` | (31,) str | Lista canônica de labels |
-| `depth` | (1,) int32 | Profundidade Minimax usada na geração |
+**Schema V2 — pipeline V7 DAC (vigente):**
 
-A faixa de preenchimento atual é **15% a 85%** (5 a 26 traços) — *o ponto onde a CNN mais erra (29 traços) não está no dataset*.
+| Campo | Shape | Dtype | Fase | Conteúdo |
+|---|---|---|---|---|
+| `estados` | (N, 9, 7) | int8 | 1 | Matriz crua `{0,1,8,9}` |
+| `qtd_tracos` | (N,) | int8 | 1 | Número de traços aplicados (1..30) |
+| `score_jogada` | (N, 31) | float32 | 1 | Q-values Minimax(p adaptativo) do estado atual — **não usar como alvo de treino** |
+| `depth_jogada` | (N,) | int8 | 1 | Profundidade Minimax usada neste estado |
+| `depth_geracao` | (N,) | int8 | 1 | Profundidade Minimax usada no estado anterior |
+| `melhor_jogada` | (N,) | \<U5 | 2 | Label canônico da melhor aresta (ex: `H_2_3`) — argmax de `score_melhor_jogada` |
+| `score_melhor_jogada` | (N, 31) | float32 | 2 | Q-values Minimax(p=7 ou p=11) — **verdade-padrão para treino** |
+| `depth_melhor_jogada` | (N,) | int8 | 2 | Profundidade usada na Fase 2 (fixo por rodada) |
+| `labels_canonicos` | (31,) | \<U5 | 1 | Ordem canônica dos 31 slots de score |
+
+**Removidos em relação ao schema V1 (legado):** `rotulos` (→ `melhor_jogada`), `scores` (→ `score_melhor_jogada`), `generation_mode` (removido), `depth` global (→ por-estado em `depth_jogada`/`depth_melhor_jogada`).
+
+**Dados gerados (execução 2026-05-12):** ~758.640 amostras brutas | ~500.000 distintos. Distribuição bell-shaped emergente (sem quotas manuais). Cobertura 1–30 traços. Supervisão Minimax p=7 (Fase 2) e p=11 (re-execução posterior).
+
+**Schema V1 legado** (arquivos em `dados/profundidade_minmax_9/`): `estados`, `rotulos`, `scores`, `generation_mode`, `labels_canonicos`, `depth`. Não misturar com V2 sem conversão explícita.
 
 ### 3.3 Estado atual do modelo (BoxNet v3 V5)
 
@@ -304,6 +316,10 @@ A faixa de preenchimento atual é **15% a 85%** (5 a 26 traços) — *o ponto on
 ## 4. Decisões arquiteturais (com fundamentação)
 
 ### 4.1 Decisão D1 — Geração de dados expandida com cobertura terminal
+
+> **⚠️ SUPERSEDIDA em 2026-05-12 (Revisão §4.1.4 abaixo).**
+>
+> A abordagem V5/cotas (`COMPLEMENTO_POR_CELULA`, `STRAT_WEIGHTS`, `generation_mode`, faixas com quota rígida) foi implementada mas mostrou-se inviável: saturação severa na faixa 24–28, cota 29–30 fisicamente impossível (espaço máximo = 496 estados), e ~82% de duplicatas na faixa quente. Foi **substituída** pelo algoritmo V7 DAC em 2026-05-08. O raciocínio abaixo é preservado por valor histórico; a implementação vigente é §4.1.4.
 
 **Decisão:** Aumentar a faixa de amostragem de `[0.15·n_edges, 0.85·n_edges]` para `[0.15·n_edges, 0.97·n_edges]` (de 5–26 traços para 5–30 traços), e usar **distribuição não-uniforme em forma de U invertido** com pico na "fase quente" do jogo (onde caixas começam a fechar em sequência).
 
@@ -389,6 +405,86 @@ O notebook V4 atual gera estados misturando 4 modos de sampling (`STRAT_MODES`):
 - **Ao consolidar dados antigos + novos no treinamento:** carregar todos os NPZs, deduplicar pela matriz crua, então aplicar split estratificado.
 
 **Meta:** o NPZ final entregue à Fase B deve ter **≥ 500.000 estados únicos** (não 500.000 estados gerados com duplicatas).
+
+> **Nota 2026-05-12:** o V7 DAC (§4.1.4) grava duplicatas no NPZ intencionalmente e delega a dedup ao notebook de treino. Os experimentos confirmaram que treinar **com duplicatas** (758k amostras totais) produziu melhores resultados do que treinar apenas com distintos — ver §4.1.6.
+
+---
+
+### 4.1.4 Decisão D1.c — Pipeline V7 DAC substitui V5/cotas (2026-05-08)
+
+**Decisão:** substituir completamente o notebook V5/cotas pelo algoritmo **DAC — Diversidade Adaptativa em Cascata**, implementado em `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb` + worker `gerador_dados/jogo_pontinhos/gerador_amostras_v7_pontinhos.py`.
+
+**Quatro princípios do DAC:**
+
+| # | Alavanca | Implementação |
+|---|---|---|
+| 1 | Profundidade Minimax | Adaptativa por tensão estrutural τ = 4·c₃ + 2·c₂ + 0,5·c₁; p = clamp(1+⌈τ/4⌉, 1, 8) |
+| 2 | Desempate de jogadas | Boltzmann sampling com temperatura T(t) decrescente: 1,5 → 0,8 → 0,5 → 0,2 |
+| 3 | Geração | 30 snapshots por partida (t=1..30); t=0 e t=31 descartados |
+| 4 | Estratificação | Sem quotas; distribuição bell-shaped emergente; meta única de distintos |
+
+**Resultado (execução 2026-05-12):** ~758.640 amostras brutas, ~500.000 distintos, cobertura 1–30 traços. Geração local (~2–4h), supervisão no Databricks (~9h/lote com Minimax p=7).
+
+**Especificação completa:** `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md` (documento canônico do TCC).
+
+**Otimização opcional (não implementada):** move ordering via PV da Fase 1 para acelerar Fase 2. Documentado em `docs/jogo_pontinhos/Aprimoramento_Geracao_Amostras_v7_adaptativo.md`.
+
+---
+
+### 4.1.5 Bugs críticos encontrados e corrigidos no Bitboard V5 Databricks (2026-05-12)
+
+Durante a implementação do notebook `Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb`, foram identificados dois bugs no algoritmo Minimax por Bitboard que afetavam **todos os notebooks anteriores** (V4, V5 Databricks):
+
+**Bug 1 — Caixas pré-fechadas contadas como fechamentos novos:**
+```python
+# ERRADO (V4/V5):
+closed = sum(1 for bm in edge_boxes[i] if (edges | bit) & bm == bm)
+# CORRETO (V7 HighPerf):
+closed = sum(1 for bm in edge_boxes[i] if (edges | bit) & bm == bm and edges & bm != bm)
+```
+Sem verificar que a caixa não estava fechada antes, o Bitboard injetava pontos fantasmas em profundidade, corrompendo scores de forma silenciosa.
+
+**Bug 2 — Offset do alpha-beta incremental não aplicado:**
+```python
+# ERRADO: repassa alpha/beta puros na chamada recursiva mesmo após fechamento de caixas
+# CORRETO: offset obrigatório
+# maximizador após fechar 'closed' caixas:
+solve(new_e, depth-1, alpha - closed, beta - closed, True, tt)
+# minimizador após fechar 'closed' caixas:
+solve(new_e, depth-1, alpha + closed, beta + closed, False, tt)
+```
+Sem o offset, a poda prematura fazia o motor escolher jogadas perdedoras.
+
+**Impacto:** os 758k estados foram enriquecidos com o Minimax corrigido (Fase 2 HighPerf), primeiro com p=7 e depois re-executado com p=11. Os dados legados (V4/V5 em `dados/profundidade_minmax_9/`) têm scores potencialmente corrompidos — **não reutilizar para treino sem reprocessar**.
+
+---
+
+### 4.1.6 Resultados dos experimentos de treino (2026-05-12)
+
+Após geração V7 DAC com supervisão p=7, quatro configurações foram testadas:
+
+| Configuração | Dataset | Sample Weight | Resultado (vs p=6) |
+|---|---|---|---|
+| Config 1 | 758k (com duplicados) | Uniforme | **63% — melhor** |
+| Config 2 | ~500k (apenas distintos) | Uniforme | Inferior a Config 1 |
+| Config 3 | ~500k distintos | Por qtd_tracos + clip 20× | Inferior a Config 1 |
+| Config 4 | ~500k distintos | Por qtd_tracos + sem clip | Inferior a Config 1 |
+
+**Achado:** duplicatas naturais do V7 funcionam como **augmentação implícita** — o mesmo estado de tabuleiro aparece mais vezes em trajetórias diferentes, reforçando casos recorrentes. Filtrar duplicatas piora o modelo.
+
+Após re-enriquecimento com Minimax p=11, o melhor modelo atingiu:
+
+| Adversário | Baseline original (pré-V7) | Melhor resultado pós-V7 |
+|---|---|---|
+| Minimax(p=3) | 54,5% | **90,5%** |
+| Minimax(p=5) | 42,0% | — |
+| Minimax(p=6) | 38,0% | **63,0%** |
+
+**Saturação arquitetural identificada:** KLD Loss ≈ 0,125 e OMA estagnada em ~94,4% indicam que a BoxNet v3 (~74k parâmetros) esgotou sua capacidade. O gargalo passou de qualidade de dados para arquitetura. A Fase F (value head) continua sendo o próximo passo recomendado.
+
+> ⚠️ **Verificação obrigatória ao analisar partidas da CNN:** grande parte das "caixas entregues" são **sacrifícios estratégicos intencionais** — a CNN entrega 2 caixas para capturar cadeias longas no turno seguinte. Confirmar de forma amostral antes de classificar como erro tático.
+
+---
 
 ### 4.2 Decisão D2 — NPZ enriquecido com TODOS os canais (geométricos + estruturais) pré-computados
 

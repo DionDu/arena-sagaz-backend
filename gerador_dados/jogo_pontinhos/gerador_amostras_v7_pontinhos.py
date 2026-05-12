@@ -24,6 +24,7 @@ import numpy as np
 from gerador_dados.jogo_pontinhos.minimax_pontinhos import (
     _scores_de_todas_jogadas,
     melhor_jogada_com_scores,
+    minimax,
 )
 from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import (
     EstadoTabuleiro,

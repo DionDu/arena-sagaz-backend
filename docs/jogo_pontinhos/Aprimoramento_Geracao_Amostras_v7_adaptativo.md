@@ -362,7 +362,7 @@ otimização for implementada. Razões:
 `notebooks/jogo_pontinhos/Fase2_MelhorJogada_Acelerada.ipynb` (ou
 nome equivalente — `Geracao_Amostras_v7_Fase2_acelerada.ipynb` também
 funciona). Lê NPZs do mesmo diretório
-`dados/profundidade_minmax_7_adaptativo/` e os reescreve.
+`dados/profundidade_minimax_11_v7_adaptativo/` e os reescreve.
 
 ### 5.3 Estrutura proposta
 
@@ -371,7 +371,7 @@ funciona). Lê NPZs do mesmo diretório
 │ Notebook: Fase2_MelhorJogada_Acelerada.ipynb                         │
 │                                                                      │
 │ Entrada:                                                             │
-│   - NPZs em dados/profundidade_minmax_7_adaptativo/                  │
+│   - NPZs em dados/profundidade_minimax_11_v7_adaptativo/                  │
 │     gerados pela Fase 1 do V7 (campos da Fase 1 preenchidos,         │
 │     campos da Fase 2 ainda vazios)                                   │
 │                                                                      │

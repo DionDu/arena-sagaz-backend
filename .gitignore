@@ -1,5 +1,5 @@
-# Dados gerados e modelos (gitignored conforme plano)
-dados/
+# Dados gerados e modelos
+# dados/
 modelos/
 
 # Python
@@ -28,7 +28,7 @@ env/
 htmlcov/
 
 # Dataset e modelos
-*.npz
+# *.npz
 *.npy
 *.tflite
 

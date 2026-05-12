@@ -19,18 +19,22 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 
 ---
 
-## Fase A.1 — Geração no Databricks (notebook V5)
+## Fase A.1 — Geração de dataset (pipeline V7 DAC)
 
-**Objetivo**: produzir NPZ com **500.000 estados únicos** cobrindo 5–30 traços (distribuição U-invertida), preservando os 314.323 únicos legados como núcleo invariante e completando o restante com `gen_mode` declarado por estado.
+> **Revisão 2026-05-12:** esta fase foi concluída com o algoritmo **V7 DAC** (não o notebook V5/cotas como especificado originalmente). Ver PRD §4.1.4 e `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md`. As tasks abaixo estão marcadas como concluídas, mas o que foi entregue é diferente do escopo original — as notas inline registram o que foi feito de fato.
 
-**Gate da fase**: NPZ aprovado em auditoria — 500.000 estados únicos confirmados, distribuição empírica dentro das tolerâncias da §4.1.3 do PRD, mix `gen_mode` declarado, snapshot registrado em `docs/historico_decisoes.md`.
+**Objetivo (revisado)**: produzir NPZs com ~758k amostras brutas e ~500k distintos cobrindo t=1–30 (distribuição bell-shaped emergente), supervisão Minimax p=11, schema V2. Diretório: `dados/profundidade_minimax_11_v7_adaptativo/`.
 
-- [x] T-A1-001 Criar `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb` partindo de uma cópia byte-a-byte do V4 atual; alterar apenas o título e a célula de versão. **Gate**: notebook abre no Databricks sem erro de parse e roda end-to-end com os mesmos parâmetros do V4 (smoke run).
-- [x] T-A1-002 Embutir literal `COMPLEMENTO_POR_CELULA` (mapa traços → quota) da §4.1.3 do PRD na célula de parâmetros do V5, em `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb`. **blockedBy**: T-A1-001. **Gate**: célula importável; soma das quotas == 500.000 − 314.323; valores idênticos ao PRD §4.1.3 verificados por inspeção.
-- [x] T-A1-003 [P] Embutir constantes `STRAT_WEIGHTS = [0.05, 0.00, 0.40, 0.55]` e `FAIXA_TRACOS = (0.15, 0.97)` na mesma célula de parâmetros de `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb`. **blockedBy**: T-A1-001. **Gate**: `assert sum(STRAT_WEIGHTS) == 1.0`; `FAIXA_TRACOS` propagada para todas as funções de amostragem do notebook.
-- [x] T-A1-004 Implementar pré-população do `set` de hashes com os 314.323 estados únicos do NPZ legado **antes** do laço de geração no V5 (em `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb`). **blockedBy**: T-A1-002, T-A1-003. **Gate**: `len(hashes_iniciais) == 314_323` impresso na célula; verificar que o laço só gera estados novos (contador de duplicatas exibido).
-- [x] T-A1-005 Implementar célula de auditoria pós-execução em `notebooks/jogo_pontinhos/Otimizacao_Topologia_Rede_V5.ipynb`: contar únicos totais, distribuição empírica por nº de traços, mix de `gen_mode` por faixa. **blockedBy**: T-A1-004. **Gate**: 500.000 únicos confirmados; histograma de traços corresponde a `COMPLEMENTO_POR_CELULA + legado`; mix `gen_mode` impresso.
-- [x] T-A1-006 [P] Registrar entrada datada (2026-05-07 ou data corrente da execução) em `docs/historico_decisoes.md` consolidando: parâmetros usados, distribuição final, tamanho do NPZ, hashes verificados. **blockedBy**: T-A1-005. **Gate**: arquivo contém seção com data, contexto, decisão, alternativas consideradas, motivo (formato exigido pelo `CLAUDE.md`).
+**Gate da fase (revisado — ATENDIDO)**: ~758k amostras gravadas; ~500k distintos; cobertura 1–30 traços; campos `melhor_jogada` e `score_melhor_jogada` preenchidos em todos os NPZs; dois bugs críticos de Bitboard corrigidos e aplicados; snapshot em `docs/historico_decisoes.md`.
+
+- [x] T-A1-001 ~~Criar `Otimizacao_Topologia_Rede_V5.ipynb`~~ → **Entregue como:** `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb` (Fase 1 — geração local DAC) + `gerador_dados/jogo_pontinhos/gerador_amostras_v7_pontinhos.py`. Pipeline V5/cotas substituído por V7 DAC.
+- [x] T-A1-002 ~~Embutir `COMPLEMENTO_POR_CELULA`~~ → **Substituído:** V7 DAC não usa quotas; distribuição bell-shaped emergente por snapshots por partida. Parâmetros: ~25.288 partidas, 30 snapshots cada.
+- [x] T-A1-003 ~~`STRAT_WEIGHTS` e `FAIXA_TRACOS`~~ → **Substituído:** V7 usa tensão estrutural τ para profundidade adaptativa e Boltzmann sampling para diversidade. Sem `STRAT_WEIGHTS` ou `FAIXA_TRACOS`.
+- [x] T-A1-004 ~~Pré-população do set de hashes com legado~~ → **Substituído:** V7 não reaproveitou o legado V4/V5. Dataset novo do zero em `dados/profundidade_minimax_11_v7_adaptativo/`.
+- [x] T-A1-005 Célula de auditoria pós-execução implementada no notebook V7. **Entregue:** distribuição por `qtd_tracos` auditada; ~758k amostras brutas, ~500k distintos confirmados.
+- [x] T-A1-006 [P] Entrada datada em `docs/historico_decisoes.md` (2026-05-08 — Geração V7 Adaptativa DAC). Bugs críticos de Bitboard documentados em PRD §4.1.5. **Gate atendido.**
+- [x] T-A1-007 [NOVO] Enriquecimento Fase 2 (Databricks) — `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb` rodou sobre todos os 152 NPZs, adicionando `melhor_jogada`, `score_melhor_jogada` e `depth_melhor_jogada` com Minimax p=7. Re-executado posteriormente com p=11.
+- [x] T-A1-008 [NOVO] Experimentos de treino preliminares (sem canais estruturais): 4 configurações p=7 + 1 configuração p=11. Melhor resultado: 90,5% vs p=3 e 63% vs p=6 com todas as 758k amostras (incluindo duplicatas). BoxNet v3 em saturação arquitetural. Ver PRD §4.1.6.
 
 **Checkpoint Fase A.1**: NPZ com 500.000 únicos disponível em path conhecido; auditoria registrada; pode-se iniciar Fase A.2.
 
@@ -44,11 +48,11 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 
 - [x] T-A2-001 Criar `gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py` com constante pública `NOMES_CANAIS` (lista de 11 strings na ordem do PRD §4.2) e função `extrair_canais(M: np.ndarray) -> np.ndarray` retornando `(4, 3, 11) int8` conforme algoritmo de `contracts/canais_estruturais.md`. **Gate**: `python -c "from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import extrair_canais, NOMES_CANAIS; print(len(NOMES_CANAIS))"` imprime `11`.
 - [x] T-A2-002 Criar `tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py` cobrindo: (a) domínio binário `{0,1}` em todos os canais; (b) exclusão mútua canal 4 (`caixa_fechada`) vs canais 5–10 (graus/cadeias/loops); (c) coerência sob simetria (canais transformam coerentemente sob ref_H, ref_V, R180); (d) casos canônicos: tabuleiro vazio, caixa fechada simples, **double-cross do Buchin**, **loop de 4 caixas**, **half-open chain**. **blockedBy**: T-A2-001. **Gate**: `pytest tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py -v` 100% verde.
-- [x] T-A2-003 Criar `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb` que: lê NPZ de entrada, computa `canais` chamando `extrair_canais` para cada estado, escreve novo NPZ com sobrescrita **atômica** via `tmp_path = path + '.tmp'` + `os.replace(tmp_path, path)`; preserva todas as chaves originais; adiciona `nomes_canais`. **blockedBy**: T-A2-001. **Gate**: rodando o notebook sobre um NPZ de teste, o arquivo final contém todas as chaves originais + `canais` (dtype int8, shape `(N, 4, 3, 11)`) + `nomes_canais` (shape `(11,)`); nenhum `.tmp` remanescente.
-- [x] T-A2-004 [P] Criar `scripts/pontinhos/validar_canais_visualmente.py` com CLI `--qtd-tracos N1 N2 ... --n-amostras K`, gerando PNGs a 150 DPI, paleta categórica estável (uma cor por canal, fixa entre execuções), borda destacada em boxnets de caixas fechadas, título acima de cada boxnet com o nome canônico exatamente igual ao item de `NOMES_CANAIS`. **blockedBy**: T-A2-001. **Gate**: `python scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` produz 30 PNGs válidos no diretório de saída.
+- [x] T-A2-003 Criar `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb` que: lê NPZ de `dados/profundidade_minimax_11_v7_adaptativo/` (schema V2), computa `canais` chamando `extrair_canais` para cada estado, escreve novo NPZ com sobrescrita **atômica** via `tmp_path = path + '.tmp'` + `os.replace(tmp_path, path)`; preserva todas as chaves schema V2; adiciona `nomes_canais`. **blockedBy**: T-A2-001. **Gate**: rodando o notebook sobre um NPZ de teste, o arquivo final contém todos os campos do schema V2 + `canais` (dtype int8, shape `(N, 4, 3, 11)`) + `nomes_canais` (shape `(11,)`); nenhum `.tmp` remanescente.
+- [ ] T-A2-004 [P] Criar `scripts/pontinhos/validar_canais_visualmente.py` com CLI `--qtd-tracos N1 N2 ... --n-amostras K`, gerando PNGs a 150 DPI, paleta categórica estável (uma cor por canal, fixa entre execuções), borda destacada em boxnets de caixas fechadas, título acima de cada boxnet com o nome canônico exatamente igual ao item de `NOMES_CANAIS`. **blockedBy**: T-A2-001. **Gate**: `python scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` produz 30 PNGs válidos no diretório de saída.
 - [ ] T-A2-005 Validação visual manual de **≥ 30 estados** distribuídos nas faixas `t∈[12,17]`, `t∈[24,28]` e `t∈[29,30]` usando os PNGs gerados em T-A2-004. **blockedBy**: T-A2-003, T-A2-004. **Gate**: desenvolvedor confirma na entrada de `docs/historico_decisoes.md` que os canais 0–10 estão coerentes com a matriz crua nos casos inspecionados (assinatura textual).
-- [ ] T-A2-006 Auditoria do diretório de NPZs enriquecidos: verificar que `nomes_canais` é **byte-a-byte idêntico** em todos os arquivos; computar e registrar hashes pré e pós enriquecimento (matriz crua, scores e rótulo devem ter hash inalterado; `canais` e `nomes_canais` são chaves novas). **blockedBy**: T-A2-003. **Gate**: célula de auditoria no notebook ou script equivalente imprime `OK` para todos os arquivos; relatório anexado à entrada de `docs/historico_decisoes.md`.
-- [x] T-A2-007 [P] Atualizar `docs/jogo_pontinhos/guia_geracao_dados.md` documentando o novo fluxo A.1 (V5 no Databricks) + A.2 (notebook de enriquecimento local), com comandos, paths e ordem de execução. **blockedBy**: T-A2-003. **Gate**: leitor consegue reproduzir o fluxo do zero a partir do guia, sem precisar abrir o PRD.
+- [ ] T-A2-006 Auditoria do diretório de NPZs enriquecidos: verificar que `nomes_canais` é **byte-a-byte idêntico** em todos os arquivos; computar e registrar hashes pré e pós enriquecimento (`estados`, `score_melhor_jogada` e `melhor_jogada` devem ter hash inalterado; `canais` e `nomes_canais` são chaves novas). **blockedBy**: T-A2-003. **Gate**: célula de auditoria no notebook ou script equivalente imprime `OK` para todos os arquivos; relatório anexado à entrada de `docs/historico_decisoes.md`.
+- [x] T-A2-007 [P] Atualizar `docs/jogo_pontinhos/guia_geracao_dados.md` documentando o novo fluxo A.1 (V7 DAC local + Fase 2 Databricks) + A.2 (notebook de enriquecimento local), com comandos, paths e ordem de execução. Diretório correto: `dados/profundidade_minimax_11_v7_adaptativo/`. **blockedBy**: T-A2-003. **Gate**: leitor consegue reproduzir o fluxo do zero a partir do guia, sem precisar abrir o PRD.
 - [x] T-A2-008 Adicionar entrada datada em `docs/historico_decisoes.md` consolidando D2 (canal `cadeia_longa = ≥3` único, K=11), D3 (sobrescrita atômica via `.tmp` + `os.replace`) e D4 (paleta visual estável + borda em fechadas). **blockedBy**: T-A2-005, T-A2-006. **Gate**: entrada presente com data, contexto, decisão, alternativas consideradas, motivo.
 
 **Checkpoint Fase A.2**: NPZs enriquecidos prontos para consumo pelo treino; pode-se iniciar Fase B.
@@ -57,7 +61,9 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 
 ## Fase B — Treino com 5 canais geométricos
 
-**Objetivo**: substituir a Lambda interna `para_grid_de_caixas` por leitura direta de `canais[..., :5]` do NPZ; treinar e exportar primeiro TFLite da nova arquitetura.
+> **Nota 2026-05-12:** experimentos preliminares de treino foram realizados com os dados V7 (sem canais estruturais, usando `estados` brutos). Esses experimentos não substituem a Fase B formal, que introduz `canais[..., :5]` e remove a Lambda. O novo baseline de comparação é 63% vs p=6 (não mais 38%). NPZ usa schema V2: leia `score_melhor_jogada` (não `scores`) e `melhor_jogada` (não `rotulos`); não existe mais `generation_mode`.
+
+**Objetivo**: substituir a Lambda interna `para_grid_de_caixas` por leitura direta de `canais[..., :5]` do NPZ (schema V2 em `dados/profundidade_minimax_11_v7_adaptativo/`); treinar e exportar primeiro TFLite da nova arquitetura.
 
 **Gate da fase**: SC-F-05 (top-1 ≥ 95% na faixa 29–30 traços) atendido; erros táticos ≤ 250 em `analisa_padrao_erros.py`; nenhum win-rate vs Minimax(p=3/5/6) cai > 3pp vs baseline; TFLite ≤ 200 KB; latência ≤ 5 ms/jogada; teste do contrato verde; entrada em `docs/historico_decisoes.md`.
 
@@ -265,13 +271,14 @@ Pendências de **planejamento** registradas em `plan.md` e `research.md` §3 nã
 
 ### Aguardando execução manual em ambiente externo
 
-| Tarefa | Por quê | Comando esperado |
+> **Revisão 2026-05-12:** T-A1-001..006 foram concluídas com V7 DAC (não V5). As pendências abaixo são relativas à Fase A.2 (enriquecimento com canais estruturais), que ainda não foi executada sobre o dataset V7.
+
+| Tarefa | Por quê | Como executar |
 |---|---|---|
-| T-A1-001..005 (rodar V5 no Databricks) | Notebook depende de cluster Databricks com workspace `c092820@corp.caixa.gov.br/CNN/profundidade_9_legado/` montado para a pré-população do set de hashes; tempo estimado 1.34h em 12 workers. | Subir o `.ipynb` no Databricks e executar célula a célula. |
-| T-A1-006 (preencher template do histórico) | Os números empíricos só existem após a execução do V5. | Substituir os placeholders `____________` na entrada `2026-05-07 — Fase A.1` em `docs/historico_decisoes.md`. |
-| T-A2-003 (rodar enriquecimento) | Depende dos NPZs reais da Fase A.1 (~500MB total). | Configurar `DIR_NPZ` no notebook e executar todas as células. |
-| T-A2-005 (validação visual ≥ 30 PNGs) | Gate manual humano, requer revisão olho-a-olho. | `py scripts/pontinhos/validar_canais_visualmente.py --diretorio-npz <path> --qtd-tracos 14 17 24 29 --n-amostras 30 --seed 42` e revisar PNGs. |
-| T-A2-006 (auditoria do diretório enriquecido) | A célula de auditoria já está no notebook A.2 — basta executá-la sobre o diretório real e anexar o relatório à entrada A.2 do histórico. | Rodar a última célula do notebook A.2 e copiar a saída para o histórico. |
+| T-A2-003 (rodar enriquecimento A.2) | NPZs V7 em `dados/profundidade_minimax_11_v7_adaptativo/` prontos mas sem canais estruturais ainda. | Abrir `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb`; alterar `DIR_NPZ = 'dados/profundidade_minimax_11_v7_adaptativo/'` na 2ª célula; executar todas as células. O notebook é schema-agnóstico. Ver §1A.2 de `docs/jogo_pontinhos/guia_geracao_dados.md`. |
+| T-A2-004 (criar script de validação visual) | Script `scripts/pontinhos/validar_canais_visualmente.py` ainda não foi criado. | Implementar CLI com `--diretorio-npz`, `--qtd-tracos`, `--n-amostras`, `--seed`; paleta categórica estável por canal; borda em caixas fechadas; 150 DPI. Requer NPZs já enriquecidos (depende de T-A2-003). |
+| T-A2-005 (validação visual ≥ 30 PNGs) | Gate manual humano, requer revisão olho-a-olho. Depende de T-A2-003 e T-A2-004. | `py scripts/pontinhos/validar_canais_visualmente.py --diretorio-npz dados/profundidade_minimax_11_v7_adaptativo --qtd-tracos 14 17 24 29 --n-amostras 30 --seed 42` e revisar PNGs gerados. |
+| T-A2-006 (auditoria do diretório enriquecido) | A célula de auditoria já está no notebook A.2 — basta executá-la sobre o diretório V7 e anexar o relatório. Depende de T-A2-003. | Rodar a última célula do notebook `Enriquece_NPZ_Com_Canais.ipynb` e copiar a saída para `docs/historico_decisoes.md`. |
 
 ### Itens checados nesta máquina
 

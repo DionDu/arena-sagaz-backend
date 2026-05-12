@@ -2,8 +2,9 @@
 
 **Feature Branch**: `004-melhoria-geracao-dados-cnn`
 **Created**: 2026-05-07
-**Status**: Draft
-**Input**: PRD revisado em `specs/004-melhoria-geracao-dados-cnn/PRD.md` (revisão 2026-05-07).
+**Status**: Em execução — Fase A.1 concluída; Fase A.2 pendente.
+**Última revisão**: 2026-05-12 — mudanças de rota: V7 DAC substituiu V5/cotas; schema NPZ V2; experimentos de treino preliminares concluídos (melhor modelo: 90,5% vs p=3, 63% vs p=6).
+**Input**: PRD revisado em `specs/004-melhoria-geracao-dados-cnn/PRD.md` (revisão 2026-05-12).
 **Documento-base**: o PRD é a fonte da verdade. Este `spec.md` é um espelho operacional pensado para `/speckit-plan` — qualquer divergência **entre PRD e spec resolve em favor do PRD**, e a correção retorna a este arquivo.
 
 ---
@@ -24,10 +25,17 @@
 
 Esta feature evolui a CNN BoxNet v3 do Jogo dos Pontinhos (tabuleiro pequeno 4×3) corrigindo duas categorias de erro identificadas empiricamente:
 
-- **Categoria A (tática, fim de jogo):** 87,8% das divergências fatais (360/410) acontecem na 30ª jogada (29 traços preenchidos), uma faixa **fora do dataset atual** (15–85%).
+- **Categoria A (tática, fim de jogo):** 87,8% das divergências fatais (360/410) acontecem na 30ª jogada (29 traços preenchidos), uma faixa **fora do dataset original** (15–85%).
 - **Categoria B (estratégica, meio de jogo):** 16,8% das partidas perdidas têm divergência fatal precoce (≤ 25 traços), proporção estável entre adversários Minimax(p=3/5/6) — sinal de erro sistêmico de paridade/cadeia, não induzido pelo adversário (Cenário X3 confirmado em 2026-05-06).
 
-A solução é executada em **fases sequenciais e isoladas** (uma mudança por vez), permitindo atribuição de causa de cada ganho/regressão. As fases vão de 0 (concluída) a H (condicional). O entregável central é uma família de modelos TFLite (`pontinhos_pequeno_p9_faseB.tflite`, …, `_faseF.tflite`) e um pipeline de dados em dois notebooks (geração no Databricks + enriquecimento local) que produz NPZs com **500.000 estados únicos** e **11 canais pré-computados** (`(N, 4, 3, 11) int8`) por estado.
+A solução é executada em **fases sequenciais e isoladas** (uma mudança por vez), permitindo atribuição de causa de cada ganho/regressão. As fases vão de 0 (concluída) a H (condicional). O entregável central é uma família de modelos TFLite e um pipeline de dados que produz NPZs com os 11 canais estruturais pré-computados (`(N, 4, 3, 11) int8`).
+
+> **Estado de execução (2026-05-12):**
+> - **Fase A.1 concluída** via algoritmo V7 DAC (substituiu V5/cotas). Dataset: ~758k amostras, ~500k distintos, cobertura 1–30 traços, supervisão Minimax p=11. Schema NPZ V2. Dois bugs críticos de Bitboard corrigidos (ver PRD §4.1.5).
+> - **Experimentos de treino preliminares concluídos** (sem canais estruturais): 4 configurações p=7 + 1 configuração p=11. Melhor resultado: **90,5% vs Minimax(p=3)** e **63% vs Minimax(p=6)**. Meta vs p=3 atingida. BoxNet v3 em saturação arquitetural (~94,4% OMA estagnada).
+> - **Fase A.2 pendente** — enriquecimento com 11 canais estruturais. Continuação natural para Fases B → F.
+> - **Novo baseline de comparação para Fases B+:** 63% vs p=6 (não mais 38%).
+> - ⚠️ NPZ usa schema V2 (`melhor_jogada`, `score_melhor_jogada`, `qtd_tracos` etc.). Ver `contracts/npz_schema.md`. Diretório: `dados/profundidade_minimax_11_v7_adaptativo/` (não `dados/profundidade_minmax_9/`).
 
 ---
 

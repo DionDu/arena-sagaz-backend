@@ -39,6 +39,13 @@ pip install -r requirements.txt
 > Boltzmann sampling e snapshots por partida. Fundamentação completa em
 > `docs/jogo_pontinhos/geracao_dados_v7_adaptativo.md`.
 
+> **EXECUTADO (2026-05-12):** 152 NPZs em `dados/profundidade_minimax_11_v7_adaptativo/`
+> (~758k amostras brutas, ~500k distintos, cobertura t=1–30). Fase 1 rodou local;
+> Fase 2 (Minimax p=11) rodou no Databricks via
+> `Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb`. Dois bugs críticos de
+> Bitboard corrigidos (falsos positivos em caixas pré-fechadas + offset alpha-beta
+> incremental). Schema V2 — ver `specs/004-melhoria-geracao-dados-cnn/contracts/npz_schema.md`.
+
 ### Visão geral
 
 ```
@@ -46,7 +53,7 @@ pip install -r requirements.txt
 │ Fase 1 — Geração de estados via DAC                                      │
 │   Notebook:  notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb│
 │   Workers:   gerador_dados/jogo_pontinhos/gerador_amostras_v7_pontinhos.py│
-│   Saída:     dados/profundidade_minmax_7_adaptativo/dataset_pequeno_*.npz│
+│   Saída:     dados/profundidade_minimax_11_v7_adaptativo/dataset_pequeno_*.npz│
 │              (campos da Fase 2 como placeholder)                         │
 │   Algoritmo: Minimax(p adaptativo por τ) + Boltzmann(T(t)).              │
 │              30 snapshots/partida. Sem faixas, sem quotas.               │
@@ -55,7 +62,7 @@ pip install -r requirements.txt
                                     │
                                     ▼  (mesmo notebook, célula seguinte)
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ Fase 2 — Cálculo da melhor jogada (Minimax p=7)                          │
+│ Fase 2 — Cálculo da melhor jogada (Minimax p=11, via Databricks)         │
 │   - Coleta estados únicos cobrindo TODOS os NPZs pendentes               │
 │   - Roda `melhor_jogada_com_scores` em paralelo (cache por hash)         │
 │   - Reescreve cada NPZ atomicamente (.tmp.npz + os.replace), populando   │
@@ -73,11 +80,13 @@ pip install -r requirements.txt
 | `depth_jogada` | `(N,)` | `int8` | 1 | Profundidade Minimax usada NESTE estado |
 | `depth_geracao` | `(N,)` | `int8` | 1 | Profundidade Minimax usada no estado anterior |
 | `melhor_jogada` | `(N,)` | `<U5` | 2 | Argmax de `score_melhor_jogada` |
-| `score_melhor_jogada` | `(N, 31)` | `float32` | 2 | Scores Minimax(p=7) — **verdade-padrão para treino** |
-| `depth_melhor_jogada` | `(N,)` | `int8` | 2 | Profundidade Minimax usada (=7) |
+| `score_melhor_jogada` | `(N, 31)` | `float32` | 2 | Scores Minimax(p=11, execução atual) — **verdade-padrão para treino** |
+| `depth_melhor_jogada` | `(N,)` | `int8` | 2 | Profundidade Minimax usada (=11 na execução atual) |
 | `labels_canonicos` | `(31,)` | `<U5` | 1 | Ordem dos slots de score |
 
 ### Como rodar
+
+#### Fase 1 — Geração local (máquina do desenvolvedor)
 
 ```powershell
 .venv\Scripts\activate
@@ -86,16 +95,35 @@ jupyter lab notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo.ipynb
 
 Execute as células sequencialmente:
 
-1. **§2 (Recuperação)** — varre `dados/profundidade_minmax_7_adaptativo/`
+1. **§2 (Recuperação)** — varre `dados/profundidade_minimax_11_v7_adaptativo/`
    e mostra estados distintos já gerados. Permite retomada idempotente.
 2. **§3 (Fase 1)** — `fase1_gerar(...)` aciona `ProcessPoolExecutor` com
    `cpu_count()-2` workers. Cada partida emite 30 snapshots (t=1..30).
    Loop até atingir 500k distintos, depois drena partidas em curso.
-3. **§4 (Fase 2)** — `fase2_scoring()` coleta estados únicos pendentes,
-   roda Minimax(p=7) em paralelo (cache por bytes do tabuleiro) e
-   reescreve cada NPZ atomicamente.
-4. **§5 (Auditoria)** — sanidade do dataset final (domínio do tensor,
+3. **§5 (Auditoria local)** — sanidade do dataset gerado (domínio do tensor,
    distribuição por `qtd_tracos`, distribuição de profundidades).
+
+Os NPZs gerados terão `melhor_jogada = ""` (placeholder) até a Fase 2 rodar.
+
+#### Fase 2 — Enriquecimento no Databricks (supervisão Minimax profunda)
+
+1. Subir os NPZs de `dados/profundidade_minimax_11_v7_adaptativo/` para o
+   workspace Databricks (ex.: `/Workspace/Users/diondu@gmail.com/CNN/profundidade_7_v7_adaptativo`).
+2. Abrir `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb`
+   no Databricks.
+3. Ajustar as constantes no início do notebook:
+   ```python
+   INPUT_DIR = Path("/Workspace/Users/diondu@gmail.com/CNN/profundidade_7_v7_adaptativo")
+   DEPTH_TARGET = 11   # profundidade da supervisão Minimax
+   LOTE_ARQUIVOS = 4   # ~20.000 amostras por checkpoint
+   ```
+4. Executar todas as células. O notebook:
+   - Detecta automaticamente os NPZs com `melhor_jogada[0] == ""` (pendentes).
+   - Distribui os estados via `mapInPandas` para os workers Spark.
+   - Grava `melhor_jogada`, `score_melhor_jogada` e `depth_melhor_jogada` via
+     sobrescrita atômica (`.tmp.npz` + `os.replace`).
+   - Faz checkpoint a cada lote de 4 NPZs — retomada automática se o cluster cair.
+5. Baixar os NPZs enriquecidos de volta para `dados/profundidade_minimax_11_v7_adaptativo/`.
 
 ### Retomada
 
@@ -350,43 +378,52 @@ A geração da Fase A.1 produz **três diretórios** (consolidado em 2026-05-08 
 
 ### 1A.2 — Fase A.2 local: enriquecer NPZ com 11 canais
 
-```bash
+> **Status (2026-05-12): PENDENTE.** Os NPZs em `dados/profundidade_minimax_11_v7_adaptativo/`
+> estão prontos (Fase A.1 concluída), mas ainda não foram enriquecidos com os canais estruturais.
+
+```powershell
 # Pré-requisito: módulo analisador disponível.
 py -c "from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import extrair_canais, NOMES_CANAIS; print(len(NOMES_CANAIS))"
 # Esperado: 11
 ```
 
-Abra `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb` (Jupyter, Colab ou VSCode). Configure:
+Abra `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb` (Jupyter ou VSCode).
+Na **segunda célula** do notebook, altere `DIR_NPZ`:
 
 ```python
-# Para o pipeline novo (V5_Local + consolidação):
-DIR_NPZ = 'dados/profundidade_minmax_9_final'   # saída do Consolidar_500k_Final.ipynb
-
-# Para o pipeline antigo (Databricks direto, sem consolidação):
-# DIR_NPZ = '/caminho/para/profundidade_9'      # diretório baixado da Fase A.1
-
+DIR_NPZ = 'dados/profundidade_minimax_11_v7_adaptativo/'  # dataset V7 com schema V2
 PADRAO  = 'dataset_pequeno_*.npz'
-FORCAR_REGRAVAR = False                    # True só se o algoritmo de canais mudar
+FORCAR_REGRAVAR = False   # True só se o algoritmo de canais mudar
 ```
+
+O notebook é **schema-agnóstico**: usa `novo = dict(d)` para preservar todos os campos
+existentes e apenas acrescenta `canais` e `nomes_canais`. Funciona com schema V2 sem
+nenhuma alteração adicional.
 
 Rode todas as células. O notebook:
 
-- lê cada NPZ;
-- chama `extrair_canais(estados[i])` para cada um dos 5.000 estados;
-- adiciona `canais (5000, 4, 3, 11) int8` e `nomes_canais (11,) U32`;
-- regrava via `np.savez_compressed(<path>.tmp, ...)` + `os.replace(<path>.tmp, <path>)` — atômico;
+- lê cada NPZ (152 arquivos, ~5.000 estados cada);
+- chama `extrair_canais(estados[i])` para cada estado;
+- adiciona `canais (N, 4, 3, 11) int8` e `nomes_canais (11,) <U32`;
+- preserva todos os campos do schema V2 (`estados`, `qtd_tracos`, `score_jogada`,
+  `depth_jogada`, `depth_geracao`, `melhor_jogada`, `score_melhor_jogada`,
+  `depth_melhor_jogada`, `labels_canonicos`);
+- regrava via `np.savez_compressed(<path>.tmp.npz, ...)` + `os.replace(...)` — atômico;
 - ao fim, valida que `nomes_canais` é byte-a-byte idêntico em **todos** os arquivos.
 
-Se um Ctrl+C interromper o processo: o original NPZ permanece intacto; basta rerodar.
+Se um Ctrl+C interromper o processo: o NPZ original permanece intacto; basta rerodar.
+
+**Tempo estimado:** ~152 NPZs × ~5.000 estados = ~760k estados. Cada estado gera um tensor
+`(4, 3, 11)` via operações numpy puras — deve rodar em minutos na máquina local.
 
 ### 1A.3 — Validação visual (gate manual)
 
-```bash
-py scripts/pontinhos/validar_canais_visualmente.py \
-   --diretorio-npz /caminho/para/profundidade_9 \
-   --diretorio-saida out/validacao_canais \
-   --qtd-tracos 14 17 24 29 \
-   --n-amostras 30 \
+```powershell
+py scripts/pontinhos/validar_canais_visualmente.py `
+   --diretorio-npz dados/profundidade_minimax_11_v7_adaptativo `
+   --diretorio-saida out/validacao_canais `
+   --qtd-tracos 14 17 24 29 `
+   --n-amostras 30 `
    --seed 42
 ```
 
@@ -403,7 +440,7 @@ import numpy as np, glob, os
 from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import NOMES_CANAIS
 
 esperado = np.array(NOMES_CANAIS, dtype='U32')
-for arq in sorted(glob.glob('caminho/para/profundidade_9/dataset_pequeno_*.npz')):
+for arq in sorted(glob.glob('dados/profundidade_minimax_11_v7_adaptativo/dataset_pequeno_*.npz')):
     d = np.load(arq)
     assert 'canais' in d.files
     assert d['canais'].dtype == np.int8 and d['canais'].shape[1:] == (4, 3, 11)
