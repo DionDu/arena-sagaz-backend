@@ -246,12 +246,12 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--diretorio-npz",
-        required=True,
+        default="dados/profundidade_minimax_11_v7_adaptativo",
         help="Diretorio contendo os NPZs Fase A.2 (ja com `canais`/`nomes_canais`).",
     )
     p.add_argument(
         "--diretorio-saida",
-        default="out/validacao_canais_pontinhos",
+        default="visualizacoes/validacao_canais_pontinhos",
         help="Diretorio onde gravar os PNGs.",
     )
     p.add_argument(

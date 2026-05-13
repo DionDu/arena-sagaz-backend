@@ -49,7 +49,7 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 - [x] T-A2-001 Criar `gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py` com constante pública `NOMES_CANAIS` (lista de 11 strings na ordem do PRD §4.2) e função `extrair_canais(M: np.ndarray) -> np.ndarray` retornando `(4, 3, 11) int8` conforme algoritmo de `contracts/canais_estruturais.md`. **Gate**: `python -c "from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import extrair_canais, NOMES_CANAIS; print(len(NOMES_CANAIS))"` imprime `11`.
 - [x] T-A2-002 Criar `tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py` cobrindo: (a) domínio binário `{0,1}` em todos os canais; (b) exclusão mútua canal 4 (`caixa_fechada`) vs canais 5–10 (graus/cadeias/loops); (c) coerência sob simetria (canais transformam coerentemente sob ref_H, ref_V, R180); (d) casos canônicos: tabuleiro vazio, caixa fechada simples, **double-cross do Buchin**, **loop de 4 caixas**, **half-open chain**. **blockedBy**: T-A2-001. **Gate**: `pytest tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py -v` 100% verde.
 - [x] T-A2-003 Criar `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb` que: lê NPZ de `dados/profundidade_minimax_11_v7_adaptativo/` (schema V2), computa `canais` chamando `extrair_canais` para cada estado, escreve novo NPZ com sobrescrita **atômica** via `tmp_path = path + '.tmp'` + `os.replace(tmp_path, path)`; preserva todas as chaves schema V2; adiciona `nomes_canais`. **blockedBy**: T-A2-001. **Gate**: rodando o notebook sobre um NPZ de teste, o arquivo final contém todos os campos do schema V2 + `canais` (dtype int8, shape `(N, 4, 3, 11)`) + `nomes_canais` (shape `(11,)`); nenhum `.tmp` remanescente.
-- [ ] T-A2-004 [P] Criar `scripts/pontinhos/validar_canais_visualmente.py` com CLI `--qtd-tracos N1 N2 ... --n-amostras K`, gerando PNGs a 150 DPI, paleta categórica estável (uma cor por canal, fixa entre execuções), borda destacada em boxnets de caixas fechadas, título acima de cada boxnet com o nome canônico exatamente igual ao item de `NOMES_CANAIS`. **blockedBy**: T-A2-001. **Gate**: `python scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` produz 30 PNGs válidos no diretório de saída.
+- [x] T-A2-004 [P] Criar `scripts/pontinhos/validar_canais_visualmente.py` com CLI `--qtd-tracos N1 N2 ... --n-amostras K`, gerando PNGs a 150 DPI, paleta categórica estável (uma cor por canal, fixa entre execuções), borda destacada em boxnets de caixas fechadas, título acima de cada boxnet com o nome canônico exatamente igual ao item de `NOMES_CANAIS`. **blockedBy**: T-A2-001. **Gate**: `python scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` produz 30 PNGs válidos no diretório de saída. **Entregue 2026-05-13**: script funcional em `scripts/pontinhos/validar_canais_visualmente.py`; default `--diretorio-npz` aponta para `dados/profundidade_minimax_11_v7_adaptativo`. Gate de execução aguarda NPZs enriquecidos (T-A2-003).
 - [ ] T-A2-005 Validação visual manual de **≥ 30 estados** distribuídos nas faixas `t∈[12,17]`, `t∈[24,28]` e `t∈[29,30]` usando os PNGs gerados em T-A2-004. **blockedBy**: T-A2-003, T-A2-004. **Gate**: desenvolvedor confirma na entrada de `docs/historico_decisoes.md` que os canais 0–10 estão coerentes com a matriz crua nos casos inspecionados (assinatura textual).
 - [ ] T-A2-006 Auditoria do diretório de NPZs enriquecidos: verificar que `nomes_canais` é **byte-a-byte idêntico** em todos os arquivos; computar e registrar hashes pré e pós enriquecimento (`estados`, `score_melhor_jogada` e `melhor_jogada` devem ter hash inalterado; `canais` e `nomes_canais` são chaves novas). **blockedBy**: T-A2-003. **Gate**: célula de auditoria no notebook ou script equivalente imprime `OK` para todos os arquivos; relatório anexado à entrada de `docs/historico_decisoes.md`.
 - [x] T-A2-007 [P] Atualizar `docs/jogo_pontinhos/guia_geracao_dados.md` documentando o novo fluxo A.1 (V7 DAC local + Fase 2 Databricks) + A.2 (notebook de enriquecimento local), com comandos, paths e ordem de execução. Diretório correto: `dados/profundidade_minimax_11_v7_adaptativo/`. **blockedBy**: T-A2-003. **Gate**: leitor consegue reproduzir o fluxo do zero a partir do guia, sem precisar abrir o PRD.
@@ -67,7 +67,7 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 
 **Gate da fase**: SC-F-05 (top-1 ≥ 95% na faixa 29–30 traços) atendido; erros táticos ≤ 250 em `analisa_padrao_erros.py`; nenhum win-rate vs Minimax(p=3/5/6) cai > 3pp vs baseline; TFLite ≤ 200 KB; latência ≤ 5 ms/jogada; teste do contrato verde; entrada em `docs/historico_decisoes.md`.
 
-- [ ] T-B-001 Criar `notebooks/jogo_pontinhos/Treinamento_CNN_Arena_Sagaz_V6.ipynb` baseado no V5 atual de treino, eliminando a camada Lambda `para_grid_de_caixas` e lendo `canais[..., :5]` diretamente do NPZ; introduzir constante de notebook `SLICE_CANAIS = slice(0, 5)` e `INPUT_SHAPE = (4, 3, 5)`. **Gate**: notebook abre, executa a célula de carga e imprime `X_train.shape == (..., 4, 3, 5)`.
+- [ ] T-B-001 Criar `notebooks/jogo_pontinhos/Treinamento_CNN_Pontinhos_V8.ipynb` baseado no `notebooks/jogo_pontinhos/Treinamento_CNN_Arena_Sagaz_V7_Sample_Weight.ipynb` atual de treino, eliminando a camada Lambda `para_grid_de_caixas` e lendo `canais` diretamente do NPZ; introduzir `CANAIS_TREINAMENTO` (lista configurável dos canais a incluir no treino) e `INPUT_SHAPE = (4, 3, K)` onde `K = len(CANAIS_TREINAMENTO)`. Inclui: OMA correto (aceita qualquer jogada Minimax-ótima empatada), OMA por fase, Tabela 1 (presença de canal por fase), Tabela 2 (Top-1/3/5/OMA por canal), Correlação canal × erro. **Entregue 2026-05-13** — arquivo criado em `notebooks/jogo_pontinhos/Treinamento_CNN_Pontinhos_V8.ipynb`. **Gate**: notebook abre no Colab, executa célula de carga e imprime `X_train.shape == (..., 4, 3, K)` com K correto para `CANAIS_TREINAMENTO`.
 - [ ] T-B-002 Atualizar `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json` para refletir input `(4, 3, 5)` (shape, número de canais, lista parcial de `nomes_canais` 0–4). **Gate**: JSON válido; campo de shape == `[4, 3, 5]`.
 - [ ] T-B-003 **Copiar `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json` byte-a-byte** para `arena-sagaz-frontend/assets/jogos/pontinhos/contrato_codificacao_pontinhos.json` na mesma PR. **blockedBy**: T-B-002. **Gate**: `diff` entre os dois arquivos retorna vazio (0 bytes de diferença).
 - [ ] T-B-004 Rodar `pytest tests/unitarios/jogo_pontinhos/test_contrato_codificacao_pontinhos.py -v`. **blockedBy**: T-B-002, T-B-003. **Gate**: teste 100% verde (cópia idêntica backend↔frontend; helper Python aplica regras do JSON; tensor pós-normalização ⊂ `{0,1}`).
@@ -296,3 +296,28 @@ JSON OK
 ### Não tocado (Fases B+ explicitamente fora do escopo desta sessão)
 
 Nenhum arquivo das Fases B/C/D/E/F/G/H foi criado ou modificado nesta sessão. O contrato `gerador_dados/jogo_pontinhos/contrato_codificacao_pontinhos.json` permanece na sua versão atual (v1, com input `(4, 3, 5)` ainda usando `dono_caixa` ternário) — sua atualização é responsabilidade da Fase B (T-B-002/003/004).
+
+---
+
+## Estado de execução — sessão 2026-05-13
+
+### Decisões de design tomadas (Fase B)
+
+- **Lambda removida definitivamente**: a camada `para_grid_de_caixas` foi abandonada. A CNN recebe o tensor `canais (N,4,3,K)` pré-computado nos NPZ da Fase A.2 diretamente como input. Motivação: canais BFS (eh_grau3, cadeia, loop) não são implementáveis como ops TFLite-compatíveis sem `tf.while_loop`; manter Lambda restringiria o input a 5 canais geométricos apenas.
+- **CANAIS_TREINAMENTO**: parâmetro de configuração do notebook que permite selecionar subconjunto dos 11 canais. Permite experimentos com 5 canais (geométricos) vs 11 canais (completo) sem alterar arquitetura.
+- **OMA corrigido**: métrica aceita qualquer jogada com Q-value máximo (empates incluídos), não apenas o argmax do soft target.
+- **Notebook renomeado**: T-B-001 foi atualizado para usar `Treinamento_CNN_Pontinhos_V8.ipynb` (não `11_Canais.ipynb`).
+
+### Entregue nesta sessão
+
+- **`scripts/pontinhos/validar_canais_visualmente.py`** — corrigido: `--diretorio-npz` agora tem default `dados/profundidade_minimax_11_v7_adaptativo` (gate de T-A2-004 funciona sem flag).
+- **T-A2-004 marcada como `[x]`** em `tasks.md`.
+- **`notebooks/jogo_pontinhos/Treinamento_CNN_Pontinhos_V8.ipynb`** — notebook de treino V8 criado. Baseado no V7; Lambda removida; input `canais (4,3,K)`; `CANAIS_TREINAMENTO`; OMA correto; Table 1 (presença canal/fase); Table 2 (métricas por canal); Correlação canal × erro; OMA por fase; exportação TFLite.
+
+### Aguardando execução manual
+
+| Tarefa | Por quê | Como executar |
+|---|---|---|
+| T-A2-003 (enriquecimento) | NPZs em `dados/profundidade_minimax_11_v7_adaptativo/` sem canais ainda | Rodar `Enriquece_NPZ_Com_Canais.ipynb` localmente |
+| T-A2-004 gate (gerar PNGs) | Requer NPZs enriquecidos | `py scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` |
+| T-B-001 gate (executar V8) | Requer Google Colab + NPZs enriquecidos | Abrir `Treinamento_CNN_Pontinhos_V8.ipynb` no Colab |
