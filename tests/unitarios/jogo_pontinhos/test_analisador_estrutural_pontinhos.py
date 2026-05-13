@@ -455,6 +455,35 @@ def test_caixa_grau2_com_dois_vizinhos_grau3_nao_eh_half_open():
     assert canais[1, 1, 10] == 0, "No isolado com 2 pontas abertas nao deve ser em_cadeia_aberta_uma_ponta"
 
 
+def test_grau2_adjacente_grau3_via_aresta_livre_marca_k10():
+    """Caixa grau-2 isolada no dual com exatamente 1 vizinha grau-3 via aresta livre
+    deve receber K=10 (half-open minimo / sacrificio). A caixa grau-3 nao recebe K=10.
+
+    Setup:
+    - (0,0): topo (0,1) + esq (1,0) jogados → grau 2; aresta direita (1,2) livre.
+    - (0,1): topo (0,3) + dir (1,4) + base (2,3) jogados → grau 3; aresta esq (1,2) livre.
+    - Aresta compartilhada (1,2) e a unica aresta livre de (0,1) e conecta as duas.
+    """
+    M = _matriz_vazia()
+    M = _jogar(
+        M,
+        (0, 1), (1, 0),          # (0,0): topo + esq → grau 2
+        (0, 3), (1, 4), (2, 3),  # (0,1): topo + dir + base → grau 3
+    )
+    canais = extrair_canais(M)
+
+    # Pre-condicoes.
+    assert canais[0, 0, 6] == 1, "(0,0) deveria ser grau 2"
+    assert canais[0, 1, 5] == 1, "(0,1) deveria ser grau 3"
+
+    # (0,0) e no isolado (sem vizinhos grau-2 via aresta livre) → nao eh cadeia curta.
+    assert canais[0, 0, 7] == 0, "Half-open minimo nao deve marcar em_cadeia_curta"
+    # (0,0) tem exatamente 1 vizinha grau-3 via aresta livre → K=10 = 1.
+    assert canais[0, 0, 10] == 1, "Half-open minimo deve marcar em_cadeia_aberta_uma_ponta"
+    # A caixa grau-3 (0,1) nao recebe K=10.
+    assert canais[0, 1, 10] == 0, "Caixa grau-3 nao deve receber K=10"
+
+
 # ---------------------------------------------------------------------------
 # Smoke: NOMES_CANAIS bate com a constante esperada
 # ---------------------------------------------------------------------------

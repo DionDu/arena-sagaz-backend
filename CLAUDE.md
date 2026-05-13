@@ -84,6 +84,17 @@ no futuro:
   renomeados em sessão dedicada; **não renomear caso a caso** durante outras
   tarefas.
 
+## Ambiente Python
+
+O projeto usa um virtualenv em `.venv\`. Para rodar Python ou pytest, use **sempre**:
+
+```
+.venv\Scripts\python   (ou .venv\Scripts\pytest)
+```
+
+Não procure Python em outro lugar (system, AppData, conda). O `.venv` é a única
+fonte correta de dependências deste projeto.
+
 ## Diretriz obrigatória — Commit e Push após editar documentos em `specs/`
 
 Toda vez que você (Claude) fizer qualquer alteração em arquivos dentro da pasta

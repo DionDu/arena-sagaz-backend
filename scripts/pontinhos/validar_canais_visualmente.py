@@ -120,6 +120,62 @@ def coletar_amostras(
     return selecionadas[:n_amostras]
 
 
+def coletar_amostras_por_canal(
+    diretorio_npz: str,
+    canais_filtro: List[str],
+    n_amostras: int,
+    seed: int,
+) -> List[Tuple[int, np.ndarray]]:
+    """Filtra NPZs por estados onde TODOS os canais em `canais_filtro` tem
+    pelo menos uma caixa marcada (valor 1). Sorteia ate `n_amostras`.
+
+    Usa o campo `canais` pre-computado do NPZ quando disponivel; caso contrario
+    recalcula via `extrair_canais`.
+
+    Returns:
+        Lista de (n_tracos, matriz_crua_9x7).
+    """
+    nomes_invalidos = [n for n in canais_filtro if n not in NOMES_CANAIS]
+    if nomes_invalidos:
+        raise ValueError(
+            f"Canais desconhecidos: {nomes_invalidos}. "
+            f"Canais validos: {list(NOMES_CANAIS)}"
+        )
+    indices = [NOMES_CANAIS.index(n) for n in canais_filtro]
+
+    rng = np.random.default_rng(seed)
+    arquivos = sorted(glob.glob(os.path.join(diretorio_npz, "*.npz")))
+    if not arquivos:
+        raise FileNotFoundError(f"Nenhum NPZ em {diretorio_npz}")
+
+    pool: List[Tuple[int, np.ndarray]] = []
+    n_total = 0
+    for arq in arquivos:
+        d = np.load(arq, allow_pickle=True)
+        estados = d["estados"]
+        canais_pre = d["canais"] if "canais" in d else None
+        n_total += estados.shape[0]
+        for i in range(estados.shape[0]):
+            c = canais_pre[i] if canais_pre is not None else extrair_canais(estados[i])
+            if all(c[:, :, k].any() for k in indices):
+                pool.append((_conta_tracos(estados[i]), estados[i]))
+
+    print(
+        f"  Filtro {canais_filtro}: {len(pool)} estados encontrados "
+        f"em {n_total} total ({len(arquivos)} arquivos)."
+    )
+    if not pool:
+        raise RuntimeError(
+            f"Nenhum estado com todos os canais ativos: {canais_filtro}"
+        )
+
+    n = min(n_amostras, len(pool))
+    if n < n_amostras:
+        print(f"  Aviso: apenas {n} estados disponiveis (pedidos: {n_amostras}).")
+    idxs = rng.choice(len(pool), size=n, replace=False)
+    return [pool[i] for i in idxs]
+
+
 # ---------------------------------------------------------------------------
 # Renderizacao
 # ---------------------------------------------------------------------------
@@ -259,13 +315,28 @@ def parse_args() -> argparse.Namespace:
         type=int,
         nargs="+",
         default=[14, 17, 24, 29],
-        help="Lista de valores de nro de tracos a sortear amostras (1 PNG por amostra).",
+        help=(
+            "Lista de valores de nro de tracos a sortear amostras. "
+            "Ignorado quando --canais-filtro esta presente."
+        ),
+    )
+    p.add_argument(
+        "--canais-filtro",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="CANAL",
+        help=(
+            "Um ou mais nomes de canais (ex.: em_loop em_cadeia_curta). "
+            "Seleciona apenas estados onde TODOS os canais listados possuem "
+            "pelo menos uma caixa marcada. Substitui --qtd-tracos."
+        ),
     )
     p.add_argument(
         "--n-amostras",
         type=int,
         default=30,
-        help="Total de PNGs a gerar (distribuidos entre os valores de --qtd-tracos).",
+        help="Total de PNGs a gerar.",
     )
     p.add_argument(
         "--seed",
@@ -287,12 +358,20 @@ def main() -> int:
     os.makedirs(args.diretorio_saida, exist_ok=True)
 
     print(f"Coletando amostras em {args.diretorio_npz}...")
-    amostras = coletar_amostras(
-        args.diretorio_npz,
-        args.qtd_tracos,
-        args.n_amostras,
-        args.seed,
-    )
+    if args.canais_filtro:
+        amostras = coletar_amostras_por_canal(
+            args.diretorio_npz,
+            args.canais_filtro,
+            args.n_amostras,
+            args.seed,
+        )
+    else:
+        amostras = coletar_amostras(
+            args.diretorio_npz,
+            args.qtd_tracos,
+            args.n_amostras,
+            args.seed,
+        )
     print(f"  {len(amostras)} amostras coletadas.")
 
     for idx, (n_tracos, M) in enumerate(amostras):

@@ -216,11 +216,20 @@ def extrair_canais(M: np.ndarray) -> np.ndarray:
             for (r, c) in comp:
                 canais[r, c, 9] = 1
         else:
-            # Cadeia path: apenas componentes com >= 2 nos formam cadeia estrategica.
-            # No isolado (grau-2 sem vizinhos grau-2 via aresta livre) nao constitui
-            # cadeia — nao ha par para captura encadeada.
             comprimento = len(comp)
             if comprimento == 1:
+                # Half-open minimo: caixa grau-2 com exatamente 1 vizinha grau-3
+                # via aresta livre. Contamos SEM break para distinguir 1 vs 2 pontas.
+                # (_contar_pontas_abertas usa break — correto para cadeias >=2,
+                # mas retornaria 1 mesmo com 2 vizinhas grau-3 para nó isolado.)
+                (r0, c0) = comp[0]
+                n_abertas = sum(
+                    1
+                    for v in _vizinhas_caixa(r0, c0)
+                    if _aresta_livre_entre(M, (r0, c0), v) and grau_de.get(v, -1) == 3
+                )
+                if n_abertas == 1:
+                    canais[r0, c0, 10] = 1
                 continue
             slot = 7 if comprimento == 2 else 8
             for (r, c) in comp:

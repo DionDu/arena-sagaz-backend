@@ -104,7 +104,7 @@ canais[r, c, 6] = 1 if (not _caixa_fechada(M, r, c) and _grau(M, r, c) == 2) els
    - Se algum nó tem grau ≥ 3 dentro do componente (estrutura "T", rara em 4×3 mas possível) → **cadeia complexa**, atribuir todas as caixas a `em_cadeia_longa` (canal 8).
    - Se todos os nós têm grau exatamente 2 dentro do componente → **loop**. Marcar `em_loop = 1` (canal 9) para todas as caixas.
    - Caso contrário (caminho path/aberto) → **cadeia**. Comprimento = `|componente|`.
-     - Comprimento = 1 → **nó isolado — ignorar**. Uma caixa grau-2 sem vizinhos grau-2 via aresta livre não constitui cadeia estratégica (nenhum canal de cadeia é marcado).
+     - Comprimento = 1 → **nó isolado** — ver regra de half-open mínimo abaixo.
      - Comprimento = 2 → `em_cadeia_curta` (canal 7).
      - Comprimento ≥ 3 → `em_cadeia_longa` (canal 8).
 
@@ -114,11 +114,13 @@ canais[r, c, 6] = 1 if (not _caixa_fechada(M, r, c) and _grau(M, r, c) == 2) els
 
 ### Exclusão mútua entre canais 7 e 8
 
-Por componente: ou todas as caixas vão para `em_cadeia_curta` (exatamente 2 caixas), ou todas vão para `em_cadeia_longa` (≥ 3 caixas). Componentes de tamanho 1 (nó isolado) não são marcados em nenhum canal de cadeia. Componentes diferentes podem disparar canais diferentes — mas dentro de um mesmo componente, a escolha é única.
+Por componente: ou todas as caixas vão para `em_cadeia_curta` (exatamente 2 caixas), ou todas vão para `em_cadeia_longa` (≥ 3 caixas). Componentes de tamanho 1 (nó isolado) não recebem canal 7 nem 8 — podem receber canal 10 (ver seção 7). Componentes diferentes podem disparar canais diferentes — mas dentro de um mesmo componente, a escolha é única.
 
 ---
 
 ## 7. Canal 11 — `em_cadeia_aberta_uma_ponta`
+
+### Cadeias de comprimento ≥ 2 (path)
 
 Para cada cadeia identificada na seção anterior (não loop), examinar as duas pontas:
 
@@ -131,6 +133,20 @@ Para cada cadeia identificada na seção anterior (não loop), examinar as duas 
 - Se **exatamente 1** ponta é aberta → marcar todos os nós da cadeia em `em_cadeia_aberta_uma_ponta` (chain "half-open" do Barker & Korf 2012, Fig. 2-A).
 - Se ambas as pontas estão abertas → "closed chain" — **não marcar** (cai em `em_cadeia_curta` ou `_longa` conforme comprimento).
 - Se nenhuma ponta é aberta → cadeia interior — não marcar.
+
+### Nó isolado (comprimento = 1) — half-open mínimo
+
+Uma caixa grau-2 sem vizinhos grau-2 via aresta livre (nó isolado no grafo dual) representa o menor padrão de sacrifício possível: jogar sua aresta livre restante entrega 2 capturas ao oponente (a própria caixa + a grau-3 adjacente).
+
+**Regra**: contar quantas vizinhas ortogonais `v` satisfazem simultaneamente `_aresta_livre_entre(M, nó, v)` e `grau(v) == 3`.
+
+| Contagem | Significado | Canal 10 |
+|---|---|---|
+| 0 | isolado interior | 0 |
+| **1** | **half-open mínimo** | **1** |
+| 2 | "closed" de comprimento 1 | 0 |
+
+**Nota de implementação**: esta contagem deve ser feita sem `break` (diferentemente de `_contar_pontas_abertas`, que usa `break` para cadeias ≥ 2 onde um único caminho por ponta basta).
 
 ---
 
