@@ -18,7 +18,7 @@ Ordem canonica dos canais (mesma de PRD §4.2):
     K=4  caixa_fechada
     K=5  eh_grau3
     K=6  eh_grau2
-    K=7  em_cadeia_curta            (componente de comprimento 1-2)
+    K=7  em_cadeia_curta            (componente de comprimento exatamente 2)
     K=8  em_cadeia_longa            (componente de comprimento >= 3)
     K=9  em_loop                    (todos os nos do componente tem grau 2)
     K=10 em_cadeia_aberta_uma_ponta (exatamente 1 ponta capturavel)
@@ -216,30 +216,25 @@ def extrair_canais(M: np.ndarray) -> np.ndarray:
             for (r, c) in comp:
                 canais[r, c, 9] = 1
         else:
-            # Cadeia path (>= 1 no de grau 1 dentro do componente — ou no isolado).
+            # Cadeia path: apenas componentes com >= 2 nos formam cadeia estrategica.
+            # No isolado (grau-2 sem vizinhos grau-2 via aresta livre) nao constitui
+            # cadeia — nao ha par para captura encadeada.
             comprimento = len(comp)
-            slot = 7 if comprimento <= 2 else 8
+            if comprimento == 1:
+                continue
+            slot = 7 if comprimento == 2 else 8
             for (r, c) in comp:
                 canais[r, c, slot] = 1
 
             # Canal 10: em_cadeia_aberta_uma_ponta.
-            # Determinar pontas (graus locais 1 ou 0 — em comp de tamanho 1 sem aresta livre).
-            if comprimento == 1:
-                # No isolado: examinar ate 2 arestas livres saindo dele para caixas grau-3.
-                (r, c) = comp[0]
-                pontas_abertas = _contar_pontas_abertas(M, [(r, c)], adj, grau_de)
+            pontas = [u for u in comp if graus_no_componente[u] == 1]
+            # Apenas cadeias do tipo path tem exatamente 2 pontas.
+            if len(pontas) == 2:
+                pontas_abertas = _contar_pontas_abertas(M, pontas, adj, grau_de)
                 if pontas_abertas == 1:
-                    canais[r, c, 10] = 1
-            else:
-                pontas = [u for u in comp if graus_no_componente[u] == 1]
-                # Apenas cadeias do tipo path tem exatamente 2 pontas.
-                if len(pontas) == 2:
-                    pontas_abertas = _contar_pontas_abertas(M, pontas, adj, grau_de)
-                    if pontas_abertas == 1:
-                        for (r, c) in comp:
-                            canais[r, c, 10] = 1
-                # Demais topologias (componentes degenerados sem ramificacao mas
-                # com mais ou menos de 2 pontas) nao marcam o canal 10.
+                    for (r, c) in comp:
+                        canais[r, c, 10] = 1
+            # Demais topologias nao marcam o canal 10.
 
     return canais
 

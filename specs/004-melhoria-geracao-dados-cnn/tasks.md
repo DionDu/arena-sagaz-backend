@@ -321,3 +321,32 @@ Nenhum arquivo das Fases B/C/D/E/F/G/H foi criado ou modificado nesta sessão. O
 | T-A2-003 (enriquecimento) | NPZs em `dados/profundidade_minimax_11_v7_adaptativo/` sem canais ainda | Rodar `Enriquece_NPZ_Com_Canais.ipynb` localmente |
 | T-A2-004 gate (gerar PNGs) | Requer NPZs enriquecidos | `py scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` |
 | T-B-001 gate (executar V8) | Requer Google Colab + NPZs enriquecidos | Abrir `Treinamento_CNN_Pontinhos_V8.ipynb` no Colab |
+
+---
+
+## Estado de execução — sessão 2026-05-13 (validação visual dos canais)
+
+### Bugs encontrados e corrigidos no analisador
+
+Validação visual com `validar_canais_visualmente.py` revelou 2 bugs relacionados em `analisador_estrutural_pontinhos.py`:
+
+**Bug 1 — Nó isolado classificado como `em_cadeia_curta`**: uma caixa grau-2 sem nenhum vizinho grau-2 conectado por aresta livre formava um componente de tamanho 1 no grafo dual. O código classificava `comprimento <= 2 → em_cadeia_curta`, incluindo esses isolados. Um nó isolado não é cadeia estratégica (sem par para captura encadeada). Afetava: PROBLEMAS 1, 2, 3, 6 reportados na validação visual.
+
+**Bug 2 — `em_cadeia_aberta_uma_ponta` incorreto para nó isolado**: `_contar_pontas_abertas` usava `break` após o primeiro vizinho grau-3, retornando 1 mesmo quando **ambas** as arestas livres levavam a caixas grau-3 (2 pontas abertas, não 1). Afetava: PROBLEMAS 4, 5.
+
+**Fix (1 linha)**: `if comprimento == 1: continue` no branch path da classificação de componentes. Ambos os bugs desaparecem ao ignorar componentes tamanho 1.
+
+### Entregue nesta sessão
+
+- **`gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py`** — fix dos 2 bugs; definição `K=7 em_cadeia_curta` atualizada para "comprimento exatamente 2".
+- **`tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py`** — 2 novos testes de regressão adicionados (13/13 passando).
+- **`specs/004-melhoria-geracao-dados-cnn/contracts/canais_estruturais.md`** — contrato atualizado: comprimento 1 → ignorar; comprimento 2 → em_cadeia_curta.
+
+### Re-enriquecimento obrigatório
+
+⚠️ Os NPZs já enriquecidos em `dados/profundidade_minimax_11_v7_adaptativo/` usam o algoritmo **com bug**. É necessário re-rodar `Enriquece_NPZ_Com_Canais.ipynb` com `FORCAR_REGRAVAR = True` para recalcular os canais com o algoritmo corrigido.
+
+| Tarefa | Por quê | Como executar |
+|---|---|---|
+| Re-enriquecimento dos NPZs | Canais gravados têm nós isolados marcados incorretamente | Rodar `Enriquece_NPZ_Com_Canais.ipynb` com `FORCAR_REGRAVAR = True` |
+| Re-gerar PNGs de validação | Confirmar visualmente que bugs foram corrigidos | `py scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` |

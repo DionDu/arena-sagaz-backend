@@ -415,6 +415,47 @@ def test_double_cross_buchin():
 
 
 # ---------------------------------------------------------------------------
+# (d.6) No isolado no dual — nao e cadeia (regressao dos bugs reportados)
+# ---------------------------------------------------------------------------
+
+def test_caixa_grau2_isolada_nao_forma_cadeia():
+    """Caixa grau-2 sem vizinhos grau-2 conectados por aresta livre (no isolado no
+    grafo dual) nao deve ser marcada como em_cadeia_curta nem em_cadeia_aberta_uma_ponta."""
+    M = _matriz_vazia()
+    # (0,0): topo + esq jogados → grau 2. Vizinhos (0,1) e (1,0) tem grau 1.
+    M = _jogar(M, (0, 1), (1, 0))
+    canais = extrair_canais(M)
+
+    assert canais[0, 0, 6] == 1, "(0,0) deveria ser grau 2"
+    assert canais[0, 0, 7] == 0, "No isolado nao deve ser em_cadeia_curta"
+    assert canais[0, 0, 10] == 0, "No isolado nao deve ser em_cadeia_aberta_uma_ponta"
+
+
+def test_caixa_grau2_com_dois_vizinhos_grau3_nao_eh_half_open():
+    """No isolado com DUAS arestas livres levando a caixas grau-3 nao deve ser
+    em_cadeia_aberta_uma_ponta (seria 2 pontas abertas, nao 1). Regresso do bug
+    em _contar_pontas_abertas que retornava 1 por `break` prematuro."""
+    M = _matriz_vazia()
+    # (1,1): topo + base jogados → grau 2; arestas livres: esq (3,2) e dir (3,4).
+    # (1,0): topo + esq + base jogados → grau 3; aresta livre para (1,1) = dir = M[3,2].
+    # (1,2): topo + dir + base jogados → grau 3; aresta livre para (1,1) = esq = M[3,4].
+    M = _jogar(
+        M,
+        (2, 3), (4, 3),        # topo + base de (1,1) → grau 2
+        (2, 1), (3, 0), (4, 1), # topo + esq + base de (1,0) → grau 3
+        (2, 5), (3, 6), (4, 5), # topo + dir + base de (1,2) → grau 3
+    )
+    canais = extrair_canais(M)
+
+    assert canais[1, 1, 6] == 1, "(1,1) deveria ser grau 2"
+    assert canais[1, 0, 5] == 1, "(1,0) deveria ser grau 3"
+    assert canais[1, 2, 5] == 1, "(1,2) deveria ser grau 3"
+    # (1,1) e isolado no dual (sem vizinhos grau-2): nao forma cadeia.
+    assert canais[1, 1, 7] == 0, "No isolado nao deve ser em_cadeia_curta"
+    assert canais[1, 1, 10] == 0, "No isolado com 2 pontas abertas nao deve ser em_cadeia_aberta_uma_ponta"
+
+
+# ---------------------------------------------------------------------------
 # Smoke: NOMES_CANAIS bate com a constante esperada
 # ---------------------------------------------------------------------------
 

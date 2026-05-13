@@ -104,7 +104,8 @@ canais[r, c, 6] = 1 if (not _caixa_fechada(M, r, c) and _grau(M, r, c) == 2) els
    - Se algum nó tem grau ≥ 3 dentro do componente (estrutura "T", rara em 4×3 mas possível) → **cadeia complexa**, atribuir todas as caixas a `em_cadeia_longa` (canal 8).
    - Se todos os nós têm grau exatamente 2 dentro do componente → **loop**. Marcar `em_loop = 1` (canal 9) para todas as caixas.
    - Caso contrário (caminho path/aberto) → **cadeia**. Comprimento = `|componente|`.
-     - Comprimento 1–2 → `em_cadeia_curta` (canal 7).
+     - Comprimento = 1 → **nó isolado — ignorar**. Uma caixa grau-2 sem vizinhos grau-2 via aresta livre não constitui cadeia estratégica (nenhum canal de cadeia é marcado).
+     - Comprimento = 2 → `em_cadeia_curta` (canal 7).
      - Comprimento ≥ 3 → `em_cadeia_longa` (canal 8).
 
 ### Observação importante
@@ -113,7 +114,7 @@ canais[r, c, 6] = 1 if (not _caixa_fechada(M, r, c) and _grau(M, r, c) == 2) els
 
 ### Exclusão mútua entre canais 7 e 8
 
-Por componente: ou todas as caixas vão para `em_cadeia_curta` (≤ 2 caixas) ou todas vão para `em_cadeia_longa` (≥ 3 caixas). Componentes diferentes podem disparar canais diferentes — mas dentro de um mesmo componente, escolha é única.
+Por componente: ou todas as caixas vão para `em_cadeia_curta` (exatamente 2 caixas), ou todas vão para `em_cadeia_longa` (≥ 3 caixas). Componentes de tamanho 1 (nó isolado) não são marcados em nenhum canal de cadeia. Componentes diferentes podem disparar canais diferentes — mas dentro de um mesmo componente, a escolha é única.
 
 ---
 
