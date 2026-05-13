@@ -91,15 +91,37 @@ def _minimax_timer_agent_fn(profundidade_max: int, timer_ms: float):
     return agente
 
 
+def _para_dominio_dataset(mat: np.ndarray) -> np.ndarray:
+    """Converte a matriz da partida ao vivo {-1, 0, 1, 8} para o domínio do dataset {0, 1, 8, 9}.
+
+    Necessário para alimentar extrair_canais() com matrizes de partidas reais (V8+).
+    Neutraliza a distinção de jogador: arestas de qualquer jogador → 9,
+    caixas fechadas por qualquer jogador → 1. Grid points (8) permanecem.
+    """
+    out = mat.copy().astype(np.int8)
+    rows, cols = out.shape
+    for r in range(rows):
+        for c in range(cols):
+            v = int(out[r, c])
+            if v == 0 or v == 8:
+                continue
+            if r % 2 == 1 and c % 2 == 1:
+                out[r, c] = 1   # centro de caixa fechada (neutro)
+            elif not (r % 2 == 0 and c % 2 == 0):
+                out[r, c] = 9   # aresta preenchida (neutro)
+    return out
+
+
 def _cnn_agent_fn(caminho_modelo: str, labels: list[str]):
     """Retorna uma função-agente que usa o modelo TFLite.
 
-    O `tflite.Interpreter` NÃO é thread-safe: chamar `invoke()` em paralelo
-    com o mesmo Interpreter gera `RuntimeError: There is at least 1 reference
-    to internal data in the interpreter...`. Para suportar execução em
-    `ThreadPoolExecutor`, usamos `threading.local()` — cada thread cria e
-    mantém o seu próprio Interpreter (e seus tensores I/O) na primeira
-    chamada.
+    Auto-detecta o formato de entrada do modelo a partir da shape do tensor:
+    - V7  (shape 1×9×7×1): normaliza para {0,1} e alimenta a matriz crua.
+    - V8+ (shape 1×4×3×K): converte para domínio do dataset, extrai os K
+      primeiros canais canônicos via extrair_canais() e alimenta o tensor.
+
+    O `tflite.Interpreter` NÃO é thread-safe. Usamos `threading.local()` para
+    que cada thread/processo tenha seu próprio Interpreter.
     """
     try:
         import tflite_runtime.interpreter as tflite
@@ -109,25 +131,35 @@ def _cnn_agent_fn(caminho_modelo: str, labels: list[str]):
     idx_label = {l: i for i, l in enumerate(labels)}
     _local = threading.local()
 
-    def _get_interp():
-        interp = getattr(_local, "interp", None)
-        if interp is None:
+    def _ensure_initialized():
+        if getattr(_local, 'interp', None) is None:
             interp = tflite.Interpreter(model_path=caminho_modelo)
             interp.allocate_tensors()
+            shape = interp.get_input_details()[0]['shape']
+            # V8+: (1, 4, 3, K) — canais estruturais pré-computados
+            _local.is_v8 = (len(shape) == 4 and int(shape[1]) == 4 and int(shape[2]) == 3)
+            _local.n_canais = int(shape[3]) if _local.is_v8 else None
             _local.interp = interp
             _local.inp = interp.get_input_details()[0]["index"]
             _local.out = interp.get_output_details()[0]["index"]
-        return _local.interp, _local.inp, _local.out
 
     def agente(estado: EstadoTabuleiro) -> str:
-        # Normalização conforme contrato_codificacao_pontinhos.json, contexto 3 (partidas).
-        # NUNCA duplicar as regras aqui — consulte o JSON e o helper.
-        mat = normalizar_para_cnn(estado.matriz, CONTEXTO_PARTIDA)
-        X = mat.reshape(1, mat.shape[0], mat.shape[1], 1)
-        interp, inp, out = _get_interp()
-        interp.set_tensor(inp, X)
-        interp.invoke()
-        probs = interp.get_tensor(out)[0]          # (31,)
+        _ensure_initialized()
+        if _local.is_v8:
+            # V8+: converte para domínio do dataset e extrai canais estruturais.
+            # O import é cacheado pelo Python após a primeira chamada por processo.
+            from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import extrair_canais
+            mat_ds = _para_dominio_dataset(estado.matriz)
+            c = extrair_canais(mat_ds)                                       # (4, 3, 11)
+            X = c[np.newaxis, :, :, :_local.n_canais].astype(np.float32)    # (1, 4, 3, K)
+        else:
+            # V7: normaliza a matriz crua para {0, 1} conforme contrato_codificacao_pontinhos.json
+            mat = normalizar_para_cnn(estado.matriz, CONTEXTO_PARTIDA)
+            X = mat.reshape(1, mat.shape[0], mat.shape[1], 1)
+
+        _local.interp.set_tensor(_local.inp, X)
+        _local.interp.invoke()
+        probs = _local.interp.get_tensor(_local.out)[0]     # (31,)
         disponiveis = estado.tracos_disponiveis()
         melhor = max(disponiveis, key=lambda t: probs[idx_label[t]])
         return melhor
