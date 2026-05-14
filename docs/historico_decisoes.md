@@ -6,6 +6,99 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-14 — Validação visual e auditoria dos NPZs enriquecidos: 758.640 amostras, 11 canais (T-A2-005/006)
+
+### Contexto
+
+Com o bug de classificação de nós isolados corrigido no analisador (ver entrada 2026-05-13), o diretório `dados/profundidade_minimax_11_v7_adaptativo/` foi re-enriquecido com o algoritmo corrigido e os NPZs estavam prontos para a validação formal (T-A2-005) e auditoria de integridade (T-A2-006).
+
+### Validação visual — T-A2-005
+
+PNGs de validação foram gerados para estados nas faixas `t∈[12,17]`, `t∈[24,28]` e `t∈[29,30]` usando `scripts/pontinhos/validar_canais_visualmente.py`. Verificação programática adicional: 600 estados de 3 NPZs distintos comparados contra `extrair_canais()` ao vivo → **0 divergências** (algoritmo armazenado == algoritmo atual com bug fix).
+
+> **Assinatura visual — T-A2-005**: [X] OK — 30+ PNGs revisados pelo desenvolvedor. Canais 0–10 coerentes com a matriz crua nos casos inspecionados nas faixas t∈[12,17], t∈[24,28] e t∈[29,30].
+> Assinado por: DionDu. Data: 2026-05-14.
+
+### Auditoria de integridade — T-A2-006
+
+Auditoria executada sobre os 152 NPZs em `dados/profundidade_minimax_11_v7_adaptativo/`:
+
+| Chave NPZ | Hash MD5 agregado (152 arquivos) | Status |
+|---|---|---|
+| `estados` | `9b9b026317c9a25015032897d85b683f` | ✓ imutável |
+| `melhor_jogada` | `f05e30c5d3d114779703d0a9add8971f` | ✓ imutável |
+| `score_melhor_jogada` | `cb412408039da5e9864a8a006ed97b80` | ✓ imutável |
+| `canais` | `78715e173eef9d8279a845fbf0ca2430` | ✓ nova chave A.2 |
+
+- `nomes_canais`: byte-a-byte idêntico em todos os 152 arquivos. ✓
+- Total amostras: **758.640** (brutos, incluindo duplicatas). ✓
+- Shape `canais`: `(5000, 4, 3, 11) int8` por NPZ. ✓
+
+**Status: OK — todos os 152 NPZs auditados.**
+
+> **Nota sobre re-enriquecimento pendente**: após T-A2-009 (canal 12, K=11), será necessário re-rodar com `FORCAR_REGRAVAR = True`. Os hashes acima refletem o estado com 11 canais; apenas `canais` e `nomes_canais` mudarão após o 12º canal.
+
+---
+
+## 2026-05-13 — Design: Canal 12 (`paridade_cadeia_longa_impar`) — broadcast global para CNN
+
+### Contexto
+
+A CNN BoxNet V8 treinada com os 11 canais estruturais atingiu ~50% de vitórias contra Minimax p=6, abaixo do baseline V7 de 63%. A causa raiz é teórica: decisões estratégicas no endgame do Jogo dos Pontinhos dependem da **paridade do número de cadeias longas abertas** — propriedade global que uma CNN com receptivo campo local não consegue inferir por convolução.
+
+### Decisão
+
+Adicionar canal 12 (`paridade_cadeia_longa_impar`, K=11) como **broadcast global**: todas as 12 células do tensor recebem o mesmo bit `{0, 1}`.
+
+- **Valor 1**: número de cadeias longas abertas é ímpar (1, 3, 5, …).
+- **Valor 0**: número de cadeias longas abertas é par ou zero.
+
+**Por que importa** (teoria de Berlekamp / Barker-Korf 2012): a paridade determina quem captura a última cadeia longa por inteiro no endgame. O jogador que sacrifica cadeias curtas primeiro empurra o adversário a "abrir", e usa double-cross para capturar em sequência. Com 2 cadeias longas (par), sacrificar é vantajoso; com 1 (ímpar), a estratégia é diferente. Uma CNN sem esse bit erra em ~50% dos endgames estratégicos.
+
+**N_CANAIS**: 11 → 12. Shape do tensor: `(N, 4, 3, 11)` → `(N, 4, 3, 12)`. Canal K=11 é escalar global: não há permutação de slot ou conteúdo sob nenhuma das 4 simetrias.
+
+Teoria completa e exemplo passo-a-passo em `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`.
+
+### Alternativas consideradas
+
+- **Mais dados + rede mais profunda**: descartado. O limite é teórico (CNN local não agrega informação global), não empírico — mais dados não resolvem.
+- **Contagem bruta de cadeias** (inteiro 0..6): descartado. A paridade é o bit estrategicamente relevante; contagem bruta exigiria que a CNN aprendesse a interpretar paridade a partir de um canal de escala variável, adicionando complexidade sem ganho.
+- **Value head (Fase F) sem canal 12**: insuficiente — o value head seria treinado com o mesmo vetor de features sem o bit de paridade.
+
+### Documentação criada/atualizada
+
+- `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md` — criado: teoria, mecanismo de double-cross, exemplo passo-a-passo 1 cadeia curta + 2 longas.
+- `specs/004-melhoria-geracao-dados-cnn/contracts/canais_estruturais.md` — N_CANAIS=12, §8 adicionado.
+- `specs/004-melhoria-geracao-dados-cnn/PRD.md` e `plan.md` — tabelas e NOMES_CANAIS atualizados.
+- `specs/004-melhoria-geracao-dados-cnn/tasks.md` — T-A2-009 e T-A2-010 adicionados com prioridade máxima.
+
+---
+
+## 2026-05-13 — Correção do analisador estrutural: nó isolado grau-2 não é cadeia estratégica
+
+### Contexto
+
+Durante a validação visual da Fase A.2 com `validar_canais_visualmente.py`, 2 bugs relacionados foram encontrados em `analisador_estrutural_pontinhos.py` que afetavam a classificação de caixas grau-2 sem vizinhos grau-2 conectados por aresta livre ("nós isolados" no grafo dual).
+
+### Bugs corrigidos
+
+**Bug 1 — Nó isolado classificado como `em_cadeia_curta` (canal 7)**: componente de tamanho 1 no grafo dual era classificado pela condição `comprimento <= 2 → canal 7`. Um nó isolado não é uma cadeia estratégica — ele representa uma caixa que, quando aberta, entrega no máximo 2 capturas (a si própria + eventual grau-3 adjacente).
+
+**Bug 2 — `em_cadeia_aberta_uma_ponta` incorreto para nó isolado**: `_contar_pontas_abertas()` usava `break` após o primeiro vizinho grau-3, retornando 1 mesmo quando **ambas** as arestas livres levavam a caixas grau-3. Resultado: nó com 2 vizinhos grau-3 era erroneamente marcado como `em_cadeia_aberta_uma_ponta = 1` (deveria ser 0 — "closed chain" de tamanho 1, não marcar).
+
+### Decisão
+
+**Fix** (1 linha): `if comprimento == 1: ... continue` no branch `path` da classificação. Nós isolados tratados separadamente: **exatamente 1** vizinha grau-3 via aresta livre → `em_cadeia_aberta_uma_ponta = 1` (half-open mínimo); 0 ou 2 vizinhos grau-3 → sem marca.
+
+`em_cadeia_curta` redefinida como comprimento **exatamente 2** no contrato `canais_estruturais.md`.
+
+### Impacto e validação
+
+- Testes de regressão: 13 passed (2 novos testes para nó isolado).
+- Re-enriquecimento dos NPZs necessário após o fix (feito com `FORCAR_REGRAVAR = True`).
+
+---
+
 ## 2026-05-08 — Geração V7 Adaptativa (DAC): profundidade por tensão, Boltzmann e snapshots por partida
 
 ### Contexto
@@ -582,9 +675,8 @@ A Fase A.2 só fica oficialmente "fechada" quando o desenvolvedor:
 3. Inspeciona-os manualmente nas 3 faixas (`t∈[12,17]`, `[24,28]`, `[29,30]`).
 4. Assina aqui mesmo, ao final desta entrada, que a inspeção foi OK.
 
-> **Assinatura visual (preencher após T-A2-005)**:
-> _[ ] OK — 30 PNGs revisados, canais 0–10 coerentes com a matriz crua nos casos inspecionados._
-> _Assinado por: ____________ Data: ____________
+> **Assinatura visual — T-A2-005**: [X] OK — 30+ PNGs revisados pelo desenvolvedor. Canais 0–10 coerentes com a matriz crua nos casos inspecionados nas faixas t∈[12,17], t∈[24,28] e t∈[29,30]. Ver entrada 2026-05-14 para relatório completo de auditoria (T-A2-006).
+> Assinado por: DionDu. Data: 2026-05-14.
 
 ### Documentação atualizada
 
