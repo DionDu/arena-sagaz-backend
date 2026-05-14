@@ -488,7 +488,9 @@ Após re-enriquecimento com Minimax p=11, o melhor modelo atingiu:
 
 ### 4.2 Decisão D2 — NPZ enriquecido com TODOS os canais (geométricos + estruturais) pré-computados
 
-**Decisão:** O NPZ passa a conter um campo extra `canais` de shape `(N, 4, 3, 11)` com **TODOS os 11 canais** (5 geométricos + 6 estruturais) já pré-computados — não mais derivados em runtime pela `Lambda` do modelo Keras.
+**Decisão:** O NPZ passa a conter um campo extra `canais` de shape `(N, 4, 3, 12)` com **TODOS os 12 canais** (5 geométricos + 6 estruturais + 1 paridade global) já pré-computados — não mais derivados em runtime pela `Lambda` do modelo Keras.
+
+> **Revisão 2026-05-13**: canal 12 (`paridade_cadeia_longa_impar`, K=11) adicionado. Ver `contracts/canais_estruturais.md` §8 e `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`.
 
 **Por quê pré-computar os 5 canais geométricos também (decisão revisada em 2026-05-07):** o usuário apontou corretamente que se o NPZ não traz os 5 atuais, o notebook V6 *ainda precisaria* da `Lambda para_grid_de_caixas` para derivá-los. Pré-computar todos os 11 elimina essa ambiguidade: o NPZ enriquecido é a fonte única da verdade do tensor de entrada da CNN. O notebook V6 carrega `canais` direto e concatena no input. Mais simples, mais auditável, mais barato em CPU de treino (bytes prontos em vez de operações tensoriais a cada batch).
 
@@ -507,6 +509,7 @@ Após re-enriquecimento com Minimax p=11, o melhor modelo atingiu:
 | 9 | `em_cadeia_longa` | (4,3) bin | Estrutural (novo) | Caixa pertence a cadeia de comprimento ≥3. **Idem para múltiplas cadeias longas no mesmo estado** — todas marcadas com 1, sem canal por instância. A CNN aprende a contar/separar cadeias pelo padrão espacial. |
 | 10 | `em_loop` | (4,3) bin | Estrutural (novo) | Caixa pertence a um ciclo fechado de comprimento par. Múltiplos loops são unidos no mesmo canal. |
 | 11 | `em_cadeia_aberta_uma_ponta` | (4,3) bin | Estrutural (novo) | Caixa em cadeia "half-open" (Barker & Korf 2012, Fig. 2-A) — uma ponta capturável (conecta a uma caixa grau-3). |
+| 12 | `paridade_cadeia_longa_impar` | (4,3) bin | Estrutural global (novo) | **Canal broadcast**: todas as 12 células têm o mesmo valor. `1` = número de cadeias longas abertas (≥3, não loop, não complexa) é ímpar; `0` = par ou zero. Permite que a CNN raciocine sobre paridade de cadeias sem precisar contar globalmente por convolução. Ver `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`. |
 
 **Importante — caixas fechadas:** o canal 5 (`caixa_fechada`) **é o registro autoritativo de caixa fechada**, exatamente como o V5 já entrega via `Lambda para_grid_de_caixas` (que extrai `interior = M[1:8:2, 1:7:2]` de uma matriz que, no contexto 1 do contrato, só tem valores `{0, 1, 8, 9}` — após normalização `8→0`/`9→1` o slot fica binário `{0, 1}`). Os canais estruturais 6–11 **excluem** caixas fechadas (recebem 0 lá), porque conceitos como "grau", "cadeia", "loop" só fazem sentido em caixas abertas. Quem quiser saber se uma caixa está fechada lê o canal 5.
 
@@ -519,6 +522,7 @@ NOMES_CANAIS = (
     "eh_grau3", "eh_grau2",
     "em_cadeia_curta", "em_cadeia_longa", "em_loop",
     "em_cadeia_aberta_uma_ponta",
+    "paridade_cadeia_longa_impar",   # K=11 — broadcast global, adicionado 2026-05-13
 )
 ```
 
@@ -1164,9 +1168,11 @@ Iniciar λ_a = 0.1, tunar via grid search com critério de **não-regressão em 
 
 ---
 
-## 6. Especificação dos 11 canais (referência canônica)
+## 6. Especificação dos 12 canais (referência canônica)
 
-> **Nota de versão (2026-05-07):** esta seção foi renumerada para abranger os **11 canais** (5 geométricos + 6 estruturais) e não apenas os 6 estruturais como na versão original. A ordem canônica é exatamente a da tabela de §4.2 — repetida abaixo como referência rápida — e é a mesma ordem usada pelo eixo `K` do tensor `canais` shape `(N, 4, 3, 11)` no NPZ enriquecido.
+> **Nota de versão (2026-05-07):** esta seção foi renumerada para abranger os canais geométricos e estruturais. A ordem canônica é exatamente a da tabela de §4.2 — repetida abaixo como referência rápida — e é a mesma ordem usada pelo eixo `K` do tensor `canais` no NPZ enriquecido.
+
+> **Revisão 2026-05-13**: canal 12 (`paridade_cadeia_longa_impar`) adicionado. NPZ shape passa de `(N, 4, 3, 11)` para `(N, 4, 3, 12)`.
 
 | # | Canal | Tipo | Origem |
 |---|---|---|---|
@@ -1181,6 +1187,7 @@ Iniciar λ_a = 0.1, tunar via grid search com critério de **não-regressão em 
 | 9 | `em_cadeia_longa` | Estrutural | Novo (Fase A.2) |
 | 10 | `em_loop` | Estrutural | Novo (Fase A.2) |
 | 11 | `em_cadeia_aberta_uma_ponta` | Estrutural | Novo (Fase A.2) |
+| 12 | `paridade_cadeia_longa_impar` | Estrutural global (broadcast) | Novo (Fase A.2 — rev. 2026-05-13) |
 
 ### 6.1 Sistema de coordenadas
 

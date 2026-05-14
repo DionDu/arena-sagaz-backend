@@ -55,7 +55,12 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 - [x] T-A2-007 [P] Atualizar `docs/jogo_pontinhos/guia_geracao_dados.md` documentando o novo fluxo A.1 (V7 DAC local + Fase 2 Databricks) + A.2 (notebook de enriquecimento local), com comandos, paths e ordem de execução. Diretório correto: `dados/profundidade_minimax_11_v7_adaptativo/`. **blockedBy**: T-A2-003. **Gate**: leitor consegue reproduzir o fluxo do zero a partir do guia, sem precisar abrir o PRD.
 - [x] T-A2-008 Adicionar entrada datada em `docs/historico_decisoes.md` consolidando D2 (canal `cadeia_longa = ≥3` único, K=11), D3 (sobrescrita atômica via `.tmp` + `os.replace`) e D4 (paleta visual estável + borda em fechadas). **blockedBy**: T-A2-005, T-A2-006. **Gate**: entrada presente com data, contexto, decisão, alternativas consideradas, motivo.
 
-**Checkpoint Fase A.2**: NPZs enriquecidos prontos para consumo pelo treino; pode-se iniciar Fase B.
+- [ ] T-A2-009 **[PRIORIDADE MÁXIMA]** Implementar canal 12 (`paridade_cadeia_longa_impar`, K=11) em `gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py`: expandir `NOMES_CANAIS` para 12 entradas, atualizar `N_CANAIS = 12`, adicionar bloco de cálculo de `n_cadeias_longas` e `paridade_impar` ao final de `extrair_canais()`, broadcast para todas as 12 células em `canais[:, :, 11]`. **Gate**: `python -c "from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import NOMES_CANAIS; print(len(NOMES_CANAIS))"` imprime `12`.
+- [ ] T-A2-010 **[PRIORIDADE MÁXIMA]** Adicionar testes de regressão para canal 12 em `tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py`: (a) estado vazio → K=11 = 0; (b) 1 cadeia longa → K=11 = 1; (c) 2 cadeias longas → K=11 = 0; (d) 1 loop + 1 cadeia longa → K=11 = 1 (loop não conta); (e) broadcast: `canais[:, :, 11]` é uniforme para qualquer estado. **blockedBy**: T-A2-009. **Gate**: `pytest tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py -v` 100% verde (≥ 18 testes).
+
+> **Nota de repriorização 2026-05-13**: T-A2-009 e T-A2-010 devem ser executados **antes** do re-enriquecimento dos NPZs (T-A2-003 re-run). Após a implementação de canal 12, o re-enriquecimento incluirá automaticamente K=11. A Fase C (espelhamento 4×) é co-prioridade com canal 12 — T-C-001 e T-C-002 devem ser iniciados logo após T-A2-010 verde. Ver motivação em `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`.
+
+**Checkpoint Fase A.2**: NPZs enriquecidos prontos para consumo pelo treino (com 12 canais incluindo K=11); pode-se iniciar Fase B.
 
 ---
 
@@ -348,5 +353,33 @@ Validação visual com `validar_canais_visualmente.py` revelou 2 bugs relacionad
 
 | Tarefa | Por quê | Como executar |
 |---|---|---|
-| Re-enriquecimento dos NPZs | Canais gravados têm nós isolados marcados incorretamente | Rodar `Enriquece_NPZ_Com_Canais.ipynb` com `FORCAR_REGRAVAR = True` |
-| Re-gerar PNGs de validação | Confirmar visualmente que bugs foram corrigidos | `py scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` |
+| Re-enriquecimento dos NPZs | Canais gravados têm nós isolados marcados incorretamente | Rodar `Enriquece_NPZ_Com_Canais.ipynb` com `FORCAR_REGRAVAR = True` — **aguardar T-A2-009 (canal 12) antes de re-enriquecer** |
+| Re-gerar PNGs de validação | Confirmar visualmente que bugs foram corrigidos + canal 12 correto | `py scripts/pontinhos/validar_canais_visualmente.py --qtd-tracos 14 17 29 --n-amostras 30` |
+
+---
+
+## Estado de execução — sessão 2026-05-13 (canal 12 + repriorização)
+
+### Decisão de design
+
+- **Canal 12 (`paridade_cadeia_longa_impar`)**: análise da estagnação da CNN V8 (50% vs Minimax p=6) identificou que a causa raiz é a impossibilidade de CNNs locais inferirem paridade global de cadeias longas. Canal 12 é um broadcast global (K=11) que entrega esse bit diretamente a todas as células do tensor. Teoria completa em `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`.
+- **Fase C (espelhamento) co-prioridade**: augmentação 4× por simetria é igualmente urgente e deve ser executada no mesmo ciclo de treino que canal 12.
+
+### Entregue nesta sessão
+
+- **`docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`** — criado: teoria de cadeias, mecanismo de double-cross, exemplo passo-a-passo 1 cadeia curta + 2 longas, motivação para canal 12.
+- **`specs/004-melhoria-geracao-dados-cnn/contracts/canais_estruturais.md`** — atualizado: N_CANAIS=12, canal 12 adicionado (§8), simetria atualizada (K=11 broadcast, sem permutação), garantias e vetores de referência atualizados.
+- **`specs/004-melhoria-geracao-dados-cnn/PRD.md`** — atualizado: §4.2 tabela e NOMES_CANAIS com canal 12; §6 tabela com canal 12; revisões datadas.
+- **`specs/004-melhoria-geracao-dados-cnn/plan.md`** — atualizado: sumário, NOMES_CANAIS, nota de repriorização 2026-05-13.
+- **`specs/004-melhoria-geracao-dados-cnn/tasks.md`** — adicionado: T-A2-009, T-A2-010 com prioridade máxima; nota de repriorização.
+
+### Próximas ações (ordem de execução)
+
+| Tarefa | Onde | O quê |
+|--------|------|-------|
+| **T-A2-009** | `analisador_estrutural_pontinhos.py` | Implementar canal 12 (K=11) |
+| **T-A2-010** | `test_analisador_estrutural_pontinhos.py` | 5 novos testes para canal 12 |
+| Re-enriquecimento | `Enriquece_NPZ_Com_Canais.ipynb` | Regerar NPZs com FORCAR_REGRAVAR=True (12 canais) |
+| **T-C-001** | `permutacoes_simetria_pontinhos.py` | Implementar espelhamento 4× |
+| **T-C-002** | `test_permutacoes_simetria_pontinhos.py` | Testes das 4 simetrias |
+| Treino | `Treinamento_CNN_Pontinhos_V8.ipynb` | Treinar com 12 canais + augmentação 4× |

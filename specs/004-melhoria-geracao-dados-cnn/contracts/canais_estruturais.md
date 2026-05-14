@@ -1,9 +1,11 @@
-# Contrato — Especificação algorítmica dos 11 canais
+# Contrato — Especificação algorítmica dos 12 canais
 
 **Branch**: `004-melhoria-geracao-dados-cnn` | **Data**: 2026-05-07
 **Documento pai**: [plan.md](../plan.md) — espelha PRD §6.1–6.8 com mesma ordem canônica.
 
 > Esta especificação é a fonte da verdade para a implementação Python (`gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py`) e — por extensão — para qualquer cliente externo (futuro porte Dart, fora do escopo). O `contrato_codificacao_pontinhos.json` versão 2.faseD é a representação declarativa equivalente; este documento é a explicação algorítmica em pt-BR.
+
+> **Revisão 2026-05-13**: adicionado canal 12 (`paridade_cadeia_longa_impar`, K=11) — canal broadcast global que codifica a paridade do número de cadeias longas abertas. Motivação e teoria em `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`. N_CANAIS passa de 11 para **12**.
 
 ---
 
@@ -150,7 +152,40 @@ Uma caixa grau-2 sem vizinhos grau-2 via aresta livre (nó isolado no grafo dual
 
 ---
 
-## 8. Permutação dos canais sob simetrias (Fase C)
+## 8. Canal 12 — `paridade_cadeia_longa_impar`
+
+Canal **broadcast global**: todas as 12 células do tensor recebem o mesmo valor inteiro em `{0, 1}`.
+
+- **Valor 1**: o número de cadeias longas abertas no estado é **ímpar** (1, 3, 5, …).
+- **Valor 0**: o número de cadeias longas abertas é **par ou zero** (0, 2, 4, …).
+
+Uma "cadeia longa aberta" é um componente conexo no grafo dual de grau-2 que satisfaz simultaneamente:
+- Comprimento ≥ 3 (não é nó isolado nem cadeia curta).
+- Não é loop (não ocorre `all(grau_no_componente == 2)`).
+- Não é complexa (`max(grau_no_componente) < 3`).
+
+**Pseudo-código** (integrado ao loop de classificação de `extrair_canais`, após construir `adj` e `componentes`):
+
+```python
+n_cadeias_longas = sum(
+    1 for comp in componentes
+    if len(comp) >= 3
+    and not all(len(adj[u]) == 2 for u in comp)   # não é loop
+    and max(len(adj[u]) for u in comp) < 3         # não é complexa
+)
+paridade_impar = (n_cadeias_longas % 2) == 1
+
+# K=11: broadcast para todas as células
+for r in range(N_LINHAS):
+    for c in range(N_COLUNAS):
+        canais[r, c, 11] = 1 if paridade_impar else 0
+```
+
+**Motivação teórica**: ver `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`. Em síntese: a paridade do número de cadeias longas abertas é uma propriedade global que determina a estratégia ótima de sacrifício/double-cross no endgame. Uma CNN com receptivo campo local não consegue inferir paridade global por convolução; este canal entrega o bit diretamente a todas as posições.
+
+---
+
+## 9. Permutação dos canais sob simetrias (Fase C)
 
 Tabela completa de permutação para as 4 simetrias do tabuleiro 4×3. Espelho de PRD §6.8.
 
@@ -161,7 +196,9 @@ Tabela completa de permutação para as 4 simetrias do tabuleiro 4×3. Espelho d
 | Reflexão vertical | `(r, c) → (n_rows-1-r, c)` | `aresta_topo ↔ aresta_base` (canais 0 e 1 trocam) |
 | Rotação 180° | `(r, c) → (n_rows-1-r, n_cols-1-c)` | ambas as trocas acima |
 
-Os canais 4 (`caixa_fechada`) e 5–10 (estruturais binários) **não trocam de slot** — apenas o conteúdo espacial é refletido/rotacionado.
+Os canais 4 (`caixa_fechada`) e 5–11 (estruturais binários) **não trocam de slot** — apenas o conteúdo espacial é refletido/rotacionado.
+
+**Canal 12 (`paridade_cadeia_longa_impar`, K=11) sob simetria**: por ser broadcast (escalar global), o valor não muda sob nenhuma simetria espacial. Reflexão/rotação do tabuleiro não altera o número de cadeias longas, apenas reposiciona suas células. Não há permutação de slot nem de conteúdo para K=11.
 
 ### Pseudo-código
 
@@ -169,6 +206,7 @@ Os canais 4 (`caixa_fechada`) e 5–10 (estruturais binários) **não trocam de 
 def aplicar_simetria_horizontal(canais):
     out = canais[:, ::-1, :].copy()              # reflete em c
     out[..., [2, 3]] = out[..., [3, 2]]          # troca aresta_esquerda ↔ aresta_direita
+    # K=11 (paridade) não muda — valor broadcast é idêntico após reflexão
     return out
 
 def aplicar_simetria_vertical(canais):
@@ -190,34 +228,36 @@ A simetria deve ser aplicada **a TODOS os tensores associados a cada amostra** (
 - Matriz crua `(9, 7)`: `np.flip` / `np.rot90` correspondente.
 - Vetor de scores `(31,)`: cada label é remapeado pela mesma simetria via tabela de `permutacoes_simetria_pontinhos.py`.
 - Label canônico (rótulo de melhor aresta): remapeado via tabela.
-- Tensor `canais (4, 3, 11)`: como acima.
+- Tensor `canais (4, 3, 12)`: como acima (K=11 preservado byte-a-byte — broadcast não muda).
 
 ---
 
-## 9. Garantias verificáveis pelo teste unitário
+## 10. Garantias verificáveis pelo teste unitário
 
 - **Determinismo**: `extrair_canais(M)` é uma função pura.
 - **Domínio binário**: `canais.dtype == np.int8`; `set(canais.flatten()) ⊆ {0, 1}`.
-- **Exclusão mútua**: para toda caixa `(r, c)` com `canais[r, c, 4] == 1`, todos os canais 5–10 valem 0 nessa célula.
-- **Coerência sob simetria**: `extrair_canais(simetria(M)) == simetria(extrair_canais(M))` (byte-a-byte).
-- **Auto-descrição**: `np.array(NOMES_CANAIS, dtype="U32")` é o array gravado em `nomes_canais` no NPZ Fase A.2.
+- **Exclusão mútua**: para toda caixa `(r, c)` com `canais[r, c, 4] == 1`, todos os canais 5–11 valem 0 nessa célula. (Canal 12 / K=11 é broadcast global — pode ter qualquer valor em `{0,1}` independentemente do status de fechamento da caixa.)
+- **Broadcast K=11**: todos os 12 valores `canais[r, c, 11]` são idênticos para dado `M`.
+- **Coerência sob simetria**: `extrair_canais(simetria(M)) == simetria(extrair_canais(M))` (byte-a-byte). Para K=11, igualdade trivial (broadcast preservado).
+- **Auto-descrição**: `np.array(NOMES_CANAIS, dtype="U32")` é o array gravado em `nomes_canais` no NPZ Fase A.2. `len(NOMES_CANAIS) == 12`.
 
 ---
 
-## 10. Vetores de referência (Fase D)
+## 11. Vetores de referência (Fase D)
 
 Conjunto canônico em `gerador_dados/jogo_pontinhos/referencia_canais_pontinhos.json` cobrindo:
 
-1. Estado vazio (todas as arestas livres).
+1. Estado vazio (todas as arestas livres). → K=11 deve ser 0 (zero cadeias longas).
 2. Caixa fechada simples.
 3. Double-cross do Buchin Fig. 2.
-4. Loop fechado de 4 caixas.
-5. 2 cadeias longas disjuntas.
-6. Half-open chain (1 ponta capturável).
-7. Handout (Berlekamp).
-8. ≥ 20 estados sorteados em t ∈ {14, 17, 24, 29}.
+4. Loop fechado de 4 caixas. → K=11 deve ser 0 (loop não conta como cadeia longa).
+5. 2 cadeias longas disjuntas. → K=11 deve ser **0** (par).
+6. 1 cadeia longa + 1 cadeia curta. → K=11 deve ser **1** (ímpar).
+7. Half-open chain (1 ponta capturável).
+8. Handout (Berlekamp).
+9. ≥ 20 estados sorteados em t ∈ {14, 17, 24, 29}.
 
-Cada entrada é um par `(matriz_crua (9,7) int8, canais (4,3,11) int8)` com seed reproducível para auditoria.
+Cada entrada é um par `(matriz_crua (9,7) int8, canais (4,3,12) int8)` com seed reproducível para auditoria.
 
 ---
 

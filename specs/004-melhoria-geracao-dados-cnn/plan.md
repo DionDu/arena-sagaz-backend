@@ -14,7 +14,9 @@ Esta feature evolui o pipeline de dados e a arquitetura da CNN BoxNet v3 do Jogo
 
 > **Revisão 2026-05-12 — Fase A.1 CONCLUÍDA com V7 DAC:** A geração usou o algoritmo DAC (Diversidade Adaptativa em Cascata) em vez do notebook V5/cotas especificado originalmente. O dataset produzido tem **758k amostras brutas / ~500k distintos** com distribuição bell-shaped emergente, salvo em `dados/profundidade_minimax_11_v7_adaptativo/` (152 NPZs). Dois bugs críticos de Bitboard foram corrigidos no notebook de Fase 2. Experimentos preliminares de treino com ground truth Minimax p=11 atingiram **63% de vitórias vs Minimax(p=6)** e **90,5% vs Minimax(p=3)**, indicando saturação arquitetural da BoxNet v3 (~74k params). O novo baseline de comparação para Fase B é **63% vs p=6** (não mais 38%).
 
-O plano cobre: (a) Fase A.1 — ✅ **CONCLUÍDA** — geração V7 DAC local (~25.288 partidas × 30 snapshots) + enriquecimento Fase 2 Databricks (Minimax p=7 → p=11) + experimentos preliminares de treino; (b) Fase A.2 — enriquecimento local com analisador estrutural + sobrescrita atômica + script de validação visual; (c) Fase B — treino com 5 canais geométricos, eliminando a `Lambda para_grid_de_caixas`; (d) Fase C — augmentação 4×; (e) Fase D — treino com 11 canais + atualização do contrato + vetores de referência; (f) Fase E — sample_weight refinado por Δ-top2 em t=12–17; (g) Fase F — value head AlphaZero-style com export TFLite policy-only; (h) Fases G/H condicionais.
+O plano cobre: (a) Fase A.1 — ✅ **CONCLUÍDA** — geração V7 DAC local (~25.288 partidas × 30 snapshots) + enriquecimento Fase 2 Databricks (Minimax p=7 → p=11) + experimentos preliminares de treino; (b) Fase A.2 — enriquecimento local com analisador estrutural + sobrescrita atômica + script de validação visual — inclui **canal 12 (`paridade_cadeia_longa_impar`)** adicionado em 2026-05-13; (c) Fase B — treino com 5 canais geométricos, eliminando a `Lambda para_grid_de_caixas`; (d) Fase C — augmentação 4× (co-prioridade com canal 12); (e) Fase D — treino com 12 canais + atualização do contrato + vetores de referência; (f) Fase E — sample_weight refinado por Δ-top2 em t=12–17; (g) Fase F — value head AlphaZero-style com export TFLite policy-only; (h) Fases G/H condicionais.
+
+> **Repriorização 2026-05-13**: análise da estagnação da CNN V8 (50% vs Minimax p=6, abaixo do baseline V7 de 63%) identificou que a causa raiz é a ausência de um bit de paridade global. Canal 12 (`paridade_cadeia_longa_impar`) e Fase C (espelhamento 4×) são as **próximas tarefas a executar**, com prioridade máxima, antes de qualquer novo ciclo de treino. Ver `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`.
 
 ---
 
@@ -317,7 +319,7 @@ Fases G/H (CONDICIONAIS — só executam se F não bater meta de SC-W-* ou SC-A-
 **Arquivos criados**:
 - `notebooks/jogo_pontinhos/Enriquece_NPZ_Com_Canais.ipynb`.
 - `gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py` com:
-  - Constante `NOMES_CANAIS: tuple[str, ...] = ("aresta_topo", "aresta_base", "aresta_esquerda", "aresta_direita", "caixa_fechada", "eh_grau3", "eh_grau2", "em_cadeia_curta", "em_cadeia_longa", "em_loop", "em_cadeia_aberta_uma_ponta")`.
+  - Constante `NOMES_CANAIS: tuple[str, ...] = ("aresta_topo", "aresta_base", "aresta_esquerda", "aresta_direita", "caixa_fechada", "eh_grau3", "eh_grau2", "em_cadeia_curta", "em_cadeia_longa", "em_loop", "em_cadeia_aberta_uma_ponta", "paridade_cadeia_longa_impar")`. **N_CANAIS = 12** (revisão 2026-05-13).
   - Função pública `extrair_canais(matriz_estado: np.ndarray) -> np.ndarray` retornando `(4, 3, 11) int8` na ordem canônica.
   - Helpers internos: `_grau`, `_caixa_fechada`, `_componentes_grau2_dual`, `_classifica_componente` (path/loop/T-complexo), `_marca_half_open`.
 - `scripts/pontinhos/validar_canais_visualmente.py` com parâmetros `--diretorio-npz`, `--qtd-tracos`, `--generation-mode`, `--n-amostras`, `--saida`, `--seed`.
