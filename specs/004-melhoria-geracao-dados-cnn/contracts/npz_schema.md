@@ -1,7 +1,8 @@
 # Contrato — Esquema dos NPZ por fase
 
 **Branch**: `004-melhoria-geracao-dados-cnn` | **Data**: 2026-05-07
-**Última revisão**: 2026-05-12 — V7 DAC substituiu o pipeline V5/cotas; schema V2 com renomeação de campos e remoção de `generation_mode`.
+**Última revisão**: 2026-05-14 — adicionados 3 campos escalares de cadeias (Fase A.3: `qtd_cadeias_longas`, `total_caixas_cadeias_longas`, `tamanho_max_cadeia_longa`) e shape de `canais` atualizado de `(N,4,3,11)` para `(N,4,3,12)` (canal 12 = `paridade_cadeia_longa_impar`). Versão v2-a3 adicionada à tabela de versionamento.
+**Revisão anterior**: 2026-05-12 — V7 DAC substituiu o pipeline V5/cotas; schema V2 com renomeação de campos e remoção de `generation_mode`.
 **Documento pai**: [plan.md](../plan.md)
 
 > Esquema concreto dos arquivos NPZ produzidos/consumidos em cada fase do pipeline. Espelha `data-model.md` §10.
@@ -79,7 +80,9 @@ Distribuição bell-shaped emergente — sem quotas manuais. Pontas saturam o es
 
 ---
 
-## 2. NPZ Fase A.2 (saída do enriquecimento local com 11 canais estruturais)
+## 2. NPZ Fase A.2 (saída do enriquecimento com 11 canais — estado intermediário, supersedido por Fase A.3)
+
+> **Nota 2026-05-14**: a Fase A.2 com 11 canais é um estado intermediário. Após T-A2-009 (canal 12) e T-A3-006 (re-enriquecimento Fase 2 V8), os NPZs evoluem para o schema v2-a3 com 12 canais + 3 campos escalares. O schema v2-a2 abaixo documenta o estado histórico auditado em 2026-05-14.
 
 Mesmos campos da Fase A.1 completa **+**:
 
@@ -96,8 +99,8 @@ np.savez(
     score_melhor_jogada=score_melhor_jogada,
     depth_melhor_jogada=depth_melhor_jogada,
     labels_canonicos=labels_canonicos,
-    # Campos novos:
-    canais=canais,                    # (N, 4, 3, 11) int8
+    # Campos novos (v2-a2, 11 canais):
+    canais=canais,                    # (N, 4, 3, 11) int8  ← supersedido pelo v2-a3 com 12 canais
     nomes_canais=nomes_canais,        # (11,) <U32
 )
 ```
@@ -109,7 +112,85 @@ np.savez(
 
 ---
 
-## 3. Garantias do pipeline
+## 3. NPZ Fase A.3 (saída do pipeline V8 Fase 2 — schema definitivo para treino)
+
+> **Adicionado 2026-05-14.** Executado por `gerador_dados/jogo_pontinhos/v8/fase2_enriquecimento_local.ipynb`. Inclui canal 12 e 3 campos escalares de metadata de cadeias. É o schema consumido pelo `Treinamento_CNN_Pontinhos_V8.ipynb`.
+
+Mesmos campos da Fase A.1 completa **+**:
+
+```python
+np.savez(
+    arquivo,
+    # Campos preservados da Fase A.1 (todos):
+    estados=estados,
+    qtd_tracos=qtd_tracos,
+    score_jogada=score_jogada,
+    depth_jogada=depth_jogada,
+    depth_geracao=depth_geracao,
+    melhor_jogada=melhor_jogada,
+    score_melhor_jogada=score_melhor_jogada,
+    depth_melhor_jogada=depth_melhor_jogada,
+    labels_canonicos=labels_canonicos,
+    # Campos novos (v2-a3, 12 canais):
+    canais=canais,                              # (N, 4, 3, 12) int8
+    nomes_canais=nomes_canais,                  # (12,) <U32
+    qtd_cadeias_longas=qtd_cadeias_longas,      # (N,) int8  — contagem de cadeias longas abertas (≥3 caixas)
+    total_caixas_cadeias_longas=total_caixas,   # (N,) int8  — soma de caixas de todas as cadeias longas
+    tamanho_max_cadeia_longa=tamanho_max,       # (N,) int8  — tamanho da maior cadeia longa
+)
+```
+
+**Restrições adicionais**:
+- `canais[i, r, c, k] ∈ {0, 1}`; shape `(N, 4, 3, 12)`.
+- `canais[i, :, :, 11]` é uniforme (todos os 12 valores iguais) — canal broadcast de paridade.
+- `nomes_canais` byte-a-byte igual à constante `NOMES_CANAIS` (12 entradas) em `analisador_estrutural_pontinhos.py`.
+- `qtd_cadeias_longas[i] ∈ [0, 6]` (tabuleiro 4×3 não permite mais de 6 cadeias longas simultâneas).
+- `total_caixas_cadeias_longas[i] ∈ [0, 12]`.
+- `tamanho_max_cadeia_longa[i] ∈ [0, 12]`.
+- Relação: `total_caixas_cadeias_longas[i] ≥ 3 × qtd_cadeias_longas[i]` (cada cadeia longa tem ≥ 3 caixas).
+- Sobrescrita atômica: gravar em `<arquivo>.tmp` + `os.replace(<arquivo>.tmp, <arquivo>)`.
+
+### Fórmula de profundidade mínima para re-rotulação
+
+```python
+profundidade_minima = total_caixas_cadeias_longas[i] + 2 * qtd_cadeias_longas[i]
+```
+
+Esta fórmula indica a profundidade Minimax necessária para resolver corretamente um estado com cadeias longas. Estados com `profundidade_minima > 11` têm rótulos potencialmente subótimos no dataset original (Minimax p=11) e são candidatos à re-rotulação pela Fase 3 V8.
+
+**Análise 2026-05-14** (amostragem 1-em-5, ~155.000 estados):
+
+| `qtd_cadeias_longas` | % dos estados | Observação |
+|---|---|---|
+| 0 | 62,4% | Sem cadeias longas — p=11 sempre suficiente |
+| 1 | 31,9% | Uma cadeia longa |
+| 2 | 5,6% | Duas cadeias longas |
+| ≥3 | 0,1% | Três ou mais — sempre precisam de p>11 |
+
+| `profundidade_minima` | % dos estados | Profundidade usada na Fase 3 |
+|---|---|---|
+| ≤ 11 | 97,7% | Mantém rótulo p=11 |
+| 12–13 | 1,3% | Re-rotula com p=13 |
+| 14–15 | 0,6% | Re-rotula com p=15 |
+| 16–17 | 0,2% | Re-rotula com p=17 |
+| ≥ 18 | <0,1% | Re-rotula com p=20 (cap — máximo observado: 18) |
+
+**Total estimado de estados a re-rotular**: ~2,3% ≈ 17.449 de 758.640.
+
+### NPZs de augmentação por simetria (sufixados)
+
+Gerados pela Fase 4 V8 (`fase4_augmentacao_simetria.ipynb`). Para cada NPZ original (`dataset_pequeno_NNNN.npz`), 3 variantes:
+- `dataset_pequeno_NNNN_refH.npz` — reflexão horizontal (c → n_cols-1-c)
+- `dataset_pequeno_NNNN_refV.npz` — reflexão vertical (r → n_rows-1-r)
+- `dataset_pequeno_NNNN_r180.npz` — rotação 180° (r, c → n_rows-1-r, n_cols-1-c)
+
+Cada variante contém os mesmos campos do NPZ original, com `estados`, `canais`, `score_melhor_jogada` e `melhor_jogada` transformados pela simetria correspondente (via `permutacoes_simetria_pontinhos.py`). O campo `canais[:, :, :, 11]` (paridade) é preservado bit-a-bit (valor global, não muda sob simetria espacial).
+
+**Idempotência**: o notebook Fase 4 começa **deletando** todos os arquivos sufixados antes de regenerar, garantindo que re-execuções não criem duplicatas.
+
+---
+
+## 4. Garantias do pipeline
 
 | Invariante | Onde é verificada |
 |---|---|
@@ -121,7 +202,7 @@ np.savez(
 
 ---
 
-## 4. Versionamento dos NPZ
+## 5. Versionamento dos NPZ
 
 Versão implícita pelo conjunto de campos presentes:
 
@@ -130,7 +211,8 @@ Versão implícita pelo conjunto de campos presentes:
 | **v1** (legado — pipeline V4/V5) | — | `estados`, `rotulos`, `scores`, `generation_mode`, `labels_canonicos`, `depth` |
 | **v2-f1** (V7 Fase 1) | A.1 parcial | `estados`, `qtd_tracos`, `score_jogada`, `depth_jogada`, `depth_geracao`, `labels_canonicos` |
 | **v2-f2** (V7 completo) | A.1 completa | todos acima + `melhor_jogada`, `score_melhor_jogada`, `depth_melhor_jogada` |
-| **v2-a2** (enriquecido) | A.2 | todos acima + `canais`, `nomes_canais` |
+| **v2-a2** (enriquecido 11 canais) | A.2 | todos acima + `canais (N,4,3,11)`, `nomes_canais (11,)` |
+| **v2-a3** (enriquecido 12 canais + escalares) | A.3 | todos acima + `canais (N,4,3,12)`, `nomes_canais (12,)`, `qtd_cadeias_longas`, `total_caixas_cadeias_longas`, `tamanho_max_cadeia_longa` |
 
 Auditoria por `np.load(arquivo).files` — lista de campos.
 

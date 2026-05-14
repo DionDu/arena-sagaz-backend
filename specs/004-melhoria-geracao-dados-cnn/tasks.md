@@ -60,7 +60,52 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 
 > **Nota de repriorização 2026-05-13**: T-A2-009 e T-A2-010 devem ser executados **antes** do re-enriquecimento dos NPZs (T-A2-003 re-run). Após a implementação de canal 12, o re-enriquecimento incluirá automaticamente K=11. A Fase C (espelhamento 4×) é co-prioridade com canal 12 — T-C-001 e T-C-002 devem ser iniciados logo após T-A2-010 verde. Ver motivação em `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`.
 
-**Checkpoint Fase A.2**: NPZs enriquecidos prontos para consumo pelo treino (com 12 canais incluindo K=11); pode-se iniciar Fase B.
+**Checkpoint Fase A.2**: NPZs enriquecidos prontos para consumo pelo treino (com 12 canais incluindo K=11); pode-se iniciar Fase A.3.
+
+---
+
+## Fase A.3 — Pipeline V8: campos escalares de cadeias, re-rotulação adaptativa e augmentação por simetria
+
+> **Criada em 2026-05-14.** Esta fase formaliza as decisões de design tomadas em sessão de análise: (1) 3 novos campos escalares por estado para metadata de cadeias; (2) reorganização do pipeline em `gerador_dados/jogo_pontinhos/v8/` com 4 fases; (3) re-rotulação Databricks com profundidade adaptativa (~2,3% dos estados precisam de p>11); (4) augmentação por simetria com sufixos `_refH`/`_refV`/`_r180`. Decisão completa em `docs/historico_decisoes.md` (entrada 2026-05-14 — Pipeline V8).
+
+**Objetivo**: enriquecer os NPZs com 3 campos escalares de metadata de cadeias (`qtd_cadeias_longas`, `total_caixas_cadeias_longas`, `tamanho_max_cadeia_longa`); reorganizar o pipeline em pasta `v8/` com nomes descritivos; corrigir rótulos dos ~2,3% de estados onde Minimax p=11 é insuficiente; gerar augmentação 4× via sufixos; atualizar notebooks de treino e análise.
+
+**Fórmula de profundidade mínima**: `profundidade_minima = total_caixas_cadeias_longas + 2 × qtd_cadeias_longas`
+
+**Schedule de re-rotulação** (Databricks — Fase 3 V8):
+- `prof_min ≤ 11`: manter rótulo p=11 (97,7% dos estados)
+- `prof_min ∈ [12, 13]`: re-rotular com p=13
+- `prof_min ∈ [14, 15]`: re-rotular com p=15
+- `prof_min ∈ [16, 17]`: re-rotular com p=17
+- `prof_min ≥ 18`: re-rotular com p=20 (cap seguro — máximo observado na análise foi 18)
+
+**Gate da fase**: 152 NPZs originais enriquecidos com 3 novos campos escalares + canais com shape `(N,4,3,12)`; notebook Databricks (Fase 3) pronto para execução; 152×3 = 456 NPZs sufixados gerados pela Fase 4; notebook de treino e análise atualizados; entrada em `docs/historico_decisoes.md`.
+
+- [ ] T-A3-001 [P] Registrar formalmente em `docs/historico_decisoes.md` os resultados da análise de distribuição de cadeias realizada em 2026-05-14: distribuição de `qtd_cadeias_longas` (0: 62,4%, 1: 31,9%, 2: 5,6%, 3+: 0,1%), distribuição de `profundidade_minima` (≤11: 97,7%; 12–18: 2,3%), schedule de re-rotulação, justificativa do cap p=20. **Gate**: entrada datada presente em `docs/historico_decisoes.md`.
+
+- [ ] T-A3-002 Adicionar `extrair_stats_cadeias(M: np.ndarray) -> tuple[int, int, int]` em `gerador_dados/jogo_pontinhos/analisador_estrutural_pontinhos.py`, retornando `(qtd_cadeias_longas, total_caixas_cadeias_longas, tamanho_max_cadeia_longa)`. Reutiliza o mesmo grafo BFS já executado em `extrair_canais`. **blockedBy**: T-A2-009 (compartilha código BFS de classificação de componentes). **Gate**: `python -c "from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import extrair_stats_cadeias; print(len(extrair_stats_cadeias.__doc__))"` não lança ImportError.
+
+- [ ] T-A3-003 [P] Adicionar testes para `extrair_stats_cadeias` em `tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py`: (a) estado vazio → `(0, 0, 0)`; (b) 1 cadeia longa de 3 caixas → `(1, 3, 3)`; (c) 2 cadeias longas de 4 caixas → `(2, 8, 4)`; (d) 1 cadeia longa + 1 cadeia curta → `qtd=1`, `total=len(longa)`, `max=len(longa)`; (e) loop não conta como cadeia longa → `qtd=0`. **blockedBy**: T-A3-002. **Gate**: `pytest tests/unitarios/jogo_pontinhos/test_analisador_estrutural_pontinhos.py -v` 100% verde.
+
+- [ ] T-A3-004 Criar estrutura de diretório `gerador_dados/jogo_pontinhos/v8/` com 4 notebooks nomeados de forma descritiva (Fase 1 a 4). O notebook da Fase 1 é o mesmo gerador existente — apenas link/referência; Fases 2, 3, 4 são notebooks novos. **Gate**: `ls gerador_dados/jogo_pontinhos/v8/` mostra 4 notebooks `.ipynb`.
+
+- [ ] T-A3-005 Criar notebook `gerador_dados/jogo_pontinhos/v8/fase2_enriquecimento_local.ipynb`: enriquece os 152 NPZs de `dados/profundidade_minimax_11_v7_adaptativo/` adicionando canal 12 (shape `canais`: `(N,4,3,12) int8`) e os 3 campos escalares `qtd_cadeias_longas (N,) int8`, `total_caixas_cadeias_longas (N,) int8`, `tamanho_max_cadeia_longa (N,) int8`. Sobrescrita atômica via `.tmp` + `os.replace()`. Flag `FORCAR_REGRAVAR = True`. **blockedBy**: T-A2-009, T-A3-002. **Gate**: executando sobre 1 NPZ de teste, o resultado contém `canais` com shape `(N,4,3,12)` e os 3 novos campos escalares.
+
+- [ ] T-A3-006 Executar Fase 2 V8 (`fase2_enriquecimento_local.ipynb`) sobre os 152 NPZs. **blockedBy**: T-A3-005. **Gate**: auditoria célula final confirma que todos os 152 NPZs têm `canais.shape == (N,4,3,12)` e os 3 campos escalares presentes; nenhum `.tmp` remanescente.
+
+- [ ] T-A3-007 Criar notebook Databricks `gerador_dados/jogo_pontinhos/v8/fase3_rerotulacao_databricks.ipynb`: re-calcula `melhor_jogada` e `score_melhor_jogada` somente para estados onde `profundidade_minima > 11`. Usa PySpark `mapInPandas` (padrão do Fase 2 HighPerf existente). Schedule de profundidade: ver tabela acima. Sobrescrita atômica. **blockedBy**: T-A3-006. **Gate**: notebook importável no Databricks; célula de diagnóstico imprime contagem de estados por bucket de profundidade (esperado: 12–13→~9.800, 14–15→~6.000, 16–17→~1.500, ≥18→~150).
+
+- [ ] T-A3-008 Criar `gerador_dados/jogo_pontinhos/permutacoes_simetria_pontinhos.py` com as 4 transformações (identidade, ref_H, ref_V, R180) aplicáveis a: matriz crua `(9,7)`, tensor `canais (4,3,12)` com permutação coerente de arestas (K=0↔1 em ref_V; K=2↔3 em ref_H; K=11 preservado por ser broadcast), vetor de scores `(31,)`, índice de rótulo via tabela de permutação canônica. **Gate**: módulo importável; expõe função `aplicar_simetria(estado, sym_id)`.
+
+- [ ] T-A3-009 [P] Criar `tests/unitarios/jogo_pontinhos/test_permutacoes_simetria_pontinhos.py`: (a) idempotência (identidade não muda nada); (b) composição (R180 = ref_H ∘ ref_V); (c) coerência `canais ↔ matriz crua ↔ scores ↔ rótulo` sob cada simetria; (d) K=11 preservado bit-a-bit em todas as 4 simetrias. **blockedBy**: T-A3-008. **Gate**: `pytest tests/unitarios/jogo_pontinhos/test_permutacoes_simetria_pontinhos.py -v` 100% verde.
+
+- [ ] T-A3-010 Criar notebook `gerador_dados/jogo_pontinhos/v8/fase4_augmentacao_simetria.ipynb`: (1) começa **deletando** todos os arquivos `*_refH.npz`, `*_refV.npz`, `*_r180.npz` de `dados/profundidade_minimax_11_v7_adaptativo/` (idempotência garantida); (2) para cada NPZ original (sem sufixo), gera 3 variantes aplicando as 3 simetrias não-triviais via `permutacoes_simetria_pontinhos`; (3) nome dos arquivos gerados: `<nome_original>_refH.npz`, `<nome_original>_refV.npz`, `<nome_original>_r180.npz`; (4) sobrescrita atômica. **blockedBy**: T-A3-007, T-A3-008, T-A3-009. **Gate**: para cada NPZ original (152), existem 3 sufixados; total de arquivos no diretório = 152 × 4 = 608.
+
+- [ ] T-A3-011 Atualizar `notebooks/jogo_pontinhos/Treinamento_CNN_Pontinhos_V8.ipynb`: (a) expandir `NOMES_CANAIS_REF` de 11 para 12 entradas (adicionar `"paridade_cadeia_longa_impar"`); (b) na célula de carga de dados, ler também arquivos `*_refH.npz`, `*_refV.npz`, `*_r180.npz` do diretório; (c) adicionar métricas segmentadas por `qtd_cadeias_longas` (grupos 0, 1, 2, ≥3): OMA, top-1 e top-3 por grupo. **blockedBy**: T-A3-006 (campos), T-A3-010 (arquivos sufixados). **Gate**: célula de diagnóstico imprime OMA por grupo de `qtd_cadeias_longas` sem erros.
+
+- [ ] T-A3-012 [P] Atualizar `notebooks/jogo_pontinhos/Analise_Dados_Adaptativo.ipynb`: adicionar 3 novas seções após a análise de `qtd_tracos` existente: (a) distribuição de `qtd_cadeias_longas` por `qtd_tracos`; (b) distribuição de `tamanho_max_cadeia_longa`; (c) distribuição de `profundidade_minima = total_caixas_cadeias_longas + 2×qtd_cadeias_longas` com linha vertical em 11 (threshold atual) para quantificar estados que precisam de re-rotulação. **blockedBy**: T-A3-006. **Gate**: notebook roda do zero e gera gráficos sem erros.
+
+**Checkpoint Fase A.3**: NPZs enriquecidos com 12 canais + 3 escalares; Databricks Fase 3 pronto para execução pontual; 608 NPZs totais (152 originais + 456 sufixados); notebooks de treino e análise atualizados; pode-se iniciar Fase B.
 
 ---
 
@@ -379,7 +424,51 @@ Validação visual com `validar_canais_visualmente.py` revelou 2 bugs relacionad
 |--------|------|-------|
 | **T-A2-009** | `analisador_estrutural_pontinhos.py` | Implementar canal 12 (K=11) |
 | **T-A2-010** | `test_analisador_estrutural_pontinhos.py` | 5 novos testes para canal 12 |
-| Re-enriquecimento | `Enriquece_NPZ_Com_Canais.ipynb` | Regerar NPZs com FORCAR_REGRAVAR=True (12 canais) |
-| **T-C-001** | `permutacoes_simetria_pontinhos.py` | Implementar espelhamento 4× |
-| **T-C-002** | `test_permutacoes_simetria_pontinhos.py` | Testes das 4 simetrias |
-| Treino | `Treinamento_CNN_Pontinhos_V8.ipynb` | Treinar com 12 canais + augmentação 4× |
+| **T-A3-002** | `analisador_estrutural_pontinhos.py` | `extrair_stats_cadeias()` retornando 3 escalares |
+| **T-A3-003** | `test_analisador_estrutural_pontinhos.py` | Testes dos 3 escalares |
+| **T-A3-004** | `gerador_dados/jogo_pontinhos/v8/` | Criar pasta com 4 notebooks |
+| **T-A3-005** | `v8/fase2_enriquecimento_local.ipynb` | Notebook de enriquecimento com 12 canais + 3 escalares |
+| **T-A3-006** | `dados/profundidade_minimax_11_v7_adaptativo/` | Executar Fase 2 V8 nos 152 NPZs |
+| **T-A3-007** | `v8/fase3_rerotulacao_databricks.ipynb` | Notebook Databricks p/ re-rotulação adaptativa |
+| **T-A3-008** | `permutacoes_simetria_pontinhos.py` | 4 transformações coerentes (12 canais) |
+| **T-A3-009** | `test_permutacoes_simetria_pontinhos.py` | Testes das 4 simetrias + K=11 |
+| **T-A3-010** | `v8/fase4_augmentacao_simetria.ipynb` | Notebook de augmentação por sufixo |
+| **T-A3-011** | `Treinamento_CNN_Pontinhos_V8.ipynb` | Métricas por `qtd_cadeias_longas` + ler sufixados |
+| **T-A3-012** | `Analise_Dados_Adaptativo.ipynb` | Análise de distribuição de cadeias |
+
+---
+
+## Estado de execução — sessão 2026-05-14 (Pipeline V8 e documentação)
+
+### Decisões de design tomadas e documentadas
+
+Todas as decisões abaixo foram registradas em `docs/historico_decisoes.md` (entrada 2026-05-14 — Pipeline V8) e nos documentos de spec:
+
+1. **Análise de distribuição de cadeias** (T-A3-001 — PENDENTE formalização): ~2,3% dos estados têm `profundidade_minima > 11`. Max observado = 18.
+2. **3 campos escalares** (`qtd_cadeias_longas`, `total_caixas_cadeias_longas`, `tamanho_max_cadeia_longa`): adicionados ao schema NPZ v2-a3.
+3. **Pipeline V8**: reorganizado em `gerador_dados/jogo_pontinhos/v8/` com 4 fases.
+4. **Augmentação por sufixo**: arquivos `_refH`/`_refV`/`_r180` em disco (revisão de D5).
+5. **Re-rotulação adaptativa**: schedule p=13/15/17/20 para ~17.449 estados.
+
+### Documentação entregue nesta sessão
+
+- **`specs/004-melhoria-geracao-dados-cnn/tasks.md`** — Fase A.3 adicionada (T-A3-001 a T-A3-012).
+- **`specs/004-melhoria-geracao-dados-cnn/contracts/npz_schema.md`** — seção 3 (schema v2-a3 com 12 canais + 3 escalares) e fórmula de profundidade mínima.
+- **`specs/004-melhoria-geracao-dados-cnn/PRD.md`** — §4.11 (Decisão D11.a–e) adicionado.
+- **`specs/004-melhoria-geracao-dados-cnn/plan.md`** — sumário e tabela de arquivos atualizados.
+- **`docs/historico_decisoes.md`** — entrada 2026-05-14 com análise completa e decisões.
+
+### Próximas ações (ordem de execução)
+
+| Prioridade | Tarefa | Onde | O quê |
+|---|---|---|---|
+| 1 | **T-A2-009** | `analisador_estrutural_pontinhos.py` | Canal 12 (K=11) |
+| 2 | **T-A2-010** | `test_analisador_estrutural_pontinhos.py` | 5 testes canal 12 |
+| 3 | **T-A3-002** | `analisador_estrutural_pontinhos.py` | `extrair_stats_cadeias()` |
+| 4 | **T-A3-003** | `test_analisador_estrutural_pontinhos.py` | Testes dos 3 escalares |
+| 5 | **T-A3-004/005** | `gerador_dados/.../v8/` | Estrutura V8 + notebook Fase 2 |
+| 6 | **T-A3-006** | Dataset | Executar Fase 2 nos 152 NPZs |
+| 7 | **T-A3-008/009** | `permutacoes_simetria_pontinhos.py` | Simetrias + testes |
+| 8 | **T-A3-010** | `v8/fase4_augmentacao_simetria.ipynb` | Augmentação por sufixo |
+| 9 | **T-A3-007** | Databricks | Notebook Fase 3 re-rotulação |
+| 10 | **T-A3-011/012** | Notebooks | Treino e análise atualizados |

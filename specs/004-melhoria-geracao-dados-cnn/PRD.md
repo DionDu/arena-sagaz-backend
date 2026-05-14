@@ -804,6 +804,107 @@ com **λ ∈ [0.1, 0.3]** — pequeno o suficiente para que a value head atue co
   - **Fase D:** input cresce de `(4, 3, 5)` para `(4, 3, 11)` (adiciona 6 canais estruturais). Frontend precisa estender o cálculo on-device para os 6 canais novos. Nova versão do contrato + nova cópia idêntica para o frontend.
 - A partir da **Fase F** o contrato volta a ser preservado (value head só vive no treino — descartada no export TFLite, conforme D10).
 
+### 4.11 Decisão D11 — Pipeline V8: 3 campos escalares + re-rotulação adaptativa + augmentação por sufixo (2026-05-14)
+
+> **Contexto:** análise de 155.000 estados amostrados (1-em-5) revelou que ~2,3% dos estados têm `profundidade_minima > 11`, onde `profundidade_minima = total_caixas_cadeias_longas + 2 × qtd_cadeias_longas`. Esses estados têm rótulos potencialmente subótimos gerados pelo Minimax p=11 atual. Simultaneamente, a decisão de augmentação por simetria (D5) foi revisada para usar arquivos sufixados em disco (não augmentação em memória).
+
+#### D11.a — 3 campos escalares de metadata de cadeias
+
+**Decisão:** Adicionar 3 campos `int8` por estado ao NPZ (Fase A.3):
+
+| Campo | Tipo | Conteúdo |
+|---|---|---|
+| `qtd_cadeias_longas` | `(N,) int8` | Número de cadeias longas abertas (componentes do grafo dual com comprimento ≥3, não-loop, não-complexas) |
+| `total_caixas_cadeias_longas` | `(N,) int8` | Soma dos comprimentos de todas as cadeias longas |
+| `tamanho_max_cadeia_longa` | `(N,) int8` | Comprimento da maior cadeia longa |
+
+**Por quê 3 campos escalares e não um array `tamanho_cadeias_longas` variável:**
+- Arrays de tamanho variável não são compatíveis com o formato NPZ (requerem `object` dtype ou padding).
+- Os 3 escalares cobrem todos os casos de uso identificados: fórmula de profundidade mínima (`total + 2×qtd`), segmentação de métricas por `qtd`, identificação do estado mais crítico via `tamanho_max`.
+- São board-agnostic: se o tabuleiro escalar para 4×4, os campos ainda fazem sentido sem mudança de schema.
+
+**Fórmula de profundidade mínima:**
+```python
+profundidade_minima = total_caixas_cadeias_longas + 2 * qtd_cadeias_longas
+```
+Esta fórmula deriva da teoria de Berlekamp: para resolver um estado com `k` cadeias longas e `n` caixas totais nelas, o Minimax precisa ver pelo menos `n + 2k` níveis à frente (cada `double-cross` consome 2 jogadas extras).
+
+#### D11.b — Schedule de re-rotulação adaptativa (Fase 3 V8)
+
+**Decisão:** Apenas os ~2,3% de estados com `profundidade_minima > 11` serão re-rotulados no Databricks. O schedule usa profundidade crescente em degraus de 2:
+
+| `profundidade_minima` | % dos estados | Ação |
+|---|---|---|
+| ≤ 11 | 97,7% | Manter rótulo atual (Minimax p=11) |
+| 12–13 | ~1,3% | Re-rotular com p=13 |
+| 14–15 | ~0,6% | Re-rotular com p=15 |
+| 16–17 | ~0,2% | Re-rotular com p=17 |
+| ≥ 18 | <0,1% | Re-rotular com p=20 (cap — máximo observado: 18) |
+
+**Por que cap p=20:** o valor máximo de `profundidade_minima` observado na análise foi 18. O cap p=20 garante cobertura com margem de segurança de 2 níveis sem custo computacional excessivo.
+
+**Estimativa de estados a re-rotular:** ~17.449 de 758.640 (2,3%). Distribuição por bucket:
+- `prof_min ∈ [12,13]`: ~9.800 estados
+- `prof_min ∈ [14,15]`: ~6.000 estados
+- `prof_min ∈ [16,17]`: ~1.500 estados
+- `prof_min ≥ 18`: ~150 estados
+
+#### D11.c — Augmentação por sufixo em disco (revisão de D5)
+
+**Decisão (revisão de D5):** A augmentação 4× é gerada **em disco** como arquivos sufixados (`_refH.npz`, `_refV.npz`, `_r180.npz`), não em memória no notebook de treino.
+
+**Mudança em relação a D5 original:** D5 especificava augmentação "no carregamento, não na geração" (em memória). A revisão move a augmentação para disco, mantendo o notebook de treino mais simples.
+
+| Atributo | D5 original | D11.c (revisão) |
+|---|---|---|
+| Onde ocorre | Em memória no notebook de treino | Em disco — notebook Fase 4 V8 |
+| Arquivo de código | Lógica inline no V6 | `v8/fase4_augmentacao_simetria.ipynb` + `permutacoes_simetria_pontinhos.py` |
+| Idempotência | Garantida (geração in-memory a cada run) | Garantida por deleção prévia dos `*_refH.npz`, `*_refV.npz`, `*_r180.npz` |
+| Tamanho em disco | Sem custo | 152 × 3 = 456 NPZs extras (~2,3 GB estimado) |
+| Notebook de treino | Lê 152 NPZs, expande 4× em RAM | Lê 608 NPZs (152 originais + 456 sufixados) diretamente |
+
+**Por que mover para disco:**
+1. O notebook de treino fica mais simples — sem lógica de augmentação.
+2. A Fase 3 (re-rotulação Databricks) só precisa ser executada nos NPZs originais; os sufixados são regenerados depois pela Fase 4.
+3. Facilita inspeção e auditoria dos dados augmentados antes do treino.
+
+**Tabela de permutações de canais sob cada simetria** (atualizada para 12 canais):
+
+| Simetria | Espacial sobre `(r, c)` | Permutação de canais |
+|---|---|---|
+| Identidade | `(r, c) → (r, c)` | nenhuma |
+| Reflexão horizontal | `(r, c) → (r, n_cols-1-c)` | K=2 ↔ K=3 (`aresta_esquerda ↔ aresta_direita`) |
+| Reflexão vertical | `(r, c) → (n_rows-1-r, c)` | K=0 ↔ K=1 (`aresta_topo ↔ aresta_base`) |
+| Rotação 180° | `(r, c) → (n_rows-1-r, n_cols-1-c)` | K=0↔1 e K=2↔3 |
+
+**K=11 (`paridade_cadeia_longa_impar`) sob simetria**: valor broadcast — não muda.
+
+#### D11.d — Pipeline V8 reorganizado em `gerador_dados/jogo_pontinhos/v8/`
+
+**Decisão:** Criar pasta `gerador_dados/jogo_pontinhos/v8/` com 4 notebooks numerados, substituindo a nomenclatura dispersa anterior:
+
+| Notebook | Onde roda | Responsabilidade |
+|---|---|---|
+| `v8/fase1_geracao_local.ipynb` | Local (PC) | Geração de estados via V7 DAC (referência — notebook existente) |
+| `v8/fase2_enriquecimento_local.ipynb` | Local | Adiciona canal 12 + 3 campos escalares; shape de canais: `(N,4,3,12)` |
+| `v8/fase3_rerotulacao_databricks.ipynb` | Databricks | Re-rotula ~2,3% dos estados com prof_min > 11 via PySpark |
+| `v8/fase4_augmentacao_simetria.ipynb` | Local | Gera 3 NPZs sufixados por NPZ original (identidade implícita = original) |
+
+**Única fase Databricks:** apenas a Fase 3 requer o cluster. Fases 1, 2 e 4 são locais.
+
+#### D11.e — Métricas de treino segmentadas por `qtd_cadeias_longas`
+
+**Decisão:** O notebook `Treinamento_CNN_Pontinhos_V8.ipynb` ganha seção de métricas segmentadas por quantidade de cadeias longas:
+
+| Grupo | `qtd_cadeias_longas` | Interesse |
+|---|---|---|
+| Sem cadeias | 0 | 62,4% dos estados — baseline sem complexidade estratégica |
+| 1 cadeia longa | 1 | 31,9% dos estados — decisão de abrir ou não |
+| 2 cadeias longas | 2 | 5,6% — canal 12 = 0 (par); double-cross mais valorizado |
+| ≥3 cadeias longas | ≥3 | 0,1% — canal 12 = 1 (ímpar) para 3 e 0 para 4+ |
+
+Métricas por grupo: **OMA** (Optimal Move Accuracy), **top-1**, **top-3**. Permite detectar se a CNN melhora especificamente em estados de paridade crítica após adicionar canal 12.
+
 ---
 
 ## 5. Plano de execução em fases

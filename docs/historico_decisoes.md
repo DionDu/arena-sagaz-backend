@@ -6,6 +6,63 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-14 — Pipeline V8: campos escalares de cadeias, re-rotulação adaptativa e augmentação por sufixo
+
+### Contexto
+
+Após implementar o canal 12 (`paridade_cadeia_longa_impar`) e validar os NPZs com 11 canais (T-A2-005/006), surgiu a questão: o Minimax p=11 que gerou os rótulos é suficiente para todos os estados? A teoria de Berlekamp indica que estados com cadeias longas requerem uma profundidade mínima `prof_min = total_caixas_cadeias_longas + 2 × qtd_cadeias_longas` para serem resolvidos corretamente. Se `prof_min > 11`, o rótulo atual é potencialmente subótimo.
+
+### Análise realizada
+
+Amostragem 1-em-5 (~155.000 estados) dos 758.640 estados do dataset:
+
+**Distribuição de `qtd_cadeias_longas`:**
+
+| qtd_cadeias_longas | % dos estados | Observação |
+|---|---|---|
+| 0 | 62,4% | Sem cadeias longas — p=11 sempre suficiente |
+| 1 | 31,9% | Uma cadeia longa |
+| 2 | 5,6% | Duas cadeias longas |
+| ≥3 | 0,1% | Sempre precisam de p>11 |
+
+**Distribuição de `profundidade_minima`:**
+
+| profundidade_minima | % dos estados | Ação |
+|---|---|---|
+| ≤ 11 | 97,7% | Manter rótulo atual |
+| 12–13 | ~1,3% | Re-rotular com p=13 |
+| 14–15 | ~0,6% | Re-rotular com p=15 |
+| 16–17 | ~0,2% | Re-rotular com p=17 |
+| ≥ 18 | <0,1% | Re-rotular com p=20 (cap — máx. observado: 18) |
+
+**Total a re-rotular: ~17.449 estados (2,3% do dataset).**
+
+### Decisões tomadas
+
+**D11.a — 3 campos escalares de metadata de cadeias** (adicionados ao NPZ schema v2-a3):
+- `qtd_cadeias_longas (N,) int8`: contagem de cadeias longas abertas
+- `total_caixas_cadeias_longas (N,) int8`: soma dos comprimentos
+- `tamanho_max_cadeia_longa (N,) int8`: tamanho da maior cadeia longa
+
+Alternativa descartada: array `tamanho_cadeias_longas` de comprimento variável — incompatível com NPZ sem padding ou dtype `object`; os 3 escalares cobrem todos os casos de uso identificados.
+
+**D11.b — Schedule de re-rotulação adaptativa** (Databricks, Fase 3 V8): apenas 2,3% dos estados. Profundidade em degraus de 2: p=13, p=15, p=17, p=20 (cap). Cap em p=20 justificado pelo máximo empírico observado de 18 + margem de 2.
+
+**D11.c — Augmentação por sufixo em disco** (revisão de D5 original): a augmentação 4× é gerada em disco como arquivos `_refH.npz`, `_refV.npz`, `_r180.npz`. Alternativa (augmentação em memória durante treino) descartada — notebook de treino fica mais simples; permite auditoria dos dados augmentados. Idempotência garantida por deleção prévia dos sufixados ao re-executar. Total: 152 originais + 456 sufixados = 608 NPZs.
+
+**D11.d — Pipeline V8 em `gerador_dados/jogo_pontinhos/v8/`**: 4 notebooks com nomes descritivos (`fase1_geracao_local`, `fase2_enriquecimento_local`, `fase3_rerotulacao_databricks`, `fase4_augmentacao_simetria`). Única fase Databricks = Fase 3.
+
+**D11.e — Métricas de treino segmentadas por `qtd_cadeias_longas`**: grupos 0, 1, 2, ≥3 com OMA, top-1, top-3.
+
+### Documentação atualizada
+
+- `specs/004-melhoria-geracao-dados-cnn/tasks.md` — Fase A.3 adicionada (T-A3-001 a T-A3-012)
+- `specs/004-melhoria-geracao-dados-cnn/contracts/npz_schema.md` — seção 3 (schema v2-a3) adicionada
+- `specs/004-melhoria-geracao-dados-cnn/PRD.md` — §4.11 (Decisão D11) adicionado
+- `specs/004-melhoria-geracao-dados-cnn/plan.md` — sumário atualizado com Fase A.3 e pipeline V8
+
+---
+
 ## 2026-05-14 — Validação visual e auditoria dos NPZs enriquecidos: 758.640 amostras, 11 canais (T-A2-005/006)
 
 ### Contexto
