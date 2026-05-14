@@ -1,13 +1,9 @@
 """Analisador estrutural do tabuleiro do Jogo dos Pontinhos.
 
-Modulo responsavel por extrair os 11 canais de entrada da CNN a partir da
+Modulo responsavel por extrair os 12 canais de entrada da CNN a partir da
 matriz crua expandida `(9, 7) int8`. Espelha fielmente o contrato algoritmico
 de `specs/004-melhoria-geracao-dados-cnn/contracts/canais_estruturais.md`
-(versao 2026-05-07).
-
-Os 11 canais sao binarios e materializam features que antes eram derivadas
-em runtime pela camada Lambda `para_grid_de_caixas` do V5 — agora pre-computadas
-e gravadas no NPZ pela Fase A.2 do pipeline.
+(revisao 2026-05-13 — canal 12 adicionado).
 
 Ordem canonica dos canais (mesma de PRD §4.2):
 
@@ -22,13 +18,17 @@ Ordem canonica dos canais (mesma de PRD §4.2):
     K=8  em_cadeia_longa            (componente de comprimento >= 3)
     K=9  em_loop                    (todos os nos do componente tem grau 2)
     K=10 em_cadeia_aberta_uma_ponta (exatamente 1 ponta capturavel)
+    K=11 paridade_cadeia_longa_impar (broadcast global: 1 se qtd cadeias longas impar)
 
 Dominio dos canais: `{0, 1}` em todas as posicoes.
+K=11 e broadcast: todas as 12 celulas do tensor recebem o mesmo valor.
 Dominio do estado de entrada (contexto_1_geracao_dataset): `{0, 1, 8, 9}`.
 
 API publica:
-    NOMES_CANAIS:    Tuple[str, ...] de 11 entradas, ordem acima.
-    extrair_canais(M: np.ndarray) -> np.ndarray  # shape (4, 3, 11) int8
+    NOMES_CANAIS:        Tuple[str, ...] de 12 entradas, ordem acima.
+    extrair_canais(M)    -> np.ndarray  shape (4, 3, 12) int8
+    extrair_stats_cadeias(M) -> tuple[int, int, int]
+        (qtd_cadeias_longas, total_caixas_cadeias_longas, tamanho_max_cadeia_longa)
 """
 from __future__ import annotations
 
@@ -53,12 +53,13 @@ NOMES_CANAIS: Tuple[str, ...] = (
     "em_cadeia_longa",
     "em_loop",
     "em_cadeia_aberta_uma_ponta",
+    "paridade_cadeia_longa_impar",
 )
-"""Nomes canonicos dos 11 canais. Gravados em `nomes_canais` no NPZ Fase A.2."""
+"""Nomes canonicos dos 12 canais. Gravados em `nomes_canais` no NPZ Fase A.3."""
 
 N_LINHAS: int = 4
 N_COLUNAS: int = 3
-N_CANAIS: int = 11
+N_CANAIS: int = 12
 
 # ---------------------------------------------------------------------------
 # Helpers fundamentais (espelham `canais_estruturais.md` §2)
@@ -112,21 +113,83 @@ def _vizinhas_caixa(r: int, c: int) -> List[Tuple[int, int]]:
 
 
 # ---------------------------------------------------------------------------
+# Helper interno: BFS no grafo dual (compartilhado por extrair_canais e
+# extrair_stats_cadeias)
+# ---------------------------------------------------------------------------
+
+def _bfs_dual(
+    M: np.ndarray,
+    grau_de: Dict[Tuple[int, int], int],
+    fechada_de: Dict[Tuple[int, int], bool],
+) -> Tuple[
+    Dict[Tuple[int, int], List[Tuple[int, int]]],
+    List[List[Tuple[int, int]]],
+]:
+    """Constroi o grafo dual e retorna (adj, componentes).
+
+    Nos do grafo dual: caixas abertas com grau 2.
+    Arestas: pares de nos adjacentes que compartilham aresta livre.
+    """
+    nos_grau2: Set[Tuple[int, int]] = {
+        rc for rc, g in grau_de.items() if g == 2 and not fechada_de[rc]
+    }
+
+    adj: Dict[Tuple[int, int], List[Tuple[int, int]]] = {n: [] for n in nos_grau2}
+    for n in nos_grau2:
+        for v in _vizinhas_caixa(*n):
+            if v in nos_grau2 and _aresta_livre_entre(M, n, v):
+                adj[n].append(v)
+
+    visitado: Set[Tuple[int, int]] = set()
+    componentes: List[List[Tuple[int, int]]] = []
+    for n in nos_grau2:
+        if n in visitado:
+            continue
+        comp: List[Tuple[int, int]] = []
+        fila = deque([n])
+        visitado.add(n)
+        while fila:
+            u = fila.popleft()
+            comp.append(u)
+            for v in adj[u]:
+                if v not in visitado:
+                    visitado.add(v)
+                    fila.append(v)
+        componentes.append(comp)
+
+    return adj, componentes
+
+
+def _eh_cadeia_longa(
+    comp: List[Tuple[int, int]],
+    adj: Dict[Tuple[int, int], List[Tuple[int, int]]],
+) -> bool:
+    """True se o componente e uma cadeia longa (comprimento >= 3, nao loop, nao complexa)."""
+    if len(comp) < 3:
+        return False
+    graus_comp = [len(adj[u]) for u in comp]
+    eh_loop = all(g == 2 for g in graus_comp)
+    eh_complexa = max(graus_comp) >= 3
+    return not eh_loop and not eh_complexa
+
+
+# ---------------------------------------------------------------------------
 # Funcao principal: extrair_canais
 # ---------------------------------------------------------------------------
 
 def extrair_canais(M: np.ndarray) -> np.ndarray:
-    """Extrai o tensor `(4, 3, 11) int8` a partir da matriz crua `(9, 7)`.
+    """Extrai o tensor `(4, 3, 12) int8` a partir da matriz crua `(9, 7)`.
 
     Funcao pura: dado o mesmo `M`, sempre retorna o mesmo tensor (modulo a
     ordem dos elementos). Nao modifica `M`.
 
     Args:
-        M: matriz expandida `(9, 7)` com dominio `{0, 1, 8, 9}`. Caso o
-           caller passe `int` largura maior, e convertido implicitamente.
+        M: matriz expandida `(9, 7)` com dominio `{0, 1, 8, 9}`.
 
     Returns:
-        np.ndarray shape `(4, 3, 11)` dtype `int8` com valores em `{0, 1}`.
+        np.ndarray shape `(4, 3, 12)` dtype `int8` com valores em `{0, 1}`.
+        K=11 (`paridade_cadeia_longa_impar`) e broadcast: todas as 12 celulas
+        recebem o mesmo valor.
 
     Raises:
         ValueError: se `M.shape != (9, 7)`.
@@ -161,36 +224,7 @@ def extrair_canais(M: np.ndarray) -> np.ndarray:
                     canais[r, c, 6] = 1
 
     # ----- Canais 7..10: cadeias e loops via BFS no grafo dual -----
-    # Nos do grafo dual: caixas (r, c) abertas com grau 2.
-    # Arestas: pares de nos adjacentes que compartilham aresta livre.
-    nos_grau2: Set[Tuple[int, int]] = {
-        rc for rc, g in grau_de.items() if g == 2 and not fechada_de[rc]
-    }
-
-    # Construir adjacencia no grafo dual.
-    adj: Dict[Tuple[int, int], List[Tuple[int, int]]] = {n: [] for n in nos_grau2}
-    for n in nos_grau2:
-        for v in _vizinhas_caixa(*n):
-            if v in nos_grau2 and _aresta_livre_entre(M, n, v):
-                adj[n].append(v)
-
-    # Encontrar componentes conexas via BFS.
-    visitado: Set[Tuple[int, int]] = set()
-    componentes: List[List[Tuple[int, int]]] = []
-    for n in nos_grau2:
-        if n in visitado:
-            continue
-        comp: List[Tuple[int, int]] = []
-        fila = deque([n])
-        visitado.add(n)
-        while fila:
-            u = fila.popleft()
-            comp.append(u)
-            for v in adj[u]:
-                if v not in visitado:
-                    visitado.add(v)
-                    fila.append(v)
-        componentes.append(comp)
+    adj, componentes = _bfs_dual(M, grau_de, fechada_de)
 
     # Classificar e marcar cada componente.
     for comp in componentes:
@@ -198,7 +232,6 @@ def extrair_canais(M: np.ndarray) -> np.ndarray:
             continue
         graus_no_componente = {u: len(adj[u]) for u in comp}
         max_grau = max(graus_no_componente.values())
-        min_grau = min(graus_no_componente.values())
 
         eh_loop = (
             len(comp) >= 3
@@ -220,8 +253,6 @@ def extrair_canais(M: np.ndarray) -> np.ndarray:
             if comprimento == 1:
                 # Half-open minimo: caixa grau-2 com exatamente 1 vizinha grau-3
                 # via aresta livre. Contamos SEM break para distinguir 1 vs 2 pontas.
-                # (_contar_pontas_abertas usa break — correto para cadeias >=2,
-                # mas retornaria 1 mesmo com 2 vizinhas grau-3 para nó isolado.)
                 (r0, c0) = comp[0]
                 n_abertas = sum(
                     1
@@ -245,8 +276,64 @@ def extrair_canais(M: np.ndarray) -> np.ndarray:
                         canais[r, c, 10] = 1
             # Demais topologias nao marcam o canal 10.
 
+    # ----- Canal 11: paridade_cadeia_longa_impar (broadcast global) -----
+    n_cadeias_longas = sum(
+        1 for comp in componentes if _eh_cadeia_longa(comp, adj)
+    )
+    paridade_impar = (n_cadeias_longas % 2) == 1
+    canais[:, :, 11] = 1 if paridade_impar else 0
+
     return canais
 
+
+# ---------------------------------------------------------------------------
+# Funcao auxiliar: extrair_stats_cadeias
+# ---------------------------------------------------------------------------
+
+def extrair_stats_cadeias(M: np.ndarray) -> Tuple[int, int, int]:
+    """Retorna estatisticas de cadeias longas do estado.
+
+    Usa o mesmo grafo dual BFS de `extrair_canais`.
+
+    Args:
+        M: matriz expandida `(9, 7)` com dominio `{0, 1, 8, 9}`.
+
+    Returns:
+        Tupla `(qtd_cadeias_longas, total_caixas_cadeias_longas, tamanho_max_cadeia_longa)`.
+        - qtd_cadeias_longas:        numero de cadeias longas abertas (comprimento >= 3).
+        - total_caixas_cadeias_longas: soma dos comprimentos de todas as cadeias longas.
+        - tamanho_max_cadeia_longa:  comprimento da maior cadeia longa (0 se nenhuma).
+
+    Raises:
+        ValueError: se `M.shape != (9, 7)`.
+    """
+    if M.shape != (9, 7):
+        raise ValueError(f"Esperado M.shape == (9, 7), obtido {M.shape!r}")
+
+    grau_de: Dict[Tuple[int, int], int] = {}
+    fechada_de: Dict[Tuple[int, int], bool] = {}
+    for r in range(N_LINHAS):
+        for c in range(N_COLUNAS):
+            fechada_de[(r, c)] = _caixa_fechada(M, r, c)
+            grau_de[(r, c)] = _grau(M, r, c)
+
+    adj, componentes = _bfs_dual(M, grau_de, fechada_de)
+
+    qtd = 0
+    total = 0
+    maximo = 0
+    for comp in componentes:
+        if _eh_cadeia_longa(comp, adj):
+            qtd += 1
+            total += len(comp)
+            maximo = max(maximo, len(comp))
+
+    return qtd, total, maximo
+
+
+# ---------------------------------------------------------------------------
+# Helper privado de pontas abertas (usado apenas por extrair_canais)
+# ---------------------------------------------------------------------------
 
 def _contar_pontas_abertas(
     M: np.ndarray,
@@ -277,8 +364,9 @@ def _contar_pontas_abertas(
 
 __all__ = [
     "NOMES_CANAIS",
-    "extrair_canais",
     "N_LINHAS",
     "N_COLUNAS",
     "N_CANAIS",
+    "extrair_canais",
+    "extrair_stats_cadeias",
 ]

@@ -1,12 +1,14 @@
 """Testes unitarios do analisador estrutural do Jogo dos Pontinhos.
 
 Cobre os requisitos de T-A2-002 do tasks.md (Fase A.2):
-  (a) dominio binario {0, 1} em todos os 11 canais;
+  (a) dominio binario {0, 1} em todos os 12 canais;
   (b) exclusao mutua canal 4 (caixa_fechada) vs canais 5-10;
   (c) coerencia sob simetrias (ref_H, ref_V, R180):
       extrair_canais(simetria(M)) == simetria(extrair_canais(M));
   (d) casos canonicos: tabuleiro vazio, caixa fechada simples, double-cross
       do Buchin, loop de 4 caixas, half-open chain.
+  T-A2-010: canal 12 (paridade_cadeia_longa_impar) — broadcast, parity.
+  T-A3-003: extrair_stats_cadeias — qtd/total/max de cadeias longas.
 
 Espelha o contrato algoritmico de
 `specs/004-melhoria-geracao-dados-cnn/contracts/canais_estruturais.md`.
@@ -19,6 +21,7 @@ import pytest
 from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import (
     NOMES_CANAIS,
     extrair_canais,
+    extrair_stats_cadeias,
 )
 
 # ---------------------------------------------------------------------------
@@ -28,7 +31,7 @@ from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import (
 N_LINHAS = 4
 N_COLUNAS = 3
 SHAPE_M = (9, 7)
-SHAPE_C = (4, 3, 11)
+SHAPE_C = (4, 3, 12)
 
 
 def _matriz_vazia() -> np.ndarray:
@@ -501,6 +504,217 @@ def test_nomes_canais_canonicos():
         "em_cadeia_longa",
         "em_loop",
         "em_cadeia_aberta_uma_ponta",
+        "paridade_cadeia_longa_impar",
     )
     assert NOMES_CANAIS == esperado
-    assert len(NOMES_CANAIS) == 11
+    assert len(NOMES_CANAIS) == 12
+
+
+# ---------------------------------------------------------------------------
+# T-A2-010: Canal 12 — paridade de cadeias longas (broadcast)
+# ---------------------------------------------------------------------------
+
+def test_canal12_tabuleiro_vazio():
+    """Sem cadeias longas → paridade 0 → K=11 = 0 em todo o tabuleiro."""
+    M = _matriz_vazia()
+    canais = extrair_canais(M)
+    assert np.all(canais[:, :, 11] == 0), "Tabuleiro vazio: canal 12 deve ser 0"
+
+
+def test_canal12_uma_cadeia_longa():
+    """1 cadeia longa (path de 3) → paridade impar → K=11 = 1 em todo tabuleiro."""
+    M = _matriz_vazia()
+    # Cadeia: (0,0)-(1,0)-(2,0) na coluna 0
+    # (0,0): topo (0,1) + esq (1,0) → grau 2; livres: base (2,1), dir (1,2)
+    # (1,0): esq (3,0) + dir (3,2) → grau 2; livres: topo (2,1), base (4,1)
+    # (2,0): esq (5,0) + dir (5,2) → grau 2; livres: topo (4,1), base (6,1)
+    # Dual: (0,0)[grau 1] — (1,0)[grau 2] — (2,0)[grau 1] → path de 3 = cadeia longa
+    M = _jogar(
+        M,
+        (0, 1), (1, 0),
+        (3, 0), (3, 2),
+        (5, 0), (5, 2),
+    )
+    canais = extrair_canais(M)
+    assert np.all(canais[:, :, 11] == 1), "1 cadeia longa: canal 12 deve ser 1 (broadcast)"
+
+
+def test_canal12_duas_cadeias_longas():
+    """2 cadeias longas → paridade par → K=11 = 0 em todo tabuleiro."""
+    M = _matriz_vazia()
+    # Cadeia 1: (0,0)-(1,0)-(2,0) na coluna 0
+    M = _jogar(
+        M,
+        (0, 1), (1, 0),
+        (3, 0), (3, 2),
+        (5, 0), (5, 2),
+    )
+    # Cadeia 2: (0,2)-(1,2)-(2,2) na coluna 2
+    # (0,2): topo (0,5) + dir (1,6) → grau 2; livres: base (2,5), esq (1,4)
+    # (1,2): esq (3,4) + dir (3,6) → grau 2; livres: topo (2,5), base (4,5)
+    # (2,2): esq (5,4) + dir (5,6) → grau 2; livres: topo (4,5), base (6,5)
+    M = _jogar(
+        M,
+        (0, 5), (1, 6),
+        (3, 4), (3, 6),
+        (5, 4), (5, 6),
+    )
+    canais = extrair_canais(M)
+    assert np.all(canais[:, :, 11] == 0), "2 cadeias longas: canal 12 deve ser 0"
+
+
+def test_canal12_loop_mais_cadeia_longa():
+    """1 loop + 1 cadeia longa: loop nao conta → paridade = 1 → K=11 = 1."""
+    M = _matriz_vazia()
+    # Loop: (0,0)-(0,1)-(1,1)-(1,0) formam ciclo de 4 via arestas externas
+    M = _jogar(
+        M,
+        (0, 1), (0, 3),
+        (4, 1), (4, 3),
+        (1, 0), (3, 0),
+        (1, 4), (3, 4),
+    )
+    # Cadeia longa na linha 2: (2,0)-(2,1)-(2,2)
+    # (2,0): topo ja jogado = (4,1) do loop; base (6,1) → grau 2; livres: esq (5,0), dir (5,2)
+    # (2,1): topo ja jogado = (4,3) do loop; base (6,3) → grau 2; livres: esq (5,2), dir (5,4)
+    # (2,2): topo (4,5) + dir (5,6) → grau 2; livres: esq (5,4), base (6,5)
+    M = _jogar(
+        M,
+        (6, 1),
+        (6, 3),
+        (4, 5), (5, 6),
+    )
+    canais = extrair_canais(M)
+    assert np.all(canais[:, :, 11] == 1), "Loop + 1 cadeia longa: canal 12 deve ser 1"
+
+
+def test_canal12_broadcast_uniforme():
+    """Canal 12 deve ter o mesmo valor em todas as celulas (broadcast global)."""
+    np.random.seed(99)
+    arestas_disp = [
+        (r, c)
+        for r in range(9)
+        for c in range(7)
+        if (r % 2 == 0 and c % 2 == 1) or (r % 2 == 1 and c % 2 == 0)
+    ]
+    for _ in range(30):
+        M = _matriz_vazia()
+        n = np.random.randint(0, 32)
+        shuffled = list(arestas_disp)
+        np.random.shuffle(shuffled)
+        M = _jogar(M, *shuffled[:n])
+        M = _fecha_caixas(M)
+        canais = extrair_canais(M)
+        vals = canais[:, :, 11]
+        assert vals.min() == vals.max(), f"Canal 12 nao eh uniforme (broadcast violado): {vals}"
+
+
+# ---------------------------------------------------------------------------
+# T-A3-003: extrair_stats_cadeias
+# ---------------------------------------------------------------------------
+
+def test_extrair_stats_cadeias_vazio():
+    """Tabuleiro vazio → nenhuma cadeia → (0, 0, 0)."""
+    M = _matriz_vazia()
+    resultado = extrair_stats_cadeias(M)
+    assert resultado == (0, 0, 0)
+
+
+def test_extrair_stats_cadeias_uma_cadeia_de_3():
+    """1 cadeia longa de 3 caixas → (1, 3, 3)."""
+    M = _matriz_vazia()
+    # Cadeia: (0,0)-(1,0)-(2,0)
+    M = _jogar(
+        M,
+        (0, 1), (1, 0),
+        (3, 0), (3, 2),
+        (5, 0), (5, 2),
+    )
+    qtd, total, maximo = extrair_stats_cadeias(M)
+    assert qtd == 1
+    assert total == 3
+    assert maximo == 3
+
+
+def test_extrair_stats_cadeias_duas_cadeias_de_4():
+    """2 cadeias longas de 4 caixas → (2, 8, 4).
+
+    Usa dois L-shapes para evitar que caixas da coluna central ganhem grau 2
+    como efeito colateral das duas cadeias nas colunas externas.
+
+    Cadeia 1: (0,0)→(0,1)→(0,2)→(1,2)  — L pelo topo + coluna direita
+    Cadeia 2: (2,0)→(3,0)→(3,1)→(3,2)  — coluna esquerda + L pela base
+    """
+    M = _matriz_vazia()
+    # Cadeia 1: (0,0)→(0,1)→(0,2)→(1,2)
+    # (0,0): topo (0,1) + esq (1,0) → grau 2; livres: base (2,1), dir (1,2)→(0,1)
+    # (0,1): topo (0,3) + base (2,3) → grau 2; livres: esq (1,2)→(0,0), dir (1,4)→(0,2)
+    # (0,2): topo (0,5) + dir (1,6) → grau 2; livres: esq (1,4)→(0,1), base (2,5)→(1,2)
+    # (1,2): dir (3,6) + base (4,5) → grau 2; livres: topo (2,5)→(0,2), esq (3,4)
+    M = _jogar(
+        M,
+        (0, 1), (1, 0),
+        (0, 3), (2, 3),
+        (0, 5), (1, 6),
+        (3, 6), (4, 5),
+    )
+    # Cadeia 2: (2,0)→(3,0)→(3,1)→(3,2)
+    # (2,0): topo (4,1) + esq (5,0) → grau 2; livres: dir (5,2), base (6,1)→(3,0)
+    # (3,0): esq (7,0) + base (8,1) → grau 2; livres: topo (6,1)→(2,0), dir (7,2)→(3,1)
+    # (3,1): topo (6,3) + base (8,3) → grau 2; livres: esq (7,2)→(3,0), dir (7,4)→(3,2)
+    # (3,2): topo (6,5) + dir (7,6) → grau 2; livres: esq (7,4)→(3,1), base (8,5)
+    M = _jogar(
+        M,
+        (4, 1), (5, 0),
+        (7, 0), (8, 1),
+        (6, 3), (8, 3),
+        (6, 5), (7, 6),
+    )
+    qtd, total, maximo = extrair_stats_cadeias(M)
+    assert qtd == 2
+    assert total == 8
+    assert maximo == 4
+
+
+def test_extrair_stats_cadeias_curta_mais_longa():
+    """1 cadeia curta (len=2) + 1 cadeia longa (len=3) → qtd_longas=1."""
+    M = _matriz_vazia()
+    # Cadeia curta: (0,0)-(0,1) (comprimento 2 no dual)
+    # (0,0): topo (0,1) + esq (1,0) → grau 2; livre dir (1,2) = esq de (0,1)
+    # (0,1): topo (0,3) + dir (1,4) → grau 2; livre esq (1,2) = dir de (0,0)
+    M = _jogar(
+        M,
+        (0, 1), (1, 0),
+        (0, 3), (1, 4),
+    )
+    # Cadeia longa: (0,2)-(1,2)-(2,2)
+    # (0,2): esq=(1,4) ja jogado; topo (0,5) → grau 2; livres: base (2,5), dir (1,6)
+    # (1,2): esq (3,4) + dir (3,6) → grau 2; livres: topo (2,5), base (4,5)
+    # (2,2): esq (5,4) + dir (5,6) → grau 2; livres: topo (4,5), base (6,5)
+    M = _jogar(
+        M,
+        (0, 5),
+        (3, 4), (3, 6),
+        (5, 4), (5, 6),
+    )
+    qtd, total, maximo = extrair_stats_cadeias(M)
+    assert qtd == 1, f"Esperado 1 cadeia longa, obteve {qtd}"
+    assert total == 3
+    assert maximo == 3
+
+
+def test_extrair_stats_cadeias_loop_nao_conta():
+    """Loop de 4 caixas nao conta como cadeia longa → (0, 0, 0)."""
+    M = _matriz_vazia()
+    # Loop: (0,0)-(0,1)-(1,1)-(1,0)
+    M = _jogar(
+        M,
+        (0, 1), (0, 3),
+        (4, 1), (4, 3),
+        (1, 0), (3, 0),
+        (1, 4), (3, 4),
+    )
+    qtd, total, maximo = extrair_stats_cadeias(M)
+    assert qtd == 0, f"Loop nao deve contar como cadeia longa, obteve {qtd}"
+    assert total == 0
+    assert maximo == 0
