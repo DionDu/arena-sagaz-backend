@@ -158,24 +158,31 @@ profundidade_minima = total_caixas_cadeias_longas[i] + 2 * qtd_cadeias_longas[i]
 
 Esta fórmula indica a profundidade Minimax necessária para resolver corretamente um estado com cadeias longas. Estados com `profundidade_minima > 11` têm rótulos potencialmente subótimos no dataset original (Minimax p=11) e são candidatos à re-rotulação pela Fase 3 V8.
 
-**Análise 2026-05-14** (amostragem 1-em-5, ~155.000 estados):
+**Análise 2026-05-14** (100% do dataset — 758.640 estados):
 
 | `qtd_cadeias_longas` | % dos estados | Observação |
 |---|---|---|
 | 0 | 62,4% | Sem cadeias longas — p=11 sempre suficiente |
 | 1 | 31,9% | Uma cadeia longa |
 | 2 | 5,6% | Duas cadeias longas |
-| ≥3 | 0,1% | Três ou mais — sempre precisam de p>11 |
+| ≥3 | 0,1% | Três ou mais — têm prof_min > 11 |
 
-| `profundidade_minima` | % dos estados | Profundidade usada na Fase 3 |
+**Critério de re-rotulação (Fase 3 V8):** profundidade única `p=20` para todos os estados onde `arestas_livres > 11` E `prof_min > 11`. O Minimax para naturalmente quando o jogo termina; p=20 resolve completamente qualquer estado com ≤ 19 arestas livres (máximo observado no dataset).
+
+| `arestas_livres` (= 31 − qtd_tracos) | Estados a re-rotular | Observação |
 |---|---|---|
-| ≤ 11 | 97,7% | Mantém rótulo p=11 |
-| 12–13 | 1,3% | Re-rotula com p=13 |
-| 14–15 | 0,6% | Re-rotula com p=15 |
-| 16–17 | 0,2% | Re-rotula com p=17 |
-| ≥ 18 | <0,1% | Re-rotula com p=20 (cap — máximo observado: 18) |
+| ≤ 11 | 0 | p=11 já resolve o jogo completo — não re-rotular |
+| 12 | 3.601 | re-rotular com p=20 |
+| 13 | 3.000 | re-rotular com p=20 |
+| 14 | 2.232 | re-rotular com p=20 |
+| 15 | 1.581 | re-rotular com p=20 |
+| 16 | 836 | re-rotular com p=20 |
+| 17 | 244 | re-rotular com p=20 |
+| 18 | 45 | re-rotular com p=20 |
+| 19 | 3 | re-rotular com p=20 |
+| **Total real** | **11.542** | 1,52% do dataset |
 
-**Total estimado de estados a re-rotular**: ~2,3% ≈ 17.449 de 758.640.
+> **Nota:** dos 17.724 estados com `prof_min > 11`, 6.182 têm `arestas_livres ≤ 11` e já estão corretamente rotulados — não precisam de re-rotulação. O total real é 11.542.
 
 ### NPZs de augmentação por simetria (sufixados)
 

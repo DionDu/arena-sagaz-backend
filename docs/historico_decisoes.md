@@ -46,7 +46,7 @@ Amostragem 1-em-5 (~155.000 estados) dos 758.640 estados do dataset:
 
 Alternativa descartada: array `tamanho_cadeias_longas` de comprimento variável — incompatível com NPZ sem padding ou dtype `object`; os 3 escalares cobrem todos os casos de uso identificados.
 
-**D11.b — Schedule de re-rotulação adaptativa** (Databricks, Fase 3 V8): apenas 2,3% dos estados. Profundidade em degraus de 2: p=13, p=15, p=17, p=20 (cap). Cap em p=20 justificado pelo máximo empírico observado de 18 + margem de 2.
+**D11.b — Re-rotulação com profundidade única p=20** (Databricks, Fase 3 V8): análise completa (100% do dataset) revelou que todos os estados com `prof_min > 11` têm ≤ 19 arestas livres. O Minimax para naturalmente quando o jogo termina, então p=20 resolve completamente todos os casos. Critério binário: re-rotular apenas estados onde `arestas_livres > 11` E `prof_min > 11`. Total real: **11.542 estados** (1,52%) — dos 17.724 com `prof_min > 11`, 6.182 têm `arestas_livres ≤ 11` e já estão corretamente rotulados por p=11. Schedule por bucket descartado — profundidade única simplifica a implementação sem perda de corretude.
 
 **D11.c — Augmentação por sufixo em disco** (revisão de D5 original): a augmentação 4× é gerada em disco como arquivos `_refH.npz`, `_refV.npz`, `_r180.npz`. Alternativa (augmentação em memória durante treino) descartada — notebook de treino fica mais simples; permite auditoria dos dados augmentados. Idempotência garantida por deleção prévia dos sufixados ao re-executar. Total: 152 originais + 456 sufixados = 608 NPZs.
 

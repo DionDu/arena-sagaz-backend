@@ -72,12 +72,13 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 
 **Fórmula de profundidade mínima**: `profundidade_minima = total_caixas_cadeias_longas + 2 × qtd_cadeias_longas`
 
-**Schedule de re-rotulação** (Databricks — Fase 3 V8):
-- `prof_min ≤ 11`: manter rótulo p=11 (97,7% dos estados)
-- `prof_min ∈ [12, 13]`: re-rotular com p=13
-- `prof_min ∈ [14, 15]`: re-rotular com p=15
-- `prof_min ∈ [16, 17]`: re-rotular com p=17
-- `prof_min ≥ 18`: re-rotular com p=20 (cap seguro — máximo observado na análise foi 18)
+**Critério de re-rotulação** (Databricks — Fase 3 V8 — profundidade única p=20):
+- `arestas_livres ≤ 11` (qtd_tracos ≥ 20): manter rótulo — p=11 já resolve o jogo completo
+- `arestas_livres > 11` E `prof_min > 11`: re-rotular com p=20
+
+O Minimax para naturalmente quando não há mais jogadas. p=20 resolve qualquer estado com ≤ 19 arestas livres (máximo observado). Sem schedule por bucket — profundidade única simplifica a implementação.
+
+**Estados a re-rotular (análise 100% do dataset — 2026-05-14)**: **11.542** (1,52% de 758.640). Dos 17.724 estados com `prof_min > 11`, 6.182 têm `arestas_livres ≤ 11` e já estão corretamente rotulados.
 
 **Gate da fase**: 152 NPZs originais enriquecidos com 3 novos campos escalares + canais com shape `(N,4,3,12)`; notebook Databricks (Fase 3) pronto para execução; 152×3 = 456 NPZs sufixados gerados pela Fase 4; notebook de treino e análise atualizados; entrada em `docs/historico_decisoes.md`.
 
@@ -93,7 +94,7 @@ description: "Tasks para a feature 004 — Melhoria da geração de dados e arqu
 
 - [ ] T-A3-006 Executar Fase 2 V8 (`fase2_enriquecimento_local.ipynb`) sobre os 152 NPZs. **blockedBy**: T-A3-005. **Gate**: auditoria célula final confirma que todos os 152 NPZs têm `canais.shape == (N,4,3,12)` e os 3 campos escalares presentes; nenhum `.tmp` remanescente.
 
-- [ ] T-A3-007 Criar notebook Databricks `gerador_dados/jogo_pontinhos/v8/fase3_rerotulacao_databricks.ipynb`: re-calcula `melhor_jogada` e `score_melhor_jogada` somente para estados onde `profundidade_minima > 11`. Usa PySpark `mapInPandas` (padrão do Fase 2 HighPerf existente). Schedule de profundidade: ver tabela acima. Sobrescrita atômica. **blockedBy**: T-A3-006. **Gate**: notebook importável no Databricks; célula de diagnóstico imprime contagem de estados por bucket de profundidade (esperado: 12–13→~9.800, 14–15→~6.000, 16–17→~1.500, ≥18→~150).
+- [ ] T-A3-007 Criar notebook Databricks `gerador_dados/jogo_pontinhos/v8/fase3_rerotulacao_databricks.ipynb`: re-calcula `melhor_jogada` e `score_melhor_jogada` somente para estados onde `arestas_livres > 11` E `prof_min > 11`, usando profundidade única `p=20`. O Minimax para naturalmente quando o jogo termina. Usa PySpark `mapInPandas` (padrão do Fase 2 HighPerf existente). Sobrescrita atômica. **blockedBy**: T-A3-006. **Gate**: notebook importável no Databricks; célula de diagnóstico imprime contagem de estados a re-rotular por `arestas_livres` (esperado: 12→3.601, 13→3.000, 14→2.232, 15→1.581, 16→836, 17→244, 18→45, 19→3; total=11.542).
 
 - [ ] T-A3-008 Criar `gerador_dados/jogo_pontinhos/permutacoes_simetria_pontinhos.py` com as 4 transformações (identidade, ref_H, ref_V, R180) aplicáveis a: matriz crua `(9,7)`, tensor `canais (4,3,12)` com permutação coerente de arestas (K=0↔1 em ref_V; K=2↔3 em ref_H; K=11 preservado por ser broadcast), vetor de scores `(31,)`, índice de rótulo via tabela de permutação canônica. **Gate**: módulo importável; expõe função `aplicar_simetria(estado, sym_id)`.
 

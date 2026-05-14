@@ -829,25 +829,38 @@ profundidade_minima = total_caixas_cadeias_longas + 2 * qtd_cadeias_longas
 ```
 Esta fórmula deriva da teoria de Berlekamp: para resolver um estado com `k` cadeias longas e `n` caixas totais nelas, o Minimax precisa ver pelo menos `n + 2k` níveis à frente (cada `double-cross` consome 2 jogadas extras).
 
-#### D11.b — Schedule de re-rotulação adaptativa (Fase 3 V8)
+#### D11.b — Re-rotulação com profundidade única p=20 (Fase 3 V8)
 
-**Decisão:** Apenas os ~2,3% de estados com `profundidade_minima > 11` serão re-rotulados no Databricks. O schedule usa profundidade crescente em degraus de 2:
+**Decisão (revisada 2026-05-14):** Usar uma única profundidade `p=20` para todos os estados que precisam de re-rotulação, sem schedule por bucket.
 
-| `profundidade_minima` | % dos estados | Ação |
-|---|---|---|
-| ≤ 11 | 97,7% | Manter rótulo atual (Minimax p=11) |
-| 12–13 | ~1,3% | Re-rotular com p=13 |
-| 14–15 | ~0,6% | Re-rotular com p=15 |
-| 16–17 | ~0,2% | Re-rotular com p=17 |
-| ≥ 18 | <0,1% | Re-rotular com p=20 (cap — máximo observado: 18) |
+**Critério de re-rotulação (binário):**
 
-**Por que cap p=20:** o valor máximo de `profundidade_minima` observado na análise foi 18. O cap p=20 garante cobertura com margem de segurança de 2 níveis sem custo computacional excessivo.
+| Condição | Ação |
+|---|---|
+| `arestas_livres ≤ 11` (i.e., `qtd_tracos ≥ 20`) | Manter rótulo p=11 — Minimax p=11 já resolve o jogo completo |
+| `arestas_livres > 11` **E** `prof_min > 11` | Re-rotular com p=20 |
 
-**Estimativa de estados a re-rotular:** ~17.449 de 758.640 (2,3%). Distribuição por bucket:
-- `prof_min ∈ [12,13]`: ~9.800 estados
-- `prof_min ∈ [14,15]`: ~6.000 estados
-- `prof_min ∈ [16,17]`: ~1.500 estados
-- `prof_min ≥ 18`: ~150 estados
+**Por que p=20 é suficiente para todos os casos:** análise completa de todos os 758.640 estados mostrou que o máximo de `arestas_livres` entre os estados com `prof_min > 11` é **19**. O Minimax termina naturalmente quando não há mais jogadas (condição de parada: sem arestas livres), então p=20 resolve o jogo completo para todos esses estados — os níveis de profundidade além de `arestas_livres` nunca são explorados.
+
+**Por que não usar schedule por bucket:** não há ganho de corretude — p=20 já resolve todos os casos. E a implementação fica muito mais simples: sem cálculo de profundidade por estado, sem lógica condicional.
+
+**Estimativa real de estados a re-rotular (análise 100% do dataset — 2026-05-14):**
+
+| `arestas_livres` (= 31 - qtd_tracos) | Estados a re-rotular |
+|---|---|
+| 12 | 3.601 |
+| 13 | 3.000 |
+| 14 | 2.232 |
+| 15 | 1.581 |
+| 16 | 836 |
+| 17 | 244 |
+| 18 | 45 |
+| 19 | 3 |
+| **Total** | **11.542** |
+
+**Nota:** dos 17.724 estados com `prof_min > 11`, 6.182 têm `arestas_livres ≤ 11` e já estão corretamente rotulados pelo p=11 atual — não precisam de re-rotulação.
+
+**Estimativa de tempo no Databricks:** os 11.542 estados são todos endgame (12–19 arestas livres). A árvore Minimax nestas posições é menor do que estados de meio-jogo pois o jogo termina rapidamente via capturas encadeadas. Estimativa: menos de 30 minutos (vs. ~8h para o dataset completo de 758k estados).
 
 #### D11.c — Augmentação por sufixo em disco (revisão de D5)
 
