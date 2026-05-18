@@ -12,9 +12,9 @@ o que foi descartado e por quê**.
 
 Após implementar o canal 12 (`paridade_cadeia_longa_impar`) e validar os NPZs com 11 canais (T-A2-005/006), surgiu a questão: o Minimax p=11 que gerou os rótulos é suficiente para todos os estados? A teoria de Berlekamp indica que estados com cadeias longas requerem uma profundidade mínima `prof_min = total_caixas_cadeias_longas + 2 × qtd_cadeias_longas` para serem resolvidos corretamente. Se `prof_min > 11`, o rótulo atual é potencialmente subótimo.
 
-### Análise realizada
+### Análise realizada (100% do dataset — 758.640 estados)
 
-Amostragem 1-em-5 (~155.000 estados) dos 758.640 estados do dataset:
+> **Revisão 2026-05-18**: substituída a amostragem 1-em-5 pela análise completa realizada após T-A3-002 estar implementado.
 
 **Distribuição de `qtd_cadeias_longas`:**
 
@@ -23,19 +23,31 @@ Amostragem 1-em-5 (~155.000 estados) dos 758.640 estados do dataset:
 | 0 | 62,4% | Sem cadeias longas — p=11 sempre suficiente |
 | 1 | 31,9% | Uma cadeia longa |
 | 2 | 5,6% | Duas cadeias longas |
-| ≥3 | 0,1% | Sempre precisam de p>11 |
+| ≥3 | 0,1% | Três ou mais — têm prof_min > 11 |
 
-**Distribuição de `profundidade_minima`:**
+**Distribuição de `profundidade_minima` (`= total_caixas + 2 × qtd_cadeias_longas`):**
 
 | profundidade_minima | % dos estados | Ação |
 |---|---|---|
-| ≤ 11 | 97,7% | Manter rótulo atual |
-| 12–13 | ~1,3% | Re-rotular com p=13 |
-| 14–15 | ~0,6% | Re-rotular com p=15 |
-| 16–17 | ~0,2% | Re-rotular com p=17 |
-| ≥ 18 | <0,1% | Re-rotular com p=20 (cap — máx. observado: 18) |
+| ≤ 11 | ~97,7% | Manter rótulo atual — p=11 resolve |
+| > 11 | ~2,3% | Candidatos à re-rotulação |
 
-**Total a re-rotular: ~17.449 estados (2,3% do dataset).**
+**Estados a re-rotular** (critério: `arestas_livres > 11` E `prof_min > 11`):
+
+| `arestas_livres` (= 31 − qtd_tracos) | Estados | Observação |
+|---|---|---|
+| ≤ 11 | 0 | p=11 já resolve o jogo completo — não re-rotular |
+| 12 | 3.601 | re-rotular com p=20 |
+| 13 | 3.000 | re-rotular com p=20 |
+| 14 | 2.232 | re-rotular com p=20 |
+| 15 | 1.581 | re-rotular com p=20 |
+| 16 | 836 | re-rotular com p=20 |
+| 17 | 244 | re-rotular com p=20 |
+| 18 | 45 | re-rotular com p=20 |
+| 19 | 3 | re-rotular com p=20 |
+| **Total real** | **11.542** | **1,52% do dataset** |
+
+Dos 17.724 estados com `prof_min > 11`, **6.182 têm `arestas_livres ≤ 11`** e já estão corretamente rotulados pelo Minimax p=11 (o jogo termina antes de p=11 ser insuficiente). Só os 11.542 restantes precisam de re-rotulação.
 
 ### Decisões tomadas
 
