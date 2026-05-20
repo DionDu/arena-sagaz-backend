@@ -6,6 +6,67 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-19 — Descoberta e correção de bug crítico: Minimax Databricks calculado a depth=6 em vez de depth=11
+
+### Contexto
+
+Durante investigação de convergência dos dados de `score_melhor_jogada` nos 152 NPZs de `dados/profundidade_minimax_11_v7_adaptativo/`, identificamos que **todos os 758.640 estados tinham os scores calculados incorretamente** pelo notebook Databricks de Phase 2.
+
+### Bug confirmado empiricamente
+
+**Arquivo afetado:** `notebooks/jogo_pontinhos/Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf_EXECUTADO_NO_DATABRICKS.ipynb`
+
+**Causa raiz:** A variável `DEPTH_TARGET = 11` estava definida na célula de configuração mas nunca usada nas chamadas reais ao Minimax. O valor era hardcoded como `6`:
+
+```python
+# ERRADO (como executado no Databricks):
+res = solve_minimax_bitboard(new_e, 6, ...)
+
+# CORRETO (como deveria estar):
+res = solve_minimax_bitboard(new_e, DEPTH_TARGET, ...)
+```
+
+**Evidência empírica:** Teste paralelo com `ProcessPoolExecutor(14 workers)` contra o Minimax Python de referência (`_scores_de_todas_jogadas`) confirmou convergência dos dados a p=6, não a p=11:
+- p=6, p=7, p=8, p=9 vs NPZ → 0 diferenças (dados batem)
+- p=10 vs NPZ → 6 diferenças em 21 traços
+- p=11 vs NPZ → 10 diferenças em 21 traços
+
+**Impacto:** Todos os resultados de treinamento e avaliação que dependiam de `score_melhor_jogada` destes NPZs são considerados não confiáveis (ver anotações nas entradas de 2026-05-13 e 2026-05-14).
+
+### Correção aplicada
+
+1. Base de NPZs descartada (`dados/profundidade_minimax_11_v7_adaptativo/` removido).
+2. Base limpa com 12 canais gerada: `dados/base_adaptativo_limpa_com_12_canais/` — sem campos `score_melhor_jogada`, `melhor_jogada`, `depth_melhor_jogada`.
+3. Novo notebook corrigido: `gerador_dados/jogo_pontinhos/v8/fase3_rerotulacao_databricks_databricks.ipynb` — usa `depth = int(row['depth'])` por estado (11 ou 20 adaptativos), sem hardcode.
+4. Nova execução iniciada no Databricks sobre a base limpa. NPZs enriquecidos chegam em `dados/profundidade_minimax_11_adaptativo/`.
+
+### Verificação dos primeiros NPZs corrigidos (2026-05-19)
+
+Sobre `dataset_pequeno_0001.npz` e `dataset_pequeno_0002.npz` (10.000 estados total):
+
+**Teste 1 — 57 amostras p=11 e p=20 vs referência Python:**
+- 57/60 concluídas, 0 falhas (3 abortadas: p=11 com 29–30 arestas livres, sem TT na referência → muito lentas)
+
+**Teste 2 — Tri-verificação depth=20 (3 estados × 17 arestas livres):**
+| Comparação | Resultado |
+|---|---|
+| Databricks(p=20) = ref Python(p=17) | **51/51 traços** |
+| Databricks(p=20) ≠ ref Python(p=11) — prova que depth>11 foi usado | **49/51** |
+| `melhor_jogada` consistente com argmax | **3/3** |
+
+Dados do novo pipeline estão corretos.
+
+### Nota sobre a referência Python usada na verificação
+
+A referência é `_scores_de_todas_jogadas` de `minimax_pontinhos.py` — implementação matrix-based independente do Bitboard Databricks. Usa alpha-beta com move ordering (captura-primeiro), mas **sem Transposition Table** — por isso estados com 27+ arestas livres em posição aberta são impraticáveis como referência (branching factor alto, TT ausente). O Bitboard Databricks tem TT, o que explica a diferença de performance na geração vs verificação local.
+
+### Alternativas consideradas e descartadas
+
+- **Re-rodar Phase 2 sobre os NPZs antigos:** descartado porque (a) o skip condition `melhor_jogada[0] != ""` ignoraria todos os 152 arquivos já processados, exigindo patch adicional; (b) os 11.542 estados depth=20 do pipeline V8 seriam sobrescritos para depth=11; (c) os campos v2-a3 (canais, chain scalars) seriam perdidos — o notebook Phase 2 original não preserva esses campos no `savez_compressed`.
+- **Corrigir os scores localmente:** considerado mas descartado — exigiria ~15 horas locais para 748k estados via Bitboard local, versus execução já em curso no Databricks com o notebook corrigido.
+
+---
+
 ## 2026-05-14 — Pipeline V8: campos escalares de cadeias, re-rotulação adaptativa e augmentação por sufixo
 
 ### Contexto
@@ -77,6 +138,8 @@ Alternativa descartada: array `tamanho_cadeias_longas` de comprimento variável 
 
 ## 2026-05-14 — Validação visual e auditoria dos NPZs enriquecidos: 758.640 amostras, 11 canais (T-A2-005/006)
 
+> **AVISO (descoberto 2026-05-19):** A auditoria T-A2-006 validou **integridade de hash** dos campos `estados`, `canais`, `melhor_jogada` e `score_melhor_jogada` — garantindo que os arquivos não foram corrompidos entre geração e disco. Ela **não** verificou se os scores foram computados à profundidade correta. Descobriu-se em 2026-05-19 que `score_melhor_jogada` foi calculado a depth=6 em vez de depth=11 (ver entrada 2026-05-19). Os hashes são válidos para os dados produzidos, mas os dados em si estavam errados. O diretório `dados/profundidade_minimax_11_v7_adaptativo/` foi descartado e substituído por `dados/profundidade_minimax_11_adaptativo/` gerado com o pipeline corrigido.
+
 ### Contexto
 
 Com o bug de classificação de nós isolados corrigido no analisador (ver entrada 2026-05-13), o diretório `dados/profundidade_minimax_11_v7_adaptativo/` foi re-enriquecido com o algoritmo corrigido e os NPZs estavam prontos para a validação formal (T-A2-005) e auditoria de integridade (T-A2-006).
@@ -110,6 +173,8 @@ Auditoria executada sobre os 152 NPZs em `dados/profundidade_minimax_11_v7_adapt
 ---
 
 ## 2026-05-13 — Design: Canal 12 (`paridade_cadeia_longa_impar`) — broadcast global para CNN
+
+> **AVISO (descoberto 2026-05-19):** O resultado de ~50% de vitórias contra Minimax p=6 citado abaixo foi obtido de uma CNN treinada com `score_melhor_jogada` calculado incorretamente a depth=6 em vez de depth=11 (ver entrada 2026-05-19). Tanto o rótulo de treino quanto o adversário de avaliação usavam profundidade 6 — a análise motivacional pode estar distorcida. A decisão de adicionar o canal 12 permanece válida (fundamento teórico de Berlekamp é independente do bug), mas os percentuais de vitória não devem ser citados como resultado confiável.
 
 ### Contexto
 
