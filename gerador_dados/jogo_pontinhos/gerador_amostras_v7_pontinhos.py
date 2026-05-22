@@ -103,14 +103,19 @@ def temperatura(qtd_tracos: int) -> float:
     T alta no inicio (explora; suaviza diferencas pequenas entre lances quase
     equivalentes) e baixa no fim (preserva qualidade quando uma jogada e
     claramente vencedora).
+
+    Valores aumentados em 2026-05-22 para retardar saturacao natural do espaco
+    de estados: a rodada anterior mostrou queda de 61% -> 54% novos/NPZ ao
+    longo de 158 NPZs, o que e saudavel, mas temperaturas mais altas ampliam
+    a diversidade de trajetorias e reduzem a taxa de colisao entre rodadas.
     """
     if qtd_tracos < 8:
-        return 1.5
+        return 2.0   # era 1.5 — mais exploracao no opening
     if qtd_tracos < 18:
-        return 0.8
+        return 1.2   # era 0.8 — midgame mais variado
     if qtd_tracos < 26:
-        return 0.5
-    return 0.2
+        return 0.8   # era 0.5 — endgame ainda explora
+    return 0.4       # era 0.2 — ultimas jogadas menos deterministicas
 
 
 # ============================================================================
