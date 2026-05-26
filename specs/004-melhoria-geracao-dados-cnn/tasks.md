@@ -473,3 +473,32 @@ Todas as decisões abaixo foram registradas em `docs/historico_decisoes.md` (ent
 | 8 | **T-A3-010** | `v8/fase4_augmentacao_simetria.ipynb` | Augmentação por sufixo |
 | 9 | **T-A3-007** | Databricks | Notebook Fase 3 re-rotulação |
 | 10 | **T-A3-011/012** | Notebooks | Treino e análise atualizados |
+
+---
+
+## Estado de execução — sessão 2026-05-25 (V10 local + ambiente GPU)
+
+### Entregas desta sessão
+
+- **T-A3-007** (concluída): re-rotulação executada localmente via `fase3_rerotulacao_local.ipynb`; 41.008 estados re-rotulados com p=20. Diretório de destino alterado de `dados/profundidade_minimax_11_v7_adaptativo/` para `dados/profundidade_minimax_11_adaptativo/`.
+- **T-A3-010** (concluída): `fase4_augmentacao_simetria.ipynb` executado; 419 arquivos no diretório local (`dados/profundidade_minimax_11_adaptativo/` — 133 originais + 286 sufixados até o momento da execução local).
+- **T-A3-011** (concluída): entregue como `Treinamento_CNN_Pontinhos_V9.ipynb` com leitura de `qtd_cadeias_longas` e seção 4.4 (métricas por grupo).
+- **T-A3-012** (concluída): `Analise_Dados_Adaptativo.ipynb` com seção 3 "Cadeias Longas"; 419 NPZs lidos, 3.423.460 amostras confirmadas.
+
+### Migração do treinamento: Colab → PC local
+
+Após OOM do Colab com 608 NPZs (V9 e V10 com split de índices falharam), o treinamento
+migrou para PC local. Artefatos entregues:
+
+- **`notebooks/jogo_pontinhos/Treinamento_CNN_Pontinhos_V10.ipynb`**: versão local de V9;
+  sem código Colab; dados em `dados/profundidade_minimax_11_adaptativo/`; resultados em
+  `resultados/jogo_pontinhos/`; otimização de RAM preservada (split de índices).
+- **`.venv_gpu`**: recriado com Python 3.10.11 + TensorFlow 2.10.0 + NumPy 1.23.5;
+  kernel Jupyter registrado (`venv_gpu`).
+- **`resultados/jogo_pontinhos/`**: diretório criado; receberá checkpoint, TFLite e relatório.
+
+### Próxima ação manual obrigatória
+
+Rodar `Treinamento_CNN_Pontinhos_V10.ipynb` no PC local com kernel `venv_gpu`.
+Para GPU: instalar CUDA Toolkit 11.2 + cuDNN 8.1 (ver `docs/jogo_pontinhos/guia_geracao_dados.md`).
+Sem GPU: funciona em CPU (~8–20h). Com GPU: ~8–14h.

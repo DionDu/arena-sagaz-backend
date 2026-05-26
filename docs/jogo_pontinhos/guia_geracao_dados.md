@@ -6,6 +6,68 @@ Certifique-se de estar dentro da pasta `arena-sagaz-backend` e com seu ambiente 
 
 ---
 
+## 0A. Treinamento CNN — PC Local (`.venv_gpu`, V10)
+
+> **Decisão 2026-05-25**: o Colab free-tier não comporta os 608 NPZs (OOM ~12 GB).
+> O treinamento migrou para o PC local usando `Treinamento_CNN_Pontinhos_V10.ipynb`.
+
+### Pré-requisitos de hardware
+
+| Item | Mínimo para CPU | Recomendado (GPU) |
+|---|---|---|
+| RAM | 16 GB | 32 GB |
+| GPU VRAM | — | 4 GB (GTX 1650 ou superior) |
+| Armazenamento livre | 5 GB | 5 GB |
+
+### Ativar o ambiente `.venv_gpu`
+
+```powershell
+.\.venv_gpu\Scripts\activate
+```
+
+O `.venv_gpu` já está configurado com **Python 3.10.11 + TensorFlow 2.10.0** (último TF com
+GPU nativa no Windows). Para verificar:
+
+```powershell
+python -c "import tensorflow as tf; print(tf.__version__, tf.config.list_physical_devices('GPU'))"
+```
+
+Saída esperada sem GPU: `2.10.0 []`
+Saída esperada com GPU: `2.10.0 [PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')]`
+
+### Habilitar a GPU GTX 1650 (ação manual)
+
+TF 2.10 requer **CUDA Toolkit 11.2** e **cuDNN 8.1** instalados separadamente no Windows.
+
+1. **CUDA 11.2**: baixar e instalar de `https://developer.nvidia.com/cuda-11-2-2-download-archive`
+   - Selecionar: Windows > x86_64 > 10 > exe (local)
+   - Após a instalação, `cudart64_110.dll` deve estar em `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\bin\`
+   - Adicionar `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\bin` ao PATH do sistema.
+
+2. **cuDNN 8.1**: baixar de `https://developer.nvidia.com/rdp/cudnn-archive` (conta gratuita NVIDIA)
+   - Versão: cuDNN 8.1.x for CUDA 11.x (Windows)
+   - Copiar arquivos da pasta `bin\` do cuDNN para `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\bin\`
+
+3. Reiniciar o terminal e verificar: `python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"`
+
+> **Sem CUDA**: o notebook V10 funciona em CPU — apenas mais lento (8–20h vs 8–14h com GPU).
+
+### Rodar o notebook de treinamento
+
+```powershell
+# Ativar o kernel no Jupyter (já registrado):
+jupyter notebook notebooks/jogo_pontinhos/Treinamento_CNN_Pontinhos_V10.ipynb
+```
+
+Selecione o kernel **"Python 3.10 (venv_gpu — TF 2.10 GPU)"** na interface do Jupyter.
+
+Saídas geradas automaticamente em `resultados/jogo_pontinhos/`:
+- `BoxNet_V10_12canais_best_valloss.keras` — checkpoint do melhor modelo
+- `pontinhos_pequeno_cnn_depth_11_e_20_12canais_valloss.tflite` — modelo TFLite
+- `pontinhos_pequeno_cnn_depth_11_e_20_12canais_valloss_treinamento_<timestamp>.md` — relatório
+
+---
+
 ## 0. Preparando o Ambiente Virtual (Windows)
 
 Antes de executar os scripts, você precisa criar e ativar um ambiente virtual isolado para instalar as dependências do projeto.

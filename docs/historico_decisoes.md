@@ -6,6 +6,47 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-25 — Abandono do Colab; treinamento V10 migrado para PC local (GTX 1650)
+
+### Contexto
+
+Após a execução da `fase4_augmentacao_simetria.ipynb`, o dataset cresceu de 419 para 608 NPZs
+(152 originais × 4 variantes). Ao tentar treinar `Treinamento_CNN_Pontinhos_V9.ipynb` no Colab
+com os 608 arquivos, a sessão falhou por OOM (limite ~12 GB RAM do Colab gratuito).
+
+Uma tentativa intermediária (V10 com "split de índices" — pico de RAM reduzido de ~5 GB para
+~2,5 GB) também falhou no Colab devido ao overhead do runtime TF + os próprios dados.
+
+### Decisão
+
+**Migrar o treinamento para PC local** (Ryzen 7 5700X, 32 GB DDR4, GTX 1650 4 GB VRAM).
+
+- `Treinamento_CNN_Pontinhos_V10.ipynb` criado como versão local de V9:
+  - Todo código Colab removido (`from google.colab import drive`, `drive.mount`, `files.download`).
+  - `PASTA_NPZ` e `RESULTADO_DIR` resolvidos por `_find_root()` (detecta raiz do repo pelo `CLAUDE.md`).
+  - Saídas (checkpoint `.keras`, TFLite, relatório `.md`) gravadas em `resultados/jogo_pontinhos/`.
+  - Otimização de RAM preservada (split de índices antes de construir `X`).
+  - Seção 4.4 (métricas por `qtd_cadeias_longas`) preservada.
+
+- `.venv_gpu` recriado com **Python 3.10.11** + **TensorFlow 2.10.0**:
+  - TF 2.10 é o último com suporte nativo a GPU no Windows via pip (sem WSL2).
+  - NumPy fixado em 1.23.5 (compatível com TF 2.10).
+  - Kernel Jupyter registrado em `~/.jupyter/kernels/venv_gpu`.
+
+### GPU pendente (ação manual do desenvolvedor)
+
+TF detecta a GTX 1650 somente após instalação de **CUDA Toolkit 11.2** + **cuDNN 8.1**
+(ver próxima seção em `guia_geracao_dados.md`). Sem essas DLLs o treinamento roda em CPU
+(funcional, estimativa 8–20 horas). Com GPU: estimativa 8–14 horas.
+
+### Alternativas descartadas
+
+- **Colab Pro**: custo recorrente; OOM ainda possível com 608 NPZs em RAM gratuita.
+- **TF 2.16+ com Python 3.12**: sem suporte GPU nativo no Windows via pip (exige WSL2).
+- **DirectML plugin**: TF obsoleto (baseado em 1.15-fork da Microsoft); ecossistema abandonado.
+
+---
+
 ## 2026-05-19 — Descoberta e correção de bug crítico: Minimax Databricks calculado a depth=6 em vez de depth=11
 
 ### Contexto
