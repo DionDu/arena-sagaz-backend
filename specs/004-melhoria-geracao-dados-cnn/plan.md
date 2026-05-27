@@ -20,6 +20,8 @@ O plano cobre: (a) Fase A.1 — ✅ **CONCLUÍDA** — geração V7 DAC local (~
 
 > **Repriorização 2026-05-13**: análise da estagnação da CNN V8 (50% vs Minimax p=6, abaixo do baseline V7 de 63%) identificou que a causa raiz é a ausência de um bit de paridade global. Canal 12 (`paridade_cadeia_longa_impar`) e Fase C (espelhamento 4×) são as **próximas tarefas a executar**, com prioridade máxima, antes de qualquer novo ciclo de treino. Ver `docs/jogo_pontinhos/teoria_cadeias_pontinhos.md`.
 
+> **Revisão 2026-05-27 — Pivô Arquitetural (Fase V11)**: dois treinamentos completos (3.4MM e 13.8MM amostras; 5 → 12 canais) produziram resultados praticamente idênticos — vitórias vs p=6 entre 68–71,5%, OMA global ≈ 90,7–91,1%, OMA na 1ª Metade (traços 12–17) ≈ 78,5–80,3%. Diagnóstico definitivo: **alto viés (underfitting)** — gap treino–val ≈ 0, train Top-1 ≈ val Top-1 ≈ 46,4%. A arquitetura BoxNet v3 (76k params, SeparableConv2D, 2 blocos residuais, Dense(96)) não consegue representar a lógica de sacrifício de cadeia. Sem restrição de tamanho de modelo nesta etapa — Flutter App não existe ainda; latência atual é 21.000× mais rápida que Minimax p=6. Decisão: **inserir Fase V11 — Evolução Arquitetural** entre A.3 e B: (1) teste de overfit diagnóstico; (2) BoxNet v4 com Conv2D regular, 4–5 blocos, Dense(256), sem GlobalAveragePooling; (3) monitor OMA em vez de val_loss; (4) regularização condicional; (5) value head integrado. Ver `docs/historico_decisoes.md` (entrada 2026-05-27 — Pivô Arquitetural V11).
+
 ---
 
 ## Contexto Técnico
@@ -215,22 +217,22 @@ Fase 0 (Análise de divergência estratégica) ✅ CONCLUÍDA em 2026-05-06
 Fase A.1 (Geração V7 DAC + enriquecimento p=11 + experimentos de treino) ✅ CONCLUÍDA em 2026-05-12
     ↓ gate atendido: 758k amostras brutas / ~500k distintos; campos melhor_jogada + score_melhor_jogada (p=11); bugs Bitboard corrigidos; snapshot em historico_decisoes.md
     ↓
-Fase A.2 (Enriquecimento local com 11 canais)
-    ↓ gate: validação visual de ≥30 estados; testes do analisador passam; nomes_canais byte-a-byte igual à constante
+Fase A.2 (Enriquecimento local com 12 canais) ✅ CONCLUÍDA em 2026-05-14
+    ↓ gate atendido: validação visual ≥30 estados; 24 testes verdes; nomes_canais byte-a-byte idêntico
     ↓
-Fase B (Treino com 5 canais geométricos, sem Lambda)
-    ↓ gate: SC-F-05 (29-30 ≥ 95%); erros táticos ≤ 250; nenhum win-rate cai > 3pp
+Fase A.3 (Pipeline V8: escalares de cadeias, re-rotulação p=20, augmentação por simetria) ✅ CONCLUÍDA em 2026-05-25
+    ↓ gate atendido: 419 NPZs no diretório local; 13.8MM amostras; notebooks treino/análise atualizados
     ↓
-Fase C (Augmentação 4×)
-    ↓ gate: nenhum par "deveria→jogou" > 5%; não-regressão por faixa; vs C, vitórias ≥ Fase B
+Fase V11 (Evolução Arquitetural — BoxNet v4, Conv2D, monitor OMA)  ← ATUAL
+    ↓ gate: train Top-1 ≥ 65% em overfit; OMA 1ª Metade ≥ 85%; vitórias vs p=6 ≥ 78%
     ↓
-Fase D (11 canais + contrato v2 + vetores de referência)
-    ↓ gate: vs p=5 ≥ 70%; erros táticos ≤ 80; redução fatais ≥ 50%; faixa 29-30 ≥ 95%
+Fase B/C/D (absorvidas pelo V10 — gates atendidos: 73% vs p=5 ≥ 70% ✓; augmentação 4× ✓; 12 canais ✓)
+    ↓ formalizar fechamento em tasks.md se necessário
     ↓
 Fase E (sample_weight refinado em t=12–17)
     ↓ gate: fatais em t=[12,17] caem ≥ 25%; peso médio na faixa 1.05–1.15; nenhum peso > 1.20
     ↓
-Fase F (Value head, TFLite policy-only)
+Fase F (Value head, TFLite policy-only — integrada na V11-008)
     ↓ gate: contrato hash inalterado vs Fase D; MSE value ≤ 0.10; TFLite ≤ 200 KB; redução fatais ≥ 50% baseline
     ↓
 Fases G/H (CONDICIONAIS — só executam se F não bater meta de SC-W-* ou SC-A-*)

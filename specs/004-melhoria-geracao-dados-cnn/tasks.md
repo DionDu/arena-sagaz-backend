@@ -106,7 +106,37 @@ O Minimax para naturalmente quando não há mais jogadas. p=20 resolve qualquer 
 
 - [x] T-A3-012 [P] Atualizar `notebooks/jogo_pontinhos/Analise_Dados_Adaptativo.ipynb`: adicionar 3 novas seções após a análise de `qtd_tracos` existente: (a) distribuição de `qtd_cadeias_longas` por `qtd_tracos`; (b) distribuição de `tamanho_max_cadeia_longa`; (c) distribuição de `profundidade_minima = total_caixas_cadeias_longas + 2×qtd_cadeias_longas` com linha vertical em 11 (threshold atual) para quantificar estados que precisam de re-rotulação. **blockedBy**: T-A3-006. **Gate**: notebook roda do zero e gera gráficos sem erros. **Entregue 2026-05-25**: Seção 3 ("Cadeias Longas") cobre (a)(b)(c); `prof_min` calculado e validado — prova que 100% dos estados com cadeia longa têm rótulo correto (41.008 re-rotulados em p=20). Notebook executado com saídas completas (419 NPZs, 3.423.460 amostras).
 
-**Checkpoint Fase A.3**: NPZs enriquecidos com 12 canais + 3 escalares; Databricks Fase 3 pronto para execução pontual; 608 NPZs totais (152 originais + 456 sufixados); notebooks de treino e análise atualizados; pode-se iniciar Fase B.
+**Checkpoint Fase A.3**: NPZs enriquecidos com 12 canais + 3 escalares; Databricks Fase 3 pronto para execução pontual; 608 NPZs totais (152 originais + 456 sufixados); notebooks de treino e análise atualizados; pode-se iniciar Fase V11.
+
+---
+
+## Fase V11 — Evolução Arquitetural CNN (BoxNet v4)
+
+> **Criada em 2026-05-27.** Diagnóstico definitivo após dois ciclos de treino (3.4MM e 13.8MM amostras; 5 → 12 canais): a arquitetura BoxNet v3 está em regime de **alto viés (underfitting)** — gap treino–val ≈ 0 e train Top-1 ≈ val Top-1 ≈ 46,4%. Adicionar dados ou canais não ajuda; o modelo não consegue nem memorizar os dados de treino. A limitação é de **capacidade representacional**. Decisão completa em `docs/historico_decisoes.md` (entrada 2026-05-27 — Pivô Arquitetural V11).
+
+**Objetivo**: substituir BoxNet v3 (76k params, SeparableConv2D, 2 blocos, Dense(96)) por BoxNet v4 (300k–1M params, Conv2D regular, 4–5 blocos, Dense(256+)), com diagnóstico de overfit como primeiro passo e monitor OMA em substituição ao val_loss.
+
+**Gate da fase**: Train Top-1 ≥ 65% em teste de overfit (confirma capacidade); OMA ≥ 85% na 1ª Metade (traços 12–17); vitórias vs p=6 ≥ 78%.
+
+- [ ] T-V11-001 **Teste de overfit diagnóstico** — filtrar 50k amostras da 1ª Metade (traços 12–17) no notebook V10; desligar L2=0 e dropout=0 na arquitetura; renomear checkpoint para `BoxNet_V10_{K}canais_OVERFIT.keras` (impede carregar checkpoint anterior); aumentar paciência de EarlyStopping para 200. Rodar 30–50 épocas. **Gate**: se train accuracy ≥ 65% e val ≈ 52% → overfitting confirmado (arquitetura tem capacidade mas precisa de regularização); se ambos ficam ≈ 52% → capacidade limitada confirmada. Instrução detalhada em `docs/historico_decisoes.md` (entrada 2026-05-27).
+
+- [ ] T-V11-002 **Implementar BoxNet v4** no notebook V10 (célula de arquitetura): (a) substituir `SeparableConv2D` por `Conv2D` regular em todos os blocos residuais; (b) expandir para 4–5 blocos com filtros crescentes (64→128→256→256); (c) remover `GlobalAveragePooling2D`, manter apenas `Flatten` (preserva WHERE no tensor); (d) substituir `Dense(96)` por `Dense(256)`. Meta: 300k–1M parâmetros. **blockedBy**: T-V11-001. **Gate**: `model.summary()` exibe ≥ 300k parâmetros; sem camadas `SeparableConv2D` ou `GlobalAveragePooling2D`.
+
+- [ ] T-V11-003 **Implementar callback MonitorOMA** — classe Keras Callback que computa OMA num subset de validação (≤ 200k amostras) ao final de cada época; expõe métrica `val_oma` para EarlyStopping e ModelCheckpoint. **Gate**: callback executa em ≥ 1 época sem erro; `val_oma` presente nos logs do CSV.
+
+- [ ] T-V11-004 **Treinar BoxNet v4 com monitor OMA** — substituir `monitor='val_loss'` por `monitor='val_oma'` em EarlyStopping e ModelCheckpoint; integrar callback MonitorOMA ao treino. **blockedBy**: T-V11-002, T-V11-003. **Gate**: treino conclui; checkpoint selecionado pelo melhor `val_oma`; CSV de métricas inclui coluna `val_oma`.
+
+- [ ] T-V11-005 **Avaliar BoxNet v4** via `Avaliacao_CNN_vs_Minimax.ipynb` (200 partidas × p=1/3/5/6). **blockedBy**: T-V11-004. **Gate**: relatório coletado; comparar OMA por fase e win-rates vs BoxNet v3 baseline (OMA 1ª Metade 80,3%; vitórias vs p=6 71,5%).
+
+- [ ] T-V11-006 **[CONDICIONAL] Regularização** — se gap treino–val > 5pp após T-V11-005: reativar L2 (2e-4) e dropout (0.15–0.20 por bloco, 0.5 no Dense); re-treinar. **blockedBy**: T-V11-005. **Gate**: gap treino–val < 5pp sem queda de OMA > 2pp.
+
+- [ ] T-V11-007 **[CONDICIONAL] Auto-atenção** — se vitórias vs p=6 < 75% após T-V11-005/006: adicionar bloco de auto-atenção (cada caixa = token de K-dim) entre último bloco residual e Dense. **blockedBy**: T-V11-005. **Gate**: vitórias vs p=6 ≥ 78%.
+
+- [ ] T-V11-008 **Value head (Fase F integrada)** — após arquitetura validada: adicionar value head (`Conv1×1(16) → Flatten → Dense(64, relu) → Dense(1, tanh)`); treinar dual-head com loss KLD + λ·MSE; exportar TFLite policy-only. **blockedBy**: T-V11-005. **Gate**: MSE value ≤ 0.10; TFLite policy-only gerado.
+
+- [ ] T-V11-009 Adicionar entrada datada em `docs/historico_decisoes.md` consolidando resultados do BoxNet v4 (tabela v3 vs v4: OMA por fase, win-rates, parâmetros). **blockedBy**: T-V11-005. **Gate**: entrada presente com data, tabela comparativa e próximos passos.
+
+**Checkpoint Fase V11**: BoxNet v4 validado com OMA ≥ 85% na 1ª Metade e vitórias vs p=6 ≥ 78%; pode-se passar a reduzir o modelo para TFLite mobile se necessário.
 
 ---
 
@@ -587,10 +617,14 @@ ser implementada ANTES de F como "Fase D.5".
 
 ### Próximas ações recomendadas
 
-| Prioridade | Ação | Onde | Sem re-gerar dados? |
+> **Pivô 2026-05-27**: as propostas de sample weight e Dense(256) foram substituídas pelo plano **Fase V11 — Evolução Arquitetural**. O problema raiz é alto viés (underfitting), não falta de dados ou peso de amostras.
+
+| Prioridade | Tarefa V11 | Onde | Sem re-gerar dados? |
 |---|---|---|---|
-| 1 | Sample weight em_cadeia_curta × 2.0 + 1a Metade × 2.5 | V10 notebook | ✓ Sim |
-| 2 | Dense(96→256) | V10 notebook (arquitetura) | ✓ Sim |
-| 3 | Treinar V10 com mudanças acima | PC local (~40h) | ✓ Sim |
-| 4 | Escalares broadcast K=12..15 | Fase 2 V8 + Fase 4 + V10 | ✗ Re-gerar |
-| 5 | Fase F (value head) | V10 notebook | ✓ Sim |
+| 1 | **T-V11-001** Teste de overfit diagnóstico (50k, sem L2/dropout) | V10 notebook | ✓ Sim |
+| 2 | **T-V11-002** BoxNet v4 (Conv2D, 4–5 blocos, Dense(256)) | V10 notebook (arquitetura) | ✓ Sim |
+| 3 | **T-V11-003** Callback MonitorOMA | V10 notebook | ✓ Sim |
+| 4 | **T-V11-004** Treinar v4 com monitor OMA | PC local (~40h) | ✓ Sim |
+| 5 | **T-V11-005** Avaliar BoxNet v4 | `Avaliacao_CNN_vs_Minimax.ipynb` | ✓ Sim |
+| 6 | **T-V11-006/007** Regularização e/ou atenção (condicionais) | V10 notebook | ✓ Sim |
+| 7 | **T-V11-008** Value head + TFLite policy-only | V10 notebook | ✓ Sim |
