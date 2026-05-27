@@ -6,6 +6,181 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-27 — Teste de overfit conclusivo + BoxNet v4 implementada (V11)
+
+### Resultado do teste de overfit (T-V11-001) — capacidade limitada CONFIRMADA
+
+Rodado sobre 50k amostras da 1ª Metade (traços 12–17), L2=0, dropout=0, paciência alta.
+Após 55 épocas:
+
+| Época | Train accuracy | Val accuracy |
+|---|---|---|
+| 2 | 41.7% | 49.0% |
+| 10 | 48.2% | 48.6% |
+| 31 | 49.3% | 52.3% |
+| 55 | 49.5% | 50.6% |
+
+**Gap treino–validação = zero** (a validação chega a superar o treino). Sem nenhuma
+regularização, a BoxNet v3 não consegue memorizar nem 50k amostras. Diagnóstico de **alto
+viés / saturação de representação** confirmado definitivamente — não é overfitting, não é
+falta de dados, não é falta de canais. É estrutural. (ReduceLR nunca disparou: val_loss
+seguiu caindo lentamente; irrelevante para a conclusão.)
+
+### BoxNet v4 — arquitetura implementada em `Treinamento_CNN_Pontinhos_V11.ipynb`
+
+Notebook V11 criado a partir do V10. **4.951.839 parâmetros** (~65× a v3). Cada uma das 5
+mudanças ataca um problema diagnosticado:
+
+| Mudança | De (v3) | Para (v4) | Problema que resolve |
+|---|---|---|---|
+| Convolução | `SeparableConv2D` | `Conv2D` regular | mistura plena canal×espaço a cada passo |
+| Profundidade | 2 blocos | **5 blocos residuais** (64→64→128→128→256→256) | raciocínio de cadeia é multi-passo |
+| Redução espacial | `GlobalAveragePooling2D` + Flatten | **só `Flatten`** | preserva POSIÇÃO (seleção de aresta é espacial) |
+| Cabeça | `Dense(96)` | `Dense(512) → Dense(256)` | gargalo estreito demais |
+| Raciocínio global | — | **bloco de auto-atenção** (caixa = token) | cadeia i↔j em 1 passo (paridade/double-cross) |
+
+- **Monitor de época**: `val_loss` (KLD) → **`val_oma`** via callback `MonitorOMA` (calcula OMA
+  num subset de ≤200k da validação ao fim de cada época; 1º callback da lista para popular
+  `logs['val_oma']` antes de EarlyStopping/ModelCheckpoint/ReduceLROnPlateau, todos com `mode='max'`).
+- **Regularização inicial mínima**: L2=0, dropout 0.2 só na cabeça (BatchNorm em todo o tronco).
+  Regularização adicional fica para T-V11-006 se aparecer gap.
+- **Batch 512**, Adam lr=1e-3, EarlyStopping patience=15, ReduceLR patience=6.
+- **TFLite float32 sem quantização** (~18,9 MB) — fidelidade máxima; tamanho não importa nesta fase.
+  Conversão exige `SELECT_TF_OPS` (a atenção usa einsum); o `tf.lite.Interpreter` do `.venv_gpu`
+  já dispõe do delegate Flex. **Atenção**: o notebook de avaliação precisa usar `tf.lite.Interpreter`
+  (TF completo), não `tflite_runtime`.
+
+> A auto-atenção foi **antecipada** (era T-V11-007 condicional) por decisão do usuário de buscar
+> o modelo mais robusto possível já nesta rodada, sem restrição de tamanho. Validado em isolado:
+> build OK, predict OK, conversão TFLite + inferência via Interpreter OK.
+
+### Próximo passo
+
+Rodar `Treinamento_CNN_Pontinhos_V11.ipynb` no PC local (kernel `venv_gpu`). Acompanhar `val_oma`
+por época e comparar OMA por fase / win-rate vs baseline v3 (OMA 1ª Metade 80,3%; vs p=6 71,5%).
+
+---
+
+## 2026-05-27 — Pivô arquitetural: de "mais dados/canais" para evolução da CNN
+
+### Contexto
+
+Após dois ciclos de treinamento completos com `Treinamento_CNN_Pontinhos_V10.ipynb` no PC local
+(GTX 1650, TF 2.10.0):
+
+| Experimento | Amostras | val_loss | OMA global | vs p=6 vitórias | vs p=6 derrotas |
+|---|---|---|---|---|---|
+| V10 — 3.4MM (sem augmentação) | 3.423.460 | 0.1555 | 90.7% | 68.0% | 22.5% |
+| V10 — 13.8MM (com augmentação, inclui dup.) | 13.693.840 | 0.1520 | 91.1% | 71.5% | 15.0% |
+
+E o histórico acumulado de experimentos anteriores:
+- 754k amostras (sem canais estruturais, Minimax p=11): 63% vs p=6 — T-A1-008
+- 5 → 12 canais estruturais (incluindo paridade K=11): ganho marginal de OMA global
+
+### Diagnóstico — alto viés (underfitting estrutural)
+
+Dois indicadores independentes convergem:
+
+1. **Gap treino–validação ≈ 0** (Top-1 gap = +0.01pp, KLD gap = 0.0004): o modelo performa
+   identicamente em dados vistos e não-vistos — atingiu o teto de sua representação, não está
+   memorizando.
+
+2. **Padrão de erro idêntico entre todos os experimentos**: `em_cadeia_curta` sobrerrepresentado
+   em +20pp nos erros em todos os tamanhos de dataset. Mais dados e mais canais não alteram o
+   padrão.
+
+3. **5 → 12 canais estruturais sem ganho significativo**: mesmo com canal K=11
+   (`paridade_cadeia_longa_impar`) entregue explicitamente, o modelo não melhora nos estados
+   críticos. O bottleneck não é a informação disponível na entrada — é a capacidade de processá-la.
+
+4. **Gargalo localizado**: OMA da 1a Metade (traços 12–17) = **80.3%**, mesmo nos dados de
+   **treino** (gap ≈ 0 ⟹ treino ≈ val). O modelo não consegue aprender as decisões de sacrifício
+   de cadeia curta nem nos exemplos vistos repetidamente.
+
+**Regime teórico**: mais dados e mais canais de entrada atacam variância. Com variância baixa
+(gap ≈ 0), o regime é de alto viés — a cura é arquitetura maior e melhor.
+
+### Por que a BoxNet v3 (76k params) está limitada — análise por camada
+
+| Problema | O que essa camada faz | Por que falha aqui |
+|---|---|---|
+| `SeparableConv2D` nos blocos internos | Separa filtragem espacial (por canal, independente) de mistura de canais (só na mesma posição). Não faz "canal A na caixa X + canal B na caixa Y" em um passo. | Interações canal×espaço são a essência da detecção de cadeias (ex.: `em_cadeia_curta` aqui + `em_cadeia_longa` ali). Projetado para economizar cálculo em imagens grandes — irrelevante numa grade 4×3. |
+| Apenas 2 blocos residuais | Cada bloco = um passo de transformação sequencial. | Raciocínio de cadeia é multi-passo (percorrer → contar → avaliar paridade → decidir sacrifício). ~4 passos é insuficiente. |
+| Cabeça `Dense(96)` estreita | Comprime 624 features convolucionais em 96 neurônios onde toda a decisão estratégica acontece. | Gargalo muito estreito para combinar informações globais e locais numa escolha entre 31 arestas. |
+| `GlobalAveragePooling2D` | Colapsa a dimensão espacial (4×3) em um único vetor por canal — perde onde estão as features. | Para escolher qual aresta jogar, a posição é tudo. O modelo compensa com `Flatten` mas a camada `Dense(96)` não consegue usar bem os 624 inputs. |
+| 76k parâmetros | Top-1 de **treino** = 46.4% (igual à validação). O modelo sequer consegue memorizar o conjunto de treino. | Com 13.8M amostras e complexidade tática rica, 76k parâmetros é estruturalmente insuficiente. Não é sobreajuste — é viés alto. |
+
+### Decisão — Fase V11: Evolução Arquitetural
+
+**Sequência experimental aprovada:**
+
+1. **Teste de overfit diagnóstico** (BoxNet v3 atual, sem regularização, 50k amostras da 1a
+   Metade): verificar se a arquitetura sequer consegue memorizar um subconjunto pequeno. Se
+   não → saturação de representação confirmada definitivamente.
+
+2. **Nova arquitetura BoxNet v4**: substituir `SeparableConv2D` por `Conv2D` cheio; expandir
+   para 4–5 blocos residuais (largura 64→96→128); cabeça `Dense(512→128)`; alvo 300k–1M params.
+
+3. **Monitor OMA personalizado**: substituir `val_loss` por OMA como critério de seleção de
+   checkpoint e parada antecipada (OMA é a métrica que importa; val_loss é um proxy).
+
+4. (Condicional) Se gap treino>val aparecer → reativar regularização + augmentação.
+
+5. Value head (Fase F do plano original) após estabilização arquitetural.
+
+**Sem restrição de tamanho de modelo**: Flutter ainda não existe. O modelo atual (0,25 ms/jogada)
+tem folga de ~21.000× vs Minimax p=6 (5.400 ms). Prioridade: encontrar o ótimo arquitetural;
+reduzir por poda/quantização quando o App se tornar o próximo passo.
+
+### Ajustes no Notebook V10 para o teste de overfit diagnóstico
+
+**Célula nova** (inserir após célula `690f4ef8` de carga, antes da `b5b85fe1` de arquitetura):
+
+```python
+# === OVERFIT DIAGNÓSTICO: 50k da 1a Metade — NÃO executar no treino normal ===
+TAMANHO_OVERFIT = 50_000
+qtd_treino = qtd_tracos_all[idx_train];  qtd_val = qtd_tracos_all[idx_val]
+mask_treino = (qtd_treino >= 12) & (qtd_treino <= 17)
+mask_val    = (qtd_val    >= 12) & (qtd_val    <= 17)
+mask_teste  = (tracos_test >= 12) & (tracos_test <= 17)
+rng = np.random.default_rng(42)
+idx_overfit = np.where(mask_treino)[0]
+sel = np.sort(rng.choice(idx_overfit, size=min(TAMANHO_OVERFIT, len(idx_overfit)), replace=False))
+X_train = X_train[sel];    y_train = y_train[sel]
+X_val   = X_val[mask_val]; y_val   = y_val[mask_val]
+X_test  = X_test[mask_teste]; y_test = y_test[mask_teste]
+y_test_idx  = y_test.argmax(axis=1);   S_test      = S_test[mask_teste]
+fase_test   = fase_test[mask_teste];   tracos_test = tracos_test[mask_teste]
+cadeias_test = cadeias_test[mask_teste]; canais_test = canais_test[mask_teste]
+sw = None
+print(f'OVERFIT: treino={len(X_train):,} | val={len(X_val):,} | teste={len(X_test):,}')
+```
+
+**Célula `b5b85fe1` (arquitetura)** — três linhas a alterar:
+- `L2 = 2e-4` → `L2 = 0.0`
+- `bloco_residual_separavel(x, 32, l2=L2, dropout=0.15)` → `dropout=0.0`
+- `bloco_residual_separavel(x, 48, l2=L2, dropout=0.20)` → `dropout=0.0`
+- `layers.Dropout(0.5)(h)` → `layers.Dropout(0.0)(h)`
+
+**Célula `593a9cfd` (treinamento)** — duas linhas a alterar:
+- `f'BoxNet_V10_{K}canais_best_valloss.keras'` → `f'BoxNet_V10_{K}canais_OVERFIT.keras'`
+- `EarlyStopping(..., patience=10, ...)` → `patience=200`
+
+**O que observar:** Após 30–50 épocas, o `accuracy` (treino) deve subir bem acima do
+`val_accuracy`. Se `accuracy` de treino estacionar ≈ `val_accuracy` ≈ 52%, o modelo não
+consegue memorizar 50k amostras → saturação de representação confirmada definitivamente.
+
+### Alternativas descartadas
+
+- **Escalares de cadeia como canais broadcast (K=12..15)**: descartado como prioridade. A
+  evidência de 5→12 canais sem ganho indica que o bottleneck é processamento, não informação.
+- **Mais dados / mais augmentação**: já testado exaustivamente (754k → 13.8M); rendimento
+  decrescente confirmado. Ataca variância — não se aplica ao regime de alto viés.
+- **Sample_weight refinado / foco em 1a Metade (Fase E)**: complemento útil mas não resolve
+  o viés estrutural. Mantido para após a evolução arquitetural.
+
+---
+
 ## 2026-05-25 — Abandono do Colab; treinamento V10 migrado para PC local (GTX 1650)
 
 ### Contexto
