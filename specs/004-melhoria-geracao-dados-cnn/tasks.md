@@ -502,3 +502,95 @@ migrou para PC local. Artefatos entregues:
 Rodar `Treinamento_CNN_Pontinhos_V10.ipynb` no PC local com kernel `venv_gpu`.
 Para GPU: instalar CUDA Toolkit 11.2 + cuDNN 8.1 (ver `docs/jogo_pontinhos/guia_geracao_dados.md`).
 Sem GPU: funciona em CPU (~8–20h). Com GPU: ~8–14h.
+
+---
+
+## Estado de execução — sessão 2026-05-27 (V10 concluído — análise de saturação)
+
+### Resultados obtidos nesta sessão
+
+Dois treinamentos completos foram executados e avaliados:
+
+| Experimento | Amostras | Épocas | val_loss | OMA | vs p=6 vitórias | vs p=6 derrotas |
+|-------------|----------|--------|----------|-----|-----------------|-----------------|
+| V10 — 3.4MM (sem augmentação) | 3.423.460 | 144 | 0.1555 | 90.7% | 68.0% | 22.5% |
+| V10 — 13.8MM (com augmentação) | 13.693.840 | ckpt | 0.1520 | 91.1% | 71.5% | 15.0% |
+
+### Diagnóstico: rendimento decrescente, não estagnação
+
+A melhora de 22.5% → 15% de derrotas contra p=6 é real. Mas o ganho de 4× dados
+foi apenas +3.5pp de vitórias — rendimento claramente decrescente. Duas evidências:
+
+1. **Gap treino–val = 0** (Top-1: 0.01pp, KLD: 0.0004): o modelo aprendeu tudo que
+   consegue extrair dos dados. Não está overfitting; está no limite de representação.
+
+2. **Padrão de erro idêntico**: `em_cadeia_curta` sobrerrepresentado em +20pp nos erros
+   tanto com 3.4MM quanto com 13.8MM — a arquitetura não resolve esse tipo de estado
+   independente de mais dados do mesmo tipo.
+
+### Gargalo identificado: 1ª Metade (traços 12–17)
+
+| Fase | OMA (3.4MM) | OMA (13.8MM) | Status |
+|------|-------------|--------------|--------|
+| Abertura (0–11) | 87.3% | 87.1% | Quasi-estável — muitas jogadas equivalentes |
+| **1a Metade (12–17)** | **78.5%** | **80.3%** | **Gargalo — decisões de cadeia incorretas** |
+| 2a Metade (18–23) | — | 98.8% | OK |
+| Fase Quente (24–28) | — | 100.0% | Perfeito |
+| Final (29–31) | — | 100.0% | Perfeito |
+
+O modelo erra sistematicamente quando precisa decidir se sacrifica uma cadeia curta.
+A decisão depende de qtd_cadeias_longas e total_caixas — valores presentes no NPZ mas
+ausentes do tensor CNN como features explícitas.
+
+### Saturação arquitetural: representação, não parâmetros
+
+BoxNet v3 (76k params) NÃO está saturado no sentido clássico (não há overfitting).
+Está limitado pela **representação**: o tensor (4,3,12) não entrega explicitamente as
+propriedades globais de cadeia que determinam jogadas críticas em 1a Metade.
+
+Adicionar blocos residuais extras não ajuda — a grade 4×3 já é coberta globalmente
+pelos 2 blocos existentes. O problema não é receptive field.
+
+### Mudanças arquiteturais/treinamento propostas (por prioridade)
+
+1. **[ALTO] Escalares de cadeia como canais broadcast K=12..15** — adicionar ao tensor
+   de entrada: `qtd_cadeias_longas/3`, `total_caixas_cadeias_longas/12`,
+   `tamanho_max_cadeia_longa/12`, `qtd_tracos/31`. Broadcast em todas as 12 células.
+   Shape passa de (4,3,12) para (4,3,16). Exige re-gerar NPZs aumentados.
+
+2. **[MÉDIO] Sample weight em_cadeia_curta × 2.0** — estados com canal 7 ativo são
+   35% do dataset mas 55% dos erros. Peso 2.0 nesses estados força o gradiente
+   nos casos críticos. Implementável diretamente no V10.
+
+3. **[MÉDIO] Upsampling de 1a Metade (sw × 2.5 para traços 12–17)** — 20% dos dados
+   mas 20% dos erros de OMA. Combinar com Fase E (Δ_top2). Implementável no V10.
+
+4. **[BAIXO] Dense(256) ao invés de Dense(96)** — mais capacidade de combinar features
+   CNN com raciocínio estratégico. +~100k params, TFLite ~170KB (dentro do limite).
+
+5. **[MÉDIO] Fase E — Δ_top2 para t∈[12,17]** — já no tasks.md; implementar como
+   planejado, combinado com pesos por em_cadeia_curta.
+
+6. **[MÉDIO] Fase F — Value head** — obriga o modelo a prever placar esperado; pode
+   melhorar raciocínio estratégico indiretamente.
+
+### Estado das Fases B/C/D
+
+Fases B, C, D têm tasks `[ ]` mas foram efetivamente absorvidas pelo V10:
+- **Fase D gate atendido**: vitórias vs p=5 = 73% ≥ 70% ✓
+- **Augmentação 4× ativa** (Fase C): 13.8MM inclui _refH/_refV/_r180 ✓
+- **12 canais ativos** (Fase D): V10 usa todos os 12 canais ✓
+
+Recomendação: fechar B/C/D como "absorvidas pelo V10" e avançar para Fase E com as
+modificações de sample weight acima. A Proposta 1 (escalares broadcast K=12..15) deve
+ser implementada ANTES de F como "Fase D.5".
+
+### Próximas ações recomendadas
+
+| Prioridade | Ação | Onde | Sem re-gerar dados? |
+|---|---|---|---|
+| 1 | Sample weight em_cadeia_curta × 2.0 + 1a Metade × 2.5 | V10 notebook | ✓ Sim |
+| 2 | Dense(96→256) | V10 notebook (arquitetura) | ✓ Sim |
+| 3 | Treinar V10 com mudanças acima | PC local (~40h) | ✓ Sim |
+| 4 | Escalares broadcast K=12..15 | Fase 2 V8 + Fase 4 + V10 | ✗ Re-gerar |
+| 5 | Fase F (value head) | V10 notebook | ✓ Sim |
