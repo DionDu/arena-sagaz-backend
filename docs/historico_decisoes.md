@@ -6,6 +6,59 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-27 — BoxNet v4 (V11) valida o pivô: salto decisivo em OMA e win-rate
+
+Primeira rodada da BoxNet v4 (Colab, **apenas 754k amostras originais**, 84 épocas,
+melhor época 64 por `val_oma`). Confirma que o gargalo da v3 era capacidade, não dados.
+
+### Win-rate vs Minimax (200 partidas/adversário) — v3 (13,8M) vs v4 (754k)
+
+| Adversário | v3 vitórias | v4 vitórias | Δ | derrotas v3 → v4 |
+|---|---|---|---|---|
+| p=1 | 98,0% | 96,5% | −1,5pp | 0,5% → 2,0% |
+| p=3 | 77,0% | **94,0%** | +17pp | 7,0% → 2,5% |
+| p=5 | 73,0% | **86,5%** | +13,5pp | 11,0% → 8,0% |
+| p=6 | 71,5% | **83,5%** | +12pp | 15,0% → 9,5% |
+
+A v4 com 18× menos dados supera amplamente a v3. Queda leve vs p=1 (4/200) = ruído.
+
+### OMA por fase — 1ª Metade destravada
+
+| Fase | v3 (13,8M) | v4 (754k) |
+|---|---|---|
+| Abertura (0–11) | 87,1% | 92,7% |
+| **1ª Metade (12–17)** | **80,3%** | **91,7%** (+11,4pp) |
+| 2ª Metade (18–23) | 98,8% | 99,7% |
+| Fase Quente / Final | 100% | 100% |
+
+OMA global: 91,1% → **95,6%**.
+
+### Capacidade confirmada (overfit leve, como previsto)
+
+Gap KLD treino/val 0,0101 vs 0,0420; Top-1 gap +1,96pp; OMA val = test = 95,6%
+(generaliza). A v4 tem capacidade de sobra; overfit brando nos 754k → sinal verde
+para escalar dados (13,8M com augmentação) e/ou regularizar (T-V11-006).
+
+### Erros residuais (4,4% do teste)
+
+Concentrados em `em_cadeia_curta` (+16,4pp nos erros) e `eh_grau2` (+14pp) — decisões
+de cadeia curta no meio de jogo. Já bem resolvidos (delta negativo forte): `eh_grau3`
+(−43pp), `caixa_fechada` (−24pp), `em_cadeia_longa` (−21pp), `em_cadeia_aberta_uma_ponta`
+(−18pp), `paridade_cadeia_longa_impar` (−17pp). Atenção + paridade resolveram cadeia longa.
+
+### Gate da Fase V11 — ATENDIDO (em 754k)
+
+1ª Metade OMA 91,7% ≥ 85% ✓ · vitórias vs p=6 83,5% ≥ 78% ✓ · capacidade confirmada.
+TFLite float32 = 19,3 MB; inferência 2,6–3,2 ms/jogada (700–2.175× mais rápida que p=5/6).
+
+### Run local 13,8M — lento demais na GTX 1650
+
+~175 min/época (3h); época 1 já com val_oma 0,9478. Convergir levaria ~2–3 dias. Os
+13,8M deram OOM no Colab free antes (motivo da migração local). Decisão de rumo pendente:
+continuar local, iterar regularização rápida em 754k, ou rodada final 13,8M.
+
+---
+
 ## 2026-05-27 — Teste de overfit conclusivo + BoxNet v4 implementada (V11)
 
 ### Resultado do teste de overfit (T-V11-001) — capacidade limitada CONFIRMADA
