@@ -6,6 +6,96 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-28 — BoxNet v4 sobre 3,4M originais: modelo "perfeito" candidato
+
+Rodada definitiva do BoxNet v4 no Colab T4 com os **419 NPZs originais (3.423.460 amostras
+brutas, sem espelhamento/rotação)**, tag `boxnetv4_base3p4M`. 62 épocas, melhor `val_oma`
+na época final. Confirma e amplifica os ganhos do run de 754k; é o atual candidato a
+modelo "perfeito" para a Arena Sagaz.
+
+### Progressão completa (v3 → v4-754k → v4-3,4M)
+
+**OMA por fase — gargalo da 1ª Metade praticamente eliminado**
+
+| Fase | v3 (13,8M) | v4 754k | **v4 3,4M** | Δ total |
+|---|---|---|---|---|
+| Abertura (0–11) | 87,1% | 92,7% | **97,5%** | +10,4pp |
+| **1ª Metade (12–17)** | **80,3%** | 91,7% | **97,5%** | **+17,2pp** |
+| 2ª Metade (18–23) | 98,8% | 99,7% | 99,9% | +1,1pp |
+| Fase Quente / Final | 100% | 100% | 100% | — |
+| **OMA global** | 91,1% | 95,6% | **98,6%** | +7,5pp |
+
+Taxa de erro (1 − OMA): v3 ≈ 8,9% → v4-754k 4,4% → **v4-3,4M 1,4%** (≈6× menos erros que v3).
+
+**Win-rate vs Minimax (200 partidas/adversário)**
+
+| Adversário | v3 | v4 754k | v4 3,4M | empates 754k → 3,4M | derrotas 754k → 3,4M |
+|---|---|---|---|---|---|
+| p=1 | 98,0% | 96,5% | 97,0% | 1,5% → 1,5% | 2,0% → 1,5% |
+| p=3 | 77,0% | 94,0% | 90,0% | 3,5% → 7,0% | 2,5% → 3,0% |
+| p=5 | 73,0% | 86,5% | 87,0% | 5,5% → 8,5% | **8,0% → 4,5%** |
+| p=6 | 71,5% | 83,5% | 80,0% | 7,0% → 9,5% | 9,5% → 10,5% |
+
+**Caixas cedidas vs p=6**: 6,3% → **5,5%** (modelo faz menos sacrifícios desnecessários).
+
+### Capacidade vs overfit (saudável)
+
+- KLD treino 0,0072 · val 0,0166 · teste 0,0165 — val ≈ test (generaliza).
+- Top-1: treino 0,5410 · val 0,5330 — **gap +0,80pp** (muito pequeno).
+- T-V11-006 (regularização condicional) **dispensada** — gap está dentro do limite.
+
+### Interpretação — perfil mudou, qualidade subiu
+
+O 3,4M ficou **mais conservador** que o 754k: vitórias caíram levemente vs p=3 (94→90) e
+p=6 (83,5→80), mas em compensação **derrotas vs p=5 caíram pela metade** (8,0% → 4,5%) e
+os empates subiram em todas as profundidades. Não-derrota (vitórias + empates) vs p=6 ficou
+em 89,5% (vs 90,5% do 754k) — efetivamente equivalente, dentro da banda de ±3pp para
+200 partidas. A "queda nas vitórias" é o trade-off natural de um modelo mais alinhado com
+o Minimax: erra menos, mas quando não consegue vencer ele empata em vez de apostar em
+sacrifício arriscado.
+
+### Erros residuais (1,4%) — concentrados em cadeia curta + grau-2
+
+Correlação canal × erro:
+
+| Canal | Δ (pp) |
+|---|---|
+| `eh_grau2` | +14,0 |
+| `em_cadeia_curta` | +12,1 |
+| `eh_grau3` | **−45,6** |
+| `caixa_fechada` | **−27,1** |
+| `em_cadeia_longa` | **−23,6** |
+| `em_cadeia_aberta_uma_ponta` | **−18,6** |
+| `paridade_cadeia_longa_impar` | −19,5 |
+
+Cadeia longa, paridade, double-cross, grau-3 e endgame: **resolvidos**. O resíduo é a
+decisão "abrir ou não esta cadeia curta no meio de jogo" — exatamente o tipo de troca
+estratégica que um **value head** (T-V11-008) atacaria diretamente.
+
+### Decisão e próximos passos
+
+1. **Travar este modelo como o "BoxNet v4 base"** — TFLite `pontinhos_pequeno_cnn_depth_11_e_20_12canais_boxnetv4_base3p4M.tflite`
+   (19,3 MB float32), checkpoint `BoxNet_V11_boxnetv4_base3p4M_12canais_best_oma.keras`.
+2. **T-V11-008 (value head)** — próximo experimento arquitetural: nova tag `valuehead_3p4M`,
+   mesma base de dados, adiciona alvo `score_normalizado` como saída auxiliar (descartada
+   no TFLite). Hipótese: o sinal de placar empurra o modelo a entender melhor as decisões
+   de sacrifício de cadeia curta.
+3. **Run local de exploração (`boxnetv4_base6p9M_dist_sw`, DISTINTAS + SW por traços)** —
+   em paralelo; trata-se de uma config bundle (3 alavancas trocadas de uma vez), portanto
+   não substitui o `boxnetv4_base3p4M` como degrau da ablação. Mantido como exploração;
+   resultado será comparado quando convergir.
+4. **Escada de ablação (R0 → R4) para o TCC** — pode começar a ser planejada agora que o
+   topo (R3/R4) está definido. Cada degrau treinado sobre a mesma base de 3,4M originais,
+   com tag distinta, sem sobrescrever resultados.
+
+### Gate da Fase V11 — ATENDIDO COM FOLGA
+
+OMA 1ª Metade 97,5% (≥ 85% ✓) · vitórias vs p=6 80% (≥ 78% ✓) · gap treino/val mínimo
+(capacidade confirmada) · não-derrota vs p=6 = 89,5%. Modelo pronto para ser declarado a
+"BoxNet v4 oficial" do projeto.
+
+---
+
 ## 2026-05-27 — BoxNet v4 (V11) valida o pivô: salto decisivo em OMA e win-rate
 
 Primeira rodada da BoxNet v4 (Colab, **apenas 754k amostras originais**, 84 épocas,

@@ -124,17 +124,17 @@ O Minimax para naturalmente quando não há mais jogadas. p=20 resolve qualquer 
 
 - [x] T-V11-003 **Implementar callback MonitorOMA** — classe Keras Callback que computa OMA num subset de validação (≤ 200k amostras) ao final de cada época; expõe métrica `val_oma` para EarlyStopping e ModelCheckpoint. **Gate**: callback executa em ≥ 1 época sem erro; `val_oma` presente nos logs do CSV. **Entregue 2026-05-27**: classe `MonitorOMA` na célula de treino do V11 (1º callback da lista); EarlyStopping/ModelCheckpoint/ReduceLROnPlateau migrados para `monitor='val_oma', mode='max'`. `S_val` adicionado à célula de carga de dados.
 
-- [x] T-V11-004 **Treinar BoxNet v4 com monitor OMA** — substituir `monitor='val_loss'` por `monitor='val_oma'` em EarlyStopping e ModelCheckpoint; integrar callback MonitorOMA ao treino. **blockedBy**: T-V11-002, T-V11-003. **Gate**: treino conclui; checkpoint selecionado pelo melhor `val_oma`; CSV de métricas inclui coluna `val_oma`. **Entregue 2026-05-27**: rodada Colab com 754k originais (V11_Colab), 84 épocas, melhor `val_oma=0,9564` na época 64. Run 13,8M local em andamento (~3h/época na GTX 1650).
+- [x] T-V11-004 **Treinar BoxNet v4 com monitor OMA** — substituir `monitor='val_loss'` por `monitor='val_oma'` em EarlyStopping e ModelCheckpoint; integrar callback MonitorOMA ao treino. **blockedBy**: T-V11-002, T-V11-003. **Gate**: treino conclui; checkpoint selecionado pelo melhor `val_oma`; CSV de métricas inclui coluna `val_oma`. **Entregue 2026-05-27**: 1ª rodada Colab 754k originais — 84 épocas, melhor `val_oma=0,9564` (ép. 64). **Entregue 2026-05-28**: rodada definitiva Colab 3,4M originais (`boxnetv4_base3p4M`) — 62 épocas, melhor **`val_oma=0,9854`**; KLD treino/val 0,0136/0,0166; Top-1 treino/val 0,5410/0,5330 (gap +0,80pp). Run local 13,8M abandonado (OOM no MonitorOMA, depois fix CPU); local agora roda exploração `boxnetv4_base6p9M_dist_sw` (DISTINTAS + SW por traços) em paralelo.
 
-- [x] T-V11-005 **Avaliar BoxNet v4** via `Avaliacao_CNN_vs_Minimax.ipynb` (200 partidas × p=1/3/5/6). **blockedBy**: T-V11-004. **Gate**: relatório coletado; comparar OMA por fase e win-rates vs BoxNet v3 baseline (OMA 1ª Metade 80,3%; vitórias vs p=6 71,5%). **Entregue 2026-05-27**: vs p=6 71,5% → **83,5%**; vs p=5 73% → 86,5%; vs p=3 77% → 94%. OMA 1ª Metade 80,3% → **91,7%**; OMA global 91,1% → 95,6%. **Gate da Fase V11 atendido em 754k.** Erros residuais concentrados em `em_cadeia_curta`/`eh_grau2`.
+- [x] T-V11-005 **Avaliar BoxNet v4** via `Avaliacao_CNN_vs_Minimax.ipynb` (200 partidas × p=1/3/5/6). **blockedBy**: T-V11-004. **Gate**: relatório coletado; comparar OMA por fase e win-rates vs BoxNet v3 baseline (OMA 1ª Metade 80,3%; vitórias vs p=6 71,5%). **Entregue 2026-05-27** (754k): vitórias vs p=6 83,5%, OMA 1ª Metade 91,7%, OMA global 95,6%. **Entregue 2026-05-28** (3,4M): vitórias vs p=1/3/5/6 = 97/90/87/**80%**; derrotas vs p=5 caíram de 8,0% → **4,5%**; **OMA 1ª Metade 80,3% → 97,5%** (+17pp); **OMA global 91,1% → 98,6%** (taxa de erro 4,4% → 1,4%, 3× menos). Gate atendido com folga. Modelo ficou mais conservador (mais empates, menos sacrifícios) — esperado para um modelo de OMA mais alto.
 
-- [ ] T-V11-006 **[CONDICIONAL] Regularização** — se gap treino–val > 5pp após T-V11-005: reativar L2 (2e-4) e dropout (0.15–0.20 por bloco, 0.5 no Dense); re-treinar. **blockedBy**: T-V11-005. **Gate**: gap treino–val < 5pp sem queda de OMA > 2pp.
+- [~] T-V11-006 **[CONDICIONAL — DISPENSADO]** Regularização — gap Top-1 treino/val = **+0,80pp** (≪ 5pp). Gap KLD 0,0094. Não é necessário ativar L2/dropout extra. Mantida a config L2=0, dropout 0,2 na cabeça.
 
-- [ ] T-V11-007 **[CONDICIONAL] Auto-atenção** — se vitórias vs p=6 < 75% após T-V11-005/006: adicionar bloco de auto-atenção (cada caixa = token de K-dim) entre último bloco residual e Dense. **blockedBy**: T-V11-005. **Gate**: vitórias vs p=6 ≥ 78%.
+- [~] T-V11-007 **[CONDICIONAL — JÁ ATENDIDO POR ANTECIPAÇÃO]** Auto-atenção — bloco de auto-atenção foi incluído já na T-V11-002 (antecipado por decisão de 2026-05-27 para buscar o "modelo perfeito"). Vitórias vs p=6 = 80% (≥ 78%); gate satisfeito sem precisar reativar esta tarefa.
 
-- [ ] T-V11-008 **Value head (Fase F integrada)** — após arquitetura validada: adicionar value head (`Conv1×1(16) → Flatten → Dense(64, relu) → Dense(1, tanh)`); treinar dual-head com loss KLD + λ·MSE; exportar TFLite policy-only. **blockedBy**: T-V11-005. **Gate**: MSE value ≤ 0.10; TFLite policy-only gerado.
+- [ ] T-V11-008 **Value head (Fase F integrada)** — após arquitetura validada: adicionar value head (`Conv1×1(16) → Flatten → Dense(64, relu) → Dense(1, tanh)`); treinar dual-head com loss KLD + λ·MSE; exportar TFLite policy-only. **blockedBy**: T-V11-005. **Gate**: MSE value ≤ 0.10; TFLite policy-only gerado. **Status**: PRÓXIMO PASSO — atacar o resíduo de 1,4% (concentrado em `em_cadeia_curta`/`eh_grau2`) via sinal estratégico do placar esperado.
 
-- [ ] T-V11-009 Adicionar entrada datada em `docs/historico_decisoes.md` consolidando resultados do BoxNet v4 (tabela v3 vs v4: OMA por fase, win-rates, parâmetros). **blockedBy**: T-V11-005. **Gate**: entrada presente com data, tabela comparativa e próximos passos.
+- [x] T-V11-009 Adicionar entrada datada em `docs/historico_decisoes.md` consolidando resultados do BoxNet v4 (tabela v3 vs v4: OMA por fase, win-rates, parâmetros). **blockedBy**: T-V11-005. **Gate**: entrada presente com data, tabela comparativa e próximos passos. **Entregue 2026-05-27** (754k) e **2026-05-28** (3,4M — consolidação final do BoxNet v4 base, modelo "perfeito" candidato).
 
 **Checkpoint Fase V11**: BoxNet v4 validado com OMA ≥ 85% na 1ª Metade e vitórias vs p=6 ≥ 78%; pode-se passar a reduzir o modelo para TFLite mobile se necessário.
 
@@ -619,12 +619,13 @@ ser implementada ANTES de F como "Fase D.5".
 
 > **Pivô 2026-05-27**: as propostas de sample weight e Dense(256) foram substituídas pelo plano **Fase V11 — Evolução Arquitetural**. O problema raiz é alto viés (underfitting), não falta de dados ou peso de amostras.
 
-| Prioridade | Tarefa V11 | Onde | Sem re-gerar dados? |
+| Prioridade | Tarefa V11 | Onde | Status |
 |---|---|---|---|
-| 1 | **T-V11-001** Teste de overfit diagnóstico (50k, sem L2/dropout) | V10 notebook | ✓ Sim |
-| 2 | **T-V11-002** BoxNet v4 (Conv2D, 4–5 blocos, Dense(256)) | V10 notebook (arquitetura) | ✓ Sim |
-| 3 | **T-V11-003** Callback MonitorOMA | V10 notebook | ✓ Sim |
-| 4 | **T-V11-004** Treinar v4 com monitor OMA | PC local (~40h) | ✓ Sim |
-| 5 | **T-V11-005** Avaliar BoxNet v4 | `Avaliacao_CNN_vs_Minimax.ipynb` | ✓ Sim |
-| 6 | **T-V11-006/007** Regularização e/ou atenção (condicionais) | V10 notebook | ✓ Sim |
-| 7 | **T-V11-008** Value head + TFLite policy-only | V10 notebook | ✓ Sim |
+| ✅ | T-V11-001 Teste de overfit diagnóstico | V10 notebook | Concluído 2026-05-27 — capacidade limitada da v3 confirmada |
+| ✅ | T-V11-002 BoxNet v4 (Conv2D + atenção, 4,95M params) | V11 Colab/Local | Concluído 2026-05-27 |
+| ✅ | T-V11-003 Callback MonitorOMA + monitor val_oma | V11 Colab/Local | Concluído 2026-05-27 |
+| ✅ | T-V11-004 Treinar v4 | Colab 754k + Colab 3,4M | Concluído 2026-05-28 — melhor val_oma = **0,9854** |
+| ✅ | T-V11-005 Avaliar v4 vs Minimax | `Avaliacao_CNN_vs_Minimax.ipynb` | Concluído 2026-05-28 — vs p=6 80%, OMA 1ª Metade 97,5%, OMA global 98,6% |
+| ⊘ | T-V11-006/007 Regularização / atenção (condicionais) | — | **Dispensados** (gap mínimo; atenção já antecipada) |
+| 1 | **T-V11-008** Value head policy+value (Fase F integrada) | V11 Colab (novo `EXPERIMENTO=valuehead_3p4M`) | Próximo passo — atacar resíduo 1,4% |
+| ✅ | T-V11-009 Registro em `historico_decisoes.md` | docs/ | Concluído 2026-05-28 — entrada do BoxNet v4 base "perfeito" |
