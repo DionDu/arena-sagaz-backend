@@ -92,7 +92,7 @@ def analisar_partida(
     profundidade_forense: int,
     tamanho: str = "pequeno",
     exigir_terminal: bool = True,
-) -> list[ErroDecisivo]:
+) -> tuple[list[ErroDecisivo], dict]:
     """Roda a forense de value-swing nos lances da referência.
 
     Por padrão (`exigir_terminal=True`) só avalia lances onde a busca Minimax
@@ -100,9 +100,17 @@ def analisar_partida(
     o valor é EXATO (a `avaliar` do Minimax só é válida no terminal; em corte de
     profundidade ela devolve um diferencial parcial, sem sentido na abertura).
     Esse recorte também é o BARATO: poucos lances restantes => árvore pequena.
-    Felizmente é onde moram os erros decisivos (transição p/ o endgame).
+
+    Retorna `(erros, resumo)`. O `resumo` traz o **valor na ENTRADA da janela**
+    (`valor_entrada` = valor_otimo no primeiro lance julgado, o de menor t). Se
+    já for negativo, a partida estava **perdida ao entrar no endgame** — prova de
+    que a derrota se decidiu ANTES da janela (no meio-jogo).
     """
     erros: list[ErroDecisivo] = []
+    valor_entrada: int | None = None
+    t_entrada: int | None = None
+    n_julgados = 0
+    n_decisivos = 0
 
     for lance in partida.lances_da_referencia():
         estado = _reconstruir_estado(lance.matriz_antes, tamanho)
@@ -130,9 +138,16 @@ def analisar_partida(
         valor_jogado = diff_atual + score_jogado
         decisivo = (valor_otimo >= 0) and (valor_jogado < 0)
 
+        n_julgados += 1
+        if valor_entrada is None:  # primeiro lance julgado = entrada da janela
+            valor_entrada = int(valor_otimo)
+            t_entrada = qtd_tracos_jogados(estado)
+
         # Só guardamos lances subótimos (regret > 0). Lances ótimos não são erro.
         if regret <= 0:
             continue
+        if decisivo:
+            n_decisivos += 1
 
         traco_mm = max(scores, key=lambda t: scores[t])
         cls = classificar_traco(estado, lance.traco)
@@ -166,7 +181,17 @@ def analisar_partida(
             matriz_antes=lance.matriz_antes,
         ))
 
-    return erros
+    resumo = {
+        "seed": partida.seed,
+        "placar_ref": partida.placar_ref,
+        "placar_adv": partida.placar_adv,
+        "t_entrada": t_entrada if t_entrada is not None else -1,
+        "valor_entrada": valor_entrada if valor_entrada is not None else 999,
+        "n_julgados": n_julgados,
+        "n_erros": len(erros),
+        "n_decisivos": n_decisivos,
+    }
+    return erros, resumo
 
 
 def analisar_lote(
@@ -174,11 +199,14 @@ def analisar_lote(
     profundidade_forense: int,
     tamanho: str = "pequeno",
     progresso_callback=None,
-) -> list[ErroDecisivo]:
+) -> tuple[list[ErroDecisivo], list[dict]]:
     """Roda a forense em todas as partidas perdidas filtradas."""
     todos: list[ErroDecisivo] = []
+    resumos: list[dict] = []
     for i, p in enumerate(partidas):
-        todos.extend(analisar_partida(p, profundidade_forense, tamanho))
+        erros, resumo = analisar_partida(p, profundidade_forense, tamanho)
+        todos.extend(erros)
+        resumos.append(resumo)
         if progresso_callback is not None:
             progresso_callback(i + 1, len(partidas), len(todos))
-    return todos
+    return todos, resumos

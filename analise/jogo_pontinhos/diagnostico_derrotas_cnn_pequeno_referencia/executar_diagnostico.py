@@ -56,6 +56,8 @@ _DIMS = {"pequeno": (4, 3), "medio": (5, 4), "grande": (7, 5)}
 _FLUSH_A_CADA = 100      # (sequencial) grava corpus + checkpoint a cada N partidas
 _BATCH_PARALELO = 256    # (paralelo) tamanho do lote por checkpoint contíguo
 CAMPOS_CORPUS = [f.name for f in fields(ErroDecisivo) if f.name != "matriz_antes"]
+CAMPOS_DERROTAS = ["seed", "placar_ref", "placar_adv", "t_entrada", "valor_entrada",
+                   "n_julgados", "n_erros", "n_decisivos"]
 
 
 # ---------------------------------------------------------------------------
@@ -113,18 +115,20 @@ def _worker_init(modelo, prof_ref, tamanho, prof_adv, eps, t_max, prof_forense,
 
 
 def _worker_jogo(seed: int):
-    """Joga uma partida e, se derrota, roda a forense. Retorna dados serializáveis."""
+    """Joga uma partida e, se derrota, roda a forense. Retorna dados serializáveis:
+    (seed, resultado, resumo|None, linhas_corpus, n_decisivos)."""
     r = jogar_partida_instrumentada(
         _W_REF, _W_ADV, ref_eh_jogador1=(seed % 2 == 0),
         tamanho=_W_CFG["tamanho"], seed=seed,
         lances_abertura_aleatorios=_W_CFG["abertura"])
-    linhas, decisivos = [], 0
+    linhas, decisivos, resumo = [], 0, None
     if r.resultado_ref == DERROTA or (_W_CFG["incluir_empates"] and r.resultado_ref == EMPATE):
-        for e in analisar_partida(r, _W_CFG["prof_forense"], tamanho=_W_CFG["tamanho"]):
+        erros, resumo = analisar_partida(r, _W_CFG["prof_forense"], tamanho=_W_CFG["tamanho"])
+        for e in erros:
             linhas.append(e.para_linha())
             if e.decisivo:
                 decisivos += 1
-    return seed, r.resultado_ref, linhas, decisivos
+    return seed, r.resultado_ref, resumo, linhas, decisivos
 
 
 # ---------------------------------------------------------------------------
@@ -165,26 +169,26 @@ def _montar_checkpoint(cfg, cfg_hash, seed_base, ultimo, contagem, n_erros, n_de
     }
 
 
-def _append_corpus(caminho: Path, linhas: list[dict]) -> None:
+def _append_csv(caminho: Path, linhas: list[dict], campos: list[str]) -> None:
     if not linhas:
         return
     novo = not caminho.exists() or caminho.stat().st_size == 0
     with open(caminho, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=CAMPOS_CORPUS)
+        w = csv.DictWriter(f, fieldnames=campos)
         if novo:
             w.writeheader()
         for ln in linhas:
             w.writerow(ln)
 
 
-def _trim_corpus(caminho: Path, ultimo_seed: int) -> None:
+def _trim_csv(caminho: Path, ultimo_seed: int, campos: list[str]) -> None:
     """Remove linhas com seed > ultimo_seed (restos de uma queda pós-checkpoint)."""
     if not caminho.exists():
         return
     with open(caminho, newline="", encoding="utf-8") as f:
         linhas = [r for r in csv.DictReader(f) if int(r["seed"]) <= ultimo_seed]
     with open(caminho, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=CAMPOS_CORPUS)
+        w = csv.DictWriter(f, fieldnames=campos)
         w.writeheader()
         w.writerows(linhas)
 
@@ -272,6 +276,7 @@ def main():
     run_dir.mkdir(parents=True, exist_ok=True)
     cp_path = run_dir / "checkpoint.json"
     corpus_path = run_dir / "corpus_erros.csv"
+    derrotas_path = run_dir / "derrotas.csv"
 
     # ---- Retomada ----
     contagem = {VITORIA: 0, EMPATE: 0, DERROTA: 0}
@@ -285,7 +290,8 @@ def main():
         contagem = {k: cp["contagem"][k] for k in contagem}
         n_erros, n_decisivos = cp["n_erros"], cp["n_decisivos"]
         proximo_seed = cp["ultimo_seed_concluido"] + 1
-        _trim_corpus(corpus_path, cp["ultimo_seed_concluido"])
+        _trim_csv(corpus_path, cp["ultimo_seed_concluido"], CAMPOS_CORPUS)
+        _trim_csv(derrotas_path, cp["ultimo_seed_concluido"], CAMPOS_DERROTAS)
         print(f">> Retomando rodada {run_dir.name}: já {sum(contagem.values())} partidas "
               f"({contagem[DERROTA]}D), {n_decisivos} erros decisivos. Seguindo do seed {proximo_seed}.")
 
@@ -332,15 +338,20 @@ def main():
                     chunk = range(ini, min(ini + _BATCH_PARALELO, seed_final))
                     futs = [ex.submit(_worker_jogo, s) for s in chunk]
                     linhas_lote: list[dict] = []
+                    derrotas_lote: list[dict] = []
                     for fut in as_completed(futs):
-                        _seed, res, linhas, dec = fut.result()
+                        _seed, res, resumo, linhas, dec = fut.result()
                         contagem[res] += 1
                         linhas_lote.extend(linhas)
                         n_erros += len(linhas)
                         n_decisivos += dec
+                        if resumo is not None:
+                            derrotas_lote.append(resumo)
                     # Lote inteiro concluído → grava contíguo e avança checkpoint.
                     linhas_lote.sort(key=lambda r: (int(r["seed"]), int(r["numero_jogada"])))
-                    _append_corpus(corpus_path, linhas_lote)
+                    derrotas_lote.sort(key=lambda r: int(r["seed"]))
+                    _append_csv(corpus_path, linhas_lote, CAMPOS_CORPUS)
+                    _append_csv(derrotas_path, derrotas_lote, CAMPOS_DERROTAS)
                     ultimo_concluido = chunk.stop - 1
                     _checkpoint(ultimo_concluido)
                     _progresso()
@@ -353,6 +364,7 @@ def main():
             agente_adv = agente_minimax_descuidado(
                 args.prof_adversario, eps_descuido=args.eps_descuido, t_max_descuido=args.t_max_descuido)
             buffer: list[dict] = []
+            buffer_derrotas: list[dict] = []
             for seed in range(proximo_seed, seed_final):
                 r = jogar_partida_instrumentada(
                     agente_ref, agente_adv, ref_eh_jogador1=(seed % 2 == 0),
@@ -360,20 +372,24 @@ def main():
                     lances_abertura_aleatorios=args.abertura_aleatoria)
                 contagem[r.resultado_ref] += 1
                 if r.resultado_ref == DERROTA or (args.incluir_empates and r.resultado_ref == EMPATE):
-                    for e in analisar_partida(r, args.prof_forense, tamanho=args.tamanho):
+                    erros, resumo = analisar_partida(r, args.prof_forense, tamanho=args.tamanho)
+                    buffer_derrotas.append(resumo)
+                    for e in erros:
                         buffer.append(e.para_linha())
                         n_erros += 1
                         if e.decisivo:
                             n_decisivos += 1
                 ultimo_concluido = seed
                 if sum(contagem.values()) % _FLUSH_A_CADA == 0:
-                    _append_corpus(corpus_path, buffer); buffer = []
+                    _append_csv(corpus_path, buffer, CAMPOS_CORPUS); buffer = []
+                    _append_csv(derrotas_path, buffer_derrotas, CAMPOS_DERROTAS); buffer_derrotas = []
                     _checkpoint(ultimo_concluido)
                     _progresso()
                 if args.alvo_erros_decisivos and n_decisivos >= args.alvo_erros_decisivos:
                     print(f"\n>> Alvo de {args.alvo_erros_decisivos} erros decisivos atingido.")
                     break
-            _append_corpus(corpus_path, buffer)
+            _append_csv(corpus_path, buffer, CAMPOS_CORPUS)
+            _append_csv(derrotas_path, buffer_derrotas, CAMPOS_DERROTAS)
             _checkpoint(ultimo_concluido)
     except KeyboardInterrupt:
         interrompido = True
@@ -386,8 +402,38 @@ def main():
     if interrompido:
         print("  >> Rode O MESMO COMANDO para retomar exatamente daqui.")
 
+    _imprimir_diagnostico_entrada(derrotas_path, args.prof_forense)
     _imprimir_taxonomia(_carregar_corpus(corpus_path))
     print(f"\n  Tempo desta sessão: {time.perf_counter() - t0:.1f}s")
+
+
+def _imprimir_diagnostico_entrada(derrotas_path: Path, prof_forense: int) -> None:
+    """Onde a derrota nasceu: a CNN já estava perdida ao ENTRAR na janela de forense?"""
+    if not derrotas_path.exists():
+        return
+    with open(derrotas_path, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return
+    n = len(rows)
+    julgadas = [r for r in rows if int(r["n_julgados"]) > 0]
+    ja_perdida = [r for r in julgadas if int(r["valor_entrada"]) < 0]
+    com_erro = [r for r in julgadas if int(r["n_decisivos"]) > 0]
+    sem_janela = n - len(julgadas)
+    print("\n" + "=" * 72)
+    print("DIAGNÓSTICO DE ORIGEM DA DERROTA (janela de forense = endgame exato)")
+    print("=" * 72)
+    print(f"  Derrotas analisadas: {n}")
+    if julgadas:
+        print(f"  Já PERDIDAS na entrada da janela (valor<0 ao iniciar o endgame): "
+              f"{len(ja_perdida)}/{len(julgadas)} ({len(ja_perdida)/len(julgadas)*100:.1f}%)")
+        print(f"    => decididas ANTES do endgame (meio-jogo) — fora do alcance da forense atual (p={prof_forense}).")
+        print(f"  Com erro decisivo DENTRO da janela (endgame): {len(com_erro)}/{len(julgadas)} "
+              f"({len(com_erro)/len(julgadas)*100:.1f}%)")
+        ts = [int(r["t_entrada"]) for r in julgadas]
+        print(f"  t médio de entrada na janela: {sum(ts)/len(ts):.1f}")
+    if sem_janela:
+        print(f"  Sem nenhum lance julgável (jogo curto / nenhum lance da ref no endgame): {sem_janela}")
 
 
 if __name__ == "__main__":
