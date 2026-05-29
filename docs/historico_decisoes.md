@@ -6,6 +6,129 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-28 (tarde) — Value head AlphaZero-style descartado para este problema
+
+Tentamos duas vezes adicionar um **value head** ao BoxNet v4 base (~98,6% OMA) na
+esperança de empurrar o OMA para mais perto de 99%, criando um "colchão" antes de
+começar a simplificar o modelo para mobile. **Ambas falharam.**
+
+### O que tentamos
+
+- **v1 (`valuehead_3p4M`)**: arquitetura PRD-padrão (`Conv1×1(16) → Flatten →
+  Dense(64,relu) → Dense(1,tanh)`), λ=0,1. Value head colapsou: MAE travado em
+  0,8537 desde a época 2.
+- **v2 (`valuehead_v2_3p4M`)**: λ triplicado para 0,3; gargalo Conv1×1 removido
+  (Flatten direto do tronco → Dense(64,relu) → Dense(1,tanh), 196k params). Mesmo
+  colapso (MAE valor = 0,8537 idêntico ao v1, em 4 casas decimais).
+
+### Comparação direta (todas com 3,4M, mesma arquitetura no tronco)
+
+| Métrica | v4 base | VH v1 | **VH v2** |
+|---|---|---|---|
+| val_oma (melhor) | 0,9854 | 0,9564 | 0,9830 |
+| OMA global teste | 98,6% | 95,6% | **98,3%** |
+| OMA 1ª Metade | 97,5% | 91,7% | 96,8% |
+| Win-rate vs p=5 | 87% | 86,5% | **79,5%** |
+| Win-rate vs p=6 | 80% | 83,5% | **77%** |
+| Erros residuais | 1,4% | 4,4% | 1,7% |
+| MAE valor | — | 0,8537 | 0,8537 |
+
+A v2 ficou **pior** que o v4 base em quase tudo — particularmente em win-rate vs
+p=5 (perdeu 25 partidas em vez de 9). O value head, mesmo "ignorado" pelo modelo,
+adicionou ruído ao gradiente do tronco compartilhado.
+
+### Por que não funcionou — explicação didática
+
+Pensa no value head como um **segundo professor** colocado na mesma sala que o
+professor principal (a loss da policy). O professor 1 já estava ensinando o aluno
+a fazer "qual é a melhor jogada aqui?" — e o aluno tirava 98,6% nas provas. O
+professor 2 chegou perguntando outra coisa: "olhando essa posição, numa escala
+de −1 a +1, quão boa ela é pra você no final?" A esperança era que o aluno,
+forçado a responder essa segunda pergunta, desenvolvesse uma intuição estratégica
+mais profunda.
+
+**Duas coisas combinadas mataram a ideia:**
+
+**1. O segundo professor não fazia perguntas suficientemente difíceis.** Quando
+medimos a distribuição dos targets na nossa base, descobrimos algo crítico:
+
+- **33% de todas as posições** têm target = 0 (não tem captura disponível, o
+  melhor lance é "neutro").
+- **Na Abertura especificamente, 76% das posições** têm target = 0.
+- A maioria do resto fica entre 0 e +0,5 (capturar 1-3 caixas no futuro).
+- Só uma minoria de posições tem target extremo (próximo a ±1).
+
+Com tantos targets perto de zero, o aluno descobriu um atalho matemático:
+**"se eu chutar um valor perto de 0 pra todo mundo, eu erro pouco na maioria"**.
+E foi exatamente isso que aconteceu — `MAE valor = 0,85` é exatamente o que dá
+ao predizer uma constante negativa pequena. Não aprendeu nada — só fugiu pra
+uma resposta "média" e ficou lá.
+
+**2. O primeiro professor já era forte demais pra o segundo importar.** Com o
+modelo já em 98,6% OMA via policy loss sozinha, o tronco compartilhado já
+estava bem organizado em torno de "qual aresta jogar". Para responder bem ao
+professor 2, ele teria que reorganizar internamente como representa o
+tabuleiro. Mas o sinal de aprendizado do professor 1 era muito mais
+consistente e forte que o do professor 2 (que estava preso no atalho), então o
+aluno simplesmente continuou aprendendo só com o 1.
+
+### Por que o efeito real foi NEGATIVO (não neutro)
+
+Mesmo "ignorando" o professor 2, o value head adicionou ruído real ao
+treinamento. O gradiente confuso vindo da loss do value head (mesmo travada)
+foi misturado às atualizações dos pesos do tronco compartilhado. Com λ=0,3, esse
+ruído pesa 30% do total — não dá pra ignorar. O resultado: tronco levemente
+prejudicado, OMA cai 0,3pp, win-rate cai 7,5pp contra p=5.
+
+### O que aprendemos — relevante para a banca do TCC
+
+O value head AlphaZero-style **funciona muito bem em contextos diferentes do
+nosso**: quando o modelo está aprendendo do zero ou ainda é fraco, o sinal
+estratégico ajuda a estruturar a representação interna. Aplicar a mesma técnica
+quando o modelo principal já é muito bom não ajuda e pode atrapalhar, por dois
+motivos específicos:
+
+1. **Quando o target tem uma classe dominante** (no nosso caso, "valor próximo
+   de zero"), a regressão encontra atalhos triviais.
+2. **Quando a representação interna já está bem formada** pela loss principal,
+   não há "espaço cognitivo" para o regularizador auxiliar adicionar algo novo.
+
+Esse é um achado metodologicamente interessante: **validar empiricamente quando
+uma técnica clássica de RL não se aplica** vale tanto quanto validar quando se
+aplica. Para o TCC, isso vira uma discussão sobre limites de transferibilidade
+de técnicas (AlphaGo/AlphaZero foram desenhados para um regime de aprendizado
+diferente do nosso).
+
+### Alternativas catalogadas, não testadas
+
+Para registro futuro, alternativas que talvez funcionassem mas com ganho
+esperado pequeno (+0,3 a +1pp OMA):
+
+- **Q-head com 31 saídas e MSE mascarada** (sem mínimo trivial trivial, cada
+  amostra tem 16-31 targets distintos). Tecnicamente o mais robusto, mas
+  redundante com o que a policy já aprende.
+- **V-value como classificação 3-class** WIN/DRAW/LOSE (elimina o atalho da
+  regressão).
+- **Pré-treinar value head sozinho** com policy congelada por N épocas (força a
+  sair do mínimo trivial antes de competir).
+
+Não foram tentadas porque o ganho esperado é pequeno e há outras frentes com
+upside muito maior — a **AddAug 8,34M** (originais + augmentados distintos
+novos), em curso na L4, tem teto plausível de +0,5 a +1pp OMA com fix
+adicional dos border moves (recall H_0_1=0,11 atual).
+
+### Decisão final
+
+Value head AlphaZero-style **descartado para este problema**. Modelo de
+referência continua sendo o **BoxNet v4 base 3,4M** (`boxnetv4_base3p4M`,
+OMA 98,6%, win-rate vs p=6 80%). Próximas alavancas:
+
+1. **AddAug 8,34M** (em curso): adição dirigida de simetrias distintas.
+2. **Simplificação para Flutter** (depois): redução do modelo para mobile,
+   começando por remover a atenção (destrava TFLite sem Flex).
+
+---
+
 ## 2026-05-28 — BoxNet v4 sobre 3,4M originais: modelo "perfeito" candidato
 
 Rodada definitiva do BoxNet v4 no Colab T4 com os **419 NPZs originais (3.423.460 amostras
