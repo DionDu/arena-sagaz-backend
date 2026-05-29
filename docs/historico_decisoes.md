@@ -6,6 +6,120 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-29 (tarde) — Fase de simplificação: por que começamos pelo bloco de atenção
+
+Com o `boxnetv4_addaug_todos_8p3M` consolidado como modelo de referência
+(OMA 98,8%, vitórias vs p=6 = 84,5%, TFLite 19,3 MB float32), entra a fase
+de **simplificação para mobile** — reduzir o tamanho do modelo preservando
+o máximo possível de OMA e win-rate.
+
+A escada de simplificação tem 6-7 alavancas possíveis (remover atenção,
+reduzir Dense head, reduzir canais, reduzir profundidade, quantização
+float16, quantização int8, knowledge distillation). A pergunta é: por onde
+começar? **Decidimos começar pela remoção do bloco de auto-atenção.** A
+justificativa tem três razões convergentes:
+
+### Razão 1 — Atenção é o ÚNICO bloqueador real do Flutter
+
+O TFLite atual usa o bloco `MultiHeadAttention` do Keras, que internamente
+usa a operação `einsum` (Einstein summation). Essa operação **não está nos
+"built-in ops" do TFLite** — só está disponível via "Select TF Ops"
+(também chamado de "Flex Delegate").
+
+Na hora de gerar o `.tflite`, isso aparece como:
+
+```python
+converter.target_spec.supported_ops = [
+    tf.lite.OpsSet.TFLITE_BUILTINS,
+    tf.lite.OpsSet.SELECT_TF_OPS,   # <- exigido pela atenção (einsum)
+]
+```
+
+**O problema** começa na hora de rodar o `.tflite` no Flutter. O pacote
+oficial e padrão `tflite_flutter` traz apenas o runtime do TFLite com os
+built-in ops. Para rodar um modelo que use `SELECT_TF_OPS`, você precisa
+de uma das opções abaixo, todas problemáticas:
+
+1. **Compilar uma versão custom do TFLite com Flex Delegate habilitado.**
+   Adiciona ~6 MB ao binário do app, exige toolchain de build C++ para
+   Android/iOS, manutenção própria a cada upgrade. Para a banca do TCC e
+   qualquer demo do app, isso é fricção alta.
+2. **Usar runtime Google AI Edge / MediaPipe** em vez de tflite_flutter.
+   Mais pesado, dependências adicionais, sai do caminho mainstream.
+3. **Reimplementar a atenção com ops built-in** (softmax + matmul manuais,
+   sem einsum). Doável mas adiciona código novo e potencial de bug.
+
+A 4ª opção — e a mais limpa — é **simplesmente remover a atenção**, se ela
+não for essencial pra acertividade. É exatamente o que estamos testando
+nesta primeira parada da escada.
+
+### Razão 2 — Atenção provavelmente era marginal no nosso caso específico
+
+Em modelos grandes (Transformers de linguagem, ViTs em imagem) com sequências
+ou grades longas, atenção é crítica porque a convolução sozinha não cobre
+dependências de longa distância. **Mas o nosso tabuleiro é 4×3** — só 12
+posições. Com 5 blocos residuais de convolução 3×3, o campo receptivo cobre
+o tabuleiro inteiro depois de ~2 camadas. A atenção tinha o papel de "deixar
+a caixa i atender diretamente à caixa j em UM passo" para raciocínio de
+cadeias longas — mas com universo de só 12 caixas e a paridade de cadeia
+já codificada como canal explícito (K=11), a convolução provavelmente já
+estava fazendo esse trabalho.
+
+Por isso, a hipótese forte é que removendo a atenção a OMA cai pouco (de
+98,8% talvez para 98,3-98,5%). Se cair muito, voltamos atrás — mas o custo
+do teste é baixo (uma rodada de ~3h na L4, ~9 units no Colab Pro) e o
+benefício potencial é alto (Flutter destravado).
+
+### Razão 3 — É o lever com melhor relação ganho × risco × bônus
+
+Comparando com os outros levers da escada:
+
+| Lever | Shrink esperado | Risco OMA | Bônus extra |
+|---|---|---|---|
+| **Remover atenção** | −2 MB | ~0,3-1pp | **destrava Flutter** |
+| Dense(512) → Dense(256) | −3 MB | ~0pp | — |
+| Últimos blocos 256 → 128 canais | −5 MB | 1-2pp | — |
+| 5 → 3 blocos residuais | −3 MB | 2-4pp | — |
+| Float16 (pós-treino) | ÷2 | ~0pp | combinável com qualquer ponto |
+| Int8 (pós-treino) | ÷4 | 1-2pp | combinável com qualquer ponto |
+
+Os outros levers só reduzem tamanho. **Remover atenção também destrava o
+Flutter** — esse é um bônus único que nenhum outro lever entrega. E se a
+hipótese estiver certa (atenção marginal em 4×3), o risco de OMA é até
+menor que os levers de redução de canais.
+
+### A escada planejada
+
+Sequência por ordem de execução:
+
+1. **NoAttn** (em curso): remove atenção, mantém resto. Esperado: ~16,8 MB,
+   OMA ~98,3-98,5%, Flutter-ready.
+2. **NoAttn + Dense(256)**: corta o Dense(512) para Dense(256) na cabeça.
+   Esperado: ~14 MB, OMA praticamente igual.
+3. **NoAttn + Dense(256) + canais menores**: reduz últimos blocos para 128
+   canais. Esperado: ~9 MB, OMA possivelmente −1pp.
+4. **Float16 do (3)**: quantização pós-treino. Esperado: ~4,5 MB, OMA
+   praticamente igual.
+5. **(Opcional) Int8 do (4) ou knowledge distillation**: ~1-2 MB.
+
+**Meta de chegada**: TFLite ≤ 5 MB rodando no `tflite_flutter` padrão sem
+perder mais que 1-2pp de OMA vs o modelo de referência atual (`boxnetv4_addaug_todos_8p3M`).
+
+### Estado atual
+
+Notebook `Treinamento_CNN_Pontinhos_V11_Colab_AddAug_NoAttn.ipynb` já
+commitado (`f4a2802a`) e validado em isolado:
+
+- Modelo: 4.424.735 params (−527.104 vs com atenção)
+- TFLite: 16,8 MB **só com `TFLITE_BUILTINS`** (sem `SELECT_TF_OPS`)
+- Interpreter padrão executa sem erro
+
+Aguarda execução no Colab. Se resultado bater a hipótese (OMA ≥ 98,3% e
+win-rate vs p=6 ≥ 80%), é o novo ponto de partida para os próximos degraus
+da escada. Se não, mantemos a atenção e atacamos outro lever primeiro.
+
+---
+
 ## 2026-05-29 — AddAug 8,34M é o novo modelo de referência
 
 Rodada da estratégia de adição dirigida (originais 3,4M + 4,92M distintos novos
