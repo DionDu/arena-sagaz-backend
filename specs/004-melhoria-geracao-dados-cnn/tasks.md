@@ -631,5 +631,7 @@ ser implementada ANTES de F como "Fase D.5".
 | ✅ | T-V11-004 Treinar v4 | Colab 754k + Colab 3,4M | Concluído 2026-05-28 — melhor val_oma = **0,9854** |
 | ✅ | T-V11-005 Avaliar v4 vs Minimax | `Avaliacao_CNN_vs_Minimax.ipynb` | Concluído 2026-05-28 — vs p=6 80%, OMA 1ª Metade 97,5%, OMA global 98,6% |
 | ⊘ | T-V11-006/007 Regularização / atenção (condicionais) | — | **Dispensados** (gap mínimo; atenção já antecipada) |
-| 1 | **T-V11-008** Value head policy+value (Fase F integrada) | V11 Colab (novo `EXPERIMENTO=valuehead_3p4M`) | Próximo passo — atacar resíduo 1,4% |
+| ⊘ | T-V11-008 Value head policy+value (Fase F integrada) | V11 Colab (v1 e v2) | **DESCARTADO 2026-05-28** — duas tentativas colaparam (MAE valor travado em 0,8537). Distribuição dos targets dominada por zero. Detalhes em historico_decisoes.md. |
 | ✅ | T-V11-009 Registro em `historico_decisoes.md` | docs/ | Concluído 2026-05-28 — entrada do BoxNet v4 base "perfeito" |
+| ✅ | **AddAug 8,34M** (extra-V11) Adição dirigida de simetrias | V11 Colab AddAug | **Concluído 2026-05-29 — NOVO MODELO DE REFERÊNCIA**: val_oma 0,9877; OMA global 98,8%; **OMA 1ª Metade 98,8%**; vitórias vs p=6 = **84,5%** (vs 80% base); derrotas vs p=6 7,5% (vs 10,5%); `em_cadeia_curta` deixou de ser top driver de erro (+12,1pp → +0,1pp). |
+| → | **Próximo: Simplificação para Flutter** | — | Reduzir o modelo (19,3 MB → ~5 MB) preservando OMA. Começar removendo a atenção (destrava Flutter sem Flex Delegate). |

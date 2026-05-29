@@ -6,6 +6,86 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-29 — AddAug 8,34M é o novo modelo de referência
+
+Rodada da estratégia de adição dirigida (originais 3,4M + 4,92M distintos novos
+dos NPZs de simetria refH/refV/r180) terminou com sucesso. Substitui o `boxnetv4_base3p4M`
+como **modelo oficial do projeto**.
+
+### Resultado-chave: melhora em quase todas as métricas
+
+| Métrica | v4 base 3,4M | **v4 AddAug 8,34M** | Δ |
+|---|---|---|---|
+| Total amostras | 3.423.460 | **8.339.430** | +144% |
+| Épocas treinadas | 62 | 102 | — |
+| **Melhor val_oma** | 0,9854 | **0,9877** | +0,23pp |
+| OMA global teste | 98,6% | **98,8%** | +0,2pp |
+| **OMA 1ª Metade** | 97,5% | **98,8%** | **+1,3pp** |
+| OMA 2ª Metade | 99,9% | **100%** | +0,1pp |
+| Erros residuais | 1,4% | **1,2%** | −0,2pp |
+| Gap Top-1 treino/val | +0,80pp | +0,48pp | menos overfit |
+
+### Win-rate vs Minimax (200 partidas)
+
+| Adversário | v4 base | **AddAug** | Δ vitórias | Δ derrotas |
+|---|---|---|---|---|
+| p=1 | 97,0% | 94,5% | −2,5pp ⚠ | +1,5pp (ruído 3 partidas) |
+| p=3 | 90,0% | 91,5% | +1,5pp | 0 |
+| p=5 | 87,0% | 86,5% | −0,5pp | −1pp |
+| **p=6** | **80,0%** | **84,5%** | **+4,5pp** | **−3pp** |
+
+Vitórias contra o adversário forte (p=6) **subiram 4,5pp** e derrotas caíram
+3pp. Não-derrota vs p=6 = 92,5% (vs 89,5% do v4 base). Vs p=5 derrotas caíram
+para 7,0% (vs 8,0%). A pequena queda vs p=1 (3 partidas a mais perdidas em 200)
+está na banda de ruído estatístico.
+
+### Por que funcionou — a augmentação resolveu o resíduo
+
+A análise de canal × erro mostra com clareza que problema cada augmentação resolveu:
+
+| Canal | v4 base (delta erros) | **AddAug (delta erros)** | Variação |
+|---|---|---|---|
+| `em_cadeia_curta` | **+12,1pp** (top driver) | **+0,1pp** | **−12,0pp — eliminado** |
+| `eh_grau2` | +14,0pp | +6,3pp | −7,7pp (mais que halved) |
+| arestas | +4,4-4,5pp | +1,7-1,8pp | cortado pela metade |
+
+E o Top-1 da Abertura subiu **22,5% → 33,0% (+10,5pp)** — efeito da augmentação
+por simetria balanceando as predições de jogadas de borda (`H_0_1` etc.), que
+era um sintoma documentado do desbalanceamento posicional.
+
+### O que ratifica a estratégia matemática
+
+A fórmula `N(t) = brutas_orig(t) + distintos_novos_aug(t)` preservou:
+- **Todos os buckets de endgame** (t=18..30 mantiveram 114k brutas cada) → zero
+  risco de regressão lá, e de fato Fase Quente / Final permaneceram em 100% OMA.
+- **A concentração emergente no meio de jogo** (t=6..17 ganharam 3-4× mais
+  distintos) → boost direto onde o modelo era fraco.
+
+A intuição original (do desenvolvedor) de NÃO subsamplear endgame foi crucial.
+Um experimento prévio com `DISTINTAS` agressivo (rodada `boxnetv4_base6p9M_dist_sw`)
+tinha esvaziado o endgame e foi abandonado — esta variante "preserva + adiciona"
+foi a forma certa de escalar.
+
+### Gate da Fase V11 — SUPERADO COM FOLGA
+
+- OMA 1ª Metade 98,8% (gate ≥85% ✓ por **+13,8pp**)
+- Vitórias vs p=6 = 84,5% (gate ≥78% ✓ por **+6,5pp**)
+- Capacidade confirmada (gap pequeno, val=test=teste)
+
+### Decisão: AddAug 8,34M oficial; próximo passo é simplificação para Flutter
+
+- **Modelo de referência oficial:** `boxnetv4_addaug_todos_8p3M` (TFLite 19,3 MB
+  float32, contrato externo idêntico ao v4 base, 4,95M params).
+- **Próxima fase:** simplificação. O modelo atual tem MARGEM CONFORTÁVEL de OMA
+  para "gastar" durante a redução. Estratégia: começar removendo a atenção
+  (destrava Flutter sem Flex Delegate, ganha ~2 MB), depois reduzir Dense head
+  e canais, depois quantização. Meta: ≤5 MB no Flutter sem perder mais que
+  1-2pp de OMA.
+- O `boxnetv4_base3p4M` fica como "modelo de referência alternativo" (menos
+  dados, ligeiramente pior em todas as métricas exceto vs p=1).
+
+---
+
 ## 2026-05-28 (tarde) — Value head AlphaZero-style descartado para este problema
 
 Tentamos duas vezes adicionar um **value head** ao BoxNet v4 base (~98,6% OMA) na
