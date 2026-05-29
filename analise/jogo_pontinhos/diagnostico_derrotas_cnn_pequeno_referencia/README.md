@@ -106,6 +106,43 @@ determinística pelo seed, o resultado em N pedaços é **idêntico** ao de uma 
 única. Cada config vira uma subpasta `saidas/exec_<hash>/` (ou `--run-id`); mudar
 profundidade/eps cria rodada nova (não mistura corpus incompatível).
 
+## Processo DEFINITIVO (rodada grande) — playbook
+
+O custo é decoplado em duas etapas. A rodada grande só **coleta os seeds das
+derrotas** (barato em massa); a localização profunda roda **só nas derrotas**.
+
+**Etapa 1 — rodada grande (coleta de derrotas), retomável e paralela:**
+
+```powershell
+.venv_tf\Scripts\python -m analise.jogo_pontinhos.diagnostico_derrotas_cnn_pequeno_referencia.executar_diagnostico `
+    --modelo "modelos/pontinhos_pequeno_cnn_depth_11_e_20_12canais_boxnetv4_addaug_todos_8p3M.tflite" `
+    --partidas 200000 --prof-adversario 3 --eps-descuido 0.25 --abertura-aleatoria 4 `
+    --prof-forense 13 --workers 14 --alvo-derrotas 4000 --run-id definitivo_v1
+```
+
+- Para sozinha ao coletar **4000 derrotas** (`--alvo-derrotas`) — base boa de seeds.
+- A ~3,1% de derrota, ~130k partidas; em 14 workers do 5700X, ~1,5–2 h.
+- **Pode desligar o PC a qualquer momento** (Ctrl+C ou queda) e retomar com o
+  MESMO comando — continua do último lote. Resultado idêntico ao de uma rodada única.
+- Saída: `saidas/definitivo_v1/derrotas.csv` (todos os seeds de derrota).
+
+**Etapa 2 — re-forense profunda (localiza o lance culpado no meio-jogo):**
+
+```powershell
+# Varra a profundidade para localizar onde a paridade vira (janela = t >= 31-p):
+.venv_tf\Scripts\python -m analise.jogo_pontinhos.diagnostico_derrotas_cnn_pequeno_referencia.reforense_profunda_pontinhos `
+    --run-id definitivo_v1 --prof-forense 17 --workers 14
+# Depois p=19 (janela t>=12) se ainda houver muitas "perdidas antes da janela".
+```
+
+- Lê `derrotas.csv` + `checkpoint.json` (config) da rodada, reproduz só as derrotas.
+- Salva `corpus_reforense_p<P>.csv` e imprime onde os erros decisivos se concentram
+  (fase, t, qtd_cadeias, classificação do lance). **Esse é o diagnóstico final** que
+  diz quais clusters atacar com dados.
+
+> ⚠️ p alto (18–19) em posições abertas de meio-jogo é caro; com milhares de
+> derrotas, rode em faixas/`--workers` alto, ou amostre (rode em um subconjunto).
+
 ## Dimensionamento (base boa para diagnóstico)
 
 | Item | Estimativa |

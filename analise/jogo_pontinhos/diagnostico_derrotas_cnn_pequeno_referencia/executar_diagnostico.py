@@ -261,7 +261,8 @@ def main():
     p.add_argument("--t-max-descuido", type=int, default=17)
     p.add_argument("--abertura-aleatoria", type=int, default=4, help="k lances seguros aleatórios no começo.")
     p.add_argument("--incluir-empates", action="store_true")
-    p.add_argument("--alvo-erros-decisivos", type=int, default=0, help="Para sozinho ao atingir N erros decisivos (0 = sem alvo).")
+    p.add_argument("--alvo-erros-decisivos", type=int, default=0, help="Para sozinho ao atingir N erros decisivos INLINE (0 = sem alvo).")
+    p.add_argument("--alvo-derrotas", type=int, default=0, help="Para sozinho ao COLETAR N derrotas (seeds p/ re-forense). Alvo recomendado da rodada grande.")
     p.add_argument("--seed-base", type=int, default=0)
     p.add_argument("--workers", type=int, default=1,
                    help="Processos paralelos (1 = sequencial). Use ~n_cores-1 para a rodada cheia.")
@@ -304,7 +305,8 @@ def main():
     print(f"  Referência : {_nome_referencia(args)}")
     print(f"  Adversário : {nome_adv}")
     print(f"  Forense    : Minimax p={args.prof_forense} | Workers: {args.workers}")
-    print(f"  Teto       : {args.partidas} partidas | alvo erros decisivos: {args.alvo_erros_decisivos or '—'}")
+    print(f"  Teto       : {args.partidas} partidas | alvo derrotas: {args.alvo_derrotas or '—'} "
+          f"| alvo decisivos: {args.alvo_erros_decisivos or '—'}")
     print()
 
     seed_final = args.seed_base + args.partidas  # exclusivo
@@ -355,6 +357,9 @@ def main():
                     ultimo_concluido = chunk.stop - 1
                     _checkpoint(ultimo_concluido)
                     _progresso()
+                    if args.alvo_derrotas and contagem[DERROTA] >= args.alvo_derrotas:
+                        print(f"\n>> Alvo de {args.alvo_derrotas} derrotas coletadas atingido.")
+                        break
                     if args.alvo_erros_decisivos and n_decisivos >= args.alvo_erros_decisivos:
                         print(f"\n>> Alvo de {args.alvo_erros_decisivos} erros decisivos atingido.")
                         break
@@ -385,6 +390,9 @@ def main():
                     _append_csv(derrotas_path, buffer_derrotas, CAMPOS_DERROTAS); buffer_derrotas = []
                     _checkpoint(ultimo_concluido)
                     _progresso()
+                if args.alvo_derrotas and contagem[DERROTA] >= args.alvo_derrotas:
+                    print(f"\n>> Alvo de {args.alvo_derrotas} derrotas coletadas atingido.")
+                    break
                 if args.alvo_erros_decisivos and n_decisivos >= args.alvo_erros_decisivos:
                     print(f"\n>> Alvo de {args.alvo_erros_decisivos} erros decisivos atingido.")
                     break

@@ -6,6 +6,49 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-29 (madrugada) — Piloto da arena: as derrotas nascem no MEIO-JOGO, não no endgame
+
+Primeiro diagnóstico empírico com o modelo de referência real
+(`boxnetv4_addaug_todos_8p3M`) na arena de autodiagnóstico.
+
+### Piloto — 2000 partidas vs MinimaxDescuidado(p=3, eps=25%, abertura aleat. 4)
+
+- Resultado: **1863V / 75E / 62D (3,1% de derrota)** — robusto ao jogo descuidado fraco.
+- Diagnóstico de origem: **61/62 derrotas (98,4%) JÁ ESTAVAM PERDIDAS ao entrar no
+  endgame** (valor Minimax < 0 em t≈19). Só 1/62 teve erro decisivo dentro do endgame.
+- **Conclusão: o endgame da CNN é praticamente impecável — ela perde no MEIO-JOGO**,
+  na batalha de paridade/controle, antes de t≈18. Confirma quantitativamente a
+  intuição do desenvolvedor (derrotas em "trocação de caixas" na 1ª metade), agora
+  com 62 derrotas em vez de ~5 partidas observadas no olho.
+
+### Re-forense profunda (p=15, janela t≥16) sobre as 62 derrotas
+
+- **13/62 (21%)** passaram a ter erro decisivo capturado ao empurrar a janela p/ t≥16.
+- Esses erros se concentram em **t=16–17 (1ª Metade): 92,3%**.
+- **80,6% ainda estavam perdidas antes de t=16** → o ponto de virada está na 1ª metade
+  (t≈12–17) e mais cedo. Aprofundar a janela (p=17→19) deve localizar o restante.
+
+### Implicação para o plano
+
+O alvo de correção é o **meio-jogo (1ª Metade, t≈12–17)** — decisões de paridade/
+controle em posições perturbadas por doações do adversário. Valida a ideia de
+gerar/treinar com "posições de concessão", mas agora **empiricamente localizada**
+(não por hipótese). O corpus de erros da rodada grande dirá os clusters exatos.
+
+### Ferramentas finalizadas para a rodada definitiva
+
+- `executar_diagnostico` (retomável, paralelo `--workers`, `--alvo-derrotas`):
+  rodada grande **coleta os seeds de todas as derrotas** em `derrotas.csv`.
+- `reforense_profunda_pontinhos`: reproduz só os seeds das derrotas e roda a
+  forense com profundidade maior (janela = t ≥ 31−p) para localizar o lance culpado.
+- Pipeline definitivo = **(1) rodada grande coleta derrotas → (2) re-forense profunda
+  localiza** (decopla o custo: jogo barato em massa, forense cara só nas derrotas).
+
+Notas de custo: Ryzen 7 5700X (8C/16T) → use `--workers 14`. Piloto a 8 workers:
+13,3 part/s (~4,7× sobre sequencial). Inferência TFLite exige `.venv_tf` (não `.venv`).
+
+---
+
 ## 2026-05-29 (noite) — Como atacar as derrotas reais: arena de autodiagnóstico, não injeção a-priori
 
 Decisão de rota sobre **como** melhorar o win-rate da CNN em partidas reais
