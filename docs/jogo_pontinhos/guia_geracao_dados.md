@@ -675,17 +675,79 @@ O painel direito exibe placar acumulado (vitórias/derrotas/empates ao longo das
 
 ### 5.1b Visualizador de Canais CNN
 
-Ferramenta interativa para inspecionar como a CNN enxerga o tabuleiro. Clique nas arestas para montar qualquer estado e veja ao vivo os 12 canais estruturais e os scores de decisão.
+Ferramenta interativa para inspecionar **o que a CNN enxerga** em qualquer estado de tabuleiro. Monte um estado clicando nas arestas e observe em tempo real os 12 canais estruturais e os scores de decisão da CNN — essencial para diagnosticar comportamentos inesperados e confirmar que os canais estão sendo computados corretamente.
+
+#### Como iniciar
 
 ```powershell
 .venv\Scripts\python -m gerador_dados.jogo_pontinhos.visualizador_canais_pontinhos `
   --modelo modelos/pontinhos_pequeno_12ch.tflite
 ```
 
-**Controles:**
-- **Mouse (clique)**: Adiciona ou remove uma aresta do tabuleiro.
-- **`C`**: Limpa o tabuleiro.
-- **`Q`**: Sai.
+> **Requisito**: o modelo deve ser 12-canais (input shape `(1, 4, 3, 12)`). A ferramenta também aceita modelos 1-canal, mas o painel de canais mostrará uma mensagem de indisponibilidade (apenas os scores CNN são exibidos).
+
+#### Layout da janela (1400 × 900 px)
+
+| Região | O que mostra |
+|--------|-------------|
+| **Painel esquerdo** (≈380 px) | Tabuleiro interativo. Traços colocados em branco; fantasmas em cinza; hover em amarelo. Caixas fechadas com preenchimento azul. |
+| **Painel direito — parte superior** | 12 mini-grids dos canais, dispostos em 4 colunas × 3 linhas. |
+| **Painel direito — parte inferior** | Tabela de scores CNN para todos os traços disponíveis, em ordem decrescente de probabilidade. |
+
+#### Interação com o tabuleiro
+
+- **Clique em qualquer traço**: adiciona ou remove a aresta do tabuleiro. Caixas fecham automaticamente quando as 4 arestas ao redor estão preenchidas.
+- **`C`**: Limpa o tabuleiro (volta ao estado inicial vazio).
+- **`Q`**: Sai da aplicação.
+
+A contagem de arestas e caixas fechadas é exibida no rodapé do painel esquerdo.
+
+#### Como ler os mini-grids de canais
+
+Cada mini-grid representa **uma das 12 features estruturais** que a CNN usa como entrada. A grade 4×3 corresponde às 12 caixas do tabuleiro pequeno (4 linhas × 3 colunas).
+
+- **Célula colorida** = canal ativo naquela caixa (valor `1`).
+- **Célula branca** = canal inativo naquela caixa (valor `0`).
+- **Borda preta espessa** em uma célula = aquela caixa está fechada (canal `caixa_fechada` ativo), indicador de contexto para todos os outros canais.
+- Para os canais de aresta (K=0..3), uma **barra branca** aparece na borda correspondente da célula (topo, base, esquerda, direita) quando o canal está ativo.
+
+#### Os 12 canais e o que representam
+
+| K | Canal | Significado |
+|---|-------|-------------|
+| 0 | `aresta_topo` | Aresta de cima da caixa está preenchida |
+| 1 | `aresta_base` | Aresta de baixo da caixa está preenchida |
+| 2 | `aresta_esquerda` | Aresta da esquerda da caixa está preenchida |
+| 3 | `aresta_direita` | Aresta da direita da caixa está preenchida |
+| 4 | `caixa_fechada` | A caixa já foi fechada (4 arestas preenchidas) |
+| 5 | `eh_grau3` | Caixa aberta com exatamente 3 arestas preenchidas (capturável!) |
+| 6 | `eh_grau2` | Caixa aberta com exatamente 2 arestas preenchidas |
+| 7 | `em_cadeia_curta` | Faz parte de uma cadeia de comprimento 2 |
+| 8 | `em_cadeia_longa` | Faz parte de uma cadeia de comprimento ≥ 3 |
+| 9 | `em_loop` | Faz parte de um loop fechado de grau 2 |
+| 10 | `em_cadeia_aberta_uma_ponta` | Cadeia com exatamente 1 ponta capturável (half-open) |
+| 11 | `paridade_cadeia_longa_impar` | **Broadcast global**: `1` se o número de cadeias longas abertas é ímpar (teoria de cadeias) |
+
+> O canal K=11 é idêntico em todas as 12 células — é um sinal global (paridade do tabuleiro inteiro), não por caixa.
+
+#### Lendo os scores CNN
+
+A seção inferior do painel direito exibe todos os traços disponíveis (não jogados) ordenados por probabilidade decrescente:
+
+- **Verde** ← melhor traço segundo a CNN.
+- **Amarelo** = segundo melhor.
+- **Azul** = demais traços.
+- A barra colorida à direita é proporcional à probabilidade relativa ao melhor traço.
+
+#### Casos de teste recomendados
+
+| Estado | O que verificar |
+|--------|----------------|
+| Tabuleiro vazio | Todos os canais K=0..11 devem estar zerados. K=11 pode ser 0 ou 1 dependendo de cadeias longas (zero no vazio). |
+| Uma aresta adicionada | Apenas `aresta_*` do lado correspondente de uma ou duas caixas vizinhas deve acender. |
+| 3 arestas em torno de uma caixa | `eh_grau3` deve acender naquela caixa. Verificar se a CNN prioriza jogar a 4ª aresta (fechar a caixa). |
+| Duas caixas em sequência com 2 arestas livres | `em_cadeia_curta` deve acender nas duas. |
+| Cadeia de ≥ 3 caixas | `em_cadeia_longa` acende em todas. K=11 muda de valor ao criar/destruir cadeias longas. |
 
 ### 5.2 Avaliador Automático (CNN vs Minimax em lote)
 
