@@ -50,19 +50,20 @@ from gerador_dados.jogo_pontinhos.analisador_estrutural_pontinhos import (
 # ---------------------------------------------------------------------------
 
 PALETA_POR_CANAL: List[str] = [
-    "#1f77b4",  # 0  aresta_topo            azul
-    "#ff7f0e",  # 1  aresta_base            laranja
-    "#2ca02c",  # 2  aresta_esquerda        verde
-    "#d62728",  # 3  aresta_direita         vermelho
-    "#9467bd",  # 4  caixa_fechada          violeta
-    "#8c564b",  # 5  eh_grau3               marrom
-    "#e377c2",  # 6  eh_grau2               rosa
-    "#7f7f7f",  # 7  em_cadeia_curta        cinza
-    "#bcbd22",  # 8  em_cadeia_longa        oliva
-    "#17becf",  # 9  em_loop                ciano
-    "#000000",  # 10 em_cadeia_aberta_uma_ponta  preto
+    "#1f77b4",  # 0  aresta_topo                    azul
+    "#ff7f0e",  # 1  aresta_base                    laranja
+    "#2ca02c",  # 2  aresta_esquerda                verde
+    "#d62728",  # 3  aresta_direita                 vermelho
+    "#9467bd",  # 4  caixa_fechada                  violeta
+    "#8c564b",  # 5  eh_grau3                       marrom
+    "#e377c2",  # 6  eh_grau2                       rosa
+    "#7f7f7f",  # 7  em_cadeia_curta                cinza
+    "#bcbd22",  # 8  em_cadeia_longa                oliva
+    "#17becf",  # 9  em_loop                        ciano
+    "#000000",  # 10 em_cadeia_aberta_uma_ponta      preto
+    "#aec7e8",  # 11 paridade_cadeia_longa_impar     azul-claro
 ]
-assert len(PALETA_POR_CANAL) == len(NOMES_CANAIS) == 11
+assert len(PALETA_POR_CANAL) == len(NOMES_CANAIS) == 12
 
 
 # ---------------------------------------------------------------------------
@@ -255,38 +256,37 @@ def renderizar_estado(
     caminho_saida: str,
     dpi: int = 150,
 ) -> None:
-    """Gera um PNG com matriz crua + 11 boxnets para um unico estado."""
+    """Gera um PNG com matriz crua + 12 boxnets para um unico estado."""
     import matplotlib
 
     matplotlib.use("Agg", force=False)
     import matplotlib.pyplot as plt
 
-    fig = plt.figure(figsize=(10, 6))
-    gs = fig.add_gridspec(3, 5, wspace=0.3, hspace=0.45)
+    n_canais = canais_estado.shape[2]  # 12
+    n_cols_canais = 4
+    n_rows_canais = (n_canais + n_cols_canais - 1) // n_cols_canais  # 3
 
-    # Painel esquerdo (matriz crua) ocupa as 3 linhas da coluna 0.
+    fig = plt.figure(figsize=(12, 6))
+    gs = fig.add_gridspec(n_rows_canais, n_cols_canais + 1, wspace=0.3, hspace=0.45)
+
+    # Painel esquerdo (matriz crua) ocupa todas as linhas da coluna 0.
     ax_crua = fig.add_subplot(gs[:, 0])
     _desenhar_matriz_crua(ax_crua, M)
 
-    # 11 paineis em grade 3x4 (12 slots — usa 11; ultimo fica vazio).
-    canal_idx = 0
-    for r in range(3):
-        for c in range(1, 5):
-            if canal_idx >= 11:
-                ax_vazio = fig.add_subplot(gs[r, c])
-                ax_vazio.axis("off")
-                continue
-            ax = fig.add_subplot(gs[r, c])
-            _desenhar_boxnet_canal(
-                ax,
-                canais_estado,
-                canal_idx,
-                NOMES_CANAIS[canal_idx],
-                PALETA_POR_CANAL[canal_idx],
-            )
-            canal_idx += 1
+    # 12 paineis em grade 3x4 (colunas 1..4).
+    for canal_idx in range(n_canais):
+        row = canal_idx // n_cols_canais
+        col = canal_idx % n_cols_canais + 1
+        ax = fig.add_subplot(gs[row, col])
+        _desenhar_boxnet_canal(
+            ax,
+            canais_estado,
+            canal_idx,
+            NOMES_CANAIS[canal_idx],
+            PALETA_POR_CANAL[canal_idx],
+        )
 
-    fig.suptitle(f"Validacao visual dos 11 canais — t={n_tracos} tracos", fontsize=11)
+    fig.suptitle(f"Validacao visual dos {n_canais} canais — t={n_tracos} tracos", fontsize=11)
     fig.savefig(caminho_saida, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
 

@@ -632,28 +632,60 @@ Após treinar a CNN e exportar o modelo `.tflite`, existem duas formas de testar
 
 Jogue partidas ao vivo contra a IA treinada. É útil para avaliar qualitativamente o comportamento da CNN.
 
-#### Jogar contra o Minimax (sem modelo treinado)
+#### Humano vs CNN (modelos 1ch ou 12ch)
 ```powershell
-.venv_tf\Scripts\python.exe -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos --tamanho pequeno --modo minimax
+.venv\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
+  --tamanho pequeno --modo humano_vs_cnn `
+  --modelo modelos/pontinhos_pequeno_12ch.tflite
 ```
 
-#### Jogar contra a CNN treinada
+#### CNN vs Minimax (com placar acumulado e delay)
 ```powershell
-.venv_tf\Scripts\python.exe -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos --tamanho pequeno --modo cnn --modelo modelos/pontinhos_pequeno_profundidade_8.tflite
+.venv\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
+  --tamanho pequeno --modo cnn_vs_minimax `
+  --modelo modelos/pontinhos_pequeno_12ch.tflite `
+  --profundidade 7 --delay 1500
+```
+
+#### CNN vs CNN
+```powershell
+.venv\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
+  --tamanho pequeno --modo cnn_vs_cnn `
+  --modelo modelos/cnn_a.tflite --modelo2 modelos/cnn_b.tflite `
+  --delay 1200
 ```
 
 **Parâmetros disponíveis:**
-- `--tamanho`: O tamanho do tabuleiro (`pequeno`, `medio` ou `grande`).
-- `--modo`: O agente adversário (`cnn` ou `minimax`).
-- `--profundidade`: Profundidade do Minimax (só para `--modo minimax`).
-- `--modelo`: Caminho para o arquivo `.tflite` (obrigatório para `--modo cnn`).
+- `--tamanho`: Tamanho do tabuleiro (`pequeno`, `medio`, `grande`).
+- `--modo`: `humano_vs_cnn` | `cnn_vs_minimax` | `cnn_vs_cnn`.
+- `--modelo`: Caminho para o `.tflite` principal (CNN 1-canal ou 12-canais — autodetectado).
+- `--modelo2`: Segundo `.tflite` para `cnn_vs_cnn`.
+- `--profundidade`: Profundidade do Minimax (padrão: 7).
+- `--timer`: Tempo limite em segundos por jogada (0 = sem limite). Igual para humano e CPU.
+- `--delay`: Milissegundos de pausa entre jogadas CPU (padrão: 1200ms).
+
+**Controles em jogo:**
+- **Mouse**: Clique em um traço para jogar (modo `humano_vs_cnn`).
+- **`R`**: Nova partida (alterna quem começa).
+- **`Z`**: Zerar placar acumulado.
+- **`P`**: Pausar/resumir (modos CPU vs CPU).
+- **`Q`**: Sair.
+
+O painel direito exibe placar acumulado (vitórias/derrotas/empates ao longo das partidas) e probabilidades da CNN para cada traço disponível.
+
+### 5.1b Visualizador de Canais CNN
+
+Ferramenta interativa para inspecionar como a CNN enxerga o tabuleiro. Clique nas arestas para montar qualquer estado e veja ao vivo os 12 canais estruturais e os scores de decisão.
+
+```powershell
+.venv\Scripts\python -m gerador_dados.jogo_pontinhos.visualizador_canais_pontinhos `
+  --modelo modelos/pontinhos_pequeno_12ch.tflite
+```
 
 **Controles:**
-- **Mouse**: Clique nos espaços entre os pontos na tela para fazer um traço. A IA jogará em seguida.
-- Tecla **`R`**: Reinicia a partida atual.
-- Tecla **`Q`**: Sai do jogo.
-
-O simulador imprime o **tempo de decisão da IA** em milissegundos no terminal a cada jogada.
+- **Mouse (clique)**: Adiciona ou remove uma aresta do tabuleiro.
+- **`C`**: Limpa o tabuleiro.
+- **`Q`**: Sai.
 
 ### 5.2 Avaliador Automático (CNN vs Minimax em lote)
 
