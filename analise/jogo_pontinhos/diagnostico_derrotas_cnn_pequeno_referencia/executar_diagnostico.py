@@ -31,6 +31,7 @@ import os
 import sys
 import time
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import fields
 from pathlib import Path
 
@@ -52,7 +53,8 @@ from analise.jogo_pontinhos.diagnostico_derrotas_cnn_pequeno_referencia.forense_
 )
 
 _DIMS = {"pequeno": (4, 3), "medio": (5, 4), "grande": (7, 5)}
-_FLUSH_A_CADA = 100   # grava corpus + checkpoint a cada N partidas
+_FLUSH_A_CADA = 100      # (sequencial) grava corpus + checkpoint a cada N partidas
+_BATCH_PARALELO = 256    # (paralelo) tamanho do lote por checkpoint contíguo
 CAMPOS_CORPUS = [f.name for f in fields(ErroDecisivo) if f.name != "matriz_antes"]
 
 
@@ -75,6 +77,54 @@ def _construir_referencia(args):
         labels = todos_labels_canonicos(linhas, colunas)
         return _cnn_agent_fn(args.modelo, labels), f"CNN({Path(args.modelo).name})"
     return _agente_minimax(args.prof_ref), f"Minimax-standin(p={args.prof_ref})"
+
+
+def _nome_referencia(args) -> str:
+    if args.modelo:
+        return f"CNN({Path(args.modelo).name})"
+    return f"Minimax-standin(p={args.prof_ref})"
+
+
+# ---------------------------------------------------------------------------
+# Workers de processo (paralelismo) — funções no nível do módulo (pickláveis).
+# Cada processo carrega o TFLite UMA vez (no initializer) e reusa entre partidas.
+# A unidade de trabalho é UM seed; o resultado volta como linhas de corpus já
+# prontas. Como cada partida re-semeia random.seed(seed), o corpus paralelo é
+# idêntico ao sequencial (a ordem das linhas é normalizada por seed na gravação).
+# ---------------------------------------------------------------------------
+
+_W_REF = None
+_W_ADV = None
+_W_CFG: dict = {}
+
+
+def _worker_init(modelo, prof_ref, tamanho, prof_adv, eps, t_max, prof_forense,
+                 abertura, incluir_empates):
+    global _W_REF, _W_ADV, _W_CFG
+    if modelo:
+        from gerador_dados.jogo_pontinhos.avaliador_partidas_pontinhos import _cnn_agent_fn
+        labels = todos_labels_canonicos(*_DIMS[tamanho])
+        _W_REF = _cnn_agent_fn(modelo, labels)
+    else:
+        _W_REF = _agente_minimax(prof_ref)
+    _W_ADV = agente_minimax_descuidado(prof_adv, eps_descuido=eps, t_max_descuido=t_max)
+    _W_CFG = dict(tamanho=tamanho, prof_forense=prof_forense,
+                  abertura=abertura, incluir_empates=incluir_empates)
+
+
+def _worker_jogo(seed: int):
+    """Joga uma partida e, se derrota, roda a forense. Retorna dados serializáveis."""
+    r = jogar_partida_instrumentada(
+        _W_REF, _W_ADV, ref_eh_jogador1=(seed % 2 == 0),
+        tamanho=_W_CFG["tamanho"], seed=seed,
+        lances_abertura_aleatorios=_W_CFG["abertura"])
+    linhas, decisivos = [], 0
+    if r.resultado_ref == DERROTA or (_W_CFG["incluir_empates"] and r.resultado_ref == EMPATE):
+        for e in analisar_partida(r, _W_CFG["prof_forense"], tamanho=_W_CFG["tamanho"]):
+            linhas.append(e.para_linha())
+            if e.decisivo:
+                decisivos += 1
+    return seed, r.resultado_ref, linhas, decisivos
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +154,15 @@ def _escrever_checkpoint(caminho: Path, dados: dict) -> None:
     tmp = caminho.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
     os.replace(tmp, caminho)
+
+
+def _montar_checkpoint(cfg, cfg_hash, seed_base, ultimo, contagem, n_erros, n_decisivos) -> dict:
+    return {
+        "versao": 1, "config": cfg, "config_hash": cfg_hash,
+        "seed_base": seed_base, "ultimo_seed_concluido": ultimo,
+        "contagem": contagem, "n_erros": n_erros, "n_decisivos": n_decisivos,
+        "atualizado_em": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
 
 
 def _append_corpus(caminho: Path, linhas: list[dict]) -> None:
@@ -200,6 +259,8 @@ def main():
     p.add_argument("--incluir-empates", action="store_true")
     p.add_argument("--alvo-erros-decisivos", type=int, default=0, help="Para sozinho ao atingir N erros decisivos (0 = sem alvo).")
     p.add_argument("--seed-base", type=int, default=0)
+    p.add_argument("--workers", type=int, default=1,
+                   help="Processos paralelos (1 = sequencial). Use ~n_cores-1 para a rodada cheia.")
     p.add_argument("--saida", default=None, help="Pasta-base de saída (default: ./saidas).")
     p.add_argument("--run-id", default=None, help="Nome da subpasta da rodada (default: exec_<hash-config>).")
     args = p.parse_args()
@@ -228,71 +289,95 @@ def main():
         print(f">> Retomando rodada {run_dir.name}: já {sum(contagem.values())} partidas "
               f"({contagem[DERROTA]}D), {n_decisivos} erros decisivos. Seguindo do seed {proximo_seed}.")
 
-    agente_ref, nome_ref = _construir_referencia(args)
-    agente_adv = agente_minimax_descuidado(
-        args.prof_adversario, eps_descuido=args.eps_descuido, t_max_descuido=args.t_max_descuido)
-
+    pct = int(args.eps_descuido * 100)
+    nome_adv = f"MinimaxDescuidado(p={args.prof_adversario}, eps={pct}%, t<={args.t_max_descuido})"
     print("=" * 72)
     print("ARENA DE AUTODIAGNÓSTICO — derrotas da referência (retomável)")
     print("=" * 72)
     print(f"  Rodada     : {run_dir.name}  (config {cfg_hash})")
-    print(f"  Referência : {nome_ref}")
-    print(f"  Adversário : {agente_adv.__name__}")
-    print(f"  Forense    : Minimax p={args.prof_forense}")
+    print(f"  Referência : {_nome_referencia(args)}")
+    print(f"  Adversário : {nome_adv}")
+    print(f"  Forense    : Minimax p={args.prof_forense} | Workers: {args.workers}")
     print(f"  Teto       : {args.partidas} partidas | alvo erros decisivos: {args.alvo_erros_decisivos or '—'}")
     print()
 
     seed_final = args.seed_base + args.partidas  # exclusivo
-    buffer: list[dict] = []
     ultimo_concluido = proximo_seed - 1
+    jogadas_inicial = sum(contagem.values())
     t0 = time.perf_counter()
     interrompido = False
 
-    def _flush():
-        nonlocal buffer
-        _append_corpus(corpus_path, buffer)
-        buffer = []
-        _escrever_checkpoint(cp_path, {
-            "versao": 1, "config": cfg, "config_hash": cfg_hash,
-            "seed_base": args.seed_base, "ultimo_seed_concluido": ultimo_concluido,
-            "contagem": contagem, "n_erros": n_erros, "n_decisivos": n_decisivos,
-            "atualizado_em": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        })
+    def _progresso():
+        jogadas = sum(contagem.values())
+        feitas = jogadas - jogadas_inicial
+        taxa = feitas / (time.perf_counter() - t0) if feitas else 0.0
+        d = contagem[DERROTA]
+        print(f"\r  [{jogadas}/{args.partidas}] {d}D ({d/jogadas*100:.1f}%) "
+              f"| {n_decisivos} decisivos | {taxa:.1f} part/s", end="", flush=True)
+
+    def _checkpoint(ultimo):
+        _escrever_checkpoint(cp_path, _montar_checkpoint(
+            cfg, cfg_hash, args.seed_base, ultimo, contagem, n_erros, n_decisivos))
 
     try:
-        for seed in range(proximo_seed, seed_final):
-            r = jogar_partida_instrumentada(
-                agente_ref, agente_adv,
-                ref_eh_jogador1=(seed % 2 == 0),
-                tamanho=args.tamanho, seed=seed,
-                lances_abertura_aleatorios=args.abertura_aleatoria)
-            contagem[r.resultado_ref] += 1
-
-            if r.resultado_ref == DERROTA or (args.incluir_empates and r.resultado_ref == EMPATE):
-                erros = analisar_partida(r, args.prof_forense, tamanho=args.tamanho)
-                for e in erros:
-                    buffer.append(e.para_linha())
-                    n_erros += 1
-                    if e.decisivo:
-                        n_decisivos += 1
-
-            ultimo_concluido = seed
-            jogadas = sum(contagem.values())
-            if jogadas % _FLUSH_A_CADA == 0:
-                _flush()
-                taxa = jogadas / (time.perf_counter() - t0)
-                print(f"\r  [{jogadas}/{args.partidas}] {contagem[DERROTA]}D "
-                      f"({contagem[DERROTA]/jogadas*100:.1f}%) | {n_decisivos} decisivos "
-                      f"| {taxa:.1f} part/s", end="", flush=True)
-
-            if args.alvo_erros_decisivos and n_decisivos >= args.alvo_erros_decisivos:
-                print(f"\n>> Alvo de {args.alvo_erros_decisivos} erros decisivos atingido.")
-                break
+        if args.workers > 1:
+            # ---- Paralelo: checkpoint por LOTE contíguo (retomada por lote) ----
+            with ProcessPoolExecutor(
+                max_workers=args.workers, initializer=_worker_init,
+                initargs=(args.modelo, args.prof_ref, args.tamanho, args.prof_adversario,
+                          args.eps_descuido, args.t_max_descuido, args.prof_forense,
+                          args.abertura_aleatoria, args.incluir_empates),
+            ) as ex:
+                for ini in range(proximo_seed, seed_final, _BATCH_PARALELO):
+                    chunk = range(ini, min(ini + _BATCH_PARALELO, seed_final))
+                    futs = [ex.submit(_worker_jogo, s) for s in chunk]
+                    linhas_lote: list[dict] = []
+                    for fut in as_completed(futs):
+                        _seed, res, linhas, dec = fut.result()
+                        contagem[res] += 1
+                        linhas_lote.extend(linhas)
+                        n_erros += len(linhas)
+                        n_decisivos += dec
+                    # Lote inteiro concluído → grava contíguo e avança checkpoint.
+                    linhas_lote.sort(key=lambda r: (int(r["seed"]), int(r["numero_jogada"])))
+                    _append_corpus(corpus_path, linhas_lote)
+                    ultimo_concluido = chunk.stop - 1
+                    _checkpoint(ultimo_concluido)
+                    _progresso()
+                    if args.alvo_erros_decisivos and n_decisivos >= args.alvo_erros_decisivos:
+                        print(f"\n>> Alvo de {args.alvo_erros_decisivos} erros decisivos atingido.")
+                        break
+        else:
+            # ---- Sequencial: checkpoint a cada _FLUSH_A_CADA partidas ----
+            agente_ref, _ = _construir_referencia(args)
+            agente_adv = agente_minimax_descuidado(
+                args.prof_adversario, eps_descuido=args.eps_descuido, t_max_descuido=args.t_max_descuido)
+            buffer: list[dict] = []
+            for seed in range(proximo_seed, seed_final):
+                r = jogar_partida_instrumentada(
+                    agente_ref, agente_adv, ref_eh_jogador1=(seed % 2 == 0),
+                    tamanho=args.tamanho, seed=seed,
+                    lances_abertura_aleatorios=args.abertura_aleatoria)
+                contagem[r.resultado_ref] += 1
+                if r.resultado_ref == DERROTA or (args.incluir_empates and r.resultado_ref == EMPATE):
+                    for e in analisar_partida(r, args.prof_forense, tamanho=args.tamanho):
+                        buffer.append(e.para_linha())
+                        n_erros += 1
+                        if e.decisivo:
+                            n_decisivos += 1
+                ultimo_concluido = seed
+                if sum(contagem.values()) % _FLUSH_A_CADA == 0:
+                    _append_corpus(corpus_path, buffer); buffer = []
+                    _checkpoint(ultimo_concluido)
+                    _progresso()
+                if args.alvo_erros_decisivos and n_decisivos >= args.alvo_erros_decisivos:
+                    print(f"\n>> Alvo de {args.alvo_erros_decisivos} erros decisivos atingido.")
+                    break
+            _append_corpus(corpus_path, buffer)
+            _checkpoint(ultimo_concluido)
     except KeyboardInterrupt:
         interrompido = True
-        print("\n!! Interrompido (Ctrl+C). Salvando progresso...")
-    finally:
-        _flush()
+        print("\n!! Interrompido (Ctrl+C). Progresso salvo até o último checkpoint.")
 
     jogadas = sum(contagem.values())
     print(f"\n  Partidas: {jogadas} | V/E/D: {contagem[VITORIA]}/{contagem[EMPATE]}/{contagem[DERROTA]} "

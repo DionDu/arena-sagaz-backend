@@ -85,11 +85,17 @@ A partir da **raiz do repositório**, com o `.venv`. **Jogue RASO, julgue FUNDO*
     --modelo "modelos/..._addaug_todos_8p3M.tflite" --partidas 2000 \
     --prof-adversario 3 --prof-forense 13 --eps-descuido 0.2 --abertura-aleatoria 4
 
-# RODADA CHEIA com parada automática ao atingir a base de diagnóstico:
+# RODADA CHEIA paralela (use ~n_cores-1) com parada automática na base alvo:
 .venv\Scripts\python -m ...executar_diagnostico \
     --modelo "modelos/..._addaug_todos_8p3M.tflite" --partidas 200000 \
-    --prof-adversario 3 --prof-forense 13 --alvo-erros-decisivos 5000
+    --prof-adversario 3 --prof-forense 13 --alvo-erros-decisivos 5000 --workers 8
 ```
+
+`--workers N` paraleliza por processos (cada um com seu Interpreter TFLite,
+padrão do `avaliador_partidas_pontinhos`). Resultado é **idêntico** ao sequencial
+(partidas determinísticas por seed; corpus ordenado por seed na gravação).
+`--workers` não entra no hash de config — dá para **retomar uma rodada sequencial
+em modo paralelo** (mesmo comando + `--workers 8`) para acelerar o que falta.
 
 ### Retomada (sobrevive a desligar o PC)
 
@@ -122,7 +128,7 @@ CPU puro. Cada partida é independente → paralelismo trivial. **Sua máquina**
 
 ## Estado atual (v1)
 
-Pilares 1–4 implementados, retomáveis e validados ponta-a-ponta (smoke test:
-N-pedaços == rodada única). **Pendente:** paralelização por `ProcessPoolExecutor`
-/ adaptação Databricks, persistência do corpus em NPZ para re-treino, e o módulo
-de clusterização/taxonomia rica (a v1 imprime um resumo agregado).
+Pilares 1–4 implementados, retomáveis, **paralelizados** (`--workers`) e validados
+ponta-a-ponta (smoke test: N-pedaços == rodada única; paralelo == sequencial).
+**Pendente:** adaptação Databricks (PySpark), persistência do corpus em NPZ para
+re-treino, e o módulo de clusterização/taxonomia rica (a v1 imprime um resumo agregado).
