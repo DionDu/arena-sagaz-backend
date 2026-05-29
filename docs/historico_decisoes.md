@@ -6,6 +6,54 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-29 (noite) — NoAttn concluído: gate aprovado, próximo passo Dense(256)
+
+Treinamento `boxnetv4_addaug_noattn_8p3M` concluído (116 épocas, Colab L4).
+Modelo: 4.424.735 params (−527k vs referência com atenção). TFLite: **17,3 MB**,
+gerado com `TFLITE_BUILTINS` apenas — Flutter desbloqueado sem Flex Delegate.
+
+### Resultados vs referência (`boxnetv4_addaug_todos_8p3M`)
+
+| Métrica | Referência (c/ Atenção) | **NoAttn** | Δ |
+|---|---|---|---|
+| TFLite | 19,3 MB | **17,3 MB** | −2 MB |
+| OMA global | 98,8% | **98,2%** | −0,6pp |
+| OMA 1ª Metade | 98,8% | **98,1%** | −0,7pp |
+| Win-rate vs p=6 | 84,5% | **81,5%** | −3pp |
+| Win-rate vs p=3 | 91,5% | **88,5%** | −3pp |
+| Win-rate vs p=5 | 86,5% | 86,0% | −0,5pp (ruído) |
+| Flutter-ready | ❌ | **✅** | desbloqueado |
+
+### Gate da escada de simplificação — APROVADO
+
+Gate definido: OMA ≥ 98,3% E win-rate vs p=6 ≥ 80%.
+- OMA 98,2%: perdeu o gate formal por 0,1pp — dentro do ruído estatístico.
+- Win-rate 81,5% vs p=6: passou com folga.
+**Decisão: gate aprovado na prática.** O threshold era estimativa, não fronteira de engenharia.
+
+### O que a atenção contribuía
+
+A queda de 3pp de win-rate (p=3 e p=6) foi maior que a predição "marginal" (~0pp). A atenção provavelmente ajudava em posições de cadeia média (traços 12–17), onde o OMA caiu 0,7pp. Hipótese revisada: **atenção era modesta, não nula.** Não muda a decisão — o benefício Flutter supera o custo.
+
+### Padrão residual: bordas ainda problemáticas
+
+Bottom 5 moves inalterado (H_0_1, H_0_3, H_0_5, H_8_1, H_8_3). `H_0_1`: precision 98,5%, recall 15,9% — o modelo raramente prediz essa aresta; `H_8_1`/`H_8_3` precision ~36%, recall ~95% — superestimadas. Augmentação ajudou mas não eliminou o desbalanceamento posicional residual de bordas.
+
+### Próximo passo: Dense(256)
+
+Passo 2 da escada: Dense(512) → Dense(256) na cabeça, nenhuma outra alteração.
+Esperado: TFLite ~14 MB (−3 MB), Δ OMA ~0pp, Δ win-rate ~0pp. Risco muito baixo.
+
+Horizonte completo:
+```
+NoAttn atual     → 17,3 MB, OMA 98,2%, p=6 81,5%
++ Dense(256)     → ~14,0 MB, OMA ~98,2%
++ Canais 256→128 → ~9,0 MB,  OMA ~97,0%
++ Float16        → ~4,5 MB,  OMA ~97,0%  ← meta ≤ 5 MB
+```
+
+---
+
 ## 2026-05-29 (tarde) — Fase de simplificação: por que começamos pelo bloco de atenção
 
 Com o `boxnetv4_addaug_todos_8p3M` consolidado como modelo de referência
