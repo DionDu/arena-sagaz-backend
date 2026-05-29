@@ -6,6 +6,67 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-29 (noite) — Como atacar as derrotas reais: arena de autodiagnóstico, não injeção a-priori
+
+Decisão de rota sobre **como** melhorar o win-rate da CNN em partidas reais
+(vs humano e vs Minimax). Duas abordagens foram consideradas.
+
+### Abordagem descartada — injeção a-priori de "posições de concessão"
+
+Proposta inicial (Claude): gerar em massa posições de abertura/1ª metade onde o
+adversário doa caixas grau-3, sob a hipótese de que a CNN erra a *continuação
+forçada* após capturar. **Descartada** porque o diagnóstico vinha de ~meia dúzia
+de partidas humanas e era confirmatório. Contra-evidência do desenvolvedor:
+houve partidas em que **a CNN doou caixas e ainda venceu** — ou seja, doação no
+meio-jogo às vezes é **sacrifício deliberado correto**, não erro. Injetar dados
+sob a hipótese errada arriscava ensinar a CNN a parar de sacrificar bem.
+
+### Abordagem escolhida — arena de autodiagnóstico (mineração empírica de erros)
+
+Não adivinhar onde estão as falhas; **medi-las**. O modelo de referência joga em
+escala contra uma população diversa de adversários; coletamos os fracassos reais
+e deixamos a distribuição empírica dos erros apontar as fraquezas (hard-example
+mining / análise de exploitabilidade). Subsume a abordagem a-priori: se o modo
+"concessão→erro" existir, aparece como cluster; se não, descobrimos sem desperdício.
+
+**Quatro pilares de projeto (sem eles a ideia não funciona):**
+
+1. **Diversidade:** aberturas aleatórias forçadas (k lances) + adversário com
+   desempate estocástico e variantes "descuidadas" (ε de lance *unsafe*). CNN em
+   argmax (política de produção); diversidade entra pela abertura e pelo adversário.
+2. **Localização do erro por *value-swing*:** o erro decisivo é o lance onde o
+   valor Minimax cruza de "CNN ganha/empata" para "CNN perde". Distingue
+   sacrifício bom (valor nunca fica negativo) de erro real. Reaproveita o oráculo
+   já existente (Fase 3 adaptativa p=11→20 + `score_melhor_jogada`).
+3. **Filtro de variância:** só conta derrota onde a CNN tinha posição ganha/empatada
+   e a jogou fora — descarta azar e posições genuinamente cara-ou-coroa.
+4. **Funil de 2 etapas:** jogo em massa barato (Minimax raso p≈6) → filtra
+   derrotas/empates-ruins → forense cara (Minimax profundo) só no filtrado.
+
+**Saída:** corpus rotulado de erros decisivos `(posição, lance_CNN, lance_Minimax,
+Δvalor, fase, canais, qtd_cadeias_longas, havia_safe)`, clusterizável para produzir
+taxonomia empírica de falhas. O cluster decide a alavanca: erro concentrado → buraco
+de dados (gerável/treinável); erro espalhado → capacidade/busca (dados não resolvem).
+
+**Enquadramento:** arena é **infraestrutura permanente** (diagnostica qualquer versão),
+não script único. Diagnosticar referência (teto de fraquezas) E modelo Flutter ~5 MB
+(o diff mede o custo da simplificação).
+
+### Sequenciamento decidido
+
+1. **Primeiro:** terminar a escada de simplificação até o Flutter ~5 MB
+   (Dense(256) → canais 256→128 → float16).
+2. **Em paralelo:** construir/rodar a arena de autodiagnóstico (infra offline, não
+   bloqueia os treinos no Colab).
+3. **Depois:** analisar a taxonomia de erros e atacar os clusters dominantes com
+   dados ("preserva + adiciona", reavaliando no conjunto limpo contra regressão).
+
+Caveats: nem todo erro é corrigível por dados; execução dos milhões de partidas
+roda na infra do desenvolvedor (Minimax é o custo), Claude desenha a arena e
+analisa o corpus.
+
+---
+
 ## 2026-05-29 (noite) — NoAttn concluído: gate aprovado, próximo passo Dense(256)
 
 Treinamento `boxnetv4_addaug_noattn_8p3M` concluído (116 épocas, Colab L4).
