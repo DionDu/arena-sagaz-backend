@@ -6,6 +6,40 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-05-29 (noite) — Degrau 2 da escada (NoAttn+Dense256) aprovado; base da arena coletada
+
+### Degrau 2: NoAttn + Dense(512)→Dense(256) — GANHO claro
+
+| Métrica | Referência | NoAttn | **NoAttn+Dense256** |
+|---|---|---|---|
+| TFLite | 19,3 MB | 17,3 MB | **13,9 MB** (−3,4 MB) |
+| Params | 4,95M | 4,42M | **3,57M** |
+| OMA global | 98,8% | 98,2% | **98,4%** ↑ |
+| OMA 1ª Metade | 98,8% | 98,1% | **98,3%** ↑ |
+| val_oma | 0,9877 | 0,9817 | **0,9842** ↑ |
+| Win p=6 | 84,5% | 81,5% | **80,5%** |
+
+- **Gate aprovado** (OMA ≥98%, win p=6 ≥80%). Cortar 853k params da cabeça densa
+  **não custou nada** — OMA até subiu. Confirma: a cabeça densa **não era gargalo
+  de capacidade**. Novo checkpoint Flutter-bound: **13,9 MB**.
+- Fraqueza estrutural inalterada (bottom-5 = bordas; `eh_grau2`/`em_cadeia_curta`
+  lideram os erros) — é a mesma paridade de meio-jogo que a arena localizou, e
+  simplificar não mexe nela.
+
+**Próximo degrau (3):** últimos blocos residuais 256→128 canais (~9 MB), depois
+Float16 (~4,5 MB ✓ ≤5 MB). ATENÇÃO: reduzir canais corta capacidade convolucional
+— o raciocínio de cadeia do meio-jogo (já fraco). Monitorar OMA 1ª Metade e win p=6;
+se 1ª Metade cair >1pp, ir direto p/ Float16 do Dense256 (~7 MB).
+
+### Arena — Etapa 1 (coleta) concluída
+
+Rodada `definitivo_v1` (modelo de referência addaug_todos_8p3M, adversário
+descuidado p=3): 59.904 partidas, 3,35% derrota, **parou no alvo de 2000 derrotas**.
+`saidas/definitivo_v1/derrotas.csv` = **2.009 seeds de derrota** prontos para a
+Etapa 2 (re-forense profunda p=17→19, localiza o lance do meio-jogo).
+
+---
+
 ## 2026-05-29 (madrugada) — Piloto da arena: as derrotas nascem no MEIO-JOGO, não no endgame
 
 Primeiro diagnóstico empírico com o modelo de referência real
