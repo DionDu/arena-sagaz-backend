@@ -139,3 +139,32 @@ em branco), **NÃO faça commit nem push** — restaure o arquivo com
 sobrescrevem arquivos de `specs/` com templates em branco como parte do seu
 fluxo de setup. Se o documento ainda não tiver sido commitado, as edições
 manuais feitas anteriormente são perdidas sem possibilidade de recuperação.
+
+## Diretriz obrigatória — Versionamento da API (apps em campo)
+
+O app mobile, depois de publicado, fica **congelado** no aparelho do usuário —
+várias versões do app convivem chamando o mesmo backend ao mesmo tempo. Toda
+decisão de API DEVE respeitar isso:
+
+- **Versionamento por caminho:** a API é exposta sob `/v1/...` (e `/v2/...` só
+  quando necessário). Mudanças **aditivas** (novos endpoints, novos campos
+  **opcionais**) NÃO sobem a versão. Apenas mudanças **quebradoras**
+  (remover/renomear campo, mudar tipo/semântica, tornar obrigatório o que era
+  opcional) criam uma nova versão.
+- **Compatibilidade retroativa (inegociável):** o backend DEVE continuar atendendo
+  todas as versões de app ainda suportadas. Migrações seguem **expand/contract**:
+  adiciona o novo → mantém o antigo funcionando → migra os clientes → só **depois**
+  remove o antigo.
+- **Aposentar uma versão** de API só é permitido depois que o *force-update*
+  (Remote Config `versao_minima_*`, ver `specs/005-…` FR-028) já excluiu todos os
+  apps que dependiam dela. **Nunca** quebre um cliente ainda em campo.
+- **Cabeçalhos de cliente:** toda chamada do app traz `X-App-Version`, `X-Platform`
+  (android/ios) e o idioma. Use para log, diagnóstico, descontinuação gradual e
+  (futuro) antifraude.
+- **Estrutura FastAPI:** roteadores agrupados por versão
+  (`api/v1/...`, `APIRouter(prefix="/v1")`); schemas Pydantic versionados quando
+  divergirem. **Não** crie `/v2` antes de existir uma mudança quebradora real.
+- **Contrato e testes:** cada versão expõe seu próprio OpenAPI; testes de contrato
+  garantem que endpoints de versões antigas continuam funcionando.
+
+Ver a diretriz espelhada (lado app) no `CLAUDE.md` do frontend.
