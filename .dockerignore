@@ -1,0 +1,51 @@
+# Reduz DRASTICAMENTE o contexto de build enviado ao Railway/Docker.
+# O build estava subindo ~528 MB porque empacotava os venvs e os dados.
+
+# Ambientes virtuais (enormes — TensorFlow/GPU)
+.venv/
+venv/
+env/
+.venv_tf/
+.venv_gpu/
+
+# Caches Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Segredos (nunca na imagem — vão por variável de ambiente)
+.env
+*firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist
+
+# Dados, modelos, notebooks e saídas de treino (não são da API)
+dados/
+modelos/
+notebooks/
+resultados/
+analise/
+visualizacoes/
+tmp_analise/
+*.npz
+*.npy
+
+# Testes / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Git / IDE / SO
+.git/
+.idea/
+.vscode/
+.claude/
+.DS_Store
+Thumbs.db
+
+# Dependências completas de dev/ML (a imagem usa requirements_api.txt)
+requirements.txt
+requirements_gpu.txt
+requirements_tf.txt

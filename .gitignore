@@ -22,6 +22,13 @@ env/
 # Variáveis de ambiente
 .env
 
+# Credenciais do Firebase Admin SDK (NUNCA versionar — vão por variável de ambiente no Railway)
+*firebase-adminsdk*.json
+arena-sagaz-*-firebase-adminsdk.json
+# Arquivos de config do Firebase do app (gerados por ambiente)
+google-services.json
+GoogleService-Info.plist
+
 # Testes
 .pytest_cache/
 .coverage

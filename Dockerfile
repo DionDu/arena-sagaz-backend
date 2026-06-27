@@ -2,9 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Instala SOMENTE as dependências de runtime da API (imagem enxuta).
+# O requirements.txt completo (notebook/ML/treino) NÃO entra na imagem — ele
+# inclui ipython==9.12.0, que exige Python>=3.12 e quebrava este build.
+COPY requirements_api.txt .
+RUN pip install --no-cache-dir -r requirements_api.txt
 
 COPY . .
 
-CMD uvicorn api.main:app --host 0.0.0.0 --port $PORT
+# Forma "exec" com sh -c: expande o $PORT injetado pelo Railway e repassa sinais
+# do SO (SIGTERM) ao uvicorn. ${PORT:-8080} usa 8080 como padrão (mesma porta do
+# Custom Domain do Railway) quando $PORT não está definido.
+CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

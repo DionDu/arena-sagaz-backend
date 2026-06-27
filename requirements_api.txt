@@ -1,0 +1,42 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependências de RUNTIME da API (FastAPI) — usadas no deploy (Railway/Docker).
+#
+# Mantida SEPARADA de `requirements.txt` (que inclui ferramentas de notebook,
+# ML e treino — ipython/jupyter/matplotlib/pandas/pygame/etc. — que NÃO devem
+# entrar na imagem da API e quebravam o build no Python 3.11, pois o
+# `ipython==9.12.0` exige Python >= 3.12).
+#
+# Ao adicionar uma dependência de runtime nova (ex.: firebase-admin quando
+# implementarmos a verificação de token), inclua-a AQUI também.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Web / ASGI
+fastapi==0.136.0
+starlette==1.0.0
+uvicorn==0.44.0
+h11==0.16.0
+httptools==0.7.1
+websockets==16.0
+watchfiles==1.1.1
+click==8.3.2
+anyio==4.13.0
+idna==3.11
+
+# Validação / configuração
+pydantic==2.13.2
+pydantic-core==2.46.2
+pydantic-settings==2.13.1
+annotated-types==0.7.0
+typing_extensions==4.15.0
+typing-inspection==0.4.2
+python-dotenv==1.2.2
+PyYAML==6.0.3
+
+# Banco de dados (usado pelas próximas tarefas: banco.py, migração, repositório)
+SQLAlchemy==2.0.49
+asyncpg==0.31.0
+greenlet==3.4.0
+alembic==1.18.4
+Mako==1.3.11
+MarkupSafe==3.0.3
+aiosqlite==0.22.1
