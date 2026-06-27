@@ -1,6 +1,5 @@
 # Dados gerados e modelos
 # dados/
-modelos/
 
 # Python
 __pycache__/
@@ -18,6 +17,7 @@ build/
 venv/
 env/
 .venv_tf/
+.venv_gpu/
 
 # Variáveis de ambiente
 .env
@@ -30,7 +30,6 @@ htmlcov/
 # Dataset e modelos
 # *.npz
 *.npy
-*.tflite
 
 # IDE
 .vscode/
@@ -44,3 +43,6 @@ Thumbs.db
 
 # Claude Code local settings (não versionar)
 .claude/
+
+# Oraculo tablebase (gerado, ~2GB)
+dados/oraculo_pontinhos/

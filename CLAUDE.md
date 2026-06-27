@@ -84,6 +84,34 @@ no futuro:
   renomeados em sessão dedicada; **não renomear caso a caso** durante outras
   tarefas.
 
+## Diretriz obrigatória — Notebooks derivados: atualizar Markdown, comentários e prints
+
+Sempre que você criar um notebook **novo a partir de um existente**, ou **alterar**
+um notebook, ajuste as células de **Markdown**, os **comentários de código** e as
+**mensagens de `print()`** para que reflitam as mudanças feitas — **não deixe texto
+herdado do notebook-base**. O usuário não deve precisar corrigir isso à mão.
+
+**Ajuste SOMENTE o que mudou.** Se um trecho de Markdown, comentário ou `print()`
+continua **atual e correto**, **mantenha como está** — não reescreva por reescrever.
+
+Itens a revisar (não exaustivo):
+
+- **Títulos e descrições**: nome do modelo/arquitetura (ex.: "BoxNet v4" quando
+  virou outra coisa), propósito do notebook, seção de introdução.
+- **Valores hardcoded em texto**: contagens e caminhos (ex.: "152 NPZs",
+  "apenas os 754k originais", "esperado: X arquivos = Y"), que ficam errados
+  quando os dados mudam.
+- **Saídas de `print()`**: rótulos e valores impressos (ex.: `print(f'Encontrados
+  {n} arquivos (esperado: ...)')`, resumos de configuração) devem bater com o que
+  o notebook realmente faz **agora**.
+- **Comentários de configuração**: `EXPERIMENTO`, `PASTA_NPZ`, `batch_size`,
+  `lr`, instruções `# EDITE:` e quaisquer notas que descrevam o que a célula faz.
+- **Menções a parâmetros/etapas que mudaram**: profundidade, base de dados,
+  pesos (`sample_weight`), augmentação, etc.
+
+Motivo: texto defasado em notebook **engana a banca do TCC** e induz erro de
+operação. Tratar Markdown/comentários como parte da mudança, não como enfeite.
+
 ## Ambiente Python
 
 O projeto usa um virtualenv em `.venv\`. Para rodar Python ou pytest, use **sempre**:

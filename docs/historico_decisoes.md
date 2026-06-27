@@ -2573,3 +2573,302 @@ usuário.
 2. **Offsets na Poda Alpha-Beta Incremental:** Diferente do motor local que retorna o score *absoluto* ao final da árvore, o Bitboard retornava o score *incremental* (pontos acumulados dali para a frente). Com isso, ao repassar os limites `alpha` e `beta` para as subárvores, os valores exigiam aplicação de um *offset* (ex: `alpha - cl`). A ausência dessa compensação causava podas severas incorretas, eliminando os ramos ideais e resultando em scores piores/errados.
 
 **Decisão:** O notebook `Geracao_Amostras_v7_adaptativo_Fase_2_HighPerf.ipynb` foi retificado implementando o controle estrito de `and edges & bm != bm` nas máscaras de caixas e as devidas compensações `+/- cl` nos limites do Alpha-Beta. A Transposition Table (TT) também passou a operar isoladamente para cada traço da raiz. As amostras geradas incorretamente precisam ser regeradas. Os detalhes matemáticos da investigação estão em `docs/jogo_pontinhos/Aprimoramento_Geracao_Amostras_v7_adaptativo.md`.
+
+---
+
+## 2026-05-30 — Rota: esgotar a CNN PURA antes da hibridização (foco TCC)
+
+**Contexto.** A arena de autodiagnóstico (re-forense profunda das derrotas da CNN
+de referência) revelou onde a rede erra. Diagnóstico preliminar (corpus p=17,
+125 seeds): das derrotas, ~72% já estavam perdidas ao entrar na janela t≈14 (o
+erro nasce no meio-jogo, 1ª metade, t=12–17). Nos 73 lances **decisivos**:
+**regret médio = 5,18 caixas** (mín 2, máx 12 — NÃO são empates), mas a CNN deu
+ao lance certo apenas **0,155** de probabilidade (vs 0,298 no errado); saída
+quase chata (margem_top2 ~0,10), com o lance do Minimax no top-3 em ~49%.
+
+**Interpretação.** O treino JÁ usa soft targets (`softmax(scores_minimax / T)`,
+T=1.0, perda KLDivergence) — o sinal de valor já está no alvo e, com regret ~5, o
+alvo estava **fortemente picudo** no vencedor. Logo NÃO é problema de formato de
+alvo (one-hot) nem de temperatura. A rede está **sub-ajustando** essas posições:
+elas são **raras** no dataset e o treino está com `USE_SAMPLE_WEIGHT = False`, então
+a KL é minimizada acertando o abundante/fácil (endgame, all-but-two) e tratando as
+raras-decisivas como ruído.
+
+**Decisão.**
+1. **Objetivo acadêmico (TCC):** esgotar ao máximo a CNN resolvendo o jogo
+   **sozinha (argmax puro)**, sem busca na inferência. A hibridização
+   `top-k da CNN + lookahead raso + folha de paridade de cadeias` fica como
+   **caminho comercial/fallback** e como anexo de trade-off na dissertação —
+   NÃO é o alvo acadêmico.
+2. **Prioridade de alavancas (puro DL), baseada na evidência:**
+   - (A) Experimento discriminador: rodar as posições de falha pelo modelo com
+     Attention vs NoAttn/Dense256 → isola capacidade/contexto global vs dado.
+   - (B) Mineração de exemplos difíceis → ligar/reprojetar `sample_weight` por
+     decisividade/regret (não por qtd_tracos).
+   - (C) Cobertura: gerar mais dados na banda de paridade do meio-jogo (t=12–17).
+   - (D) Arquitetura (atenção/global-pooling/profundidade) se (A) indicar falta
+     de contexto global — aqui a meta acadêmica justifica medir o teto mesmo
+     acima de 5MB.
+
+**Alternativas consideradas e descartadas (agora).** Trocar para one-hot
+(já superado); baixar T (alvo já estava nítido); re-adicionar value-head de
+regressão (colapsou — MAE ~0,85 prevendo 0; ver entrada do experimento value-head).
+
+**Status.** Re-forense p=19 (janela t≥12) rodando para localizar o lance exato e
+ampliar a base. Decisão de implementação (B/C/D) após o corpus p=19.
+
+---
+
+## 2026-05-30 — Oráculo exato (tablebase 4x3) revela rótulos de treino errados no meio-jogo
+
+**Contexto.** Para localizar com exatidão por que a CNN (98,6% OMA) perde para
+Minimax fraco, construímos um **oráculo exato por análise retrógrada** do tabuleiro
+pequeno: `gerador_dados/jogo_pontinhos/oraculo_tablebase_pontinhos.py` calcula, por
+programação dinâmica (negamax de trás para frente), o valor EXATO de jogo de TODAS
+as 2^31 ≈ 2,1 bi configurações de arestas. Build em **2,26 min**, 2,0 GiB
+(`dados/oraculo_pontinhos/tablebase_pequeno_4x3.npy`, no .gitignore). Valor da
+posição inicial = 0 (empate sob jogo perfeito).
+
+**Validação.** 2x2 EXAUSTIVO (4096 estados) = 0 divergências vs Minimax Python;
+amostras 4x3 = 0 divergências; auditoria dos NPZs com `arestas_livres ≤ 11`
+(onde p=11 alcança o terminal) = **0 divergências em ~9 mi comparações**. Oráculo
+comprovadamente correto.
+
+**Achado (auditoria de `dados/profundidade_minimax_11_adaptativo/`, 3,42 mi posições):**
+- `arestas_livres ≤ 11`: **100% dos rótulos ótimos** (endgame perfeito).
+- **27,12% de TODOS os rótulos ensinam um lance SUBÓTIMO** (regret médio 0,785 caixa).
+- Piora rumo à abertura: ar=20 → 49% subótimo; ar=26–28 → ~70%; ar=14–18 (faixa
+  onde a CNN falha) → 9%–35%.
+
+**Causa-raiz.** Minimax p=11 **trunca** antes do terminal quando `arestas_livres > 11`
+e seu argmax fica errado. A re-rotulação p=20 (Fase 3) só cobriu ~1,5% porque a
+heurística `prof_min = total_caixas_cadeias + 2·qtd_cadeias` assumiu "sem cadeias
+longas → p=11 basta" — FALSO: sem alcançar o terminal o valor é truncado. A maioria
+do meio-jogo ficou com rótulo errado. Consequência: o "98,6% OMA" mede concordância
+com rótulos errados, não com a verdade.
+
+**Decisão.**
+1. O oráculo é a nova **verdade-padrão** do tabuleiro pequeno (rotulagem e avaliação).
+2. **Re-rotular o dataset inteiro com o oráculo** (exato, instantâneo) e **re-treinar**.
+3. Medir **OMA verdadeiro** (CNN vs oráculo), não mais OMA vs rótulo.
+
+**Ressalva.** Só vale para o tabuleiro **pequeno** (2^31 cabe em 2 GB). Médio/grande
+seguem dependendo de Minimax/CNN. O pipeline (distribuição DAC, 12 canais,
+augmentação, CNN) permanece válido — só a etapa de rotulagem do pequeno fica exata.
+
+**Pendente.** (a) OMA verdadeiro da CNN atual vs oráculo; (b) confirmar a base exata
+de treino do modelo de referência; (c) re-rotular + re-treinar + medir ganho.
+
+### 2026-05-30 (correção/refinamento) — atribuição correta: p=20 OK, problema é p=11 truncado
+
+A análise inicial acima (27% "subótimo") usava o ARGMAX, que é ruído (empates de
+score são desempatados por sorteio). Refeita SÓ com o VETOR `score_melhor_jogada`
+e segmentada por `depth_melhor_jogada >= arestas_livres` (profundidade alcançou o
+terminal = exato), sobre 3,42 mi posições de `dados/profundidade_minimax_11_adaptativo/`:
+
+- **Profundidade SUFICIENTE (1.300.049 pos., inclui TODOS os 44.793 rótulos p=20):
+  100,0000% batem EXATO com o oráculo (0 divergências em 8,1 mi lances, TV=0).**
+  → (a) o oráculo fica validado independentemente em `ar 12–19` (via os p=20);
+    (b) os rótulos p=20 estão CORRETOS — sem contradição com as auditorias passadas.
+- **Profundidade INSUFICIENTE (2.123.411 pos. = 62%, p=11 truncado, meio-jogo/abertura):
+  só 0,85% exatos; soft-target médio diverge TV=0,35 (pico ~0,49 em ar≈20–22).**
+
+**Correção de atribuição:** a re-rotulação p=20 NÃO está errada (retratado). O problema
+é que a maioria do meio-jogo/abertura SEM cadeias longas ficou em p=11 truncado e
+nunca foi re-rotulada (a heurística `prof_min` só pegou estados com cadeias longas,
+~1,3%). Para o soft target de treino, esses 62% estão distorcidos.
+
+**Conserto (não-destrutivo):** re-rotular SÓ as ~2,1 mi posições com profundidade
+insuficiente usando o oráculo (as 1,3 mi exatas não mudam); manter p=20, codificação,
+augmentação. Depois re-treinar e medir OMA verdadeiro (CNN vs oráculo).
+
+### 2026-05-30 — Base nova com rotulação EXATA do oráculo
+
+Validação final: o oráculo bate 100% com TODOS os NPZ (1677 arquivos, originais +
+simetria) onde a profundidade alcança o terminal — **5.200.196 posições, 0
+divergências em 32,5 mi lances**. Oráculo confirmado correto.
+
+Criada `dados/profundidade_oraculo_exato/` (NÃO destrói a base antiga
+`dados/profundidade_minimax_11_adaptativo/` nem os NPZ de simetria): 419 originais
+reagrupados em **105 arquivos** `dataset_pequeno_oraculo_NNNN.npz`, 3.423.460 linhas.
+- `score_melhor_jogada`: vetor EXATO do oráculo (todas as posições, sem truncamento).
+- `melhor_jogada`: argmax determinístico do vetor (1º ótimo).
+- `depth_melhor_jogada = 31 − qtd_tracos` (= arestas_livres; profundidade que chega
+  ao terminal → exata em toda posição).
+- Demais campos preservados (estados, canais 12, escalares de cadeias, labels, nomes).
+- **Pendente:** augmentação por simetria da base nova (Fase 4) — não gerada aqui por
+  instrução de não tocar nos NPZ de simetria; regenerar a partir dos rótulos exatos
+  quando for treinar com augmentação.
+
+Próximo: re-treinar com a base exata e medir OMA VERDADEIRO (CNN vs oráculo).
+
+> Correção (mesma data): `melhor_jogada` na base nova usa **escolha ALEATÓRIA entre
+> os lances ótimos empatados** (RNG semeado p/ reprodutibilidade), não o 1º ótimo.
+
+> Augmentação: o NPZ consolidado `aug_distintos_novos_todos_t.npz` (4.915.970 linhas)
+> foi copiado para `dados/profundidade_oraculo_exato/` com score_melhor_jogada (vetor
+> exato), melhor_jogada (aleatório entre empates) e depth_melhor_jogada (=31−qtd_tracos)
+> re-rotulados do oráculo. Sanidade: popcount(arestas)==qtd_tracos em 100% das linhas;
+> melhor_jogada ótimo em 100% da amostra. Base nova pronta para treino COM augmentação.
+
+## 2026-05-30 (resultados) — CNN re-treinada na base do oráculo: derrotas eliminadas
+
+Treinamento `boxnetv4_oraculo_exato_8p3M` (mesma arquitetura/atenção do modelo de
+referência, mas sobre `dados/profundidade_oraculo_exato`).
+
+**Resultado central — partidas vs Minimax (200 cada, p=1,3,5,6):**
+- 800 partidas → **1 única derrota** (p=5; 0,1%). Antes, a referência perdia ~3% na arena.
+- p=1: 100% vitória; p=3: 94% V / 6% E / 0 D; p=5: 92% V / 7,5% E / 0,5% D; p=6: 92,5% V / 7,5% E / 0 D.
+
+**OMA verdadeiro (vs oráculo) = 97,8%** (a referência tinha ~98,3% MAS medido contra
+rótulos errados; a régua mudou — 97,8% agora é honesto e a força de jogo subiu).
+- OMA por fase: Abertura 95,8% | 1ª Metade 98,2% | 2ª Metade 100% | Quente 100% | Final 100%.
+- Top-1 baixo (63%) é esperado: soft targets exatos + muitos empates na abertura.
+
+**Confirmação do conserto (Canal × Erro):** os erros NÃO se concentram mais em
+`em_cadeia_longa`/`paridade`/`eh_grau3`/`caixa_fechada` (todos SUB-representados nos
+erros). Migraram para `eh_grau2`/abertura (posições equilibradas, erro recuperável).
+O raciocínio de paridade do meio-jogo — a doença original — foi reparado. Prova de
+que a causa-raiz era RÓTULO, não capacidade.
+
+**Pendências/ressalvas:** (a) não é literalmente 100% (1/800); (b) o teste p=1–6 é
+mais fácil que a arena com adversários descuidados/aberturas aleatórias — re-rodar a
+arena para selo final; (c) TFLite saiu com 18,9 MB (modelo com atenção) — a escada
+rumo aos ≤5 MB (Flutter) deve ser refeita sobre a base exata. Primeiro experimento
+dessa escada: notebook `Treinamento_CNN_Pontinhos_V10_Oraculo_Exato.ipynb`
+(arquitetura V10 simplificada, exp `cnn_v10_simplificada_oraculo_exato`).
+
+## 2026-05-30 (arena + forense pelo oráculo) — derrota real da CNN ≈ 0,02%
+
+Arena com o modelo do oráculo vs adversário descuidado (p=3, eps=25%, abertura
+aleatória k=4): **10.000 partidas → 9.947 V / 49 E / 4 D (0,04%)**. A referência
+antiga perdia ~3% nas mesmas condições → queda de ~75×.
+
+**Forense EXATA pelo oráculo das 4 derrotas** (valor exato em cada lance, sem janela):
+- **2/4 (seeds 5956, 8994):** NÃO são erro da CNN — a abertura aleatória forçada já
+  entregava posição perdida (valor_ótimo = −4 no 1º lance julgado); a CNN jogou
+  **perfeito (regret 0)** dali em diante. Artefato do gerador de diversidade.
+- **2/4 (seeds 7084 @t=12; 8240 @t=13):** blunder real — **doação no início do
+  meio-jogo** jogando fora um EMPATE (regret 4 e 2). Mesmo arquétipo da doença
+  original (paridade no meio-jogo), agora ~150× mais raro.
+
+**Taxa de erro REAL atribuível à CNN ≈ 2/10.000 (0,02%).** Além disso, o oráculo
+confirma que as "caixas de graça" no começo são majoritariamente **sacrifícios
+ótimos (regret 0)** — jogo são, não erro.
+
+**Próximo (rumo a ~100%):** mineração dirigida do arquétipo "doação no meio-jogo
+(t≈12–17) que vira empate→derrota (regret≥2)", com rótulo exato do oráculo, e
+re-treino. Ferramenta de forense exata por oráculo criada nesta sessão (replay por
+seed + lookup O(1)); candidata a virar módulo permanente.
+
+## 2026-05-31 — Mineração de falhas por self-play julgada pelo oráculo (loop de melhoria)
+
+Ferramenta nova (permanente): `analise/jogo_pontinhos/diagnostico_derrotas_cnn_pequeno_referencia/minerar_falhas_selfplay_pontinhos.py`.
+Implementa os itens 1–2 do loop combinado com o usuário: a CNN joga contra uma
+POPULAÇÃO diversa de adversários (Minimax descuidado com prof∈{1..4}, eps∈{0.1,0.25,0.4},
+aberturas aleatórias k∈{2,4,6,8}, + ~9% aleatórios) e o **oráculo julga CADA lance**
+(lookup O(1)); coleta todo lance com **regret>0** (estados realistas onde a CNN erra),
+dedup por bitmask, salvamento incremental (.npz) e retomável (progresso.json).
+Rótulo gravado = VETOR `score_melhor_jogada` exato do oráculo (não o argmax).
+
+Smoke (600 jogos): 9992 lances julgados → **148 falhas distintas** (regret médio 2,03;
+11 decisivas). Por classe do lance da CNN: 136 segura / 10 doação / 2 captura. Por fase:
+concentradas em t=7–13 (abertura/início do meio-jogo, pico t=12). Lote real de 30k
+jogos rodando (run-id selfplay_v1).
+
+**Loop acordado (rumo a ~100%):** 1) self-play diverso → 2) oráculo julga (regret>0)
+→ 3) separar novo-não-visto vs visto-mas-erra (dedup contra os 8,3M; injetar os novos)
+→ 4) rótulo = score_melhor_jogada do oráculo → 5) injetar (milhares) + sample_weight
+→ 6) repetir → 7) futuro: destilar a base (coreset) p/ treinar mais rápido.
+
+### 2026-05-31 (resultado) — a lacuna é COBERTURA: 91,7% das falhas são estados nunca vistos
+
+Self-play minerado (30.000 jogos, 498k lances julgados pelo oráculo) → **7.021 falhas
+distintas** (regret>0; média 2,07; máx 14; 668 decisivas). Cruzando contra os 6.916.861
+bitmasks distintos da base 8,3M:
+- **NOVAS (nunca vistas no treino): 6.439 = 91,7%** — 583 decisivas, 175 com regret≥4,
+  concentradas em t=7–13, majoritariamente lances "segura". É a LACUNA real.
+- VISTAS-mas-erra: 582 = 8,3% — todas regret 2, na abertura (t=4–8); sub-ajuste de
+  quase-empates, baixo risco (sample_weight, não injeção).
+
+**Conclusão:** o gap para ~100% é majoritariamente COBERTURA (a CNN erra no que nunca
+viu), não capacidade — confirma a hipótese do loop. Subconjunto novo salvo em
+`saidas/selfplay_v1/falhas_novas.npz` (rótulo = score_melhor_jogada exato). Próximo
+(itens 4–5): montar NPZ de injeção (canais via extrair_canais + escalares de cadeias +
+augmentação por simetria 4×) e re-treinar base + injeção com sample_weight.
+
+### 2026-05-31 (itens 4–5) — Refinamento 1: base de injeção + notebook de fine-tuning
+
+Construído `dados/profundidade_oraculo_exato/refinamento_oraculo_001.npz` (também no
+Drive) a partir das 6.439 falhas NOVAS: para cada estado, canais via `extrair_canais`,
+escalares via `extrair_stats_cadeias`, estados via `_para_dominio_dataset` (mesmas
+funções da base → schema v2-a3 idêntico); rótulo = `score_melhor_jogada` EXATO do
+oráculo. Augmentação por simetria 4× (aplicar_simetria) → 25.756 → **25.348 após dedup**.
+Validado: estados∈{0,1,8,9}, canais∈{0,1}, melhor_jogada 100% ótima.
+
+Notebook de fine-tuning: `notebooks/jogo_pontinhos/Treinamento_CNN_Pontinhos_V11_Colab_Oraculo_Refinamento1.ipynb`
+(cópia do notebook da CNN oráculo; treino IDÊNTICO, mesma arquitetura, sobre a pasta
+base+refinamento). EXPERIMENTO=`boxnetv4_oraculo_exato_refinamento1_8p3M`; nome do tflite
+ajustado ao padrão `pontinhos_pequeno_cnn_12canais_{EXPERIMENTO}.tflite`.
+
+Ferramentas novas permanentes: `minerar_falhas_selfplay_pontinhos.py` e
+`construir_npz_refinamento_pontinhos.py` (repetíveis para refinamentos 2, 3, …).
+
+Nota: teste do contrato de encoding = 10/11 OK; a única falha (hash backend≠frontend)
+é IRRELEVANTE — frontend ainda não foi desenvolvido.
+
+> Ajuste (item 5): ligado `sample_weight` no notebook de Refinamento 1 — as linhas do
+> arquivo `refinamento_*` recebem peso `PESO_REFINAMENTO` (default 20×) vs 1× da base
+> (presença efetiva ~6% do gradiente, vs 0,3% sem peso). Tunável na config; peso alto
+> demais arrisca decorar as 6.439 posições, baixo demais dilui — o teste-alvo afere.
+
+## 2026-05-31 (resultado) — Refinamento 1: 88% das lacunas consertadas, jogo melhora, OMA cai um hair
+
+CNN `boxnetv4_oraculo_exato_refinamento1_8p3M` (base 8,3M + 25,3k do refinamento com
+sample_weight 20×; batch 4096, lr 2e-3, 61 epocas).
+
+**Teste-alvo (decisivo):** das 6.439 posicoes onde a CNN ANTIGA falhava (regret>0),
+a refinada CONSERTOU **5.685 = 88,3%** (regret agora 0); 754 ainda erram. Consistente
+por fase (82–100%). => a injecao+peso funcionou no alvo.
+
+**Partidas vs Minimax (200 cada p=1,3,5,6):** melhorou. p3 94%→98% V; p5 92%(1 derrota)
+→98% (0 derrota); p6 92,5%→96%. Empates totais 42→16; **derrotas 1→0 em 800 jogos**.
+
+**OMA vs rotulos exatos: leve REGRESSAO** 97,8%→97,5% (val_oma 0,9782→0,9746); abertura
+95,8→95,2; 1a metade 98,2→97,8. Causa: peso 20× puxou capacidade p/ as raras + batch
+4096 (generaliza um hair pior). Concentrada na abertura (quase-empates inofensivos).
+
+**Simulador vs ORACULO perfeito (107 partidas):** CNN 45 V / 52 D / 10 E. Esperado —
+nao se vence jogo perfeito (4x3 e empate sob jogo perfeito); vitorias vem da abertura
+aleatoria. Benchmark de teto para acompanhar entre refinamentos.
+
+**Conclusao:** refinamento 1 = SUCESSO pelas metricas que importam (lacunas consertadas,
+mais vitorias, 0 derrotas). **OMA-vs-rotulos saturou e virou metrica enganosa** (caiu
+enquanto a forca de jogo subiu) — north-star passa a ser win/draw/loss + fix-rate do
+teste-alvo + placar vs oraculo. Proximo: refinamento 2 (re-minerar com o modelo novo).
+
+> Métrica nova: `Avaliacao_CNN_vs_Minimax.ipynb` ganhou a seção **CNN vs Oráculo
+> (jogo perfeito)** — joga vs a tablebase exata (1a jogada aleatória, alterna quem
+> abre) e reporta V/E/D **quebrado por QUEM ABRE** (CNN abre x Oráculo abre), pois
+> contra o jogo perfeito as vitórias vêm de aberturas favoráveis. Roda local (.venv_tf,
+> tablebase). Harness validado (smoke 40 jogos ≈ 35/15/50, coerente com o simulador 45/52/10).
+
+## 2026-05-31 (refinamento 2 + métricas) — montagem e enquadramento "vs Minimax alto"
+
+Mineração round 2 (modelo refinado, 30k jogos): 6.905 falhas distintas, **6.290 novas
+(91,1%)** apos dedup contra base+ref1, 650 decisivas. Construido
+`refinamento_oraculo_002.npz` (24.914 = 6.290 + simetria 4x), na pasta + Drive (108 NPZ).
+Notebook `Treinamento_CNN_Pontinhos_V11_Colab_Oraculo_Refinamento2.ipynb` (base no ref1):
+**batch 2048, lr 1e-3, PESO_REFINAMENTO 12x** (menor, pois o residuo e de baixo valor e
+peso 20x sangrou o OMA do oceano); MD/comentarios/prints corrigidos. O notebook pesa
+TODOS os `refinamento_*` (ref1+ref2).
+
+**Nota estratégica:** ~91% das falhas ainda sao novas a cada round (espaco grande) →
+retorno decrescente; o salto grande foi o round 1. Refinamento 2 fecha mais decisivas
+mas com ganho menor; 100% so via injecao e impraticavel.
+
+**Enquadramento "vs Minimax alto" (decisao):** NAO vale rodar Minimax p=17/19 (proibitivo)
+nem simular por subtracao do oraculo (funcoes distintas). Um Minimax p=19 e EXATO (=oraculo)
+para ar<=19 (t>=12) e so difere na abertura (quase-empate) → praticamente identico ao
+oraculo. Logo o benchmark **CNN vs Oraculo (= Minimax p=31, profundidade total)** que ja
+adicionamos JA e o "vs Minimax altissimo", no teto. Escada de regret descartada (usuario).

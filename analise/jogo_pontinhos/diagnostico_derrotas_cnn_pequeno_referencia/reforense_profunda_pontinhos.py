@@ -295,9 +295,11 @@ def main():
         print(f"  Retomando: {len(feitos)} já analisados, {len(pendentes)} pendentes.\n")
 
     n_pend = len(pendentes)
-    passo = max(1, n_pend // 50)     # ~50 linhas de progresso
-    FLUSH = 25                       # grava em disco a cada 25 derrotas concluídas
+    passo = max(1, n_pend // 400)    # log frequente (~a cada poucas derrotas)
+    INTERVALO_LOG = 120              # heartbeat: ao menos 1 linha a cada 120 s
+    FLUSH = 10                       # grava em disco a cada 10 derrotas concluídas
     t0 = time.perf_counter()
+    ultimo_log = t0
     n_dec = 0
     buf_corpus: list[dict] = []
     buf_resumo: list[dict] = []
@@ -321,8 +323,10 @@ def main():
                     n_dec += sum(1 for l in linhas if l["decisivo"] in (True, "True"))
                     if i % FLUSH == 0:
                         _flush()
-                    if i % passo == 0 or i == n_pend:
-                        el = time.perf_counter() - t0
+                    agora = time.perf_counter()
+                    if i % passo == 0 or (agora - ultimo_log) >= INTERVALO_LOG or i == n_pend:
+                        ultimo_log = agora
+                        el = agora - t0
                         taxa = i / el if el else 0.0
                         eta = (n_pend - i) / taxa if taxa else 0.0
                         print(f"  [{i}/{n_pend}] {i/n_pend*100:5.1f}% | {n_dec} decisivos | "

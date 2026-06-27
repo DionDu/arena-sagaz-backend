@@ -630,48 +630,96 @@ Após treinar a CNN e exportar o modelo `.tflite`, existem duas formas de testar
 
 ### 5.1 Simulador Interativo (Pygame)
 
-Jogue partidas ao vivo contra a IA treinada. É útil para avaliar qualitativamente o comportamento da CNN.
+Jogue partidas ao vivo contra a IA treinada ou assista confrontos automáticos. Útil para avaliar qualitativamente o comportamento da CNN e comparar com adversários de referência.
 
-#### Humano vs CNN (modelos 1ch ou 12ch)
+#### Modos disponíveis
+
+| Modo | J1 | J2 | `--modelo` | `--modelo2` | `--oraculo` |
+|---|---|---|---|---|---|
+| `humano_vs_cnn` | Humano | CNN | obrigatório | — | — |
+| `humano_vs_oraculo` | Humano | Oráculo | — | — | opcional¹ |
+| `cnn_vs_minimax` | CNN | Minimax | obrigatório | — | — |
+| `cnn_vs_oraculo` | CNN | Oráculo | obrigatório | — | opcional¹ |
+| `cnn_vs_cnn` | CNN | CNN | obrigatório | obrigatório | — |
+
+> ¹ Padrão: `dados/oraculo_pontinhos/tablebase_pequeno_4x3.npy`. O oráculo só funciona com `--tamanho pequeno`.
+
+---
+
+#### Humano vs CNN
 ```powershell
-.venv\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
+.venv_tf\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
   --tamanho pequeno --modo humano_vs_cnn `
-  --modelo modelos/pontinhos_pequeno_12ch.tflite
+  --modelo modelos/pontinhos_pequeno_cnn_depth_11_e_20_12canais_boxnetv4_oraculo_exato_8p3M.tflite
 ```
 
-#### CNN vs Minimax (com placar acumulado e delay)
+#### Humano vs Oráculo
 ```powershell
-.venv\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
+.venv_tf\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
+  --tamanho pequeno --modo humano_vs_oraculo
+```
+O oráculo joga perfeitamente (tablebase exata). O painel direito exibe os **scores inteiros** (`+N`/`-N`) de cada jogada disponível.
+
+#### CNN vs Oráculo (diagnóstico de derrotas)
+```powershell
+.venv_tf\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
+  --tamanho pequeno --modo cnn_vs_oraculo `
+  --modelo modelos/pontinhos_pequeno_cnn_depth_11_e_20_12canais_boxnetv4_oraculo_exato_8p3M.tflite `
+  --autostart 2000
+```
+O painel exibe lado a lado as **probabilidades da CNN** e os **scores exatos do oráculo**, permitindo ver exatamente onde a CNN diverge da jogada perfeita. Com `--autostart 2000` as partidas se sucedem automaticamente.
+
+#### CNN vs Minimax
+```powershell
+.venv_tf\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
   --tamanho pequeno --modo cnn_vs_minimax `
-  --modelo modelos/pontinhos_pequeno_12ch.tflite `
-  --profundidade 7 --delay 1500
+  --modelo modelos/pontinhos_pequeno_cnn_depth_11_e_20_12canais_boxnetv4_oraculo_exato_8p3M.tflite `
+  --profundidade 7 --delay 1200
 ```
 
 #### CNN vs CNN
 ```powershell
-.venv\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
+.venv_tf\Scripts\python -m gerador_dados.jogo_pontinhos.simulador_tatico_pontinhos `
   --tamanho pequeno --modo cnn_vs_cnn `
   --modelo modelos/cnn_a.tflite --modelo2 modelos/cnn_b.tflite `
-  --delay 1200
+  --delay 1200 --autostart 1500
 ```
 
-**Parâmetros disponíveis:**
-- `--tamanho`: Tamanho do tabuleiro (`pequeno`, `medio`, `grande`).
-- `--modo`: `humano_vs_cnn` | `cnn_vs_minimax` | `cnn_vs_cnn`.
-- `--modelo`: Caminho para o `.tflite` principal (CNN 1-canal ou 12-canais — autodetectado).
-- `--modelo2`: Segundo `.tflite` para `cnn_vs_cnn`.
-- `--profundidade`: Profundidade do Minimax (padrão: 7).
-- `--timer`: Tempo limite em segundos por jogada (0 = sem limite). Igual para humano e CPU.
-- `--delay`: Milissegundos de pausa entre jogadas CPU (padrão: 1200ms).
+---
 
-**Controles em jogo:**
-- **Mouse**: Clique em um traço para jogar (modo `humano_vs_cnn`).
-- **`R`**: Nova partida (alterna quem começa).
-- **`Z`**: Zerar placar acumulado.
-- **`P`**: Pausar/resumir (modos CPU vs CPU).
-- **`Q`**: Sair.
+#### Parâmetros disponíveis
 
-O painel direito exibe placar acumulado (vitórias/derrotas/empates ao longo das partidas) e probabilidades da CNN para cada traço disponível.
+| Parâmetro | Padrão | Descrição |
+|---|---|---|
+| `--tamanho` | `pequeno` | Tamanho do tabuleiro: `pequeno`, `medio`, `grande`. |
+| `--modo` | `humano_vs_cnn` | Ver tabela de modos acima. |
+| `--modelo` | — | Caminho para o `.tflite` principal (autodetecta 1-canal ou 12-canais). |
+| `--modelo2` | — | Segundo `.tflite` para `cnn_vs_cnn`. |
+| `--oraculo` | `dados/oraculo_pontinhos/tablebase_pequeno_4x3.npy` | Caminho para a tablebase do oráculo. |
+| `--profundidade` | `7` | Profundidade do Minimax (modo `cnn_vs_minimax`). |
+| `--timer` | `0` | Limite de tempo por jogada em segundos (0 = sem limite). |
+| `--delay` | `0` | Pausa visual entre jogadas CPU em ms. Use ~1200 para assistir `cnn_vs_cnn`. |
+| `--autostart` | `0` | Inicia nova partida automaticamente N ms após o fim (0 = desativado). |
+
+> **Nota sobre `--delay`:** o padrão é 0 (resposta imediata). Para assistir partidas CPU vs CPU com conforto visual use `--delay 1200`. O oráculo é instantâneo (~0,04 ms/jogada) mesmo sem delay.
+
+> **Nota sobre o oráculo e RAM:** ao iniciar um modo com oráculo, a tablebase inteira (~2 GiB) é carregada na RAM uma única vez. Isso demora ~1–3 s na inicialização; depois as jogadas são instantâneas.
+
+---
+
+#### Controles em jogo
+
+| Tecla | Ação |
+|---|---|
+| **Mouse** | Clica em um traço para jogar (turnos humano) |
+| **`R`** | Nova partida (alterna quem começa) |
+| **`Z`** | Zerar placar acumulado e reiniciar |
+| **`P`** | Pausar/resumir (modos CPU vs CPU; também suspende o autostart) |
+| **`Q`** | Sair |
+
+O painel direito exibe o placar acumulado e, dependendo do agente:
+- **CNN**: probabilidades (%) de cada traço disponível em ordem decrescente.
+- **Oráculo**: scores inteiros (`+N`/`-N`) de cada traço, onde `+N` significa que o oráculo vence por N caixas com jogo ótimo a partir dali.
 
 ### 5.1b Visualizador de Canais CNN
 

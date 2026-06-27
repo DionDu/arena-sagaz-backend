@@ -1,12 +1,16 @@
-"""Simulador tático Pygame: Humano vs CNN, CNN vs CNN, CNN vs Minimax.
+"""Simulador tático Pygame: Humano vs CNN, CNN vs CNN, CNN vs Minimax, vs Oráculo.
 
 Modos:
-  humano_vs_cnn   — você joga contra uma CNN (ou Minimax, legado)
-  cnn_vs_cnn      — duas CNNs disputam com delay e pausa configuráveis
-  cnn_vs_minimax  — CNN disputa contra Minimax(profundidade=p)
+  humano_vs_cnn     — você joga contra uma CNN
+  humano_vs_oraculo — você joga contra o oráculo (tablebase exata)
+  cnn_vs_cnn        — duas CNNs disputam com delay e pausa configuráveis
+  cnn_vs_minimax    — CNN disputa contra Minimax(profundidade=p)
+  cnn_vs_oraculo    — CNN disputa contra o oráculo (tablebase exata)
 
 Suporte automático a modelos 1-canal (encoding crua 9×7×1) e
 12-canais (canais estruturais 4×3×12) via detecção do shape de entrada.
+
+O oráculo só funciona para tamanho='pequeno' (tablebase 4×3 pré-calculada).
 """
 from __future__ import annotations
 
@@ -26,6 +30,12 @@ from gerador_dados.jogo_pontinhos.tabuleiro_pontinhos import (
     todos_labels_canonicos,
 )
 from gerador_dados.jogo_pontinhos.minimax_pontinhos import melhor_jogada as minimax_melhor
+from gerador_dados.jogo_pontinhos.oraculo_tablebase_pontinhos import (
+    carregar as oraculo_carregar,
+    construir_mapeamento as oraculo_construir_mapeamento,
+    matriz_para_bitmask,
+    scores_de_todas_jogadas_exato,
+)
 from gerador_dados.jogo_pontinhos.contrato_codificacao_pontinhos import (
     CONTEXTO_PARTIDA,
     normalizar_para_cnn,
@@ -48,8 +58,8 @@ _C_FUNDO = (16, 16, 28)
 _C_PAINEL = (22, 22, 40)
 _C_SEP = (55, 55, 85)
 _C_GRADE = (155, 155, 180)
-_C_J1 = (30, 140, 255)
-_C_J2 = (220, 55, 55)
+_C_J1 = (90, 190, 255)
+_C_J2 = (255, 100, 100)
 _C_TEXTO = (215, 215, 232)
 _C_SUB = (130, 130, 160)
 _C_HOVER = (235, 195, 40)
@@ -127,6 +137,50 @@ def _jogada_cnn(
     return max(disponiveis, key=lambda t: probs[t]), probs
 
 
+# ── Helpers Oráculo ───────────────────────────────────────────────────────────
+
+def _carregar_oraculo(caminho: str, tamanho: str) -> dict:
+    if tamanho != "pequeno":
+        print(f"Erro: oráculo só disponível para tamanho 'pequeno' (recebido: {tamanho!r}).")
+        sys.exit(1)
+    if not Path(caminho).exists():
+        print(f"Erro: tablebase não encontrada: {caminho}")
+        sys.exit(1)
+    linhas, colunas = TAMANHOS[tamanho]
+    labels, edge_rc, n_edges, ebm, ebc, _ = oraculo_construir_mapeamento(linhas, colunas)
+    label_to_idx = {l: i for i, l in enumerate(labels)}
+    print("Carregando tablebase para RAM (~2 GiB)... ", end="", flush=True)
+    val = oraculo_carregar(caminho, mmap=False)
+    print("pronto.")
+    return {
+        "tipo": "oraculo",
+        "val": val,
+        "label_to_idx": label_to_idx,
+        "n_edges": n_edges,
+        "ebm": ebm,
+        "ebc": ebc,
+        "edge_rc": edge_rc,
+        "linhas": linhas,
+        "colunas": colunas,
+    }
+
+
+def _jogada_oraculo(
+    estado: EstadoTabuleiro, agente: dict
+) -> tuple[str | None, dict[str, int]]:
+    s = matriz_para_bitmask(estado.matriz, agente["linhas"], agente["colunas"], agente["edge_rc"])
+    scores = scores_de_todas_jogadas_exato(
+        agente["val"], s, agente["n_edges"], agente["ebm"], agente["ebc"]
+    )
+    disponiveis = estado.tracos_disponiveis()
+    if not disponiveis:
+        return None, {}
+    l2i = agente["label_to_idx"]
+    best = max(disponiveis, key=lambda t: scores.get(l2i[t], -999))
+    scores_disp = {t: scores.get(l2i[t], -999) for t in disponiveis}
+    return best, scores_disp
+
+
 # ── Classe principal ──────────────────────────────────────────────────────────
 
 class SimuladorTatico:
@@ -141,6 +195,8 @@ class SimuladorTatico:
         modelo2: str | None,
         timer_ms: int,
         delay_cpu_ms: int,
+        oraculo: str | None = None,
+        autostart_delay_ms: int = 0,
     ) -> None:
         import pygame
         self.pg = pygame
@@ -149,10 +205,11 @@ class SimuladorTatico:
         self.profundidade = profundidade
         self.timer_ms = timer_ms
         self.delay_cpu_ms = delay_cpu_ms
+        self.autostart_delay_ms = autostart_delay_ms
 
         # Agentes
-        self.agente_j1 = self._criar_agente_j1(modo, modelo1, tamanho)
-        self.agente_j2 = self._criar_agente_j2(modo, modelo1, modelo2, profundidade, tamanho)
+        self.agente_j1 = self._criar_agente_j1(modo, modelo1, oraculo, tamanho)
+        self.agente_j2 = self._criar_agente_j2(modo, modelo1, modelo2, profundidade, oraculo, tamanho)
         self.nome_j1, self.nome_j2 = self._nomes(modo, profundidade, modelo1, modelo2)
 
         # Placar acumulado
@@ -172,6 +229,7 @@ class SimuladorTatico:
         self.delay_start: float | None = None
         self.pausado = False
         self.timer_inicio = 0.0
+        self._fim_at: float | None = None
         self.tempos_decisao: list[float] = []
         self.ultima_probs_j1: dict | None = None
         self.ultima_escolha_j1: str | None = None
@@ -182,18 +240,21 @@ class SimuladorTatico:
 
     # ── Setup ─────────────────────────────────────────────────────────────────
 
-    def _criar_agente_j1(self, modo, modelo1, tamanho):
-        if modo == "humano_vs_cnn":
+    def _criar_agente_j1(self, modo, modelo1, oraculo, tamanho):
+        if modo in ("humano_vs_cnn", "humano_vs_oraculo"):
             return {"tipo": "humano"}
+        # cnn_vs_cnn, cnn_vs_minimax, cnn_vs_oraculo
         interp = self._validar_e_carregar(modelo1, tamanho)
         return {"tipo": "cnn", "interp": interp, "tipo_modelo": _tipo_modelo(interp)}
 
-    def _criar_agente_j2(self, modo, modelo1, modelo2, prof, tamanho):
+    def _criar_agente_j2(self, modo, modelo1, modelo2, prof, oraculo, tamanho):
         if modo == "humano_vs_cnn":
             interp = self._validar_e_carregar(modelo1, tamanho)
             return {"tipo": "cnn", "interp": interp, "tipo_modelo": _tipo_modelo(interp)}
         if modo == "cnn_vs_minimax":
             return {"tipo": "minimax", "prof": prof}
+        if modo in ("humano_vs_oraculo", "cnn_vs_oraculo"):
+            return _carregar_oraculo(oraculo, tamanho)
         # cnn_vs_cnn
         interp = self._validar_e_carregar(modelo2, tamanho)
         return {"tipo": "cnn", "interp": interp, "tipo_modelo": _tipo_modelo(interp)}
@@ -213,8 +274,13 @@ class SimuladorTatico:
         if modo == "humano_vs_cnn":
             label = "CNN" if m1 and "12ch" not in str(m1) else "CNN-12ch"
             return "Você", label
+        if modo == "humano_vs_oraculo":
+            return "Você", "Oráculo"
         if modo == "cnn_vs_minimax":
             return "CNN", f"Minimax(p={prof})"
+        if modo == "cnn_vs_oraculo":
+            n1 = Path(m1).stem[:14] if m1 else "CNN"
+            return n1, "Oráculo"
         n1 = Path(m1).stem if m1 else "CNN1"
         n2 = Path(m2).stem if m2 else "CNN2"
         return n1[:14], n2[:14]
@@ -231,6 +297,8 @@ class SimuladorTatico:
         self.jogada_pendente = None
         self.jogada_pendente_jog = 1
         self.delay_start = None
+        self._cancelado = False
+        self._fim_at = None
         self.timer_inicio = time.time()
         self.tempos_decisao.clear()
         self.ultima_probs_j1 = None
@@ -252,6 +320,7 @@ class SimuladorTatico:
         if not self.estado.esta_terminal():
             return
         self.partida_encerrada = True
+        self._fim_at = time.time()
         self.num_partidas += 1
         if self.caixas_j1 > self.caixas_j2:
             self.acum["j1"] += 1
@@ -281,7 +350,7 @@ class SimuladorTatico:
             and not self.pensando
             and self.jogada_pendente is None
             and not self.pausado
-            and self._agente_atual()["tipo"] in ("cnn", "minimax")
+            and self._agente_atual()["tipo"] in ("cnn", "minimax", "oraculo")
         )
 
     def _disparar_cpu(self) -> None:
@@ -289,13 +358,22 @@ class SimuladorTatico:
         jogador = 1 if self.vez_j1 else -1
         self.pensando = True
 
+        self._cancelado = False
+
         def worker():
             inicio = time.perf_counter()
             estado_c = self.estado.clonar()
             traco = None
             probs: dict[str, float] = {}
 
-            if agente["tipo"] == "cnn":
+            disponiveis = estado_c.tracos_disponiveis()
+            n_total = len(todos_labels_canonicos(estado_c.linhas, estado_c.colunas))
+            is_abertura = len(disponiveis) == n_total
+
+            if is_abertura:
+                traco = random.choice(disponiveis)
+                log.info("CPU (j%d) abertura aleatória: %s", jogador, traco)
+            elif agente["tipo"] == "cnn":
                 traco, probs = _jogada_cnn(estado_c, agente["interp"], agente["tipo_modelo"])
                 top5 = ", ".join(
                     f"{k}: {v*100:.1f}%"
@@ -304,10 +382,21 @@ class SimuladorTatico:
                 log.info("CNN (j%d) top5: %s", jogador, top5)
             elif agente["tipo"] == "minimax":
                 traco = minimax_melhor(estado_c, agente["prof"])
+            elif agente["tipo"] == "oraculo":
+                traco, probs = _jogada_oraculo(estado_c, agente)
+                top5 = ", ".join(
+                    f"{k}: {v:+d}"
+                    for k, v in sorted(probs.items(), key=lambda x: x[1], reverse=True)[:5]
+                )
+                log.info("Oráculo (j%d) top5: %s", jogador, top5)
 
             dur = (time.perf_counter() - inicio) * 1000
             self.tempos_decisao.append(dur)
             log.info("CPU (j%d) jogou %s em %.2fms", jogador, traco, dur)
+
+            if self._cancelado:
+                self.pensando = False
+                return
 
             if jogador == 1:
                 self.ultima_probs_j1 = probs or None
@@ -357,6 +446,18 @@ class SimuladorTatico:
             self._aplicar_jogada(random.choice(disponiveis), jog)
             log.info("Timer esgotado — jogada aleatória para humano")
 
+    def _forcar_aleatoria_cpu(self) -> None:
+        """Cancela o pensamento da CPU e joga aleatoriamente quando o timer expira."""
+        self._cancelado = True
+        self.pensando = False
+        self.jogada_pendente = None
+        self.delay_start = None
+        disponiveis = self.estado.tracos_disponiveis()
+        if disponiveis:
+            jog = 1 if self.vez_j1 else -1
+            self._aplicar_jogada(random.choice(disponiveis), jog)
+            log.info("Timer CPU esgotado — jogada aleatória (jog=%d)", jog)
+
     # ── Loop principal ────────────────────────────────────────────────────────
 
     def executar(self) -> None:
@@ -364,8 +465,18 @@ class SimuladorTatico:
         pg.init()
         tela = pg.display.set_mode((_LARGURA, _ALTURA))
         pg.display.set_caption(f"Arena Sagaz — {self.tamanho} — {self.modo}")
-        fonte_g = pg.font.SysFont("monospace", 18)
-        fonte_p = pg.font.SysFont("monospace", 14)
+
+        def _fonte(candidatos, tamanho, bold=False):
+            for nome in candidatos:
+                p = pg.font.match_font(nome, bold=bold)
+                if p:
+                    return pg.font.Font(p, tamanho)
+            return pg.font.SysFont(None, tamanho, bold=bold)
+
+        # Impact/Bahnschrift para títulos e HUD — visual de jogo
+        fonte_g = _fonte(["impact", "bahnschrift", "arialblack", "arial"], 17, bold=False)
+        # Consolas/Segoe UI para linhas de dados — legível e limpo
+        fonte_p = _fonte(["consolas", "segoeui", "verdana", "arial"], 15, bold=False)
         clock = pg.time.Clock()
 
         rodando = True
@@ -392,6 +503,27 @@ class SimuladorTatico:
                 and time.time() - self.timer_inicio > self.timer_ms / 1000
             ):
                 self._jogada_timer_humano()
+
+            # 3b. Timer CPU (cancela Minimax/CNN que demore demais calculando)
+            if (
+                not self._e_turno_humano()
+                and not self.partida_encerrada
+                and self.timer_ms > 0
+                and self.pensando  # só enquanto calcula; delay visual não conta
+                and not self._cancelado
+                and time.time() - self.timer_inicio > self.timer_ms / 1000
+            ):
+                self._forcar_aleatoria_cpu()
+
+            # 3c. Autostart
+            if (
+                self.autostart_delay_ms > 0
+                and self.partida_encerrada
+                and self._fim_at is not None
+                and not self.pausado
+                and time.time() - self._fim_at >= self.autostart_delay_ms / 1000
+            ):
+                self._nova_partida()
 
             # 4. Eventos
             for ev in pg.event.get():
@@ -630,6 +762,9 @@ class SimuladorTatico:
         pg.draw.line(tela, _C_SEP, (px, py), (px + _LARGURA_PAINEL - 24, py), 1)
         py += 10
 
+        # largura máxima das barras: reserva 28px extras para seta "◄" + margem direita
+        _bar_max = _LARGURA - 8 - px - 130 - 28
+
         # ── Probabilidades CNN
         def _desenhar_probs(titulo, probs, escolha, cor_tit):
             nonlocal py
@@ -639,7 +774,7 @@ class SimuladorTatico:
             py += 24
             top = sorted(probs.items(), key=lambda x: x[1], reverse=True)[:10]
             max_v = top[0][1] if top else 1.0
-            bar_max = _LARGURA_PAINEL - 24 - 90
+            bar_max = _bar_max
             for k, v in top:
                 eh_esc = k == escolha
                 cor_nome = _C_BAR_ESC if eh_esc else _C_TEXTO
@@ -655,6 +790,29 @@ class SimuladorTatico:
                 if eh_esc:
                     arr = fonte_p.render("◄", True, _C_BAR_ESC)
                     tela.blit(arr, (px + 133 + bar_w, py))
+                py += 20
+            py += 4
+
+        def _desenhar_scores_oraculo(titulo, scores, escolha, cor_tit):
+            nonlocal py
+            if not scores:
+                return
+            tela.blit(fonte_g.render(titulo, True, cor_tit), (px, py))
+            py += 24
+            top = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:10]
+            max_abs = max((abs(v) for _, v in top), default=1) or 1
+            bar_max = _bar_max
+            for k, v in top:
+                eh_esc = k == escolha
+                cor = _C_BAR_ESC if eh_esc else _C_TEXTO
+                tela.blit(fonte_p.render(k, True, cor), (px, py))
+                tela.blit(fonte_p.render(f"{v:+4d}", True, cor), (px + 75, py))
+                bar_w = int(bar_max * abs(v) / max_abs)
+                cor_bar = _C_BAR_ESC if eh_esc else _C_BAR_PROB
+                if bar_w > 0:
+                    pg.draw.rect(tela, cor_bar, (px + 130, py + 2, bar_w, 11), border_radius=3)
+                if eh_esc:
+                    tela.blit(fonte_p.render("◄", True, _C_BAR_ESC), (px + 133 + bar_w, py))
                 py += 18
             py += 4
 
@@ -667,10 +825,28 @@ class SimuladorTatico:
                 _C_J1,
             )
 
+        # Oráculo J1 (improvável, mas suportado)
+        if self.agente_j1["tipo"] == "oraculo":
+            _desenhar_scores_oraculo(
+                f"Oráculo ({self.nome_j1}) — scores:",
+                self.ultima_probs_j1,
+                self.ultima_escolha_j1,
+                _C_J1,
+            )
+
         # CNN J2 (se aplicável)
         if self.agente_j2["tipo"] == "cnn":
             _desenhar_probs(
                 f"CNN ({self.nome_j2}) — probs:",
+                self.ultima_probs_j2,
+                self.ultima_escolha_j2,
+                _C_J2,
+            )
+
+        # Oráculo J2
+        if self.agente_j2["tipo"] == "oraculo":
+            _desenhar_scores_oraculo(
+                f"Oráculo ({self.nome_j2}) — scores:",
                 self.ultima_probs_j2,
                 self.ultima_escolha_j2,
                 _C_J2,
@@ -694,13 +870,25 @@ def main() -> None:
     )
     parser.add_argument(
         "--modo",
-        choices=["humano_vs_cnn", "cnn_vs_cnn", "cnn_vs_minimax"],
+        choices=[
+            "humano_vs_cnn",
+            "humano_vs_oraculo",
+            "cnn_vs_cnn",
+            "cnn_vs_minimax",
+            "cnn_vs_oraculo",
+        ],
         default="humano_vs_cnn",
     )
     parser.add_argument("--profundidade", type=int, default=7)
     parser.add_argument("--modelo", type=str, help="Caminho para .tflite (CNN principal)")
     parser.add_argument(
         "--modelo2", type=str, help="Caminho para .tflite da CNN2 (modo cnn_vs_cnn)"
+    )
+    parser.add_argument(
+        "--oraculo",
+        type=str,
+        default="dados/oraculo_pontinhos/tablebase_pequeno_4x3.npy",
+        help="Caminho para a tablebase .npy do oráculo (padrão: dados/oraculo_pontinhos/tablebase_pequeno_4x3.npy)",
     )
     parser.add_argument(
         "--timer",
@@ -711,15 +899,24 @@ def main() -> None:
     parser.add_argument(
         "--delay",
         type=int,
-        default=1200,
-        help="Delay entre jogadas CPU em ms (modos cnn_vs_cnn / cnn_vs_minimax)",
+        default=0,
+        help="Delay visual entre jogadas CPU em ms (padrão: 0; use ~1200 para assistir cnn_vs_cnn)",
+    )
+    parser.add_argument(
+        "--autostart",
+        type=int,
+        default=0,
+        metavar="MS",
+        help="Inicia nova partida automaticamente N ms após o fim (0=desativado)",
     )
     args = parser.parse_args()
 
     if args.modo == "cnn_vs_cnn" and not args.modelo2:
         parser.error("--modo cnn_vs_cnn requer --modelo e --modelo2")
-    if args.modo in ("humano_vs_cnn", "cnn_vs_minimax") and not args.modelo:
+    if args.modo in ("humano_vs_cnn", "cnn_vs_minimax", "cnn_vs_oraculo") and not args.modelo:
         parser.error(f"--modo {args.modo} requer --modelo")
+    if args.modo in ("humano_vs_oraculo", "cnn_vs_oraculo") and args.tamanho != "pequeno":
+        parser.error("Oráculo só disponível para --tamanho pequeno")
 
     sim = SimuladorTatico(
         tamanho=args.tamanho,
@@ -729,6 +926,8 @@ def main() -> None:
         modelo2=args.modelo2,
         timer_ms=args.timer * 1000,
         delay_cpu_ms=args.delay,
+        oraculo=args.oraculo,
+        autostart_delay_ms=args.autostart,
     )
     sim.executar()
 
