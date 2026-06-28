@@ -5,6 +5,7 @@ como arquivo de testes.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 
@@ -18,6 +19,8 @@ class FakeRepoUsuario:
             self._por_uid[existente["co_identidade_externa"]] = existente
         # Histórico para asserts.
         self.criadas: list[dict[str, Any]] = []
+        self.aceites: list[dict[str, Any]] = []
+        self.consentimento: Optional[dict[str, Any]] = None
 
     async def buscar_por_identidade_externa(self, uid: str):
         return self._por_uid.get(uid)
@@ -80,6 +83,32 @@ class FakeRepoUsuario:
 
     async def listar_provedores(self, id_usuario):
         return list(self._provedores.get(id_usuario, []))
+
+    async def registrar_aceite_legal(
+        self, *, id_usuario, co_documento, co_versao, co_idioma
+    ):
+        linha = {
+            "id_aceite_legal": f"ac-{len(self.aceites) + 1}",
+            "id_usuario": id_usuario,
+            "co_documento": co_documento,
+            "co_versao": co_versao,
+            "co_idioma": co_idioma,
+            "dh_aceite": datetime(2026, 6, 28, tzinfo=timezone.utc),
+        }
+        self.aceites.append(linha)
+        return linha
+
+    async def definir_consentimento(
+        self, *, id_usuario, ic_rastreamento, ic_marketing
+    ):
+        self.consentimento = {
+            "id_consentimento": "co-1",
+            "id_usuario": id_usuario,
+            "ic_rastreamento": ic_rastreamento,
+            "ic_marketing": ic_marketing,
+            "dh_atualizacao": datetime(2026, 6, 28, tzinfo=timezone.utc),
+        }
+        return self.consentimento
 
 
 class FakeSession:

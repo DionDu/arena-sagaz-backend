@@ -11,7 +11,14 @@ Todas exigem **token válido** (`usuario_atual`) e os **cabeçalhos obrigatório
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.conta.modelos import PerfilUsuario, SessaoRequest
+from api.conta.modelos import (
+    AceiteLegalRequest,
+    AceiteLegalResposta,
+    ConsentimentoRequest,
+    ConsentimentoResposta,
+    PerfilUsuario,
+    SessaoRequest,
+)
 from api.conta.repositorio import RepositorioUsuario
 from api.conta.servico import ServicoConta
 from api.nucleo.banco import obter_sessao
@@ -58,3 +65,29 @@ async def obter_perfil(
 ) -> PerfilUsuario:
     """Devolve o perfil do usuário atual (404 se ainda não há conta)."""
     return await servico.obter_perfil(identidade)
+
+
+@router.post("/aceite-legal", response_model=AceiteLegalResposta)
+async def registrar_aceite(
+    corpo: AceiteLegalRequest,
+    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+    servico: ServicoConta = Depends(obter_servico_conta),
+) -> AceiteLegalResposta:
+    """Registra o aceite de um documento legal (termos/privacidade) — US3."""
+    resposta = await servico.registrar_aceite(identidade, corpo)
+    await servico.sessao.commit()
+    return resposta
+
+
+@router.put("/consentimento", response_model=ConsentimentoResposta)
+async def definir_consentimento(
+    corpo: ConsentimentoRequest,
+    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+    servico: ServicoConta = Depends(obter_servico_conta),
+) -> ConsentimentoResposta:
+    """Define o consentimento de rastreamento/marketing — US3 (upsert)."""
+    resposta = await servico.definir_consentimento(identidade, corpo)
+    await servico.sessao.commit()
+    return resposta

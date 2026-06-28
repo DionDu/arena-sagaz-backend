@@ -16,7 +16,14 @@ from typing import Any, Optional
 from sqlalchemy.exc import IntegrityError
 
 from api.conta.codigo_usuario import gerar_codigo_usuario
-from api.conta.modelos import PerfilUsuario, SessaoRequest
+from api.conta.modelos import (
+    AceiteLegalRequest,
+    AceiteLegalResposta,
+    ConsentimentoRequest,
+    ConsentimentoResposta,
+    PerfilUsuario,
+    SessaoRequest,
+)
 from api.nucleo.excecoes import ErroNegocio, ErroNaoEncontrado
 from api.nucleo.seguranca_firebase import IdentidadeFirebase
 
@@ -77,6 +84,40 @@ class ServicoConta:
         if linha is None:
             raise ErroNaoEncontrado("Conta não encontrada.", "conta_inexistente")
         return await self._montar_perfil(linha)
+
+    async def registrar_aceite(
+        self, identidade: IdentidadeFirebase, dados: AceiteLegalRequest
+    ) -> AceiteLegalResposta:
+        """Registra o aceite de um documento legal (US3). Exige conta criada."""
+        usuario = await self._usuario_obrigatorio(identidade)
+        linha = await self.repo.registrar_aceite_legal(
+            id_usuario=usuario["id_usuario"],
+            co_documento=dados.co_documento,
+            co_versao=dados.co_versao,
+            co_idioma=dados.co_idioma,
+        )
+        return AceiteLegalResposta.de_linha(linha)
+
+    async def definir_consentimento(
+        self, identidade: IdentidadeFirebase, dados: ConsentimentoRequest
+    ) -> ConsentimentoResposta:
+        """Define o consentimento (rastreamento/marketing) — US3 (upsert)."""
+        usuario = await self._usuario_obrigatorio(identidade)
+        linha = await self.repo.definir_consentimento(
+            id_usuario=usuario["id_usuario"],
+            ic_rastreamento=dados.ic_rastreamento,
+            ic_marketing=dados.ic_marketing,
+        )
+        return ConsentimentoResposta.de_linha(linha)
+
+    async def _usuario_obrigatorio(
+        self, identidade: IdentidadeFirebase
+    ) -> dict[str, Any]:
+        """Busca a conta pelo uid; 404 se não existir (deve chamar /sessao antes)."""
+        linha = await self.repo.buscar_por_identidade_externa(identidade.uid)
+        if linha is None:
+            raise ErroNaoEncontrado("Conta não encontrada.", "conta_inexistente")
+        return linha
 
     # ── internos ────────────────────────────────────────────────────────────
 
