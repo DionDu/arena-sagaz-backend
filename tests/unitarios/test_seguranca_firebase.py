@@ -62,3 +62,18 @@ def test_real_sem_credencial_responde_401():
     with pytest.raises(ErroNaoAutorizado) as exc:
         asyncio.run(verificador.verificar("qualquer"))
     assert exc.value.codigo == "firebase_nao_configurado"
+
+
+def test_credencial_invalida_responde_401_claro(monkeypatch):
+    """Se FIREBASE_CREDENTIALS não é JSON/base64/caminho válido (ex.: colaram o
+    NOME do arquivo), o verificador devolve 401 claro — não 500 com traceback."""
+    from api.configuracao import configuracoes
+
+    # Simula o erro do usuário: valor que não é JSON nem caminho existente.
+    monkeypatch.setattr(
+        configuracoes, "FIREBASE_CREDENTIALS", "arena-sagaz-des-adminsdk.json"
+    )
+    verificador = VerificadorTokenFirebase()
+    with pytest.raises(ErroNaoAutorizado) as exc:
+        asyncio.run(verificador.verificar("qualquer"))
+    assert exc.value.codigo == "firebase_credencial_invalida"

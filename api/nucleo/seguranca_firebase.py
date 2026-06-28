@@ -11,15 +11,30 @@ atrás da interface [VerificadorToken], com uma implementação real
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import json
+import os
 from dataclasses import dataclass, field
-from typing import Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from api.configuracao import configuracoes
 from api.nucleo.excecoes import ErroNaoAutorizado
 from api.nucleo.log import obter_logger
 
 log = obter_logger("api.seguranca")
+
+
+def _tentar_json(texto: str) -> Optional[dict[str, Any]]:
+    """Tenta ler `texto` como um **objeto** JSON; devolve o dict ou `None`."""
+    if not texto:
+        return None
+    try:
+        valor = json.loads(texto)
+    except json.JSONDecodeError:
+        return None
+    # Só aceitamos um objeto (a chave Admin é um `{...}`), não lista/número.
+    return valor if isinstance(valor, dict) else None
 
 
 @dataclass(frozen=True)
@@ -79,7 +94,6 @@ class VerificadorTokenFirebase:
 
         # Import local: só carrega a lib pesada quando realmente formos usá-la.
         import firebase_admin
-        from firebase_admin import credentials
 
         bruto = (configuracoes.FIREBASE_CREDENTIALS or "").strip()
         if not bruto:
@@ -90,10 +104,7 @@ class VerificadorTokenFirebase:
                 "firebase_nao_configurado",
             )
 
-        # `FIREBASE_CREDENTIALS` carrega o **conteúdo JSON** da chave Admin (é
-        # assim que vai nas Variables do Railway — sem arquivo no disco).
-        dados = json.loads(bruto)
-        cred = credentials.Certificate(dados)
+        cred = self._carregar_credencial(bruto)
 
         nome_app = "arena-sagaz"
         try:
@@ -102,6 +113,45 @@ class VerificadorTokenFirebase:
         except ValueError:
             self._app = firebase_admin.initialize_app(cred, name=nome_app)
         return self._app
+
+    @staticmethod
+    def _carregar_credencial(bruto: str):
+        """Cria a credencial do Firebase aceitando TRÊS formatos de
+        `FIREBASE_CREDENTIALS`, do mais comum ao menos:
+
+        1. **JSON** (o conteúdo do arquivo de chave) — uso típico no Railway;
+        2. **base64** de um JSON — evita problemas de quebra de linha ao colar;
+        3. **caminho** de um arquivo `.json` no disco — conveniente localmente.
+
+        Se nenhum funcionar, lança um **401 claro** (`firebase_credencial_invalida`)
+        em vez de explodir com 500 e um traceback de `json.loads`.
+        """
+        from firebase_admin import credentials
+
+        # (3) É um caminho de arquivo existente?
+        if os.path.exists(bruto):
+            return credentials.Certificate(bruto)
+
+        # (1) É o JSON direto?
+        dados = _tentar_json(bruto)
+        if dados is not None:
+            return credentials.Certificate(dados)
+
+        # (2) É base64 de um JSON?
+        try:
+            decodificado = base64.b64decode(bruto, validate=True).decode("utf-8")
+        except (binascii.Error, ValueError):
+            decodificado = ""
+        dados = _tentar_json(decodificado)
+        if dados is not None:
+            return credentials.Certificate(dados)
+
+        # Nada funcionou: configuração inválida (sem vazar o conteúdo no log).
+        log.info("FIREBASE_CREDENTIALS não é JSON, base64 de JSON nem caminho válido")
+        raise ErroNaoAutorizado(
+            "Credencial do Firebase mal configurada no servidor.",
+            "firebase_credencial_invalida",
+        )
 
     async def verificar(self, id_token: str) -> IdentidadeFirebase:
         from anyio import to_thread
