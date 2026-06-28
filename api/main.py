@@ -3,6 +3,7 @@ import time
 from fastapi import FastAPI, Request
 
 from api.conta import rotas as rotas_conta
+from api.legal import rotas as rotas_legal
 from api.nucleo.excecoes import registrar_handlers
 from api.nucleo.log import obter_logger
 from api.nucleo import rotas as rotas_nucleo
@@ -15,6 +16,9 @@ registrar_handlers(app)
 app.include_router(rotas_nucleo.router, prefix="/v1")
 # Rotas de conta (login/cadastro/perfil) sob /v1/conta (US2).
 app.include_router(rotas_conta.router, prefix="/v1/conta")
+# Documentos legais como páginas HTML públicas (G3) — fora de /v1, é conteúdo web
+# (URLs de privacidade/exclusão exigidas pelas lojas).
+app.include_router(rotas_legal.router, prefix="/legal")
 
 
 @app.middleware("http")
