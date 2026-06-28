@@ -12,7 +12,16 @@ class LogHandlerJSON(logging.Handler):
             "modulo": record.name,
             "mensagem": self.format(record),
         }
-        for campo in ("usuario_id", "rota", "duracao_ms"):
+        # Campos estruturados permitidos no log. NOTA (Princípio IV — sem PII):
+        # esta lista é uma "lista branca" — só entram campos seguros. NUNCA
+        # adicione aqui token, e-mail, nome ou qualquer dado pessoal.
+        for campo in (
+            "usuario_id",
+            "rota",
+            "duracao_ms",
+            "plataforma",
+            "versao_app",
+        ):
             valor = getattr(record, campo, None)
             if valor is not None:
                 entrada[campo] = valor

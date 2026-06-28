@@ -16,11 +16,29 @@ app.include_router(rotas_nucleo.router, prefix="/v1")
 
 @app.middleware("http")
 async def middleware_logging(request: Request, call_next):
+    """Registra cada requisição com contexto de diagnóstico — **sem PII** (T013).
+
+    A obrigatoriedade dos cabeçalhos (`X-App-Version`/`X-Platform`) é validada
+    **por rota** (dependência `exigir_cabecalhos`, T012), não aqui — assim rotas
+    públicas como `/health` não exigem cabeçalho de app. Este middleware só
+    **observa** e loga.
+
+    Logamos apenas dados seguros: método, rota, status, duração, plataforma e
+    versão do app. NUNCA o `Authorization` (token), e-mail ou qualquer dado
+    pessoal (Constituição, Princípio IV).
+    """
     inicio = time.perf_counter()
     resposta = await call_next(request)
     duracao_ms = round((time.perf_counter() - inicio) * 1000, 2)
     log.info(
         f"{request.method} {request.url.path} {resposta.status_code}",
-        extra={"rota": request.url.path, "duracao_ms": duracao_ms},
+        extra={
+            "rota": request.url.path,
+            "duracao_ms": duracao_ms,
+            # `.get` devolve None se o cabeçalho não veio — o handler de log
+            # ignora campos None (não polui o JSON).
+            "plataforma": request.headers.get("x-platform"),
+            "versao_app": request.headers.get("x-app-version"),
+        },
     )
     return resposta
