@@ -1,7 +1,9 @@
 import time
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
+from api.configuracao import configuracoes
 from api.conta import rotas as rotas_conta
 from api.legal import rotas as rotas_legal
 from api.nucleo.excecoes import registrar_handlers
@@ -11,6 +13,35 @@ from api.nucleo import rotas as rotas_nucleo
 log = obter_logger("api.main")
 
 app = FastAPI(title="Arena Sagaz API", version="1.0.0")
+
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# O app **mobile** (Android/iOS) usa HTTP nativo e NÃO sofre CORS. Mas durante o
+# desenvolvimento rodamos o Flutter **Web no Chrome** (origem `localhost:<porta>`,
+# porta aleatória a cada `flutter run`) chamando a API em outro domínio — aí o
+# navegador exige CORS, inclusive o *preflight* `OPTIONS` para métodos como PATCH
+# e DELETE. Sem isto, editar perfil/excluir conta no Chrome falha com 405.
+#
+# Liberamos: qualquer `localhost`/`127.0.0.1` (qualquer porta, dev) por regex, os
+# domínios da marca, e o que vier em `CORS_ORIGINS`. Como a autenticação é por
+# **Bearer token** (cabeçalho), e não cookie, não precisamos de `allow_credentials`
+# — então não há risco de uma página maliciosa reusar sessão do usuário.
+_origens_extras = [
+    o.strip() for o in configuracoes.CORS_ORIGINS.split(",") if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://arenasagaz.santiagodata.com",
+        "https://api-dev.arenasagaz.santiagodata.com",
+        "https://api.arenasagaz.santiagodata.com",
+        *_origens_extras,
+    ],
+    # Qualquer localhost/127.0.0.1 com qualquer porta (Flutter Web em dev).
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_methods=["*"],  # inclui OPTIONS, PATCH, DELETE
+    allow_headers=["*"],  # inclui Authorization, X-App-Version, X-Platform, ...
+    allow_credentials=False,
+)
 
 registrar_handlers(app)
 app.include_router(rotas_nucleo.router, prefix="/v1")

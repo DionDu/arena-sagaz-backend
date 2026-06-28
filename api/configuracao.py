@@ -20,6 +20,11 @@ class Configuracoes(BaseSettings):
     FIREBASE_PROJECT_ID: str = ""
     FIREBASE_CREDENTIALS: str = ""
 
+    # Origens extras permitidas no CORS, separadas por vírgula (ex.: o domínio de
+    # um eventual build web em produção). O dev (Flutter web em localhost, com
+    # porta aleatória) já é liberado por regex no `main.py`. Mobile não usa CORS.
+    CORS_ORIGINS: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

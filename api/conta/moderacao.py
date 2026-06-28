@@ -16,10 +16,11 @@ from __future__ import annotations
 
 from api.nucleo.excecoes import ErroNegocio
 
-# Limites de tamanho (o banco aceita até 40; exigimos ao menos 2 caracteres
-# visíveis para evitar nomes vazios/single-char sem sentido).
-TAMANHO_MINIMO = 2
-TAMANHO_MAXIMO = 40
+# Limites de tamanho. O nome de exibição é um **apelido curto** (aparece em
+# ranking, avatar, vez na partida) — não o nome completo. Por isso 3..20, e não
+# o tamanho da coluna (VARCHAR(40), que é só o teto físico).
+TAMANHO_MINIMO = 3
+TAMANHO_MAXIMO = 20
 
 # Lista de bloqueio mínima (substrings proibidas, sem diferenciar maiúsc./minúsc.).
 # Mantida curta e óbvia de propósito; ampliar aqui conforme necessário.
