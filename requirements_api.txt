@@ -40,3 +40,8 @@ alembic==1.18.4
 Mako==1.3.11
 MarkupSafe==3.0.3
 aiosqlite==0.22.1
+
+# Autenticação (US2) — Firebase Admin SDK: verificação do ID token no backend
+# (FR-010). É o pacote oficial; o `pip` resolve sua árvore transitiva (google-auth,
+# google-api-core, pyjwt, grpcio, etc.) de forma determinística no build.
+firebase-admin==6.9.0
