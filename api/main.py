@@ -2,6 +2,7 @@ import time
 
 from fastapi import FastAPI, Request
 
+from api.conta import rotas as rotas_conta
 from api.nucleo.excecoes import registrar_handlers
 from api.nucleo.log import obter_logger
 from api.nucleo import rotas as rotas_nucleo
@@ -12,6 +13,8 @@ app = FastAPI(title="Arena Sagaz API", version="1.0.0")
 
 registrar_handlers(app)
 app.include_router(rotas_nucleo.router, prefix="/v1")
+# Rotas de conta (login/cadastro/perfil) sob /v1/conta (US2).
+app.include_router(rotas_conta.router, prefix="/v1/conta")
 
 
 @app.middleware("http")
