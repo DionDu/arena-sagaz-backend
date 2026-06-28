@@ -16,16 +16,26 @@ from typing import Any, Optional
 from sqlalchemy.exc import IntegrityError
 
 from api.conta.codigo_usuario import gerar_codigo_usuario
+from api.conta.moderacao import validar_nome_exibicao
 from api.conta.modelos import (
     AceiteLegalRequest,
     AceiteLegalResposta,
+    AtualizarPerfilRequest,
     ConsentimentoRequest,
     ConsentimentoResposta,
+    ExclusaoContaResposta,
     PerfilUsuario,
     SessaoRequest,
 )
 from api.nucleo.excecoes import ErroNegocio, ErroNaoEncontrado
-from api.nucleo.seguranca_firebase import IdentidadeFirebase
+from api.nucleo.log import obter_logger
+from api.nucleo.seguranca_firebase import (
+    AdminUsuariosFirebase,
+    IdentidadeFirebase,
+    obter_admin_usuarios,
+)
+
+log = obter_logger("api.conta.servico")
 
 # Idade mínima para criar conta (espelha `idadeMinimaConta` no app).
 IDADE_MINIMA = 13
@@ -61,11 +71,16 @@ def calcular_idade(nascimento: date, hoje: Optional[date] = None) -> int:
 class ServicoConta:
     """Orquestra a conta de usuário (criação/atualização e perfil)."""
 
-    def __init__(self, repo: Any, sessao: Any) -> None:
+    def __init__(
+        self, repo: Any, sessao: Any, admin: Optional[AdminUsuariosFirebase] = None
+    ) -> None:
         # `repo` é um RepositorioUsuario; `sessao` é a AsyncSession (para rollback
         # e commit). Tipados como Any para aceitar fakes nos testes.
         self.repo = repo
         self.sessao = sessao
+        # `admin` apaga o usuário no Firebase na exclusão de conta (US4). Fica
+        # opcional para os testes que não exercitam exclusão poderem omiti-lo.
+        self.admin = admin
 
     async def garantir_sessao(
         self, identidade: IdentidadeFirebase, dados: SessaoRequest
@@ -109,6 +124,60 @@ class ServicoConta:
             ic_marketing=dados.ic_marketing,
         )
         return ConsentimentoResposta.de_linha(linha)
+
+    async def atualizar_perfil_usuario(
+        self, identidade: IdentidadeFirebase, dados: AtualizarPerfilRequest
+    ) -> PerfilUsuario:
+        """Edita o perfil (nome e/ou idioma) — `PATCH /v1/conta/perfil` (US4).
+
+        O nome passa pela moderação ([validar_nome_exibicao]); o idioma é gravado
+        como veio. Devolve o perfil atualizado.
+        """
+        usuario = await self._usuario_obrigatorio(identidade)
+
+        # Modera/normaliza o nome só se ele foi informado no corpo.
+        no_exibicao = dados.no_exibicao
+        if no_exibicao is not None:
+            no_exibicao = validar_nome_exibicao(no_exibicao)
+
+        atualizada = await self.repo.atualizar_perfil(
+            id_usuario=usuario["id_usuario"],
+            no_exibicao=no_exibicao,
+            co_idioma_preferido=dados.co_idioma_preferido,
+        )
+        # Se nada mudou (corpo vazio), mantém a linha que já tínhamos.
+        linha = atualizada if atualizada is not None else usuario
+        return await self._montar_perfil(linha)
+
+    async def excluir_conta(
+        self, identidade: IdentidadeFirebase
+    ) -> ExclusaoContaResposta:
+        """Exclui (anonimiza) a conta do usuário atual — `DELETE /v1/conta` (US4).
+
+        Ordem das ações:
+        1. **Anonimiza** a conta na nossa base (zera PII) e apaga as tabelas-filhas
+           com dado pessoal — este é o requisito legal (LGPD) que controlamos e
+           que precisa ser **durável**.
+        2. **Best-effort:** apaga o usuário no Firebase (Admin SDK). Se falhar,
+           apenas registramos no log e seguimos: a remoção de PII na nossa base já
+           aconteceu, e a sessão do cliente será encerrada de qualquer forma.
+        """
+        usuario = await self._usuario_obrigatorio(identidade)
+        id_usuario = usuario["id_usuario"]
+
+        await self.repo.anonimizar_usuario(id_usuario)
+        await self.repo.remover_dados_vinculados(id_usuario)
+
+        admin = self.admin or obter_admin_usuarios()
+        try:
+            await admin.excluir_usuario(identidade.uid)
+        except Exception:  # noqa: BLE001 — best-effort: não derruba a exclusão
+            # Sem PII no log (Constituição, Princípio IV) — só o evento.
+            log.warning(
+                "Falha ao excluir usuário no Firebase (conta já anonimizada na base)"
+            )
+
+        return ExclusaoContaResposta(ic_anonimizado=True)
 
     async def _usuario_obrigatorio(
         self, identidade: IdentidadeFirebase

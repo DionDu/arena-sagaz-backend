@@ -88,30 +88,13 @@ class VerificadorTokenFirebase:
         self._app = None  # cache do app Firebase inicializado
 
     def _garantir_app(self):
-        """Inicializa (uma vez) o app Firebase a partir das configurações."""
-        if self._app is not None:
-            return self._app
+        """Inicializa (uma vez) o app Firebase a partir das configurações.
 
-        # Import local: só carrega a lib pesada quando realmente formos usá-la.
-        import firebase_admin
-
-        bruto = (configuracoes.FIREBASE_CREDENTIALS or "").strip()
-        if not bruto:
-            # Sem credencial não há como verificar — erro de configuração, não
-            # do usuário; mas respondemos 401 para não vazar detalhe de infra.
-            raise ErroNaoAutorizado(
-                "Verificação de identidade indisponível.",
-                "firebase_nao_configurado",
-            )
-
-        cred = self._carregar_credencial(bruto)
-
-        nome_app = "arena-sagaz"
-        try:
-            # Se já existe um app com esse nome (recarga/teste), reusa.
-            self._app = firebase_admin.get_app(nome_app)
-        except ValueError:
-            self._app = firebase_admin.initialize_app(cred, name=nome_app)
+        Delega para [garantir_app_firebase] (função de módulo, compartilhada com
+        as operações administrativas), guardando o resultado em cache local.
+        """
+        if self._app is None:
+            self._app = garantir_app_firebase()
         return self._app
 
     @staticmethod
@@ -176,6 +159,36 @@ class VerificadorTokenFirebase:
         return _identidade_de_claims(decodificado)
 
 
+def garantir_app_firebase():
+    """Inicializa (ou reusa) o app do Firebase Admin SDK a partir das
+    configurações. É **idempotente**: o `firebase_admin` registra apps por nome,
+    então chamar várias vezes devolve sempre o mesmo app.
+
+    Compartilhada pela verificação de token e pelas operações administrativas
+    (ex.: excluir usuário na exclusão de conta — US4).
+    """
+    # Import local: só carrega a lib pesada quando realmente formos usá-la.
+    import firebase_admin
+
+    bruto = (configuracoes.FIREBASE_CREDENTIALS or "").strip()
+    if not bruto:
+        # Sem credencial não há como operar — erro de configuração, não do
+        # usuário; mas respondemos 401 para não vazar detalhe de infra.
+        raise ErroNaoAutorizado(
+            "Verificação de identidade indisponível.",
+            "firebase_nao_configurado",
+        )
+
+    cred = VerificadorTokenFirebase._carregar_credencial(bruto)
+
+    nome_app = "arena-sagaz"
+    try:
+        # Se já existe um app com esse nome (recarga/teste), reusa.
+        return firebase_admin.get_app(nome_app)
+    except ValueError:
+        return firebase_admin.initialize_app(cred, name=nome_app)
+
+
 class VerificadorTokenFake:
     """Implementação falsa para testes: um mapa token→identidade em memória."""
 
@@ -213,3 +226,64 @@ def definir_verificador(verificador: Optional[VerificadorToken]) -> None:
     """Troca o verificador global (usado nos testes; `None` reseta para o real)."""
     global _verificador_padrao
     _verificador_padrao = verificador
+
+
+# ── Operações administrativas sobre usuários do Firebase (US4) ───────────────
+# Usadas na **exclusão de conta**: além de anonimizar nossa base, apagamos a
+# identidade no provedor (Firebase) com o Admin SDK — que NÃO exige
+# reautenticação recente (diferente do `user.delete()` no cliente).
+
+
+class AdminUsuariosFirebase(Protocol):
+    """Contrato de administração de usuários do Firebase. `Protocol` = qualquer
+    objeto com este método assíncrono serve (real ou fake)."""
+
+    async def excluir_usuario(self, uid: str) -> None: ...
+
+
+class AdminUsuariosFirebaseReal:
+    """Implementação real: apaga o usuário via Firebase Admin SDK."""
+
+    async def excluir_usuario(self, uid: str) -> None:
+        from anyio import to_thread
+        from firebase_admin import auth
+
+        app = garantir_app_firebase()
+        try:
+            # `delete_user` é síncrona e faz I/O — roda em thread para não travar
+            # o event loop. Apagar um uid já inexistente é tratado como sucesso
+            # (idempotência: o objetivo "esse usuário não existe mais" já vale).
+            await to_thread.run_sync(lambda: auth.delete_user(uid, app=app))
+        except auth.UserNotFoundError:
+            log.info("Usuário do Firebase já não existia ao excluir")
+
+
+class AdminUsuariosFake:
+    """Implementação falsa para testes: só registra os uids excluídos."""
+
+    def __init__(self) -> None:
+        self.excluidos: list[str] = []
+        # Se `falhar` for True, simula erro do provedor (para testar best-effort).
+        self.falhar = False
+
+    async def excluir_usuario(self, uid: str) -> None:
+        if self.falhar:
+            raise RuntimeError("falha simulada ao excluir no Firebase")
+        self.excluidos.append(uid)
+
+
+_admin_usuarios_padrao: Optional[AdminUsuariosFirebase] = None
+
+
+def obter_admin_usuarios() -> AdminUsuariosFirebase:
+    """Devolve o administrador de usuários atual (cria o real na 1ª vez)."""
+    global _admin_usuarios_padrao
+    if _admin_usuarios_padrao is None:
+        _admin_usuarios_padrao = AdminUsuariosFirebaseReal()
+    return _admin_usuarios_padrao
+
+
+def definir_admin_usuarios(admin: Optional[AdminUsuariosFirebase]) -> None:
+    """Troca o administrador global (usado nos testes; `None` reseta para o real)."""
+    global _admin_usuarios_padrao
+    _admin_usuarios_padrao = admin

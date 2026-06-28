@@ -243,3 +243,56 @@ class RepositorioUsuario:
             },
         )
         return dict(resultado.mappings().first())
+
+    # ── Exclusão de conta (US4) — anonimização, não DELETE da linha ─────────
+
+    async def anonimizar_usuario(self, id_usuario: str) -> Optional[dict[str, Any]]:
+        """Apaga os dados pessoais (PII) do usuário **mantendo a linha**.
+
+        Estratégia (data-model.md): em vez de `DELETE` (que perderia a
+        integridade de eventuais agregados/estatísticas que apontem para
+        `id_usuario`), **anonimizamos**:
+        - zera nome, e-mail e data de nascimento;
+        - desliga o `co_identidade_externa` (o uid do Firebase) — assim, se a
+          pessoa recriar a conta depois, vira um usuário **novo**;
+        - marca `ic_anonimizado = TRUE` e grava um `co_anonimo` (UUID aleatório)
+          como rótulo opaco e estável da conta extinta.
+        """
+        sql = text(
+            """
+            UPDATE conta.tb001_usuario
+            SET no_exibicao           = NULL,
+                no_email              = NULL,
+                dt_nascimento         = NULL,
+                co_identidade_externa = NULL,
+                ic_anonimizado        = TRUE,
+                co_anonimo            = gen_random_uuid(),
+                dh_atualizacao        = now()
+            WHERE id_usuario = :id_usuario
+            RETURNING *
+            """
+        )
+        resultado = await self.sessao.execute(sql, {"id_usuario": id_usuario})
+        linha = resultado.mappings().first()
+        return dict(linha) if linha else None
+
+    async def remover_dados_vinculados(self, id_usuario: str) -> None:
+        """Apaga as tabelas-filhas que carregam dado pessoal/identidade: provedores
+        (tb002), consentimento (tb004), tokens de dispositivo (tb005) e
+        preferências de notificação (tb006).
+
+        **Mantemos `tb003_aceite_legal`** de propósito: é registro de auditoria
+        legal (qual versão de termos foi aceita, quando) e **não contém PII** —
+        só o `id_usuario`, que após a anonimização aponta para uma conta sem
+        dados pessoais.
+        """
+        for tabela in (
+            "tb002_provedor_login",
+            "tb004_consentimento",
+            "tb005_dispositivo_notificacao",
+            "tb006_preferencia_notificacao",
+        ):
+            await self.sessao.execute(
+                text(f"DELETE FROM conta.{tabela} WHERE id_usuario = :id"),
+                {"id": id_usuario},
+            )

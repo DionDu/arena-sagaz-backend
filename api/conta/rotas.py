@@ -14,8 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.conta.modelos import (
     AceiteLegalRequest,
     AceiteLegalResposta,
+    AtualizarPerfilRequest,
     ConsentimentoRequest,
     ConsentimentoResposta,
+    ExclusaoContaResposta,
     PerfilUsuario,
     SessaoRequest,
 )
@@ -27,7 +29,7 @@ from api.nucleo.dependencias import (
     exigir_cabecalhos,
     usuario_atual,
 )
-from api.nucleo.seguranca_firebase import IdentidadeFirebase
+from api.nucleo.seguranca_firebase import IdentidadeFirebase, obter_admin_usuarios
 
 router = APIRouter()
 
@@ -38,9 +40,14 @@ def obter_servico_conta(
     """Monta o serviço com o repositório ligado à sessão da requisição.
 
     É uma **dependência** própria para os testes poderem trocá-la por uma versão
-    com repositório/sessão falsos (sem banco).
+    com repositório/sessão falsos (sem banco). Injeta o administrador de usuários
+    do Firebase (usado na exclusão de conta — US4).
     """
-    return ServicoConta(repo=RepositorioUsuario(sessao), sessao=sessao)
+    return ServicoConta(
+        repo=RepositorioUsuario(sessao),
+        sessao=sessao,
+        admin=obter_admin_usuarios(),
+    )
 
 
 @router.post("/sessao", response_model=PerfilUsuario)
@@ -89,5 +96,34 @@ async def definir_consentimento(
 ) -> ConsentimentoResposta:
     """Define o consentimento de rastreamento/marketing — US3 (upsert)."""
     resposta = await servico.definir_consentimento(identidade, corpo)
+    await servico.sessao.commit()
+    return resposta
+
+
+@router.patch("/perfil", response_model=PerfilUsuario)
+async def atualizar_perfil(
+    corpo: AtualizarPerfilRequest,
+    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+    servico: ServicoConta = Depends(obter_servico_conta),
+) -> PerfilUsuario:
+    """Edita nome de exibição e/ou idioma do usuário atual — US4."""
+    perfil = await servico.atualizar_perfil_usuario(identidade, corpo)
+    await servico.sessao.commit()
+    return perfil
+
+
+@router.delete("", response_model=ExclusaoContaResposta)
+async def excluir_conta(
+    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+    servico: ServicoConta = Depends(obter_servico_conta),
+) -> ExclusaoContaResposta:
+    """Exclui (anonimiza) a conta do usuário atual — US4.
+
+    Remove os dados pessoais da nossa base e apaga o usuário no Firebase
+    (best-effort). O caminho é o próprio prefixo `/v1/conta` (path vazio aqui).
+    """
+    resposta = await servico.excluir_conta(identidade)
     await servico.sessao.commit()
     return resposta

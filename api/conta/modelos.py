@@ -110,3 +110,23 @@ class ConsentimentoResposta(BaseModel):
             ic_marketing=linha["ic_marketing"],
             dh_atualizacao=linha["dh_atualizacao"],
         )
+
+
+# ── US4: editar perfil e excluir conta ───────────────────────────────────────
+
+
+class AtualizarPerfilRequest(BaseModel):
+    """Corpo do `PATCH /v1/conta/perfil` — edição do perfil pela tela de Conta.
+
+    Só permitimos editar **nome de exibição** e **idioma**. A data de nascimento
+    NÃO entra aqui de propósito (é base da regra de idade; não deve ser trocada à
+    vontade). Campos ausentes = "não mexa neste campo"."""
+
+    no_exibicao: Optional[str] = Field(default=None, max_length=40)
+    co_idioma_preferido: Optional[str] = Field(default=None, max_length=2)
+
+
+class ExclusaoContaResposta(BaseModel):
+    """Resposta do `DELETE /v1/conta` — confirma a anonimização da conta."""
+
+    ic_anonimizado: bool = True

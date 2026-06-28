@@ -110,6 +110,22 @@ class FakeRepoUsuario:
         }
         return self.consentimento
 
+    async def anonimizar_usuario(self, id_usuario):
+        for linha in self._por_uid.values():
+            if linha["id_usuario"] == id_usuario:
+                linha["no_exibicao"] = None
+                linha["no_email"] = None
+                linha["dt_nascimento"] = None
+                linha["co_identidade_externa"] = None
+                linha["ic_anonimizado"] = True
+                return dict(linha)
+        return None
+
+    async def remover_dados_vinculados(self, id_usuario):
+        # Registra a chamada e zera os provedores (espelha o DELETE real).
+        self.dados_removidos = id_usuario
+        self._provedores.pop(id_usuario, None)
+
 
 class FakeSession:
     """Sessão falsa: só conta commits/rollbacks (não toca banco)."""
