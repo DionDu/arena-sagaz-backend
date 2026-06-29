@@ -89,7 +89,7 @@ class ServicoConta:
         do dono do token e devolve o perfil."""
         existente = await self.repo.buscar_por_identidade_externa(identidade.uid)
         if existente is not None:
-            return await self._atualizar_existente(existente, dados)
+            return await self._atualizar_existente(existente, dados, identidade)
         return await self._criar_novo(identidade, dados)
 
     async def obter_perfil(self, identidade: IdentidadeFirebase) -> PerfilUsuario:
@@ -191,7 +191,10 @@ class ServicoConta:
     # ── internos ────────────────────────────────────────────────────────────
 
     async def _atualizar_existente(
-        self, linha: dict[str, Any], dados: SessaoRequest
+        self,
+        linha: dict[str, Any],
+        dados: SessaoRequest,
+        identidade: IdentidadeFirebase,
     ) -> PerfilUsuario:
         # Só atualiza o que veio no corpo (o repositório usa COALESCE).
         if (
@@ -207,6 +210,15 @@ class ServicoConta:
             )
             if atualizada is not None:
                 linha = atualizada
+        # Registra o provedor com que a pessoa entrou AGORA. Assim, quem criou a
+        # conta por e-mail e depois entrou com Google passa a ter os DOIS
+        # provedores vinculados na nossa base (antes só o de criação aparecia).
+        # `vincular_provedor` é idempotente (ON CONFLICT DO NOTHING).
+        await self.repo.vincular_provedor(
+            id_usuario=linha["id_usuario"],
+            co_provedor=mapear_provedor(identidade.provedor),
+            co_identidade_provedor=identidade.uid,
+        )
         await self.repo.registrar_ultimo_acesso(linha["id_usuario"])
         return await self._montar_perfil(linha)
 

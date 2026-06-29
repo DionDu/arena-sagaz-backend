@@ -124,3 +124,15 @@ def test_reentrada_nao_duplica_e_atualiza_nome():
 def test_obter_perfil_inexistente_responde_404():
     with pytest.raises(ErroNaoEncontrado):
         asyncio.run(_servico(FakeRepoUsuario()).obter_perfil(_identidade()))
+
+
+def test_reentrada_vincula_provedor_atual():
+    # Conta criada por e-mail; agora a pessoa entra com Google → o provedor
+    # Google passa a constar vinculado (antes só o de criação aparecia).
+    repo = FakeRepoUsuario(existente=_conta_existente())
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(provedor="google.com"), SessaoRequest()
+        )
+    )
+    assert "google" in perfil.provedores
