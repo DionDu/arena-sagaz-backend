@@ -228,3 +228,50 @@ def test_obter_preferencias_200(client):
     r = client.get("/v1/notificacoes/preferencias")
     assert r.status_code == 200
     assert r.json()["preferencias"][0]["co_categoria"] == "transacional"
+
+
+# ── Roteamento do marketing para a tb004 (unificação LGPD) ──────────────────
+
+
+class _FakeRepoNotif:
+    """Repositório fake (sem banco) para testar o roteamento do serviço."""
+
+    def __init__(self):
+        self.prefs = []  # categorias que foram para a tb006
+        self.marketing = []  # valores que foram para a tb004 (consentimento)
+
+    async def id_usuario_por_identidade(self, uid):
+        return "id-interno"
+
+    async def upsert_preferencia(self, id_usuario, co_categoria, ic_ativo):
+        self.prefs.append((co_categoria, ic_ativo))
+
+    async def upsert_marketing_consentimento(self, id_usuario, ic_marketing):
+        self.marketing.append(ic_marketing)
+
+    async def listar_preferencias(self, id_usuario):
+        return []
+
+
+class _FakeSessao:
+    async def commit(self):
+        pass
+
+
+async def test_definir_preferencias_roteia_marketing_para_consentimento():
+    # `marketing` vai para a tb004 (consentimento); as demais para a tb006.
+    from api.notificacoes.servico_preferencias import ServicoPreferenciasNotificacao
+
+    repo = _FakeRepoNotif()
+    svc = ServicoPreferenciasNotificacao(repo=repo, sessao=_FakeSessao())
+
+    await svc.definir_preferencias(
+        "uid-firebase",
+        [
+            PreferenciaItem(co_categoria="marketing", ic_ativo=True),
+            PreferenciaItem(co_categoria="novidades", ic_ativo=False),
+        ],
+    )
+
+    assert repo.marketing == [True]
+    assert repo.prefs == [("novidades", False)]

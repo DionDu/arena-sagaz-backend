@@ -111,3 +111,23 @@ class RepositorioNotificacao:
             sql,
             {"id_usuario": id_usuario, "categoria": co_categoria, "ativo": ic_ativo},
         )
+
+    async def upsert_marketing_consentimento(
+        self, id_usuario: Any, ic_marketing: bool
+    ) -> None:
+        """Grava o **consentimento de marketing** na `tb004_consentimento`
+        (fonte única / registro LGPD). É para onde a categoria `marketing` da
+        tela de notificações é roteada — a `vw006` lê o marketing daqui.
+
+        UPSERT por `id_usuario` (UNIQUE na tb004). Só toca em `ic_marketing`;
+        `ic_rastreamento` mantém o valor existente (ou o default no insert)."""
+        sql = text(
+            """
+            INSERT INTO conta.tb004_consentimento (id_usuario, ic_marketing)
+            VALUES (:id, :ativo)
+            ON CONFLICT (id_usuario) DO UPDATE SET
+                ic_marketing   = EXCLUDED.ic_marketing,
+                dh_atualizacao = now()
+            """
+        )
+        await self.sessao.execute(sql, {"id": id_usuario, "ativo": ic_marketing})

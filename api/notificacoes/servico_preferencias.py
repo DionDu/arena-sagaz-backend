@@ -50,7 +50,14 @@ class ServicoPreferenciasNotificacao:
         """Grava as preferências por categoria e devolve o estado atual."""
         id_usuario = await self._exigir_id_usuario(uid)
         for p in preferencias:
-            await self.repo.upsert_preferencia(id_usuario, p.co_categoria, p.ic_ativo)
+            if p.co_categoria == "marketing":
+                # Marketing = consentimento LGPD: grava na tb004 (fonte única).
+                # A vw006 lê o marketing de lá, então o app continua coerente.
+                await self.repo.upsert_marketing_consentimento(id_usuario, p.ic_ativo)
+            else:
+                await self.repo.upsert_preferencia(
+                    id_usuario, p.co_categoria, p.ic_ativo
+                )
         await self.sessao.commit()
         return await self._ler(id_usuario)
 
