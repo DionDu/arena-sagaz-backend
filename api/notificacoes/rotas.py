@@ -12,13 +12,52 @@ O prefixo `/v1/notificacoes` é aplicado no `main.py`.
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.configuracao import configuracoes
-from api.notificacoes.modelos import BroadcastRequest, BroadcastResposta
+from api.notificacoes.modelos import (
+    BroadcastRequest,
+    BroadcastResposta,
+    DispositivoRequest,
+    PreferenciasRequest,
+    PreferenciasResposta,
+)
+from api.notificacoes.repositorio import RepositorioNotificacao
 from api.notificacoes.servico import ServicoNotificacoes, enviar_fcm_topico
+from api.notificacoes.servico_preferencias import ServicoPreferenciasNotificacao
+from api.nucleo.banco import obter_sessao
+from api.nucleo.dependencias import usuario_atual
 from api.nucleo.excecoes import ErroNaoAutorizado
+from api.nucleo.seguranca_firebase import IdentidadeFirebase, obter_verificador
 
 router = APIRouter()
+
+
+async def usuario_atual_opcional(
+    authorization: Optional[str] = Header(default=None),
+) -> Optional[IdentidadeFirebase]:
+    """Como [usuario_atual], mas **não obriga** login: devolve a identidade se
+    houver um token válido, ou `None` (sessão de convidado). Usado no registro de
+    dispositivo, que aceita convidado (token sem dono)."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization[7:].strip()
+    if not token:
+        return None
+    try:
+        return await obter_verificador().verificar(token)
+    except ErroNaoAutorizado:
+        return None  # token inválido → trata como convidado
+
+
+def obter_servico_preferencias(
+    sessao: AsyncSession = Depends(obter_sessao),
+) -> ServicoPreferenciasNotificacao:
+    """Monta o serviço de dispositivos/preferências ligado à sessão da requisição.
+    Dependência própria para os testes a trocarem por um fake (sem banco)."""
+    return ServicoPreferenciasNotificacao(
+        repo=RepositorioNotificacao(sessao), sessao=sessao
+    )
 
 
 def exigir_admin(
@@ -57,3 +96,52 @@ async def broadcast(
     return servico.enviar_broadcast(
         titulo=corpo.titulo, corpo=corpo.corpo, dados=corpo.dados
     )
+
+
+@router.post("/dispositivo", status_code=200)
+async def registrar_dispositivo(
+    corpo: DispositivoRequest,
+    identidade: Optional[IdentidadeFirebase] = Depends(usuario_atual_opcional),
+    servico: ServicoPreferenciasNotificacao = Depends(obter_servico_preferencias),
+) -> dict:
+    """Registra/atualiza o token FCM do aparelho (UPSERT por token). Aceita
+    convidado (sem login) — aí o token fica sem dono."""
+    await servico.registrar_dispositivo(
+        uid=identidade.uid if identidade else None,
+        co_token_fcm=corpo.co_token_fcm,
+        sg_plataforma=corpo.sg_plataforma,
+        co_idioma=corpo.co_idioma,
+    )
+    return {"ok": True}
+
+
+@router.delete("/dispositivo/{co_token_fcm}", status_code=200)
+async def remover_dispositivo(
+    co_token_fcm: str,
+    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    servico: ServicoPreferenciasNotificacao = Depends(obter_servico_preferencias),
+) -> dict:
+    """Remove o token (logout/expiração). Idempotente."""
+    await servico.remover_dispositivo(co_token_fcm)
+    return {"ok": True}
+
+
+@router.put("/preferencias", response_model=PreferenciasResposta)
+async def definir_preferencias(
+    corpo: PreferenciasRequest,
+    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    servico: ServicoPreferenciasNotificacao = Depends(obter_servico_preferencias),
+) -> PreferenciasResposta:
+    """Define as preferências por categoria e devolve o estado atual."""
+    atuais = await servico.definir_preferencias(identidade.uid, corpo.preferencias)
+    return PreferenciasResposta(preferencias=atuais)
+
+
+@router.get("/preferencias", response_model=PreferenciasResposta)
+async def obter_preferencias(
+    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    servico: ServicoPreferenciasNotificacao = Depends(obter_servico_preferencias),
+) -> PreferenciasResposta:
+    """Devolve as preferências por categoria do usuário."""
+    atuais = await servico.listar_preferencias(identidade.uid)
+    return PreferenciasResposta(preferencias=atuais)
