@@ -10,6 +10,7 @@ retentativa). É testável com fakes — não precisa de banco real.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 from typing import Any, Optional
 
@@ -168,13 +169,25 @@ class ServicoConta:
         await self.repo.anonimizar_usuario(id_usuario)
         await self.repo.remover_dados_vinculados(id_usuario)
 
+        # **Confirma a anonimização AGORA**, antes de tocar no Firebase. Assim a
+        # remoção de PII na nossa base fica DURÁVEL mesmo que o passo do Firebase
+        # demore/trave (antes o commit vinha só no fim — se o Firebase travava, a
+        # transação era desfeita e a conta permanecia com os dados).
+        await self.sessao.commit()
+
+        # Apaga no Firebase — **best-effort com TIMEOUT** para nunca travar a
+        # resposta (o Admin SDK pode demorar/pendurar). Se falhar/estourar, só
+        # registramos: a PII na nossa base já foi removida.
         admin = self.admin or obter_admin_usuarios()
         try:
-            await admin.excluir_usuario(identidade.uid)
+            await asyncio.wait_for(
+                admin.excluir_usuario(identidade.uid), timeout=8.0
+            )
         except Exception:  # noqa: BLE001 — best-effort: não derruba a exclusão
             # Sem PII no log (Constituição, Princípio IV) — só o evento.
             log.warning(
-                "Falha ao excluir usuário no Firebase (conta já anonimizada na base)"
+                "Falha/timeout ao excluir usuário no Firebase "
+                "(conta já anonimizada na base)"
             )
 
         return ExclusaoContaResposta(ic_anonimizado=True)

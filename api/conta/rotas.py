@@ -123,7 +123,8 @@ async def excluir_conta(
 
     Remove os dados pessoais da nossa base e apaga o usuário no Firebase
     (best-effort). O caminho é o próprio prefixo `/v1/conta` (path vazio aqui).
+    O **commit é feito dentro do serviço** (antes do passo do Firebase), para a
+    anonimização ser durável mesmo que o Firebase demore — por isso não há commit
+    aqui.
     """
-    resposta = await servico.excluir_conta(identidade)
-    await servico.sessao.commit()
-    return resposta
+    return await servico.excluir_conta(identidade)
