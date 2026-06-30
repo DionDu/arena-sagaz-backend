@@ -25,6 +25,13 @@ class Configuracoes(BaseSettings):
     # porta aleatória) já é liberado por regex no `main.py`. Mobile não usa CORS.
     CORS_ORIGINS: str = ""
 
+    # Segredo que autoriza o disparo de **broadcast** de notificações
+    # (`POST /v1/notificacoes/broadcast`). Quem chamar precisa enviar este valor
+    # no cabeçalho `X-Admin-Token`. VAZIO = endpoint **desabilitado** (default
+    # seguro: sem segredo configurado, ninguém consegue disparar para todos).
+    # Em produção, definir nas Variables do Railway.
+    ADMIN_BROADCAST_TOKEN: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
