@@ -209,15 +209,23 @@ class ServicoConta:
         dados: SessaoRequest,
         identidade: IdentidadeFirebase,
     ) -> PerfilUsuario:
-        # Só atualiza o que veio no corpo (o repositório usa COALESCE).
+        # REGRA DE NOME (definitiva): se JÁ existe nome salvo, ele MANDA — o nome
+        # que vem do provedor a cada login (Google/Apple/…) NÃO o sobrescreve. Só
+        # preenchemos pelo provedor quando o nome ainda está VAZIO. A troca
+        # explícita de nome é pelo `PATCH /conta/perfil`, não pela sessão.
+        nome_atual = (linha.get("no_exibicao") or "").strip()
+        no_exibicao_efetivo = dados.no_exibicao if not nome_atual else None
+
+        # Só atualiza o que veio no corpo (o repositório usa COALESCE: campo nulo
+        # mantém o valor atual).
         if (
-            dados.no_exibicao is not None
+            no_exibicao_efetivo is not None
             or dados.dt_nascimento is not None
             or dados.co_idioma_preferido is not None
         ):
             atualizada = await self.repo.atualizar_perfil(
                 id_usuario=linha["id_usuario"],
-                no_exibicao=dados.no_exibicao,
+                no_exibicao=no_exibicao_efetivo,
                 dt_nascimento=dados.dt_nascimento,
                 co_idioma_preferido=dados.co_idioma_preferido,
             )

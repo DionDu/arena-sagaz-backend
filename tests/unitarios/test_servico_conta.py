@@ -108,17 +108,32 @@ def _conta_existente(uid="u1"):
     }
 
 
-def test_reentrada_nao_duplica_e_atualiza_nome():
-    repo = FakeRepoUsuario(existente=_conta_existente())
+def test_reentrada_preserva_nome_existente():
+    # REGRA: a sessão (login) NÃO sobrescreve um nome já salvo. O nome que vem do
+    # provedor a cada login é ignorado quando o usuário já tem um nome no banco.
+    repo = FakeRepoUsuario(existente=_conta_existente())  # no_exibicao="Antigo"
     perfil = asyncio.run(
         _servico(repo).garantir_sessao(
-            _identidade(), SessaoRequest(no_exibicao="Novo Nome")
+            _identidade(), SessaoRequest(no_exibicao="Nome Do Provedor")
         )
     )
-    # Mesma conta (mesmo código), nome atualizado, nada criado.
+    # Mesma conta, nome PRESERVADO, nada criado.
     assert perfil.co_usuario == "k7m3p9rt"
-    assert perfil.no_exibicao == "Novo Nome"
+    assert perfil.no_exibicao == "Antigo"
     assert repo.criadas == []
+
+
+def test_reentrada_preenche_nome_quando_vazio():
+    # Se o nome no banco está VAZIO, aí sim a sessão aceita o nome do provedor.
+    conta = _conta_existente()
+    conta["no_exibicao"] = None
+    repo = FakeRepoUsuario(existente=conta)
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(), SessaoRequest(no_exibicao="Nome Do Provedor")
+        )
+    )
+    assert perfil.no_exibicao == "Nome Do Provedor"
 
 
 def test_obter_perfil_inexistente_responde_404():
