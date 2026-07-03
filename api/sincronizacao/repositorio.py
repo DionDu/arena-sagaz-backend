@@ -1,0 +1,353 @@
+"""Repositório de sincronização (spec 006 / US1 — T032/T033).
+
+Escrita nas tabelas ``partida.*``/``jogo_pontinhos.*``/``progressao.*`` e leitura
+pelas VIEWs, com ``sqlalchemy.text(...)`` e parâmetros nomeados (nunca
+interpolação — anti-SQL-injection). Segue o mesmo estilo de ``api/conta/repositorio.py``.
+
+⚠️ TESTES DE INTEGRAÇÃO PENDENTES: este SQL só roda contra o Postgres com a
+migração ``0003_conta_nuvem`` aplicada. Os testes de CONTRATO (T023/T024) usam um
+repositório FALSO e validam o serviço/rotas sem banco. A validação do SQL real
+depende de aplicar a migração (Railway des) e rodar os testes de integração.
+
+Idempotência:
+ • ingestão de partida → ``INSERT ... ON CONFLICT (co_evento) DO NOTHING RETURNING``;
+ • merge convidado → ``INSERT ... ON CONFLICT (co_lote_migracao) DO NOTHING RETURNING``.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
+class RepositorioSincronizacao:
+    """Acesso a partidas/jogadas/XP/progressão para a sincronização.
+
+    Recebe a [AsyncSession] da requisição. Faz `flush` (para o RETURNING) mas
+    NÃO faz `commit` — quem orquestra a transação é a rota (tudo atômico).
+    """
+
+    def __init__(self, sessao: AsyncSession) -> None:
+        self.sessao = sessao
+
+    # ── Ingestão de um evento de partida (idempotente por co_evento) ──────────
+
+    async def gravar_evento(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        co_evento: str,
+        payload: dict[str, Any],
+    ) -> bool:
+        """Grava a partida + jogadas + extensão Pontinhos + XP e incrementa a
+        progressão, tudo na transação da requisição. Idempotente: se o
+        ``co_evento`` já existe, não faz nada e devolve ``False``."""
+        partida = payload.get("partida") or {}
+
+        # 1) Partida (raiz do evento). ON CONFLICT no co_evento garante o dedupe.
+        #    O id_usuario é SEMPRE o do token (ignora qualquer valor do cliente).
+        sql_partida = text(
+            """
+            INSERT INTO partida.tb001_partida
+              (id_partida, co_evento, co_jogo, co_variante, co_modo, id_usuario,
+               co_anonimo, id_usuario_j2, co_dificuldade, nu_placar_j1,
+               nu_placar_j2, ic_pontua, co_status, co_lote_migracao,
+               dh_inicio, dh_fim)
+            VALUES
+              (:id_partida, :co_evento, :co_jogo, :co_variante, :co_modo,
+               :id_usuario, :co_anonimo, :id_usuario_j2, :co_dificuldade,
+               :nu_placar_j1, :nu_placar_j2, :ic_pontua, :co_status,
+               :co_lote_migracao, :dh_inicio, :dh_fim)
+            ON CONFLICT (co_evento) DO NOTHING
+            RETURNING id_partida
+            """
+        )
+        resultado = await self.sessao.execute(
+            sql_partida,
+            {
+                "id_partida": partida.get("id_partida"),
+                "co_evento": co_evento,
+                "co_jogo": partida.get("co_jogo"),
+                "co_variante": partida.get("co_variante"),
+                "co_modo": partida.get("co_modo"),
+                "id_usuario": id_usuario,
+                # co_anonimo do J1 sobrevive à anonimização (LGPD, FR-024).
+                "co_anonimo": partida.get("co_anonimo") or co_anonimo,
+                "id_usuario_j2": partida.get("id_usuario_j2"),
+                "co_dificuldade": partida.get("co_dificuldade"),
+                "nu_placar_j1": partida.get("nu_placar_j1", 0),
+                "nu_placar_j2": partida.get("nu_placar_j2", 0),
+                "ic_pontua": partida.get("ic_pontua", False),
+                "co_status": partida.get("co_status", "concluida"),
+                "co_lote_migracao": partida.get("co_lote_migracao"),
+                "dh_inicio": partida.get("dh_inicio"),
+                "dh_fim": partida.get("dh_fim"),
+            },
+        )
+        if resultado.first() is None:
+            return False  # co_evento já existia → retry no-op
+
+        id_partida = partida.get("id_partida")
+
+        # 2) Jogadas (genéricas) + extensão do Pontinhos, na ordem recebida.
+        for jogada in payload.get("jogadas", []):
+            await self._gravar_jogada(id_partida, jogada)
+
+        # 3) Parcelas de XP da partida.
+        for parcela in payload.get("xp", []):
+            await self._gravar_xp(id_partida, id_usuario, co_anonimo, parcela)
+
+        # 4) Incrementa a progressão (só se a partida pontua).
+        await self._incrementar_progressao(
+            id_usuario, co_anonimo, partida, payload.get("xp", [])
+        )
+        return True
+
+    async def _gravar_jogada(self, id_partida: str, jogada: dict[str, Any]) -> None:
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO partida.tb002_jogada
+                  (id_jogada, id_partida, nu_ordem, nu_jogador, dh_jogada,
+                   nu_timer_ms, nu_tempo_decisao_ms, co_origem_decisao)
+                VALUES
+                  (:id_jogada, :id_partida, :nu_ordem, :nu_jogador, :dh_jogada,
+                   :nu_timer_ms, :nu_tempo_decisao_ms, :co_origem_decisao)
+                """
+            ),
+            {
+                "id_jogada": jogada.get("id_jogada"),
+                "id_partida": id_partida,
+                "nu_ordem": jogada.get("nu_ordem"),
+                "nu_jogador": jogada.get("nu_jogador"),
+                "dh_jogada": jogada.get("dh_jogada"),
+                "nu_timer_ms": jogada.get("nu_timer_ms"),
+                "nu_tempo_decisao_ms": jogada.get("nu_tempo_decisao_ms", 0),
+                "co_origem_decisao": jogada.get("co_origem_decisao", "humano"),
+            },
+        )
+        # Extensão específica do Pontinhos (1:1), quando presente no payload.
+        pontinhos = jogada.get("pontinhos")
+        if pontinhos:
+            await self.sessao.execute(
+                text(
+                    """
+                    INSERT INTO jogo_pontinhos.tb002_jogada
+                      (id_jogada, co_jogador, co_aresta, ar_tabuleiro_antes,
+                       ar_tabuleiro_apos, nu_caixas_fechadas, co_acao,
+                       co_situacao, ar_probabilidade_cnn, ar_score_busca,
+                       nu_profundidade, js_extra)
+                    VALUES
+                      (:id_jogada, :co_jogador, :co_aresta, :ar_antes, :ar_apos,
+                       :nu_caixas, :co_acao, :co_situacao, :ar_prob, :ar_score,
+                       :nu_prof, :js_extra)
+                    """
+                ),
+                {
+                    "id_jogada": jogada.get("id_jogada"),
+                    "co_jogador": pontinhos.get("co_jogador"),
+                    "co_aresta": pontinhos.get("co_aresta"),
+                    "ar_antes": pontinhos.get("ar_tabuleiro_antes"),
+                    "ar_apos": pontinhos.get("ar_tabuleiro_apos"),
+                    "nu_caixas": pontinhos.get("nu_caixas_fechadas", 0),
+                    "co_acao": pontinhos.get("co_acao"),
+                    "co_situacao": pontinhos.get("co_situacao"),
+                    "ar_prob": pontinhos.get("ar_probabilidade_cnn"),
+                    "ar_score": pontinhos.get("ar_score_busca"),
+                    "nu_prof": pontinhos.get("nu_profundidade"),
+                    "js_extra": pontinhos.get("js_extra"),
+                },
+            )
+
+    async def _gravar_xp(
+        self,
+        id_partida: str,
+        id_usuario: str,
+        co_anonimo: str | None,
+        parcela: dict[str, Any],
+    ) -> None:
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO partida.tb003_xp_partida
+                  (id_xp_partida, id_partida, id_usuario, co_anonimo, co_tipo_xp,
+                   nu_xp, co_referencia, dh_registro)
+                VALUES
+                  (gen_random_uuid(), :id_partida, :id_usuario, :co_anonimo,
+                   :co_tipo_xp, :nu_xp, :co_referencia, now())
+                """
+            ),
+            {
+                "id_partida": id_partida,
+                "id_usuario": id_usuario,
+                "co_anonimo": co_anonimo,
+                "co_tipo_xp": parcela.get("co_tipo_xp"),
+                "nu_xp": parcela.get("nu_xp", 0),
+                "co_referencia": parcela.get("co_referencia"),
+            },
+        )
+
+    async def _incrementar_progressao(
+        self,
+        id_usuario: str,
+        co_anonimo: str | None,
+        partida: dict[str, Any],
+        xp: list[dict[str, Any]],
+    ) -> None:
+        # Partidas que NÃO pontuam (pvp_local) não mexem em XP/contadores.
+        if not partida.get("ic_pontua"):
+            return
+        xp_ganho = sum(int(p.get("nu_xp", 0)) for p in xp)
+        j1 = int(partida.get("nu_placar_j1", 0))
+        j2 = int(partida.get("nu_placar_j2", 0))
+        vit = 1 if j1 > j2 else 0
+        der = 1 if j1 < j2 else 0
+        emp = 1 if j1 == j2 else 0
+        # Upsert por id_usuario (única). NOTA: a "chama" (nu_sequencia_atual) NÃO
+        # é recomputada aqui (depende de datas) — fica para o merge/recomputação;
+        # o app é a fonte da sequência até lá.
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO progressao.tb001_progressao_usuario
+                  (id_progressao, id_usuario, co_anonimo, nu_xp_total,
+                   nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
+                   dh_atualizacao)
+                VALUES
+                  (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, 1, :vit,
+                   :der, :emp, now())
+                ON CONFLICT (id_usuario) DO UPDATE SET
+                  nu_xp_total = progressao.tb001_progressao_usuario.nu_xp_total
+                                + EXCLUDED.nu_xp_total,
+                  nu_partidas = progressao.tb001_progressao_usuario.nu_partidas + 1,
+                  nu_vitorias = progressao.tb001_progressao_usuario.nu_vitorias
+                                + EXCLUDED.nu_vitorias,
+                  nu_derrotas = progressao.tb001_progressao_usuario.nu_derrotas
+                                + EXCLUDED.nu_derrotas,
+                  nu_empates = progressao.tb001_progressao_usuario.nu_empates
+                               + EXCLUDED.nu_empates,
+                  dh_atualizacao = now()
+                """
+            ),
+            {
+                "id_usuario": id_usuario,
+                "co_anonimo": co_anonimo,
+                "xp": xp_ganho,
+                "vit": vit,
+                "der": der,
+                "emp": emp,
+            },
+        )
+
+    # ── Merge convidado→conta (idempotente por co_lote_migracao) ──────────────
+
+    async def aplicar_merge_se_novo(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        co_lote_migracao: str,
+        progressao_convidado: dict[str, Any],
+    ) -> bool:
+        """Carimba o lote e, se for novo, soma a progressão do convidado à conta
+        (XP/contadores somam; sequência fica a MAIOR; conquistas união)."""
+        # 1) Registra o lote (idempotência). Se já existia, não aplica de novo.
+        lote = await self.sessao.execute(
+            text(
+                """
+                INSERT INTO progressao.tb003_lote_migracao
+                  (co_lote_migracao, id_usuario, dh_aplicado)
+                VALUES (:lote, :id_usuario, now())
+                ON CONFLICT (co_lote_migracao) DO NOTHING
+                RETURNING co_lote_migracao
+                """
+            ),
+            {"lote": co_lote_migracao, "id_usuario": id_usuario},
+        )
+        if lote.first() is None:
+            return False  # lote já aplicado → no-op
+
+        r = progressao_convidado
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO progressao.tb001_progressao_usuario
+                  (id_progressao, id_usuario, co_anonimo, nu_xp_total,
+                   nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
+                   nu_sequencia_atual, dh_atualizacao)
+                VALUES
+                  (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, :part, :vit,
+                   :der, :emp, :seq, now())
+                ON CONFLICT (id_usuario) DO UPDATE SET
+                  nu_xp_total = progressao.tb001_progressao_usuario.nu_xp_total
+                                + EXCLUDED.nu_xp_total,
+                  nu_partidas = progressao.tb001_progressao_usuario.nu_partidas
+                                + EXCLUDED.nu_partidas,
+                  nu_vitorias = progressao.tb001_progressao_usuario.nu_vitorias
+                                + EXCLUDED.nu_vitorias,
+                  nu_derrotas = progressao.tb001_progressao_usuario.nu_derrotas
+                                + EXCLUDED.nu_derrotas,
+                  nu_empates = progressao.tb001_progressao_usuario.nu_empates
+                               + EXCLUDED.nu_empates,
+                  -- a "chama" não soma: fica a MAIOR das duas.
+                  nu_sequencia_atual = GREATEST(
+                      progressao.tb001_progressao_usuario.nu_sequencia_atual,
+                      EXCLUDED.nu_sequencia_atual),
+                  dh_atualizacao = now()
+                """
+            ),
+            {
+                "id_usuario": id_usuario,
+                "co_anonimo": co_anonimo,
+                "xp": int(r.get("nu_xp_total", 0)),
+                "part": int(r.get("nu_partidas", 0)),
+                "vit": int(r.get("nu_vitorias", 0)),
+                "der": int(r.get("nu_derrotas", 0)),
+                "emp": int(r.get("nu_empates", 0)),
+                "seq": int(r.get("nu_sequencia_atual", 0)),
+            },
+        )
+
+        # Conquistas: união (a chave única id_usuario+co_conquista evita duplicar).
+        for co_conquista in r.get("conquistas", []) or []:
+            await self.sessao.execute(
+                text(
+                    """
+                    INSERT INTO progressao.tb002_conquista_usuario
+                      (id_conquista_usuario, id_usuario, co_conquista,
+                       dh_desbloqueio)
+                    VALUES (gen_random_uuid(), :id_usuario, :co_conquista, now())
+                    ON CONFLICT (id_usuario, co_conquista) DO NOTHING
+                    """
+                ),
+                {"id_usuario": id_usuario, "co_conquista": co_conquista},
+            )
+        return True
+
+    # ── Leitura (pela VIEW) ───────────────────────────────────────────────────
+
+    async def obter_progressao(self, id_usuario: str) -> dict[str, Any]:
+        """Progressão atual (com nu_nivel/co_patente calculados pela VIEW). Se o
+        usuário ainda não tem linha, devolve zeros."""
+        resultado = await self.sessao.execute(
+            text(
+                "SELECT * FROM progressao.vw001_progressao_usuario "
+                "WHERE id_usuario = :id"
+            ),
+            {"id": id_usuario},
+        )
+        linha = resultado.mappings().first()
+        if linha is None:
+            return {
+                "nu_xp_total": 0,
+                "nu_partidas": 0,
+                "nu_vitorias": 0,
+                "nu_derrotas": 0,
+                "nu_empates": 0,
+                "nu_sequencia_atual": 0,
+                "nu_nivel": 1,
+                "co_patente": "aprendiz",
+            }
+        return dict(linha)
