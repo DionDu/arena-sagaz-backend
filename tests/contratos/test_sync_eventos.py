@@ -127,3 +127,37 @@ def test_sem_token_nao_ingere(client):
         json={"eventos": [_evento_partida("evt-1", 40)]},
     )
     assert r.status_code == 401
+
+
+def test_pvp_local_nao_altera_xp_anti_farm(client):
+    """SC-007 (T042): partida pvp_local (ic_pontua=False) é aceita/registrada
+    mas NÃO incrementa XP nem contadores — anti-farm."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    evento = {
+        "co_evento": "evt-pvp",
+        "co_tipo": "partida",
+        "payload": {
+            "partida": {
+                "id_partida": "p-pvp",
+                "co_jogo": "pontinhos",
+                "co_variante": "pequeno",
+                "co_modo": "pvp_local",
+                "nu_placar_j1": 6,
+                "nu_placar_j2": 6,
+                "ic_pontua": False,  # não pontua
+                "co_status": "concluida",
+                "dh_inicio": "2026-07-01T10:00:00Z",
+            },
+            "jogadas": [],
+            "xp": [{"co_tipo_xp": "resultado", "nu_xp": 15}],  # ignorado
+        },
+    }
+    r = client.post("/v1/sincronizacao/eventos", json={"eventos": [evento]})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["aceitos"] == ["evt-pvp"]  # a partida é registrada…
+    assert body["progressao"]["nu_xp_total"] == 0  # …mas XP não muda
+    assert body["progressao"]["nu_partidas"] == 0

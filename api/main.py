@@ -10,6 +10,7 @@ from api.notificacoes import rotas as rotas_notif
 from api.nucleo.excecoes import registrar_handlers
 from api.nucleo.log import obter_logger
 from api.nucleo import rotas as rotas_nucleo
+from api.ranking import rotas as rotas_ranking
 from api.sincronizacao import rotas as rotas_sync
 
 log = obter_logger("api.main")
@@ -53,6 +54,8 @@ app.include_router(rotas_conta.router, prefix="/v1/conta")
 app.include_router(rotas_notif.router, prefix="/v1/notificacoes")
 # Sincronização offline↔servidor: eventos da outbox, merge convidado→conta (006).
 app.include_router(rotas_sync.router, prefix="/v1/sincronizacao")
+# Ranking + progressão na nuvem: leaderboard, visibilidade (opt-out), perfil (006).
+app.include_router(rotas_ranking.router, prefix="/v1/ranking")
 # Documentos legais como páginas HTML públicas (G3) — fora de /v1, é conteúdo web
 # (URLs de privacidade/exclusão exigidas pelas lojas).
 app.include_router(rotas_legal.router, prefix="/legal")
