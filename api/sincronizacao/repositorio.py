@@ -208,10 +208,13 @@ class RepositorioSincronizacao:
         # Upsert por id_usuario (única). NOTA: a "chama" (nu_sequencia_atual) NÃO
         # é recomputada aqui (depende de datas) — fica para o merge/recomputação;
         # o app é a fonte da sequência até lá.
+        # `AS prog`: alias do alvo para referenciar o valor ANTIGO no DO UPDATE
+        # (o Postgres não aceita schema.tabela.coluna nesse contexto — precisa do
+        # nome/alias da tabela).
         await self.sessao.execute(
             text(
                 """
-                INSERT INTO progressao.tb001_progressao_usuario
+                INSERT INTO progressao.tb001_progressao_usuario AS prog
                   (id_progressao, id_usuario, co_anonimo, nu_xp_total,
                    nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
                    dh_atualizacao)
@@ -219,15 +222,11 @@ class RepositorioSincronizacao:
                   (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, 1, :vit,
                    :der, :emp, now())
                 ON CONFLICT (id_usuario) DO UPDATE SET
-                  nu_xp_total = progressao.tb001_progressao_usuario.nu_xp_total
-                                + EXCLUDED.nu_xp_total,
-                  nu_partidas = progressao.tb001_progressao_usuario.nu_partidas + 1,
-                  nu_vitorias = progressao.tb001_progressao_usuario.nu_vitorias
-                                + EXCLUDED.nu_vitorias,
-                  nu_derrotas = progressao.tb001_progressao_usuario.nu_derrotas
-                                + EXCLUDED.nu_derrotas,
-                  nu_empates = progressao.tb001_progressao_usuario.nu_empates
-                               + EXCLUDED.nu_empates,
+                  nu_xp_total = prog.nu_xp_total + EXCLUDED.nu_xp_total,
+                  nu_partidas = prog.nu_partidas + 1,
+                  nu_vitorias = prog.nu_vitorias + EXCLUDED.nu_vitorias,
+                  nu_derrotas = prog.nu_derrotas + EXCLUDED.nu_derrotas,
+                  nu_empates = prog.nu_empates + EXCLUDED.nu_empates,
                   dh_atualizacao = now()
                 """
             ),
@@ -273,7 +272,7 @@ class RepositorioSincronizacao:
         await self.sessao.execute(
             text(
                 """
-                INSERT INTO progressao.tb001_progressao_usuario
+                INSERT INTO progressao.tb001_progressao_usuario AS prog
                   (id_progressao, id_usuario, co_anonimo, nu_xp_total,
                    nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
                    nu_sequencia_atual, dh_atualizacao)
@@ -281,20 +280,14 @@ class RepositorioSincronizacao:
                   (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, :part, :vit,
                    :der, :emp, :seq, now())
                 ON CONFLICT (id_usuario) DO UPDATE SET
-                  nu_xp_total = progressao.tb001_progressao_usuario.nu_xp_total
-                                + EXCLUDED.nu_xp_total,
-                  nu_partidas = progressao.tb001_progressao_usuario.nu_partidas
-                                + EXCLUDED.nu_partidas,
-                  nu_vitorias = progressao.tb001_progressao_usuario.nu_vitorias
-                                + EXCLUDED.nu_vitorias,
-                  nu_derrotas = progressao.tb001_progressao_usuario.nu_derrotas
-                                + EXCLUDED.nu_derrotas,
-                  nu_empates = progressao.tb001_progressao_usuario.nu_empates
-                               + EXCLUDED.nu_empates,
+                  nu_xp_total = prog.nu_xp_total + EXCLUDED.nu_xp_total,
+                  nu_partidas = prog.nu_partidas + EXCLUDED.nu_partidas,
+                  nu_vitorias = prog.nu_vitorias + EXCLUDED.nu_vitorias,
+                  nu_derrotas = prog.nu_derrotas + EXCLUDED.nu_derrotas,
+                  nu_empates = prog.nu_empates + EXCLUDED.nu_empates,
                   -- a "chama" não soma: fica a MAIOR das duas.
                   nu_sequencia_atual = GREATEST(
-                      progressao.tb001_progressao_usuario.nu_sequencia_atual,
-                      EXCLUDED.nu_sequencia_atual),
+                      prog.nu_sequencia_atual, EXCLUDED.nu_sequencia_atual),
                   dh_atualizacao = now()
                 """
             ),
