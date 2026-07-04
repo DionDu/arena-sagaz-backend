@@ -9,6 +9,7 @@ from api.legal import rotas as rotas_legal
 from api.notificacoes import rotas as rotas_notif
 from api.nucleo.excecoes import registrar_handlers
 from api.nucleo.log import obter_logger
+from api.nucleo.middleware_gzip import GzipRequestMiddleware
 from api.nucleo import rotas as rotas_nucleo
 from api.ranking import rotas as rotas_ranking
 from api.sincronizacao import rotas as rotas_sync
@@ -45,6 +46,13 @@ app.add_middleware(
     allow_headers=["*"],  # inclui Authorization, X-App-Version, X-Platform, ...
     allow_credentials=False,
 )
+
+# Descomprime o corpo das requisições com `Content-Encoding: gzip` (o app envia o
+# lote de sincronização comprimido — spec 006/US1). Sem isto, o servidor recebe
+# bytes gzip crus e falha ao ler o JSON, e o evento fica "pendente" para sempre no
+# app. Adicionado DEPOIS do CORS para rodar POR DENTRO dele (o preflight OPTIONS,
+# sem corpo/gzip, passa intacto).
+app.add_middleware(GzipRequestMiddleware)
 
 registrar_handlers(app)
 app.include_router(rotas_nucleo.router, prefix="/v1")
