@@ -15,10 +15,30 @@ Idempotência:
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _dt(valor: Any) -> datetime | None:
+    """Converte uma string ISO-8601 (como o app envia, ex.:
+    ``2026-07-04T11:38:00.000``) em ``datetime``.
+
+    ⚠️ CRÍTICO: o ``asyncpg`` é ESTRITO com tipos — ele NÃO aceita ``str`` para
+    colunas ``TIMESTAMPTZ`` (espera um ``datetime``), e lança ``DataError`` se
+    receber uma string. Sem esta conversão, gravar uma partida estoura com 500 e
+    o evento fica "pendente" para sempre no app. ``None`` e ``datetime`` passam
+    direto; string inválida vira ``None`` (a coluna NOT NULL então acusa o
+    problema de forma clara)."""
+    if valor is None or isinstance(valor, datetime):
+        return valor
+    try:
+        # `Z` (UTC) → offset explícito, que o fromisoformat entende.
+        return datetime.fromisoformat(str(valor).replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 class RepositorioSincronizacao:
@@ -82,8 +102,9 @@ class RepositorioSincronizacao:
                 "ic_pontua": partida.get("ic_pontua", False),
                 "co_status": partida.get("co_status", "concluida"),
                 "co_lote_migracao": partida.get("co_lote_migracao"),
-                "dh_inicio": partida.get("dh_inicio"),
-                "dh_fim": partida.get("dh_fim"),
+                # asyncpg exige datetime (não string ISO) para timestamptz.
+                "dh_inicio": _dt(partida.get("dh_inicio")),
+                "dh_fim": _dt(partida.get("dh_fim")),
             },
         )
         if resultado.first() is None:
@@ -122,7 +143,7 @@ class RepositorioSincronizacao:
                 "id_partida": id_partida,
                 "nu_ordem": jogada.get("nu_ordem"),
                 "nu_jogador": jogada.get("nu_jogador"),
-                "dh_jogada": jogada.get("dh_jogada"),
+                "dh_jogada": _dt(jogada.get("dh_jogada")),
                 "nu_timer_ms": jogada.get("nu_timer_ms"),
                 "nu_tempo_decisao_ms": jogada.get("nu_tempo_decisao_ms", 0),
                 "co_origem_decisao": jogada.get("co_origem_decisao", "humano"),
