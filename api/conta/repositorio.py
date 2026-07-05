@@ -192,13 +192,20 @@ class RepositorioUsuario:
         co_versao: str,
         co_idioma: str,
     ) -> dict[str, Any]:
-        """Grava um aceite de documento legal (termos/privacidade) — é histórico,
-        sempre insere uma linha nova (auditável)."""
+        """Grava um aceite de documento legal (termos/privacidade). **Idempotente
+        por (usuário, documento, versão)** (NEG-05): re-aceitar a MESMA versão não
+        cria linha nova nem erra — devolve o aceite ORIGINAL (o primeiro daquela
+        versão, que é o que vale para auditoria). Versões diferentes seguem gerando
+        linhas novas (histórico preservado). Depende da constraint
+        `uq_aceite_usuario_documento_versao` (migração 0004)."""
         sql = text(
             """
             INSERT INTO conta.tb003_aceite_legal
                 (id_usuario, co_documento, co_versao, co_idioma)
             VALUES (:id_usuario, :co_documento, :co_versao, :co_idioma)
+            ON CONFLICT (id_usuario, co_documento, co_versao) DO UPDATE
+                -- no-op que preserva a linha original mas permite o RETURNING.
+                SET co_idioma = conta.tb003_aceite_legal.co_idioma
             RETURNING *
             """
         )

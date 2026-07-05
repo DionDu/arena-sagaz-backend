@@ -14,6 +14,12 @@ from typing import Any, Protocol
 
 from api.nucleo.dependencias_conta_nuvem import UsuarioAutenticado
 from api.nucleo.excecoes import ErroNegocio
+from api.sincronizacao.validacao import (
+    MAX_EVENTOS_POR_LOTE,
+    MAX_TAMANHO_CO_EVENTO,
+    validar_evento,
+    validar_progressao_convidado,
+)
 
 
 class RepositorioSincronizacaoProtocolo(Protocol):
@@ -67,8 +73,13 @@ class ServicoSincronizacao:
         self, usuario: UsuarioAutenticado, corpo: dict[str, Any]
     ) -> dict[str, Any]:
         """Ingesta um lote de eventos. Cada evento é aplicado no MÁXIMO uma vez
-        (idempotência por ``co_evento``). Devolve aceitos/ignorados + a
-        progressão reconciliada (fonte da verdade)."""
+        (idempotência por ``co_evento``). Devolve aceitos/ignorados/**rejeitados**
+        + a progressão reconciliada (fonte da verdade).
+
+        Um evento **malformado ou fora dos tetos** (SEG-05/06) NÃO derruba o lote:
+        ele entra em ``rejeitados`` (com o motivo) e os demais seguem. O app deve
+        **descartar** um evento rejeitado (não reenviar) — senão ficaria preso na
+        fila para sempre (SEG-10)."""
         eventos = corpo.get("eventos")
         if not isinstance(eventos, list):
             raise ErroNegocio(
@@ -76,15 +87,31 @@ class ServicoSincronizacao:
                 "eventos_invalidos",
                 status_http=400,
             )
+        # Teto do tamanho do lote (SEG-07): protege o banco de um único request que
+        # geraria um número enorme de INSERTs.
+        if len(eventos) > MAX_EVENTOS_POR_LOTE:
+            raise ErroNegocio(
+                f"Lote grande demais (máximo {MAX_EVENTOS_POR_LOTE} eventos).",
+                "lote_grande_demais",
+                status_http=413,
+            )
 
         aceitos: list[str] = []
         ignorados: list[str] = []
+        rejeitados: list[dict[str, Any]] = []
         for evento in eventos:
-            co_evento = evento.get("co_evento")
-            if not co_evento:
-                raise ErroNegocio(
-                    "Evento sem 'co_evento'.", "evento_sem_id", status_http=400
-                )
+            # Valida ANTES de tocar no repositório: nada malformado/abusivo chega
+            # ao SQL (evita 500 e injeção de XP).
+            codigo = validar_evento(evento)
+            if codigo is not None:
+                ce = evento.get("co_evento") if isinstance(evento, dict) else None
+                # Não devolve um co_evento gigante de volta (poda ao teto).
+                if isinstance(ce, str):
+                    ce = ce[:MAX_TAMANHO_CO_EVENTO]
+                rejeitados.append({"co_evento": ce, "codigo": codigo})
+                continue
+
+            co_evento = evento["co_evento"]
             inserido = await self.repo.gravar_evento(
                 id_usuario=usuario.id_usuario,
                 co_anonimo=usuario.co_anonimo,
@@ -97,6 +124,7 @@ class ServicoSincronizacao:
         return {
             "aceitos": aceitos,
             "ignorados": ignorados,
+            "rejeitados": rejeitados,
             "progressao": progressao,
         }
 
@@ -106,13 +134,27 @@ class ServicoSincronizacao:
         """Funde a progressão do convidado na conta, idempotente por
         ``co_lote_migracao``."""
         co_lote = corpo.get("co_lote_migracao")
-        if not co_lote:
+        if (
+            not isinstance(co_lote, str)
+            or not co_lote
+            or len(co_lote) > MAX_TAMANHO_CO_EVENTO
+        ):
             raise ErroNegocio(
                 "Corpo inválido: falta 'co_lote_migracao'.",
                 "lote_ausente",
                 status_http=400,
             )
         resumo = corpo.get("progressao_convidado") or {}
+
+        # Tetos anti-fraude (SEG-05): sem isto, 1 request injeta XP infinito na
+        # conta (o merge é o vetor mais perigoso). Recusa valores absurdos/forjados.
+        codigo = validar_progressao_convidado(resumo)
+        if codigo is not None:
+            raise ErroNegocio(
+                "Progressão do convidado inválida ou fora dos limites.",
+                codigo,
+                status_http=422,
+            )
 
         aplicado = await self.repo.aplicar_merge_se_novo(
             id_usuario=usuario.id_usuario,

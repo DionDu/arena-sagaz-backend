@@ -129,6 +129,71 @@ def test_sem_token_nao_ingere(client):
     assert r.status_code == 401
 
 
+def test_xp_acima_do_teto_e_rejeitado_nao_pontua(client):
+    """XP absurdo (fraude) é REJEITADO por evento e NÃO entra na progressão (SEG-05)."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    r = client.post(
+        "/v1/sincronizacao/eventos",
+        json={"eventos": [_evento_partida("evt-fraude", 999_999_999)]},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["aceitos"] == []
+    assert body["rejeitados"] == [{"co_evento": "evt-fraude", "codigo": "xp_excede_teto"}]
+    assert body["progressao"]["nu_xp_total"] == 0
+
+
+def test_evento_malformado_e_rejeitado_sem_derrubar_o_bom(client):
+    """Um evento malformado entra em 'rejeitados' e o evento bom é aceito (SEG-06/10)."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    r = client.post(
+        "/v1/sincronizacao/eventos",
+        json={
+            "eventos": [
+                "isso-nao-e-um-objeto",  # malformado
+                _evento_partida("evt-ok", 40),  # válido
+            ]
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["aceitos"] == ["evt-ok"]
+    assert body["rejeitados"] == [
+        {"co_evento": None, "codigo": "evento_malformado"}
+    ]
+    assert body["progressao"]["nu_xp_total"] == 40
+
+
+def test_xp_nao_inteiro_e_rejeitado_sem_500(client):
+    """nu_xp string não estoura 500 — é rejeitado com motivo (SEG-06)."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    evento = _evento_partida("evt-x", 10)
+    evento["payload"]["xp"] = [{"co_tipo_xp": "resultado", "nu_xp": "abc"}]
+    r = client.post("/v1/sincronizacao/eventos", json={"eventos": [evento]})
+    assert r.status_code == 200
+    assert r.json()["rejeitados"] == [{"co_evento": "evt-x", "codigo": "xp_invalido"}]
+
+
+def test_lote_grande_demais_responde_413(client):
+    from api.sincronizacao.validacao import MAX_EVENTOS_POR_LOTE
+
+    _autenticar()
+    _usar_repo(FakeRepoSincronizacao(), FakeSession())
+    eventos = [_evento_partida(f"e{i}", 1) for i in range(MAX_EVENTOS_POR_LOTE + 1)]
+    r = client.post("/v1/sincronizacao/eventos", json={"eventos": eventos})
+    assert r.status_code == 413
+    assert r.json()["codigo"] == "lote_grande_demais"
+
+
 def test_pvp_local_nao_altera_xp_anti_farm(client):
     """SC-007 (T042): partida pvp_local (ic_pontua=False) é aceita/registrada
     mas NÃO incrementa XP nem contadores — anti-farm."""

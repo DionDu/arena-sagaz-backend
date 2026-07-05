@@ -39,9 +39,16 @@ class ServicoPreferenciasNotificacao:
         )
         await self.sessao.commit()
 
-    async def remover_dispositivo(self, co_token_fcm: str) -> None:
-        """Remove o token (logout/expiração). Idempotente (não erra se não havia)."""
-        await self.repo.remover_dispositivo(co_token_fcm)
+    async def remover_dispositivo(self, uid: Optional[str], co_token_fcm: str) -> None:
+        """Remove o token (logout/expiração), **somente se pertencer ao dono**.
+
+        Resolve o `id_usuario` interno a partir do `uid` do Firebase e só apaga a
+        linha cujo `co_token_fcm` E `id_usuario` batem — evita que um usuário apague
+        o token de outro (IDOR — SEG-08). Idempotente: não erra se não havia linha
+        do dono. Se o token ainda não tem dono (convidado, `id_usuario` NULL), a
+        remoção também vale para o próprio dispositivo."""
+        id_usuario = await self.repo.id_usuario_por_identidade(uid) if uid else None
+        await self.repo.remover_dispositivo(co_token_fcm, id_usuario)
         await self.sessao.commit()
 
     async def definir_preferencias(

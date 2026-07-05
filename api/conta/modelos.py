@@ -7,9 +7,16 @@ seguro). O corpo carrega só dados de perfil que a pessoa preenche.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+# Idiomas suportados pelo app (espelha IDIOMAS_SUPORTADOS em nucleo/dependencias).
+# `Literal` faz o Pydantic recusar (422) qualquer valor fora desta lista, em vez
+# de gravar lixo como "xx"/"zz" (NEG-04).
+IdiomaSuportado = Literal["pt", "en", "es"]
+# Documentos legais que aceitam registro de aceite (NEG-04).
+DocumentoLegal = Literal["termos", "privacidade"]
 
 
 class SessaoRequest(BaseModel):
@@ -23,7 +30,7 @@ class SessaoRequest(BaseModel):
 
     no_exibicao: Optional[str] = Field(default=None, max_length=40)
     dt_nascimento: Optional[date] = None
-    co_idioma_preferido: Optional[str] = Field(default=None, max_length=2)
+    co_idioma_preferido: Optional[IdiomaSuportado] = None
 
 
 class PerfilUsuario(BaseModel):
@@ -68,9 +75,9 @@ class AceiteLegalRequest(BaseModel):
     O app envia um aceite por documento (ex.: termos, depois privacidade), com a
     **versão** e o **idioma** do texto que a pessoa viu (auditável)."""
 
-    co_documento: str = Field(max_length=20)  # "termos" | "privacidade"
+    co_documento: DocumentoLegal  # "termos" | "privacidade" (NEG-04)
     co_versao: str = Field(max_length=20)  # ex.: "1.0"
-    co_idioma: str = Field(max_length=2)  # "pt" | "en" | "es"
+    co_idioma: IdiomaSuportado  # "pt" | "en" | "es" (NEG-04)
 
 
 class AceiteLegalResposta(BaseModel):
@@ -118,12 +125,15 @@ class ConsentimentoResposta(BaseModel):
 class AtualizarPerfilRequest(BaseModel):
     """Corpo do `PATCH /v1/conta/perfil` — edição do perfil pela tela de Conta.
 
-    Só permitimos editar **nome de exibição** e **idioma**. A data de nascimento
-    NÃO entra aqui de propósito (é base da regra de idade; não deve ser trocada à
-    vontade). Campos ausentes = "não mexa neste campo"."""
+    Permite editar **nome de exibição**, **idioma** e **data de nascimento**.
+    A data pode ser **corrigida** (ex.: erro de digitação no cadastro), mas o
+    serviço **sempre revalida** a idade mínima (≥ 13) ao gravá-la — não dá para
+    burlar a trava etária mudando a data depois (NEG-02). Campos ausentes =
+    "não mexa neste campo"."""
 
     no_exibicao: Optional[str] = Field(default=None, max_length=40)
-    co_idioma_preferido: Optional[str] = Field(default=None, max_length=2)
+    co_idioma_preferido: Optional[IdiomaSuportado] = None
+    dt_nascimento: Optional[date] = None
 
 
 class ExclusaoContaResposta(BaseModel):

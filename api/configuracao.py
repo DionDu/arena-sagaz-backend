@@ -32,7 +32,23 @@ class Configuracoes(BaseSettings):
     # Em produção, definir nas Variables do Railway.
     ADMIN_BROADCAST_TOKEN: str = ""
 
+    # ── Rate limiting (SEG-04) ───────────────────────────────────────────────
+    # Limites por IP, por minuto (janela deslizante). `RATE_LIMIT_ENABLED=false`
+    # desliga tudo (usado nos testes). Leituras (GET) usam o limite geral; escritas
+    # (POST/PUT/PATCH/DELETE) usam o limite mais apertado. Ajuste nas Variables do
+    # Railway conforme o tráfego real.
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_POR_MINUTO: int = 120          # geral (leituras)
+    RATE_LIMIT_ESCRITA_POR_MINUTO: int = 30   # escritas (mais sensíveis)
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    @property
+    def eh_producao(self) -> bool:
+        """`True` em produção. Aceita 'producao'/'production'/'prod' (case-insensitive)
+        para o valor de `AMBIENTE` — usado, por ex., para NÃO liberar `localhost` no
+        CORS em produção (SEG-02)."""
+        return self.AMBIENTE.strip().lower() in {"producao", "production", "prod"}
 
 
 configuracoes = Configuracoes()

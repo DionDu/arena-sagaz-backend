@@ -16,7 +16,8 @@ o ``receive`` — a forma correta de trocar o corpo de uma requisição em Starl
 """
 from __future__ import annotations
 
-import gzip
+import json
+import zlib
 from typing import Any, Awaitable, Callable
 
 # Tipos ASGI (aliases só para legibilidade — são dicts/callables comuns).
@@ -24,6 +25,31 @@ Scope = dict[str, Any]
 Message = dict[str, Any]
 Receive = Callable[[], Awaitable[Message]]
 Send = Callable[[Message], Awaitable[None]]
+
+# ── Limites contra "bomba gzip" (SEG-03) ─────────────────────────────────────
+# Gzip comprime até ~1000:1, então um corpo pequeno pode expandir para GBs e
+# esgotar a memória do servidor (DoS). Um lote de sincronização real tem poucos
+# KB; estes tetos deixam folga enorme e ainda assim barram um abuso.
+#   • MAX_CORPO_COMPRIMIDO: teto dos BYTES recebidos (antes de descomprimir).
+#   • MAX_CORPO_DESCOMPRIMIDO: teto do resultado DESCOMPRIMIDO.
+MAX_CORPO_COMPRIMIDO = 2 * 1024 * 1024      # 2 MB
+MAX_CORPO_DESCOMPRIMIDO = 20 * 1024 * 1024  # 20 MB
+
+
+async def _responder_413(send: Send) -> None:
+    """Responde ``413 Payload Too Large`` no nível ASGI, no mesmo formato de erro
+    da API (``{"detalhe", "codigo"}``), sem repassar a requisição adiante."""
+    corpo = json.dumps(
+        {"detalhe": "Corpo comprimido grande demais.", "codigo": "corpo_grande_demais"}
+    ).encode("utf-8")
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [(b"content-type", b"application/json")],
+        }
+    )
+    await send({"type": "http.response.body", "body": corpo})
 
 
 class GzipRequestMiddleware:
@@ -52,20 +78,33 @@ class GzipRequestMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Lê o corpo INTEIRO (pode vir em vários "chunks" via more_body).
+        # Lê o corpo INTEIRO (pode vir em vários "chunks" via more_body),
+        # abortando com 413 se passar do teto de bytes COMPRIMIDOS (SEG-03).
         corpo = b""
         while True:
             mensagem = await receive()
             corpo += mensagem.get("body", b"")
+            if len(corpo) > MAX_CORPO_COMPRIMIDO:
+                await _responder_413(send)
+                return
             if not mensagem.get("more_body", False):
                 break
 
-        # Descomprime. Se por algum motivo não for gzip válido, deixamos o corpo
-        # como está — a rota então responde o erro de parsing normalmente (não
-        # é papel do middleware "esconder" um corpo malformado).
+        # Descomprime com TETO no resultado (streaming): `decompressobj` para no
+        # limite passado e devolve o excedente em `unconsumed_tail`; se sobrou
+        # cauda, o conteúdo expandido passou do teto → 413 (bomba gzip barrada).
+        # Se não for gzip válido, deixamos o corpo como está — a rota então
+        # responde o erro de parsing normalmente (não é papel do middleware
+        # "esconder" um corpo malformado).
         try:
-            corpo = gzip.decompress(corpo)
-        except (OSError, EOFError):
+            # wbits = 16 + MAX_WBITS seleciona o formato gzip (cabeçalho/checksum).
+            descompressor = zlib.decompressobj(wbits=16 + zlib.MAX_WBITS)
+            expandido = descompressor.decompress(corpo, MAX_CORPO_DESCOMPRIMIDO)
+            if descompressor.unconsumed_tail:
+                await _responder_413(send)
+                return
+            corpo = expandido
+        except zlib.error:
             pass
 
         # Reescreve os cabeçalhos: remove `content-encoding` (já descomprimimos) e

@@ -82,14 +82,24 @@ class RepositorioNotificacao:
             },
         )
 
-    async def remover_dispositivo(self, co_token_fcm: str) -> int:
-        """Apaga a linha do token (logout/expiração). Devolve quantas linhas
-        saíram (0 se o token não existia)."""
+    async def remover_dispositivo(
+        self, co_token_fcm: str, id_usuario: Optional[Any] = None
+    ) -> int:
+        """Apaga a linha do token (logout/expiração) **restrita ao dono**. Devolve
+        quantas linhas saíram (0 se o token não existia ou era de outro usuário).
+
+        Filtra por dono para impedir IDOR (SEG-08): um usuário só apaga o próprio
+        token. `id_usuario` NULL (convidado) casa com tokens ainda sem dono. Como o
+        registro sempre reatribui o token ao usuário no login (upsert), na prática
+        um usuário logado remove o token que é dele."""
         sql = text(
             "DELETE FROM conta.tb005_dispositivo_notificacao "
-            "WHERE co_token_fcm = :token"
+            "WHERE co_token_fcm = :token "
+            "  AND id_usuario IS NOT DISTINCT FROM :id_usuario"
         )
-        resultado = await self.sessao.execute(sql, {"token": co_token_fcm})
+        resultado = await self.sessao.execute(
+            sql, {"token": co_token_fcm, "id_usuario": id_usuario}
+        )
         return resultado.rowcount or 0
 
     async def upsert_preferencia(

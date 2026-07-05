@@ -109,3 +109,31 @@ def test_sem_lote_responde_400(client):
     )
     assert r.status_code == 400
     assert r.json()["codigo"] == "lote_ausente"
+
+
+def test_merge_xp_absurdo_e_recusado_422(client):
+    """Merge com XP fora do teto é recusado (SEG-05) — não injeta na conta."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    corpo = _corpo("lote-fraude")
+    corpo["progressao_convidado"]["nu_xp_total"] = 10**12
+    r = client.post("/v1/sincronizacao/merge-convidado", json=corpo)
+    assert r.status_code == 422
+    assert r.json()["codigo"] == "progressao_excede_teto"
+
+
+def test_merge_contadores_inconsistentes_recusado_422(client):
+    """vitórias+derrotas+empates > partidas → contadores forjados, recusa (SEG-05)."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    corpo = _corpo("lote-x")
+    corpo["progressao_convidado"].update(
+        {"nu_partidas": 2, "nu_vitorias": 5, "nu_derrotas": 0, "nu_empates": 0}
+    )
+    r = client.post("/v1/sincronizacao/merge-convidado", json=corpo)
+    assert r.status_code == 422
+    assert r.json()["codigo"] == "progressao_inconsistente"

@@ -9,6 +9,7 @@ definido, o endpoint fica **desabilitado** (default seguro).
 
 O prefixo `/v1/notificacoes` é aplicado no `main.py`.
 """
+import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header
@@ -74,7 +75,9 @@ def exigir_admin(
             "Broadcast desabilitado (sem ADMIN_BROADCAST_TOKEN).",
             "broadcast_desabilitado",
         )
-    if not x_admin_token or x_admin_token.strip() != segredo:
+    # `compare_digest` compara em tempo constante (não vaza, pelo tempo de resposta,
+    # quantos caracteres do segredo acertaram) — endurece contra timing attack (MEL-02).
+    if not x_admin_token or not secrets.compare_digest(x_admin_token.strip(), segredo):
         raise ErroNaoAutorizado(
             "Token administrativo inválido.", "admin_token_invalido"
         )
@@ -121,8 +124,12 @@ async def remover_dispositivo(
     identidade: IdentidadeFirebase = Depends(usuario_atual),
     servico: ServicoPreferenciasNotificacao = Depends(obter_servico_preferencias),
 ) -> dict:
-    """Remove o token (logout/expiração). Idempotente."""
-    await servico.remover_dispositivo(co_token_fcm)
+    """Remove o token (logout/expiração). Idempotente.
+
+    A remoção é **amarrada ao dono** (resolvido pelo token): só apaga um token que
+    pertença ao usuário autenticado. Sem isso, qualquer usuário poderia apagar o
+    token de outro se soubesse o valor (IDOR / DoS direcionado — SEG-08)."""
+    await servico.remover_dispositivo(identidade.uid, co_token_fcm)
     return {"ok": True}
 
 
