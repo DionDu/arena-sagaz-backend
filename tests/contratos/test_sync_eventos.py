@@ -146,6 +146,51 @@ def test_xp_acima_do_teto_e_rejeitado_nao_pontua(client):
     assert body["progressao"]["nu_xp_total"] == 0
 
 
+def test_parcela_ajuste_negativa_e_aceita(client):
+    """REGRESSÃO: a parcela `ajuste` fica NEGATIVA quando o teto diário de XP
+    apara o ganho bruto (bônus somam mais do que o dia admitia). Antes, isso
+    derrubava a partida inteira (`xp_invalido`) e o evento era ABANDONADO no app
+    sem nunca chegar ao servidor. Agora o total é o que importa: parcela negativa
+    é aceita desde que o total fique em [0, teto]."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    evento = _evento_partida("evt-ajuste", 0)
+    # Vitória com bônus (108 bruto) aparada pelo teto diário para +74 reais.
+    evento["payload"]["xp"] = [
+        {"co_tipo_xp": "resultado", "nu_xp": 30},
+        {"co_tipo_xp": "caixas", "nu_xp": 28},
+        {"co_tipo_xp": "primeira_vitoria", "nu_xp": 50},
+        {"co_tipo_xp": "ajuste", "nu_xp": -34},  # apara ao ganho real
+    ]
+    r = client.post("/v1/sincronizacao/eventos", json={"eventos": [evento]})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["aceitos"] == ["evt-ajuste"]
+    assert body["rejeitados"] == []
+    assert body["progressao"]["nu_xp_total"] == 74
+
+
+def test_xp_total_negativo_e_rejeitado(client):
+    """Uma partida NUNCA retira XP: se a soma das parcelas fica negativa, o
+    evento é rejeitado (contadores forjados)."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    evento = _evento_partida("evt-neg", 0)
+    evento["payload"]["xp"] = [
+        {"co_tipo_xp": "resultado", "nu_xp": 10},
+        {"co_tipo_xp": "ajuste", "nu_xp": -50},  # total = -40
+    ]
+    r = client.post("/v1/sincronizacao/eventos", json={"eventos": [evento]})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["aceitos"] == []
+    assert body["rejeitados"] == [{"co_evento": "evt-neg", "codigo": "xp_excede_teto"}]
+
+
 def test_evento_malformado_e_rejeitado_sem_derrubar_o_bom(client):
     """Um evento malformado entra em 'rejeitados' e o evento bom é aceito (SEG-06/10)."""
     repo, sessao = FakeRepoSincronizacao(), FakeSession()

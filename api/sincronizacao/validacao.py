@@ -90,7 +90,14 @@ def validar_evento(evento: Any) -> Optional[str]:
     if not isinstance(jogadas, list) or len(jogadas) > MAX_JOGADAS_POR_EVENTO:
         return "jogadas_invalidas"
 
-    # XP: lista limitada, cada parcela inteira >= 0, soma dentro do teto (SEG-05).
+    # XP: lista limitada. Cada parcela é um inteiro que PODE ser NEGATIVO — a
+    # parcela `ajuste` fecha a conta no ganho REAL da partida e fica negativa
+    # quando o teto diário de XP apara o ganho bruto (ex.: bônus somam 108 mas o
+    # dia só admitia +74 → `ajuste = -34`). Rejeitar parcela negativa (como antes)
+    # derrubava toda partida que batesse no teto diário — um FALSO positivo comum.
+    # O que precisa ser plausível é o **total** da partida, não o sinal de cada
+    # parcela (SEG-05): negativo não é vetor de fraude — só REDUZ o total, que
+    # travamos em [0, teto].
     xp = payload.get("xp", [])
     if not isinstance(xp, list) or len(xp) > MAX_PARCELAS_XP_POR_EVENTO:
         return "xp_invalido"
@@ -99,10 +106,13 @@ def validar_evento(evento: Any) -> Optional[str]:
         if not isinstance(parcela, dict):
             return "xp_invalido"
         v = parcela.get("nu_xp", 0)
-        if not _inteiro_nao_negativo(v):
+        # Inteiro de verdade (não bool/str/float), mas o sinal é livre.
+        if not isinstance(v, int) or isinstance(v, bool):
             return "xp_invalido"
         total_xp += v
-    if total_xp > XP_MAX_POR_PARTIDA:
+    # Uma partida nunca RETIRA XP (total < 0 seria forjado) nem pode injetar mais
+    # que o teto anti-fraude.
+    if total_xp < 0 or total_xp > XP_MAX_POR_PARTIDA:
         return "xp_excede_teto"
 
     return None
