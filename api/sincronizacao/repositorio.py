@@ -467,6 +467,60 @@ class RepositorioSincronizacao:
                 {"id_usuario": id_usuario, "co_conquista": co_conquista},
             )
 
+    # ── Arquivo de eventos NÃO aplicados (diagnóstico) ───────────────────────
+
+    # Teto do dump guardado no log: o payload é dado não-confiável; truncamos para
+    # o log não virar vetor de inchaço do banco do servidor.
+    _MAX_JS_LOG = 20_000
+
+    async def arquivar_evento_rejeitado(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        co_evento: str | None,
+        co_tipo: str | None,
+        co_motivo: str,
+        de_codigo: str | None,
+        payload: Any,
+    ) -> None:
+        """Grava em ``log.tb001_evento_sync_rejeitado`` um evento que NÃO pôde ser
+        aplicado (``co_motivo`` = ``rejeitado_contrato`` ou ``falha_processamento``).
+        É append-only: nunca falha por duplicidade. O ``payload`` é serializado em
+        texto e truncado (dado não-confiável)."""
+        import json
+
+        try:
+            js = payload if isinstance(payload, str) else json.dumps(
+                payload, ensure_ascii=False, default=str
+            )
+        except (TypeError, ValueError):
+            # Payload bizarro que nem serializa: guarda a representação crua.
+            js = repr(payload)
+        js = js[: self._MAX_JS_LOG]
+        de_codigo = de_codigo[:200] if isinstance(de_codigo, str) else de_codigo
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO log.tb001_evento_sync_rejeitado
+                  (id_log, id_usuario, co_anonimo, co_evento, co_tipo, co_motivo,
+                   de_codigo, js_payload, dh_registro)
+                VALUES
+                  (gen_random_uuid(), :id_usuario, :co_anonimo, :co_evento,
+                   :co_tipo, :co_motivo, :de_codigo, :js_payload, now())
+                """
+            ),
+            {
+                "id_usuario": id_usuario,
+                "co_anonimo": co_anonimo,
+                "co_evento": co_evento[:64] if isinstance(co_evento, str) else co_evento,
+                "co_tipo": co_tipo[:30] if isinstance(co_tipo, str) else co_tipo,
+                "co_motivo": co_motivo,
+                "de_codigo": de_codigo,
+                "js_payload": js,
+            },
+        )
+
     # ── Leitura (pela VIEW) ───────────────────────────────────────────────────
 
     async def obter_progressao(self, id_usuario: str) -> dict[str, Any]:

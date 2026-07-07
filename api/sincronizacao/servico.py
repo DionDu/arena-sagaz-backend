@@ -79,6 +79,22 @@ class RepositorioSincronizacaoProtocolo(Protocol):
         """Progressão atual do usuário (dict pronto para a resposta)."""
         ...
 
+    async def arquivar_evento_rejeitado(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        co_evento: str | None,
+        co_tipo: str | None,
+        co_motivo: str,
+        de_codigo: str | None,
+        payload: Any,
+    ) -> None:
+        """Arquiva no log um evento que NÃO pôde ser aplicado (para diagnóstico).
+        ``co_motivo`` = ``rejeitado_contrato`` (validação) ou ``falha_processamento``
+        (exceção ao gravar). Nunca deve lançar por conteúdo do payload."""
+        ...
+
 
 class ServicoSincronizacao:
     """Casos de uso de sincronização. Recebe o repositório por injeção; guarda
@@ -97,13 +113,21 @@ class ServicoSincronizacao:
         self, usuario: UsuarioAutenticado, corpo: dict[str, Any]
     ) -> dict[str, Any]:
         """Ingesta um lote de eventos. Cada evento é aplicado no MÁXIMO uma vez
-        (idempotência por ``co_evento``). Devolve aceitos/ignorados/**rejeitados**
-        + a progressão reconciliada (fonte da verdade).
+        (idempotência por ``co_evento``). Devolve aceitos/ignorados/**rejeitados**/
+        **falhas** + a progressão reconciliada (fonte da verdade).
 
-        Um evento **malformado ou fora dos tetos** (SEG-05/06) NÃO derruba o lote:
-        ele entra em ``rejeitados`` (com o motivo) e os demais seguem. O app deve
-        **descartar** um evento rejeitado (não reenviar) — senão ficaria preso na
-        fila para sempre (SEG-10)."""
+        **Blindagem por evento (à prova de bala):** um evento nunca derruba o lote.
+        Há dois modos de "não aplicado", ambos ARQUIVADOS no log para diagnóstico e
+        devolvidos ao app (que então EXPURGA o evento local — o servidor guarda a
+        evidência):
+
+        - **``rejeitados``** — reprovado na validação (malformado/fora dos tetos,
+          SEG-05/06). Nem toca no repositório.
+        - **``falhas``** — passou na validação mas EXPLODIU ao gravar. Cada gravação
+          roda num **SAVEPOINT** (``begin_nested``): a exceção desfaz só ESSE evento
+          (não o lote), é capturada e arquivada como ``falha_processamento``. Sem
+          isso, um erro inesperado viraria **500** e o app reenviaria para sempre até
+          o dead-letter (SEG-10)."""
         eventos = corpo.get("eventos")
         if not isinstance(eventos, list):
             raise ErroNegocio(
@@ -123,35 +147,68 @@ class ServicoSincronizacao:
         aceitos: list[str] = []
         ignorados: list[str] = []
         rejeitados: list[dict[str, Any]] = []
+        falhas: list[str] = []
         for evento in eventos:
+            eh_dict = isinstance(evento, dict)
+            co_tipo = evento.get("co_tipo") if eh_dict else None
+
             # Valida ANTES de tocar no repositório: nada malformado/abusivo chega
             # ao SQL (evita 500 e injeção de XP).
             codigo = validar_evento(evento)
             if codigo is not None:
-                ce = evento.get("co_evento") if isinstance(evento, dict) else None
+                ce = evento.get("co_evento") if eh_dict else None
                 # Não devolve um co_evento gigante de volta (poda ao teto).
                 if isinstance(ce, str):
                     ce = ce[:MAX_TAMANHO_CO_EVENTO]
+                # Arquiva o rejeitado (o servidor já tem o payload em mãos).
+                await self.repo.arquivar_evento_rejeitado(
+                    id_usuario=usuario.id_usuario,
+                    co_anonimo=usuario.co_anonimo,
+                    co_evento=ce,
+                    co_tipo=co_tipo,
+                    co_motivo="rejeitado_contrato",
+                    de_codigo=codigo,
+                    payload=(evento.get("payload") if eh_dict else evento),
+                )
                 rejeitados.append({"co_evento": ce, "codigo": codigo})
                 continue
 
             co_evento = evento["co_evento"]
             payload = evento.get("payload") or {}
-            # Despacha pelo tipo do evento (ausente = "partida", retrocompatível).
-            if evento.get("co_tipo", "partida") == "conquista":
-                inserido = await self.repo.gravar_conquista(
+            try:
+                # SAVEPOINT por evento: se a gravação explodir, desfaz SÓ este
+                # evento (o lote e os eventos bons seguem íntegros).
+                async with self.sessao.begin_nested():
+                    # Despacha pelo tipo (ausente = "partida", retrocompatível).
+                    if (co_tipo or "partida") == "conquista":
+                        inserido = await self.repo.gravar_conquista(
+                            id_usuario=usuario.id_usuario,
+                            co_anonimo=usuario.co_anonimo,
+                            co_evento=co_evento,
+                            payload=payload,
+                        )
+                    else:
+                        inserido = await self.repo.gravar_evento(
+                            id_usuario=usuario.id_usuario,
+                            co_anonimo=usuario.co_anonimo,
+                            co_evento=co_evento,
+                            payload=payload,
+                        )
+            except Exception as exc:  # noqa: BLE001 — blindagem por evento é o objetivo
+                # O savepoint já reverteu este evento. Arquiva o payload cru (sem
+                # re-rodar a lógica que falhou) e segue. `falhas` → o app expurga.
+                await self.repo.arquivar_evento_rejeitado(
                     id_usuario=usuario.id_usuario,
                     co_anonimo=usuario.co_anonimo,
                     co_evento=co_evento,
+                    co_tipo=co_tipo,
+                    co_motivo="falha_processamento",
+                    de_codigo=f"{type(exc).__name__}: {exc}",
                     payload=payload,
                 )
-            else:
-                inserido = await self.repo.gravar_evento(
-                    id_usuario=usuario.id_usuario,
-                    co_anonimo=usuario.co_anonimo,
-                    co_evento=co_evento,
-                    payload=payload,
-                )
+                falhas.append(co_evento)
+                continue
+
             (aceitos if inserido else ignorados).append(co_evento)
 
         progressao = await self.repo.obter_progressao(usuario.id_usuario)
@@ -159,6 +216,7 @@ class ServicoSincronizacao:
             "aceitos": aceitos,
             "ignorados": ignorados,
             "rejeitados": rejeitados,
+            "falhas": falhas,
             "progressao": progressao,
         }
 

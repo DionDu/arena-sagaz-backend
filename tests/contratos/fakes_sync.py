@@ -28,6 +28,11 @@ class FakeRepoSincronizacao:
         self.eventos_vistos: set[str] = set()
         self.lotes_aplicados: set[str] = set()
         self._progressao: dict[str, dict[str, Any]] = {}
+        # Diagnóstico: eventos arquivados no log (motivo → lista de co_evento).
+        self.arquivados: list[dict[str, Any]] = []
+        # Gatilho de teste: co_eventos que devem LANÇAR ao gravar (simula o 500
+        # que a blindagem por SAVEPOINT deve capturar como `falha_processamento`).
+        self.falhar_em: set[str] = set()
 
     async def gravar_evento(
         self,
@@ -37,6 +42,8 @@ class FakeRepoSincronizacao:
         co_evento: str,
         payload: dict[str, Any],
     ) -> bool:
+        if co_evento in self.falhar_em:
+            raise RuntimeError("falha simulada ao gravar")
         if co_evento in self.eventos_vistos:
             return False  # idempotência: retry não aplica de novo
         self.eventos_vistos.add(co_evento)
@@ -128,3 +135,18 @@ class FakeRepoSincronizacao:
         # Devolve conquistas como lista ordenada (JSON não tem set).
         saida["conquistas"] = sorted(prog["conquistas"])
         return saida
+
+    async def arquivar_evento_rejeitado(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        co_evento: str | None,
+        co_tipo: str | None,
+        co_motivo: str,
+        de_codigo: str | None,
+        payload: Any,
+    ) -> None:
+        self.arquivados.append(
+            {"co_evento": co_evento, "co_motivo": co_motivo, "de_codigo": de_codigo}
+        )

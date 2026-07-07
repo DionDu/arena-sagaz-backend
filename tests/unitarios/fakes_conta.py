@@ -127,15 +127,34 @@ class FakeRepoUsuario:
         self._provedores.pop(id_usuario, None)
 
 
+class _SavepointFake:
+    """Contexto assíncrono que imita um SAVEPOINT (``session.begin_nested()``):
+    não faz nada no banco; se o bloco lançar, deixa a exceção propagar (retorna
+    ``False`` no ``__aexit__``), como o savepoint real (que reverte e re-levanta)."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
 class FakeSession:
-    """Sessão falsa: só conta commits/rollbacks (não toca banco)."""
+    """Sessão falsa: só conta commits/rollbacks/savepoints (não toca banco)."""
 
     def __init__(self) -> None:
         self.commits = 0
         self.rollbacks = 0
+        self.savepoints = 0
 
     async def commit(self):
         self.commits += 1
 
     async def rollback(self):
         self.rollbacks += 1
+
+    def begin_nested(self):
+        """Imita o SAVEPOINT por evento. Não é ``async`` (o SQLAlchemy real
+        devolve um gerenciador de contexto para ``async with``, não um awaitable)."""
+        self.savepoints += 1
+        return _SavepointFake()

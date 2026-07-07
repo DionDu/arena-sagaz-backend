@@ -215,6 +215,65 @@ def test_evento_malformado_e_rejeitado_sem_derrubar_o_bom(client):
     assert body["progressao"]["nu_xp_total"] == 40
 
 
+def test_rejeitado_por_contrato_e_arquivado_no_log(client):
+    """Um evento rejeitado na validação é ARQUIVADO (motivo rejeitado_contrato)
+    para diagnóstico — o servidor já tinha o payload em mãos ao rejeitar."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    r = client.post(
+        "/v1/sincronizacao/eventos",
+        json={"eventos": [_evento_partida("evt-fraude", 999_999_999)]},
+    )
+    assert r.status_code == 200
+    assert r.json()["rejeitados"] == [
+        {"co_evento": "evt-fraude", "codigo": "xp_excede_teto"}
+    ]
+    # Ficou no log com o motivo certo.
+    assert repo.arquivados == [
+        {
+            "co_evento": "evt-fraude",
+            "co_motivo": "rejeitado_contrato",
+            "de_codigo": "xp_excede_teto",
+        }
+    ]
+
+
+def test_falha_no_processamento_e_arquivada_sem_derrubar_o_bom(client):
+    """Blindagem por SAVEPOINT: se um evento EXPLODE ao gravar (erro inesperado
+    que viraria 500), ele é revertido sozinho, arquivado como falha_processamento
+    e entra em 'falhas' — o evento bom do MESMO lote é aplicado normalmente."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    repo.falhar_em = {"evt-veneno"}  # este co_evento lança ao gravar
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    r = client.post(
+        "/v1/sincronizacao/eventos",
+        json={
+            "eventos": [
+                _evento_partida("evt-veneno", 40),  # explode ao gravar
+                _evento_partida("evt-bom", 40),  # válido
+            ]
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    # O bom foi aplicado; o veneno foi para 'falhas' (não 'rejeitados').
+    assert body["aceitos"] == ["evt-bom"]
+    assert body["falhas"] == ["evt-veneno"]
+    assert body["rejeitados"] == []
+    # A progressão só contou o evento bom (o veneno foi revertido).
+    assert body["progressao"]["nu_xp_total"] == 40
+    # Usou o SAVEPOINT por evento e arquivou o veneno para diagnóstico.
+    assert sessao.savepoints >= 2
+    assert repo.arquivados[0]["co_evento"] == "evt-veneno"
+    assert repo.arquivados[0]["co_motivo"] == "falha_processamento"
+    # A transação da rota foi confirmada mesmo com o evento venenoso no lote.
+    assert sessao.commits == 1
+
+
 def test_xp_nao_inteiro_e_rejeitado_sem_500(client):
     """nu_xp string não estoura 500 — é rejeitado com motivo (SEG-06)."""
     repo, sessao = FakeRepoSincronizacao(), FakeSession()
