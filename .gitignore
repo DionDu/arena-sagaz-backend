@@ -1,5 +1,8 @@
-# Dados gerados e modelos
-# dados/
+# Dados de treino e modelos treinados — NÃO versionados aqui (backup no Google
+# Drive). São grandes (~650MB) e/ou regeneráveis pelo gerador_dados/ + tablebase;
+# o git guarda só o CÓDIGO e os RELATÓRIOS. Decisão de 2026-07-07.
+/dados/
+/modelos/
 
 # Python
 __pycache__/
@@ -34,9 +37,11 @@ GoogleService-Info.plist
 .coverage
 htmlcov/
 
-# Dataset e modelos
-# *.npz
+# Binários de dataset e modelo — fora do git (backup no Drive; ver /dados/ e /modelos/).
 *.npy
+*.npz
+*.tflite
+*.keras
 
 # IDE
 .vscode/
@@ -60,3 +65,6 @@ dados/oraculo_pontinhos/
 # segurança). Os arquivos continuam no disco; só param de ser versionados.
 tmp_analise/
 tmp_*.py
+# visualizacoes/ = ~2.5 mil pares PNG+MD de "retratos de partida" gerados pelo
+# avaliador (regeneráveis) — mesmo caso do tmp_analise/ acima. Fora do git.
+/visualizacoes/
