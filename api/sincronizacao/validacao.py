@@ -25,6 +25,7 @@ MAX_EVENTOS_POR_LOTE = 100        # partidas por sincronização
 MAX_JOGADAS_POR_EVENTO = 400      # jogadas de uma partida (folga sobre o real)
 MAX_PARCELAS_XP_POR_EVENTO = 20   # parcelas de XP de uma partida
 MAX_TAMANHO_CO_EVENTO = 64        # UUID/identificador do evento
+MAX_TAMANHO_CO_CONQUISTA = 40     # bate com VARCHAR(40) da coluna co_conquista
 XP_MAX_POR_PARTIDA = 1000         # teto do XP TOTAL de uma partida (ajustar depois)
 PLACAR_MIN, PLACAR_MAX = 0, 100   # placar plausível
 
@@ -42,9 +43,14 @@ def _inteiro_nao_negativo(valor: Any) -> bool:
 
 
 def validar_evento(evento: Any) -> Optional[str]:
-    """Valida UM evento de partida. Devolve ``None`` se OK, ou um **código** de
-    rejeição (string) — nunca lança. O serviço usa o código para montar a lista
-    ``rejeitados`` (o app então DESCARTA o evento em vez de reenviá-lo)."""
+    """Valida UM evento. Devolve ``None`` se OK, ou um **código** de rejeição
+    (string) — nunca lança. O serviço usa o código para montar a lista
+    ``rejeitados`` (o app então DESCARTA o evento em vez de reenviá-lo).
+
+    Despacha por ``co_tipo``: ``partida`` (padrão, retrocompatível com apps que
+    não mandam o campo) valida a partida/jogadas/XP; ``conquista`` valida só o
+    ``co_conquista``. Tipos desconhecidos são rejeitados (um app mais NOVO não
+    deve mandar tipos que este backend ainda não entende — força deploy antes)."""
     if not isinstance(evento, dict):
         return "evento_malformado"
 
@@ -61,6 +67,13 @@ def validar_evento(evento: Any) -> Optional[str]:
         payload = {}
     if not isinstance(payload, dict):
         return "payload_malformado"
+
+    # Ausência de co_tipo = "partida" (apps antigos só mandavam partidas).
+    co_tipo = evento.get("co_tipo", "partida")
+    if co_tipo == "conquista":
+        return _validar_evento_conquista(payload)
+    if co_tipo != "partida":
+        return "tipo_desconhecido"
 
     partida = payload.get("partida") or {}
     if not isinstance(partida, dict):
@@ -93,6 +106,27 @@ def validar_evento(evento: Any) -> Optional[str]:
         return "xp_excede_teto"
 
     return None
+
+
+def _validar_evento_conquista(payload: dict[str, Any]) -> Optional[str]:
+    """Valida um evento de CONQUISTA (payload ``{"conquista": {co_conquista,
+    dh_desbloqueio}}``). Só checamos o ``co_conquista`` (string curta) — a data é
+    opcional e o servidor usa ``now()`` se faltar."""
+    conquista = payload.get("conquista") or {}
+    if not isinstance(conquista, dict):
+        return "conquista_malformada"
+    co = conquista.get("co_conquista")
+    if not isinstance(co, str) or not co or len(co) > MAX_TAMANHO_CO_CONQUISTA:
+        return "conquista_invalida"
+    return None
+
+
+def validar_reconciliacao(resumo: Any) -> Optional[str]:
+    """Valida o snapshot de progressão da RECONCILIAÇÃO (fallback). Tem a MESMA
+    forma e os MESMOS tetos anti-fraude do merge do convidado (contadores +
+    conquistas), então reaproveita a checagem. O ``dt_ultimo_dia_jogado`` é
+    opcional e de baixo risco (uma data), por isso não entra na validação."""
+    return validar_progressao_convidado(resumo)
 
 
 def validar_progressao_convidado(resumo: Any) -> Optional[str]:

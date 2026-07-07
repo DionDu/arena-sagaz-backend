@@ -15,11 +15,25 @@ Idempotência:
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _data(valor: Any) -> date | None:
+    """Converte para ``date`` (coluna ``dt_ultimo_dia_jogado`` é DATE, e o
+    asyncpg é estrito: DATE quer ``date``, não ``datetime`` nem ``str``). Aceita
+    ``date``/``datetime``/ISO-string; qualquer coisa inválida vira ``None``."""
+    if valor is None:
+        return None
+    if isinstance(valor, datetime):
+        return valor.date()
+    if isinstance(valor, date):
+        return valor
+    dt = _dt(valor)
+    return dt.date() if dt else None
 
 
 def _dt(valor: Any) -> datetime | None:
@@ -226,8 +240,12 @@ class RepositorioSincronizacao:
         vit = 1 if j1 > j2 else 0
         der = 1 if j1 < j2 else 0
         emp = 1 if j1 == j2 else 0
+        # Dia da partida (da data de fim, ou início): avança dt_ultimo_dia_jogado
+        # sem nunca retroceder (GREATEST). Mantém a coluna "fresca" a cada partida
+        # sincronizada, mesmo sem a reconciliação rodar.
+        dia = _data(partida.get("dh_fim") or partida.get("dh_inicio"))
         # Upsert por id_usuario (única). NOTA: a "chama" (nu_sequencia_atual) NÃO
-        # é recomputada aqui (depende de datas) — fica para o merge/recomputação;
+        # é recomputada aqui (depende de datas) — fica para o merge/reconciliação;
         # o app é a fonte da sequência até lá.
         # `AS prog`: alias do alvo para referenciar o valor ANTIGO no DO UPDATE
         # (o Postgres não aceita schema.tabela.coluna nesse contexto — precisa do
@@ -238,16 +256,19 @@ class RepositorioSincronizacao:
                 INSERT INTO progressao.tb001_progressao_usuario AS prog
                   (id_progressao, id_usuario, co_anonimo, nu_xp_total,
                    nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
-                   dh_atualizacao)
+                   dt_ultimo_dia_jogado, dh_atualizacao)
                 VALUES
                   (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, 1, :vit,
-                   :der, :emp, now())
+                   :der, :emp, :dia, now())
                 ON CONFLICT (id_usuario) DO UPDATE SET
                   nu_xp_total = prog.nu_xp_total + EXCLUDED.nu_xp_total,
                   nu_partidas = prog.nu_partidas + 1,
                   nu_vitorias = prog.nu_vitorias + EXCLUDED.nu_vitorias,
                   nu_derrotas = prog.nu_derrotas + EXCLUDED.nu_derrotas,
                   nu_empates = prog.nu_empates + EXCLUDED.nu_empates,
+                  -- GREATEST ignora NULL: nunca regride a última data jogada.
+                  dt_ultimo_dia_jogado = GREATEST(
+                      prog.dt_ultimo_dia_jogado, EXCLUDED.dt_ultimo_dia_jogado),
                   dh_atualizacao = now()
                 """
             ),
@@ -258,6 +279,7 @@ class RepositorioSincronizacao:
                 "vit": vit,
                 "der": der,
                 "emp": emp,
+                "dia": dia,
             },
         )
 
@@ -339,6 +361,106 @@ class RepositorioSincronizacao:
                 {"id_usuario": id_usuario, "co_conquista": co_conquista},
             )
         return True
+
+    # ── Evento de CONQUISTA (idempotente por id_usuario + co_conquista) ───────
+
+    async def gravar_conquista(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        co_evento: str,
+        payload: dict[str, Any],
+    ) -> bool:
+        """Grava UMA conquista desbloqueada. Idempotente pela chave natural
+        ``(id_usuario, co_conquista)`` — reenviar o mesmo desbloqueio não duplica.
+        O XP da conquista NÃO entra aqui (já sobe nas parcelas de XP da partida);
+        esta linha é só o REGISTRO do desbloqueio. Devolve ``True`` se inseriu."""
+        conquista = payload.get("conquista") or {}
+        resultado = await self.sessao.execute(
+            text(
+                """
+                INSERT INTO progressao.tb002_conquista_usuario
+                  (id_conquista_usuario, id_usuario, co_conquista, dh_desbloqueio)
+                VALUES
+                  (gen_random_uuid(), :id_usuario, :co_conquista,
+                   COALESCE(:dh, now()))
+                ON CONFLICT (id_usuario, co_conquista) DO NOTHING
+                RETURNING id_conquista_usuario
+                """
+            ),
+            {
+                "id_usuario": id_usuario,
+                "co_conquista": conquista.get("co_conquista"),
+                "dh": _dt(conquista.get("dh_desbloqueio")),
+            },
+        )
+        return resultado.first() is not None
+
+    # ── Reconciliação de progressão (fallback autoritativo — app é a verdade) ──
+
+    async def reconciliar_progressao(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        snapshot: dict[str, Any],
+    ) -> None:
+        """Aplica o snapshot AUTORITATIVO do app como REPARO: contadores sobem por
+        ``GREATEST`` (nunca regridem — fecham o buraco de eventos perdidos sem
+        duplicar), a "chama"/última data idem, e as conquistas entram por união.
+        Roda quando a outbox está sem pendências, então o servidor já tem os
+        eventos confirmados e o ``GREATEST`` é no-op quando nada se perdeu."""
+        r = snapshot
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO progressao.tb001_progressao_usuario AS prog
+                  (id_progressao, id_usuario, co_anonimo, nu_xp_total,
+                   nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
+                   nu_sequencia_atual, dt_ultimo_dia_jogado, dh_atualizacao)
+                VALUES
+                  (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, :part, :vit,
+                   :der, :emp, :seq, :dia, now())
+                ON CONFLICT (id_usuario) DO UPDATE SET
+                  nu_xp_total = GREATEST(prog.nu_xp_total, EXCLUDED.nu_xp_total),
+                  nu_partidas = GREATEST(prog.nu_partidas, EXCLUDED.nu_partidas),
+                  nu_vitorias = GREATEST(prog.nu_vitorias, EXCLUDED.nu_vitorias),
+                  nu_derrotas = GREATEST(prog.nu_derrotas, EXCLUDED.nu_derrotas),
+                  nu_empates = GREATEST(prog.nu_empates, EXCLUDED.nu_empates),
+                  nu_sequencia_atual = GREATEST(
+                      prog.nu_sequencia_atual, EXCLUDED.nu_sequencia_atual),
+                  dt_ultimo_dia_jogado = GREATEST(
+                      prog.dt_ultimo_dia_jogado, EXCLUDED.dt_ultimo_dia_jogado),
+                  dh_atualizacao = now()
+                """
+            ),
+            {
+                "id_usuario": id_usuario,
+                "co_anonimo": co_anonimo,
+                "xp": int(r.get("nu_xp_total", 0)),
+                "part": int(r.get("nu_partidas", 0)),
+                "vit": int(r.get("nu_vitorias", 0)),
+                "der": int(r.get("nu_derrotas", 0)),
+                "emp": int(r.get("nu_empates", 0)),
+                "seq": int(r.get("nu_sequencia_atual", 0)),
+                "dia": _data(r.get("dt_ultimo_dia_jogado")),
+            },
+        )
+        # Conquistas: união idempotente (mesma chave do merge).
+        for co_conquista in r.get("conquistas", []) or []:
+            await self.sessao.execute(
+                text(
+                    """
+                    INSERT INTO progressao.tb002_conquista_usuario
+                      (id_conquista_usuario, id_usuario, co_conquista,
+                       dh_desbloqueio)
+                    VALUES (gen_random_uuid(), :id_usuario, :co_conquista, now())
+                    ON CONFLICT (id_usuario, co_conquista) DO NOTHING
+                    """
+                ),
+                {"id_usuario": id_usuario, "co_conquista": co_conquista},
+            )
 
     # ── Leitura (pela VIEW) ───────────────────────────────────────────────────
 

@@ -19,6 +19,7 @@ from api.sincronizacao.validacao import (
     MAX_TAMANHO_CO_EVENTO,
     validar_evento,
     validar_progressao_convidado,
+    validar_reconciliacao,
 )
 
 
@@ -37,6 +38,29 @@ class RepositorioSincronizacaoProtocolo(Protocol):
     ) -> bool:
         """Grava UM evento de partida de forma idempotente. Devolve ``True`` se
         inseriu (evento novo) ou ``False`` se já existia (retry — no-op)."""
+        ...
+
+    async def gravar_conquista(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        co_evento: str,
+        payload: dict[str, Any],
+    ) -> bool:
+        """Grava UMA conquista desbloqueada, idempotente por
+        ``(id_usuario, co_conquista)``. Devolve ``True`` se inseriu."""
+        ...
+
+    async def reconciliar_progressao(
+        self,
+        *,
+        id_usuario: str,
+        co_anonimo: str | None,
+        snapshot: dict[str, Any],
+    ) -> None:
+        """Aplica o snapshot autoritativo do app como reparo (GREATEST + união
+        de conquistas). Não retorna nada — é um upsert de reconciliação."""
         ...
 
     async def aplicar_merge_se_novo(
@@ -112,12 +136,22 @@ class ServicoSincronizacao:
                 continue
 
             co_evento = evento["co_evento"]
-            inserido = await self.repo.gravar_evento(
-                id_usuario=usuario.id_usuario,
-                co_anonimo=usuario.co_anonimo,
-                co_evento=co_evento,
-                payload=evento.get("payload") or {},
-            )
+            payload = evento.get("payload") or {}
+            # Despacha pelo tipo do evento (ausente = "partida", retrocompatível).
+            if evento.get("co_tipo", "partida") == "conquista":
+                inserido = await self.repo.gravar_conquista(
+                    id_usuario=usuario.id_usuario,
+                    co_anonimo=usuario.co_anonimo,
+                    co_evento=co_evento,
+                    payload=payload,
+                )
+            else:
+                inserido = await self.repo.gravar_evento(
+                    id_usuario=usuario.id_usuario,
+                    co_anonimo=usuario.co_anonimo,
+                    co_evento=co_evento,
+                    payload=payload,
+                )
             (aceitos if inserido else ignorados).append(co_evento)
 
         progressao = await self.repo.obter_progressao(usuario.id_usuario)
@@ -164,6 +198,30 @@ class ServicoSincronizacao:
         )
         progressao = await self.repo.obter_progressao(usuario.id_usuario)
         return {"aplicado": aplicado, "progressao": progressao}
+
+    async def reconciliar_progressao(
+        self, usuario: UsuarioAutenticado, corpo: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Reconcilia (repara) a progressão do servidor com o snapshot
+        autoritativo do app — o FALLBACK que garante que XP/conquistas não se
+        percam quando um evento é abandonado (dead-letter) ou falha. Os mesmos
+        tetos anti-fraude do merge valem aqui (o snapshot também é um vetor de
+        injeção). Devolve a progressão resultante."""
+        resumo = corpo.get("progressao") or {}
+        codigo = validar_reconciliacao(resumo)
+        if codigo is not None:
+            raise ErroNegocio(
+                "Progressão inválida ou fora dos limites.",
+                codigo,
+                status_http=422,
+            )
+        await self.repo.reconciliar_progressao(
+            id_usuario=usuario.id_usuario,
+            co_anonimo=usuario.co_anonimo,
+            snapshot=resumo,
+        )
+        progressao = await self.repo.obter_progressao(usuario.id_usuario)
+        return {"progressao": progressao}
 
     async def estado(self, usuario: UsuarioAutenticado) -> dict[str, Any]:
         """Estado atual da progressão no servidor."""

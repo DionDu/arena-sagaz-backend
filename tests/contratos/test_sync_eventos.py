@@ -194,6 +194,137 @@ def test_lote_grande_demais_responde_413(client):
     assert r.json()["codigo"] == "lote_grande_demais"
 
 
+def _evento_conquista(co_evento: str, co_conquista: str) -> dict:
+    """Monta um evento de CONQUISTA desbloqueada."""
+    return {
+        "co_evento": co_evento,
+        "co_tipo": "conquista",
+        "payload": {
+            "conquista": {
+                "co_conquista": co_conquista,
+                "dh_desbloqueio": "2026-07-01T10:00:00Z",
+            }
+        },
+    }
+
+
+def test_evento_conquista_registra_e_e_idempotente(client):
+    """Conquista sobe como evento próprio; reenviar não duplica (SC — fallback)."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    r = client.post(
+        "/v1/sincronizacao/eventos",
+        json={"eventos": [_evento_conquista("cq-1", "primeira_vitoria")]},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["aceitos"] == ["cq-1"]
+    assert body["progressao"]["conquistas"] == ["primeira_vitoria"]
+
+    # Reenvia o MESMO evento (retry) → ignorado, sem duplicar.
+    r2 = client.post(
+        "/v1/sincronizacao/eventos",
+        json={"eventos": [_evento_conquista("cq-1", "primeira_vitoria")]},
+    )
+    assert r2.json()["ignorados"] == ["cq-1"]
+    assert r2.json()["progressao"]["conquistas"] == ["primeira_vitoria"]
+
+
+def test_evento_conquista_sem_codigo_e_rejeitado(client):
+    """Conquista sem co_conquista é rejeitada por contrato (não estoura 500)."""
+    _autenticar()
+    _usar_repo(FakeRepoSincronizacao(), FakeSession())
+    evento = _evento_conquista("cq-x", "ok")
+    evento["payload"]["conquista"]["co_conquista"] = ""  # vazio
+    r = client.post("/v1/sincronizacao/eventos", json={"eventos": [evento]})
+    assert r.json()["rejeitados"] == [
+        {"co_evento": "cq-x", "codigo": "conquista_invalida"}
+    ]
+
+
+def test_evento_tipo_desconhecido_e_rejeitado(client):
+    """Tipo que este backend não conhece é rejeitado (app novo × backend antigo)."""
+    _autenticar()
+    _usar_repo(FakeRepoSincronizacao(), FakeSession())
+    evento = {"co_evento": "evt-?", "co_tipo": "missao_diaria", "payload": {}}
+    r = client.post("/v1/sincronizacao/eventos", json={"eventos": [evento]})
+    assert r.json()["rejeitados"] == [
+        {"co_evento": "evt-?", "codigo": "tipo_desconhecido"}
+    ]
+
+
+def test_reconciliar_repara_xp_conquistas_e_dt(client):
+    """A reconciliação aplica o snapshot autoritativo (XP/conquistas/dt) — o
+    fallback contra perda quando um evento é abandonado."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    r = client.post(
+        "/v1/sincronizacao/reconciliar",
+        json={
+            "progressao": {
+                "nu_xp_total": 120,
+                "nu_partidas": 3,
+                "nu_vitorias": 2,
+                "nu_derrotas": 1,
+                "nu_empates": 0,
+                "nu_sequencia_atual": 2,
+                "dt_ultimo_dia_jogado": "2026-07-07",
+                "conquistas": ["primeira_vitoria", "streak_3"],
+            }
+        },
+    )
+    assert r.status_code == 200
+    prog = r.json()["progressao"]
+    assert prog["nu_xp_total"] == 120
+    assert prog["conquistas"] == ["primeira_vitoria", "streak_3"]
+    assert prog["dt_ultimo_dia_jogado"] == "2026-07-07"
+    assert sessao.commits == 1
+
+
+def test_reconciliar_nao_regride_xp(client):
+    """GREATEST: se o servidor já tem MAIS XP (eventos), a reconciliação com um
+    valor menor NÃO derruba o total."""
+    repo, sessao = FakeRepoSincronizacao(), FakeSession()
+    _autenticar()
+    _usar_repo(repo, sessao)
+
+    # Servidor ganha 40 XP por um evento de partida.
+    client.post(
+        "/v1/sincronizacao/eventos",
+        json={"eventos": [_evento_partida("evt-1", 40)]},
+    )
+    # Reconcilia com um XP MENOR (10) — não deve regredir.
+    r = client.post(
+        "/v1/sincronizacao/reconciliar",
+        json={"progressao": {"nu_xp_total": 10, "nu_partidas": 1}},
+    )
+    assert r.json()["progressao"]["nu_xp_total"] == 40
+
+
+def test_reconciliar_fora_do_teto_e_422(client):
+    """Snapshot abusivo (fraude) é recusado com 422 (mesmos tetos do merge)."""
+    _autenticar()
+    _usar_repo(FakeRepoSincronizacao(), FakeSession())
+    r = client.post(
+        "/v1/sincronizacao/reconciliar",
+        json={"progressao": {"nu_xp_total": 999_999_999_999, "nu_partidas": 1}},
+    )
+    assert r.status_code == 422
+
+
+def test_reconciliar_sem_token_401(client):
+    _usar_repo(FakeRepoSincronizacao(), FakeSession())
+    r = client.post(
+        "/v1/sincronizacao/reconciliar",
+        json={"progressao": {"nu_xp_total": 10}},
+    )
+    assert r.status_code == 401
+
+
 def test_pvp_local_nao_altera_xp_anti_farm(client):
     """SC-007 (T042): partida pvp_local (ic_pontua=False) é aceita/registrada
     mas NÃO incrementa XP nem contadores — anti-farm."""

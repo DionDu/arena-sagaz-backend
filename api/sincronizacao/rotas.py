@@ -57,6 +57,19 @@ async def merge_convidado(
     return resposta
 
 
+@router.post("/reconciliar")
+async def reconciliar(
+    corpo: dict[str, Any],
+    usuario: UsuarioAutenticado = Depends(usuario_autenticado),
+    servico: ServicoSincronizacao = Depends(obter_servico_sync),
+) -> dict[str, Any]:
+    """`POST /v1/sincronizacao/reconciliar` — repara a progressão do servidor
+    com o snapshot autoritativo do app (fallback contra perda de XP/conquistas)."""
+    resposta = await servico.reconciliar_progressao(usuario, corpo)
+    await servico.sessao.commit()
+    return resposta
+
+
 @router.get("/estado")
 async def estado(
     usuario: UsuarioAutenticado = Depends(usuario_autenticado),
