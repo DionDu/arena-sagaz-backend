@@ -377,16 +377,21 @@ class RepositorioSincronizacao:
         O XP da conquista NÃO entra aqui (já sobe nas parcelas de XP da partida);
         esta linha é só o REGISTRO do desbloqueio. Devolve ``True`` se inseriu."""
         conquista = payload.get("conquista") or {}
+        # Conflito: mantém a MENOR data de desbloqueio (a PRIMEIRA vez que o humano
+        # a atingiu, em qualquer aparelho) — não a primeira a CHEGAR ao servidor.
+        # `RETURNING (xmax = 0)`: xmax=0 só numa INSERÇÃO nova → distingue
+        # "inseriu agora" (aceito) de "já existia/atualizou a data" (ignorado).
         resultado = await self.sessao.execute(
             text(
                 """
-                INSERT INTO progressao.tb002_conquista_usuario
+                INSERT INTO progressao.tb002_conquista_usuario AS tb
                   (id_conquista_usuario, id_usuario, co_conquista, dh_desbloqueio)
                 VALUES
                   (gen_random_uuid(), :id_usuario, :co_conquista,
                    COALESCE(:dh, now()))
-                ON CONFLICT (id_usuario, co_conquista) DO NOTHING
-                RETURNING id_conquista_usuario
+                ON CONFLICT (id_usuario, co_conquista) DO UPDATE SET
+                  dh_desbloqueio = LEAST(tb.dh_desbloqueio, EXCLUDED.dh_desbloqueio)
+                RETURNING (xmax = 0) AS inserido
                 """
             ),
             {
@@ -395,7 +400,7 @@ class RepositorioSincronizacao:
                 "dh": _dt(conquista.get("dh_desbloqueio")),
             },
         )
-        return resultado.first() is not None
+        return bool(resultado.scalar())
 
     # ── Reconciliação de progressão (fallback autoritativo — app é a verdade) ──
 
@@ -465,8 +470,11 @@ class RepositorioSincronizacao:
     # ── Leitura (pela VIEW) ───────────────────────────────────────────────────
 
     async def obter_progressao(self, id_usuario: str) -> dict[str, Any]:
-        """Progressão atual (com nu_nivel/co_patente calculados pela VIEW). Se o
-        usuário ainda não tem linha, devolve zeros."""
+        """Progressão atual (com nu_nivel/co_patente calculados pela VIEW) +
+        a lista de conquistas. É o que o app PUXA para reconciliar o banco local
+        (convergência multi-dispositivo). Se o usuário ainda não tem linha,
+        devolve zeros (mas ainda lê as conquistas, que podem existir sem linha)."""
+        conquistas = await self._conquistas_de(id_usuario)
         resultado = await self.sessao.execute(
             text(
                 "SELECT * FROM progressao.vw001_progressao_usuario "
@@ -483,7 +491,22 @@ class RepositorioSincronizacao:
                 "nu_derrotas": 0,
                 "nu_empates": 0,
                 "nu_sequencia_atual": 0,
+                "dt_ultimo_dia_jogado": None,
                 "nu_nivel": 1,
                 "co_patente": "aprendiz",
+                "conquistas": conquistas,
             }
-        return dict(linha)
+        saida = dict(linha)
+        saida["conquistas"] = conquistas
+        return saida
+
+    async def _conquistas_de(self, id_usuario: str) -> list[str]:
+        """Ids das conquistas do usuário (ordenados, para resposta estável)."""
+        resultado = await self.sessao.execute(
+            text(
+                "SELECT co_conquista FROM progressao.tb002_conquista_usuario "
+                "WHERE id_usuario = :id ORDER BY co_conquista"
+            ),
+            {"id": id_usuario},
+        )
+        return [r[0] for r in resultado]
