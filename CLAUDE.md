@@ -123,6 +123,14 @@ O projeto usa um virtualenv em `.venv\`. Para rodar Python ou pytest, use **semp
 Não procure Python em outro lugar (system, AppData, conda). O `.venv` é a única
 fonte correta de dependências deste projeto.
 
+## Diretriz obrigatória — Backup de `dados/` e `modelos/` no Google Drive
+
+As pastas `dados/` e `modelos/` **não** são versionadas no git (ver `.gitignore`;
+são grandes/regeneráveis). Sempre que criar ou alterar arquivos nelas, **copie-os
+para `G:\Meu Drive\Arena Sagaz\arena-sagaz-backend`** (que sincroniza sozinho com
+o Google Drive) — ou lembre o usuário de fazê-lo na mesma resposta. Esse Drive é
+o único backup desses binários.
+
 ## Diretriz obrigatória — Commit e Push após editar documentos em `specs/`
 
 Toda vez que você (Claude) fizer qualquer alteração em arquivos dentro da pasta
