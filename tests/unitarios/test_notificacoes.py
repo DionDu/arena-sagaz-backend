@@ -122,8 +122,8 @@ class _FakeServicoPref:
     async def registrar_dispositivo(self, uid, co_token_fcm, sg_plataforma, co_idioma):
         self.dispositivos.append((uid, co_token_fcm, sg_plataforma, co_idioma))
 
-    async def remover_dispositivo(self, co_token_fcm):
-        self.removidos.append(co_token_fcm)
+    async def remover_dispositivo(self, uid, co_token_fcm):
+        self.removidos.append((uid, co_token_fcm))
 
     async def definir_preferencias(self, uid, preferencias):
         self.prefs = list(preferencias)
@@ -189,7 +189,44 @@ def test_remover_dispositivo_200(client):
     _usar_servico_pref(fake)
     r = client.delete("/v1/notificacoes/dispositivo/tok-123")
     assert r.status_code == 200
-    assert fake.removidos == ["tok-123"]
+    # A remoção carrega o uid do dono (resolvido do token) além do token — é o que
+    # amarra a exclusão ao dono e evita IDOR (SEG-08).
+    assert fake.removidos == [("u1", "tok-123")]
+
+
+async def test_remover_dispositivo_de_outro_usuario_nao_apaga():
+    """No repositório, o DELETE só casa quando o dono bate — impede IDOR (SEG-08).
+
+    Simula a query com um "banco" fake que só apaga se `id_usuario` do filtro é o
+    dono real da linha."""
+    from api.notificacoes.repositorio import RepositorioNotificacao
+
+    class _SessaoFakeDono:
+        """Fake mínimo: guarda um token do dono 'A' e só 'apaga' se o filtro casar."""
+
+        def __init__(self):
+            self.dono_real = "A"
+            self.apagou = False
+
+        async def execute(self, sql, params):
+            class _Res:
+                rowcount = 0
+
+            res = _Res()
+            # Reproduz o `IS NOT DISTINCT FROM`: só apaga se o id do filtro == dono.
+            if params["token"] == "tok-A" and params["id_usuario"] == self.dono_real:
+                self.apagou = True
+                res.rowcount = 1
+            return res
+
+    sessao = _SessaoFakeDono()
+    repo = RepositorioNotificacao(sessao)
+    # Usuário 'B' tenta apagar o token do 'A' → não apaga.
+    n = await repo.remover_dispositivo("tok-A", "B")
+    assert n == 0 and sessao.apagou is False
+    # O próprio dono 'A' apaga o seu → apaga.
+    n = await repo.remover_dispositivo("tok-A", "A")
+    assert n == 1 and sessao.apagou is True
 
 
 def test_definir_preferencias_200(client):

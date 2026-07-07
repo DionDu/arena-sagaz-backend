@@ -32,3 +32,14 @@ def test_origem_nao_permitida_nao_recebe_cabecalho():
     # Um site aleatório não ganha permissão de CORS.
     r = _preflight("PATCH", "/v1/conta/perfil", "https://site-malicioso.example")
     assert r.headers.get("access-control-allow-origin") is None
+
+
+def test_eh_producao_detecta_variacoes():
+    # A flag que decide NÃO liberar localhost no CORS em produção (SEG-02).
+    from api.configuracao import Configuracoes
+
+    assert Configuracoes(AMBIENTE="producao").eh_producao is True
+    assert Configuracoes(AMBIENTE="Production").eh_producao is True
+    assert Configuracoes(AMBIENTE="prod").eh_producao is True
+    assert Configuracoes(AMBIENTE="desenvolvimento").eh_producao is False
+    assert Configuracoes(AMBIENTE="dev").eh_producao is False

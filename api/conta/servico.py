@@ -69,6 +69,36 @@ def calcular_idade(nascimento: date, hoje: Optional[date] = None) -> int:
     return anos
 
 
+def _exigir_idade_minima(nascimento: Optional[date]) -> None:
+    """Recusa (422 `idade_minima`) uma data de nascimento que resulte em idade
+    abaixo de [IDADE_MINIMA]. `None` passa (campo não informado).
+
+    Centralizado para valer em TODOS os pontos que gravam a data — criação
+    (`_criar_novo`), reentrada (`_atualizar_existente`) e edição de perfil
+    (`atualizar_perfil_usuario`). Assim a trava etária (COPPA/FR-005a) não pode
+    ser burlada trocando a data depois de a conta existir (NEG-02)."""
+    if nascimento is not None and calcular_idade(nascimento) < IDADE_MINIMA:
+        raise ErroNegocio(
+            "É preciso ter ao menos $IDADE anos.".replace("$IDADE", str(IDADE_MINIMA)),
+            "idade_minima",
+            status_http=422,
+        )
+
+
+def _nome_moderado_para_sessao(nome: Optional[str]) -> Optional[str]:
+    """Modera o nome recebido na SESSÃO (login/reentrada). Se o nome for inválido
+    (curto/longo/proibido — ver [validar_nome_exibicao]), devolve `None` em vez de
+    lançar erro: o login NÃO pode falhar por causa de um apelido (o `co_usuario` é
+    a identidade real; o nome é cosmético). A edição EXPLÍCITA de nome é pelo
+    `PATCH /conta/perfil`, que **rejeita** nome inválido com 422 (NEG-01)."""
+    if nome is None:
+        return None
+    try:
+        return validar_nome_exibicao(nome)
+    except ErroNegocio:
+        return None
+
+
 class ServicoConta:
     """Orquestra a conta de usuário (criação/atualização e perfil)."""
 
@@ -136,14 +166,22 @@ class ServicoConta:
         """
         usuario = await self._usuario_obrigatorio(identidade)
 
-        # Modera/normaliza o nome só se ele foi informado no corpo.
+        # Modera/normaliza o nome só se ele foi informado no corpo. Aqui a edição é
+        # EXPLÍCITA (a pessoa digitou o nome), então nome inválido REJEITA com 422
+        # (diferente da sessão, que apenas ignora) — NEG-01.
         no_exibicao = dados.no_exibicao
         if no_exibicao is not None:
             no_exibicao = validar_nome_exibicao(no_exibicao)
 
+        # Data de nascimento é editável (corrigir erro de digitação), mas SEMPRE
+        # revalida idade >= 13 (NEG-02). Melhor que bloquear de vez: o usuário
+        # conserta a data, e a trava etária continua garantida.
+        _exigir_idade_minima(dados.dt_nascimento)
+
         atualizada = await self.repo.atualizar_perfil(
             id_usuario=usuario["id_usuario"],
             no_exibicao=no_exibicao,
+            dt_nascimento=dados.dt_nascimento,
             co_idioma_preferido=dados.co_idioma_preferido,
         )
         # Se nada mudou (corpo vazio), mantém a linha que já tínhamos.
@@ -212,9 +250,18 @@ class ServicoConta:
         # REGRA DE NOME (definitiva): se JÁ existe nome salvo, ele MANDA — o nome
         # que vem do provedor a cada login (Google/Apple/…) NÃO o sobrescreve. Só
         # preenchemos pelo provedor quando o nome ainda está VAZIO. A troca
-        # explícita de nome é pelo `PATCH /conta/perfil`, não pela sessão.
+        # explícita de nome é pelo `PATCH /conta/perfil`, não pela sessão. O nome
+        # que preenche o vazio passa pela **moderação** (NEG-01); se reprovado,
+        # fica None (não derruba o login).
         nome_atual = (linha.get("no_exibicao") or "").strip()
-        no_exibicao_efetivo = dados.no_exibicao if not nome_atual else None
+        no_exibicao_efetivo = (
+            _nome_moderado_para_sessao(dados.no_exibicao) if not nome_atual else None
+        )
+
+        # Data de nascimento pode ser corrigida na reentrada, mas SEMPRE revalida
+        # idade >= 13 (NEG-02) — impede burlar a trava etária depois de criada a
+        # conta. `None` (não veio no corpo) passa direto.
+        _exigir_idade_minima(dados.dt_nascimento)
 
         # Só atualiza o que veio no corpo (o repositório usa COALESCE: campo nulo
         # mantém o valor atual).
@@ -261,6 +308,13 @@ class ServicoConta:
                 "idade_minima",
                 status_http=422,
             )
+
+        # Modera o nome antes de gravar (NEG-01). Nome reprovado vira None (a conta
+        # é criada sem apelido; a pessoa define depois pelo PATCH). Usa model_copy
+        # para não mutar o request original.
+        dados = dados.model_copy(
+            update={"no_exibicao": _nome_moderado_para_sessao(dados.no_exibicao)}
+        )
 
         provedor = mapear_provedor(identidade.provedor)
         linha = await self._criar_com_codigo_unico(

@@ -13,6 +13,31 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+def _carregar_dotenv() -> None:
+    """Carrega um `.env` local (se existir) para `os.environ`, sem depender de
+    biblioteca externa — assim `alembic` funciona igual ao app FastAPI (que lê o
+    `.env`). Sem isto, rodar `alembic` na máquina exigia exportar `DATABASE_URL`
+    na mão. Variáveis JÁ definidas no ambiente (ex.: no Railway) têm precedência
+    sobre o arquivo (usamos `setdefault`)."""
+    caminho = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if not os.path.isfile(caminho):
+        return
+    with open(caminho, encoding="utf-8") as arquivo:
+        for linha in arquivo:
+            linha = linha.strip()
+            # Ignora linhas em branco e comentários.
+            if not linha or linha.startswith("#") or "=" not in linha:
+                continue
+            chave, _, valor = linha.partition("=")
+            chave = chave.strip()
+            # Remove aspas envolventes do valor, se houver.
+            valor = valor.strip().strip('"').strip("'")
+            if chave:
+                os.environ.setdefault(chave, valor)
+
+
+_carregar_dotenv()
+
 # Objeto de configuração do Alembic (lê o alembic.ini).
 config = context.config
 

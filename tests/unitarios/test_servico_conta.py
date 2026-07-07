@@ -151,3 +151,73 @@ def test_reentrada_vincula_provedor_atual():
         )
     )
     assert "google" in perfil.provedores
+
+
+# ── moderação de nome na sessão (NEG-01) ─────────────────────────────────────
+
+
+def test_criacao_com_nome_proibido_grava_none_nao_derruba_login():
+    # Nome reprovado na moderação (contém "admin") NÃO derruba o login: a conta é
+    # criada, mas sem apelido (fica None) — a pessoa define depois pelo PATCH.
+    repo = FakeRepoUsuario()
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(),
+            SessaoRequest(no_exibicao="admin", dt_nascimento=date(1990, 1, 1)),
+        )
+    )
+    assert perfil.no_exibicao is None
+    assert len(repo.criadas) == 1
+
+
+def test_criacao_com_nome_curto_grava_none():
+    repo = FakeRepoUsuario()
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(),
+            SessaoRequest(no_exibicao="ab", dt_nascimento=date(1990, 1, 1)),
+        )
+    )
+    assert perfil.no_exibicao is None
+
+
+def test_reentrada_preenche_nome_vazio_passa_por_moderacao():
+    # Nome do provedor reprovado NÃO preenche o vazio (fica None).
+    conta = _conta_existente()
+    conta["no_exibicao"] = None
+    repo = FakeRepoUsuario(existente=conta)
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(), SessaoRequest(no_exibicao="moderador")
+        )
+    )
+    assert perfil.no_exibicao is None
+
+
+# ── revalidação de idade ao trocar data de nascimento (NEG-02) ───────────────
+
+
+def test_reentrada_trocar_data_para_menor_de_13_responde_422():
+    hoje = date.today()
+    menor = date(hoje.year - 8, hoje.month, max(1, hoje.day))
+    repo = FakeRepoUsuario(existente=_conta_existente())
+    with pytest.raises(ErroNegocio) as exc:
+        asyncio.run(
+            _servico(repo).garantir_sessao(
+                _identidade(), SessaoRequest(dt_nascimento=menor)
+            )
+        )
+    assert exc.value.codigo == "idade_minima"
+    assert exc.value.status_http == 422
+
+
+def test_reentrada_corrigir_data_mantendo_maioridade_ok():
+    # Corrigir a data para outra data de ADULTO é permitido (usabilidade).
+    repo = FakeRepoUsuario(existente=_conta_existente())
+    nova = date(1988, 5, 20)
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(), SessaoRequest(dt_nascimento=nova)
+        )
+    )
+    assert perfil.dt_nascimento == nova

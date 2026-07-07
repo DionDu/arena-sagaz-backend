@@ -4,7 +4,8 @@ O nome de exibição é o único texto livre que a pessoa escolhe e que pode apa
 para outros jogadores (ranking, partida 2 jogadores). Por isso passa por uma
 **moderação mínima** antes de ser gravado:
 
-- comprimento entre 2 e 40 caracteres (após remover espaços nas pontas);
+- comprimento entre 3 e 20 caracteres (após remover espaços nas pontas)
+  — ver `TAMANHO_MINIMO`/`TAMANHO_MAXIMO`;
 - não pode ser só espaços/vazio;
 - não pode conter um termo de uma **lista de bloqueio** simples.
 
