@@ -112,6 +112,35 @@ Itens a revisar (não exaustivo):
 Motivo: texto defasado em notebook **engana a banca do TCC** e induz erro de
 operação. Tratar Markdown/comentários como parte da mudança, não como enfeite.
 
+## Dois ambientes no Railway: `des` e `prd`
+
+Desde 2026-07-09 existe **produção**. São dois ambientes independentes, cada um com
+seu Postgres e seu Firebase:
+
+| | `des` | `prd` |
+|---|---|---|
+| API | `api-dev.arenasagaz.santiagodata.com` | `api.arenasagaz.santiagodata.com` |
+| Firebase | `arena-sagaz-des` | `arena-sagaz-prd` |
+| `AMBIENTE` | `desenvolvimento` | `producao` |
+
+- ⚠️ **`AMBIENTE` precisa ser exatamente `producao`/`production`/`prod`.**
+  `Configuracoes.eh_producao` só aceita esses valores; errar deixa o CORS liberando
+  `localhost` em produção (SEG-02). O default é `desenvolvimento`.
+- `ADMIN_BROADCAST_TOKEN` é **diferente** em cada ambiente.
+- `FIREBASE_CREDENTIALS` é o **base64 em linha única** do JSON da conta de serviço
+  (`base64 -w0 arena-sagaz-<amb>-firebase-adminsdk.json`) — evita corromper as
+  quebras de linha da chave privada ao colar no console.
+- **Migrações não rodam no boot** (o `CMD` do Dockerfile só sobe o uvicorn). Rode
+  `alembic upgrade head` da sua máquina, com a URL **pública** do Postgres
+  (`*.proxy.rlwy.net`); a interna só funciona dentro da Railway.
+
+> ⚠️ **"Healthcheck failure" no Railway quase nunca é problema de rede.**
+> `api/nucleo/banco.py` chama `create_async_engine` **no import do módulo**: uma
+> `DATABASE_URL` vazia ou inválida levanta `ArgumentError` antes de o uvicorn abrir
+> a porta, e o Railway só consegue reportar que o healthcheck não respondeu. Causa
+> comum: a referência `${{Servico.DATABASE_URL}}` não resolve porque o **nome do
+> serviço** mudou.
+
 ## Ambiente Python
 
 O projeto usa um virtualenv em `.venv\`. Para rodar Python ou pytest, use **sempre**:
