@@ -6,6 +6,71 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-07-12 — Redesenho do log de partidas/treino (migração 0006)
+
+**Contexto.** O Railway roda no plano de US$ 5 e o motor de crescimento do banco é o
+log de treino da IA. A ~5.000 partidas/dia a projeção era **~3,6 GB/mês**.
+
+**O quê.** Quatro mudanças (contrato completo e validado em
+`docs/redesenho_schema_log_treino.md`):
+
+1. **Fim das matrizes** `ar_tabuleiro_antes`/`ar_tabuleiro_apos`. São 100%
+   reconstruíveis da sequência de arestas — guardá-las era pagar disco por algo
+   derivável, e era o maior item da conta. Novo `reconstrutor_partida_pontinhos.py`
+   **reaproveita** `EstadoTabuleiro.aplicar_traco` (a "lei da física" do jogo) em vez
+   de reimplementar a regra: duas cópias divergiriam em silêncio um dia.
+2. **Códigos textuais → numéricos + DIMENSÃO** (`nu_acao`, `nu_situacao`,
+   `nu_origem_decisao`, `nu_tipo_xp`). Cada dimensão guarda `nu_` (chave), `co_` (a
+   string canônica que o app envia — **é a tabela de tradução da ingestão**) e `no_`
+   (nome legível).
+3. **Fuso**: `nu_offset_minuto_j1/j2` na partida; `co_fuso` (IANA) +
+   `nu_offset_minuto` no dispositivo. `timestamptz` guarda o INSTANTE, não o fuso de
+   ORIGEM.
+4. **Ingestão tolerante**: aceita o payload antigo E o novo, então o backend sobe
+   **antes** do app.
+
+**Resultado:** ~24 KB → ~11 KB por partida (**~1,7 GB/mês**).
+
+**O que foi DESCARTADO e por quê:**
+
+- **`char(3)` autodescritivo** (`CNN`/`CAP`/`MMX`/`ALE`), que era o desenho de 11/07:
+  o dono julgou 3 letras ilegíveis quando há muitos valores. Ficou numérico + JOIN.
+- **O app enviar o número.** Descartado: o app publicado **congela no aparelho**. Se o
+  número fosse do payload, viraria contrato público de API e a numeração nunca mais
+  poderia ser corrigida sem quebrar as versões em campo. O app manda a **string**; o
+  backend traduz.
+- **`ENUM` nativo do Postgres**: guarda só o rótulo, sem descrição rica.
+- **`co_aresta` virar FK numérica**: um índice seria **ambíguo entre variantes** de
+  tabuleiro (pequeno/médio/grande têm espaços de ação distintos). Fica TEXTO — e, sem
+  as matrizes, ele vira **o dado mais crítico da tabela**.
+- **Erro 500 no código desconhecido**: um app mais novo que o backend travaria a fila
+  de sync do aparelho **para sempre**. Código desconhecido vira **9999**.
+
+**Dois furos encontrados lendo o código do app** (o checklist de 11/07 estava
+incompleto e teria causado **perda de dado irreversível**):
+
+- **`co_acao` tem 5 valores, não 4** — e **três são CNN distintas** (`nucleo_top_p`,
+  `argmax_absoluto`, `argmax_desempatado`). O mapa antigo colapsaria as três numa só,
+  apagando **para sempre** a distinção entre o núcleo top-p (Pita/Cacau) e o argmax
+  (Magno) — e não há como recomputar, porque a matriz deixa de existir. `MMX` e `ALE`
+  sequer existem no app.
+- **`co_tipo_xp` tem 6 valores, não 4** (faltavam `primeira_vitoria` e `conquista`).
+
+**Como a remoção das matrizes foi justificada:**
+`test_reconstrutor_partida_pontinhos.py` joga partidas completas nas 3 variantes,
+guarda as matrizes como o app as gravava, descarta tudo menos as arestas, reconstrói e
+compara **byte a byte**. Sem esse teste, a remoção seria um ato de fé. Mais 8 testes de
+integridade: sem as matrizes, uma jogada perdida na sincronização só é detectável pela
+**contiguidade das ordens** — daí a reconstrução recusar a partida em vez de produzir
+um tabuleiro *plausível porém errado*, que envenenaria o treino em silêncio.
+
+**Adiado de propósito:** o **offload periódico** do log (mover para fora do Railway e
+podar) — é a alavanca *estrutural* de custo, já que mesmo otimizado o banco cresce
+~1,7 GB/mês. E o **módulo de campanha de push**: os dados de fuso existem só para
+*preparar o terreno* (não podem ser preenchidos retroativamente).
+
+---
+
 ## 2026-05-29 (noite) — Degrau 2 da escada (NoAttn+Dense256) aprovado; base da arena coletada
 
 ### Degrau 2: NoAttn + Dense(512)→Dense(256) — GANHO claro
