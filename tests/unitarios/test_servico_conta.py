@@ -111,6 +111,35 @@ def test_login_corrige_o_provedor_principal_quando_o_original_some():
     assert conta["co_provedor_principal"] == "google"
 
 
+def test_criacao_nao_duplica_o_provedor_email():
+    """⚠️ BUG MEDIDO EM 2026-07-12 (snapshot do des): a `tb002` mostrava o provedor
+    `email` DUAS vezes.
+
+    Causa: a CRIAÇÃO da conta gravava `co_identidade_provedor = uid do Firebase`,
+    enquanto o login seguinte (reconciliação) gravava a identidade REAL da claim (o
+    e-mail). As duas linhas conviviam porque a limpeza filtrava só pelo
+    `co_provedor` — e `email` estava na lista dos dois lados.
+
+    Agora a criação usa a MESMA fonte da reentrada, e a limpeza compara o PAR.
+    """
+    repo = FakeRepoUsuario()
+    ident = _identidade_com("password", {"email": ["a@b.com"]})
+
+    # 1) Criação.
+    asyncio.run(
+        _servico(repo).garantir_sessao(
+            ident, SessaoRequest(no_exibicao="Fulano", dt_nascimento=date(1990, 1, 1))
+        )
+    )
+    # 2) Reentrada (o login seguinte do mesmo usuário).
+    asyncio.run(_servico(repo).garantir_sessao(ident, SessaoRequest()))
+
+    provedores = asyncio.run(repo.listar_provedores("id-u1"))
+    assert [p["co_provedor"] for p in provedores] == ["email"], (
+        "o provedor `email` não pode aparecer duas vezes"
+    )
+
+
 def test_login_preserva_os_provedores_que_continuam_valendo():
     """Quem tem os DOIS métodos (e-mail verificado + Google) não perde nenhum."""
     repo = FakeRepoUsuario(_conta_existente())

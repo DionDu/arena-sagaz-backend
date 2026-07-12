@@ -203,22 +203,40 @@ class RepositorioUsuario:
         if not provedores:
             return
 
-        # Apaga os provedores que o Firebase não lista mais. Filtramos por
-        # `co_provedor` (e não pelo par com a identidade) porque é assim que o
-        # Firebase desvincula: o provedor inteiro sai. Apagar só o que sumiu — em vez
-        # de "limpa tudo e reinsere" — preserva o `dh_vinculo` de quem continua
-        # ligado, que é a data em que a pessoa REALMENTE vinculou aquele provedor.
-        codigos = [p for p, _ in provedores]
-        await self.sessao.execute(
+        # Apaga tudo o que o Firebase NÃO lista mais — comparando o PAR completo
+        # (provedor + identidade), não só o código do provedor.
+        #
+        # ⚠️ Por que o par, e não só o provedor (bug medido em 2026-07-12): a criação
+        # da conta gravava `co_identidade_provedor = uid do Firebase`, enquanto a
+        # reconciliação grava a identidade REAL da claim (o e-mail, o sub do Google…).
+        # Filtrando só por `co_provedor`, a linha velha `('email', <uid>)` sobrevivia
+        # ao lado da nova `('email', 'diondu@gmail.com')` — e a tabela mostrava o
+        # provedor `email` DUAS vezes. Comparando o par, a linha velha cai.
+        #
+        # Apagar só o que sumiu — em vez de "limpa tudo e reinsere" — preserva o
+        # `dh_vinculo` de quem continua ligado: a data em que a pessoa REALMENTE
+        # vinculou aquele provedor.
+        atuais = {(p, i) for p, i in provedores}
+        existentes = await self.sessao.execute(
             text(
-                """
-                DELETE FROM conta.tb002_provedor_login
-                WHERE id_usuario = :id
-                  AND co_provedor <> ALL(:codigos)
-                """
+                "SELECT id_provedor_login, co_provedor, co_identidade_provedor "
+                "FROM conta.tb002_provedor_login WHERE id_usuario = :id"
             ),
-            {"id": id_usuario, "codigos": codigos},
+            {"id": id_usuario},
         )
+        obsoletos = [
+            linha.id_provedor_login
+            for linha in existentes
+            if (linha.co_provedor, linha.co_identidade_provedor) not in atuais
+        ]
+        if obsoletos:
+            await self.sessao.execute(
+                text(
+                    "DELETE FROM conta.tb002_provedor_login "
+                    "WHERE id_provedor_login = ANY(:ids)"
+                ),
+                {"ids": obsoletos},
+            )
 
         for co_provedor, co_identidade in provedores:
             await self.vincular_provedor(

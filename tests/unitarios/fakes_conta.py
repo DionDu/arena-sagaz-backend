@@ -77,16 +77,34 @@ class FakeRepoUsuario:
 
     async def vincular_provedor(self, *, id_usuario, co_provedor, co_identidade_provedor):
         atuais = self._provedores.setdefault(id_usuario, [])
-        # Idempotente, como o ON CONFLICT DO NOTHING da tabela real.
-        if not any(p["co_provedor"] == co_provedor for p in atuais):
-            atuais.append({"co_provedor": co_provedor})
+        # ⚠️ A unicidade da tabela real é o PAR (co_provedor, co_identidade_provedor)
+        # — é o `ON CONFLICT` dela. Deduplicar só por `co_provedor` aqui ESCONDERIA
+        # o bug da linha `email` duplicada (medido em 2026-07-12), que é exatamente
+        # o que este fake precisa ser capaz de reproduzir.
+        par = (co_provedor, co_identidade_provedor)
+        if not any(
+            (p["co_provedor"], p["co_identidade_provedor"]) == par for p in atuais
+        ):
+            atuais.append(
+                {
+                    "co_provedor": co_provedor,
+                    "co_identidade_provedor": co_identidade_provedor,
+                }
+            )
         return {}
 
     async def reconciliar_provedores(self, id_usuario, provedores):
-        """Substitui o conjunto (espelha o repositório real: apaga quem sumiu)."""
-        codigos = [p for p, _ in provedores]
-        atuais = self._provedores.setdefault(id_usuario, [])
-        atuais[:] = [p for p in atuais if p["co_provedor"] in codigos]
+        """Substitui o conjunto — apaga quem o Firebase não lista mais.
+
+        Espelha o repositório real: compara o PAR completo, não só o código do
+        provedor."""
+        atuais_esperados = {(p, i) for p, i in provedores}
+        linhas = self._provedores.setdefault(id_usuario, [])
+        linhas[:] = [
+            p
+            for p in linhas
+            if (p["co_provedor"], p["co_identidade_provedor"]) in atuais_esperados
+        ]
         for co_provedor, co_identidade in provedores:
             await self.vincular_provedor(
                 id_usuario=id_usuario,

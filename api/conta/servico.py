@@ -369,12 +369,23 @@ class ServicoConta:
         linha = await self._criar_com_codigo_unico(
             identidade=identidade, dados=dados, provedor=provedor
         )
-        # Registra o vínculo do provedor que originou a conta.
-        await self.repo.vincular_provedor(
-            id_usuario=linha["id_usuario"],
-            co_provedor=provedor,
-            co_identidade_provedor=identidade.uid,
-        )
+        # Registra os provedores da conta recém-criada.
+        #
+        # ⚠️ Usa a MESMA fonte da reentrada (a claim `firebase.identities`) — antes
+        # daqui gravava `co_identidade_provedor = identidade.uid`, e isso gerava uma
+        # linha DUPLICADA: a criação punha `('email', <uid>)` e o login seguinte, ao
+        # reconciliar, punha `('email', 'fulano@x.com')`. As duas conviviam, e a
+        # tabela mostrava o provedor `email` duas vezes (bug medido em 2026-07-12).
+        provedores = provedores_do_token(identidade)
+        if provedores:
+            await self.repo.reconciliar_provedores(linha["id_usuario"], provedores)
+        else:
+            # Token sem a claim (atípico): grava ao menos o provedor da entrada.
+            await self.repo.vincular_provedor(
+                id_usuario=linha["id_usuario"],
+                co_provedor=provedor,
+                co_identidade_provedor=identidade.uid,
+            )
         return await self._montar_perfil(linha)
 
     async def _criar_com_codigo_unico(
