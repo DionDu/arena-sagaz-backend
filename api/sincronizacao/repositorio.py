@@ -15,11 +15,14 @@ Idempotência:
 """
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.sincronizacao import dimensoes
 
 
 def _data(valor: Any) -> date | None:
@@ -55,6 +58,18 @@ def _dt(valor: Any) -> datetime | None:
         return None
 
 
+def _offset(valor: Any) -> int | None:
+    """Sanitiza o offset de fuso (minutos em relação ao UTC, ex.: −180 = BRT).
+
+    Só aceita inteiro dentro de −840..+840 (UTC−14 a UTC+14, os extremos que
+    existem de verdade). Qualquer outra coisa vira ``None`` — assim um valor podre
+    do cliente NÃO estoura o CHECK da coluna e derruba a partida inteira com 500.
+    A coluna é anulável de propósito (apps antigos não mandam este campo)."""
+    if isinstance(valor, bool) or not isinstance(valor, int):
+        return None
+    return valor if -840 <= valor <= 840 else None
+
+
 class RepositorioSincronizacao:
     """Acesso a partidas/jogadas/XP/progressão para a sincronização.
 
@@ -88,12 +103,13 @@ class RepositorioSincronizacao:
               (id_partida, co_evento, co_jogo, co_variante, co_modo, id_usuario,
                co_anonimo, id_usuario_j2, co_dificuldade, nu_placar_j1,
                nu_placar_j2, ic_pontua, co_status, co_lote_migracao,
-               dh_inicio, dh_fim)
+               dh_inicio, dh_fim, nu_offset_minuto_j1, nu_offset_minuto_j2)
             VALUES
               (:id_partida, :co_evento, :co_jogo, :co_variante, :co_modo,
                :id_usuario, :co_anonimo, :id_usuario_j2, :co_dificuldade,
                :nu_placar_j1, :nu_placar_j2, :ic_pontua, :co_status,
-               :co_lote_migracao, :dh_inicio, :dh_fim)
+               :co_lote_migracao, :dh_inicio, :dh_fim,
+               :nu_offset_minuto_j1, :nu_offset_minuto_j2)
             ON CONFLICT (co_evento) DO NOTHING
             RETURNING id_partida
             """
@@ -119,6 +135,14 @@ class RepositorioSincronizacao:
                 # asyncpg exige datetime (não string ISO) para timestamptz.
                 "dh_inicio": _dt(partida.get("dh_inicio")),
                 "dh_fim": _dt(partida.get("dh_fim")),
+                # Fuso do jogador no momento da partida (offset UTC em MINUTOS).
+                # OPCIONAIS: o app só passa a enviá-los na próxima versão, e as
+                # versões já publicadas continuam funcionando (viram NULL).
+                # Necessários porque `timestamptz` guarda o INSTANTE, não o fuso
+                # de origem — sem eles não dá para saber que a partida foi jogada
+                # "às 21h da noite do jogador".
+                "nu_offset_minuto_j1": _offset(partida.get("nu_offset_minuto_j1")),
+                "nu_offset_minuto_j2": _offset(partida.get("nu_offset_minuto_j2")),
             },
         )
         if resultado.first() is None:
@@ -141,15 +165,23 @@ class RepositorioSincronizacao:
         return True
 
     async def _gravar_jogada(self, id_partida: str, jogada: dict[str, Any]) -> None:
+        # O app envia a STRING (`'cpu'`); a coluna guarda o NÚMERO. A dimensão faz
+        # a tradução. Código que não existe vira 9999 (em vez de estourar a FK com
+        # 500 e travar a fila de sincronização do aparelho para sempre).
+        nu_origem, _ = await dimensoes.resolver(
+            self.sessao,
+            "origem_decisao",
+            jogada.get("co_origem_decisao", "humano"),
+        )
         await self.sessao.execute(
             text(
                 """
                 INSERT INTO partida.tb002_jogada
                   (id_jogada, id_partida, nu_ordem, nu_jogador, dh_jogada,
-                   nu_timer_ms, nu_tempo_decisao_ms, co_origem_decisao)
+                   nu_timer_ms, nu_tempo_decisao_ms, nu_origem_decisao)
                 VALUES
                   (:id_jogada, :id_partida, :nu_ordem, :nu_jogador, :dh_jogada,
-                   :nu_timer_ms, :nu_tempo_decisao_ms, :co_origem_decisao)
+                   :nu_timer_ms, :nu_tempo_decisao_ms, :nu_origem_decisao)
                 """
             ),
             {
@@ -160,41 +192,74 @@ class RepositorioSincronizacao:
                 "dh_jogada": _dt(jogada.get("dh_jogada")),
                 "nu_timer_ms": jogada.get("nu_timer_ms"),
                 "nu_tempo_decisao_ms": jogada.get("nu_tempo_decisao_ms", 0),
-                "co_origem_decisao": jogada.get("co_origem_decisao", "humano"),
+                "nu_origem_decisao": nu_origem,
             },
         )
         # Extensão específica do Pontinhos (1:1), quando presente no payload.
         pontinhos = jogada.get("pontinhos")
         if pontinhos:
-            await self.sessao.execute(
-                text(
-                    """
-                    INSERT INTO jogo_pontinhos.tb002_jogada
-                      (id_jogada, co_jogador, co_aresta, ar_tabuleiro_antes,
-                       ar_tabuleiro_apos, nu_caixas_fechadas, co_acao,
-                       co_situacao, ar_probabilidade_cnn, ar_score_busca,
-                       nu_profundidade, js_extra)
-                    VALUES
-                      (:id_jogada, :co_jogador, :co_aresta, :ar_antes, :ar_apos,
-                       :nu_caixas, :co_acao, :co_situacao, :ar_prob, :ar_score,
-                       :nu_prof, :js_extra)
-                    """
-                ),
-                {
-                    "id_jogada": jogada.get("id_jogada"),
-                    "co_jogador": pontinhos.get("co_jogador"),
-                    "co_aresta": pontinhos.get("co_aresta"),
-                    "ar_antes": pontinhos.get("ar_tabuleiro_antes"),
-                    "ar_apos": pontinhos.get("ar_tabuleiro_apos"),
-                    "nu_caixas": pontinhos.get("nu_caixas_fechadas", 0),
-                    "co_acao": pontinhos.get("co_acao"),
-                    "co_situacao": pontinhos.get("co_situacao"),
-                    "ar_prob": pontinhos.get("ar_probabilidade_cnn"),
-                    "ar_score": pontinhos.get("ar_score_busca"),
-                    "nu_prof": pontinhos.get("nu_profundidade"),
-                    "js_extra": pontinhos.get("js_extra"),
-                },
-            )
+            await self._gravar_jogada_pontinhos(jogada.get("id_jogada"), pontinhos)
+
+    async def _gravar_jogada_pontinhos(
+        self, id_jogada: Any, pontinhos: dict[str, Any]
+    ) -> None:
+        """Telemetria do Pontinhos (1:1 com a jogada genérica).
+
+        ⚠️ O app **ainda envia** `ar_tabuleiro_antes`/`ar_tabuleiro_apos`, mas essas
+        colunas **não existem mais** (migração 0006). Nós as **ignoramos em
+        silêncio**: o tabuleiro é RECONSTRUÍDO da sequência de arestas
+        (`reconstrutor_partida_pontinhos.py`), e guardá-lo era pagar disco por algo
+        derivável (~316 B por lance — o maior corte de espaço do redesenho).
+        Ignorar em vez de rejeitar é o que permite este backend subir ANTES do app.
+        """
+        nu_acao, acao_desconhecida = await dimensoes.resolver(
+            self.sessao, "acao", pontinhos.get("co_acao")
+        )
+        nu_situacao, situacao_desconhecida = await dimensoes.resolver(
+            self.sessao, "situacao", pontinhos.get("co_situacao")
+        )
+
+        # Se o código não existe na dimensão, a coluna guarda 9999 — mas a string
+        # CRUA não pode se perder: é a única pista do que precisa ser cadastrado.
+        js_extra = pontinhos.get("js_extra")
+        if acao_desconhecida or situacao_desconhecida:
+            js_extra = dict(js_extra) if isinstance(js_extra, dict) else {}
+            if acao_desconhecida:
+                js_extra["co_acao_desconhecido"] = pontinhos.get("co_acao")
+            if situacao_desconhecida:
+                js_extra["co_situacao_desconhecido"] = pontinhos.get("co_situacao")
+
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO jogo_pontinhos.tb002_jogada
+                  (id_jogada, co_jogador, co_aresta, nu_caixas_fechadas,
+                   nu_acao, nu_situacao, ar_probabilidade_cnn, ar_score_busca,
+                   nu_profundidade, js_extra)
+                VALUES
+                  (:id_jogada, :co_jogador, :co_aresta, :nu_caixas,
+                   :nu_acao, :nu_situacao, :ar_prob, :ar_score,
+                   :nu_prof, :js_extra)
+                """
+            ),
+            {
+                "id_jogada": id_jogada,
+                # ±1: valores CONTRATUAIS (aparecem na matriz da CNN). Não mexer.
+                "co_jogador": pontinhos.get("co_jogador"),
+                # Sem as matrizes, ESTA é a coluna mais crítica da tabela: é dela
+                # que o tabuleiro inteiro é reconstruído.
+                "co_aresta": pontinhos.get("co_aresta"),
+                "nu_caixas": pontinhos.get("nu_caixas_fechadas", 0),
+                "nu_acao": nu_acao,
+                "nu_situacao": nu_situacao,
+                "ar_prob": pontinhos.get("ar_probabilidade_cnn"),
+                "ar_score": pontinhos.get("ar_score_busca"),
+                "nu_prof": pontinhos.get("nu_profundidade"),
+                # ⚠️ asyncpg quer uma STRING JSON para JSONB (não um dict Python) —
+                # passar o dict cru levanta DataError e vira 500.
+                "js_extra": json.dumps(js_extra) if js_extra is not None else None,
+            },
+        )
 
     async def _gravar_xp(
         self,
@@ -203,22 +268,28 @@ class RepositorioSincronizacao:
         co_anonimo: str | None,
         parcela: dict[str, Any],
     ) -> None:
+        # String do app → chave numérica da dimensão (9999 se não existir).
+        nu_tipo_xp, _ = await dimensoes.resolver(
+            self.sessao, "tipo_xp", parcela.get("co_tipo_xp")
+        )
         await self.sessao.execute(
             text(
                 """
                 INSERT INTO partida.tb003_xp_partida
-                  (id_xp_partida, id_partida, id_usuario, co_anonimo, co_tipo_xp,
+                  (id_xp_partida, id_partida, id_usuario, co_anonimo, nu_tipo_xp,
                    nu_xp, co_referencia, dh_registro)
                 VALUES
                   (gen_random_uuid(), :id_partida, :id_usuario, :co_anonimo,
-                   :co_tipo_xp, :nu_xp, :co_referencia, now())
+                   :nu_tipo_xp, :nu_xp, :co_referencia, now())
                 """
             ),
             {
                 "id_partida": id_partida,
                 "id_usuario": id_usuario,
                 "co_anonimo": co_anonimo,
-                "co_tipo_xp": parcela.get("co_tipo_xp"),
+                # A coluna é NOT NULL: se a parcela vier sem tipo, 9999 preserva o
+                # XP (que é o dado que importa) em vez de derrubar a partida.
+                "nu_tipo_xp": nu_tipo_xp or dimensoes.NU_DESCONHECIDO,
                 "nu_xp": parcela.get("nu_xp", 0),
                 "co_referencia": parcela.get("co_referencia"),
             },

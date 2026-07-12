@@ -114,6 +114,8 @@ async def registrar_dispositivo(
         co_token_fcm=corpo.co_token_fcm,
         sg_plataforma=corpo.sg_plataforma,
         co_idioma=corpo.co_idioma,
+        co_fuso=corpo.co_fuso,
+        nu_offset_minuto=corpo.nu_offset_minuto,
     )
     return {"ok": True}
 

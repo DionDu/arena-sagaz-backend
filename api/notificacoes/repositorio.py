@@ -56,20 +56,34 @@ class RepositorioNotificacao:
         co_token_fcm: str,
         sg_plataforma: str,
         co_idioma: str,
+        co_fuso: Optional[str] = None,
+        nu_offset_minuto: Optional[int] = None,
     ) -> None:
         """Insere o token; se o token já existe (UNIQUE), **atualiza** o dono, a
-        plataforma, o idioma e `dh_atualizacao`. É o UPSERT por `co_token_fcm`
-        descrito no data-model (token igual = mesma linha)."""
+        plataforma, o idioma, o fuso e `dh_atualizacao`. É o UPSERT por
+        `co_token_fcm` descrito no data-model (token igual = mesma linha).
+
+        ⚠️ `co_fuso`/`nu_offset_minuto` usam **COALESCE** no UPDATE: um app ANTIGO
+        (que não envia esses campos) não pode **apagar** o fuso que uma versão nova
+        já tinha gravado. Sem o COALESCE, bastaria o usuário abrir a versão velha
+        num segundo aparelho — ou o app reenviar o registro por outro caminho — para
+        zerar o dado. O padrão é `EXCLUDED.x` só quando `x` veio preenchido."""
         sql = text(
             """
             INSERT INTO conta.tb005_dispositivo_notificacao
-                (id_usuario, co_token_fcm, sg_plataforma, co_idioma)
-            VALUES (:id_usuario, :token, :plataforma, :idioma)
+                (id_usuario, co_token_fcm, sg_plataforma, co_idioma,
+                 co_fuso, nu_offset_minuto)
+            VALUES (:id_usuario, :token, :plataforma, :idioma,
+                    :fuso, :offset_minuto)
             ON CONFLICT (co_token_fcm) DO UPDATE SET
-                id_usuario     = EXCLUDED.id_usuario,
-                sg_plataforma  = EXCLUDED.sg_plataforma,
-                co_idioma      = EXCLUDED.co_idioma,
-                dh_atualizacao = now()
+                id_usuario       = EXCLUDED.id_usuario,
+                sg_plataforma    = EXCLUDED.sg_plataforma,
+                co_idioma        = EXCLUDED.co_idioma,
+                co_fuso          = COALESCE(EXCLUDED.co_fuso,
+                                            conta.tb005_dispositivo_notificacao.co_fuso),
+                nu_offset_minuto = COALESCE(EXCLUDED.nu_offset_minuto,
+                                            conta.tb005_dispositivo_notificacao.nu_offset_minuto),
+                dh_atualizacao   = now()
             """
         )
         await self.sessao.execute(
@@ -79,6 +93,8 @@ class RepositorioNotificacao:
                 "token": co_token_fcm,
                 "plataforma": sg_plataforma,
                 "idioma": co_idioma,
+                "fuso": co_fuso,
+                "offset_minuto": nu_offset_minuto,
             },
         )
 

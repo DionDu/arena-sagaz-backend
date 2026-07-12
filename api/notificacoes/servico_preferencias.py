@@ -28,14 +28,24 @@ class ServicoPreferenciasNotificacao:
         co_token_fcm: str,
         sg_plataforma: str,
         co_idioma: str,
+        co_fuso: Optional[str] = None,
+        nu_offset_minuto: Optional[int] = None,
     ) -> None:
         """Registra/atualiza o token FCM. O dono (`id_usuario`) é resolvido do
-        `uid` do Firebase quando há login; em sessão de convidado fica nulo."""
+        `uid` do Firebase quando há login; em sessão de convidado fica nulo.
+
+        `co_fuso` (IANA) e `nu_offset_minuto` são opcionais — apps antigos não os
+        enviam. Ver [DispositivoRequest] para o porquê de coletá-los desde já."""
         id_usuario = (
             await self.repo.id_usuario_por_identidade(uid) if uid else None
         )
         await self.repo.upsert_dispositivo(
-            id_usuario, co_token_fcm, sg_plataforma, co_idioma
+            id_usuario,
+            co_token_fcm,
+            sg_plataforma,
+            co_idioma,
+            co_fuso,
+            nu_offset_minuto,
         )
         await self.sessao.commit()
 

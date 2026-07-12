@@ -116,11 +116,22 @@ class _FakeServicoPref:
 
     def __init__(self):
         self.dispositivos = []
+        self.fusos = []
         self.removidos = []
         self.prefs: list[PreferenciaItem] = []
 
-    async def registrar_dispositivo(self, uid, co_token_fcm, sg_plataforma, co_idioma):
+    async def registrar_dispositivo(
+        self,
+        uid,
+        co_token_fcm,
+        sg_plataforma,
+        co_idioma,
+        co_fuso=None,
+        nu_offset_minuto=None,
+    ):
         self.dispositivos.append((uid, co_token_fcm, sg_plataforma, co_idioma))
+        # Guardado à parte para os testes de fuso não mexerem nas tuplas antigas.
+        self.fusos.append((co_fuso, nu_offset_minuto))
 
     async def remover_dispositivo(self, uid, co_token_fcm):
         self.removidos.append((uid, co_token_fcm))
@@ -171,6 +182,66 @@ def test_registrar_dispositivo_convidado_sem_dono(client):
     )
     assert r.status_code == 200
     assert fake.dispositivos[0][0] is None  # uid nulo
+
+
+# ── Idioma + FUSO do aparelho (preparo do módulo de campanha) ────────────────
+
+
+def test_registrar_dispositivo_com_fuso(client):
+    """O app NOVO manda o fuso IANA + o offset; os dois chegam ao serviço."""
+    app.dependency_overrides[usuario_atual_opcional] = lambda: None
+    fake = _FakeServicoPref()
+    _usar_servico_pref(fake)
+
+    r = client.post(
+        "/v1/notificacoes/dispositivo",
+        json={
+            "co_token_fcm": "tok-fuso",
+            "sg_plataforma": "android",
+            "co_idioma": "pt",
+            "co_fuso": "America/Sao_Paulo",
+            "nu_offset_minuto": -180,
+        },
+    )
+    assert r.status_code == 200
+    assert fake.fusos == [("America/Sao_Paulo", -180)]
+
+
+def test_registrar_dispositivo_app_antigo_sem_fuso_continua_valendo(client):
+    """⚠️ O CASO QUE NÃO PODE QUEBRAR: o app já publicado NÃO envia fuso nenhum.
+
+    Se estes campos fossem obrigatórios, TODOS os apps em campo passariam a tomar
+    422 no registro do token — e parariam de receber push. Eles são opcionais de
+    propósito."""
+    app.dependency_overrides[usuario_atual_opcional] = lambda: None
+    fake = _FakeServicoPref()
+    _usar_servico_pref(fake)
+
+    r = client.post(
+        "/v1/notificacoes/dispositivo",
+        json={"co_token_fcm": "tok-velho", "sg_plataforma": "android", "co_idioma": "pt"},
+    )
+    assert r.status_code == 200
+    assert fake.fusos == [(None, None)]
+
+
+def test_offset_de_fuso_impossivel_e_recusado(client):
+    """Offset fora de UTC-14..UTC+14 não existe no mundo real — 422, não grava."""
+    app.dependency_overrides[usuario_atual_opcional] = lambda: None
+    fake = _FakeServicoPref()
+    _usar_servico_pref(fake)
+
+    r = client.post(
+        "/v1/notificacoes/dispositivo",
+        json={
+            "co_token_fcm": "tok-absurdo",
+            "sg_plataforma": "android",
+            "co_idioma": "pt",
+            "nu_offset_minuto": 5000,
+        },
+    )
+    assert r.status_code == 422
+    assert fake.dispositivos == []
 
 
 def test_registrar_dispositivo_plataforma_invalida_422(client):
