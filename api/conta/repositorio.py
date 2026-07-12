@@ -176,6 +176,74 @@ class RepositorioUsuario:
         linha = resultado.mappings().first()
         return dict(linha) if linha else {}
 
+    async def reconciliar_provedores(
+        self, id_usuario: str, provedores: list[tuple[str, str]]
+    ) -> None:
+        """**Substitui** os provedores do usuário pela lista que o Firebase declara.
+
+        Por que não basta o `vincular_provedor` (que só INSERE): o Firebase
+        **REMOVE** provedores sozinho. Com "uma conta por e-mail" ligado, entrar com
+        Google numa conta de e-mail/senha **não verificada** faz o Firebase descartar
+        a senha — ele considera que aquela credencial nunca provou a posse do e-mail,
+        e o Google provou. Nossa tabela, sendo append-only, continuava mostrando o
+        provedor `email` que **já não existe mais**.
+
+        Isso não era inofensivo: a `tb002` virou a tabela que **mente** justamente
+        quando se investiga um problema de login — o cenário em que ela mais é
+        consultada. A tela de Conta nunca se enganou porque lê os provedores do
+        objeto `User` do Firebase, não do nosso banco. Agora o banco também conta a
+        verdade.
+
+        [provedores] são pares `(co_provedor, co_identidade_provedor)` extraídos da
+        claim `firebase.identities` do ID token — a lista ATUAL, autoritativa.
+
+        Se a lista vier **vazia** (token sem a claim), não apagamos nada: é melhor um
+        dado velho do que perder o vínculo por causa de um token atípico.
+        """
+        if not provedores:
+            return
+
+        # Apaga os provedores que o Firebase não lista mais. Filtramos por
+        # `co_provedor` (e não pelo par com a identidade) porque é assim que o
+        # Firebase desvincula: o provedor inteiro sai. Apagar só o que sumiu — em vez
+        # de "limpa tudo e reinsere" — preserva o `dh_vinculo` de quem continua
+        # ligado, que é a data em que a pessoa REALMENTE vinculou aquele provedor.
+        codigos = [p for p, _ in provedores]
+        await self.sessao.execute(
+            text(
+                """
+                DELETE FROM conta.tb002_provedor_login
+                WHERE id_usuario = :id
+                  AND co_provedor <> ALL(:codigos)
+                """
+            ),
+            {"id": id_usuario, "codigos": codigos},
+        )
+
+        for co_provedor, co_identidade in provedores:
+            await self.vincular_provedor(
+                id_usuario=id_usuario,
+                co_provedor=co_provedor,
+                co_identidade_provedor=co_identidade,
+            )
+
+    async def definir_provedor_principal(
+        self, id_usuario: str, co_provedor: str
+    ) -> None:
+        """Troca o `co_provedor_principal` da conta.
+
+        Usado quando o provedor que CRIOU a conta some (o Firebase o removeu). Sem
+        isto, `tb001_usuario` continuaria dizendo `email` numa conta que só tem
+        Google — a mesma mentira que a `tb002` contava."""
+        await self.sessao.execute(
+            text(
+                "UPDATE conta.tb001_usuario "
+                "SET co_provedor_principal = :provedor, dh_atualizacao = now() "
+                "WHERE id_usuario = :id"
+            ),
+            {"id": id_usuario, "provedor": co_provedor},
+        )
+
     async def listar_provedores(self, id_usuario: str) -> list[dict[str, Any]]:
         sql = text(
             "SELECT * FROM conta.vw002_provedor_login "

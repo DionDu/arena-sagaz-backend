@@ -59,6 +59,37 @@ def mapear_provedor(sign_in_provider: str) -> str:
     return _MAPA_PROVEDOR.get(sign_in_provider, sign_in_provider or "desconhecido")
 
 
+def provedores_do_token(identidade: IdentidadeFirebase) -> list[tuple[str, str]]:
+    """Lista os provedores que o Firebase declara **agora** para esta conta.
+
+    Sai da claim `firebase.identities` do ID token, que tem esta cara::
+
+        {"google.com": ["108…"], "email": ["a@b.com"]}
+
+    Ou seja: o provedor → as identidades dele. É a **fonte da verdade** — e é o
+    único jeito de o nosso banco descobrir que um provedor foi **REMOVIDO**, coisa
+    que o Firebase faz sozinho (ver `reconciliar_provedores` no repositório).
+
+    A chave `email` corresponde ao `sign_in_provider` `password` (o Firebase usa
+    nomes diferentes nos dois lugares) — daí o remapeamento explícito.
+
+    Devolve `[]` se a claim não vier (token atípico): quem chama entende isso como
+    "não sei", e prefere não mexer a apagar vínculo por engano.
+    """
+    identities = (identidade.claims.get("firebase") or {}).get("identities") or {}
+    if not isinstance(identities, dict):
+        return []
+
+    pares: list[tuple[str, str]] = []
+    for chave, valores in identities.items():
+        # Na claim o provedor de senha aparece como "email"; no sign_in_provider,
+        # como "password". Normalizamos para o nosso código único: "email".
+        co_provedor = "email" if chave == "email" else mapear_provedor(chave)
+        for valor in valores or []:
+            pares.append((co_provedor, str(valor)))
+    return pares
+
+
 def calcular_idade(nascimento: date, hoje: Optional[date] = None) -> int:
     """Idade em anos completos (mesma regra do app, no servidor)."""
     hoje = hoje or date.today()
@@ -278,15 +309,33 @@ class ServicoConta:
             )
             if atualizada is not None:
                 linha = atualizada
-        # Registra o provedor com que a pessoa entrou AGORA. Assim, quem criou a
-        # conta por e-mail e depois entrou com Google passa a ter os DOIS
-        # provedores vinculados na nossa base (antes só o de criação aparecia).
-        # `vincular_provedor` é idempotente (ON CONFLICT DO NOTHING).
-        await self.repo.vincular_provedor(
-            id_usuario=linha["id_usuario"],
-            co_provedor=mapear_provedor(identidade.provedor),
-            co_identidade_provedor=identidade.uid,
-        )
+        # RECONCILIA os provedores com o que o Firebase declara AGORA (não apenas
+        # acrescenta). O Firebase REMOVE provedores sozinho — com "uma conta por
+        # e-mail" ligado, entrar com Google numa conta de e-mail/senha NÃO VERIFICADA
+        # faz a senha ser descartada. Como a nossa tabela só inseria, ela continuava
+        # exibindo um provedor que já não existia: mentia exatamente quando alguém a
+        # consultava para investigar um problema de login.
+        provedores = provedores_do_token(identidade)
+        if provedores:
+            await self.repo.reconciliar_provedores(linha["id_usuario"], provedores)
+            # O provedor que CRIOU a conta pode ter sido justamente o removido. Se
+            # ele não existe mais, `co_provedor_principal` passa a apontar para o
+            # provedor da entrada atual — senão a tb001 mentiria igual à tb002.
+            codigos = {p for p, _ in provedores}
+            if linha.get("co_provedor_principal") not in codigos:
+                atual = mapear_provedor(identidade.provedor)
+                await self.repo.definir_provedor_principal(
+                    linha["id_usuario"], atual if atual in codigos else next(iter(codigos))
+                )
+        else:
+            # Token sem a claim `identities` (atípico): cai no comportamento antigo,
+            # só registrando o provedor da entrada atual. Melhor um dado velho do que
+            # apagar vínculos por causa de um token que não sabemos ler.
+            await self.repo.vincular_provedor(
+                id_usuario=linha["id_usuario"],
+                co_provedor=mapear_provedor(identidade.provedor),
+                co_identidade_provedor=identidade.uid,
+            )
         await self.repo.registrar_ultimo_acesso(linha["id_usuario"])
         return await self._montar_perfil(linha)
 

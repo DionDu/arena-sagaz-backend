@@ -6,7 +6,12 @@ import pytest
 
 from api.conta.codigo_usuario import ALFABETO, TAMANHO
 from api.conta.modelos import SessaoRequest
-from api.conta.servico import ServicoConta, calcular_idade, mapear_provedor
+from api.conta.servico import (
+    ServicoConta,
+    calcular_idade,
+    mapear_provedor,
+    provedores_do_token,
+)
 from api.nucleo.excecoes import ErroNegocio, ErroNaoEncontrado
 from api.nucleo.seguranca_firebase import IdentidadeFirebase
 from tests.unitarios.fakes_conta import FakeRepoUsuario, FakeSession
@@ -18,6 +23,8 @@ def _servico(repo):
 
 def _identidade(uid="u1", email="a@b.com", provedor="password"):
     return IdentidadeFirebase(uid=uid, email=email, provedor=provedor)
+
+
 
 
 # ── helpers puros ────────────────────────────────────────────────────────────
@@ -35,6 +42,88 @@ def test_calcular_idade():
     hoje = date(2026, 6, 28)
     assert calcular_idade(date(2000, 6, 28), hoje) == 26
     assert calcular_idade(date(2008, 12, 31), hoje) == 17
+
+
+# ── provedores: a claim `firebase.identities` é a FONTE DA VERDADE ───────────
+
+
+def _identidade_com(provedor, identities):
+    """Identidade com a claim `firebase.identities` — como vem do ID token real."""
+    return IdentidadeFirebase(
+        uid="u1",
+        email="a@b.com",
+        provedor=provedor,
+        claims={"firebase": {"sign_in_provider": provedor, "identities": identities}},
+    )
+
+
+def test_provedores_do_token_le_a_claim_identities():
+    ident = _identidade_com(
+        "google.com",
+        {"google.com": ["108555"], "email": ["a@b.com"]},
+    )
+    # A claim chama o provedor de senha de "email"; o sign_in_provider o chama de
+    # "password". Os dois têm de cair no MESMO código nosso.
+    assert set(provedores_do_token(ident)) == {
+        ("google", "108555"),
+        ("email", "a@b.com"),
+    }
+
+
+def test_provedores_do_token_sem_a_claim_devolve_vazio():
+    # Token atípico (sem `identities`): "não sei" — quem chama não deve apagar nada.
+    assert provedores_do_token(IdentidadeFirebase(uid="u1")) == []
+
+
+def test_login_remove_provedor_que_o_firebase_descartou():
+    """⚠️ O BUG que isto conserta.
+
+    Conta criada por e-mail/senha (não verificada). A pessoa entra com Google no
+    mesmo e-mail → o Firebase DESCARTA a senha (a credencial nunca provou a posse do
+    e-mail; o Google provou). Antes, a nossa `tb002` era append-only e continuava
+    exibindo o provedor `email` — mentindo exatamente para quem fosse investigar um
+    problema de login.
+    """
+    repo = FakeRepoUsuario(_conta_existente())
+    asyncio.run(
+        repo.vincular_provedor(
+            id_usuario="id-u1", co_provedor="email", co_identidade_provedor="a@b.com"
+        )
+    )
+
+    # Agora o Firebase só reconhece o Google (a senha foi removida por ele).
+    ident = _identidade_com("google.com", {"google.com": ["108555"]})
+    asyncio.run(_servico(repo).garantir_sessao(ident, SessaoRequest()))
+
+    provedores = asyncio.run(repo.listar_provedores("id-u1"))
+    assert [p["co_provedor"] for p in provedores] == ["google"]
+
+
+def test_login_corrige_o_provedor_principal_quando_o_original_some():
+    """A `tb001` mentia junto: `co_provedor_principal` seguia 'email' numa conta
+    que só tem Google."""
+    repo = FakeRepoUsuario(_conta_existente())
+
+    ident = _identidade_com("google.com", {"google.com": ["108555"]})
+    asyncio.run(_servico(repo).garantir_sessao(ident, SessaoRequest()))
+
+    conta = repo._por_uid["u1"]
+    assert conta["co_provedor_principal"] == "google"
+
+
+def test_login_preserva_os_provedores_que_continuam_valendo():
+    """Quem tem os DOIS métodos (e-mail verificado + Google) não perde nenhum."""
+    repo = FakeRepoUsuario(_conta_existente())
+
+    ident = _identidade_com(
+        "google.com", {"google.com": ["108555"], "email": ["a@b.com"]}
+    )
+    asyncio.run(_servico(repo).garantir_sessao(ident, SessaoRequest()))
+
+    provedores = asyncio.run(repo.listar_provedores("id-u1"))
+    assert {p["co_provedor"] for p in provedores} == {"google", "email"}
+    # O principal continua o de origem — ele ainda existe, não há o que corrigir.
+    assert repo._por_uid["u1"]["co_provedor_principal"] == "email"
 
 
 # ── criação ──────────────────────────────────────────────────────────────────

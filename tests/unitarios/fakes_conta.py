@@ -76,10 +76,28 @@ class FakeRepoUsuario:
         return dict(linha)
 
     async def vincular_provedor(self, *, id_usuario, co_provedor, co_identidade_provedor):
-        self._provedores.setdefault(id_usuario, []).append(
-            {"co_provedor": co_provedor}
-        )
+        atuais = self._provedores.setdefault(id_usuario, [])
+        # Idempotente, como o ON CONFLICT DO NOTHING da tabela real.
+        if not any(p["co_provedor"] == co_provedor for p in atuais):
+            atuais.append({"co_provedor": co_provedor})
         return {}
+
+    async def reconciliar_provedores(self, id_usuario, provedores):
+        """Substitui o conjunto (espelha o repositório real: apaga quem sumiu)."""
+        codigos = [p for p, _ in provedores]
+        atuais = self._provedores.setdefault(id_usuario, [])
+        atuais[:] = [p for p in atuais if p["co_provedor"] in codigos]
+        for co_provedor, co_identidade in provedores:
+            await self.vincular_provedor(
+                id_usuario=id_usuario,
+                co_provedor=co_provedor,
+                co_identidade_provedor=co_identidade,
+            )
+
+    async def definir_provedor_principal(self, id_usuario, co_provedor):
+        for linha in self._por_uid.values():
+            if linha["id_usuario"] == id_usuario:
+                linha["co_provedor_principal"] = co_provedor
 
     async def listar_provedores(self, id_usuario):
         return list(self._provedores.get(id_usuario, []))
