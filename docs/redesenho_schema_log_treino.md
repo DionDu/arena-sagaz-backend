@@ -62,14 +62,30 @@ CREATE TABLE jogo_pontinhos.tb901_jogada_acao (
 | `nu_acao` | `co_acao` (do app) | `no_acao` |
 |---|---|---|
 | 1 | `captura_gulosa` | Captura gulosa |
-| 2 | `cnn_nucleo_top_p` | CNN — núcleo top-p |
+| 2 | `cnn_nucleo_top_p` | CNN — núcleo top-p **(APOSENTADO)** |
 | 3 | `cnn_argmax_absoluto` | CNN — argmax absoluto |
 | 4 | `cnn_argmax_desempatado` | CNN — argmax desempatado |
 | 5 | `heuristica_gulosa` | Heurística gulosa (reserva) |
+| 6 | `cnn_epsilon_aleatorio` | CNN - erro epsilon (fora do argmax) |
 | **9999** | `desconhecido` | Desconhecido (código novo) |
 
 *(1 = fecha caixa de graça na fase gulosa, sem consultar a CNN. 5 = oráculo de
 reserva, sem rede neural. 9999 = ver §6, política de código desconhecido.)*
+
+**O código 6 e a aposentadoria do 2 (migração `0008`, 2026-07-13).** O app trocou a
+política de dificuldade da CPU. Antes, Cacau/Pita sorteavam o lance dentro de um
+**núcleo top-p** (código 2). O problema: esse núcleo é *adaptativo à confiança da
+rede* — quando a CNN concentra ~99% num único traço (o fim de jogo, com as cadeias
+formadas), o primeiro lance já estoura qualquer alvo `p`, o núcleo colapsa para **um**
+lance e até a Cacau (fácil) passava a jogar perfeito **exatamente no lance que decide
+a partida**. Agora a política é **ε-greedy**: cada personagem tem uma probabilidade
+FIXA de jogar de propósito fora do melhor lance (Cacau 70%, Pita 50%, Tex 30%, Magno
+0%), e esse erro é o **código 6**.
+
+O `cnn_nucleo_top_p` (2) **continua na tabela**: é a verdade histórica das partidas já
+gravadas, e a FK de `tb002_jogada.nu_acao` aponta para ele. Nenhum lance NOVO usa o 2 —
+mas **não recicle o número nem o nome**: um código de dimensão nunca muda de
+significado, senão o histórico vira mentira.
 
 ### 2.2 `jogo_pontinhos.tb902_jogada_situacao` — fase/contexto do lance
 
