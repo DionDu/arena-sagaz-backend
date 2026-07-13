@@ -6,6 +6,61 @@ o que foi descartado e por quê**.
 
 ---
 
+## 2026-07-13 — `co_anonimo` era coluna MORTA: removida das filhas (migração 0007)
+
+**Contexto.** No teste de exclusão de conta (LGPD) do app de produção, o dono notou
+que `co_anonimo` continuava **NULL** em `partida.tb001_partida`,
+`partida.tb003_xp_partida` e `progressao.tb001_progressao_usuario`, e perguntou se a
+coluna era mesmo necessária — apontando que `progressao.tb002_conquista_usuario` vive
+só com `id_usuario` e nunca fez falta. **A intuição estava certa.**
+
+**O quê.** `DROP` da coluna em 4 tabelas (as 3 acima + `log.tb001_evento_sync_rejeitado`).
+**Mantida** em `conta.tb001_usuario`, onde tem uso real: é o carimbo do ato de
+anonimização. Do lado do app, some o `ProvedorIdentidade.coAnonimo` e o campo do
+payload de sync (drift schema v4).
+
+**Por quê.** Três fatos, apurados antes de mexer:
+
+1. **Eram DOIS `co_anonimo` homônimos e diferentes.** No app, um UUID **do APARELHO**
+   (nascia no `shared_preferences`). No banco, o rótulo **da CONTA EXTINTA** (nasce no
+   `UPDATE` da anonimização). O sync misturava os dois.
+
+2. **Era logicamente IMPOSSÍVEL preencher a coluna nas filhas.** O sync gravava
+   `payload.co_anonimo or usuario.co_anonimo` — mas `usuario.co_anonimo` só existe
+   DEPOIS da anonimização, e a anonimização **zera o `co_identidade_externa`**, que é
+   por onde `usuario_autenticado` acha a conta a partir do token. Conta anonimizada
+   **nunca mais autentica ⇒ nunca mais sincroniza**. (E o `payload.co_anonimo` também
+   chegava nulo: o app chamava `registrarPartidaConcluida()` sem passar o parâmetro.)
+
+3. **Zero consumidores.** Nenhum `SELECT`/`WHERE`/`JOIN`/`GROUP BY` na API, nos
+   notebooks ou no gerador de dataset. Era write-only.
+
+**O que foi DESCARTADO e por quê.** A alternativa óbvia era *"consertar o bug"* — fazer
+o app enviar o `coAnonimo` e o servidor gravá-lo. **Recusada**, e não por preguiça:
+
+- É **redundante**. O propósito (FR-024) era "uma âncora que sobrevive à exclusão", mas
+  **`id_usuario` já faz isso**: a conta é **anonimizada, não deletada** — as FKs
+  continuam válidas e não há mais PII atrás da chave. O `id_usuario` **já É** o
+  pseudônimo; `co_anonimo` seria um segundo pseudônimo para a mesma coisa.
+- É **pior para a privacidade**. Sendo **por aparelho**, ele ligaria a **conta excluída**
+  à **conta nova criada depois no mesmo celular** — um identificador que atravessa a
+  exclusão e permite **re-identificação por vínculo**. É o oposto do que a LGPD quer.
+  **Remover a coluna FORTALECE a anonimização.**
+
+**Armadilha tratada (a mesma da 0006):** 4 views projetavam a coluna via `SELECT *`/`p.*`
+e **travariam** o `DROP COLUMN` — derrubadas e recriadas. As outras duas
+(`partida.vw002_jogada`, `progressao.vw101_ranking_global_geral`) não a referenciam e
+ficaram **intactas** — previsto na análise e confirmado no banco depois de aplicar.
+
+**Retrocompatibilidade:** apps já publicados podem seguir enviando `co_anonimo` no
+payload — o campo simplesmente **não é lido**. Nada quebra.
+
+**Pegadinha do Alembic:** `alembic_version.version_num` é `VARCHAR(32)`. O nome original
+da revisão (`0007_remove_co_anonimo_das_filhas`, 33 chars) fazia o `upgrade` **rodar o
+DDL e falhar no fim**, revertendo tudo. Encurtado para `0007_drop_co_anonimo`.
+
+---
+
 ## 2026-07-12 — Redesenho do log de partidas/treino (migração 0006)
 
 **Contexto.** O Railway roda no plano de US$ 5 e o motor de crescimento do banco é o
