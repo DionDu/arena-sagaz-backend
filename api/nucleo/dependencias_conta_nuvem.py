@@ -35,14 +35,18 @@ from api.nucleo.seguranca_firebase import IdentidadeFirebase
 class UsuarioAutenticado:
     """Dono autenticado de uma requisição da 006, já resolvido no banco.
 
-    Reúne o ``id_usuario`` interno (UUID), a âncora anônima e o código público,
-    além do contexto de cabeçalhos — o que as rotas de sync/partidas/ranking
-    precisam para gravar o log e incrementar a progressão do usuário certo.
+    Reúne o ``id_usuario`` interno (UUID) e o código público, além do contexto de
+    cabeçalhos — o que as rotas de sync/partidas/ranking precisam para gravar o log
+    e incrementar a progressão do usuário certo.
+
+    NÃO existe aqui uma "âncora anônima": o ``id_usuario`` JÁ é o pseudônimo. A
+    exclusão de conta **anonimiza** a linha (apaga a PII) em vez de deletá-la, então
+    a chave continua válida e sem dado pessoal atrás dela. Ver a migração
+    ``0007_drop_co_anonimo``.
     """
 
     id_usuario: str
     co_usuario: str
-    co_anonimo: Optional[str]
     dt_nascimento: Optional[date]
     contexto: ContextoRequisicao
 
@@ -76,7 +80,6 @@ async def usuario_autenticado(
     return UsuarioAutenticado(
         id_usuario=linha["id_usuario"],
         co_usuario=linha["co_usuario"],
-        co_anonimo=linha.get("co_anonimo"),
         dt_nascimento=linha.get("dt_nascimento"),
         contexto=contexto,
     )

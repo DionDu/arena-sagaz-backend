@@ -32,7 +32,6 @@ class RepositorioSincronizacaoProtocolo(Protocol):
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str,
         payload: dict[str, Any],
     ) -> bool:
@@ -44,7 +43,6 @@ class RepositorioSincronizacaoProtocolo(Protocol):
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str,
         payload: dict[str, Any],
     ) -> bool:
@@ -56,7 +54,6 @@ class RepositorioSincronizacaoProtocolo(Protocol):
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         snapshot: dict[str, Any],
     ) -> None:
         """Aplica o snapshot autoritativo do app como reparo (GREATEST + união
@@ -67,7 +64,6 @@ class RepositorioSincronizacaoProtocolo(Protocol):
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_lote_migracao: str,
         progressao_convidado: dict[str, Any],
     ) -> bool:
@@ -83,7 +79,6 @@ class RepositorioSincronizacaoProtocolo(Protocol):
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str | None,
         co_tipo: str | None,
         co_motivo: str,
@@ -163,7 +158,6 @@ class ServicoSincronizacao:
                 # Arquiva o rejeitado (o servidor já tem o payload em mãos).
                 await self.repo.arquivar_evento_rejeitado(
                     id_usuario=usuario.id_usuario,
-                    co_anonimo=usuario.co_anonimo,
                     co_evento=ce,
                     co_tipo=co_tipo,
                     co_motivo="rejeitado_contrato",
@@ -183,14 +177,12 @@ class ServicoSincronizacao:
                     if (co_tipo or "partida") == "conquista":
                         inserido = await self.repo.gravar_conquista(
                             id_usuario=usuario.id_usuario,
-                            co_anonimo=usuario.co_anonimo,
                             co_evento=co_evento,
                             payload=payload,
                         )
                     else:
                         inserido = await self.repo.gravar_evento(
                             id_usuario=usuario.id_usuario,
-                            co_anonimo=usuario.co_anonimo,
                             co_evento=co_evento,
                             payload=payload,
                         )
@@ -199,7 +191,6 @@ class ServicoSincronizacao:
                 # re-rodar a lógica que falhou) e segue. `falhas` → o app expurga.
                 await self.repo.arquivar_evento_rejeitado(
                     id_usuario=usuario.id_usuario,
-                    co_anonimo=usuario.co_anonimo,
                     co_evento=co_evento,
                     co_tipo=co_tipo,
                     co_motivo="falha_processamento",
@@ -250,7 +241,6 @@ class ServicoSincronizacao:
 
         aplicado = await self.repo.aplicar_merge_se_novo(
             id_usuario=usuario.id_usuario,
-            co_anonimo=usuario.co_anonimo,
             co_lote_migracao=co_lote,
             progressao_convidado=resumo,
         )
@@ -275,7 +265,6 @@ class ServicoSincronizacao:
             )
         await self.repo.reconciliar_progressao(
             id_usuario=usuario.id_usuario,
-            co_anonimo=usuario.co_anonimo,
             snapshot=resumo,
         )
         progressao = await self.repo.obter_progressao(usuario.id_usuario)

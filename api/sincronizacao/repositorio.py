@@ -86,13 +86,20 @@ class RepositorioSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str,
         payload: dict[str, Any],
     ) -> bool:
         """Grava a partida + jogadas + extensão Pontinhos + XP e incrementa a
         progressão, tudo na transação da requisição. Idempotente: se o
-        ``co_evento`` já existe, não faz nada e devolve ``False``."""
+        ``co_evento`` já existe, não faz nada e devolve ``False``.
+
+        ⚠️ O app **ainda pode enviar** ``co_anonimo`` no payload da partida, mas a
+        coluna **não existe mais** (migração 0007) e o campo é **ignorado**. Quem
+        identifica o dono é o ``id_usuario`` do token — e ele já é um pseudônimo
+        (a exclusão de conta ANONIMIZA a linha, não a deleta). Apps antigos em
+        campo continuam funcionando: o campo extra do payload simplesmente não é
+        lido.
+        """
         partida = payload.get("partida") or {}
 
         # 1) Partida (raiz do evento). ON CONFLICT no co_evento garante o dedupe.
@@ -101,12 +108,12 @@ class RepositorioSincronizacao:
             """
             INSERT INTO partida.tb001_partida
               (id_partida, co_evento, co_jogo, co_variante, co_modo, id_usuario,
-               co_anonimo, id_usuario_j2, co_dificuldade, nu_placar_j1,
+               id_usuario_j2, co_dificuldade, nu_placar_j1,
                nu_placar_j2, ic_pontua, co_status, co_lote_migracao,
                dh_inicio, dh_fim, nu_offset_minuto_j1, nu_offset_minuto_j2)
             VALUES
               (:id_partida, :co_evento, :co_jogo, :co_variante, :co_modo,
-               :id_usuario, :co_anonimo, :id_usuario_j2, :co_dificuldade,
+               :id_usuario, :id_usuario_j2, :co_dificuldade,
                :nu_placar_j1, :nu_placar_j2, :ic_pontua, :co_status,
                :co_lote_migracao, :dh_inicio, :dh_fim,
                :nu_offset_minuto_j1, :nu_offset_minuto_j2)
@@ -123,8 +130,6 @@ class RepositorioSincronizacao:
                 "co_variante": partida.get("co_variante"),
                 "co_modo": partida.get("co_modo"),
                 "id_usuario": id_usuario,
-                # co_anonimo do J1 sobrevive à anonimização (LGPD, FR-024).
-                "co_anonimo": partida.get("co_anonimo") or co_anonimo,
                 "id_usuario_j2": partida.get("id_usuario_j2"),
                 "co_dificuldade": partida.get("co_dificuldade"),
                 "nu_placar_j1": partida.get("nu_placar_j1", 0),
@@ -156,12 +161,10 @@ class RepositorioSincronizacao:
 
         # 3) Parcelas de XP da partida.
         for parcela in payload.get("xp", []):
-            await self._gravar_xp(id_partida, id_usuario, co_anonimo, parcela)
+            await self._gravar_xp(id_partida, id_usuario, parcela)
 
         # 4) Incrementa a progressão (só se a partida pontua).
-        await self._incrementar_progressao(
-            id_usuario, co_anonimo, partida, payload.get("xp", [])
-        )
+        await self._incrementar_progressao(id_usuario, partida, payload.get("xp", []))
         return True
 
     async def _gravar_jogada(self, id_partida: str, jogada: dict[str, Any]) -> None:
@@ -265,7 +268,6 @@ class RepositorioSincronizacao:
         self,
         id_partida: str,
         id_usuario: str,
-        co_anonimo: str | None,
         parcela: dict[str, Any],
     ) -> None:
         # String do app → chave numérica da dimensão (9999 se não existir).
@@ -276,17 +278,16 @@ class RepositorioSincronizacao:
             text(
                 """
                 INSERT INTO partida.tb003_xp_partida
-                  (id_xp_partida, id_partida, id_usuario, co_anonimo, nu_tipo_xp,
+                  (id_xp_partida, id_partida, id_usuario, nu_tipo_xp,
                    nu_xp, co_referencia, dh_registro)
                 VALUES
-                  (gen_random_uuid(), :id_partida, :id_usuario, :co_anonimo,
+                  (gen_random_uuid(), :id_partida, :id_usuario,
                    :nu_tipo_xp, :nu_xp, :co_referencia, now())
                 """
             ),
             {
                 "id_partida": id_partida,
                 "id_usuario": id_usuario,
-                "co_anonimo": co_anonimo,
                 # A coluna é NOT NULL: se a parcela vier sem tipo, 9999 preserva o
                 # XP (que é o dado que importa) em vez de derrubar a partida.
                 "nu_tipo_xp": nu_tipo_xp or dimensoes.NU_DESCONHECIDO,
@@ -298,7 +299,6 @@ class RepositorioSincronizacao:
     async def _incrementar_progressao(
         self,
         id_usuario: str,
-        co_anonimo: str | None,
         partida: dict[str, Any],
         xp: list[dict[str, Any]],
     ) -> None:
@@ -325,11 +325,11 @@ class RepositorioSincronizacao:
             text(
                 """
                 INSERT INTO progressao.tb001_progressao_usuario AS prog
-                  (id_progressao, id_usuario, co_anonimo, nu_xp_total,
+                  (id_progressao, id_usuario, nu_xp_total,
                    nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
                    dt_ultimo_dia_jogado, dh_atualizacao)
                 VALUES
-                  (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, 1, :vit,
+                  (gen_random_uuid(), :id_usuario, :xp, 1, :vit,
                    :der, :emp, :dia, now())
                 ON CONFLICT (id_usuario) DO UPDATE SET
                   nu_xp_total = prog.nu_xp_total + EXCLUDED.nu_xp_total,
@@ -345,7 +345,6 @@ class RepositorioSincronizacao:
             ),
             {
                 "id_usuario": id_usuario,
-                "co_anonimo": co_anonimo,
                 "xp": xp_ganho,
                 "vit": vit,
                 "der": der,
@@ -360,12 +359,16 @@ class RepositorioSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_lote_migracao: str,
         progressao_convidado: dict[str, Any],
     ) -> bool:
         """Carimba o lote e, se for novo, soma a progressão do convidado à conta
-        (XP/contadores somam; sequência fica a MAIOR; conquistas união)."""
+        (XP/contadores somam; sequência fica a MAIOR; conquistas união).
+
+        A identidade do convidado NÃO participa disto: o app manda o
+        ``co_lote_migracao`` (que dá a idempotência) e os TOTAIS. O dono do
+        resultado é sempre o ``id_usuario`` do token.
+        """
         # 1) Registra o lote (idempotência). Se já existia, não aplica de novo.
         lote = await self.sessao.execute(
             text(
@@ -387,11 +390,11 @@ class RepositorioSincronizacao:
             text(
                 """
                 INSERT INTO progressao.tb001_progressao_usuario AS prog
-                  (id_progressao, id_usuario, co_anonimo, nu_xp_total,
+                  (id_progressao, id_usuario, nu_xp_total,
                    nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
                    nu_sequencia_atual, dh_atualizacao)
                 VALUES
-                  (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, :part, :vit,
+                  (gen_random_uuid(), :id_usuario, :xp, :part, :vit,
                    :der, :emp, :seq, now())
                 ON CONFLICT (id_usuario) DO UPDATE SET
                   nu_xp_total = prog.nu_xp_total + EXCLUDED.nu_xp_total,
@@ -407,7 +410,6 @@ class RepositorioSincronizacao:
             ),
             {
                 "id_usuario": id_usuario,
-                "co_anonimo": co_anonimo,
                 "xp": int(r.get("nu_xp_total", 0)),
                 "part": int(r.get("nu_partidas", 0)),
                 "vit": int(r.get("nu_vitorias", 0)),
@@ -439,7 +441,6 @@ class RepositorioSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str,
         payload: dict[str, Any],
     ) -> bool:
@@ -479,7 +480,6 @@ class RepositorioSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         snapshot: dict[str, Any],
     ) -> None:
         """Aplica o snapshot AUTORITATIVO do app como REPARO: contadores sobem por
@@ -492,11 +492,11 @@ class RepositorioSincronizacao:
             text(
                 """
                 INSERT INTO progressao.tb001_progressao_usuario AS prog
-                  (id_progressao, id_usuario, co_anonimo, nu_xp_total,
+                  (id_progressao, id_usuario, nu_xp_total,
                    nu_partidas, nu_vitorias, nu_derrotas, nu_empates,
                    nu_sequencia_atual, dt_ultimo_dia_jogado, dh_atualizacao)
                 VALUES
-                  (gen_random_uuid(), :id_usuario, :co_anonimo, :xp, :part, :vit,
+                  (gen_random_uuid(), :id_usuario, :xp, :part, :vit,
                    :der, :emp, :seq, :dia, now())
                 ON CONFLICT (id_usuario) DO UPDATE SET
                   nu_xp_total = GREATEST(prog.nu_xp_total, EXCLUDED.nu_xp_total),
@@ -513,7 +513,6 @@ class RepositorioSincronizacao:
             ),
             {
                 "id_usuario": id_usuario,
-                "co_anonimo": co_anonimo,
                 "xp": int(r.get("nu_xp_total", 0)),
                 "part": int(r.get("nu_partidas", 0)),
                 "vit": int(r.get("nu_vitorias", 0)),
@@ -548,7 +547,6 @@ class RepositorioSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str | None,
         co_tipo: str | None,
         co_motivo: str,
@@ -574,16 +572,15 @@ class RepositorioSincronizacao:
             text(
                 """
                 INSERT INTO log.tb001_evento_sync_rejeitado
-                  (id_log, id_usuario, co_anonimo, co_evento, co_tipo, co_motivo,
+                  (id_log, id_usuario, co_evento, co_tipo, co_motivo,
                    de_codigo, js_payload, dh_registro)
                 VALUES
-                  (gen_random_uuid(), :id_usuario, :co_anonimo, :co_evento,
+                  (gen_random_uuid(), :id_usuario, :co_evento,
                    :co_tipo, :co_motivo, :de_codigo, :js_payload, now())
                 """
             ),
             {
                 "id_usuario": id_usuario,
-                "co_anonimo": co_anonimo,
                 "co_evento": co_evento[:64] if isinstance(co_evento, str) else co_evento,
                 "co_tipo": co_tipo[:30] if isinstance(co_tipo, str) else co_tipo,
                 "co_motivo": co_motivo,

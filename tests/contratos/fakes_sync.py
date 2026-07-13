@@ -38,7 +38,6 @@ class FakeRepoSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str,
         payload: dict[str, Any],
     ) -> bool:
@@ -65,7 +64,6 @@ class FakeRepoSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str,
         payload: dict[str, Any],
     ) -> bool:
@@ -83,7 +81,6 @@ class FakeRepoSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         snapshot: dict[str, Any],
     ) -> None:
         prog = self._progressao.setdefault(id_usuario, _zerado())
@@ -108,7 +105,6 @@ class FakeRepoSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_lote_migracao: str,
         progressao_convidado: dict[str, Any],
     ) -> bool:
@@ -140,7 +136,6 @@ class FakeRepoSincronizacao:
         self,
         *,
         id_usuario: str,
-        co_anonimo: str | None,
         co_evento: str | None,
         co_tipo: str | None,
         co_motivo: str,

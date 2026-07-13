@@ -29,7 +29,6 @@ def _autenticar() -> None:
     app.dependency_overrides[usuario_autenticado] = lambda: UsuarioAutenticado(
         id_usuario="id-u1",
         co_usuario="ABC12345",
-        co_anonimo="anon-1",
         dt_nascimento=None,
         contexto=ContextoRequisicao(
             versao_app="1.0.0", plataforma="android", idioma="pt"
