@@ -14,6 +14,11 @@ class FakeRepoRanking:
         # ic_visivel_placar, idade.
         self.usuarios = usuarios
         self.visibilidade_alterada: dict[str, bool] = {}
+        # Contadores de acesso — é assim que o teste do CACHE prova que a consulta
+        # cara não foi refeita. Sem eles não haveria como distinguir "respondeu do
+        # cache" de "consultou de novo e deu o mesmo resultado".
+        self.chamadas_top = 0
+        self.chamadas_eu = 0
 
     def _posicoes(self) -> dict[str, int]:
         """DENSE_RANK por XP desc, só para quem tem XP > 0."""
@@ -44,6 +49,7 @@ class FakeRepoRanking:
         }
 
     async def top_publico(self, limite: int) -> list[dict[str, Any]]:
+        self.chamadas_top += 1
         pos = self._posicoes()
         pubs = [
             u for u in self.usuarios
@@ -53,6 +59,7 @@ class FakeRepoRanking:
         return [self._linha(u, pos) for u in pubs[:limite]]
 
     async def entrada_do_usuario(self, id_usuario: str):
+        self.chamadas_eu += 1
         pos = self._posicoes()
         for u in self.usuarios:
             if u["id_usuario"] == id_usuario:

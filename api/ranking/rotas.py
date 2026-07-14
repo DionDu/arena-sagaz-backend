@@ -15,6 +15,7 @@ from api.nucleo.banco import obter_sessao
 from api.nucleo.dependencias_conta_nuvem import (
     UsuarioAutenticado,
     usuario_autenticado,
+    usuario_opcional,
 )
 from api.ranking.repositorio import RepositorioRanking
 from api.ranking.servico import ServicoRanking
@@ -37,10 +38,16 @@ class VisibilidadeRequest(BaseModel):
 @router.get("/leaderboard")
 async def leaderboard(
     limite: int = Query(default=100, ge=1, le=500),
-    usuario: UsuarioAutenticado = Depends(usuario_autenticado),
+    usuario: UsuarioAutenticado | None = Depends(usuario_opcional),
     servico: ServicoRanking = Depends(obter_servico_ranking),
 ) -> dict[str, Any]:
-    """`GET /v1/ranking/leaderboard` — Top-N público + a minha posição ('eu')."""
+    """`GET /v1/ranking/leaderboard` — Top-N público + a minha posição ('eu').
+
+    ⚠️ **Esta rota NÃO exige token** (`usuario_opcional`, e não
+    `usuario_autenticado`, como as outras duas daqui). O Top-N é público — quem
+    joga como convidado precisa vê-lo, e é o principal motivo para ele criar uma
+    conta. Sem conta, `eu` volta `null`. Os cabeçalhos continuam obrigatórios.
+    """
     return await servico.leaderboard(usuario, limite=limite)
 
 

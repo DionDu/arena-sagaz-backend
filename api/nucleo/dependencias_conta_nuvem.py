@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.conta.repositorio import RepositorioUsuario
@@ -49,6 +49,40 @@ class UsuarioAutenticado:
     co_usuario: str
     dt_nascimento: Optional[date]
     contexto: ContextoRequisicao
+
+
+async def usuario_opcional(
+    authorization: Optional[str] = Header(default=None),
+    contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+    sessao: AsyncSession = Depends(obter_sessao),
+) -> Optional[UsuarioAutenticado]:
+    """Igual a [usuario_autenticado], mas devolve ``None`` em vez de recusar.
+
+    Existe para as rotas que têm conteúdo **público** e conteúdo **pessoal** na
+    mesma resposta — hoje só o leaderboard. O convidado (que joga sem conta e
+    portanto não tem token) precisa enxergar o Top-N; o que ele não tem é a linha
+    "eu". Antes esta rota exigia token, e o app do convidado recebia um 401 que a
+    tela traduzia como "sem conexão" — uma mentira, já que havia conexão.
+
+    Os **cabeçalhos** continuam obrigatórios: mesmo sem conta, queremos saber a
+    versão e a plataforma de quem chama.
+
+    ⚠️ Um token INVÁLIDO aqui é tratado como "sem token" (convidado), não como
+    erro. É o certo para uma leitura pública: um token expirado no aparelho não
+    deve esconder do usuário um dado que qualquer um pode ver.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    try:
+        return await usuario_autenticado(
+            identidade=await usuario_atual(authorization=authorization),
+            contexto=contexto,
+            sessao=sessao,
+        )
+    except Exception:
+        # Token expirado/malformado, ou conta ainda não provisionada: segue como
+        # convidado. A rota devolve o Top-N público e `eu = null`.
+        return None
 
 
 async def usuario_autenticado(
