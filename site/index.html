@@ -64,6 +64,11 @@ header{position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--b
 .marca{display:flex; align-items:center; gap:11px; font-family:var(--display); font-weight:800; font-size:22px; color:var(--texto);}
 .marca svg{width:38px; height:auto; color:var(--emblema-tinta);}
 .marca .n2{color:var(--ouro);}
+/* ⚠️ A marca é um <a>, e mais acima existe `html.escuro a{color:var(--ouro)}`.
+   Essa regra tem especificidade (0,1,1) e vencia `.marca` (0,1,0): no tema
+   escuro a PRIMEIRA palavra (Arena/Sharp) também saía dourada, e o nome inteiro
+   virava um bloco de ouro só. Reafirmamos aqui com (0,2,0), que ganha. */
+html.escuro .marca{color:var(--texto);}
 .controles{display:flex; align-items:center; gap:10px;}
 .seg{display:flex; gap:2px; padding:3px; background:var(--sup2); border:2px solid var(--borda); border-radius:11px;}
 .seg button{border:none; background:transparent; cursor:pointer; font-family:var(--display); font-weight:800; font-size:13px; color:var(--texto2); padding:6px 9px; border-radius:8px; text-transform:uppercase;}
@@ -157,7 +162,12 @@ details.faq .corpo{padding:0 18px 18px; color:var(--texto2); font-size:15.5px;}
 footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 34px;}
 .foot-top{display:flex; flex-wrap:wrap; gap:26px 40px; justify-content:space-between; align-items:flex-start;}
 .foot-marca{display:flex; align-items:center; gap:10px; font-family:var(--display); font-weight:800; font-size:19px;}
-.foot-marca svg{width:32px; color:var(--emblema-tinta);}
+/* ⚠️ `height:auto` é OBRIGATÓRIO. O <svg> inline traz os atributos width="200"
+   height="170". Ao definirmos só a largura no CSS, a ALTURA continuava valendo
+   170px: a caixa do emblema virava 32×170, o desenho era escalado para caber
+   (32×27) e CENTRALIZADO nela — sobrava ~70px de vazio acima e outro tanto
+   abaixo. Era o "espaço muito grande" no rodapé em tela estreita. */
+.foot-marca svg{width:32px; height:auto; color:var(--emblema-tinta);}
 .foot-links{display:flex; flex-direction:column; gap:9px;}
 .foot-links a{font-weight:700; color:var(--texto2);}
 .foot-links a:hover{color:var(--ouro-esc);}
@@ -174,8 +184,17 @@ footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 
 @media (max-width:600px){
   section{padding:56px 0;}
   .cap-grid{grid-template-columns:1fr; gap:34px; max-width:320px; margin-inline:auto;}
-  .marca span.nome{display:none;}
+  /* O nome da marca ENCOLHE — não some. A regra antiga era
+     `.marca span.nome{display:none}`: o cabeçalho ficava só com o emblema, sem
+     dizer de quem é o site, mesmo sobrando espaço de sobra na barra. */
+  .marca{font-size:19px; gap:8px;}
+  .marca svg{width:32px;}
   .barra{height:58px;}
+}
+/* Só num aparelho MUITO estreito (< 360px) o nome realmente não cabe ao lado do
+   seletor de idioma + botão de tema. Aí sim ele cede a vez ao emblema. */
+@media (max-width:359px){
+  .marca span.nome{display:none;}
 }
 </style>
 </head>
@@ -209,6 +228,15 @@ footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 
       <div class="hero-emblema"><svg width="200" height="170" viewBox="0 0 240 204"><g><g stroke="currentColor" stroke-width="6" stroke-linecap="round"><line x1="68" y1="50" x2="104" y2="50"></line><line x1="136" y1="50" x2="172" y2="50"></line><line x1="68" y1="90" x2="104" y2="90"></line><line x1="136" y1="90" x2="172" y2="90"></line><line x1="60" y1="58" x2="60" y2="82"></line><line x1="180" y1="58" x2="180" y2="82"></line></g><rect x="114" y="54" width="12" height="32" rx="6" fill="#D9A441"></rect><circle cx="60" cy="50" r="8" fill="currentColor"></circle><circle cx="120" cy="50" r="8" fill="currentColor"></circle><circle cx="180" cy="50" r="8" fill="currentColor"></circle><circle cx="60" cy="90" r="8" fill="currentColor"></circle><circle cx="120" cy="90" r="8" fill="currentColor"></circle><circle cx="180" cy="90" r="8" fill="currentColor"></circle></g><g><path d="M 44 112 Q 120 96 196 112 L 196 148 L 44 148 Z" fill="#8A5A33" stroke="#5E3D22" stroke-width="3" stroke-linejoin="round"></path><path d="M 63 148 L 63 130 Q 72 120 81 130 L 81 148 Z" fill="#5E3D22"></path><path d="M 95 148 L 95 130 Q 104 120 113 130 L 113 148 Z" fill="#5E3D22"></path><path d="M 127 148 L 127 130 Q 136 120 145 130 L 145 148 Z" fill="#5E3D22"></path><path d="M 159 148 L 159 130 Q 168 120 177 130 L 177 148 Z" fill="#5E3D22"></path></g><g><path d="M 20 152 Q 120 138 220 152 L 220 196 L 20 196 Z" fill="#8A5A33" stroke="#5E3D22" stroke-width="3" stroke-linejoin="round"></path><path d="M 41 196 L 41 172 Q 52 160 63 172 L 63 196 Z" fill="#5E3D22"></path><path d="M 75 196 L 75 172 Q 86 160 97 172 L 97 196 Z" fill="#5E3D22"></path><path d="M 109 196 L 109 172 Q 120 160 131 172 L 131 196 Z" fill="#5E3D22"></path><path d="M 143 196 L 143 172 Q 154 160 165 172 L 165 196 Z" fill="#5E3D22"></path><path d="M 177 196 L 177 172 Q 188 160 199 172 L 199 196 Z" fill="#5E3D22"></path></g></svg></div>
       <h1><span data-i="nome_1">Arena</span> <span class="g" data-i="nome_2">Sagaz</span></h1>
       <p class="tag" data-i="hero_tag"></p>
+      <!-- ⚠️ SELOS PROVISÓRIOS — trocar pelos OFICIAIS no dia da publicação.
+           Arte própria imitando o selo é motivo de reprovação nas duas lojas, e
+           as duas PROÍBEM exibir o selo antes de o app estar disponível (o link
+           tem de levar à ficha real). Por isso aqui está um "em breve", não um
+           selo falso. Quando o app estiver no ar:
+             • Google Play: https://play.google.com/intl/pt-BR/badges/  (gera o PNG por idioma)
+             • App Store:   https://developer.apple.com/app-store/marketing/guidelines/ (SVG por idioma)
+           Embutir as duas artes como data URI (o site NÃO pode buscar recurso
+           externo — há um teste que falha se buscar) e apontar o href para a ficha. -->
       <div class="lojas">
         <a class="loja-slot" id="linkPlay" href="#" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.6 2.2c-.3.2-.5.6-.5 1.1v17.4c0 .5.2.9.5 1.1l9.6-9.8L3.6 2.2z"/><path d="M17 8.3l-3.2-1.9-2.6 2.6 2.6 2.7L17 9.8c.6-.4.6-1.1 0-1.5z" opacity=".85"/><path d="M13.8 6.4L4.2 1.9C4 1.8 3.8 1.9 3.6 2.2l7.6 7.3 2.6-3.1z"/><path d="M11.2 12.5L3.6 21.8c.2.3.4.4.6.3l9.6-4.6-2.6-5z"/></svg>
@@ -430,7 +458,7 @@ const T = {
     meta_title: "Arena Sagaz — Jogo dos pontinhos com IA no seu aparelho",
     nome_1: "Arena", nome_2: "Sagaz",
     hero_tag: "Enfrente uma IA treinada para vencer cada partida — do rival brincalhão ao mestre implacável.",
-    hero_nota: "Selos oficiais das lojas entram aqui.",
+    hero_nota: "Em breve na Google Play e na App Store.",
     badge_play_top: "DISPONÍVEL NO", badge_apple_top: "BAIXE NA",
     dif_kicker: "Sem internet",
     dif_title: "A inteligência joga dentro do seu aparelho",
@@ -474,7 +502,7 @@ const T = {
     meta_title: "Sharp Arena — Dots and boxes with on-device AI",
     nome_1: "Sharp", nome_2: "Arena",
     hero_tag: "Take on an AI trained to win every match — from the playful rival to the merciless master.",
-    hero_nota: "Official store badges go here.",
+    hero_nota: "Coming soon to Google Play and the App Store.",
     badge_play_top: "GET IT ON", badge_apple_top: "DOWNLOAD ON THE",
     dif_kicker: "No internet",
     dif_title: "The intelligence plays inside your device",
@@ -518,7 +546,7 @@ const T = {
     meta_title: "Arena Sagaz — Puntos y cajas con IA en tu dispositivo",
     nome_1: "Arena", nome_2: "Sagaz",
     hero_tag: "Enfréntate a una IA entrenada para ganar cada partida — del rival juguetón al maestro implacable.",
-    hero_nota: "Los sellos oficiales de las tiendas van aquí.",
+    hero_nota: "Próximamente en Google Play y en la App Store.",
     badge_play_top: "DISPONIBLE EN", badge_apple_top: "DESCÁRGALO EN LA",
     dif_kicker: "Sin internet",
     dif_title: "La inteligencia juega dentro de tu dispositivo",

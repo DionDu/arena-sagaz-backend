@@ -43,15 +43,23 @@ def test_landing_nao_depende_de_CDN(cliente: TestClient):
     externo. Se alguém colar um `<script src="https://cdn...">` numa revisão
     futura, este teste pega — um CDN fora do ar derrubaria a nossa vitrine (e a
     Support URL que a Apple exige) sem aviso."""
+    import re
+
     html = cliente.get("/").text
     # As fontes precisam vir em base64, dentro do próprio arquivo.
     assert "@font-face" in html
     assert "data:font/woff" in html
+
+    # Comentários HTML saem da varredura: o navegador nunca busca uma URL que
+    # está dentro de `<!-- ... -->`. Eles guardam instruções para nós (ex.: onde
+    # baixar os selos oficiais das lojas), e contá-las como "recurso externo"
+    # seria um alarme falso.
+    sem_comentarios = re.sub(r"<!--.*?-->", "", html, flags=re.DOTALL)
+
     # Nada de recurso remoto: os ÚNICOS domínios externos permitidos são os das
     # lojas (links de download) e o namespace do SVG (que não é um download).
-    import re
     permitidos = ("play.google.com", "apps.apple.com", "www.w3.org")
-    for url in re.findall(r'https?://[^\s"\'()]+', html):
+    for url in re.findall(r'https?://[^\s"\'()]+', sem_comentarios):
         assert any(p in url for p in permitidos), f"recurso externo proibido: {url}"
 
 
