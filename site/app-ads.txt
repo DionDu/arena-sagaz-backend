@@ -1,0 +1,19 @@
+# app-ads.txt — autoriza quem pode vender o inventário de anúncios do Arena Sagaz.
+#
+# POR QUE ISTO EXISTE
+# O AdMob/IAB busca este arquivo na RAIZ do domínio que declaramos como "site do
+# desenvolvedor" na ficha das lojas (arenasagaz.santiagodata.com). Sem ele, os
+# compradores de mídia não conseguem confirmar que os nossos anúncios são
+# legítimos, e a demanda (logo, a receita) cai. É o motivo nº 1 de o site existir.
+#
+# FORMATO (IAB app-ads.txt): <domínio do sistema de anúncios>, <ID do editor>,
+# <DIRECT|RESELLER>, <ID da autoridade certificadora — opcional>
+#
+# - google.com ............. o sistema de anúncios (AdMob)
+# - pub-7502939199237784 ... NOSSO ID de editor no AdMob (o mesmo de config/prod.json)
+# - DIRECT ................. vendemos direto, sem revendedor no meio
+# - f08c47fec0942fa0 ....... ID da Google na autoridade certificadora (constante)
+#
+# ⚠️ A validação só acontece DEPOIS que o app estiver na loja com o site declarado
+# na ficha. O AdMob leva alguns dias para rastrear. Ver `runbook-publicacao.md`.
+google.com, pub-7502939199237784, DIRECT, f08c47fec0942fa0

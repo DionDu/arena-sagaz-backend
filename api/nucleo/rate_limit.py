@@ -29,8 +29,18 @@ from api.configuracao import configuracoes
 # Métodos considerados "escrita" (teto mais apertado).
 _METODOS_ESCRITA = {"POST", "PUT", "PATCH", "DELETE"}
 
-# Caminhos isentos (probe de infra; preflight é tratado à parte pelo método).
-_ISENTOS = {"/v1/health", "/health"}
+# Caminhos isentos (preflight é tratado à parte, pelo método).
+#
+# - `/v1/health`, `/health` → probe de infra do Railway.
+# - `/app-ads.txt` → ⚠️ CRÍTICO. O rastreador do AdMob busca este arquivo na raiz
+#   do domínio para autorizar quem pode vender o nosso inventário. Se ele levar um
+#   `429`, a validação falha **em silêncio** e a receita de anúncios despenca —
+#   sem nenhum erro visível. É o pior tipo de falha: some sozinha, semanas depois,
+#   e ninguém liga uma coisa à outra. Isentar custa uma linha.
+# - `/` → a landing. Um `429` na página inicial é péssimo cartão de visita, e
+#   robôs de busca/prévia (Google, WhatsApp, LinkedIn) batem nela com frequência.
+#   Ela é servida da MEMÓRIA (o HTML é lido no import), então não custa I/O.
+_ISENTOS = {"/v1/health", "/health", "/app-ads.txt", "/"}
 
 _JANELA_SEGUNDOS = 60.0
 

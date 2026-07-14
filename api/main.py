@@ -14,6 +14,7 @@ from api.nucleo.rate_limit import RateLimitMiddleware
 from api.nucleo import rotas as rotas_nucleo
 from api.ranking import rotas as rotas_ranking
 from api.sincronizacao import rotas as rotas_sync
+from api.site import rotas as rotas_site
 
 log = obter_logger("api.main")
 
@@ -79,6 +80,13 @@ app.include_router(rotas_ranking.router, prefix="/v1/ranking")
 # Documentos legais como páginas HTML públicas (G3) — fora de /v1, é conteúdo web
 # (URLs de privacidade/exclusão exigidas pelas lojas).
 app.include_router(rotas_legal.router, prefix="/legal")
+# Site de apresentação (landing + app-ads.txt), na RAIZ. Registrado por ÚLTIMO,
+# depois de todas as rotas da API — assim ele nunca sombreia nada.
+# ⚠️ São rotas EXPLÍCITAS ("/" e "/app-ads.txt"), não um `StaticFiles` montado em
+# "/": um mount na raiz engoliria qualquer caminho não casado (ex.: um
+# `/v1/rota-inexistente`) e trocaria o 404 JSON da API pelo 404 do servidor de
+# arquivos. Ver a explicação completa em `api/site/rotas.py`.
+app.include_router(rotas_site.router)
 
 
 @app.middleware("http")
