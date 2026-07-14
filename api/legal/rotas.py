@@ -25,6 +25,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
 from api.legal.markdown_html import renderizar_markdown
+from api.nucleo.excecoes import ErroNaoEncontrado
 
 router = APIRouter()
 
@@ -220,3 +221,42 @@ async def documento_versionado(
         imutavel=True,
         idiomas_base=f"/legal/{versao}",
     )
+
+
+# ── API JSON para o APP (montada em /v1/legal) ───────────────────────────────
+#
+# As rotas acima devolvem **HTML** — elas existem para o navegador (são as URLs
+# que as lojas exigem). O app não quer HTML: ele quer o **markdown cru**, para
+# renderizar com o próprio tema, e quer saber **qual versão** esse texto é.
+#
+# Por que o app precisa disto (o problema que resolve): o texto legal exibido no
+# app era um **asset embutido**, que congela na build instalada. Publicar termos
+# novos no servidor não mudava nada no aparelho de ninguém — e só uma nova versão
+# na loja corrigiria. Com esta rota, o app baixa o texto vigente e o guarda em
+# cache; o asset vira apenas o **fallback offline**.
+router_api = APIRouter()
+
+
+@router_api.get("/{idioma}/{documento}")
+async def conteudo_documento(idioma: str, documento: str) -> dict[str, str]:
+    """Markdown **cru** do documento vigente, com a versão a que ele corresponde.
+
+    Pública e sem token: são os mesmos textos que qualquer um lê no navegador.
+
+    Devolve os campos no padrão de nomes do projeto (`co_` = código, `tx_` =
+    texto). O app compara `co_versao` com a versão que a pessoa aceitou para
+    decidir se pede um novo aceite.
+    """
+    if idioma not in IDIOMAS or documento not in DOCUMENTOS:
+        raise ErroNaoEncontrado("Documento não encontrado.", "documento_inexistente")
+
+    texto = _carregar(VERSAO_LEGAL, idioma, documento)
+    if texto is None:
+        raise ErroNaoEncontrado("Documento não encontrado.", "documento_inexistente")
+
+    return {
+        "co_documento": documento,
+        "co_idioma": idioma,
+        "co_versao": VERSAO_LEGAL,
+        "tx_conteudo": texto,
+    }

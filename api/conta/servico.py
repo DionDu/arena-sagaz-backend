@@ -261,6 +261,29 @@ class ServicoConta:
 
         return ExclusaoContaResposta(ic_anonimizado=True)
 
+    async def _apagar_identidade_orfa(self, identidade: IdentidadeFirebase) -> None:
+        """Apaga no Firebase um usuário que autenticou mas **não pôde virar conta**.
+
+        Best-effort **com timeout**, igual à exclusão de conta: se o Admin SDK
+        falhar ou demorar, não travamos nem trocamos a resposta — o usuário
+        continua recebendo o 422 `idade_minima`, que é o que importa para ele. O
+        que fica é um registro no log para sabermos que sobrou um órfão.
+
+        Não há transação a desfazer aqui: chegamos neste ponto **antes** de
+        qualquer escrita na nossa base (a conta não foi criada).
+        """
+        try:
+            # `obter_admin_usuarios()` entra no `try` de propósito: ele inicializa o
+            # Firebase Admin e levanta quando não há credencial (o caso dos testes).
+            admin = self.admin or obter_admin_usuarios()
+            await asyncio.wait_for(admin.excluir_usuario(identidade.uid), timeout=8.0)
+        except Exception:  # noqa: BLE001 — best-effort: não muda a resposta
+            # Sem PII no log (Constituição, Princípio IV) — só o evento.
+            log.warning(
+                "Falha/timeout ao apagar no Firebase a identidade recusada por "
+                "idade mínima (nenhuma conta foi criada)"
+            )
+
     async def _usuario_obrigatorio(
         self, identidade: IdentidadeFirebase
     ) -> dict[str, Any]:
@@ -350,6 +373,18 @@ class ServicoConta:
                 status_http=422,
             )
         if calcular_idade(dados.dt_nascimento) < IDADE_MINIMA:
+            # A conta NÃO nasce — mas o usuário do Firebase JÁ NASCEU. No login
+            # social (Google/Apple) o Firebase autentica ANTES de nós sabermos a
+            # idade: quando a data chega aqui e reprova, já existe lá um registro
+            # com o e-mail e o nome de uma criança, sem conta nenhuma apontando
+            # para ele. Apagá-lo é obrigação, não faxina: é PII de menor sem
+            # finalidade (LGPD art. 14) e um uid órfão que continuaria logando.
+            #
+            # Este é o ÚNICO ponto do serviço que apaga por idade, e é de propósito:
+            # `_atualizar_existente` e `atualizar_perfil_usuario` também rejeitam
+            # menores (NEG-02), mas ali a conta EXISTE — um adulto que erra a data
+            # de nascimento só pode receber um 422, jamais ter a conta destruída.
+            await self._apagar_identidade_orfa(identidade)
             raise ErroNegocio(
                 "É preciso ter ao menos $IDADE anos.".replace(
                     "$IDADE", str(IDADE_MINIMA)

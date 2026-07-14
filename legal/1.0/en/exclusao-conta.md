@@ -17,7 +17,7 @@ your data.
 3. Confirm. The deletion is processed and you are signed out.
 
 **By email (alternative):**
-- Send a request to **contato@santiagodata.com** from the **email of your account**,
+- Send a request to **sharparena@santiagodata.com** from the **email of your account**,
   with the subject **"Delete my account — Arena Sagaz"**. We may ask for confirmation
   to verify your identity.
 
@@ -49,4 +49,4 @@ clear the app's data in your system settings.
 
 ## Contact
 
-Questions about deletion: **contato@santiagodata.com**.
+Questions about deletion: **sharparena@santiagodata.com**.

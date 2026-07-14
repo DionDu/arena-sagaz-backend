@@ -17,7 +17,7 @@ seus dados.
 3. Confirme. A exclusão é processada e você é desconectado.
 
 **Por e-mail (alternativa):**
-- Envie um pedido para **contato@santiagodata.com** a partir do **e-mail da sua
+- Envie um pedido para **sharparena@santiagodata.com** a partir do **e-mail da sua
   conta**, com o assunto **"Excluir minha conta — Arena Sagaz"**. Podemos pedir uma
   confirmação para verificar sua identidade.
 
@@ -49,4 +49,4 @@ App ou limpar os dados do aplicativo nas configurações do sistema.
 
 ## Contato
 
-Dúvidas sobre exclusão: **contato@santiagodata.com**.
+Dúvidas sobre exclusão: **sharparena@santiagodata.com**.

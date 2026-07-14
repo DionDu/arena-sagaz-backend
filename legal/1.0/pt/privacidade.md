@@ -1,20 +1,22 @@
 <!--
-RASCUNHO v1.0 — gerado em 28/06/2026. Texto inicial para revisão (idealmente por
-um(a) advogado(a)) antes de publicar. Não é aconselhamento jurídico.
+v1.0 — revisada em 14/07/2026 para a 1ª publicação nas lojas. Não é aconselhamento
+jurídico; o texto foi escrito pelo próprio desenvolvedor e deve ser revisto por
+um(a) advogado(a) se o App crescer.
 -->
 # Política de Privacidade — Arena Sagaz
 
-**Última atualização:** 28 de junho de 2026 · **Versão:** 1.0
+**Última atualização:** 14 de julho de 2026 · **Versão:** 1.0
 
-Esta Política de Privacidade explica como o aplicativo **Arena Sagaz** ("App")
-coleta, usa, compartilha e protege seus dados pessoais. Ao usar o App, você
-concorda com as práticas aqui descritas.
+Esta Política de Privacidade explica como o aplicativo **Arena Sagaz** (publicado
+em inglês como *Sharp Arena*) — o "App" — coleta, usa, compartilha e protege seus
+dados pessoais.
 
 ## 1. Quem é o controlador dos dados
 
-- **Responsável:** Santiago Data, marca operada por Fernando Santiago da Silva
-  (pessoa física) — exigência da LGPD para identificar o controlador dos dados.
-- **Contato (encarregado/DPO):** **contato@santiagodata.com**.
+- **Controlador:** Santiago Data, marca operada por **Fernando Santiago da Silva**
+  (pessoa física) — identificação exigida pela LGPD.
+- **Encarregado pelo tratamento de dados (DPO):** **contato@santiagodata.com**.
+- **Suporte e dúvidas sobre o App:** **sharparena@santiagodata.com**.
 
 Para fins da **Lei Geral de Proteção de Dados (LGPD, Lei nº 13.709/2018)**, somos
 o **controlador** dos dados tratados no App.
@@ -22,95 +24,153 @@ o **controlador** dos dados tratados no App.
 ## 2. Dados que coletamos
 
 **a) Que você fornece:**
+
 - **E-mail** (quando você cria conta por e-mail ou o provedor o compartilha);
 - **Nome de exibição** (apelido escolhido);
 - **Data de nascimento** (para verificação de idade);
 - **Método de login** e identificador da conta no provedor (Google, Apple).
 
 **b) Coletados automaticamente:**
+
 - **Identificador do dispositivo** e **token de notificação** (push);
 - **Plataforma** (Android/iOS) e **versão do App**;
-- **Dados de uso e telemetria de partidas** (estatísticas de jogo, progresso, XP);
-- **Dados analíticos** agregados (via Google Analytics para Firebase).
+- **Registros de partida** — ver a seção 4, que trata deles em separado;
+- **Dados de uso e progresso** (XP, sequência, conquistas);
+- **Dados analíticos** agregados (Google Analytics para Firebase);
+- **Dados de exibição de anúncios** tratados pelo Google AdMob (ver seção 7).
 
-**c) Convidado:** se você joga como **convidado**, não exigimos conta; os dados de
-progresso ficam **no seu aparelho** e não são enviados a uma conta.
+**c) Convidado:** se você joga como **convidado**, não exigimos conta e nada é
+enviado aos nossos servidores — o progresso e os registros de partida ficam **no seu
+aparelho**. Eles só sobem se, mais tarde, você **criar uma conta**; nesse momento o
+histórico local é vinculado a ela.
 
-> **Não coletamos** dados sensíveis (origem racial, saúde, biometria etc.) nem
-> dados de cartão (não há compras no App nesta versão).
+> **Não coletamos** dados sensíveis (origem racial, saúde, biometria, geolocalização
+> precisa) nem dados de cartão — **não há compras no App**.
 
 ## 3. Para que usamos os dados (finalidades)
 
 - Criar e manter sua conta e autenticar o login;
 - Salvar e sincronizar seu progresso, XP, sequência e conquistas;
-- Enviar **notificações** que você autorizar (novidades, lembretes);
-- Verificar **idade** e aplicar regras para menores;
-- Melhorar o App (diagnóstico, métricas agregadas, prevenção de abuso);
+- Montar o **placar de líderes** (você pode se ocultar dele, a qualquer momento);
+- Enviar **notificações** que você autorizar;
+- Verificar **idade** e aplicar as regras de acesso;
+- **Treinar e avaliar modelos de inteligência artificial** — ver a seção 4;
+- Exibir **anúncios não personalizados** (seção 7);
+- Melhorar o App (diagnóstico, métricas agregadas, prevenção de abuso e fraude);
 - Cumprir obrigações legais.
 
-## 4. Bases legais (LGPD, art. 7º)
+## 4. Registros de partida e treinamento de inteligência artificial
 
-- **Execução de contrato** (prestar o serviço do App e da conta);
-- **Consentimento** (notificações de marketing, rastreamento para anúncios);
-- **Legítimo interesse** (segurança, prevenção de fraude, melhoria do produto);
+Esta seção existe porque é a finalidade **menos óbvia** do App, e você tem o direito
+de saber dela com clareza.
+
+**O que gravamos.** A cada jogada de uma partida, guardamos: o **estado do tabuleiro**
+antes e depois, a **jogada escolhida**, quem jogou (você ou a IA), o nível de
+dificuldade e a **saída do modelo de IA** (a probabilidade que ele atribuiu a cada
+jogada possível). Não gravamos áudio, imagem, texto livre nem nada que você digite.
+
+**Para que serve.** Dois usos:
+
+1. **Operar o jogo** — placar, XP, estatísticas, retomar partida;
+2. **Treinar e avaliar as redes neurais** que jogam contra você. Este App nasceu de
+   um **trabalho acadêmico** cujo objeto é justamente essa IA, que roda **dentro do
+   seu aparelho**.
+
+**Base legal.** Para o uso (2), a base é o **legítimo interesse** (LGPD, art. 7º, IX
+e art. 10). **Você pode se opor** a esse uso a qualquer momento, escrevendo para
+**sharparena@santiagodata.com** — atenderemos e o seu histórico deixará de alimentar
+o treinamento, sem que isso afete o seu uso do jogo.
+
+**Honestidade sobre "anônimo".** As tabelas de jogada não guardam o seu identificador
+de usuário, mas é possível chegar até você **cruzando tabelas**. Isso é
+**pseudonimização**, e pela LGPD (art. 12) dado pseudonimizado **continua sendo dado
+pessoal** — por isso não o chamamos de anônimo.
+
+**O que fazemos a respeito.** Quando exportamos dados para treinar um modelo, a
+exportação sai **dissociada**: sem as chaves que ligam a jogada a uma partida e a uma
+conta. O conjunto de treino, esse sim, é anônimo.
+
+## 5. Bases legais (LGPD, art. 7º)
+
+- **Execução de contrato** — prestar o serviço do App e da conta;
+- **Consentimento** — notificações;
+- **Legítimo interesse** — segurança, prevenção de fraude, melhoria do produto e
+  **treinamento dos modelos de IA** (seção 4), sempre com direito de oposição;
 - **Cumprimento de obrigação legal**.
 
-Você pode **retirar o consentimento** a qualquer momento nas configurações do App
-ou pelo e-mail de contato.
+Você pode **retirar o consentimento** a qualquer momento, nas configurações do App
+ou pelos e-mails de contato.
 
-## 5. Com quem compartilhamos
+## 6. Com quem compartilhamos
 
-Não vendemos seus dados. Compartilhamos com **operadores** que nos ajudam a operar
-o App, sob contrato e apenas no necessário:
+Não vendemos seus dados. Compartilhamos com **operadores** que nos ajudam a operar o
+App, apenas no necessário:
 
-- **Google / Firebase** (Authentication, Cloud Messaging, Analytics) — login,
-  notificações e métricas;
+- **Google / Firebase** (Authentication, Cloud Messaging, Analytics, App Check) —
+  login, notificações, métricas e proteção contra abuso;
 - **Provedores de login** (Google, Apple) — apenas para autenticar;
-- **Infraestrutura de servidor** (hospedagem da API e do banco de dados);
-- **Google AdMob** *(quando anúncios forem ativados, em versão futura)* — para
-  menores, anúncios **não personalizados**.
+- **Google AdMob** — exibição de anúncios (seção 7);
+- **Infraestrutura de servidor** — hospedagem da API e do banco de dados.
 
 Esses parceiros podem tratar dados **fora do Brasil**; quando isso ocorre, adotamos
 salvaguardas compatíveis com a LGPD.
 
-## 6. Notificações
+## 7. Anúncios
+
+O App exibe anúncios do **Google AdMob**. Nesta versão eles são **não
+personalizados**: são escolhidos pelo contexto, e **não** pelo seu histórico nem pelo
+seu identificador de publicidade.
+
+Mesmo assim, o Google trata dados técnicos limitados (como o tipo de aparelho e um
+identificador para **limitar a frequência** e evitar fraude de cliques). Se um dia
+passarmos a exibir anúncios personalizados, pediremos o seu **consentimento** antes.
+
+## 8. Notificações
 
 As notificações por push dependem da sua autorização no aparelho. Você pode
 **desativá-las** a qualquer momento nas configurações do sistema ou do App.
 
-## 7. Retenção e exclusão
+## 9. Retenção e exclusão
 
 Mantemos seus dados enquanto sua conta existir. Você pode **excluir a conta** a
-qualquer momento (ver a página **[Exclusão de Conta](exclusao-conta.md)**). Ao
-excluir, removemos ou **anonimizamos** seus dados pessoais; alguns registros
-podem ser mantidos de forma anonimizada para estatísticas de jogo ou por
-obrigação legal.
+qualquer momento, pelo próprio App (ver **[Exclusão de Conta](exclusao-conta.md)**).
 
-## 8. Seus direitos (LGPD, art. 18)
+Ao excluir, **anonimizamos** a sua conta (removemos e-mail, nome e data de
+nascimento) e apagamos os dados vinculados a você. Registros de partida já
+**dissociados** podem permanecer, de forma anônima, em conjuntos de treino e em
+estatísticas de jogo — não é mais possível ligá-los a você.
+
+## 10. Seus direitos (LGPD, art. 18)
 
 Você pode solicitar: **confirmação** e **acesso** aos dados, **correção**,
 **anonimização/eliminação**, **portabilidade**, **informação** sobre
-compartilhamentos e **revisão** de decisões automatizadas. Para exercer, escreva
-para **contato@santiagodata.com**. Responderemos nos prazos da LGPD.
+compartilhamentos, **revogação** do consentimento e **oposição** a tratamentos
+baseados em legítimo interesse (inclusive o treinamento de IA — seção 4).
 
-## 9. Crianças e adolescentes
+Para exercer, escreva para **sharparena@santiagodata.com** (ou, se preferir falar
+diretamente com o encarregado, **contato@santiagodata.com**). Responderemos nos
+prazos da LGPD.
 
-O App é destinado a pessoas com **13 anos ou mais**. Usuários menores de idade
-devem ter o consentimento e a supervisão dos pais ou responsáveis. Não exibimos
-anúncios personalizados a menores. Se soubermos que coletamos dados de uma criança
-sem a devida autorização, eliminaremos esses dados.
+## 11. Crianças e adolescentes
 
-## 10. Segurança
+O App exige **13 anos ou mais** para criar conta, e recusa o cadastro de quem informa
+data de nascimento abaixo disso. Não exibimos anúncios personalizados. Se soubermos
+que coletamos dados de uma criança indevidamente, **eliminaremos** esses dados.
 
-Adotamos medidas técnicas e organizacionais (criptografia em trânsito,
-controle de acesso, segregação de ambientes) para proteger seus dados. Nenhum
-sistema é 100% seguro, mas trabalhamos para reduzir riscos.
+## 12. Segurança
 
-## 11. Alterações desta Política
+Adotamos medidas técnicas e organizacionais — criptografia em trânsito, controle de
+acesso, segregação de ambientes, verificação de integridade do aplicativo — para
+proteger seus dados. Nenhum sistema é 100% seguro, mas trabalhamos para reduzir
+riscos.
 
-Podemos atualizar esta Política. Mudanças relevantes serão comunicadas no App ou
-por outro meio adequado, com nova data de "última atualização".
+## 13. Alterações desta Política
 
-## 12. Contato
+Podemos atualizar esta Política. Mudanças relevantes serão comunicadas **dentro do
+App**, e pediremos um **novo aceite**. Cada versão fica arquivada em um endereço
+próprio e imutável (ex.: `/legal/1.0/pt/privacidade`).
 
-Dúvidas ou solicitações: **contato@santiagodata.com**.
+## 14. Contato
+
+Dúvidas e solicitações: **sharparena@santiagodata.com**.
+Encarregado pelo tratamento de dados: **contato@santiagodata.com**.

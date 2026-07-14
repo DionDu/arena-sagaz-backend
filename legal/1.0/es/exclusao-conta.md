@@ -17,7 +17,7 @@ datos.
 3. Confirma. La eliminación se procesa y se cierra tu sesión.
 
 **Por correo (alternativa):**
-- Envía una solicitud a **contato@santiagodata.com** desde el **correo de tu cuenta**,
+- Envía una solicitud a **sharparena@santiagodata.com** desde el **correo de tu cuenta**,
   con el asunto **"Eliminar mi cuenta — Arena Sagaz"**. Podemos pedir una confirmación
   para verificar tu identidad.
 
@@ -49,4 +49,4 @@ App o borra los datos de la aplicación en los ajustes del sistema.
 
 ## Contacto
 
-Dudas sobre la eliminación: **contato@santiagodata.com**.
+Dudas sobre la eliminación: **sharparena@santiagodata.com**.

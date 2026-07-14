@@ -80,6 +80,10 @@ app.include_router(rotas_ranking.router, prefix="/v1/ranking")
 # Documentos legais como páginas HTML públicas (G3) — fora de /v1, é conteúdo web
 # (URLs de privacidade/exclusão exigidas pelas lojas).
 app.include_router(rotas_legal.router, prefix="/legal")
+# Os MESMOS documentos, em JSON (markdown cru + versão), para o APP. É o que
+# permite trocar os termos sem publicar uma build nova: o texto do app deixa de
+# ser um asset congelado e passa a ser baixado e cacheado.
+app.include_router(rotas_legal.router_api, prefix="/v1/legal")
 # Site de apresentação (landing + app-ads.txt), na RAIZ. Registrado por ÚLTIMO,
 # depois de todas as rotas da API — assim ele nunca sombreia nada.
 # ⚠️ São rotas EXPLÍCITAS ("/" e "/app-ads.txt"), não um `StaticFiles` montado em

@@ -13,7 +13,7 @@ from api.conta.servico import (
     provedores_do_token,
 )
 from api.nucleo.excecoes import ErroNegocio, ErroNaoEncontrado
-from api.nucleo.seguranca_firebase import IdentidadeFirebase
+from api.nucleo.seguranca_firebase import AdminUsuariosFake, IdentidadeFirebase
 from tests.unitarios.fakes_conta import FakeRepoUsuario, FakeSession
 
 
@@ -198,6 +198,42 @@ def test_cria_menor_de_13_responde_422_idade_minima():
     assert exc.value.status_http == 422
 
 
+def test_menor_recusado_tem_a_identidade_apagada_no_firebase():
+    """O login social autentica ANTES de sabermos a idade: quando a data reprova,
+    já existe no Firebase um registro com o e-mail e o nome de uma criança, sem
+    conta nenhuma apontando para ele. Recusar sem apagá-lo deixaria PII de menor
+    sem finalidade — e um uid órfão que continuaria conseguindo logar."""
+    hoje = date.today()
+    nasc = date(hoje.year - 10, hoje.month, max(1, hoje.day))
+    admin = AdminUsuariosFake()
+    servico = ServicoConta(repo=FakeRepoUsuario(), sessao=FakeSession(), admin=admin)
+
+    with pytest.raises(ErroNegocio):
+        asyncio.run(
+            servico.garantir_sessao(
+                _identidade(uid="uid-da-crianca"),
+                SessaoRequest(dt_nascimento=nasc),
+            )
+        )
+    assert admin.excluidos == ["uid-da-crianca"]
+
+
+def test_falha_ao_apagar_no_firebase_nao_muda_a_resposta():
+    """A limpeza é best-effort: se o Admin SDK cair, o usuário ainda precisa
+    receber o 422 (que é o que decide a tela que ele vê)."""
+    hoje = date.today()
+    nasc = date(hoje.year - 10, hoje.month, max(1, hoje.day))
+    admin = AdminUsuariosFake()
+    admin.falhar = True
+    servico = ServicoConta(repo=FakeRepoUsuario(), sessao=FakeSession(), admin=admin)
+
+    with pytest.raises(ErroNegocio) as exc:
+        asyncio.run(
+            servico.garantir_sessao(_identidade(), SessaoRequest(dt_nascimento=nasc))
+        )
+    assert exc.value.codigo == "idade_minima"
+
+
 def test_exatamente_13_cria_conta():
     hoje = date.today()
     nasc = date(hoje.year - 13, hoje.month, max(1, hoje.day))
@@ -327,6 +363,27 @@ def test_reentrada_trocar_data_para_menor_de_13_responde_422():
         )
     assert exc.value.codigo == "idade_minima"
     assert exc.value.status_http == 422
+
+
+def test_conta_QUE_JA_EXISTE_nunca_e_apagada_por_data_de_menor():
+    """A contrapartida do teste acima: apagar o usuário do Firebase só vale para a
+    identidade ÓRFÃ (a conta não chegou a nascer). Quem já tem conta e erra a data
+    de nascimento leva um 422 — e continua com a conta e o login intactos. Sem esta
+    fronteira, um adulto que digitasse 2020 em vez de 1990 se destruiria."""
+    hoje = date.today()
+    menor = date(hoje.year - 8, hoje.month, max(1, hoje.day))
+    admin = AdminUsuariosFake()
+    servico = ServicoConta(
+        repo=FakeRepoUsuario(existente=_conta_existente()),
+        sessao=FakeSession(),
+        admin=admin,
+    )
+
+    with pytest.raises(ErroNegocio):
+        asyncio.run(
+            servico.garantir_sessao(_identidade(), SessaoRequest(dt_nascimento=menor))
+        )
+    assert admin.excluidos == []
 
 
 def test_reentrada_corrigir_data_mantendo_maioridade_ok():

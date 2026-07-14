@@ -112,3 +112,52 @@ def test_todos_documentos_idiomas(client):
         for doc in ("termos", "privacidade", "exclusao-conta"):
             r = client.get(f"/legal/{idioma}/{doc}")
             assert r.status_code == 200, f"{idioma}/{doc}"
+
+
+# ── API JSON para o app (/v1/legal) ──────────────────────────────────────────
+#
+# É por esta rota que o app deixa de depender do texto EMBUTIDO na build. Sem
+# ela, publicar termos novos não mudaria nada em nenhum aparelho já instalado.
+
+
+def test_api_devolve_markdown_cru_e_versao(client):
+    r = client.get("/v1/legal/pt/termos")
+    assert r.status_code == 200
+    corpo = r.json()
+
+    assert corpo["co_documento"] == "termos"
+    assert corpo["co_idioma"] == "pt"
+    assert corpo["co_versao"] == VERSAO_LEGAL
+    # Markdown CRU, não HTML — o app renderiza com o próprio tema.
+    assert corpo["tx_conteudo"].lstrip().startswith(("<!--", "#"))
+    assert "# Termos de Uso" in corpo["tx_conteudo"]
+    assert "<h1" not in corpo["tx_conteudo"]
+
+
+def test_api_e_a_pagina_publica_servem_o_MESMO_texto(client):
+    # Se divergissem, a pessoa aceitaria no app um texto diferente do que está
+    # publicado — que é justamente o que a versão do documento deveria impedir.
+    api = client.get("/v1/legal/pt/privacidade").json()["tx_conteudo"]
+    html = client.get("/legal/pt/privacidade").text
+    # Uma frase que só existe no texto revisado, presente nos dois.
+    assert "pseudonimização" in api
+    assert "pseudonimiza" in html
+
+
+def test_api_sem_token_nem_cabecalhos(client):
+    # Documento público: exigir token aqui só quebraria o convidado e o 1º acesso.
+    r = client.get("/v1/legal/en/privacidade")
+    assert r.status_code == 200
+
+
+def test_api_todos_documentos_idiomas(client):
+    for idioma in ("pt", "en", "es"):
+        for doc in ("termos", "privacidade", "exclusao-conta"):
+            r = client.get(f"/v1/legal/{idioma}/{doc}")
+            assert r.status_code == 200, f"{idioma}/{doc}"
+            assert r.json()["tx_conteudo"]
+
+
+def test_api_idioma_ou_documento_invalido_404(client):
+    assert client.get("/v1/legal/xx/termos").status_code == 404
+    assert client.get("/v1/legal/pt/inexistente").status_code == 404

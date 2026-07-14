@@ -1,83 +1,120 @@
 <!--
-BORRADOR v1.0 — generado el 28/06/2026. Texto inicial para revisión (idealmente por
-un(a) abogado(a)) antes de publicar. No es asesoramiento jurídico.
+v1.0 — revisado el 14/07/2026 para la primera publicación en las tiendas. No es
+asesoramiento jurídico; el texto fue escrito por el propio desarrollador y debería
+ser revisado por un(a) abogado(a) si la App crece.
 -->
 # Términos de Uso — Arena Sagaz
 
-**Última actualización:** 28 de junio de 2026 · **Versión:** 1.0
+**Última actualización:** 14 de julio de 2026 · **Versión:** 1.0
 
 Estos Términos de Uso ("Términos") rigen el uso de la aplicación **Arena Sagaz**
-("App"), ofrecida por **Santiago Data**. Al usar la
-App, aceptas estos Términos. Si no estás de acuerdo, no uses la App.
+(publicada en inglés como *Sharp Arena*) — la "App" —, ofrecida por **Santiago
+Data**, marca operada por Fernando Santiago da Silva. Al usar la App, aceptas estos
+Términos. Si no estás de acuerdo, no uses la App.
 
 ## 1. Elegibilidad
 
-Debes tener **13 años o más** para usar la App. Si eres menor de edad, declaras
-contar con el **consentimiento y la supervisión** de tus padres o tutores.
+Debes tener **13 años o más** para crear una cuenta en la App. Al crearla, declaras
+tener como mínimo esa edad. No creamos cuentas para quien informa una fecha de
+nacimiento por debajo del límite — en ese caso, la App sigue disponible en **modo
+invitado**, sin cuenta y sin envío de datos a nuestros servidores.
 
 ## 2. Tu cuenta
 
-- Puedes jugar como **invitado** (sin cuenta) o crear una **cuenta** (Google, Apple o
-  correo/contraseña).
-- Eres responsable de mantener la confidencialidad de tus credenciales y de toda
+- Puedes jugar como **invitado** (sin cuenta) o crear una **cuenta** (Google, Apple
+  o correo/contraseña).
+- Eres responsable de mantener la confidencialidad de tus credenciales y de toda la
   actividad en tu cuenta.
 - Te comprometes a proporcionar información **veraz** (incluida la fecha de
   nacimiento).
+- El **nombre para mostrar** aparece en la tabla de clasificación pública, salvo que
+  desactives esa visibilidad en los ajustes de la App.
 
 ## 3. Licencia de uso
 
-Te concedemos una licencia **personal, limitada, no exclusiva e intransferible** para
-usar la App en tus dispositivos, conforme a estos Términos.
+Te concedemos una licencia **personal, limitada, no exclusiva, revocable e
+intransferible** para usar la App en tus dispositivos, conforme a estos Términos.
 
 ## 4. Conducta del usuario
 
 Aceptas **no**:
+
 - usar la App con fines ilegales o no autorizados;
 - elegir un **nombre para mostrar** ofensivo, engañoso o que viole derechos de
   terceros (podemos moderar y cambiar nombres inadecuados);
-- intentar eludir, copiar, descompilar o interferir con la App;
-- usar bots, automatizaciones o trampas que perjudiquen a otros jugadores.
+- intentar eludir, copiar, descompilar o interferir en el funcionamiento de la App;
+- usar bots, automatizaciones o trampas que perjudiquen a otros jugadores o falsifiquen
+  progreso, XP o posición en la clasificación.
+
+Podemos **eliminar o corregir** el progreso obtenido de forma fraudulenta.
 
 ## 5. Contenido y propiedad intelectual
 
-La App y sus textos, gráficos, marcas, sonidos, modelos de IA y código están
-protegidos y pertenecen a Santiago Data o a sus licenciantes. Estos Términos no te
-transfieren ningún derecho de propiedad intelectual más allá de la licencia de uso.
+La App, sus textos, gráficos, marcas, sonidos, **modelos de inteligencia artificial**
+y código están protegidos y pertenecen a Santiago Data o a sus licenciantes. Estos
+Términos no te transfieren ningún derecho de propiedad intelectual más allá de la
+licencia de uso.
 
-## 6. Compras y anuncios
+## 6. Registros de partida y entrenamiento de IA
 
-Esta versión **no tiene compras** dentro de la App. Funciones de pago o **anuncios**
-podrían introducirse en el futuro, en cuyo caso se presentarán reglas específicas.
-Para menores, los eventuales anuncios serán **no personalizados**.
+La App registra **el desarrollo de tus partidas** (el estado del tablero en cada
+jugada, la jugada elegida y la respuesta del modelo de IA). Esos registros se usan
+para operar el juego y también para **entrenar y evaluar modelos de inteligencia
+artificial** — es el propósito académico de este proyecto.
 
-## 7. Exención de garantías
+Esto se describe en detalle, con la base legal y **tu derecho a oponerte**, en la
+**[Política de Privacidad](privacidade.md)**.
 
-La App se ofrece **"tal cual"**, sin garantías de que esté siempre disponible, libre
-de errores o apta para un fin específico, en la medida permitida por la ley.
+## 7. Publicidad
 
-## 8. Limitación de responsabilidad
+La App muestra **anuncios** (Google AdMob). En esta versión son **no
+personalizados**: no usamos tu historial de navegación ni tu identificador de
+publicidad para segmentarlos. **No hay compras dentro de la App.**
 
-En la máxima medida permitida por la ley, Santiago Data no se responsabiliza por
-daños indirectos, incidentales o consecuentes derivados del uso o la imposibilidad de
-uso de la App. Nada en estos Términos limita derechos que no puedan limitarse según
-la legislación aplicable (incluida la de protección al consumidor).
+Si algún día pasamos a mostrar anuncios personalizados, pediremos tu
+**consentimiento** antes, como exige la ley.
 
-## 9. Suspensión y terminación
+## 8. Exclusión de garantías
 
-Podemos suspender o terminar el acceso en caso de incumplimiento de estos Términos.
-Puedes cerrar tu cuenta en cualquier momento (consulta
+La App se ofrece **"tal cual"** y **"según disponibilidad"**, sin garantía de que
+esté siempre en línea, libre de errores, de que el progreso se conserve
+indefinidamente o de que sirva para un fin específico — dentro de los límites que
+permite la ley.
+
+Este es un proyecto **independiente**, mantenido por una persona física, y puede ser
+**descontinuado** en cualquier momento. Avisaremos con antelación razonable cuando
+sea posible.
+
+## 9. Limitación de responsabilidad
+
+En la máxima medida permitida por la ley, Santiago Data **no se responsabiliza** por
+daños indirectos, incidentales, especiales o consecuentes (incluida la pérdida de
+progreso, de XP o de datos) derivados del uso o de la imposibilidad de uso de la App.
+
+Nada en estos Términos limita derechos que **no puedan** ser limitados por la
+legislación aplicable, en especial las normas de protección al consumidor.
+
+## 10. Suspensión y terminación
+
+Podemos suspender o terminar el acceso en caso de violación de estos Términos. Puedes
+cerrar tu cuenta en cualquier momento, desde la propia App (ver
 **[Eliminación de Cuenta](exclusao-conta.md)**).
 
-## 10. Cambios
+## 11. Cambios
 
-Podemos actualizar estos Términos. Los cambios relevantes se comunicarán en la App,
-con una nueva fecha de "última actualización". El uso continuado tras un cambio
-implica la aceptación de los nuevos Términos.
+Podemos actualizar estos Términos. Los cambios relevantes se comunicarán **dentro de
+la App**, y pediremos una **nueva aceptación** antes de que sigas usándola. Cada
+versión queda archivada en una dirección propia e inmutable (p. ej.
+`/legal/1.0/es/termos`), de modo que siempre sea posible comprobar **qué texto**
+aceptaste.
 
-## 11. Ley aplicable
+## 12. Ley aplicable y jurisdicción
 
-Estos Términos se rigen por las leyes de **Brasil**.
+Estos Términos se rigen por las leyes de **Brasil**. Se elige el fuero de
+**Brasilia/DF (Brasil)** para dirimir controversias derivadas de estos Términos,
+**sin perjuicio** del derecho del consumidor a demandar en el fuero de su propio
+domicilio, cuando la ley así lo permita.
 
-## 12. Contacto
+## 13. Contacto
 
-Dudas: **contato@santiagodata.com**.
+Dudas y soporte: **sharparena@santiagodata.com**.
