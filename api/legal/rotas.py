@@ -18,6 +18,7 @@ entrada de usuário chegando ao caminho do arquivo (sem path traversal).
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -29,9 +30,6 @@ from api.nucleo.excecoes import ErroNaoEncontrado
 
 router = APIRouter()
 
-# Versão vigente dos documentos (espelha `versaoLegal` no app).
-VERSAO_LEGAL = "1.0" # Versão inicial
-
 # Whitelists — só estes valores são aceitos nas rotas (segurança + clareza).
 IDIOMAS = ("pt", "en", "es")
 DOCUMENTOS = ("termos", "privacidade", "exclusao-conta")
@@ -39,6 +37,50 @@ DOCUMENTOS = ("termos", "privacidade", "exclusao-conta")
 # Pasta raiz dos documentos: <raiz-do-backend>/legal.
 # Este arquivo é api/legal/rotas.py → parents[2] é a raiz do backend.
 _DIR_LEGAL = Path(__file__).resolve().parents[2] / "legal"
+
+# Uma pasta de versão é só dígitos e pontos: "1.0", "1.1", "2.0", "1.10". Qualquer
+# outra coisa em legal/ (um README, um "backup", um "1.1-rascunho") é ignorada.
+_PADRAO_VERSAO = re.compile(r"^\d+(?:\.\d+)*$")
+
+
+def _chave_ordem_versao(versao: str) -> tuple[int, ...]:
+    """Transforma '1.10' em (1, 10) para ordenar por NÚMERO, não por texto — senão
+    '1.10' viria antes de '1.9' na ordem alfabética, que é o erro clássico."""
+    return tuple(int(parte) for parte in versao.split("."))
+
+
+def versoes_publicadas(dir_legal: Path = _DIR_LEGAL) -> list[str]:
+    """As versões que existem em legal/ (ex.: ['1.0', '1.1']), da mais antiga para
+    a mais nova. É a lista de subpastas cujo nome é um número de versão."""
+    if not dir_legal.is_dir():
+        return []
+    nomes = [
+        p.name
+        for p in dir_legal.iterdir()
+        if p.is_dir() and _PADRAO_VERSAO.match(p.name)
+    ]
+    return sorted(nomes, key=_chave_ordem_versao)
+
+
+def detectar_versao_vigente(dir_legal: Path = _DIR_LEGAL) -> str:
+    """A MAIOR versão presente em legal/ — a "versão vigente" que o site e o app
+    servem.
+
+    É o coração da automação pedida em 14/07: publicar uma versão nova passou a ser
+    só **criar a pasta** (copiar `legal/1.0/` para `legal/1.1/`, editar e subir).
+    Ninguém precisa lembrar de mexer em código — o número vem da pasta.
+
+    Fallback "1.0" se, por algum acidente, não houver nenhuma pasta: um valor
+    seguro é melhor do que derrubar o boot da API por causa de uma pasta faltando.
+    """
+    versoes = versoes_publicadas(dir_legal)
+    return versoes[-1] if versoes else "1.0"
+
+
+# Versão vigente dos documentos. Calculada UMA VEZ, no import: as pastas de legal/
+# estão dentro da imagem Docker e só mudam num novo deploy — que reinicia o
+# processo e recalcula isto. Não há por que varrer o diretório a cada requisição.
+VERSAO_LEGAL = detectar_versao_vigente()
 
 # Títulos amigáveis por documento e idioma (usados no <title> e cabeçalho).
 _TITULOS = {
