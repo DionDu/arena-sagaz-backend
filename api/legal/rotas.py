@@ -30,7 +30,7 @@ from api.nucleo.excecoes import ErroNaoEncontrado
 router = APIRouter()
 
 # Versão vigente dos documentos (espelha `versaoLegal` no app).
-VERSAO_LEGAL = "1.0"
+VERSAO_LEGAL = "1.0" # Versão inicial
 
 # Whitelists — só estes valores são aceitos nas rotas (segurança + clareza).
 IDIOMAS = ("pt", "en", "es")
