@@ -57,7 +57,7 @@ PREFIXO_SEMENTE = "semente:"
 # captura da loja. Ali entram nomes do JOGO. As piadas de rede neural ficam para
 # o meio da lista, onde soam como jogadores de verdade e não como enfeite.
 APELIDOS_DESTAQUE = [
-    "LordeTraco", "Minimaxer", "A_Sagaz", "MestreDosPontos", "TracoDeOuro",
+    "LordeTraco", "Minimaxer", "MenteAfiada", "MestreDosPontos", "ReiDaArena",
     "DamaDeFerro", "OlhoDeLince", "Estrategista", "FioDeNavalha", "CacaCaixas",
     "ZugzwangZe", "CaixaFechada99", "UltimaLinha", "ContraAtaque", "Gambito",
 ]
