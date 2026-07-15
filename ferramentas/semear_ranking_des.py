@@ -54,12 +54,18 @@ PREFIXO_SEMENTE = "semente:"
 #
 # São DUAS listas porque os nomes do topo não são iguais aos do fim: os três
 # primeiros vão para o **pódio**, em letra grande, e são o que mais se lê na
-# captura da loja. Ali entram nomes do JOGO. As piadas de rede neural ficam para
-# o meio da lista, onde soam como jogadores de verdade e não como enfeite.
+# captura da loja.
+#
+# ⚠️ Os de DESTAQUE são NEUTROS DE IDIOMA de propósito: o pódio aparece nos prints
+# em pt, en E es, então o nome não pode carregar significado (nem risco de duplo
+# sentido) em nenhuma língua. Por isso: termos de xadrez/IA reconhecidos no mundo
+# todo (Gambit, Zugzwang, Minimax…) + handles neutros/cósmicos. Nada de trocadilho
+# em português aqui — isso fica para o MEIO da lista (APELIDOS), que não sobe ao
+# pódio e raramente aparece numa captura.
 APELIDOS_DESTAQUE = [
-    "LordeTraco", "Minimaxer", "MenteAfiada", "MestreDosPontos", "ReiDaArena",
-    "DamaDeFerro", "OlhoDeLince", "Estrategista", "FioDeNavalha", "CacaCaixas",
-    "ZugzwangZe", "CaixaFechada99", "UltimaLinha", "ContraAtaque", "Gambito",
+    "Gambit", "Zugzwang", "Minimax", "AlphaBeta", "Blitz",
+    "Vortex", "Falcon", "Onyx", "Comet", "Nimbus",
+    "Orion", "Quasar", "Nova", "Zephyr", "Titan",
 ]
 APELIDOS = [
     "PontoFinal", "RedeNeural", "GatoDeSchrodinger", "Cadeia_Longa",
