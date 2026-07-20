@@ -70,6 +70,35 @@ def _offset(valor: Any) -> int | None:
     return valor if -840 <= valor <= 840 else None
 
 
+def calcular_sequencia_de_dias(dias: list[date]) -> int:
+    """Calcula a "chama" (sequência) a partir da lista de **dias LOCAIS distintos**
+    em que o jogador jogou, em ordem CRESCENTE.
+
+    É a MESMA regra "gentil" do app (``ProgressaoProvider._atualizarSequencia``),
+    reproduzida aqui para o servidor ser a fonte autoritativa:
+
+    - primeiro dia → 1;
+    - jogou no dia seguinte (gap = 1) → **+1**;
+    - faltou alguns dias (gap > 1) → **decai** ``gap-1``, nunca abaixo de 1
+      (não zera: a chama é gentil).
+
+    Como os dias são DISTINTOS e ORDENADOS, o gap é sempre ≥ 1 (não há o caso
+    "relógio voltou" daqui). Lista vazia → 0 (nunca jogou)."""
+    seq = 0
+    anterior: date | None = None
+    for dia in dias:
+        if anterior is None:
+            seq = 1
+        else:
+            gap = (dia - anterior).days
+            if gap == 1:
+                seq += 1
+            elif gap > 1:
+                seq = max(1, seq - (gap - 1))
+        anterior = dia
+    return seq
+
+
 class RepositorioSincronizacao:
     """Acesso a partidas/jogadas/XP/progressão para a sincronização.
 
@@ -591,11 +620,81 @@ class RepositorioSincronizacao:
 
     # ── Leitura (pela VIEW) ───────────────────────────────────────────────────
 
+    async def registrar_atividade(self, id_usuario: str) -> None:
+        """Carimba ``conta.tb001_usuario.dh_ultimo_acesso = now()`` a cada
+        sincronização de partidas (``POST /eventos``). É o sinal CONFIÁVEL de
+        "último acesso": o app reabre restaurando a sessão de forma ASSÍNCRONA e
+        esse caminho nem sempre rechama ``/sessao`` — então depender só do login
+        deixava a coluna parada (às vezes NULL) mesmo para quem joga todo dia."""
+        await self.sessao.execute(
+            text(
+                "UPDATE conta.tb001_usuario SET dh_ultimo_acesso = now() "
+                "WHERE id_usuario = :id"
+            ),
+            {"id": id_usuario},
+        )
+
+    async def recalcular_chama(self, id_usuario: str) -> tuple[int, date | None]:
+        """Recalcula a "chama" (sequência) e o último dia jogado de forma
+        **AUTORITATIVA**, a partir dos DIAS LOCAIS distintos das partidas
+        concluídas que pontuam (``vs_cpu``). Persiste o resultado (SOBRESCREVE —
+        não ``GREATEST`` — pois é a verdade derivada do histórico) e o devolve.
+
+        É a **correção definitiva** do bug da chama: antes o "dia jogado" saía de
+        ``dh_fim`` lido em **UTC**, então uma partida das 21h–23h no Brasil (BRT,
+        UTC−3) caía no **dia seguinte** e a sequência nunca crescia. Aqui o dia é o
+        dia do **relógio do jogador**, reconstruído com o offset gravado em cada
+        partida (``nu_offset_minuto_j1``): ``(dh em UTC) + offset``.
+
+        Se o jogador ainda não tem partidas que pontuam, **NÃO** mexe na linha
+        (para não zerar uma sequência vinda de merge de convidado cujas partidas
+        ainda não subiram) e devolve ``(0, None)``."""
+        resultado = await self.sessao.execute(
+            text(
+                """
+                SELECT DISTINCT
+                  ((COALESCE(dh_fim, dh_inicio) AT TIME ZONE 'UTC')
+                     + make_interval(mins => COALESCE(nu_offset_minuto_j1, 0)))::date
+                    AS dia
+                FROM partida.tb001_partida
+                WHERE id_usuario = :id
+                  AND ic_pontua = true
+                  AND co_status = 'concluida'
+                ORDER BY dia
+                """
+            ),
+            {"id": id_usuario},
+        )
+        dias = [linha[0] for linha in resultado.all()]
+        if not dias:
+            return (0, None)
+        seq = calcular_sequencia_de_dias(dias)
+        ultimo = dias[-1]
+        # SOBRESCREVE (a verdade é o histórico). A linha existe: partidas que
+        # pontuam sempre criam/atualizam a progressão em `_incrementar_progressao`.
+        await self.sessao.execute(
+            text(
+                """
+                UPDATE progressao.tb001_progressao_usuario
+                SET nu_sequencia_atual = :seq,
+                    dt_ultimo_dia_jogado = :dia,
+                    dh_atualizacao = now()
+                WHERE id_usuario = :id
+                """
+            ),
+            {"id": id_usuario, "seq": seq, "dia": ultimo},
+        )
+        return (seq, ultimo)
+
     async def obter_progressao(self, id_usuario: str) -> dict[str, Any]:
         """Progressão atual (com nu_nivel/co_patente calculados pela VIEW) +
         a lista de conquistas. É o que o app PUXA para reconciliar o banco local
         (convergência multi-dispositivo). Se o usuário ainda não tem linha,
-        devolve zeros (mas ainda lê as conquistas, que podem existir sem linha)."""
+        devolve zeros (mas ainda lê as conquistas, que podem existir sem linha).
+
+        A **chama** é recomputada aqui de forma autoritativa (ver
+        [recalcular_chama]) para todo mundo se auto-corrigir na próxima leitura —
+        inclusive retroativamente."""
         conquistas = await self._conquistas_de(id_usuario)
         resultado = await self.sessao.execute(
             text(
@@ -620,6 +719,13 @@ class RepositorioSincronizacao:
             }
         saida = dict(linha)
         saida["conquistas"] = conquistas
+        # Chama autoritativa (recomputa dos dias LOCAIS de jogo e sobrescreve).
+        # A `saida` foi lida da VIEW ANTES do update, então refletimos aqui os
+        # valores novos. Só sobrescreve quando há histórico (ultimo != None).
+        seq, ultimo = await self.recalcular_chama(id_usuario)
+        if ultimo is not None:
+            saida["nu_sequencia_atual"] = seq
+            saida["dt_ultimo_dia_jogado"] = ultimo
         return saida
 
     async def _conquistas_de(self, id_usuario: str) -> list[str]:

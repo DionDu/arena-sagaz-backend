@@ -33,6 +33,8 @@ class FakeRepoSincronizacao:
         # Gatilho de teste: co_eventos que devem LANÇAR ao gravar (simula o 500
         # que a blindagem por SAVEPOINT deve capturar como `falha_processamento`).
         self.falhar_em: set[str] = set()
+        # Diagnóstico: ids que tiveram o "último acesso" carimbado (POST /eventos).
+        self.atividades: list[str] = []
 
     async def gravar_evento(
         self,
@@ -131,6 +133,10 @@ class FakeRepoSincronizacao:
         # Devolve conquistas como lista ordenada (JSON não tem set).
         saida["conquistas"] = sorted(prog["conquistas"])
         return saida
+
+    async def registrar_atividade(self, id_usuario: str) -> None:
+        # Fake: registra os toques de "último acesso" para os testes conferirem.
+        self.atividades.append(id_usuario)
 
     async def arquivar_evento_rejeitado(
         self,

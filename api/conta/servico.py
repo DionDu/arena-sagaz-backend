@@ -421,6 +421,12 @@ class ServicoConta:
                 co_provedor=provedor,
                 co_identidade_provedor=identidade.uid,
             )
+        # A criação TAMBÉM é um acesso: sem isto, `dh_ultimo_acesso` nascia NULL e
+        # só era preenchido num RE-login futuro. Como o app reabre com a sessão
+        # restaurada de forma ASSÍNCRONA (e esse caminho nem sempre rechama
+        # `/sessao`), a coluna podia ficar NULL para sempre em quem usa o app todo
+        # dia. Carimbar aqui garante que a conta nasce com um acesso registrado.
+        await self.repo.registrar_ultimo_acesso(linha["id_usuario"])
         return await self._montar_perfil(linha)
 
     async def _criar_com_codigo_unico(

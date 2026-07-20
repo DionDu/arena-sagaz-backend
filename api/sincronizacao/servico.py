@@ -202,6 +202,9 @@ class ServicoSincronizacao:
 
             (aceitos if inserido else ignorados).append(co_evento)
 
+        # Sincronizar partidas É "acessar": carimba o último acesso (a criação já
+        # carimba; aqui cobrimos as reaberturas, que nem sempre rechamam /sessao).
+        await self.repo.registrar_atividade(usuario.id_usuario)
         progressao = await self.repo.obter_progressao(usuario.id_usuario)
         return {
             "aceitos": aceitos,

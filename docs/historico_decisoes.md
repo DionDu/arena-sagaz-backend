@@ -2992,3 +2992,28 @@ nem simular por subtracao do oraculo (funcoes distintas). Um Minimax p=19 e EXAT
 para ar<=19 (t>=12) e so difere na abertura (quase-empate) → praticamente identico ao
 oraculo. Logo o benchmark **CNN vs Oraculo (= Minimax p=31, profundidade total)** que ja
 adicionamos JA e o "vs Minimax altissimo", no teto. Escada de regret descartada (usuario).
+
+
+## 2026-07-20 (chama autoritativa no servidor + fuso local)
+
+**Contexto:** a "chama" (nu_sequencia_atual) vivia so no app e o servidor era um
+armazem passivo (GREATEST). O "dia jogado" era derivado de dh_fim lido em UTC,
+entao partidas da noite no Brasil (BRT, UTC-3, 21h-23h) caiam no dia seguinte e a
+sequencia nunca crescia (travava em 1). Isso vazava para o app via _maiorData e
+envenenava o _ultimoDia local.
+
+**Decisao:** o SERVIDOR passa a ser a fonte autoritativa da chama, calculada a
+partir dos DIAS LOCAIS distintos de jogo (dia = dh em UTC + nu_offset_minuto_j1),
+com a regra gentil do app (calcular_sequencia_de_dias). Recalculada em
+obter_progressao (todo POST /eventos e GET /estado); sobrescreve (nao GREATEST) por
+ser derivada do historico. Retroativa: conserta todas as contas. Script
+scripts/recalcular_chama_todos.py recalcula o passado de uma vez.
+
+**Alternativas descartadas:** (a) so corrigir no cliente (nao era a causa; o veneno
+vinha da data UTC do servidor); (b) so corrigir a atribuicao do dia sem recompute
+(nao consertava o passado). 
+
+**Colateral:** dh_ultimo_acesso agora e carimbado na criacao da conta e a cada
+POST /eventos (registrar_atividade) -- antes so no re-login, e a reabertura
+assincrona do app nem sempre rechamava /sessao, deixando a coluna NULL para quem
+jogava todo dia.
