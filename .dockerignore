@@ -1,12 +1,15 @@
 # Reduz DRASTICAMENTE o contexto de build enviado ao Railway/Docker.
-# O build estava subindo ~528 MB porque empacotava os venvs e os dados.
+# O build ja chegou a subir ~528 MB porque empacotava os venvs e os dados.
+#
+# Nota historica: este arquivo listava tambem dados/, modelos/, notebooks/,
+# resultados/, analise/ e visualizacoes/. Eram pastas do laboratorio de IA, que
+# ate 2026-07-21 morava neste repositorio e se mudou para `../ia/`. Como nao
+# existem mais aqui, as linhas sairam.
 
-# Ambientes virtuais (enormes — TensorFlow/GPU)
+# Ambientes virtuais (enormes)
 .venv/
 venv/
 env/
-.venv_tf/
-.venv_gpu/
 
 # Caches Python
 __pycache__/
@@ -14,38 +17,26 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Segredos (nunca na imagem — vão por variável de ambiente)
+# Segredos (nunca na imagem — vao por variavel de ambiente)
 .env
 *firebase-adminsdk*.json
 google-services.json
 GoogleService-Info.plist
 
-# Dados, modelos, notebooks e saídas de treino (não são da API)
-dados/
-modelos/
-notebooks/
-resultados/
-analise/
-visualizacoes/
-tmp_analise/
-*.npz
-*.npy
-
-# Testes / cobertura
+# Testes / cobertura (nao entram na imagem de producao)
 .pytest_cache/
 .coverage
 htmlcov/
 tests/
 
-# Git / IDE / SO
+# Git / IDE / SO / ferramentas de autoria
 .git/
 .idea/
 .vscode/
 .claude/
+.specify/
 .DS_Store
 Thumbs.db
 
-# Dependências completas de dev/ML (a imagem usa requirements_api.txt)
+# Dependencias de desenvolvimento — a imagem instala requirements_api.txt
 requirements.txt
-requirements_gpu.txt
-requirements_tf.txt
