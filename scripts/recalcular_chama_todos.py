@@ -15,9 +15,9 @@ não vão jogar tão cedo, ou para inspeção imediata no banco).
 `dt_ultimo_dia_jogado` com o valor derivado do histórico de partidas. Rodar duas
 vezes dá o mesmo resultado.
 
-Exige `DATABASE_URL` explícita (não lê o `.env`) pela mesma razão do
-`truncar_banco.py`: no PowerShell `set VAR=valor` NÃO define variável de ambiente,
-e cair no `.env` apontaria para o DES. Sem a variável, o script se recusa a rodar.
+Exige `DATABASE_URL` explícita (não lê o `.env`) por segurança: no PowerShell
+`set VAR=valor` NÃO define variável de ambiente, e cair no `.env` apontaria para
+o DES. Sem a variável, o script se recusa a rodar.
 """
 from __future__ import annotations
 
