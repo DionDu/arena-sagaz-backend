@@ -1,8 +1,12 @@
-# Dados de treino e modelos treinados — NÃO versionados aqui (backup no Google
-# Drive). São grandes (~650MB) e/ou regeneráveis pelo gerador_dados/ + tablebase;
-# o git guarda só o CÓDIGO e os RELATÓRIOS. Decisão de 2026-07-07.
-/dados/
-/modelos/
+# ─────────────────────────────────────────────────────────────────────────────
+# .gitignore da API (FastAPI).
+#
+# Nota historica: ate 2026-07-21 este arquivo tinha secoes inteiras sobre
+# dados/, modelos/, notebooks/, visualizacoes/, tmp_analise/ e binarios de
+# dataset (*.npz, *.npy, *.tflite, *.keras). Tudo aquilo era do laboratorio de
+# IA, que se mudou para `../ia/` — as regras foram junto, para o .gitignore de
+# la. Aqui sobrou o que e mesmo da API.
+# ─────────────────────────────────────────────────────────────────────────────
 
 # Python
 __pycache__/
@@ -15,19 +19,28 @@ dist/
 build/
 .eggs/
 
-# Ambiente virtual
+# Ambientes virtuais.
+# `.venv` (Python 3.14) e o da API e e o unico que vive aqui.
+# `.venv_tf` (3.12, TensorFlow) e `.venv_gpu` (3.10, CUDA) sao do laboratorio e
+# ja foram para `../ia/` em 2026-07-21. Seguem listados como rede de seguranca:
+# se alguem recriar um deles aqui por engano, ele nao entra no repositorio.
 .venv/
-venv/
-env/
 .venv_tf/
 .venv_gpu/
+venv/
+env/
 
-# Variáveis de ambiente
+# Variaveis de ambiente (modelo versionado em .env.example)
 .env
 
-# Credenciais do Firebase Admin SDK (NUNCA versionar — vão por variável de ambiente no Railway)
+# Credenciais do Firebase Admin SDK — NUNCA versionar. Vao por variavel de
+# ambiente no Railway (FIREBASE_CREDENTIALS, o JSON em base64 de uma linha).
+# Como obter e o que cada campo significa: docs/firebase-adminsdk-como-obter.md
+# (documento em prosa de proposito: um .json de exemplo com a mesma FORMA de uma
+# credencial e barrado pelo push protection do GitHub, e com razao).
 *firebase-adminsdk*.json
 arena-sagaz-*-firebase-adminsdk.json
+
 # Arquivos de config do Firebase do app (gerados por ambiente)
 google-services.json
 GoogleService-Info.plist
@@ -36,12 +49,6 @@ GoogleService-Info.plist
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Binários de dataset e modelo — fora do git (backup no Drive; ver /dados/ e /modelos/).
-*.npy
-*.npz
-*.tflite
-*.keras
 
 # IDE
 .vscode/
@@ -53,18 +60,10 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Claude Code local settings (não versionar)
+# Claude Code.
+# A pasta INTEIRA fica de fora: alem das configuracoes locais desta maquina, ela
+# guarda os arquivos de memoria do assistente (`.claude/projects/**/memory/`),
+# que sao anotacoes de trabalho e nao codigo do projeto.
+# (Os poucos arquivos de `.claude/` que ja estavam rastreados antes desta regra
+# continuam rastreados — o .gitignore nao desfaz rastreamento existente.)
 .claude/
-
-# Oraculo tablebase (gerado, ~2GB)
-dados/oraculo_pontinhos/
-
-# Análises e scripts temporários (artefatos ML gerados — não versionar). O
-# tmp_analise/ tinha ~55 mil arquivos rastreados (PNG/NPY/JSON de "retratos de
-# divergência"), removidos do rastreamento em jul/2026 (MEL-03 da revisão de
-# segurança). Os arquivos continuam no disco; só param de ser versionados.
-tmp_analise/
-tmp_*.py
-# visualizacoes/ = ~2.5 mil pares PNG+MD de "retratos de partida" gerados pelo
-# avaliador (regeneráveis) — mesmo caso do tmp_analise/ acima. Fora do git.
-/visualizacoes/
