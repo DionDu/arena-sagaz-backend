@@ -20,10 +20,10 @@ build/
 .eggs/
 
 # Ambientes virtuais.
-# `.venv` (Python 3.14) e o da API e vive aqui. `.venv_tf` (3.12, TensorFlow) e
-# `.venv_gpu` (3.10, CUDA) sao do laboratorio e vao para `../ia/` — continuam
-# listados aqui enquanto a copia nao for concluida e validada, para nao entrarem
-# no repositorio por descuido no meio do caminho.
+# `.venv` (Python 3.14) e o da API e e o unico que vive aqui.
+# `.venv_tf` (3.12, TensorFlow) e `.venv_gpu` (3.10, CUDA) sao do laboratorio e
+# ja foram para `../ia/` em 2026-07-21. Seguem listados como rede de seguranca:
+# se alguem recriar um deles aqui por engano, ele nao entra no repositorio.
 .venv/
 .venv_tf/
 .venv_gpu/
