@@ -8,7 +8,7 @@ Esta página explica cómo eliminar tu cuenta de **Arena Sagaz** y qué ocurre c
 
 **En la aplicación (recomendado):**
 1. Abre **Arena Sagaz** e inicia sesión en tu cuenta.
-2. Ve a **Cuenta** (o Perfil) → **Eliminar cuenta**.
+2. Toca el **engranaje de Ajustes** → **Mi cuenta** → **Eliminar cuenta**.
 3. Confirma. La eliminación se procesa y se cierra tu sesión.
 
 **Por correo (alternativa):**
@@ -17,7 +17,7 @@ Esta página explica cómo eliminar tu cuenta de **Arena Sagaz** y qué ocurre c
 ## Qué se elimina
 
 Al eliminar tu cuenta, removemos o **anonimizamos** tus datos personales, incluyendo:
-- correo electrónico, nombre para mostrar y fecha de nacimiento;
+- correo electrónico, nombre para mostrar y la declaración de edad;
 - vínculos con proveedores de inicio de sesión (Google, Apple);
 - tokens de notificación del dispositivo.
 

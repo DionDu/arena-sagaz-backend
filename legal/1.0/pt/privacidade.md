@@ -18,7 +18,7 @@ Para fins da **Lei Geral de Proteção de Dados (LGPD, Lei nº 13.709/2018)**, s
 
 - **E-mail** (quando você cria conta por e-mail ou o provedor o compartilha);
 - **Nome de exibição** (apelido escolhido);
-- **Data de nascimento** (para verificação de idade);
+- **Declaração de idade mínima** (a confirmação de que você tem 13 anos ou mais). Guardamos apenas essa confirmação, e **não** a sua data de nascimento;
 - **Método de login** e identificador da conta no provedor (Google, Apple).
 
 **b) Coletados automaticamente:**
@@ -93,7 +93,7 @@ As notificações por push dependem da sua autorização no aparelho. Você pode
 
 Mantemos seus dados enquanto sua conta existir. Você pode **excluir a conta** a qualquer momento, pelo próprio App (ver **[Exclusão de Conta](exclusao-conta.md)**).
 
-Ao excluir, **anonimizamos** a sua conta (removemos e-mail, nome e data de nascimento) e apagamos os dados vinculados a você. Registros de partida já **dissociados** podem permanecer, de forma anônima, em conjuntos de treino e em estatísticas de jogo - não é mais possível ligá-los a você.
+Ao excluir, **anonimizamos** a sua conta (removemos e-mail, nome e a declaração de idade) e apagamos os dados vinculados a você. Registros de partida já **dissociados** podem permanecer, de forma anônima, em conjuntos de treino e em estatísticas de jogo - não é mais possível ligá-los a você.
 
 ## 10. Seus direitos (LGPD, art. 18)
 
@@ -103,7 +103,7 @@ Para exercer, escreva para **sharparena@santiagodata.com** (ou, se preferir fala
 
 ## 11. Crianças e adolescentes
 
-O App exige **13 anos ou mais** para criar conta, e recusa o cadastro de quem informa data de nascimento abaixo disso. Não exibimos anúncios personalizados. Se soubermos que coletamos dados de uma criança indevidamente, **eliminaremos** esses dados.
+O App exige **13 anos ou mais** para criar conta, e recusa o cadastro de quem não confirma essa idade. Não exibimos anúncios personalizados. Se soubermos que coletamos dados de uma criança indevidamente, **eliminaremos** esses dados.
 
 ## 12. Segurança
 

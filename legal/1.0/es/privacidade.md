@@ -18,7 +18,7 @@ A efectos de la **Ley General de Protección de Datos de Brasil (LGPD, Ley n.º 
 
 - **Correo electrónico** (cuando creas una cuenta por correo o el proveedor lo comparte);
 - **Nombre para mostrar** (el apodo que eliges);
-- **Fecha de nacimiento** (para verificar la edad);
+- **Declaración de edad mínima** (tu confirmación de que tienes 13 años o más). Guardamos solo esa confirmación, y **no** tu fecha de nacimiento;
 - **Método de inicio de sesión** e identificador de tu cuenta en el proveedor (Google, Apple).
 
 **b) Recopilados automáticamente:**
@@ -93,7 +93,7 @@ Las notificaciones push dependen de tu autorización en el dispositivo. Puedes *
 
 Conservamos tus datos mientras exista tu cuenta. Puedes **eliminar la cuenta** en cualquier momento, desde la propia App (ver **[Eliminación de Cuenta](exclusao-conta.md)**).
 
-Al eliminarla, **anonimizamos** tu cuenta (quitamos correo, nombre y fecha de nacimiento) y borramos los datos vinculados a ti. Los registros de partida ya **disociados** pueden permanecer, de forma anónima, en conjuntos de entrenamiento y en estadísticas de juego - ya no es posible enlazarlos contigo.
+Al eliminarla, **anonimizamos** tu cuenta (quitamos correo, nombre y la declaración de edad) y borramos los datos vinculados a ti. Los registros de partida ya **disociados** pueden permanecer, de forma anónima, en conjuntos de entrenamiento y en estadísticas de juego - ya no es posible enlazarlos contigo.
 
 ## 10. Tus derechos (LGPD, art. 18)
 
@@ -103,7 +103,7 @@ Para ejercerlos, escribe a **sharparena@santiagodata.com** (o, si prefieres habl
 
 ## 11. Niños y adolescentes
 
-La App exige **13 años o más** para crear una cuenta, y rechaza el registro de quien informa una fecha de nacimiento por debajo de esa edad. No mostramos anuncios personalizados. Si supiéramos que hemos recopilado indebidamente datos de un niño, los **eliminaremos**.
+La App exige **13 años o más** para crear una cuenta, y rechaza el registro de quien no confirma esa edad. No mostramos anuncios personalizados. Si supiéramos que hemos recopilado indebidamente datos de un niño, los **eliminaremos**.
 
 ## 12. Seguridad
 
