@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
-from typing import Any, Optional
+from typing import Any, Optional, get_args
 
 from sqlalchemy.exc import IntegrityError
 
@@ -24,6 +24,7 @@ from api.conta.modelos import (
     AtualizarPerfilRequest,
     ConsentimentoRequest,
     ConsentimentoResposta,
+    DocumentoLegal,
     ExclusaoContaResposta,
     PerfilUsuario,
     SessaoRequest,
@@ -40,6 +41,12 @@ log = obter_logger("api.conta.servico")
 
 # Idade mínima para criar conta (espelha `idadeMinimaConta` no app).
 IDADE_MINIMA = 13
+
+# Quantos documentos legais compõem UM aceite completo. Hoje são dois — termos e
+# privacidade — e é a lista `DocumentoLegal` de `modelos.py` que manda. Uma versão
+# só conta como "aceita" quando os DOIS foram aceitos naquela versão; ver
+# `RepositorioUsuario.buscar_versao_legal_aceita`.
+TOTAL_DOCUMENTOS_LEGAIS = len(get_args(DocumentoLegal))
 
 # Quantas vezes tentamos gerar um co_usuario único antes de desistir.
 _MAX_TENTATIVAS_CODIGO = 10
@@ -528,7 +535,20 @@ class ServicoConta:
         ) from ultimo_erro
 
     async def _montar_perfil(self, linha: dict[str, Any]) -> PerfilUsuario:
-        # Lê os provedores vinculados (só códigos) para compor a resposta.
-        vinculos = await self.repo.listar_provedores(linha["id_usuario"])
+        # Ponto ÚNICO por onde passam `/sessao`, `/perfil` e o `PATCH /perfil` —
+        # por isso tudo o que a resposta de perfil precisa é montado aqui.
+        id_usuario = linha["id_usuario"]
+
+        # Provedores vinculados (só os códigos).
+        vinculos = await self.repo.listar_provedores(id_usuario)
         codigos = [v["co_provedor"] for v in vinculos]
-        return PerfilUsuario.de_linha(linha, provedores=codigos)
+
+        # Versão legal já aceita POR ESTA CONTA. Vai junto na resposta do login
+        # (item 6 do checklist pós-publicação): o app usava um pref local global,
+        # e por isso uma conta NOVA num aparelho já usado pulava os termos.
+        versao_legal = await self.repo.buscar_versao_legal_aceita(
+            id_usuario, total_documentos=TOTAL_DOCUMENTOS_LEGAIS
+        )
+        return PerfilUsuario.de_linha(
+            linha, provedores=codigos, co_versao_legal_aceita=versao_legal
+        )

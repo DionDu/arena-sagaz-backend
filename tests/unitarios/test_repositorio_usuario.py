@@ -188,3 +188,30 @@ def test_anonimizar_zera_a_declaracao_de_idade():
     sql = _ultimo_sql(sessao)
     assert "ic_idade_minima_declarada = FALSE" in sql
     assert "ic_anonimizado = TRUE" in sql
+
+
+def test_buscar_versao_legal_aceita_exige_TODOS_os_documentos():
+    """O SQL agrupa por versão e só aceita a que tiver todos os documentos.
+
+    Sem o `HAVING`, uma conta com `termos` na 2.0 e `privacidade` só na 1.0
+    responderia "2.0" — e o portão do app liberaria uma versão que a pessoa não
+    aceitou por inteiro."""
+    sessao = _SessaoFake(retorno=[{"co_versao": "1.0"}])
+    repo = RepositorioUsuario(sessao)
+    versao = asyncio.run(
+        repo.buscar_versao_legal_aceita("u1", total_documentos=2)
+    )
+    sql = _ultimo_sql(sessao)
+    assert versao == "1.0"
+    assert "conta.vw003_aceite_legal" in sql  # leitura SEMPRE pela view
+    assert "GROUP BY co_versao" in sql
+    assert "HAVING COUNT(DISTINCT co_documento) >= :total" in sql
+    assert _ultimos_params(sessao)["total"] == 2
+
+
+def test_buscar_versao_legal_aceita_sem_aceite_devolve_none():
+    sessao = _SessaoFake(retorno=[])
+    repo = RepositorioUsuario(sessao)
+    assert asyncio.run(
+        repo.buscar_versao_legal_aceita("u1", total_documentos=2)
+    ) is None

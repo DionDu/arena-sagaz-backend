@@ -137,6 +137,23 @@ class FakeRepoUsuario:
         self.aceites.append(linha)
         return linha
 
+    async def buscar_versao_legal_aceita(self, id_usuario, *, total_documentos):
+        """Espelha o SQL real: só conta a versão cujos [total_documentos]
+        documentos foram todos aceitos; havendo mais de uma, a mais recente."""
+        por_versao: dict[str, set[str]] = {}
+        for a in self.aceites:
+            if a["id_usuario"] == id_usuario:
+                por_versao.setdefault(a["co_versao"], set()).add(a["co_documento"])
+        completas = [
+            v for v, docs in por_versao.items() if len(docs) >= total_documentos
+        ]
+        # `self.aceites` está em ordem de inserção, então o último aceite dá a
+        # versão mais recente entre as completas.
+        for a in reversed(self.aceites):
+            if a["id_usuario"] == id_usuario and a["co_versao"] in completas:
+                return a["co_versao"]
+        return None
+
     async def definir_consentimento(
         self, *, id_usuario, ic_rastreamento, ic_marketing
     ):

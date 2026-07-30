@@ -62,6 +62,11 @@ class PerfilUsuario(BaseModel):
     dt_nascimento: Optional[date] = None
     # A pessoa declarou ter a idade mínima (13+). Substituiu a data de nascimento.
     ic_idade_minima_declarada: bool = False
+    # Última versão dos documentos legais aceita **por esta conta** (`None` se
+    # ainda não aceitou nenhuma por completo). O app usa isto como fonte da
+    # verdade do portão de aceite — antes ele só olhava um pref LOCAL, e por isso
+    # uma conta nova num aparelho já usado pulava a tela de termos.
+    co_versao_legal_aceita: Optional[str] = None
     co_provedor_principal: str
     co_idioma_preferido: str
     ic_convidado: bool = False
@@ -73,15 +78,20 @@ class PerfilUsuario(BaseModel):
         cls,
         linha: dict[str, Any],
         provedores: Optional[list[str]] = None,
+        co_versao_legal_aceita: Optional[str] = None,
     ) -> "PerfilUsuario":
-        """Monta o perfil a partir de uma linha da VIEW `vw001_usuario` (dict) e
-        da lista de códigos de provedor."""
+        """Monta o perfil a partir de uma linha da VIEW `vw001_usuario` (dict), da
+        lista de códigos de provedor e da versão legal já aceita pela conta.
+
+        A versão legal chega como parâmetro (e não da linha) porque mora em outra
+        tabela — `tb003_aceite_legal` —, lida à parte pelo serviço."""
         return cls(
             co_usuario=linha["co_usuario"],
             no_exibicao=linha.get("no_exibicao"),
             no_email=linha.get("no_email"),
             dt_nascimento=linha.get("dt_nascimento"),
             ic_idade_minima_declarada=linha.get("ic_idade_minima_declarada", False),
+            co_versao_legal_aceita=co_versao_legal_aceita,
             co_provedor_principal=linha["co_provedor_principal"],
             co_idioma_preferido=linha.get("co_idioma_preferido", "pt"),
             ic_convidado=linha.get("ic_convidado", False),

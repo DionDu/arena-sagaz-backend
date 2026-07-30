@@ -315,6 +315,41 @@ class RepositorioUsuario:
         )
         return dict(resultado.mappings().first())
 
+    async def buscar_versao_legal_aceita(
+        self, id_usuario: str, *, total_documentos: int
+    ) -> Optional[str]:
+        """A versão legal que esta conta **aceitou por completo**, ou `None`.
+
+        "Por completo" quer dizer: aquela versão tem aceite de **todos** os
+        documentos ([total_documentos] deles — hoje termos + privacidade). É por
+        isso que não basta pegar o aceite mais recente: se alguém tivesse
+        `termos` na 2.0 e `privacidade` só na 1.0, o mais recente diria "2.0" e o
+        portão do app liberaria uma versão que a pessoa não aceitou inteira.
+
+        Havendo mais de uma versão completa (o histórico é preservado), devolve a
+        de aceite mais recente.
+
+        Existe para o item 6 do checklist pós-publicação: o aceite passa a ser
+        **por conta**, não por aparelho. O app usa este valor como fonte da
+        verdade em vez do `SharedPreferences` global.
+        """
+        sql = text(
+            """
+            SELECT co_versao
+            FROM conta.vw003_aceite_legal
+            WHERE id_usuario = :id
+            GROUP BY co_versao
+            HAVING COUNT(DISTINCT co_documento) >= :total
+            ORDER BY MAX(dh_aceite) DESC
+            LIMIT 1
+            """
+        )
+        resultado = await self.sessao.execute(
+            sql, {"id": id_usuario, "total": total_documentos}
+        )
+        linha = resultado.mappings().first()
+        return linha["co_versao"] if linha else None
+
     async def definir_consentimento(
         self,
         *,

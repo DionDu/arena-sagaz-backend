@@ -1,6 +1,4 @@
 """Contract tests US3 (T045): aceite-legal e consentimento — via TestClient."""
-from datetime import date
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -38,7 +36,9 @@ def _conta_existente() -> dict:
         "co_usuario": "k7m3p9rt",
         "co_identidade_externa": "u1",
         "no_email": "a@b.com",
-        "dt_nascimento": date(1990, 1, 1),
+        # Retrato pós-migração 0010: sem data, com a declaração 13+.
+        "dt_nascimento": None,
+        "ic_idade_minima_declarada": True,
         "co_provedor_principal": "email",
         "co_idioma_preferido": "pt",
         "ic_convidado": False,
@@ -107,3 +107,53 @@ def test_consentimento_default_desligado(client):
     body = r.json()
     assert body["ic_rastreamento"] is False
     assert body["ic_marketing"] is False
+
+
+# ── co_versao_legal_aceita na resposta de perfil (item 6 do pós-publicação) ────
+#
+# O aceite passou a ser POR CONTA, não por aparelho. Antes, o portão do app
+# comparava um pref LOCAL global com a versão vigente — e por isso uma conta NOVA
+# num aparelho já usado ia direto para a Home, sem passar pelos termos.
+
+
+def test_perfil_traz_a_versao_legal_aceita_pela_conta(client):
+    repo = FakeRepoUsuario(existente=_conta_existente())
+    sessao = FakeSession()
+    _logar()
+    app.dependency_overrides[obter_servico_conta] = lambda: ServicoConta(repo, sessao)
+
+    # Aceita os DOIS documentos na 1.0 (é o que o app faz de uma vez).
+    for doc in ("termos", "privacidade"):
+        client.post(
+            "/v1/conta/aceite-legal",
+            json={"co_documento": doc, "co_versao": "1.0", "co_idioma": "pt"},
+        )
+
+    r = client.get("/v1/conta/perfil")
+    assert r.status_code == 200
+    assert r.json()["co_versao_legal_aceita"] == "1.0"
+
+
+def test_versao_aceita_PELA_METADE_nao_conta(client):
+    """Só `termos` aceito não libera o portão: a pessoa não viu a privacidade."""
+    repo = FakeRepoUsuario(existente=_conta_existente())
+    _logar()
+    app.dependency_overrides[obter_servico_conta] = lambda: ServicoConta(
+        repo, FakeSession()
+    )
+
+    client.post(
+        "/v1/conta/aceite-legal",
+        json={"co_documento": "termos", "co_versao": "1.0", "co_idioma": "pt"},
+    )
+
+    assert client.get("/v1/conta/perfil").json()["co_versao_legal_aceita"] is None
+
+
+def test_conta_sem_aceite_nenhum_devolve_null(client):
+    repo = FakeRepoUsuario(existente=_conta_existente())
+    _logar()
+    app.dependency_overrides[obter_servico_conta] = lambda: ServicoConta(
+        repo, FakeSession()
+    )
+    assert client.get("/v1/conta/perfil").json()["co_versao_legal_aceita"] is None
