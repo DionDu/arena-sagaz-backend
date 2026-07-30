@@ -2,17 +2,17 @@
 
 **Last updated:** July 14, 2026 · **Version:** 1.0
 
-These Terms of Use ("Terms") govern your use of the **Sharp Arena** app (published in Portuguese as *Arena Sagaz*) - the "App" -, offered by **Santiago Data**, a brand operated by Fernando Santiago da Silva. By using the App, you agree to these Terms. If you do not agree, do not use the App.
+These Terms of Use ("Terms") govern your use of the **Sharp Arena** app (published in Portuguese as **Arena Sagaz**) - the "App" -, offered by **Santiago Data**, a brand operated by Fernando Santiago da Silva. By using the App, you agree to these Terms. If you do not agree, do not use the App.
 
 ## 1. Eligibility
 
-You must be **13 or older** to create an account. By creating one, you represent that you meet that minimum age. We do not create accounts for anyone whose date of birth is below the limit - in that case the App remains available in **guest mode**, with no account and with no data sent to our servers.
+You must be **13 or older** to create an account. By creating one, you represent that you meet that minimum age. We do not create accounts for anyone who does not confirm that age - in that case the App remains available in **guest mode**, with no account and with no data sent to our servers.
 
 ## 2. Your account
 
 - You may play as a **guest** (no account) or create an **account** (Google, Apple, or email/password).
 - You are responsible for keeping your credentials confidential and for all activity on your account.
-- You agree to provide **truthful** information (including date of birth).
+- You agree to provide **truthful** information (including the age declaration).
 - Your **display name** appears on the public leaderboard unless you turn that visibility off in the App's settings.
 
 ## 3. License

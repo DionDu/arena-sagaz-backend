@@ -8,7 +8,7 @@ Esta página explica como excluir sua conta do **Arena Sagaz** e o que acontece 
 
 **No aplicativo (recomendado):**
 1. Abra o **Arena Sagaz** e entre na sua conta.
-2. Vá em **Conta** (ou Perfil) → **Excluir conta**.
+2. Toque na **engrenagem de Ajustes** → **Minha conta** → **Excluir conta**.
 3. Confirme. A exclusão é processada e você é desconectado.
 
 **Por e-mail (alternativa):**
@@ -17,7 +17,7 @@ Esta página explica como excluir sua conta do **Arena Sagaz** e o que acontece 
 ## O que é excluído
 
 Ao excluir a conta, removemos ou **anonimizamos** seus dados pessoais, incluindo:
-- e-mail, nome de exibição e data de nascimento;
+- e-mail, nome de exibição e a declaração de idade;
 - vínculos com provedores de login (Google, Apple);
 - tokens de notificação do dispositivo.
 

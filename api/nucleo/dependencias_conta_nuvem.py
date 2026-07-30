@@ -14,7 +14,6 @@ Para não fragmentar o "comum" em duas pastas, colocamos aqui.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from typing import Optional
 
 from fastapi import Depends, Header
@@ -43,11 +42,15 @@ class UsuarioAutenticado:
     exclusão de conta **anonimiza** a linha (apaga a PII) em vez de deletá-la, então
     a chave continua válida e sem dado pessoal atrás dela. Ver a migração
     ``0007_drop_co_anonimo``.
+
+    Também NÃO carrega idade. Havia aqui um ``dt_nascimento`` que nenhuma rota
+    lia, e que a migração ``0010_declaracao_idade`` deixou permanentemente NULL
+    (a idade virou uma declaração 13+, e a data deixou de ser guardada). Campo
+    sem leitor e sem valor é só armadilha para quem for confiar nele depois.
     """
 
     id_usuario: str
     co_usuario: str
-    dt_nascimento: Optional[date]
     contexto: ContextoRequisicao
 
 
@@ -114,6 +117,5 @@ async def usuario_autenticado(
     return UsuarioAutenticado(
         id_usuario=linha["id_usuario"],
         co_usuario=linha["co_usuario"],
-        dt_nascimento=linha.get("dt_nascimento"),
         contexto=contexto,
     )

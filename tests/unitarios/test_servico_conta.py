@@ -174,7 +174,41 @@ def test_cria_conta_nova_gera_codigo_e_vincula_provedor():
     assert len(repo.criadas) == 1
 
 
-def test_cria_sem_data_nascimento_responde_422():
+def test_cria_conta_com_a_DECLARACAO_de_idade_e_sem_data():
+    """O caminho do app novo: só o checkbox 13+, nenhuma data de nascimento.
+    É o que responde à recusa 5.1.1(v) da App Review."""
+    repo = FakeRepoUsuario()
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(provedor="apple.com"),
+            SessaoRequest(no_exibicao="Fernando", ic_idade_minima_declarada=True),
+        )
+    )
+    assert perfil.ic_idade_minima_declarada is True
+    assert perfil.dt_nascimento is None
+    assert len(repo.criadas) == 1
+    # E a conta nasce com a flag ligada na LINHA, não só na resposta.
+    assert repo.criadas[0]["ic_idade_minima_declarada"] is True
+
+
+def test_cria_conta_com_data_derivada_liga_a_declaracao_sem_guardar_a_data():
+    """O caminho do cliente ANTIGO (build 1.0 (2), que só sabe mandar data).
+    Tem de continuar criando conta — há ~20 testadores em campo com ela."""
+    repo = FakeRepoUsuario()
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(), SessaoRequest(dt_nascimento=date(1990, 1, 1))
+        )
+    )
+    assert perfil.ic_idade_minima_declarada is True
+    assert perfil.dt_nascimento is None  # derivou e descartou
+
+
+def test_cria_sem_idade_nenhuma_responde_422():
+    """Nem checkbox nem data ⇒ 422. O código continua sendo
+    `data_nascimento_obrigatoria` DE PROPÓSITO: é ele que a build 1.0 (2) em campo
+    reconhece para abrir o portão "Completar perfil" depois do login social.
+    Renomear agora prenderia aqueles aparelhos num login que nunca completa."""
     with pytest.raises(ErroNegocio) as exc:
         asyncio.run(
             _servico(FakeRepoUsuario()).garantir_sessao(
@@ -183,6 +217,23 @@ def test_cria_sem_data_nascimento_responde_422():
         )
     assert exc.value.codigo == "data_nascimento_obrigatoria"
     assert exc.value.status_http == 422
+
+
+def test_cria_declarando_que_NAO_tem_13_responde_422_e_apaga_o_orfao():
+    """Desmarcar o checkbox e mandar assim mesmo é uma recusa — e o usuário do
+    Firebase criado pelo login social precisa ser apagado, igual ao caso da data
+    de criança (PII de menor sem finalidade, LGPD art. 14)."""
+    admin = AdminUsuariosFake()
+    servico = ServicoConta(repo=FakeRepoUsuario(), sessao=FakeSession(), admin=admin)
+    with pytest.raises(ErroNegocio) as exc:
+        asyncio.run(
+            servico.garantir_sessao(
+                _identidade(uid="uid-da-crianca"),
+                SessaoRequest(ic_idade_minima_declarada=False),
+            )
+        )
+    assert exc.value.codigo == "idade_minima"
+    assert admin.excluidos == ["uid-da-crianca"]
 
 
 def test_cria_menor_de_13_responde_422_idade_minima():
@@ -255,7 +306,10 @@ def _conta_existente(uid="u1"):
         "co_identidade_externa": uid,
         "no_exibicao": "Antigo",
         "no_email": "a@b.com",
-        "dt_nascimento": date(1990, 1, 1),
+        # Retrato da tabela DEPOIS da migração 0010: a data foi zerada em todas as
+        # linhas e quem responde pela idade é a declaração derivada dela.
+        "dt_nascimento": None,
+        "ic_idade_minima_declarada": True,
         "co_provedor_principal": "email",
         "co_idioma_preferido": "pt",
         "ic_convidado": False,
@@ -386,13 +440,60 @@ def test_conta_QUE_JA_EXISTE_nunca_e_apagada_por_data_de_menor():
     assert admin.excluidos == []
 
 
-def test_reentrada_corrigir_data_mantendo_maioridade_ok():
-    # Corrigir a data para outra data de ADULTO é permitido (usabilidade).
+def test_reentrada_com_data_de_adulto_e_aceita_mas_a_data_nao_e_guardada():
+    """Cliente ANTIGO (build 1.0 (2)) mandando data numa reentrada: tem de passar
+    sem erro — não podemos quebrar quem já está em campo — e a data serve só para
+    LIGAR a declaração de idade. A data em si não é persistida (migração 0010:
+    coletar dado que a função não usa foi o que a App Review recusou)."""
     repo = FakeRepoUsuario(existente=_conta_existente())
-    nova = date(1988, 5, 20)
     perfil = asyncio.run(
         _servico(repo).garantir_sessao(
-            _identidade(), SessaoRequest(dt_nascimento=nova)
+            _identidade(), SessaoRequest(dt_nascimento=date(1988, 5, 20))
         )
     )
-    assert perfil.dt_nascimento == nova
+    assert perfil.ic_idade_minima_declarada is True
+    assert perfil.dt_nascimento is None
+
+
+def test_reentrada_com_declaracao_liga_a_flag():
+    """Cliente NOVO: manda o checkbox, e é ele que responde pela idade."""
+    # A conta existente vem sem a flag (é o retrato de quem foi criado antes da
+    # migração e ainda não reentrou).
+    linha = _conta_existente()
+    linha["ic_idade_minima_declarada"] = False
+    repo = FakeRepoUsuario(existente=linha)
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(), SessaoRequest(ic_idade_minima_declarada=True)
+        )
+    )
+    assert perfil.ic_idade_minima_declarada is True
+
+
+def test_declarar_que_NAO_tem_a_idade_minima_responde_422():
+    """Marcar "não tenho 13 anos" é uma recusa, não um estado a guardar."""
+    repo = FakeRepoUsuario(existente=_conta_existente())
+    with pytest.raises(ErroNegocio) as exc:
+        asyncio.run(
+            _servico(repo).garantir_sessao(
+                _identidade(), SessaoRequest(ic_idade_minima_declarada=False)
+            )
+        )
+    assert exc.value.codigo == "idade_minima"
+    assert exc.value.status_http == 422
+
+
+def test_data_de_menor_barra_mesmo_com_o_checkbox_marcado():
+    """Informação mais forte vence: uma data de criança reprova ainda que o corpo
+    traga a declaração marcada (cliente adulterado, ou app com bug)."""
+    hoje = date.today()
+    menor = date(hoje.year - 8, hoje.month, max(1, hoje.day))
+    repo = FakeRepoUsuario(existente=_conta_existente())
+    with pytest.raises(ErroNegocio) as exc:
+        asyncio.run(
+            _servico(repo).garantir_sessao(
+                _identidade(),
+                SessaoRequest(ic_idade_minima_declarada=True, dt_nascimento=menor),
+            )
+        )
+    assert exc.value.codigo == "idade_minima"

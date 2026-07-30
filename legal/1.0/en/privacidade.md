@@ -2,7 +2,7 @@
 
 **Last updated:** July 14, 2026 · **Version:** 1.0
 
-This Privacy Policy explains how the **Sharp Arena** app (published in Portuguese as *Arena Sagaz*) - the "App" - collects, uses, shares, and protects your personal data.
+This Privacy Policy explains how the **Sharp Arena** app (published in Portuguese as **Arena Sagaz**) - the "App" - collects, uses, shares, and protects your personal data.
 
 ## 1. Who controls your data
 
@@ -18,7 +18,7 @@ For the purposes of the **Brazilian General Data Protection Law (LGPD, Law No. 1
 
 - **Email** (when you create an email account or the provider shares it);
 - **Display name** (the nickname you choose);
-- **Date of birth** (for age verification);
+- **Minimum-age declaration** (your confirmation that you are 13 or older). We store only that confirmation, **not** your date of birth;
 - **Login method** and your account identifier at the provider (Google, Apple).
 
 **b) Collected automatically:**
@@ -93,7 +93,7 @@ Push notifications depend on your permission on the device. You can **turn them 
 
 We keep your data for as long as your account exists. You may **delete your account** at any time, from within the App (see **[Account Deletion](exclusao-conta.md)**).
 
-On deletion we **anonymize** your account (removing email, name, and date of birth) and erase the data linked to you. Match logs that have already been **dissociated** may remain, anonymously, in training sets and game statistics - they can no longer be tied back to you.
+On deletion we **anonymize** your account (removing email, name, and the age declaration) and erase the data linked to you. Match logs that have already been **dissociated** may remain, anonymously, in training sets and game statistics - they can no longer be tied back to you.
 
 ## 10. Your rights (LGPD, art. 18)
 
@@ -103,7 +103,7 @@ To exercise them, write to **sharparena@santiagodata.com** (or, if you prefer to
 
 ## 11. Children and teenagers
 
-The App requires you to be **13 or older** to create an account, and refuses registration for anyone whose date of birth is below that. We do not show personalized ads. If we learn that we have improperly collected a child's data, we will **delete** it.
+The App requires you to be **13 or older** to create an account, and refuses registration for anyone who does not confirm that age. We do not show personalized ads. If we learn that we have improperly collected a child's data, we will **delete** it.
 
 ## 12. Security
 

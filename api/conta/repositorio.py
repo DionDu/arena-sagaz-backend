@@ -10,7 +10,6 @@ de string — para evitar SQL injection.
 """
 from __future__ import annotations
 
-from datetime import date
 from typing import Any, Optional
 
 from sqlalchemy import text
@@ -67,24 +66,30 @@ class RepositorioUsuario:
         co_idioma_preferido: str = "pt",
         no_exibicao: Optional[str] = None,
         no_email: Optional[str] = None,
-        dt_nascimento: Optional[date] = None,
+        ic_idade_minima_declarada: bool = False,
         ic_convidado: bool = False,
     ) -> dict[str, Any]:
         """Insere um usuário novo e devolve a linha criada (com id e timestamps).
 
         O `*` na assinatura força todos os argumentos a serem **nomeados** na
         chamada (mais legível e à prova de troca de ordem).
+
+        ⚠️ **`dt_nascimento` não é mais gravada** (migração 0010): a idade agora é
+        uma declaração 13+, e guardar a data seria coletar dado pessoal que nada
+        aqui usa — foi o que a App Review recusou (diretriz 5.1.1(v)). A coluna
+        segue existindo só porque as builds antigas em campo ainda a leem na
+        resposta; ela nasce e permanece NULL.
         """
         sql = text(
             """
             INSERT INTO conta.tb001_usuario
                 (co_usuario, co_identidade_externa, no_exibicao, no_email,
-                 dt_nascimento, co_provedor_principal, co_idioma_preferido,
-                 ic_convidado)
+                 ic_idade_minima_declarada, co_provedor_principal,
+                 co_idioma_preferido, ic_convidado)
             VALUES
                 (:co_usuario, :co_identidade_externa, :no_exibicao, :no_email,
-                 :dt_nascimento, :co_provedor_principal, :co_idioma_preferido,
-                 :ic_convidado)
+                 :ic_idade_minima_declarada, :co_provedor_principal,
+                 :co_idioma_preferido, :ic_convidado)
             RETURNING *
             """
         )
@@ -95,7 +100,7 @@ class RepositorioUsuario:
                 "co_identidade_externa": co_identidade_externa,
                 "no_exibicao": no_exibicao,
                 "no_email": no_email,
-                "dt_nascimento": dt_nascimento,
+                "ic_idade_minima_declarada": ic_idade_minima_declarada,
                 "co_provedor_principal": co_provedor_principal,
                 "co_idioma_preferido": co_idioma_preferido,
                 "ic_convidado": ic_convidado,
@@ -108,17 +113,21 @@ class RepositorioUsuario:
         *,
         id_usuario: str,
         no_exibicao: Optional[str] = None,
-        dt_nascimento: Optional[date] = None,
+        ic_idade_minima_declarada: Optional[bool] = None,
         co_idioma_preferido: Optional[str] = None,
     ) -> Optional[dict[str, Any]]:
-        """Atualiza nome/nascimento/idioma. `COALESCE(:x, coluna)` mantém o valor
-        atual quando o parâmetro vier `NULL` (ou seja, "não mexa neste campo").
-        Também carimba `dh_atualizacao = now()`."""
+        """Atualiza nome/declaração de idade/idioma. `COALESCE(:x, coluna)` mantém
+        o valor atual quando o parâmetro vier `NULL` (ou seja, "não mexa neste
+        campo"). Também carimba `dh_atualizacao = now()`.
+
+        Note que `ic_idade_minima_declarada` só **liga** (o serviço nunca manda
+        `False` — quem declara ser menor recebe 422, não tem o campo gravado)."""
         sql = text(
             """
             UPDATE conta.tb001_usuario
             SET no_exibicao = COALESCE(:no_exibicao, no_exibicao),
-                dt_nascimento = COALESCE(:dt_nascimento, dt_nascimento),
+                ic_idade_minima_declarada =
+                    COALESCE(:ic_idade_minima_declarada, ic_idade_minima_declarada),
                 co_idioma_preferido =
                     COALESCE(:co_idioma_preferido, co_idioma_preferido),
                 dh_atualizacao = now()
@@ -131,7 +140,7 @@ class RepositorioUsuario:
             {
                 "id_usuario": id_usuario,
                 "no_exibicao": no_exibicao,
-                "dt_nascimento": dt_nascimento,
+                "ic_idade_minima_declarada": ic_idade_minima_declarada,
                 "co_idioma_preferido": co_idioma_preferido,
             },
         )
@@ -306,6 +315,41 @@ class RepositorioUsuario:
         )
         return dict(resultado.mappings().first())
 
+    async def buscar_versao_legal_aceita(
+        self, id_usuario: str, *, total_documentos: int
+    ) -> Optional[str]:
+        """A versão legal que esta conta **aceitou por completo**, ou `None`.
+
+        "Por completo" quer dizer: aquela versão tem aceite de **todos** os
+        documentos ([total_documentos] deles — hoje termos + privacidade). É por
+        isso que não basta pegar o aceite mais recente: se alguém tivesse
+        `termos` na 2.0 e `privacidade` só na 1.0, o mais recente diria "2.0" e o
+        portão do app liberaria uma versão que a pessoa não aceitou inteira.
+
+        Havendo mais de uma versão completa (o histórico é preservado), devolve a
+        de aceite mais recente.
+
+        Existe para o item 6 do checklist pós-publicação: o aceite passa a ser
+        **por conta**, não por aparelho. O app usa este valor como fonte da
+        verdade em vez do `SharedPreferences` global.
+        """
+        sql = text(
+            """
+            SELECT co_versao
+            FROM conta.vw003_aceite_legal
+            WHERE id_usuario = :id
+            GROUP BY co_versao
+            HAVING COUNT(DISTINCT co_documento) >= :total
+            ORDER BY MAX(dh_aceite) DESC
+            LIMIT 1
+            """
+        )
+        resultado = await self.sessao.execute(
+            sql, {"id": id_usuario, "total": total_documentos}
+        )
+        linha = resultado.mappings().first()
+        return linha["co_versao"] if linha else None
+
     async def definir_consentimento(
         self,
         *,
@@ -345,7 +389,9 @@ class RepositorioUsuario:
         Estratégia (data-model.md): em vez de `DELETE` (que perderia a
         integridade de eventuais agregados/estatísticas que apontem para
         `id_usuario`), **anonimizamos**:
-        - zera nome, e-mail e data de nascimento;
+        - zera nome, e-mail, data de nascimento (legado, já sempre NULL) e a
+          declaração de idade — uma conta extinta não declara nada, e deixar a
+          flag ligada a manteria elegível ao ranking público;
         - desliga o `co_identidade_externa` (o uid do Firebase) — assim, se a
           pessoa recriar a conta depois, vira um usuário **novo**;
         - marca `ic_anonimizado = TRUE` e grava um `co_anonimo` (UUID aleatório)
@@ -354,13 +400,14 @@ class RepositorioUsuario:
         sql = text(
             """
             UPDATE conta.tb001_usuario
-            SET no_exibicao           = NULL,
-                no_email              = NULL,
-                dt_nascimento         = NULL,
-                co_identidade_externa = NULL,
-                ic_anonimizado        = TRUE,
-                co_anonimo            = gen_random_uuid(),
-                dh_atualizacao        = now()
+            SET no_exibicao                = NULL,
+                no_email                   = NULL,
+                dt_nascimento              = NULL,
+                ic_idade_minima_declarada  = FALSE,
+                co_identidade_externa      = NULL,
+                ic_anonimizado             = TRUE,
+                co_anonimo                 = gen_random_uuid(),
+                dh_atualizacao             = now()
             WHERE id_usuario = :id_usuario
             RETURNING *
             """

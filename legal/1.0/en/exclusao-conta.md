@@ -8,7 +8,7 @@ This page explains how to delete your **Arena Sagaz** account and what happens t
 
 **In the app (recommended):**
 1. Open **Arena Sagaz** and sign in to your account.
-2. Go to **Account** (or Profile) → **Delete account**.
+2. Tap the **Settings gear** → **My account** → **Delete account**.
 3. Confirm. The deletion is processed and you are signed out.
 
 **By email (alternative):**
@@ -17,7 +17,7 @@ This page explains how to delete your **Arena Sagaz** account and what happens t
 ## What is deleted
 
 When you delete your account, we remove or **anonymize** your personal data, including:
-- email, display name, and date of birth;
+- email, display name, and the age declaration;
 - links to login providers (Google, Apple);
 - device notification tokens.
 

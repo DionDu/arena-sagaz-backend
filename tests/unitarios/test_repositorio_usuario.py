@@ -104,6 +104,27 @@ def test_criar_escreve_na_tabela001_com_returning():
     assert _ultimos_params(sessao)["co_identidade_externa"] == "uid-1"
 
 
+def test_criar_NAO_grava_data_de_nascimento():
+    """Guarda contra reintrodução acidental. Desde a migração 0010 a idade é uma
+    declaração 13+; gravar a data de novo seria voltar a coletar dado pessoal que
+    nada aqui usa — o motivo da recusa 5.1.1(v) da App Review."""
+    sessao = _SessaoFake(retorno=[{"id_usuario": "u1"}])
+    repo = RepositorioUsuario(sessao)
+    asyncio.run(
+        repo.criar(
+            co_usuario="k7m3p9rt",
+            co_identidade_externa="uid-1",
+            co_provedor_principal="apple",
+            ic_idade_minima_declarada=True,
+        )
+    )
+    sql = _ultimo_sql(sessao)
+    assert "dt_nascimento" not in sql
+    assert "ic_idade_minima_declarada" in sql
+    assert _ultimos_params(sessao)["ic_idade_minima_declarada"] is True
+    assert "dt_nascimento" not in _ultimos_params(sessao)
+
+
 def test_vincular_provedor_e_idempotente():
     sessao = _SessaoFake(retorno=[{"id_provedor_login": "p1"}])
     repo = RepositorioUsuario(sessao)
@@ -154,3 +175,43 @@ def test_atualizar_perfil_usa_coalesce_e_carimba_data():
     assert "UPDATE conta.tb001_usuario" in sql
     assert "COALESCE(:no_exibicao, no_exibicao)" in sql
     assert "dh_atualizacao = now()" in sql
+    # Mesma guarda do INSERT: o UPDATE também deixou de tocar na data.
+    assert "dt_nascimento" not in sql
+
+
+def test_anonimizar_zera_a_declaracao_de_idade():
+    """Conta extinta não declara nada. Deixar a flag ligada manteria a linha
+    elegível ao ranking público (`ic_publico` da vw101 olha justamente ela)."""
+    sessao = _SessaoFake(retorno=[{"id_usuario": "u1"}])
+    repo = RepositorioUsuario(sessao)
+    asyncio.run(repo.anonimizar_usuario("u1"))
+    sql = _ultimo_sql(sessao)
+    assert "ic_idade_minima_declarada = FALSE" in sql
+    assert "ic_anonimizado = TRUE" in sql
+
+
+def test_buscar_versao_legal_aceita_exige_TODOS_os_documentos():
+    """O SQL agrupa por versão e só aceita a que tiver todos os documentos.
+
+    Sem o `HAVING`, uma conta com `termos` na 2.0 e `privacidade` só na 1.0
+    responderia "2.0" — e o portão do app liberaria uma versão que a pessoa não
+    aceitou por inteiro."""
+    sessao = _SessaoFake(retorno=[{"co_versao": "1.0"}])
+    repo = RepositorioUsuario(sessao)
+    versao = asyncio.run(
+        repo.buscar_versao_legal_aceita("u1", total_documentos=2)
+    )
+    sql = _ultimo_sql(sessao)
+    assert versao == "1.0"
+    assert "conta.vw003_aceite_legal" in sql  # leitura SEMPRE pela view
+    assert "GROUP BY co_versao" in sql
+    assert "HAVING COUNT(DISTINCT co_documento) >= :total" in sql
+    assert _ultimos_params(sessao)["total"] == 2
+
+
+def test_buscar_versao_legal_aceita_sem_aceite_devolve_none():
+    sessao = _SessaoFake(retorno=[])
+    repo = RepositorioUsuario(sessao)
+    assert asyncio.run(
+        repo.buscar_versao_legal_aceita("u1", total_documentos=2)
+    ) is None

@@ -64,7 +64,6 @@ def _autenticar(id_usuario: str, co_usuario: str = "ABC11111") -> None:
     usuario = UsuarioAutenticado(
         id_usuario=id_usuario,
         co_usuario=co_usuario,
-        dt_nascimento=None,
         contexto=ContextoRequisicao(
             versao_app="1.0.0", plataforma="android", idioma="pt"
         ),

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
-from typing import Any, Optional
+from typing import Any, Optional, get_args
 
 from sqlalchemy.exc import IntegrityError
 
@@ -24,6 +24,7 @@ from api.conta.modelos import (
     AtualizarPerfilRequest,
     ConsentimentoRequest,
     ConsentimentoResposta,
+    DocumentoLegal,
     ExclusaoContaResposta,
     PerfilUsuario,
     SessaoRequest,
@@ -40,6 +41,12 @@ log = obter_logger("api.conta.servico")
 
 # Idade mínima para criar conta (espelha `idadeMinimaConta` no app).
 IDADE_MINIMA = 13
+
+# Quantos documentos legais compõem UM aceite completo. Hoje são dois — termos e
+# privacidade — e é a lista `DocumentoLegal` de `modelos.py` que manda. Uma versão
+# só conta como "aceita" quando os DOIS foram aceitos naquela versão; ver
+# `RepositorioUsuario.buscar_versao_legal_aceita`.
+TOTAL_DOCUMENTOS_LEGAIS = len(get_args(DocumentoLegal))
 
 # Quantas vezes tentamos gerar um co_usuario único antes de desistir.
 _MAX_TENTATIVAS_CODIGO = 10
@@ -100,20 +107,58 @@ def calcular_idade(nascimento: date, hoje: Optional[date] = None) -> int:
     return anos
 
 
+def _erro_idade_minima() -> ErroNegocio:
+    """O 422 `idade_minima` — abaixo da idade mínima para ter conta."""
+    return ErroNegocio(
+        "É preciso ter ao menos $IDADE anos.".replace("$IDADE", str(IDADE_MINIMA)),
+        "idade_minima",
+        status_http=422,
+    )
+
+
 def _exigir_idade_minima(nascimento: Optional[date]) -> None:
     """Recusa (422 `idade_minima`) uma data de nascimento que resulte em idade
     abaixo de [IDADE_MINIMA]. `None` passa (campo não informado).
 
-    Centralizado para valer em TODOS os pontos que gravam a data — criação
-    (`_criar_novo`), reentrada (`_atualizar_existente`) e edição de perfil
-    (`atualizar_perfil_usuario`). Assim a trava etária (COPPA/FR-005a) não pode
-    ser burlada trocando a data depois de a conta existir (NEG-02)."""
+    Continua existindo porque as builds antigas em campo mandam **data**, não
+    declaração: a trava etária (COPPA/FR-005a) tem de valer para elas também."""
     if nascimento is not None and calcular_idade(nascimento) < IDADE_MINIMA:
-        raise ErroNegocio(
-            "É preciso ter ao menos $IDADE anos.".replace("$IDADE", str(IDADE_MINIMA)),
-            "idade_minima",
-            status_http=422,
-        )
+        raise _erro_idade_minima()
+
+
+def resolver_declaracao_idade(
+    ic_declarada: Optional[bool], nascimento: Optional[date]
+) -> Optional[bool]:
+    """Resolve "esta pessoa tem [IDADE_MINIMA]+?" a partir do que o app mandou.
+
+    Existe porque o corpo pode vir em **dois formatos** ao mesmo tempo em campo
+    (ver `SessaoRequest`): o app novo manda `ic_idade_minima_declarada`; as builds
+    1.0 (2) e anteriores mandam `dt_nascimento`. Concentrar a decisão aqui evita
+    que cada ponto de escrita (criação, reentrada, `PATCH`) invente a sua regra.
+
+    Devolve:
+    - `True` — comprovou a idade mínima (declarou, ou a data informada aprova);
+    - `None` — **não informou nada**; quem chama decide se isso é erro (é, na
+      criação de conta; não é, numa reentrada em que a conta já existe).
+
+    Levanta 422 `idade_minima` quando a pessoa **declarou não ter** a idade, ou
+    quando a data informada reprova. Nunca devolve `False`: "declarou que é menor"
+    não é um estado que se guarde, é uma recusa.
+
+    A data **não é persistida** — só serve para derivar a declaração (diretriz
+    5.1.1(v) da App Store: não guarde dado pessoal que a função não usa).
+    """
+    # Data reprovada barra primeiro, mesmo que a declaração diga o contrário: uma
+    # data de criança é informação mais forte que um checkbox marcado.
+    _exigir_idade_minima(nascimento)
+
+    if ic_declarada is not None:
+        if not ic_declarada:
+            raise _erro_idade_minima()
+        return True
+    if nascimento is not None:
+        return True  # já passou por `_exigir_idade_minima` acima
+    return None
 
 
 def _nome_moderado_para_sessao(nome: Optional[str]) -> Optional[str]:
@@ -204,15 +249,17 @@ class ServicoConta:
         if no_exibicao is not None:
             no_exibicao = validar_nome_exibicao(no_exibicao)
 
-        # Data de nascimento é editável (corrigir erro de digitação), mas SEMPRE
-        # revalida idade >= 13 (NEG-02). Melhor que bloquear de vez: o usuário
-        # conserta a data, e a trava etária continua garantida.
-        _exigir_idade_minima(dados.dt_nascimento)
+        # A tela de Conta do app novo já não edita idade — a declaração nasce na
+        # criação da conta e não se edita por aqui, por isso o `None` no 1º
+        # argumento. A build 1.0 (2) em campo, porém, ainda edita a DATA: ela
+        # continua valendo a trava etária (NEG-02) e liga a declaração derivada,
+        # sem que a data em si seja gravada.
+        declarou_idade = resolver_declaracao_idade(None, dados.dt_nascimento)
 
         atualizada = await self.repo.atualizar_perfil(
             id_usuario=usuario["id_usuario"],
             no_exibicao=no_exibicao,
-            dt_nascimento=dados.dt_nascimento,
+            ic_idade_minima_declarada=declarou_idade,
             co_idioma_preferido=dados.co_idioma_preferido,
         )
         # Se nada mudou (corpo vazio), mantém a linha que já tínhamos.
@@ -312,22 +359,25 @@ class ServicoConta:
             _nome_moderado_para_sessao(dados.no_exibicao) if not nome_atual else None
         )
 
-        # Data de nascimento pode ser corrigida na reentrada, mas SEMPRE revalida
-        # idade >= 13 (NEG-02) — impede burlar a trava etária depois de criada a
-        # conta. `None` (não veio no corpo) passa direto.
-        _exigir_idade_minima(dados.dt_nascimento)
+        # A idade pode ser (re)informada na reentrada — pelo checkbox do app novo
+        # ou pela data das builds antigas. SEMPRE revalida (NEG-02): não dá para
+        # burlar a trava etária depois de a conta existir. `None` nos dois campos
+        # (nada veio no corpo) passa direto, que é o caso comum da reentrada.
+        declarou_idade = resolver_declaracao_idade(
+            dados.ic_idade_minima_declarada, dados.dt_nascimento
+        )
 
         # Só atualiza o que veio no corpo (o repositório usa COALESCE: campo nulo
         # mantém o valor atual).
         if (
             no_exibicao_efetivo is not None
-            or dados.dt_nascimento is not None
+            or declarou_idade is not None
             or dados.co_idioma_preferido is not None
         ):
             atualizada = await self.repo.atualizar_perfil(
                 id_usuario=linha["id_usuario"],
                 no_exibicao=no_exibicao_efetivo,
-                dt_nascimento=dados.dt_nascimento,
+                ic_idade_minima_declarada=declarou_idade,
                 co_idioma_preferido=dados.co_idioma_preferido,
             )
             if atualizada is not None:
@@ -365,31 +415,38 @@ class ServicoConta:
     async def _criar_novo(
         self, identidade: IdentidadeFirebase, dados: SessaoRequest
     ) -> PerfilUsuario:
-        # Conta nova exige data de nascimento e idade mínima (FR-005/005a).
-        if dados.dt_nascimento is None:
-            raise ErroNegocio(
-                "Data de nascimento obrigatória para criar conta.",
-                "data_nascimento_obrigatoria",
-                status_http=422,
+        # Conta nova exige comprovar a idade mínima (FR-005/005a).
+        try:
+            declarou_idade = resolver_declaracao_idade(
+                dados.ic_idade_minima_declarada, dados.dt_nascimento
             )
-        if calcular_idade(dados.dt_nascimento) < IDADE_MINIMA:
-            # A conta NÃO nasce — mas o usuário do Firebase JÁ NASCEU. No login
-            # social (Google/Apple) o Firebase autentica ANTES de nós sabermos a
-            # idade: quando a data chega aqui e reprova, já existe lá um registro
-            # com o e-mail e o nome de uma criança, sem conta nenhuma apontando
-            # para ele. Apagá-lo é obrigação, não faxina: é PII de menor sem
-            # finalidade (LGPD art. 14) e um uid órfão que continuaria logando.
-            #
-            # Este é o ÚNICO ponto do serviço que apaga por idade, e é de propósito:
-            # `_atualizar_existente` e `atualizar_perfil_usuario` também rejeitam
-            # menores (NEG-02), mas ali a conta EXISTE — um adulto que erra a data
-            # de nascimento só pode receber um 422, jamais ter a conta destruída.
-            await self._apagar_identidade_orfa(identidade)
+        except ErroNegocio as e:
+            if e.codigo == "idade_minima":
+                # A conta NÃO nasce — mas o usuário do Firebase JÁ NASCEU. No login
+                # social (Google/Apple) o Firebase autentica ANTES de nós sabermos a
+                # idade: quando a recusa chega aqui, já existe lá um registro com o
+                # e-mail e o nome de uma criança, sem conta nenhuma apontando para
+                # ele. Apagá-lo é obrigação, não faxina: é PII de menor sem
+                # finalidade (LGPD art. 14) e um uid órfão que continuaria logando.
+                #
+                # Este é o ÚNICO ponto do serviço que apaga por idade, e é de
+                # propósito: `_atualizar_existente` e `atualizar_perfil_usuario`
+                # também rejeitam menores (NEG-02), mas ali a conta EXISTE — um
+                # adulto que se atrapalha no formulário só pode receber um 422,
+                # jamais ter a conta destruída.
+                await self._apagar_identidade_orfa(identidade)
+            raise
+
+        if declarou_idade is None:
+            # ⚠️ O CÓDIGO `data_nascimento_obrigatoria` É UM CONTRATO DE FIO, não
+            # uma descrição. É por ele que o app decide mostrar o portão "Completar
+            # perfil" depois do login social — e a build 1.0 (2), instalada em
+            # campo, só conhece ESTE código. Renomeá-lo agora deixaria aqueles
+            # aparelhos presos num login que nunca completa. Sai para `/v2`, quando
+            # o force-update já tiver retirado as versões antigas.
             raise ErroNegocio(
-                "É preciso ter ao menos $IDADE anos.".replace(
-                    "$IDADE", str(IDADE_MINIMA)
-                ),
-                "idade_minima",
+                "É preciso informar a idade para criar conta.",
+                "data_nascimento_obrigatoria",
                 status_http=422,
             )
 
@@ -402,7 +459,10 @@ class ServicoConta:
 
         provedor = mapear_provedor(identidade.provedor)
         linha = await self._criar_com_codigo_unico(
-            identidade=identidade, dados=dados, provedor=provedor
+            identidade=identidade,
+            dados=dados,
+            provedor=provedor,
+            declarou_idade=declarou_idade,
         )
         # Registra os provedores da conta recém-criada.
         #
@@ -430,11 +490,20 @@ class ServicoConta:
         return await self._montar_perfil(linha)
 
     async def _criar_com_codigo_unico(
-        self, *, identidade: IdentidadeFirebase, dados: SessaoRequest, provedor: str
+        self,
+        *,
+        identidade: IdentidadeFirebase,
+        dados: SessaoRequest,
+        provedor: str,
+        declarou_idade: bool,
     ) -> dict[str, Any]:
         """Tenta criar a conta gerando um `co_usuario`; em colisão (UNIQUE),
         rola atrás e tenta de novo. Se for corrida de criação pelo mesmo uid,
-        devolve a conta que o outro pedido criou."""
+        devolve a conta que o outro pedido criou.
+
+        `declarou_idade` chega pronto de `_criar_novo` (já resolvido por
+        [resolver_declaracao_idade]) em vez de ser relido de `dados`: aqui dentro
+        não se decide regra de negócio, só se insere."""
         ultimo_erro: Optional[Exception] = None
         for _ in range(_MAX_TENTATIVAS_CODIGO):
             codigo = gerar_codigo_usuario()
@@ -446,7 +515,7 @@ class ServicoConta:
                     co_idioma_preferido=dados.co_idioma_preferido or "pt",
                     no_exibicao=dados.no_exibicao,
                     no_email=identidade.email,
-                    dt_nascimento=dados.dt_nascimento,
+                    ic_idade_minima_declarada=declarou_idade,
                 )
             except IntegrityError as e:
                 ultimo_erro = e
@@ -466,7 +535,20 @@ class ServicoConta:
         ) from ultimo_erro
 
     async def _montar_perfil(self, linha: dict[str, Any]) -> PerfilUsuario:
-        # Lê os provedores vinculados (só códigos) para compor a resposta.
-        vinculos = await self.repo.listar_provedores(linha["id_usuario"])
+        # Ponto ÚNICO por onde passam `/sessao`, `/perfil` e o `PATCH /perfil` —
+        # por isso tudo o que a resposta de perfil precisa é montado aqui.
+        id_usuario = linha["id_usuario"]
+
+        # Provedores vinculados (só os códigos).
+        vinculos = await self.repo.listar_provedores(id_usuario)
         codigos = [v["co_provedor"] for v in vinculos]
-        return PerfilUsuario.de_linha(linha, provedores=codigos)
+
+        # Versão legal já aceita POR ESTA CONTA. Vai junto na resposta do login
+        # (item 6 do checklist pós-publicação): o app usava um pref local global,
+        # e por isso uma conta NOVA num aparelho já usado pulava os termos.
+        versao_legal = await self.repo.buscar_versao_legal_aceita(
+            id_usuario, total_documentos=TOTAL_DOCUMENTOS_LEGAIS
+        )
+        return PerfilUsuario.de_linha(
+            linha, provedores=codigos, co_versao_legal_aceita=versao_legal
+        )
