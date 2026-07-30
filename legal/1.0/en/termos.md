@@ -2,7 +2,7 @@
 
 **Last updated:** July 14, 2026 · **Version:** 1.0
 
-These Terms of Use ("Terms") govern your use of the **Sharp Arena** app (published in Portuguese as *Arena Sagaz*) - the "App" -, offered by **Santiago Data**, a brand operated by Fernando Santiago da Silva. By using the App, you agree to these Terms. If you do not agree, do not use the App.
+These Terms of Use ("Terms") govern your use of the **Sharp Arena** app (published in Portuguese as **Arena Sagaz**) - the "App" -, offered by **Santiago Data**, a brand operated by Fernando Santiago da Silva. By using the App, you agree to these Terms. If you do not agree, do not use the App.
 
 ## 1. Eligibility
 

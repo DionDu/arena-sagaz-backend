@@ -2,7 +2,7 @@
 
 **Last updated:** July 14, 2026 · **Version:** 1.0
 
-This Privacy Policy explains how the **Sharp Arena** app (published in Portuguese as *Arena Sagaz*) - the "App" - collects, uses, shares, and protects your personal data.
+This Privacy Policy explains how the **Sharp Arena** app (published in Portuguese as **Arena Sagaz**) - the "App" - collects, uses, shares, and protects your personal data.
 
 ## 1. Who controls your data
 

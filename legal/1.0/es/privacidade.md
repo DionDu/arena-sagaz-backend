@@ -2,7 +2,7 @@
 
 **Última actualización:** 14 de julio de 2026 · **Versión:** 1.0
 
-Esta Política de Privacidad explica cómo la aplicación **Arena Sagaz** (publicada en inglés como *Sharp Arena*) - la "App" - recopila, usa, comparte y protege tus datos personales.
+Esta Política de Privacidad explica cómo la aplicación **Arena Sagaz** (publicada en inglés como **Sharp Arena**) - la "App" - recopila, usa, comparte y protege tus datos personales.
 
 ## 1. Quién controla los datos
 

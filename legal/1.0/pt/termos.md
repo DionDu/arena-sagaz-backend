@@ -2,7 +2,7 @@
 
 **Última atualização:** 14 de julho de 2026 · **Versão:** 1.0
 
-Estes Termos de Uso ("Termos") regem o uso do aplicativo **Arena Sagaz** (publicado em inglês como *Sharp Arena*) - o "App" -, oferecido por **Santiago Data**, marca operada por Fernando Santiago da Silva. Ao usar o App, você concorda com estes Termos. Se não concordar, não use o App.
+Estes Termos de Uso ("Termos") regem o uso do aplicativo **Arena Sagaz** (publicado em inglês como **Sharp Arena**) - o "App" -, oferecido por **Santiago Data**, marca operada por Fernando Santiago da Silva. Ao usar o App, você concorda com estes Termos. Se não concordar, não use o App.
 
 ## 1. Elegibilidade
 
