@@ -21,6 +21,54 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-07-30 — A data de nascimento sai; entra uma declaração de idade (13+)
+
+**Contexto.** A App Review recusou a versão 1.0 (2) do app pela diretriz
+**5.1.1(v)**: *"o app exige que o usuário forneça informação pessoal que não é
+diretamente relevante para a funcionalidade principal"*, apontando nominalmente a
+**data de nascimento**.
+
+Ao conferir, a crítica procede. A data tinha exatamente dois usos: a trava de
+idade mínima (13+, FR-005a) e o `ic_publico` do ranking global. Nenhum dos dois
+precisa da **data** — os dois precisam apenas da resposta *"tem 13 anos ou mais?"*.
+E ela não influenciava anúncio nenhum: o app serve não personalizados para todo
+mundo, e convidado (sem data) já recebia o mesmo tratamento de quem tinha data.
+Guardar a data era coletar mais do que se usava.
+
+**Decisão.** Coluna `conta.tb001_usuario.ic_idade_minima_declarada` (migração
+`0010_declaracao_idade`). A idade passa a ser **declarada** — mecanismo que a
+própria Apple admite (*"verified or declared age"*, diretrizes 1.2.1(a) e 4.7.5).
+A migração deriva a flag das datas existentes, **zera `dt_nascimento` em todas as
+linhas** (decisão do dono: padronizar, ninguém fica com data) e recria as duas
+views afetadas — `vw001_usuario`, cujo `SELECT *` é expandido na criação e não
+enxergaria a coluna nova, e `vw101_ranking_global_geral`, cujo `ic_publico`
+passaria a excluir todo mundo se continuasse olhando a data.
+
+**Compatibilidade — o ponto delicado.** Há ~20 testadores com a build 1.0 (2)
+instalada, e ela **só sabe enviar `dt_nascimento`**. Expand/contract: o serviço
+aceita as duas formas (`resolver_declaracao_idade` centraliza a decisão), a data
+recebida serve para **derivar** a declaração e é descartada, a coluna continua
+existindo, e o 422 de "falta idade" mantém o código antigo
+`data_nascimento_obrigatoria` — é por ele que o app 1.0 (2) decide abrir o portão
+"Completar perfil". Renomear agora prenderia aqueles aparelhos num login que
+nunca completa. A limpeza (dropar coluna, renomear o código) sai em `/v2`, depois
+que o force-update retirar as versões antigas de campo.
+
+**Alternativas descartadas.** (a) *Responder à App Review argumentando que a
+diretriz 5.1.4(a) permite pedir data de nascimento para cumprir COPPA/LGPD*:
+permite mesmo, mas o revisor aplicou 5.1.1(v) sabendo disso — risco alto de nova
+recusa, sem ganho. (b) *Manter a data como campo opcional*: o revisor continuaria
+vendo um campo "Date of Birth" na tela, e perderíamos a garantia de que toda conta
+é 13+. (c) *Declared Age Range API da Apple (iOS 26+)*: é o caminho mais forte a
+médio prazo, mas hoje só é obrigatória para apps 18+ e exigiria canal nativo — fica
+para uma versão futura, com a declaração como fallback universal.
+
+**Efeito colateral limpo.** `UsuarioAutenticado.dt_nascimento` foi removido: nenhuma
+rota o lia, e a migração o deixaria permanentemente `None` — campo sem leitor e sem
+valor só engana quem for confiar nele depois.
+
+---
+
 ## 2026-07-21 — O laboratório de IA saiu deste repositório
 
 **Contexto.** Este repositório era, na prática, dois projetos convivendo: a API

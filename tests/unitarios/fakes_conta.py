@@ -38,15 +38,15 @@ class FakeRepoUsuario:
         return None
 
     async def atualizar_perfil(
-        self, *, id_usuario, no_exibicao=None, dt_nascimento=None,
+        self, *, id_usuario, no_exibicao=None, ic_idade_minima_declarada=None,
         co_idioma_preferido=None,
     ):
         for linha in self._por_uid.values():
             if linha["id_usuario"] == id_usuario:
                 if no_exibicao is not None:
                     linha["no_exibicao"] = no_exibicao
-                if dt_nascimento is not None:
-                    linha["dt_nascimento"] = dt_nascimento
+                if ic_idade_minima_declarada is not None:
+                    linha["ic_idade_minima_declarada"] = ic_idade_minima_declarada
                 if co_idioma_preferido is not None:
                     linha["co_idioma_preferido"] = co_idioma_preferido
                 return dict(linha)
@@ -58,7 +58,7 @@ class FakeRepoUsuario:
     async def criar(
         self, *, co_usuario, co_identidade_externa, co_provedor_principal,
         co_idioma_preferido="pt", no_exibicao=None, no_email=None,
-        dt_nascimento=None, ic_convidado=False,
+        ic_idade_minima_declarada=False, ic_convidado=False,
     ):
         linha = {
             "id_usuario": f"id-{co_identidade_externa}",
@@ -66,7 +66,10 @@ class FakeRepoUsuario:
             "co_identidade_externa": co_identidade_externa,
             "no_exibicao": no_exibicao,
             "no_email": no_email,
-            "dt_nascimento": dt_nascimento,
+            # Espelha a tabela real depois da migração 0010: a data nasce (e fica)
+            # NULL; quem responde pela idade é a declaração.
+            "dt_nascimento": None,
+            "ic_idade_minima_declarada": ic_idade_minima_declarada,
             "co_provedor_principal": co_provedor_principal,
             "co_idioma_preferido": co_idioma_preferido,
             "ic_convidado": ic_convidado,
@@ -152,6 +155,7 @@ class FakeRepoUsuario:
                 linha["no_exibicao"] = None
                 linha["no_email"] = None
                 linha["dt_nascimento"] = None
+                linha["ic_idade_minima_declarada"] = False
                 linha["co_identidade_externa"] = None
                 linha["ic_anonimizado"] = True
                 return dict(linha)

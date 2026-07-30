@@ -23,23 +23,45 @@ class SessaoRequest(BaseModel):
     """Corpo do `POST /v1/conta/sessao`.
 
     Todos os campos são **opcionais**: numa reentrada, o app pode não mandar nada
-    (só o token). No **primeiro** login, `dt_nascimento` é obrigatória — mas essa
-    regra é validada no serviço (para devolver 422 `idade_minima`/`data_obrigatoria`
-    com mensagem clara), não aqui.
+    (só o token). No **primeiro** login é preciso comprovar a idade mínima — mas
+    essa regra é validada no serviço (para devolver 422 com mensagem clara), não
+    aqui.
+
+    ## Duas formas de comprovar a idade — de propósito
+
+    - `ic_idade_minima_declarada` — **a forma atual**. A pessoa marca "tenho 13
+      anos ou mais". É só o que precisamos saber, e foi o que a App Review exigiu
+      (diretriz 5.1.1(v): não peça dado pessoal que a funcionalidade não usa).
+    - `dt_nascimento` — **legado**, mantido só por compatibilidade. As builds
+      1.0 (2) e anteriores, que estão instaladas em campo, só sabem enviar isto.
+      Continua funcionando até o force-update retirá-las (`CLAUDE.md`: nunca
+      quebre um cliente ainda em campo). O valor **não é mais persistido** —
+      serve apenas para derivar a declaração.
     """
 
     no_exibicao: Optional[str] = Field(default=None, max_length=40)
     dt_nascimento: Optional[date] = None
+    ic_idade_minima_declarada: Optional[bool] = None
     co_idioma_preferido: Optional[IdiomaSuportado] = None
 
 
 class PerfilUsuario(BaseModel):
-    """Resposta de perfil (de `POST /v1/conta/sessao` e `GET /v1/conta/perfil`)."""
+    """Resposta de perfil (de `POST /v1/conta/sessao` e `GET /v1/conta/perfil`).
+
+    ⚠️ Campo só se **acrescenta** aqui, nunca se remove nem se renomeia: várias
+    versões do app convivem em campo lendo esta resposta (`CLAUDE.md` — mudança
+    aditiva não sobe a versão da API; quebradora exigiria `/v2`).
+    """
 
     co_usuario: str
     no_exibicao: Optional[str] = None
     no_email: Optional[str] = None
+    # LEGADO: hoje sempre `None` (a migração 0010 zerou a coluna e nada mais a
+    # grava). Continua na resposta porque o app 1.0 (2) em campo lê este campo;
+    # sumir com ele seria mudança quebradora.
     dt_nascimento: Optional[date] = None
+    # A pessoa declarou ter a idade mínima (13+). Substituiu a data de nascimento.
+    ic_idade_minima_declarada: bool = False
     co_provedor_principal: str
     co_idioma_preferido: str
     ic_convidado: bool = False
@@ -59,6 +81,7 @@ class PerfilUsuario(BaseModel):
             no_exibicao=linha.get("no_exibicao"),
             no_email=linha.get("no_email"),
             dt_nascimento=linha.get("dt_nascimento"),
+            ic_idade_minima_declarada=linha.get("ic_idade_minima_declarada", False),
             co_provedor_principal=linha["co_provedor_principal"],
             co_idioma_preferido=linha.get("co_idioma_preferido", "pt"),
             ic_convidado=linha.get("ic_convidado", False),
@@ -125,11 +148,14 @@ class ConsentimentoResposta(BaseModel):
 class AtualizarPerfilRequest(BaseModel):
     """Corpo do `PATCH /v1/conta/perfil` — edição do perfil pela tela de Conta.
 
-    Permite editar **nome de exibição**, **idioma** e **data de nascimento**.
-    A data pode ser **corrigida** (ex.: erro de digitação no cadastro), mas o
-    serviço **sempre revalida** a idade mínima (≥ 13) ao gravá-la — não dá para
-    burlar a trava etária mudando a data depois (NEG-02). Campos ausentes =
-    "não mexa neste campo"."""
+    Permite editar **nome de exibição** e **idioma**. Campos ausentes = "não mexa
+    neste campo".
+
+    `dt_nascimento` continua aceito **só por compatibilidade**: a tela de Conta do
+    app novo já não oferece edição de data, mas a build 1.0 (2) em campo oferece.
+    O serviço ainda revalida a idade mínima ao recebê-la (NEG-02: não dá para
+    burlar a trava mandando uma data de criança depois de a conta existir) — a
+    diferença é que agora o valor **não é gravado**, só liga a declaração."""
 
     no_exibicao: Optional[str] = Field(default=None, max_length=40)
     co_idioma_preferido: Optional[IdiomaSuportado] = None
