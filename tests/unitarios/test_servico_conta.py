@@ -364,9 +364,15 @@ def test_reentrada_vincula_provedor_atual():
 # ── moderação de nome na sessão (NEG-01) ─────────────────────────────────────
 
 
-def test_criacao_com_nome_proibido_grava_none_nao_derruba_login():
+def test_criacao_com_nome_proibido_cai_no_codigo_nao_derruba_login():
     # Nome reprovado na moderação (contém "admin") NÃO derruba o login: a conta é
-    # criada, mas sem apelido (fica None) — a pessoa define depois pelo PATCH.
+    # criada, e como não sobrou nome nenhum ela é batizada com o PRÓPRIO
+    # `co_usuario` — a pessoa troca depois pelo PATCH.
+    #
+    # ⚠️ Até 01/08/2026 este teste exigia `no_exibicao is None`. O fallback entrou
+    # junto com a resposta à App Review (diretriz 4): o app deixou de EXIGIR o
+    # nome quando o Sign in with Apple não o devolve, então alguém precisa batizar
+    # a conta — senão o app mostra "Convidado" para quem acabou de criá-la.
     repo = FakeRepoUsuario()
     perfil = asyncio.run(
         _servico(repo).garantir_sessao(
@@ -374,11 +380,12 @@ def test_criacao_com_nome_proibido_grava_none_nao_derruba_login():
             SessaoRequest(no_exibicao="admin", dt_nascimento=date(1990, 1, 1)),
         )
     )
-    assert perfil.no_exibicao is None
+    assert perfil.no_exibicao == perfil.co_usuario
+    assert perfil.no_exibicao  # nunca vazio
     assert len(repo.criadas) == 1
 
 
-def test_criacao_com_nome_curto_grava_none():
+def test_criacao_com_nome_curto_cai_no_codigo():
     repo = FakeRepoUsuario()
     perfil = asyncio.run(
         _servico(repo).garantir_sessao(
@@ -386,7 +393,33 @@ def test_criacao_com_nome_curto_grava_none():
             SessaoRequest(no_exibicao="ab", dt_nascimento=date(1990, 1, 1)),
         )
     )
-    assert perfil.no_exibicao is None
+    assert perfil.no_exibicao == perfil.co_usuario
+
+
+def test_criacao_sem_nome_nenhum_cai_no_codigo():
+    # É o caso do Sign in with Apple numa autorização que não é a primeira: a
+    # Apple não devolve o nome, o app não pede, e `no_exibicao` chega ausente.
+    repo = FakeRepoUsuario()
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(),
+            SessaoRequest(ic_idade_minima_declarada=True),
+        )
+    )
+    assert perfil.no_exibicao == perfil.co_usuario
+
+
+def test_criacao_com_nome_valido_nao_usa_o_codigo():
+    # O outro ramo: veio nome, o código não entra em cena.
+    repo = FakeRepoUsuario()
+    perfil = asyncio.run(
+        _servico(repo).garantir_sessao(
+            _identidade(),
+            SessaoRequest(no_exibicao="Dionísio", ic_idade_minima_declarada=True),
+        )
+    )
+    assert perfil.no_exibicao == "Dionísio"
+    assert perfil.no_exibicao != perfil.co_usuario
 
 
 def test_reentrada_preenche_nome_vazio_passa_por_moderacao():

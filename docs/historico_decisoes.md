@@ -21,6 +21,51 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-08-01 — Conta sem nome nasce batizada com o próprio `co_usuario`
+
+**Contexto.** A App Review recusou a versão **1.0.1 (4)** pela **diretriz 4
+(Design)**: *"users are required to provide their name and/or email address after
+using Sign in with Apple even though that information is already provided by the
+Authentication Services framework"*. A causa raiz é do app (ele pedia à Apple só o
+escopo `email`, nunca o `name`), mas a correção respinga aqui.
+
+O problema não se resolve só pedindo o escopo. A Apple entrega o nome **uma única
+vez**, na primeira autorização de cada Apple ID para o App ID — numa reautorização
+(quem excluiu a conta e voltou, por exemplo) ele chega nulo, sem erro. Por isso o
+app passou a **esconder** o campo de nome quando o provedor não manda nome, em vez
+de mostrá-lo vazio e obrigatório. Consequência para a API: `no_exibicao` agora
+chega **ausente** num caminho legítimo e comum de criação de conta.
+
+Até aqui, o serviço criava a conta com `no_exibicao = NULL` — e o app, sem nome,
+exibia **"Convidado"** para quem tinha acabado de criar conta (`usuario_local.dart`
+usa esse rótulo como fallback).
+
+**Decisão.** Em `_criar_com_codigo_unico`, sem nome a conta é batizada com o
+**próprio `co_usuario`** recém-gerado (`no_exibicao=dados.no_exibicao or codigo`).
+O código já é a identidade pública da conta, é único (não cria uma multidão de
+homônimos no ranking) e não depende de idioma. Trocar continua sendo pelo
+`PATCH /conta/perfil`, e `_atualizar_existente` segue sem sobrescrever nome já
+gravado.
+
+Isso vale para **qualquer** caminho sem nome, não só o da Apple: nome reprovado
+pela moderação (NEG-01) também cai no código, em vez de virar `NULL`.
+
+**Alternativas consideradas.**
+1. *O app manda um nome padrão* — descartada: o `co_usuario` só nasce **aqui**, na
+   criação. Enquanto o portão de perfil está na tela, a conta não existe e o app
+   não tem esse valor para enviar.
+2. *Um rótulo traduzido ("Jogador"/"Player"/"Jugador") com número sorteado* —
+   descartada: exige chave nos três `.arb`, pode colidir entre contas e obrigaria
+   a decidir qual idioma usar num dado que é do servidor.
+3. *Deixar `NULL` e o app tratar* — descartada: era o estado anterior, e o
+   resultado visível era "Convidado" numa conta logada.
+
+**Compatibilidade.** Mudança puramente aditiva no valor gravado; nenhum contrato
+muda, nenhum campo entra ou sai da resposta. A build 1.0.1 (4) em campo continua
+funcionando — ela só passa a receber um nome onde antes recebia `null`.
+
+---
+
 ## 2026-07-30 — A data de nascimento sai; entra uma declaração de idade (13+)
 
 **Contexto.** A App Review recusou a versão 1.0 (2) do app pela diretriz

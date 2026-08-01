@@ -513,7 +513,24 @@ class ServicoConta:
                     co_identidade_externa=identidade.uid,
                     co_provedor_principal=provedor,
                     co_idioma_preferido=dados.co_idioma_preferido or "pt",
-                    no_exibicao=dados.no_exibicao,
+                    # Sem nome, a conta é batizada com o PRÓPRIO código (AS-4F2K).
+                    #
+                    # Isto entrou em 01/08/2026, junto com a resposta à App Review
+                    # (diretriz 4): o Sign in with Apple só devolve o nome na
+                    # PRIMEIRA autorização de cada Apple ID, e o app deixou de
+                    # exigi-lo quando ele não vem — o campo simplesmente não
+                    # aparece. Alguém precisa dar um nome à conta, e o código é o
+                    # melhor candidato: já é a identidade pública da conta, é
+                    # único (não cria uma multidão de homônimos no ranking) e não
+                    # depende de idioma. Sem isto a conta nascia com
+                    # `no_exibicao = NULL` e o app mostrava "Convidado" para quem
+                    # acabara de criar conta.
+                    #
+                    # Quem é o dono do nome daqui em diante continua sendo a
+                    # pessoa: trocar é pelo `PATCH /conta/perfil` (tela "Minha
+                    # conta"), e `_atualizar_existente` nunca sobrescreve um nome
+                    # já gravado.
+                    no_exibicao=dados.no_exibicao or codigo,
                     no_email=identidade.email,
                     ic_idade_minima_declarada=declarou_idade,
                 )
