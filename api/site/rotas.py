@@ -20,9 +20,23 @@ legais são exatamente isso.
 um ``app.mount("/", StaticFiles(...))`` casaria **qualquer** caminho que nenhuma
 rota anterior pegasse — inclusive um ``/v1/rota-que-nao-existe``. O 404 da API
 deixaria de ser o JSON do FastAPI e viraria o 404 do servidor de arquivos,
-mudando o contrato para os apps em campo. Como o site é **um único HTML
-autocontido** (as fontes vêm embutidas em base64, sem CDN), duas rotas explícitas
-resolvem — sem catch-all e sem risco para a API.
+mudando o contrato para os apps em campo. Rotas explícitas resolvem — sem
+catch-all e sem risco para a API.
+
+AS IMAGENS (``/img/...``), decisão de 2026-08-04: até a publicação, o site era um
+HTML **único e autocontido**. Com as capturas de tela entrando na vitrine isso
+deixou de compensar: são 9 arquivos (3 telas × 3 idiomas) e 6 selos de loja, e
+embuti-los em base64 inflaria o HTML de 210 KB para ~500 KB — que **todo** visitante
+baixaria inteiro, inclusive os idiomas que ele não vê. Como arquivos, o navegador
+busca só os do idioma ativo e ainda os guarda em cache por um dia.
+
+A rota de imagens **não é um catch-all**: o dicionário ``_IMAGENS`` é montado no
+import a partir do que existe em ``site/img/``, e serve **apenas** o que está nele.
+Um nome fora da lista leva 404 — não há caminho para ``..`` nem para fora da pasta.
+
+As fontes continuam **embutidas em base64** no HTML, de propósito: são o que a
+página precisa no primeiro quadro, e buscá-las de fora deixaria o texto invisível
+enquanto carregam. Há teste que falha se alguém trocar isso por um CDN.
 
 O HTML é lido **uma vez, no import** (é imutável entre deploys) e servido da
 memória: nada de tocar o disco a cada visita.
@@ -31,7 +45,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 router = APIRouter()
@@ -56,6 +70,28 @@ _INDEX_HTML = _ler("index.html")
 _APP_ADS_TXT = _ler("app-ads.txt")
 
 
+def _carregar_imagens() -> dict[str, tuple[bytes, str]]:
+    """Lê `site/img/` para a memória: nome do arquivo → (bytes, content-type).
+
+    Este dicionário **é** a lista de permissão da rota `/img/`: só se serve o que
+    está aqui. Por isso a rota não precisa validar caminho — não existe caminho,
+    existe uma chave. São ~285 KB no total; carregar uma vez custa menos que abrir
+    o disco a cada visita, e a pasta não muda enquanto o processo vive.
+    """
+    tipos = {".webp": "image/webp", ".svg": "image/svg+xml", ".png": "image/png"}
+    pasta = _DIR_SITE / "img"
+    if not pasta.is_dir():
+        return {}
+    return {
+        arquivo.name: (arquivo.read_bytes(), tipos[arquivo.suffix])
+        for arquivo in sorted(pasta.iterdir())
+        if arquivo.is_file() and arquivo.suffix in tipos
+    }
+
+
+_IMAGENS = _carregar_imagens()
+
+
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def landing() -> HTMLResponse:
     """A landing page. `include_in_schema=False` mantém o OpenAPI só com a API."""
@@ -66,6 +102,26 @@ async def landing() -> HTMLResponse:
         content=_INDEX_HTML,
         # Cache curto: queremos poder corrigir um texto sem esperar um dia.
         headers={"Cache-Control": "public, max-age=600"},
+    )
+
+
+@router.get("/img/{nome}", include_in_schema=False)
+async def imagem(nome: str) -> Response:
+    """Serve uma imagem da vitrine (capturas de tela e selos das lojas).
+
+    Só entrega o que foi carregado de `site/img/` no import — qualquer outro nome
+    é 404. Cache de **um dia**: as capturas só mudam quando o app muda de cara, e
+    o nome do arquivo carrega o idioma, então trocar de idioma nunca serve a
+    imagem errada do cache.
+    """
+    imagem = _IMAGENS.get(nome)
+    if imagem is None:
+        return PlainTextResponse("", status_code=404)
+    conteudo, tipo = imagem
+    return Response(
+        content=conteudo,
+        media_type=tipo,
+        headers={"Cache-Control": "public, max-age=86400"},
     )
 
 

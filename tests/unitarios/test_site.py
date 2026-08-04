@@ -114,3 +114,51 @@ def test_rotas_da_api_e_legal_continuam_vivas(cliente: TestClient):
     assert cliente.get("/v1/health").status_code == 200
     assert cliente.get("/legal/pt/privacidade").status_code == 200
     assert cliente.get("/legal/pt/exclusao-conta").status_code == 200
+
+
+# ── As imagens da vitrine ────────────────────────────────────────────────────
+
+
+def test_imagens_da_vitrine_respondem(cliente: TestClient):
+    """As capturas e os selos das lojas são servidos de `/img/`, não embutidos.
+
+    A landing deixou de ser um HTML único em 04/08/2026: 9 capturas (3 telas × 3
+    idiomas) e 6 selos de loja em base64 levariam o HTML de 210 KB para ~450 KB,
+    que todo visitante baixaria inteiro — inclusive os idiomas que ele não vê.
+    """
+    for nome, tipo in [
+        ("cap_pt_1.webp", "image/webp"),
+        ("cap_en_2.webp", "image/webp"),
+        ("cap_es_3.webp", "image/webp"),
+        ("appstore_pt.svg", "image/svg+xml"),
+        ("googleplay_pt.png", "image/png"),
+    ]:
+        r = cliente.get(f"/img/{nome}")
+        assert r.status_code == 200, nome
+        assert r.headers["content-type"].startswith(tipo), nome
+        assert len(r.content) > 1000, nome
+
+
+def test_todo_idioma_tem_captura_e_selo(cliente: TestClient):
+    """O site troca as imagens junto com o idioma. Um arquivo faltando não
+    quebraria a página — só deixaria uma moldura vazia naquele idioma, que é
+    justamente o tipo de defeito que ninguém percebe (quem revisa lê em pt)."""
+    for idioma in ("pt", "en", "es"):
+        for slot in (1, 2, 3):
+            assert cliente.get(f"/img/cap_{idioma}_{slot}.webp").status_code == 200
+        assert cliente.get(f"/img/appstore_{idioma}.svg").status_code == 200
+        assert cliente.get(f"/img/googleplay_{idioma}.png").status_code == 200
+
+
+def test_img_so_serve_o_que_esta_na_pasta(cliente: TestClient):
+    """A rota é uma CONSULTA A DICIONÁRIO, não um caminho de arquivo: o que não
+    foi carregado de `site/img/` no import simplesmente não existe. Sem isto,
+    `/img/` seria a porta de entrada para leitura de arquivo arbitrário."""
+    assert cliente.get("/img/nao_existe.webp").status_code == 404
+    assert cliente.get("/img/index.html").status_code == 404
+    # ⚠️ Escrever `/img/../app-ads.txt` aqui NÃO testa nada: o cliente HTTP
+    # resolve o `..` antes de enviar, e o servidor recebe `/app-ads.txt` — que
+    # responde 200 por ser uma rota legítima. Para o `..` chegar de verdade ao
+    # parâmetro, ele tem de ir percent-encoded, como abaixo.
+    assert cliente.get("/img/%2e%2e%2fapp-ads.txt").status_code == 404
+    assert cliente.get("/img/%2e%2e%2f%2e%2e%2fapi%2fmain.py").status_code == 404

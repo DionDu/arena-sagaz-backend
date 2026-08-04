@@ -157,3 +157,51 @@ em `ia/entregaveis/` e aí se copia.
 
 **Rastro.** Todo arquivo movido está registrado, com SHA-256 de origem e destino,
 em `../docs/reorganizacao/de_para_reorganizacao.csv`.
+
+---
+
+## 2026-08-04 — A vitrine deixa de ser um HTML único: imagens em `/img/`
+
+**Contexto.** O app iOS foi publicado em 04/08/2026 (o Android seguia em revisão
+na Play). O site precisava, no mesmo dia, de três coisas que só existem depois da
+publicação: os **selos oficiais** das lojas no lugar da arte provisória, as
+**capturas de tela** nas molduras que estavam vazias, e textos que parassem de
+dizer "em breve" para uma loja onde o app já está.
+
+Até aqui o site era **um único HTML autocontido** — decisão de 13/07, tomada
+quando ele só tinha texto e fontes. Com as imagens, isso deixou de se pagar: são
+9 capturas (3 telas × 3 idiomas) e 6 selos de loja. Em base64 dentro do HTML,
+o arquivo saltaria de ~210 KB para ~450 KB, e **todo** visitante baixaria tudo —
+inclusive as capturas dos dois idiomas que ele não vai ver.
+
+**Decisão.** Uma terceira rota explícita, `GET /img/{nome}`, servindo de
+`site/img/`. Os arquivos são lidos **no import** para um dicionário
+(`_IMAGENS`), que **é** a lista de permissão: o que não está nele responde 404.
+Cache de um dia (as capturas só mudam quando o app muda de cara) e o idioma vai
+no **nome do arquivo**, então o cache nunca serve a imagem do idioma errado.
+
+As **fontes continuam embutidas** em base64 — elas são necessárias no primeiro
+quadro, e buscá-las de fora deixaria o texto invisível enquanto carregam. O teste
+`test_landing_nao_depende_de_CDN` continua guardando isso.
+
+**Alternativas consideradas.**
+1. *Manter tudo em base64* — descartada pelo peso, acima.
+2. *`StaticFiles` montado em `/img`* — descartada pela mesma razão que já barrava
+   o mount em `/`: é uma superfície que serve o que estiver na pasta, hoje e no
+   futuro. Um dicionário montado no import não tem "caminho" para percorrer.
+3. *Hospedar as imagens fora (CDN/bucket)* — descartada: reintroduziria a
+   dependência externa que o site existe para não ter, e a vitrine é também a
+   **Support URL** que a Apple exige.
+
+**Sobre os selos, que são marca de terceiro.** São as artes oficiais (Apple:
+`tools.applemediaservices.com`; Google: `play.google.com/intl/<idioma>/badges`),
+apenas redimensionadas — o que as duas diretrizes permitem. Não recolorir, não
+recortar, não redesenhar. Usa-se a variante **preta** da Apple nos dois temas: o
+selo do Google só existe em preto, e o branco da Apple ao lado dele deixava os
+dois com aparências opostas no tema escuro.
+
+⚠️ **O selo do Google Play entrou antes de o app estar na Play** — pedido do dono
+em 04/08, ciente de que a diretriz de marca pede o app já publicado e o link
+levando à ficha. Mitigação adotada: o `href` aponta desde já para a ficha
+definitiva (passa a funcionar sozinho quando a Play publicar) e a nota sob os
+selos diz, nos três idiomas, que o Android ainda está por vir.

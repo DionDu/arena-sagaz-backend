@@ -85,11 +85,13 @@ html.escuro .marca{color:var(--texto);}
 .hero h1 .g{color:var(--ouro);}
 .hero .tag{margin:20px auto 0; max-width:620px; font-size:clamp(17px,2.6vw,22px); color:var(--texto2); position:relative;}
 .lojas{display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-top:34px; position:relative;}
-.loja-slot{display:flex; align-items:center; gap:12px; height:58px; padding:0 22px 0 18px; border-radius:13px; background:var(--tinta); color:var(--creme); min-width:200px;}
-html.escuro .loja-slot{background:#1c2620; box-shadow:inset 0 0 0 2px var(--feltro-borda);}
-.loja-slot svg{width:26px; height:26px; flex:none;}
-.loja-slot .ls-top{font-size:11px; opacity:.8; font-weight:700; line-height:1.1;}
-.loja-slot .ls-big{font-family:var(--display); font-weight:800; font-size:19px; line-height:1.15;}
+/* Selo oficial da App Store. A arte é intocável (nem cor, nem proporção, nem
+   moldura em volta), então o estilo aqui só cuida do tamanho e do alvo de toque. */
+.loja-selo{display:inline-flex; align-items:center; height:58px;}
+.loja-selo img{height:52px; width:auto; display:block;}
+/* Os dois selos com a MESMA altura (52px). O gap de 16px do `.lojas` também
+   cumpre a área livre que as duas marcas exigem em volta do selo (Apple: 10% da
+   altura; Google: 1/4 da altura = 13px). Não encoste nada neles. */
 .loja-nota{margin-top:12px; font-size:12.5px; color:var(--texto2);}
 
 /* ============ Diferencial (feltro) ============ */
@@ -228,23 +230,30 @@ footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 
       <div class="hero-emblema"><svg width="200" height="170" viewBox="0 0 240 204"><g><g stroke="currentColor" stroke-width="6" stroke-linecap="round"><line x1="68" y1="50" x2="104" y2="50"></line><line x1="136" y1="50" x2="172" y2="50"></line><line x1="68" y1="90" x2="104" y2="90"></line><line x1="136" y1="90" x2="172" y2="90"></line><line x1="60" y1="58" x2="60" y2="82"></line><line x1="180" y1="58" x2="180" y2="82"></line></g><rect x="114" y="54" width="12" height="32" rx="6" fill="#D9A441"></rect><circle cx="60" cy="50" r="8" fill="currentColor"></circle><circle cx="120" cy="50" r="8" fill="currentColor"></circle><circle cx="180" cy="50" r="8" fill="currentColor"></circle><circle cx="60" cy="90" r="8" fill="currentColor"></circle><circle cx="120" cy="90" r="8" fill="currentColor"></circle><circle cx="180" cy="90" r="8" fill="currentColor"></circle></g><g><path d="M 44 112 Q 120 96 196 112 L 196 148 L 44 148 Z" fill="#8A5A33" stroke="#5E3D22" stroke-width="3" stroke-linejoin="round"></path><path d="M 63 148 L 63 130 Q 72 120 81 130 L 81 148 Z" fill="#5E3D22"></path><path d="M 95 148 L 95 130 Q 104 120 113 130 L 113 148 Z" fill="#5E3D22"></path><path d="M 127 148 L 127 130 Q 136 120 145 130 L 145 148 Z" fill="#5E3D22"></path><path d="M 159 148 L 159 130 Q 168 120 177 130 L 177 148 Z" fill="#5E3D22"></path></g><g><path d="M 20 152 Q 120 138 220 152 L 220 196 L 20 196 Z" fill="#8A5A33" stroke="#5E3D22" stroke-width="3" stroke-linejoin="round"></path><path d="M 41 196 L 41 172 Q 52 160 63 172 L 63 196 Z" fill="#5E3D22"></path><path d="M 75 196 L 75 172 Q 86 160 97 172 L 97 196 Z" fill="#5E3D22"></path><path d="M 109 196 L 109 172 Q 120 160 131 172 L 131 196 Z" fill="#5E3D22"></path><path d="M 143 196 L 143 172 Q 154 160 165 172 L 165 196 Z" fill="#5E3D22"></path><path d="M 177 196 L 177 172 Q 188 160 199 172 L 199 196 Z" fill="#5E3D22"></path></g></svg></div>
       <h1><span data-i="nome_1">Arena</span> <span class="g" data-i="nome_2">Sagaz</span></h1>
       <p class="tag" data-i="hero_tag"></p>
-      <!-- ⚠️ SELOS PROVISÓRIOS — trocar pelos OFICIAIS no dia da publicação.
-           Arte própria imitando o selo é motivo de reprovação nas duas lojas, e
-           as duas PROÍBEM exibir o selo antes de o app estar disponível (o link
-           tem de levar à ficha real). Por isso aqui está um "em breve", não um
-           selo falso. Quando o app estiver no ar:
-             • Google Play: https://play.google.com/intl/pt-BR/badges/  (gera o PNG por idioma)
-             • App Store:   https://developer.apple.com/app-store/marketing/guidelines/ (SVG por idioma)
-           Embutir as duas artes como data URI (o site NÃO pode buscar recurso
-           externo — há um teste que falha se buscar) e apontar o href para a ficha. -->
+      <!-- SELOS DAS LOJAS — regra que não muda: só entra o selo OFICIAL, e só
+           depois de o app estar disponível naquela loja.
+             • App Store  ✅ publicado em 04/08/2026. Os SVGs são os da ferramenta
+               oficial da Apple (tools.applemediaservices.com), servidos de
+               /img/appstore_<idioma>.svg — a variante PRETA, nos dois temas (o
+               porquê está no JS, em `atualizarSelosDasLojas`). Não redesenhar,
+               não recolorir, não pôr moldura em volta.
+             • Google Play  ⏳ ainda em revisão em 04/08/2026, mas o selo já está
+               aqui — decisão do dono, ciente da ressalva. A arte é a oficial
+               (play.google.com/intl/<idioma>/badges), só redimensionada, como a
+               diretriz de marca permite; o que a diretriz pede e ainda não temos
+               é que o link leve a uma ficha publicada. Por isso o href aponta
+               desde já para a ficha DEFINITIVA: no dia em que a Play publicar,
+               ele passa a funcionar sozinho, sem tocar no site. Até lá, a nota
+               abaixo dos selos (`hero_nota`) diz em todas as línguas que o
+               Android ainda está por vir — é o que evita a promessa falsa. -->
       <div class="lojas">
-        <a class="loja-slot" id="linkPlay" href="#" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.6 2.2c-.3.2-.5.6-.5 1.1v17.4c0 .5.2.9.5 1.1l9.6-9.8L3.6 2.2z"/><path d="M17 8.3l-3.2-1.9-2.6 2.6 2.6 2.7L17 9.8c.6-.4.6-1.1 0-1.5z" opacity=".85"/><path d="M13.8 6.4L4.2 1.9C4 1.8 3.8 1.9 3.6 2.2l7.6 7.3 2.6-3.1z"/><path d="M11.2 12.5L3.6 21.8c.2.3.4.4.6.3l9.6-4.6-2.6-5z"/></svg>
-          <span><span class="ls-top" data-i="badge_play_top">DISPONÍVEL NO</span><br/><span class="ls-big">Google Play</span></span>
+        <a class="loja-selo" id="linkApple" href="#" target="_blank" rel="noopener">
+          <!-- src e alt são definidos no JS (`atualizarSelosDasLojas`), porque
+               dependem do idioma, que muda sem recarregar a página. -->
+          <img id="seloApple" alt="" width="120" height="40"/>
         </a>
-        <a class="loja-slot" id="linkApple" href="#" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.7c0-2 1.6-3 1.7-3.1-1-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .7 1 1.4 2 2.4 2 1 0 1.3-.6 2.5-.6s1.5.6 2.5.6 1.7-1 2.3-2c.7-1.1 1-2.2 1-2.3-.1 0-2-.8-2-3zM14.5 6.3c.5-.7.9-1.6.8-2.5-.8 0-1.8.5-2.4 1.2-.5.6-1 1.5-.8 2.4.9 0 1.8-.5 2.4-1.1z"/></svg>
-          <span><span class="ls-top" data-i="badge_apple_top">BAIXE NA</span><br/><span class="ls-big">App Store</span></span>
+        <a class="loja-selo" id="linkPlay" href="#" target="_blank" rel="noopener">
+          <img id="seloPlay" alt="" width="135" height="52"/>
         </a>
       </div>
       <p class="loja-nota" data-i="hero_nota"></p>
@@ -372,15 +381,15 @@ footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 
       <h2 class="sec-titulo" data-i="cap_title"></h2>
       <div class="cap-grid">
         <div class="cap-item">
-          <div class="fone"><div class="fone-tela"><div class="slot-vazio" data-slot="captura-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="14" rx="2.5"/><circle cx="12" cy="12.5" r="3.6"/><path d="M8 5.5l1.4-2.2h5.2L16 5.5"/></svg><span class="st" data-i="slot_t"></span><span class="sd" data-i="slot_d"></span></div></div></div>
+          <div class="fone"><div class="fone-tela"><img class="cap-print" data-cap="1" alt="" loading="lazy" width="440" height="956"/></div></div>
           <div class="legenda" data-i="cap1"></div>
         </div>
         <div class="cap-item">
-          <div class="fone"><div class="fone-tela"><div class="slot-vazio" data-slot="captura-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="14" rx="2.5"/><circle cx="12" cy="12.5" r="3.6"/><path d="M8 5.5l1.4-2.2h5.2L16 5.5"/></svg><span class="st" data-i="slot_t"></span><span class="sd" data-i="slot_d"></span></div></div></div>
+          <div class="fone"><div class="fone-tela"><img class="cap-print" data-cap="2" alt="" loading="lazy" width="440" height="956"/></div></div>
           <div class="legenda" data-i="cap2"></div>
         </div>
         <div class="cap-item">
-          <div class="fone"><div class="fone-tela"><div class="slot-vazio" data-slot="captura-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="14" rx="2.5"/><circle cx="12" cy="12.5" r="3.6"/><path d="M8 5.5l1.4-2.2h5.2L16 5.5"/></svg><span class="st" data-i="slot_t"></span><span class="sd" data-i="slot_d"></span></div></div></div>
+          <div class="fone"><div class="fone-tela"><img class="cap-print" data-cap="3" alt="" loading="lazy" width="440" height="956"/></div></div>
           <div class="legenda" data-i="cap3"></div>
         </div>
       </div>
@@ -458,8 +467,8 @@ const T = {
     meta_title: "Arena Sagaz — Jogo dos pontinhos com IA no seu aparelho",
     nome_1: "Arena", nome_2: "Sagaz",
     hero_tag: "Enfrente uma IA treinada para vencer cada partida — do rival brincalhão ao mestre implacável.",
-    hero_nota: "Em breve na Google Play e na App Store.",
-    badge_play_top: "DISPONÍVEL NO", badge_apple_top: "BAIXE NA",
+    hero_nota: "Já disponível na App Store. Em breve na Google Play.",
+    badge_play_alt: "Disponível no Google Play", badge_apple_alt: "Baixe na App Store",
     dif_kicker: "Sem internet",
     dif_title: "A inteligência joga dentro do seu aparelho",
     dif_body: "Nada de servidores, nada de espera. A rede neural que move seus adversários roda 100% no seu celular. No avião, no metrô, sem sinal — a IA continua ali, pensando cada jogada.",
@@ -476,7 +485,6 @@ const T = {
     adv_magno: "O mestre da arena — sempre um passo à frente.",
     cap_kicker: "Por dentro",
     cap_title: "Uma espiada na arena",
-    slot_t: "Captura", slot_d: "Print do app entra aqui",
     cap1: "Quatro rivais te esperam", cap2: "A IA pensa aqui dentro", cap3: "Conquiste a arena",
     sup_kicker: "Ajuda", sup_title: "Suporte",
     sup_sub: "Dúvidas, sugestões ou problemas? A gente responde.",
@@ -502,8 +510,8 @@ const T = {
     meta_title: "Sharp Arena — Dots and boxes with on-device AI",
     nome_1: "Sharp", nome_2: "Arena",
     hero_tag: "Take on an AI trained to win every match — from the playful rival to the merciless master.",
-    hero_nota: "Coming soon to Google Play and the App Store.",
-    badge_play_top: "GET IT ON", badge_apple_top: "DOWNLOAD ON THE",
+    hero_nota: "Out now on the App Store. Coming soon to Google Play.",
+    badge_play_alt: "Get it on Google Play", badge_apple_alt: "Download on the App Store",
     dif_kicker: "No internet",
     dif_title: "The intelligence plays inside your device",
     dif_body: "No servers, no waiting. The neural network behind your opponents runs 100% on your phone. On a plane, on the subway, with no signal — the AI is still there, thinking through every move.",
@@ -520,7 +528,6 @@ const T = {
     adv_magno: "The arena's master — always one step ahead.",
     cap_kicker: "Inside look",
     cap_title: "A peek into the arena",
-    slot_t: "Screenshot", slot_d: "App screenshot goes here",
     cap1: "Four rivals are waiting", cap2: "The AI thinks on-device", cap3: "Conquer the arena",
     sup_kicker: "Help", sup_title: "Support",
     sup_sub: "Questions, ideas or problems? We answer.",
@@ -546,8 +553,8 @@ const T = {
     meta_title: "Arena Sagaz — Puntos y cajas con IA en tu dispositivo",
     nome_1: "Arena", nome_2: "Sagaz",
     hero_tag: "Enfréntate a una IA entrenada para ganar cada partida — del rival juguetón al maestro implacable.",
-    hero_nota: "Próximamente en Google Play y en la App Store.",
-    badge_play_top: "DISPONIBLE EN", badge_apple_top: "DESCÁRGALO EN LA",
+    hero_nota: "Ya disponible en la App Store. Próximamente en Google Play.",
+    badge_play_alt: "Disponible en Google Play", badge_apple_alt: "Descárgalo en la App Store",
     dif_kicker: "Sin internet",
     dif_title: "La inteligencia juega dentro de tu dispositivo",
     dif_body: "Sin servidores, sin esperas. La red neuronal detrás de tus rivales funciona 100% en tu móvil. En el avión, en el metro, sin señal — la IA sigue ahí, pensando cada jugada.",
@@ -564,7 +571,6 @@ const T = {
     adv_magno: "El maestro de la arena — siempre un paso por delante.",
     cap_kicker: "Por dentro",
     cap_title: "Un vistazo a la arena",
-    slot_t: "Captura", slot_d: "La captura del juego va aquí",
     cap1: "Cuatro rivales te esperan", cap2: "La IA piensa sin nube", cap3: "Conquista la arena",
     sup_kicker: "Ayuda", sup_title: "Soporte",
     sup_sub: "¿Dudas, ideas o problemas? Te respondemos.",
@@ -605,11 +611,40 @@ function setLang(lang){
   const set = (id,slug)=>{ const el=document.getElementById(id); if(el) el.href = base+slug; };
   set('lgTermos','termos'); set('lgPriv','privacidade'); set('lgExcluir','exclusao-conta');
   set('linkExcluir','exclusao-conta');
+  // As capturas mostram a INTERFACE do app, então trocam junto com o idioma.
+  document.querySelectorAll('[data-cap]').forEach(img=>{
+    img.src = '/img/cap_'+lang+'_'+img.getAttribute('data-cap')+'.webp';
+    img.alt = d['cap'+img.getAttribute('data-cap')] || '';
+  });
+  atualizarSelosDasLojas();
   // estado dos seletores
   document.querySelectorAll('#segLang button, #segLangFoot button').forEach(b=>{
     b.classList.toggle('on', b.getAttribute('data-lang')===lang);
   });
   document.title = d.meta_title || document.title;
+}
+
+// Os selos trocam com o IDIOMA (a arte oficial de cada loja traz o texto já
+// desenhado), e por isso são montados aqui em vez de escritos no HTML.
+//
+// Por que NÃO trocam com o tema: a Apple publica o selo em preto e em branco, mas
+// o Google Play tem uma arte só, preta. Usar o branco da Apple no tema escuro
+// deixava os dois lado a lado com aparências opostas — um claro, um escuro. O
+// preto tem contraste de sobra sobre o feltro (#2E4034), como o próprio selo do
+// Google já demonstra, então ele vale nos dois temas. Conferido nas duas telas.
+function atualizarSelosDasLojas(){
+  const lang = document.documentElement.lang || 'pt';
+  const d = T[lang] || T.pt;
+  const apple = document.getElementById('seloApple');
+  if(apple){
+    apple.src = '/img/appstore_'+lang+'.svg';
+    apple.alt = d.badge_apple_alt || '';
+  }
+  const play = document.getElementById('seloPlay');
+  if(play){
+    play.src = '/img/googleplay_'+lang+'.png';
+    play.alt = d.badge_play_alt || '';
+  }
 }
 
 function initLang(){
