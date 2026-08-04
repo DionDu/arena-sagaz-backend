@@ -89,6 +89,11 @@ html.escuro .marca{color:var(--texto);}
    moldura em volta), então o estilo aqui só cuida do tamanho e do alvo de toque. */
 .loja-selo{display:inline-flex; align-items:center; height:58px;}
 .loja-selo img{height:52px; width:auto; display:block;}
+/* O selo do Google Play é medido pela ARTE, não pela caixa: o PNG oficial traz
+   10px de margem transparente em cima e embaixo, então 64px de caixa desenham os
+   mesmos 52px de arte da Apple. Regra usada só quando o selo estiver visível
+   (hoje ele está comentado no HTML — ver a nota lá). */
+.loja-selo-play img{height:64px;}
 /* Os dois selos com a MESMA altura (52px). O gap de 16px do `.lojas` também
    cumpre a área livre que as duas marcas exigem em volta do selo (Apple: 10% da
    altura; Google: 1/4 da altura = 13px). Não encoste nada neles. */
@@ -252,9 +257,25 @@ footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 
                dependem do idioma, que muda sem recarregar a página. -->
           <img id="seloApple" alt="" width="120" height="40"/>
         </a>
-        <a class="loja-selo" id="linkPlay" href="#" target="_blank" rel="noopener">
-          <img id="seloPlay" alt="" width="135" height="52"/>
+        <!-- SELO DO GOOGLE PLAY — OCULTO até a Play confirmar a publicação
+             (decisão do dono, 04/08/2026, revendo a de algumas horas antes).
+
+             PARA REATIVAR: descomente o bloco abaixo. Não é preciso mexer em
+             mais nada — o JS (`atualizarSelosDasLojas`) já trata o elemento como
+             opcional, os PNGs continuam em site/img/ e servidos por /img/, e o
+             href já aponta para a ficha definitiva. Ajuste também a `hero_nota`
+             nos três idiomas, que hoje diz "em breve na Google Play".
+
+             ⚠️ AO REATIVAR, USE height:64px, NÃO 52px. O PNG oficial do Google
+             embute 10px de margem transparente em cima e embaixo (arte de 84px
+             num arquivo de 104px = 81%); o SVG da Apple é justo, sem margem. Com
+             a mesma altura de caixa nos dois, a arte do Google desenha 42px
+             contra 52px da Apple e parece menor — foi o que se viu no ar. 52/0,81
+             ≈ 64px iguala a ARTE VISÍVEL, que é o que o olho compara.
+        <a class="loja-selo loja-selo-play" id="linkPlay" href="#" target="_blank" rel="noopener">
+          <img id="seloPlay" alt="" width="166" height="64"/>
         </a>
+        -->
       </div>
       <p class="loja-nota" data-i="hero_nota"></p>
     </div>
@@ -671,7 +692,12 @@ document.querySelectorAll('#segLang button, #segLangFoot button').forEach(b=>{
   b.addEventListener('click', ()=> setLang(b.getAttribute('data-lang')));
 });
 
-document.getElementById('linkPlay').href = STORE_PLAY;
+// `linkPlay` só existe quando o selo do Google está visível — hoje ele está
+// comentado no HTML, à espera da publicação na Play. Sem o `if`, esta linha
+// levantaria "Cannot set properties of null" e **parava o script aqui**, antes do
+// initTema/initLang: a página abriria sem idioma aplicado e sem tema salvo.
+const linkPlay = document.getElementById('linkPlay');
+if(linkPlay) linkPlay.href = STORE_PLAY;
 document.getElementById('linkApple').href = STORE_APPLE;
 
 initTema();
