@@ -35,9 +35,30 @@ NU_DESCONHECIDO = 9999
 
 # Cada dimensão: (VIEW de leitura, coluna do CÓDIGO textual, coluna da CHAVE
 # numérica). Lemos pela VIEW — regra do projeto (ler na `vw`, escrever na `tb`).
+#
+# ⚠️ **As dimensões DE JOGO são qualificadas pelo jogo.** Enquanto havia um jogo
+# só, `"acao"` podia significar "a ação do Pontinhos" sem ambiguidade. Com dois,
+# não pode: as ações da velha viveriam numa tabela e seriam procuradas noutra,
+# cairiam **todas** no sentinela `9999`, e a telemetria do jogo novo nasceria
+# cega — sem erro, sem log de falha, só uma coluna inteira de "desconhecido".
+#
+# `"acao"` e `"situacao"` continuam existindo como **apelidos** do Pontinhos,
+# para que nenhum chamador quebre no mesmo commit (expand/contract). Eles saem
+# quando o último chamador migrar.
 _DIMENSOES: dict[str, tuple[str, str, str]] = {
+    # ---- Pontinhos ----
+    "acao_pontinhos": ("jogo_pontinhos.vw901_jogada_acao", "co_acao", "nu_acao"),
+    "situacao_pontinhos": (
+        "jogo_pontinhos.vw902_jogada_situacao",
+        "co_situacao",
+        "nu_situacao",
+    ),
+    # Apelidos antigos — mesma tabela, nome sem o jogo. Ver o aviso acima.
     "acao": ("jogo_pontinhos.vw901_jogada_acao", "co_acao", "nu_acao"),
     "situacao": ("jogo_pontinhos.vw902_jogada_situacao", "co_situacao", "nu_situacao"),
+    # ---- Jogo da Velha ----
+    "acao_velha": ("jogo_velha.vw901_jogada_acao", "co_acao", "nu_acao"),
+    # ---- Genéricas (da partida, valem para qualquer jogo) ----
     "origem_decisao": (
         "partida.vw901_jogada_origem_decisao",
         "co_origem_decisao",

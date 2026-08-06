@@ -21,6 +21,87 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-08-06 — Schema `jogo_velha`: o 2o jogo do hub grava log, sem tocar em nada do 1o
+
+**Contexto.** O Jogo da Velha (spec 007) e o segundo jogo da Arena Sagaz. Como o
+Pontinhos, ele grava a jogada GENERICA em `partida.tb002_jogada` e uma extensao
+especifica num schema proprio. **Ha usuarios reais em `prd` desde 04/08/2026**, e
+o dono cravou a regra na mesma data:
+
+> "Tome muito cuidado para nao usar DELETE, TRUNCATE, DROP. Nos ja temos usuarios
+> no ambiente PRD. Todas as alteracoes que estamos fazendo com este novo jogo nao
+> devem quebrar o App das pessoas que estao jogando versao mais antiga e nao vao
+> atualizar o App."
+
+**Decisao.** Migracao `0011_schema_jogo_velha`, **puramente aditiva**: `CREATE
+SCHEMA`, `CREATE TABLE` x2 (`tb002_jogada` e a dimensao `tb901_jogada_acao`),
+`INSERT` dos 6 codigos + `9999`, e `CREATE VIEW` x2. Nenhuma tabela, coluna ou
+view existente e tocada.
+
+E "aditiva" deixou de ser palavra do autor: `tests/unitarios/
+test_migracao_aditiva_velha.py` **le o arquivo da migracao** e falha se achar
+`DELETE`, `TRUNCATE` ou `DROP` no `upgrade()` — e ainda vira a regra do avesso,
+conferindo que TODO comando executado comeca por um dos quatro permitidos. O
+`downgrade()` e ignorado de proposito: ele derruba o schema, existe para o
+ambiente local e nunca roda em producao.
+
+**Por que a extensao existe, se a velha nao tem treino.** A do Pontinhos alimenta
+a CNN. Esta nao — e por isso e tao menor (sem matriz, sem softmax, sem score de
+busca, sem profundidade). Ela existe por **auditoria**:
+
+1. **o XP passa a depender de `ic_otimo`** (RF-VLH-045/046). Um numero que decide
+   recompensa e nao e verificavel no servidor e a palavra do aparelho;
+2. **reconstruir a partida para suporte** — com a celula e a ordem, a partida
+   inteira se remonta.
+
+**Tres detalhes que divergem do irmao, e um copiar-colar apagaria:**
+
+- `co_jogador` e **+1 / -1** (o SINAL), nao 1 / 2. O generico usa 1/2; a extensao
+  usa o sinal, exatamente como no Pontinhos. Ha um `CHECK` que impede a confusao.
+- `co_celula` e `VARCHAR(15)`, e nao o `VARCHAR(3)` que o PRD §7.2 escrevia — com
+  3, **todo INSERT seria rejeitado**, porque `'C_1_2'` tem 5 caracteres. A largura
+  ficou igual a do `co_aresta` do Pontinhos (validacao V-1 do dono).
+- `ic_otimo` e **anulavel**, e `NULL` significa "lance da CPU". Um `false` ali
+  significaria "a CPU jogou mal" e falsearia qualquer analise de qualidade feita
+  sobre a tabela.
+
+**Dimensoes qualificadas por jogo.** `api/sincronizacao/dimensoes.py` ganhou
+`acao_pontinhos`, `situacao_pontinhos` e `acao_velha`, mantendo `"acao"` e
+`"situacao"` como **apelidos** do Pontinhos para nenhum chamador quebrar no mesmo
+commit (expand/contract). Sem isso, as acoes da velha seriam procuradas na tabela
+do Pontinhos, cairiam **todas** no sentinela `9999`, e a telemetria do jogo novo
+nasceria cega — sem erro, sem log de falha, so uma coluna inteira de
+"desconhecido".
+
+**Alternativa considerada e recusada: rejeitar a extensao desconhecida.** A
+RF-VLH-064 pedia, na letra, que o backend rejeitasse o que nao conhece. Nao foi
+o que se fez, e a assimetria e o motivo: rejeitar faz o app **descartar o evento
+inteiro** — contrato escrito no proprio `validacao.py` — jogando fora a **partida
+completa** do usuario para nao perder um detalhe que este backend nao saberia
+guardar de todo modo. **Ignorar perde o detalhe; rejeitar perde a partida.** O
+ingestor ignora e emite um `logger.warning` estruturado, que e o unico sinal de
+que ha um app em campo mais novo que o backend. Divergencia deliberada da letra,
+cumprindo a intencao (validacao V-5 do dono).
+
+**Alternativa considerada e recusada: um `co_tipo_xp` proprio para a velha.** A
+parcela de qualidade da velha (lances otimos) sobe como `caixas`, o codigo que o
+Pontinhos usa. A dimensao `partida.vw902_tipo_xp` e **generica** (do schema
+`partida`, nao de um jogo), e um codigo novo ali exigiria migracao e backend novo
+em campo **antes** deste app — a ordem inversa da que a producao permite. Trocar
+depois e possivel, com a migracao e o deploy na ordem certa.
+
+**⚠️ ORDEM DE DEPLOY — sem inversao possivel** (RF-VLH-060):
+
+1. migracao `0011` em **`des`** → conferir → **`prd`**;
+2. backend com o ingestor novo (aceita `jogada["velha"]`);
+3. **so entao** o app as lojas.
+
+**Por que 2 antes de 3:** um backend antigo recebendo `jogada["velha"]` ignora a
+chave (por desenho). A partida entra, mas o `ic_otimo` **evapora** — e e dele que
+o XP depende. Ninguem quebra, mas o dado que justifica a recompensa se perde em
+silencio, e nao volta.
+
+
 ## 2026-08-01 — Conta sem nome nasce batizada com o próprio `co_usuario`
 
 **Contexto.** A App Review recusou a versão **1.0.1 (4)** pela **diretriz 4

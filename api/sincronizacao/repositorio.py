@@ -16,6 +16,7 @@ Idempotência:
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date, datetime
 from typing import Any
 
@@ -23,6 +24,56 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.sincronizacao import dimensoes
+
+logger = logging.getLogger(__name__)
+
+# As chaves de extensao que ESTE backend sabe gravar. Tudo o que nao estiver
+# aqui e das chaves genericas da jogada e uma extensao de um jogo que ainda nao
+# existe deste lado.
+_EXTENSOES_CONHECIDAS = frozenset({"pontinhos", "velha"})
+
+# Os campos da jogada GENERICA. Precisam ser listados para distinguir "campo da
+# jogada" de "extensao de jogo" ao varrer o dicionario recebido.
+_CAMPOS_GENERICOS_DA_JOGADA = frozenset(
+    {
+        "id_jogada",
+        "nu_ordem",
+        "nu_jogador",
+        "dh_jogada",
+        "nu_timer_ms",
+        "nu_tempo_decisao_ms",
+        "co_origem_decisao",
+    }
+)
+
+
+def _avisar_extensao_desconhecida(jogada: dict[str, Any]) -> None:
+    """Registra (sem rejeitar) uma extensao de jogo que este backend nao conhece.
+
+    ⚠️ **Ignorar e deliberado** — decisao V-5 de
+    `specs/007-jogo-da-velha/data-model.md`, e diretriz do dono em 2026-08-06:
+    nada do jogo novo pode quebrar quem esta com o app antigo.
+
+    A assimetria e o que decide. Rejeitar faz o app **descartar o evento
+    inteiro** (contrato escrito no proprio `validacao.py`), jogando fora a
+    **partida completa** do usuario para nao perder um detalhe que este backend
+    nao saberia guardar de todo modo. Ignorar perde o detalhe; rejeitar perde a
+    partida.
+
+    O `warning` existe para que o silencio nao seja total: e ele que avisa que
+    ha um app em campo mais novo que este backend, e que falta um ingestor.
+    """
+    for chave in jogada:
+        if chave in _CAMPOS_GENERICOS_DA_JOGADA or chave in _EXTENSOES_CONHECIDAS:
+            continue
+        if not isinstance(jogada.get(chave), dict):
+            continue  # so um campo solto que nao conhecemos; nao e extensao
+        logger.warning(
+            "Extensao de jogada desconhecida: %r. O evento foi ACEITO e a "
+            "extensao ignorada (decisao V-5). Provavel app mais novo que este "
+            "backend; falta o ingestor deste jogo.",
+            chave,
+        )
 
 
 def _data(valor: Any) -> date | None:
@@ -227,10 +278,27 @@ class RepositorioSincronizacao:
                 "nu_origem_decisao": nu_origem,
             },
         )
-        # Extensão específica do Pontinhos (1:1), quando presente no payload.
+        # Extensão específica do JOGO (1:1), quando presente no payload.
+        #
+        # ⚠️ **Chave desconhecida é IGNORADA, nunca rejeitada** (decisão V-5 de
+        # `specs/007-jogo-da-velha/data-model.md`, e diretriz do dono em
+        # 2026-08-06: nada do jogo novo pode quebrar quem está com o app antigo).
+        #
+        # O motivo é assimétrico e é o que decide: rejeitar faz o app
+        # **descartar o evento inteiro** — contrato escrito no próprio
+        # `validacao.py` — jogando fora a **partida completa** do usuário para
+        # não perder um detalhe que este backend não saberia guardar de todo
+        # modo. Ignorar perde o detalhe; rejeitar perde a partida.
         pontinhos = jogada.get("pontinhos")
         if pontinhos:
             await self._gravar_jogada_pontinhos(jogada.get("id_jogada"), pontinhos)
+
+        velha = jogada.get("velha")
+        if velha:
+            await self._gravar_jogada_velha(jogada.get("id_jogada"), velha)
+
+        # Uma extensão que não é nenhuma das conhecidas: registra e segue.
+        _avisar_extensao_desconhecida(jogada)
 
     async def _gravar_jogada_pontinhos(
         self, id_jogada: Any, pontinhos: dict[str, Any]
@@ -288,6 +356,61 @@ class RepositorioSincronizacao:
                 "ar_score": pontinhos.get("ar_score_busca"),
                 "nu_prof": pontinhos.get("nu_profundidade"),
                 # ⚠️ asyncpg quer uma STRING JSON para JSONB (não um dict Python) —
+                # passar o dict cru levanta DataError e vira 500.
+                "js_extra": json.dumps(js_extra) if js_extra is not None else None,
+            },
+        )
+
+    async def _gravar_jogada_velha(self, id_jogada: Any, velha: dict) -> None:
+        """Extensao do Jogo da Velha (1:1 com a jogada generica).
+
+        Muito menor que a irma do Pontinhos, e de proposito: **nao ha treino**
+        (RF-VLH-007). A velha e minimax exato no proprio aparelho, nao CNN, entao
+        nao existe softmax, score de busca nem profundidade a guardar. O que
+        sobra e o que permite AUDITAR:
+
+        - **`ic_otimo`** — dele depende o XP (RF-VLH-045/046). Um numero que
+          decide recompensa e nao e verificavel no servidor e a palavra do
+          aparelho.
+        - **`co_celula` + `nu_ordem`** — com os dois, a partida inteira se
+          remonta para o suporte.
+
+        ⚠️ `ic_otimo` chega `None` para lances da CPU, e a coluna e anulavel de
+        proposito (V-4): `False` significaria "a CPU jogou mal" e falsearia
+        qualquer analise de qualidade feita sobre esta tabela.
+        """
+        # ⚠️ A dimensao e a **da velha**, nao a generica `"acao"`. Usar a antiga
+        # faria toda acao deste jogo ser procurada na tabela do Pontinhos, cair
+        # no sentinela 9999, e a telemetria do jogo novo nascer cega.
+        nu_acao, acao_desconhecida = await dimensoes.resolver(
+            self.sessao, "acao_velha", velha.get("co_acao")
+        )
+
+        # Codigo fora da dimensao: a coluna guarda 9999, mas a string CRUA nao
+        # pode se perder — e a unica pista do que precisa ser cadastrado.
+        js_extra = velha.get("js_extra")
+        if acao_desconhecida:
+            js_extra = dict(js_extra) if isinstance(js_extra, dict) else {}
+            js_extra["co_acao_desconhecido"] = velha.get("co_acao")
+
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO jogo_velha.tb002_jogada
+                  (id_jogada, co_jogador, co_celula, ic_otimo, nu_acao, js_extra)
+                VALUES
+                  (:id_jogada, :co_jogador, :co_celula, :ic_otimo, :nu_acao,
+                   :js_extra)
+                """
+            ),
+            {
+                "id_jogada": id_jogada,
+                # +1 / -1: o SINAL, como no Pontinhos. O generico usa 1/2.
+                "co_jogador": velha.get("co_jogador"),
+                "co_celula": velha.get("co_celula"),
+                "ic_otimo": velha.get("ic_otimo"),
+                "nu_acao": nu_acao,
+                # asyncpg quer uma STRING JSON para JSONB (nao um dict Python) —
                 # passar o dict cru levanta DataError e vira 500.
                 "js_extra": json.dumps(js_extra) if js_extra is not None else None,
             },
