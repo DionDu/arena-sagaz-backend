@@ -205,3 +205,38 @@ em 04/08, ciente de que a diretriz de marca pede o app já publicado e o link
 levando à ficha. Mitigação adotada: o `href` aponta desde já para a ficha
 definitiva (passa a funcionar sozinho quando a Play publicar) e a nota sob os
 selos diz, nos três idiomas, que o Android ainda está por vir.
+
+*Ainda em 04/08, algumas horas depois, o dono reviu essa decisão e pediu para
+**ocultar** o selo da Play até a confirmação — ver a entrada de 06/08 abaixo, que
+o traz de volta.*
+
+---
+
+## 2026-08-06 — O selo da Google Play volta ao ar: os dois apps publicados
+
+**Contexto.** A Play confirmou a publicação do app Android em 06/08/2026. O selo
+estava comentado no HTML desde 04/08, quando o dono preferiu não exibir um botão
+cujo link ainda daria em ficha inexistente. Com a publicação, ocultá-lo passou a
+ser o defeito: o visitante de Android chegava à vitrine sem ter por onde baixar.
+
+**Decisão.** Selo da Play reativado — bloco descomentado em `site/index.html` — e
+a nota sob os selos (`hero_nota`) reescrita nos três idiomas: sai "Em breve na
+Google Play", entra "Já disponível na App Store e na Google Play".
+
+**O que NÃO foi preciso mexer,** porque já tinha sido preparado em 04/08: o
+`href` do selo (sempre apontou para a ficha definitiva), os PNGs em `site/img/`,
+a rota `/img/`, o `atualizarSelosDasLojas` (trata cada selo como opcional) e a
+altura de 64px da classe `loja-selo-play` — que é 12px maior que a da Apple **de
+propósito**, porque o PNG oficial do Google embute 10px de margem transparente em
+cima e embaixo (arte de 84px num arquivo de 104px); com caixas iguais, a arte do
+Google desenharia 42px contra 52px e pareceria menor.
+
+**Alternativa considerada e descartada:** trocar o bloco comentado por um `hidden`
+controlado no JS, para alternar sem editar HTML. Descartada — o comentário é o
+mecanismo mais óbvio para quem lê o arquivo, e uma flag no JS convidaria a deixar
+o selo servido e escondido, que é pior do que não servi-lo.
+
+**Rede de segurança.** `test_os_dois_selos_de_loja_estao_visiveis` varre o HTML
+**sem os comentários** e exige `linkApple`/`seloApple` e `linkPlay`/`seloPlay`. O
+teste antigo (`..._conteudo_esperado`) não pegava isto: ele procura o domínio
+`play.google.com` no texto, que continuava aparecendo **dentro** do comentário.

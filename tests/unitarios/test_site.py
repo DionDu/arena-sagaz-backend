@@ -38,6 +38,25 @@ def test_landing_tem_o_conteudo_esperado(cliente: TestClient):
     assert "apps.apple.com" in html           # botão da App Store
 
 
+def test_os_dois_selos_de_loja_estao_visiveis(cliente: TestClient):
+    """Os selos das DUAS lojas têm de estar no ar, não comentados.
+
+    O teste acima (`..._conteudo_esperado`) não pega isto: ele procura os
+    domínios no texto do HTML, e `play.google.com` continua aparecendo dentro de
+    um `<!-- ... -->`. O selo da Play ficou comentado de 04 a 06/08/2026, à
+    espera da publicação; agora que os dois apps estão publicados, esconder um
+    deles de novo é regressão — o visitante de Android não teria por onde
+    baixar. Por isso a varredura aqui é feita SEM os comentários.
+    """
+    import re
+
+    sem_comentarios = re.sub(r"<!--.*?-->", "", cliente.get("/").text, flags=re.DOTALL)
+    assert 'id="linkApple"' in sem_comentarios
+    assert 'id="seloApple"' in sem_comentarios
+    assert 'id="linkPlay"' in sem_comentarios
+    assert 'id="seloPlay"' in sem_comentarios
+
+
 def test_landing_nao_depende_de_CDN(cliente: TestClient):
     """A página tem de ser AUTOCONTIDA: fontes embutidas, sem script/estilo
     externo. Se alguém colar um `<script src="https://cdn...">` numa revisão
