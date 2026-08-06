@@ -242,40 +242,32 @@ footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 
                /img/appstore_<idioma>.svg — a variante PRETA, nos dois temas (o
                porquê está no JS, em `atualizarSelosDasLojas`). Não redesenhar,
                não recolorir, não pôr moldura em volta.
-             • Google Play  ⏳ ainda em revisão em 04/08/2026, mas o selo já está
-               aqui — decisão do dono, ciente da ressalva. A arte é a oficial
+             • Google Play  ✅ publicado em 06/08/2026. A arte é a oficial
                (play.google.com/intl/<idioma>/badges), só redimensionada, como a
-               diretriz de marca permite; o que a diretriz pede e ainda não temos
-               é que o link leve a uma ficha publicada. Por isso o href aponta
-               desde já para a ficha DEFINITIVA: no dia em que a Play publicar,
-               ele passa a funcionar sozinho, sem tocar no site. Até lá, a nota
-               abaixo dos selos (`hero_nota`) diz em todas as línguas que o
-               Android ainda está por vir — é o que evita a promessa falsa. -->
+               diretriz de marca permite — e agora o link leva a uma ficha
+               publicada, que é o que a diretriz exige. O href sempre apontou
+               para a ficha DEFINITIVA, então na publicação bastou tornar o selo
+               visível. -->
       <div class="lojas">
         <a class="loja-selo" id="linkApple" href="#" target="_blank" rel="noopener">
           <!-- src e alt são definidos no JS (`atualizarSelosDasLojas`), porque
                dependem do idioma, que muda sem recarregar a página. -->
           <img id="seloApple" alt="" width="120" height="40"/>
         </a>
-        <!-- SELO DO GOOGLE PLAY — OCULTO até a Play confirmar a publicação
-             (decisão do dono, 04/08/2026, revendo a de algumas horas antes).
+        <!-- SELO DO GOOGLE PLAY — VISÍVEL desde 06/08/2026, quando a Play
+             confirmou a publicação. Esteve oculto entre 04 e 06/08 justamente
+             para não prometer um download que ainda não existia.
 
-             PARA REATIVAR: descomente o bloco abaixo. Não é preciso mexer em
-             mais nada — o JS (`atualizarSelosDasLojas`) já trata o elemento como
-             opcional, os PNGs continuam em site/img/ e servidos por /img/, e o
-             href já aponta para a ficha definitiva. Ajuste também a `hero_nota`
-             nos três idiomas, que hoje diz "em breve na Google Play".
-
-             ⚠️ AO REATIVAR, USE height:64px, NÃO 52px. O PNG oficial do Google
-             embute 10px de margem transparente em cima e embaixo (arte de 84px
-             num arquivo de 104px = 81%); o SVG da Apple é justo, sem margem. Com
-             a mesma altura de caixa nos dois, a arte do Google desenha 42px
-             contra 52px da Apple e parece menor — foi o que se viu no ar. 52/0,81
-             ≈ 64px iguala a ARTE VISÍVEL, que é o que o olho compara.
+             ⚠️ A ALTURA AQUI É 64px DE PROPÓSITO (classe `loja-selo-play`), e não
+             os 52px do selo da Apple. O PNG oficial do Google embute 10px de
+             margem transparente em cima e embaixo (arte de 84px num arquivo de
+             104px = 81%); o SVG da Apple é justo, sem margem. Com a mesma altura
+             de caixa nos dois, a arte do Google desenharia 42px contra 52px da
+             Apple e pareceria menor — foi o que se viu no ar. 52/0,81 ≈ 64px
+             iguala a ARTE VISÍVEL, que é o que o olho compara. -->
         <a class="loja-selo loja-selo-play" id="linkPlay" href="#" target="_blank" rel="noopener">
           <img id="seloPlay" alt="" width="166" height="64"/>
         </a>
-        -->
       </div>
       <p class="loja-nota" data-i="hero_nota"></p>
     </div>
@@ -488,7 +480,7 @@ const T = {
     meta_title: "Arena Sagaz — Jogo dos pontinhos com IA no seu aparelho",
     nome_1: "Arena", nome_2: "Sagaz",
     hero_tag: "Enfrente uma IA treinada para vencer cada partida — do rival brincalhão ao mestre implacável.",
-    hero_nota: "Já disponível na App Store. Em breve na Google Play.",
+    hero_nota: "Já disponível na App Store e na Google Play.",
     badge_play_alt: "Disponível no Google Play", badge_apple_alt: "Baixe na App Store",
     dif_kicker: "Sem internet",
     dif_title: "A inteligência joga dentro do seu aparelho",
@@ -531,7 +523,7 @@ const T = {
     meta_title: "Sharp Arena — Dots and boxes with on-device AI",
     nome_1: "Sharp", nome_2: "Arena",
     hero_tag: "Take on an AI trained to win every match — from the playful rival to the merciless master.",
-    hero_nota: "Out now on the App Store. Coming soon to Google Play.",
+    hero_nota: "Out now on the App Store and Google Play.",
     badge_play_alt: "Get it on Google Play", badge_apple_alt: "Download on the App Store",
     dif_kicker: "No internet",
     dif_title: "The intelligence plays inside your device",
@@ -574,7 +566,7 @@ const T = {
     meta_title: "Arena Sagaz — Puntos y cajas con IA en tu dispositivo",
     nome_1: "Arena", nome_2: "Sagaz",
     hero_tag: "Enfréntate a una IA entrenada para ganar cada partida — del rival juguetón al maestro implacable.",
-    hero_nota: "Ya disponible en la App Store. Próximamente en Google Play.",
+    hero_nota: "Ya disponible en la App Store y en Google Play.",
     badge_play_alt: "Disponible en Google Play", badge_apple_alt: "Descárgalo en la App Store",
     dif_kicker: "Sin internet",
     dif_title: "La inteligencia juega dentro de tu dispositivo",
@@ -692,10 +684,10 @@ document.querySelectorAll('#segLang button, #segLangFoot button').forEach(b=>{
   b.addEventListener('click', ()=> setLang(b.getAttribute('data-lang')));
 });
 
-// `linkPlay` só existe quando o selo do Google está visível — hoje ele está
-// comentado no HTML, à espera da publicação na Play. Sem o `if`, esta linha
-// levantaria "Cannot set properties of null" e **parava o script aqui**, antes do
-// initTema/initLang: a página abriria sem idioma aplicado e sem tema salvo.
+// O `if` fica, mesmo com os dois selos no ar desde 06/08/2026: se um selo voltar
+// a ser ocultado (foi o caso da Play entre 04 e 06/08), sem a guarda esta linha
+// levantaria "Cannot set properties of null" e **pararia o script aqui**, antes
+// do initTema/initLang — a página abriria sem idioma aplicado e sem tema salvo.
 const linkPlay = document.getElementById('linkPlay');
 if(linkPlay) linkPlay.href = STORE_PLAY;
 document.getElementById('linkApple').href = STORE_APPLE;
