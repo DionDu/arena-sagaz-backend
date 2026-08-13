@@ -21,6 +21,67 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-08-13 — `nu_dias_jogados`: o total de dias vira número DERIVADO, como a chama
+
+**Contexto.** Relato de campo: uma usuária (Android, 1.0.1+3) com **21 dias de
+chama** nunca recebeu a conquista "10 Dias na Arena". A investigação no banco de
+`prd` confirmou 21 dias locais distintos e consecutivos (23/07 a 12/08), num
+único aparelho, com as conquistas de **sequência** (3, 7, 14) desbloqueadas nas
+datas certas — e nenhuma conquista de **dias jogados**.
+
+A assimetria tem uma causa só: os dois números são de naturezas diferentes.
+
+| | chama | dias jogados |
+|---|---|---|
+| natureza | **derivada** do histórico de partidas | **acumulador** `+1` por dia novo |
+| onde mora | `nu_sequencia_atual`, no servidor | dentro de `js_estado_local`, **só no aparelho** |
+| reconstrução | `recalcular_chama`, a cada leitura | **não existia** |
+
+Um acumulador não se reconstrói; uma derivação sim. Quando o rascunho local do
+app era sobrescrito (ver a entrada correspondente no frontend), a chama voltava
+certa e o contador de dias não voltava nunca.
+
+Sinal de que era sistêmico, e não daquela usuária: `dias_10` havia sido concedida
+**3 vezes em toda a produção**, e o único usuário com ≥10 dias que a tinha também
+tinha `dias_30` com apenas 14 dias jogados — resíduo do bug de inflação corrigido
+em 20/07. Ou seja, a conquista provavelmente **nunca foi ganha legitimamente**.
+
+**Decisão.** `recalcular_chama` passa a devolver também o total de dias
+(`len(dias)` — a mesma lista `DISTINCT` que a sequência já usa, sem consulta
+extra), e `obter_progressao` publica `nu_dias_jogados` na resposta de
+`GET /estado` e `POST /eventos`. O app adota por `GREATEST`.
+
+**Alternativas consideradas.**
+
+- *Persistir o total numa coluna nova.* Recusada: exigiria migração em produção
+  para não ganhar nada — o número é recalculável a cada leitura, e guardá-lo
+  criaria uma **segunda cópia da mesma verdade**, que é exatamente a origem do
+  defeito. Derivar é mais barato **e** mais correto aqui.
+- *Deixar o app contar e só consertar a corrida no cliente.* Insuficiente: a
+  trava do cliente impede a perda catastrófica, mas ainda perde 1 dia por
+  ocorrência (o `dt_ultimo_dia_jogado` sobrevive à corrida e suprime o
+  recontar). Medido em teste: 12 dias em vez de 21. As duas metades são
+  necessárias.
+- *Backfill único, como o `recalcular_chama_todos.py`.* Desnecessário: como o
+  número é recalculado a cada leitura, todo mundo se corrige sozinho no próximo
+  acesso — inclusive retroativamente.
+
+**Compatibilidade.** Campo **aditivo**. Apps em campo ignoram chaves
+desconhecidas (diretriz de versionamento da API), e as rotas devolvem
+`dict[str, Any]` sem `response_model`, então nada é filtrado. Vai sempre,
+inclusive zero, para o app não ter de distinguir "ausente" de "zero" — só a
+ausência (servidor antigo) significa "não sei", e aí o app mantém o local.
+
+**Efeito para quem já jogava.** A conquista sai na próxima partida depois do
+deploy, sem rejogar nada. A avaliação de conquistas continua acontecendo no fim
+de partida (não no sync), de propósito: é lá que mora a celebração na tela.
+
+**Testes.** `tests/unitarios/test_dias_jogados_autoritativo.py` — sem partidas dá
+zero e não escreve na linha; sem buracos o total iguala a chama (o caso dela);
+com buracos o total supera a chama (é o que distingue dedicação de constância).
+
+---
+
 ## 2026-08-06 — Schema `jogo_velha`: o 2o jogo do hub grava log, sem tocar em nada do 1o
 
 **Contexto.** O Jogo da Velha (spec 007) e o segundo jogo da Arena Sagaz. Como o
