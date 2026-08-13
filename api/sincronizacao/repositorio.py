@@ -757,11 +757,23 @@ class RepositorioSincronizacao:
             {"id": id_usuario},
         )
 
-    async def recalcular_chama(self, id_usuario: str) -> tuple[int, date | None]:
-        """Recalcula a "chama" (sequência) e o último dia jogado de forma
-        **AUTORITATIVA**, a partir dos DIAS LOCAIS distintos das partidas
-        concluídas que pontuam (``vs_cpu``). Persiste o resultado (SOBRESCREVE —
-        não ``GREATEST`` — pois é a verdade derivada do histórico) e o devolve.
+    async def recalcular_chama(
+        self, id_usuario: str
+    ) -> tuple[int, date | None, int]:
+        """Recalcula a "chama" (sequência), o último dia jogado e o TOTAL de dias
+        jogados de forma **AUTORITATIVA**, a partir dos DIAS LOCAIS distintos das
+        partidas concluídas que pontuam (``vs_cpu``). Persiste sequência e data
+        (SOBRESCREVE — não ``GREATEST`` — pois é a verdade derivada do histórico)
+        e devolve ``(sequencia, ultimo_dia, total_de_dias)``.
+
+        O **total de dias** é simplesmente ``len(dias)`` — a mesma lista que a
+        sequência já usa, então sai de graça. Ele existe por causa do relato de
+        12/08/2026: a conquista "10 Dias na Arena" nunca saía porque o contador
+        equivalente do app (``diasJogadosTotal``) vive só no aparelho, dentro de
+        ``js_estado_local``, e se perde quando o rascunho local é sobrescrito.
+        Um número que o servidor sabe recalcular do histórico é reconstruível; um
+        contador que só incrementa no aparelho, não. O app adota este por
+        ``GREATEST`` e volta a merecer a conquista sem rejogar nada.
 
         É a **correção definitiva** do bug da chama: antes o "dia jogado" saía de
         ``dh_fim`` lido em **UTC**, então uma partida das 21h–23h no Brasil (BRT,
@@ -771,7 +783,7 @@ class RepositorioSincronizacao:
 
         Se o jogador ainda não tem partidas que pontuam, **NÃO** mexe na linha
         (para não zerar uma sequência vinda de merge de convidado cujas partidas
-        ainda não subiram) e devolve ``(0, None)``."""
+        ainda não subiram) e devolve ``(0, None, 0)``."""
         resultado = await self.sessao.execute(
             text(
                 """
@@ -790,9 +802,12 @@ class RepositorioSincronizacao:
         )
         dias = [linha[0] for linha in resultado.all()]
         if not dias:
-            return (0, None)
+            return (0, None, 0)
         seq = calcular_sequencia_de_dias(dias)
         ultimo = dias[-1]
+        # Dias DIFERENTES jogados (dedicação). A consulta já traz DISTINCT, então
+        # o tamanho da lista é o total — nada de consulta extra.
+        total_dias = len(dias)
         # SOBRESCREVE (a verdade é o histórico). A linha existe: partidas que
         # pontuam sempre criam/atualizam a progressão em `_incrementar_progressao`.
         await self.sessao.execute(
@@ -807,7 +822,11 @@ class RepositorioSincronizacao:
             ),
             {"id": id_usuario, "seq": seq, "dia": ultimo},
         )
-        return (seq, ultimo)
+        # O total de dias NÃO é persistido de propósito: ele é derivado do log e
+        # recalculado a cada leitura, como a sequência. Guardá-lo exigiria uma
+        # migração em produção para ganhar nada — e criaria uma segunda cópia da
+        # mesma verdade, que é justamente a origem do defeito que isto conserta.
+        return (seq, ultimo, total_dias)
 
     async def obter_progressao(self, id_usuario: str) -> dict[str, Any]:
         """Progressão atual (com nu_nivel/co_patente calculados pela VIEW) +
@@ -836,6 +855,8 @@ class RepositorioSincronizacao:
                 "nu_empates": 0,
                 "nu_sequencia_atual": 0,
                 "dt_ultimo_dia_jogado": None,
+                # Sem linha de progressão = sem partida que pontua = zero dias.
+                "nu_dias_jogados": 0,
                 "nu_nivel": 1,
                 "co_patente": "aprendiz",
                 "conquistas": conquistas,
@@ -845,7 +866,11 @@ class RepositorioSincronizacao:
         # Chama autoritativa (recomputa dos dias LOCAIS de jogo e sobrescreve).
         # A `saida` foi lida da VIEW ANTES do update, então refletimos aqui os
         # valores novos. Só sobrescreve quando há histórico (ultimo != None).
-        seq, ultimo = await self.recalcular_chama(id_usuario)
+        seq, ultimo, total_dias = await self.recalcular_chama(id_usuario)
+        # `nu_dias_jogados` é campo ADITIVO (2026-08-13): apps antigos em campo o
+        # ignoram, como manda a diretriz de versionamento da API. Vai sempre —
+        # inclusive zero — para o app não ter de distinguir "ausente" de "zero".
+        saida["nu_dias_jogados"] = total_dias
         if ultimo is not None:
             saida["nu_sequencia_atual"] = seq
             saida["dt_ultimo_dia_jogado"] = ultimo
