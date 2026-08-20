@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from datetime import date, datetime
 from typing import Any
 
@@ -30,7 +31,17 @@ logger = logging.getLogger(__name__)
 # As chaves de extensao que ESTE backend sabe gravar. Tudo o que nao estiver
 # aqui e das chaves genericas da jogada e uma extensao de um jogo que ainda nao
 # existe deste lado.
-_EXTENSOES_CONHECIDAS = frozenset({"pontinhos", "velha"})
+_EXTENSOES_CONHECIDAS = frozenset({"pontinhos", "velha", "damas"})
+
+# Quantas recusas o servidor aceita por partida.
+#
+# ⚠️ **O app já conta 50 e para de gravar. Este teto é o SEGUNDO**, e existe
+# porque o servidor não pode confiar na contagem do cliente: um defeito em laço
+# num app em campo mandaria milhares de linhas, e quem paga a conta do banco é
+# este lado. O excedente é DESCARTADO com aviso — nunca faz o evento ser
+# rejeitado, pela mesma assimetria da V-5: perder algumas recusas é barato,
+# perder a partida inteira não é.
+_TETO_DE_RECUSAS_POR_PARTIDA = 50
 
 # Os campos da jogada GENERICA. Precisam ser listados para distinguir "campo da
 # jogada" de "extensao de jogo" ao varrer o dicionario recebido.
@@ -43,6 +54,41 @@ _CAMPOS_GENERICOS_DA_JOGADA = frozenset(
         "nu_timer_ms",
         "nu_tempo_decisao_ms",
         "co_origem_decisao",
+    }
+)
+
+
+# Os campos da PARTIDA generica. Mesmo papel da lista de jogada acima, para o
+# nivel de cima: distinguir "campo da partida" de "extensao de jogo".
+#
+# ⚠️ Esta lista nasceu em 20/08/2026, com as damas, e ela conserta um ponto cego:
+# ate entao NENHUM jogo tinha extensao de PARTIDA, entao a varredura so existia
+# para a jogada. Um app que mandasse `partida["xadrez"]` nao seria avisado —
+# nao daria erro, mas tambem nao deixaria rastro nenhum de que faltava um
+# ingestor. O buraco nao era teorico: as damas sao justamente o primeiro caso.
+_CAMPOS_GENERICOS_DA_PARTIDA = frozenset(
+    {
+        "id_partida",
+        "co_evento",
+        "co_jogo",
+        "co_variante",
+        "co_modo",
+        "id_usuario",
+        "id_usuario_j2",
+        "co_dificuldade",
+        "nu_placar_j1",
+        "nu_placar_j2",
+        "ic_pontua",
+        "co_status",
+        "co_lote_migracao",
+        "dh_inicio",
+        "dh_fim",
+        "nu_offset_minuto_j1",
+        "nu_offset_minuto_j2",
+        # Campo de app antigo: a coluna sumiu na migracao 0007 e o valor e
+        # ignorado, mas ele ainda chega. Listar aqui evita um warning inutil a
+        # cada partida de quem nao atualizou.
+        "co_anonimo",
     }
 )
 
@@ -63,15 +109,41 @@ def _avisar_extensao_desconhecida(jogada: dict[str, Any]) -> None:
     O `warning` existe para que o silencio nao seja total: e ele que avisa que
     ha um app em campo mais novo que este backend, e que falta um ingestor.
     """
-    for chave in jogada:
-        if chave in _CAMPOS_GENERICOS_DA_JOGADA or chave in _EXTENSOES_CONHECIDAS:
+    _avisar(jogada, _CAMPOS_GENERICOS_DA_JOGADA, "jogada")
+
+
+def _avisar_extensao_de_partida_desconhecida(partida: dict[str, Any]) -> None:
+    """O mesmo da funcao acima, um nivel acima: na PARTIDA.
+
+    Existe desde 20/08/2026, quando as damas trouxeram a primeira extensao de
+    partida do app. Antes disso a varredura so cobria a jogada, e uma extensao
+    de partida desconhecida passava em silencio TOTAL — sem erro e sem rastro.
+    """
+    _avisar(partida, _CAMPOS_GENERICOS_DA_PARTIDA, "partida")
+
+
+def _avisar(dado: dict[str, Any], genericos: frozenset[str], onde: str) -> None:
+    """O corpo comum das duas funcoes acima.
+
+    ⚠️ **Uma funcao, e nao duas parecidas.** As duas varreduras fazem exatamente
+    a mesma coisa sobre dicionarios diferentes; escreve-las duas vezes e o
+    caminho conhecido para uma delas ganhar uma correcao que a outra nao recebe.
+
+    Um valor que nao e `dict` nao e extensao — e so um campo solto que este
+    backend nao conhece (um campo novo da partida generica, por exemplo), e
+    ignora-lo em silencio e o comportamento correto: e exatamente a tolerancia a
+    mudancas aditivas que o contrato de versionamento da API exige.
+    """
+    for chave in dado:
+        if chave in genericos or chave in _EXTENSOES_CONHECIDAS:
             continue
-        if not isinstance(jogada.get(chave), dict):
-            continue  # so um campo solto que nao conhecemos; nao e extensao
+        if not isinstance(dado.get(chave), dict):
+            continue
         logger.warning(
-            "Extensao de jogada desconhecida: %r. O evento foi ACEITO e a "
-            "extensao ignorada (decisao V-5). Provavel app mais novo que este "
-            "backend; falta o ingestor deste jogo.",
+            "Extensao de %s desconhecida: %r. O evento foi ACEITO e a extensao "
+            "ignorada (decisao V-5). Provavel app mais novo que este backend; "
+            "falta o ingestor deste jogo.",
+            onde,
             chave,
         )
 
@@ -235,6 +307,23 @@ class RepositorioSincronizacao:
 
         id_partida = partida.get("id_partida")
 
+        # 1b) Extensão de PARTIDA, quando o jogo tiver uma.
+        #
+        # ⚠️ **As damas são o PRIMEIRO caso do app.** Até 20/08/2026 nenhum jogo
+        # tinha extensão de partida — Pontinhos e velha só estendem a *jogada* —,
+        # e é por isso que este bloco não existia. Ele vem **depois** do INSERT
+        # da partida genérica porque a FK aponta para ela, e **antes** das
+        # jogadas porque as recusas (que viajam dentro dele) referenciam a
+        # partida, não a jogada.
+        damas_da_partida = partida.get("damas")
+        if damas_da_partida:
+            await self._gravar_partida_damas(id_partida, damas_da_partida)
+
+        # Uma extensão de partida que não é nenhuma das conhecidas: registra e
+        # segue. Mesma regra da jogada (V-5) — ignorar perde o detalhe, rejeitar
+        # perderia a partida.
+        _avisar_extensao_de_partida_desconhecida(partida)
+
         # 2) Jogadas (genéricas) + extensão do Pontinhos, na ordem recebida.
         for jogada in payload.get("jogadas", []):
             await self._gravar_jogada(id_partida, jogada)
@@ -296,6 +385,10 @@ class RepositorioSincronizacao:
         velha = jogada.get("velha")
         if velha:
             await self._gravar_jogada_velha(jogada.get("id_jogada"), velha)
+
+        damas = jogada.get("damas")
+        if damas:
+            await self._gravar_jogada_damas(jogada.get("id_jogada"), damas)
 
         # Uma extensão que não é nenhuma das conhecidas: registra e segue.
         _avisar_extensao_desconhecida(jogada)
@@ -412,6 +505,191 @@ class RepositorioSincronizacao:
                 "nu_acao": nu_acao,
                 # asyncpg quer uma STRING JSON para JSONB (nao um dict Python) —
                 # passar o dict cru levanta DataError e vira 500.
+                "js_extra": json.dumps(js_extra) if js_extra is not None else None,
+            },
+        )
+
+    async def _gravar_partida_damas(self, id_partida: Any, damas: dict) -> None:
+        """Extensao de PARTIDA das damas — a primeira do app (RF-DAM-115g).
+
+        **Por que uma partida precisa de extensao, se as outras nao precisaram.**
+        Porque o replay das damas depende de saber COM QUAL MOTOR ela foi jogada.
+        Uma regra corrigida muda a lista de lances legais; um replay rodado com
+        motor diferente reconstroi uma partida que **nunca aconteceu**, e nada no
+        dado denuncia. `co_versao_motor` e `co_versao_contrato` sao o carimbo que
+        impede isso.
+
+        **As recusas viajam DENTRO deste objeto** (decisao D-23), e nao como
+        chave de raiz do payload: a raiz nao e do jogo. Se fosse, ou o nucleo
+        aprenderia o que e uma recusa — que nem todo jogo tem —, ou uma extensao
+        poderia sobrescrever `partida`, `jogadas` ou `xp` sem que nada acusasse.
+        """
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO jogo_damas.tb001_partida
+                  (id_partida, co_versao_motor, co_versao_contrato,
+                   co_fen_inicial, co_cor_j1, nu_semente_partida, js_extra)
+                VALUES
+                  (:id_partida, :co_versao_motor, :co_versao_contrato,
+                   :co_fen_inicial, :co_cor_j1, :nu_semente_partida, :js_extra)
+                """
+            ),
+            {
+                "id_partida": id_partida,
+                "co_versao_motor": damas.get("co_versao_motor"),
+                "co_versao_contrato": damas.get("co_versao_contrato"),
+                "co_fen_inicial": damas.get("co_fen_inicial"),
+                # ⚠️ O banco fala 'branca'/'preta', nunca 'azul'/'vermelho'. A
+                # cor do tema muda; a cor das damas nao muda ha duzentos anos.
+                "co_cor_j1": damas.get("co_cor_j1"),
+                "nu_semente_partida": damas.get("nu_semente_partida"),
+                # asyncpg quer uma STRING JSON para JSONB (nao um dict Python) —
+                # passar o dict cru levanta DataError e vira 500.
+                "js_extra": (
+                    json.dumps(damas["js_extra"])
+                    if damas.get("js_extra") is not None
+                    else None
+                ),
+            },
+        )
+
+        await self._gravar_recusas_damas(id_partida, damas.get("recusas") or [])
+
+    async def _gravar_recusas_damas(self, id_partida: Any, recusas: list) -> None:
+        """As tentativas que a REGRA barrou (RF-DAM-115j/115k/115l).
+
+        **Por que uma tabela propria.** Uma recusa nao tem ordem propria — varias
+        acontecem antes de um unico lance efetivado — e `partida.tb002_jogada`
+        tem `UNIQUE (id_partida, nu_ordem)`. Enfia-las ali quebraria a chave.
+
+        ⚠️ **A recusa pode ser ORFA, por construcao.** O `nu_ordem` dela aponta
+        para um lance que ainda nao existe quando ela e gravada, e que pode nunca
+        existir — se a pessoa abandonar a partida logo depois. Por isso a FK e
+        para a PARTIDA, e por isso um `JOIN` com as jogadas precisa ser `LEFT`.
+        E sao exatamente essas recusas orfas as mais interessantes: recusa
+        seguida de abandono e o sintoma mais forte de recusa **indevida**.
+        """
+        if len(recusas) > _TETO_DE_RECUSAS_POR_PARTIDA:
+            logger.warning(
+                "Partida %s enviou %d recusas; o teto e %d. As excedentes foram "
+                "DESCARTADAS (o evento segue aceito). O app ja conta o proprio "
+                "teto: receber mais que isso sugere defeito em laco na tela.",
+                id_partida,
+                len(recusas),
+                _TETO_DE_RECUSAS_POR_PARTIDA,
+            )
+            recusas = recusas[:_TETO_DE_RECUSAS_POR_PARTIDA]
+
+        for recusa in recusas:
+            # O app manda a STRING (`'captura_obrigatoria'`); a coluna guarda o
+            # NUMERO. Codigo que este backend nao conhece vira 9999 em vez de
+            # estourar a FK com 500 e travar a fila do aparelho para sempre.
+            nu_regra, _ = await dimensoes.resolver(
+                self.sessao, "regra_recusa_damas", recusa.get("co_regra")
+            )
+            await self.sessao.execute(
+                text(
+                    """
+                    INSERT INTO jogo_damas.tb003_recusa
+                      (id_recusa, id_partida, nu_ordem, nu_sequencia,
+                       nu_casa_origem, nu_casa_destino, nu_regra, dh_recusa)
+                    VALUES
+                      (:id_recusa, :id_partida, :nu_ordem, :nu_sequencia,
+                       :nu_casa_origem, :nu_casa_destino, :nu_regra, :dh_recusa)
+                    ON CONFLICT (id_partida, nu_ordem, nu_sequencia) DO NOTHING
+                    """
+                ),
+                {
+                    # ⚠️ O `id_recusa` e gerado AQUI: o payload nao o traz, porque
+                    # a recusa nao precisa de identidade no aparelho — ela nunca
+                    # e referenciada por nada. Gerar em Python (e nao com
+                    # `gen_random_uuid()`) evita depender de extensao do Postgres.
+                    "id_recusa": str(uuid.uuid4()),
+                    "id_partida": id_partida,
+                    "nu_ordem": recusa.get("nu_ordem"),
+                    "nu_sequencia": recusa.get("nu_sequencia"),
+                    "nu_casa_origem": recusa.get("nu_casa_origem"),
+                    "nu_casa_destino": recusa.get("nu_casa_destino"),
+                    "nu_regra": nu_regra or dimensoes.NU_DESCONHECIDO,
+                    "dh_recusa": _dt(recusa.get("dh_recusa")),
+                },
+            )
+
+    async def _gravar_jogada_damas(self, id_jogada: Any, damas: dict) -> None:
+        """Extensao de JOGADA das damas — uma linha por LANCE (RF-DAM-114/115e).
+
+        ⚠️ **Por LANCE, nao por salto.** Uma captura tripla e UM lance, e o
+        caminho inteiro cabe em `co_lance` (`18x9x2`). Quem come tres pecas pousa
+        em tres casas — o `x` separa as CASAS por onde a peca passou, nao as
+        pecas capturadas.
+
+        ⚠️ **A telemetria chega `None` no lance HUMANO**, e as colunas sao
+        anulaveis de proposito. Nao ha busca a medir, e um zero gravado falsearia
+        qualquer media feita sobre esta tabela. `NULL` significa "nao se aplica",
+        que e a verdade — mesma logica do `ic_otimo` da velha.
+        """
+        # A dimensao e a **das damas**. Usar a de outro jogo faria todo motivo de
+        # parada ser procurado na tabela errada e cair no sentinela — a
+        # telemetria nasceria cega, sem erro e sem log de falha.
+        nu_motivo, motivo_desconhecido = await dimensoes.resolver(
+            self.sessao, "motivo_parada_damas", damas.get("co_motivo_parada_busca")
+        )
+
+        # Codigo fora da dimensao: a coluna guarda 9999, mas a string CRUA nao
+        # pode se perder — e a unica pista do que precisa ser cadastrado.
+        js_extra = damas.get("js_extra")
+        if motivo_desconhecido:
+            js_extra = dict(js_extra) if isinstance(js_extra, dict) else {}
+            js_extra["co_motivo_parada_busca_desconhecido"] = damas.get(
+                "co_motivo_parada_busca"
+            )
+
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO jogo_damas.tb002_jogada
+                  (id_jogada, co_jogador, co_lance, co_fen_antes,
+                   qt_captura_pedra, qt_captura_dama, ic_promoveu,
+                   co_tipo_peca_inicio, qt_nos_visitados,
+                   nu_profundidade_atingida, nu_motivo_parada_busca,
+                   nu_tempo_busca_ms, nu_avaliacao_brancas, nu_semente, js_extra)
+                VALUES
+                  (:id_jogada, :co_jogador, :co_lance, :co_fen_antes,
+                   :qt_captura_pedra, :qt_captura_dama, :ic_promoveu,
+                   :co_tipo_peca_inicio, :qt_nos_visitados,
+                   :nu_profundidade_atingida, :nu_motivo_parada_busca,
+                   :nu_tempo_busca_ms, :nu_avaliacao_brancas, :nu_semente,
+                   :js_extra)
+                """
+            ),
+            {
+                "id_jogada": id_jogada,
+                # +1 / -1: o SINAL, como no Pontinhos e na velha. O generico
+                # usa 1/2. Sao convencoes diferentes de proposito.
+                "co_jogador": damas.get("co_jogador"),
+                "co_lance": damas.get("co_lance"),
+                "co_fen_antes": damas.get("co_fen_antes"),
+                # ⚠️ Decompostas (V-8), e nunca um total com um subconjunto:
+                # somar duas colunas e trivial, separar depois e impossivel.
+                "qt_captura_pedra": damas.get("qt_captura_pedra", 0),
+                "qt_captura_dama": damas.get("qt_captura_dama", 0),
+                "ic_promoveu": damas.get("ic_promoveu", False),
+                # O que a peca ERA ao COMECAR o lance. Uma pedra que come tres e
+                # coroa no ultimo salto grava 'pedra' + ic_promoveu=true.
+                "co_tipo_peca_inicio": damas.get("co_tipo_peca_inicio"),
+                "qt_nos_visitados": damas.get("qt_nos_visitados"),
+                "nu_profundidade_atingida": damas.get("nu_profundidade_atingida"),
+                "nu_motivo_parada_busca": nu_motivo,
+                "nu_tempo_busca_ms": damas.get("nu_tempo_busca_ms"),
+                # ⚠️ Centesimos de pedra, no referencial das BRANCAS sempre —
+                # quando quem move e preto, o app ja manda o valor invertido
+                # (invariante I-12). E e a nota da BUSCA, nao a avaliacao
+                # estatica da posicao de `co_fen_antes` (V-11).
+                "nu_avaliacao_brancas": damas.get("nu_avaliacao_brancas"),
+                # Sem ela o replay nao reproduz — e e justamente nos niveis que
+                # ERRAM DE PROPOSITO que a semente decide o resultado.
+                "nu_semente": damas.get("nu_semente"),
                 "js_extra": json.dumps(js_extra) if js_extra is not None else None,
             },
         )
