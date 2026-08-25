@@ -222,6 +222,30 @@ def calcular_sequencia_de_dias(dias: list[date]) -> int:
     return seq
 
 
+def _versoes_do_motor(bruto: Any) -> Any:
+    """Normaliza `co_versao_motor` para a forma composta `dart_X[|rust_Y]`.
+
+    Desde a migracao `0014` a coluna guarda as versoes dos DOIS motores:
+    `dart_1.1.0|rust_0.2.0`, ou `dart_1.1.0` quando o aparelho nao tinha o
+    binario nativo.
+
+    (!) **Isto existe para a invariante nao depender de qual build sincronizou.**
+    Uma build anterior a 27/08/2026 manda `1.1.0` — a versao do Dart, sem
+    prefixo. Deixa-la passar daria DUAS formas na mesma coluna, e todo
+    `split_part` teria de adivinhar qual esta lendo. Prefixando aqui, a regra
+    *"toda linha e `dart_X` ou `dart_X|rust_Y`"* vale sempre.
+
+    Nao e reescrever o que o app disse: aquela build so conhecia o motor Dart, e
+    `dart_1.1.0` diz exatamente isso, por extenso.
+    """
+    if not isinstance(bruto, str) or not bruto:
+        return bruto
+    # Ja composto? O prefixo do primeiro pedaco denuncia.
+    if bruto.split("|", 1)[0].startswith("dart_"):
+        return bruto
+    return f"dart_{bruto}"
+
+
 class RepositorioSincronizacao:
     """Acesso a partidas/jogadas/XP/progressão para a sincronização.
 
@@ -537,7 +561,7 @@ class RepositorioSincronizacao:
             ),
             {
                 "id_partida": id_partida,
-                "co_versao_motor": damas.get("co_versao_motor"),
+                "co_versao_motor": _versoes_do_motor(damas.get("co_versao_motor")),
                 "co_versao_contrato": damas.get("co_versao_contrato"),
                 "co_fen_inicial": damas.get("co_fen_inicial"),
                 # ⚠️ O banco fala 'branca'/'preta', nunca 'azul'/'vermelho'. A

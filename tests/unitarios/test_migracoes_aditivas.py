@@ -106,6 +106,143 @@ PERMITIDOS = (
 ALTER_ADITIVOS = ("ADD COLUMN", "ADD CONSTRAINT")
 
 
+# ── ALARGAR UM `varchar` — a excecao que a 0014 obrigou a escrever ─────────
+#
+# ⚠️ **Isto NAO afrouxa a regra**, e a diferenca esta em uma palavra: so passa
+# quando **ALARGA**. Estreitar um `varchar` perde dado e continua recusado,
+# junto com toda a familia de `ALTER COLUMN` que quebra tabela com dados
+# (`SET NOT NULL`, troca de familia de tipo, `USING`).
+#
+# Por que precisou existir: a `0014` compoe as duas versoes de motor em
+# `co_versao_motor` (`dart_1.1.0|rust_0.2.0`, 21 caracteres) e a coluna era
+# `VARCHAR(20)`. Nao ha caminho aditivo puro — alargar e a operacao.
+#
+# Como se sabe que alarga: a largura ANTERIOR e lida das proprias migracoes, do
+# `CREATE TABLE` que criou a coluna (e de um alargamento anterior, se houver).
+# Se a largura antiga nao for encontrada, o teste **recusa** — nao supoe.
+_ALTER_ALARGA = re.compile(
+    r"ALTER\s+TABLE\s+([a-z_][a-z0-9_.]*)\s+"
+    r"ALTER\s+COLUMN\s+([a-z_][a-z0-9_]*)\s+"
+    r"TYPE\s+VARCHAR\s*\(\s*(\d+)\s*\)",
+    re.I,
+)
+
+# `nome_da_coluna VARCHAR(30)` dentro de um `CREATE TABLE`.
+_COLUNA_TEXTO = re.compile(
+    r"^\s*([a-z_][a-z0-9_]*)\s+(?:VARCHAR|CHARACTER\s+VARYING)\s*\(\s*(\d+)\s*\)",
+    re.I | re.M,
+)
+
+# `CREATE TABLE schema.tabela (` ... ate o `)` que fecha.
+_CREATE_TABLE = re.compile(
+    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"
+    r"([a-z_][a-z0-9_.]*)\s*\((.*?)\n\s*\)\s*;?",
+    re.I | re.S,
+)
+
+
+def _largura_anterior(arquivo: Path, tabela: str, coluna: str) -> int | None:
+    """A largura que esta coluna tinha ANTES de [arquivo], ou `None`.
+
+    ⚠️ **So olha as migracoes anteriores**, e isso nao e detalhe: se olhasse a
+    propria, o `ALTER ... TYPE VARCHAR(60)` que esta sendo conferido apareceria
+    como a largura "anterior", e a conta viraria `60 > 60` — o proprio comando
+    invalidando a si mesmo. A ordem alfabetica dos arquivos e a cronologica,
+    porque todos comecam por quatro digitos.
+
+    Devolve `None` quando nao acha nada. Quem chama trata `None` como RECUSA:
+    na duvida sobre o tamanho de antes, nao se autoriza a troca de tipo.
+    """
+    largura: int | None = None
+    for anterior in sorted(PASTA.glob("*.py")):
+        if anterior.name >= arquivo.name:
+            break
+        fonte = anterior.read_text(encoding="utf-8")
+        for t, corpo in _CREATE_TABLE.findall(fonte):
+            if t.lower() != tabela:
+                continue
+            for c, valor in _COLUNA_TEXTO.findall(corpo):
+                if c.lower() == coluna:
+                    largura = int(valor)
+        # Um alargamento anterior tambem conta: dois seguidos continuam sendo
+        # conferidos um contra o outro.
+        for t, c, valor in _ALTER_ALARGA.findall(fonte):
+            if t.lower() == tabela and c.lower() == coluna:
+                largura = int(valor)
+    return largura
+
+
+def _alter_alarga_varchar(comando: str, arquivo: Path) -> bool:
+    """Este `ALTER COLUMN ... TYPE VARCHAR(n)` esta ALARGANDO?
+
+    `False` quando o comando nao e desse feitio, quando a largura anterior e
+    desconhecida, ou quando a nova nao e maior. **Na duvida, recusa.**
+    """
+    casa = _ALTER_ALARGA.match(" ".join(comando.split()))
+    if casa is None:
+        return False
+    tabela = casa.group(1).lower()
+    coluna = casa.group(2).lower()
+    nova = int(casa.group(3))
+    anterior = _largura_anterior(arquivo, tabela, coluna)
+    return anterior is not None and nova > anterior
+
+
+def _comandos_do_upgrade(arquivo: Path) -> list[str]:
+    """Os textos SQL que o `upgrade()` executa, um por `op.execute`."""
+    codigo = _sem_comentarios(_corpo_do_upgrade(arquivo))
+    return re.findall(r"op\.execute\(\s*(?:'|\")(.*?)(?:'|\")", codigo, re.S)
+
+
+def _e_drop_de_view_recriada(comando: str, recriadas: set[str]) -> bool:
+    """Este comando e o `DROP VIEW` de uma view que a migracao recria?"""
+    casa = re.match(
+        r"DROP\s+VIEW\s+(?:IF\s+EXISTS\s+)?([a-z_][a-z0-9_.]*)",
+        " ".join(comando.split()),
+        re.I,
+    )
+    return casa is not None and casa.group(1).lower() in recriadas
+
+
+def _views_recriadas(comandos: list[str]) -> set[str]:
+    """Os nomes de view que a migracao **derruba e recria** no mesmo `upgrade()`.
+
+    ⚠️ **A unica excecao ao `DROP`, e ela e estreita de proposito.** O motivo
+    tem data: em 25/08/2026 a `0014` precisou alargar `co_versao_motor`, e o
+    Postgres recusa alterar o tipo de uma coluna que uma view usa —
+
+        ERROR: cannot alter type of a column used by a view or rule
+
+    — mesmo alargando, mesmo com a view sendo um `SELECT *`. Nao existe
+    `CREATE OR REPLACE` que resolva: o tipo esta congelado na arvore da view.
+
+    Por que derrubar e recriar uma VIEW nao e destrutivo:
+
+      · view **nao guarda dado**. Nao ha linha a perder, que e o que um
+        `DROP TABLE` custaria;
+      · o DDL do Postgres e **transacional**: se o `CREATE` seguinte falhar, o
+        `DROP` volta atras junto. Nao existe instante com a view faltando.
+
+    E por que continua estreito: so entra a view cujo `CREATE VIEW` aparece na
+    **mesma** migracao. Um `DROP VIEW` sozinho continua recusado, e `DROP
+    TABLE`, `DROP COLUMN` e `DROP SCHEMA` nunca entram — nenhum deles e recriado
+    por um `CREATE VIEW`.
+    """
+    derrubadas = set()
+    criadas = set()
+    for comando in comandos:
+        limpo = " ".join(comando.split())
+        casa = re.match(r"DROP\s+VIEW\s+(?:IF\s+EXISTS\s+)?([a-z_][a-z0-9_.]*)", limpo, re.I)
+        if casa:
+            derrubadas.add(casa.group(1).lower())
+        casa = re.match(
+            r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+([a-z_][a-z0-9_.]*)", limpo, re.I
+        )
+        if casa:
+            criadas.add(casa.group(1).lower())
+    return derrubadas & criadas
+
+
 def _alter_e_aditivo(comando: str) -> bool:
     """Um `ALTER TABLE` que so acrescenta?
 
@@ -234,6 +371,17 @@ class TestMigracaoAditiva:
     @pytest.mark.parametrize("palavra", PROIBIDOS)
     def test_upgrade_nao_contem_comando_destrutivo(self, arquivo: Path, palavra: str):
         codigo = _codigo_limpo(arquivo)
+        # O `DROP VIEW` de uma view que a MESMA migracao recria nao e destruicao,
+        # e sim reconstrucao — ver [_views_recriadas] para o porque, e para o
+        # quao estreita a excecao e. Ele sai do texto antes da busca, como o
+        # `ON DELETE CASCADE` ja saia.
+        for nome in _views_recriadas(_comandos_do_upgrade(arquivo)):
+            codigo = re.sub(
+                rf"DROP\s+VIEW\s+(?:IF\s+EXISTS\s+)?{re.escape(nome)}\b",
+                "",
+                codigo,
+                flags=re.IGNORECASE,
+            )
         achado = re.search(rf"\b{palavra}\b", codigo, flags=re.IGNORECASE)
         assert achado is None, (
             f"{arquivo.name} usa {palavra} no upgrade(). "
@@ -257,17 +405,24 @@ class TestMigracaoAditiva:
         chegue com um nome que ninguem previu — `REVOKE`, `ALTER ... SET`, o que
         for.
         """
-        codigo = _sem_comentarios(_corpo_do_upgrade(arquivo))
-        comandos = re.findall(r"op\.execute\(\s*(?:'|\")(.*?)(?:'|\")", codigo, re.S)
+        comandos = _comandos_do_upgrade(arquivo)
         assert comandos, (
             f"nenhum op.execute em {arquivo.name} — o teste esta olhando o "
             "lugar errado"
         )
+        recriadas = _views_recriadas(comandos)
         for c in comandos:
-            inicio = c.strip().upper()
+            inicio = " ".join(c.split()).upper()
             # O `ALTER TABLE` nao esta nos prefixos de proposito: ele passa pela
-            # conferencia propria, que exige que a operacao seja um acrescimo.
-            permitido = inicio.startswith(PERMITIDOS) or _alter_e_aditivo(inicio)
+            # conferencia propria, que exige que a operacao seja um acrescimo —
+            # ou um alargamento de `varchar`, a unica troca de tipo que nao pode
+            # perder dado.
+            permitido = (
+                inicio.startswith(PERMITIDOS)
+                or _alter_e_aditivo(inicio)
+                or _alter_alarga_varchar(c, arquivo)
+                or _e_drop_de_view_recriada(c, recriadas)
+            )
             assert permitido, (
                 f"{arquivo.name}: comando nao permitido: {c[:60]}"
             )
@@ -336,12 +491,110 @@ class TestARegraDoPermitido:
         # A mesma expressao usada em `test_upgrade_so_acrescenta`. Se as duas
         # divergirem um dia, este teste passa a guardar outra coisa — por isso
         # ela e curta e esta escrita igual nos dois lugares.
-        maiusculo = comando.strip().upper()
+        maiusculo = " ".join(comando.split()).upper()
         obtido = maiusculo.startswith(PERMITIDOS) or _alter_e_aditivo(maiusculo)
 
         assert obtido == esperado, (
             f"{comando!r}: a regra {'aceitou' if obtido else 'recusou'}, "
             f"e deveria {'aceitar' if esperado else 'recusar'}"
+        )
+
+
+class TestAsDuasExcecoesDA0014:
+    """As duas excecoes que a 0014 obrigou a escrever — e o que elas RECUSAM.
+
+    (!) **Este e o teste que importa.** As excecoes foram escritas para deixar a
+    0014 passar; nenhuma delas prova, por si, que continuam recusando o resto.
+    Aqui o limite fica escrito como exemplo, e nao como prosa.
+    """
+
+    ZERO = RAIZ / "migrations" / "versions" / "0014_versoes_motor_compostas.py"
+
+    # (comando, pode passar?) — a coluna real e `co_versao_motor`, que a 0012
+    # criou com VARCHAR(20).
+    CASOS_ALARGAR = [
+        # Alargar: 20 -> 60. E o que a 0014 faz.
+        (
+            "ALTER TABLE jogo_damas.tb001_partida "
+            "ALTER COLUMN co_versao_motor TYPE VARCHAR(60)",
+            True,
+        ),
+        # (!) ESTREITAR perde dado, e continua recusado.
+        (
+            "ALTER TABLE jogo_damas.tb001_partida "
+            "ALTER COLUMN co_versao_motor TYPE VARCHAR(10)",
+            False,
+        ),
+        # Mesma largura nao e alargar.
+        (
+            "ALTER TABLE jogo_damas.tb001_partida "
+            "ALTER COLUMN co_versao_motor TYPE VARCHAR(20)",
+            False,
+        ),
+        # Coluna que nenhuma migracao anterior declarou: na duvida, RECUSA.
+        ("ALTER TABLE x.y ALTER COLUMN z TYPE VARCHAR(60)", False),
+        # Trocar de FAMILIA de tipo nunca passa, por maior que seja o destino.
+        (
+            "ALTER TABLE jogo_damas.tb001_partida "
+            "ALTER COLUMN co_versao_motor TYPE TEXT",
+            False,
+        ),
+        # E o resto da familia `ALTER COLUMN`, que quebra tabela com dados.
+        (
+            "ALTER TABLE jogo_damas.tb001_partida "
+            "ALTER COLUMN co_versao_motor SET NOT NULL",
+            False,
+        ),
+    ]
+
+    @pytest.mark.parametrize("comando, esperado", CASOS_ALARGAR)
+    def test_so_alargar_passa(self, comando: str, esperado: bool):
+        assert _alter_alarga_varchar(comando, self.ZERO) is esperado, (
+            f"{comando!r}: a regra do alargamento decidiu errado"
+        )
+
+    def test_o_alter_da_0014_nao_valida_a_si_mesmo(self):
+        """A largura anterior vem SO das migracoes anteriores.
+
+        Se `_largura_anterior` lesse a propria 0014, acharia os 60 que ela
+        declara e a conta viraria `60 > 60` — o comando invalidando a si mesmo.
+        """
+        assert (
+            _largura_anterior(self.ZERO, "jogo_damas.tb001_partida", "co_versao_motor")
+            == 20
+        )
+
+    # (comandos da migracao, o comando conferido, pode passar?)
+    CASOS_DROP = [
+        # Derrubar e recriar a MESMA view: e reconstrucao, e passa.
+        (
+            ["DROP VIEW jogo_damas.vw001_partida", "CREATE VIEW jogo_damas.vw001_partida AS SELECT 1"],
+            "DROP VIEW jogo_damas.vw001_partida",
+            True,
+        ),
+        # (!) Derrubar SEM recriar continua recusado.
+        (["DROP VIEW jogo_damas.vw001_partida"], "DROP VIEW jogo_damas.vw001_partida", False),
+        # Recriar OUTRA view nao autoriza derrubar esta.
+        (
+            ["DROP VIEW jogo_damas.vw001_partida", "CREATE VIEW jogo_damas.vw002_jogada AS SELECT 1"],
+            "DROP VIEW jogo_damas.vw001_partida",
+            False,
+        ),
+        # (!) DROP TABLE nunca passa — nenhum `CREATE VIEW` o recria.
+        (
+            ["DROP TABLE jogo_damas.tb001_partida", "CREATE VIEW jogo_damas.tb001_partida AS SELECT 1"],
+            "DROP TABLE jogo_damas.tb001_partida",
+            False,
+        ),
+        # DROP SCHEMA idem.
+        (["DROP SCHEMA jogo_damas CASCADE"], "DROP SCHEMA jogo_damas CASCADE", False),
+    ]
+
+    @pytest.mark.parametrize("comandos, conferido, esperado", CASOS_DROP)
+    def test_so_view_recriada_passa(self, comandos, conferido, esperado):
+        recriadas = _views_recriadas(comandos)
+        assert _e_drop_de_view_recriada(conferido, recriadas) is esperado, (
+            f"{conferido!r}: a regra do DROP de view decidiu errado"
         )
 
 
