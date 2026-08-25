@@ -95,12 +95,17 @@ def upgrade() -> None:
     # `5` e o proximo livre: 1..4 sao os motivos de parada de uma busca que
     # aconteceu, e o 9999 e o sentinela. O nome segue o padrao dos outros —
     # minusculo, sem acento, igual a palavra que o motor usa.
+    #
+    # ⚠️ `no_motivo_parada_busca` e VARCHAR(40). A primeira versao deste texto
+    # tinha 41 caracteres e derrubou a migracao no DES, em 25/08 - por UM. O
+    # cadeado que passou a pegar isso e
+    # `tests/unitarios/test_migracoes_cabem_nas_colunas.py`.
     op.execute(
         """
         INSERT INTO jogo_damas.tb902_motivo_parada_busca
             (nu_motivo_parada_busca, co_motivo_parada_busca, no_motivo_parada_busca)
         VALUES
-            (5, 'lance_unico', 'Havia um lance legal so - nao houve busca')
+            (5, 'lance_unico', 'Lance unico: nao houve busca')
         ON CONFLICT (nu_motivo_parada_busca) DO NOTHING
         """
     )
