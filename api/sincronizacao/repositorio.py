@@ -653,14 +653,15 @@ class RepositorioSincronizacao:
                    qt_captura_pedra, qt_captura_dama, ic_promoveu,
                    co_tipo_peca_inicio, qt_nos_visitados,
                    nu_profundidade_atingida, nu_motivo_parada_busca,
-                   nu_tempo_busca_ms, nu_avaliacao_brancas, nu_semente, js_extra)
+                   nu_tempo_busca_ms, nu_avaliacao_brancas, nu_semente,
+                   co_motor_busca, js_extra)
                 VALUES
                   (:id_jogada, :co_jogador, :co_lance, :co_fen_antes,
                    :qt_captura_pedra, :qt_captura_dama, :ic_promoveu,
                    :co_tipo_peca_inicio, :qt_nos_visitados,
                    :nu_profundidade_atingida, :nu_motivo_parada_busca,
                    :nu_tempo_busca_ms, :nu_avaliacao_brancas, :nu_semente,
-                   :js_extra)
+                   :co_motor_busca, :js_extra)
                 """
             ),
             {
@@ -669,6 +670,15 @@ class RepositorioSincronizacao:
                 # usa 1/2. Sao convencoes diferentes de proposito.
                 "co_jogador": damas.get("co_jogador"),
                 "co_lance": damas.get("co_lance"),
+                # Qual motor escolheu o lance: 'dart' ou 'rust'.
+                #
+                # ⚠️ Nao ha `.get(..., "dart")` aqui, e e de proposito: um padrao
+                # faria toda jogada de um app antigo — que nao manda o campo —
+                # ser gravada como Dart, o que por acaso ate seria verdade hoje.
+                # No dia em que deixasse de ser, a gestao de defeitos estaria
+                # olhando um dado inventado sem nada denunciar. `None` significa
+                # "este app nao disse", que e a verdade.
+                "co_motor_busca": damas.get("co_motor_busca"),
                 "co_fen_antes": damas.get("co_fen_antes"),
                 # ⚠️ Decompostas (V-8), e nunca um total com um subconjunto:
                 # somar duas colunas e trivial, separar depois e impossivel.

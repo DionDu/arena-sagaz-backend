@@ -66,13 +66,56 @@ PROIBIDOS = ("DELETE", "TRUNCATE", "DROP")
 # ele nao altera dado nenhum, so acrescenta uma estrutura de leitura — e a
 # `jogo_damas.tb003_recusa` precisa de um, porque e consultada por partida e a
 # sua PK e o `id_recusa`.
+#
+# ⚠️ TRES ENTRARAM COM A 0013, e nenhuma delas afrouxa a regra:
+#
+#  · `CREATE OR REPLACE VIEW` — a lista so conhecia `CREATE VIEW`, e a diferenca
+#    importa: acrescentar uma coluna a uma tabela **nao** a faz aparecer numa
+#    view criada com `SELECT j.*`, porque o Postgres expande o `*` no momento da
+#    criacao. Refazer a view era, ate aqui, so possivel com `DROP` — que e
+#    proibido, e com razao. O `OR REPLACE` resolve, e e seguro **por construcao
+#    do proprio Postgres**: ele recusa qualquer troca de nome, tipo ou ordem das
+#    colunas ja existentes, e so aceita acrescimo ao final.
+#
+#  · `COMMENT ON` — documenta uma coluna. Nao toca em dado nem em estrutura.
+#
+#  · `ALTER TABLE` — este e o unico que merece cuidado, e por isso NAO entra na
+#    lista de prefixos: ele e tratado a parte, em `_alter_e_aditivo`, que exige
+#    que a operacao seja `ADD COLUMN` ou `ADD CONSTRAINT`. Fica assim mais
+#    rigoroso do que estava: antes, um `ALTER TABLE ... ALTER COLUMN ... SET NOT
+#    NULL` — que quebra numa tabela com dados — era barrado apenas por nao estar
+#    na lista, e teria passado no dia em que alguem acrescentasse "ALTER TABLE"
+#    aos prefixos sem pensar. Agora a intencao esta escrita.
 PERMITIDOS = (
     "CREATE SCHEMA",
     "CREATE TABLE",
     "CREATE INDEX",
     "CREATE VIEW",
+    "CREATE OR REPLACE VIEW",
     "INSERT INTO",
+    "COMMENT ON",
 )
+
+# As unicas operacoes de `ALTER TABLE` que acrescentam sem poder quebrar nada
+# numa tabela que ja tem dados.
+#
+# ⚠️ `ADD COLUMN` sem `NOT NULL` e sem `DEFAULT` e instantaneo e nao reescreve a
+# tabela. `ADD CONSTRAINT ... CHECK` e validado contra as linhas existentes e
+# falha alto se alguma nao passar — que e o comportamento desejado: melhor a
+# migracao recusar do que gravar um estado que o CHECK diz ser impossivel.
+ALTER_ADITIVOS = ("ADD COLUMN", "ADD CONSTRAINT")
+
+
+def _alter_e_aditivo(comando: str) -> bool:
+    """Um `ALTER TABLE` que so acrescenta?
+
+    Recebe o comando ja em MAIUSCULAS. Devolve `False` para qualquer `ALTER`
+    que nao seja um dos [ALTER_ADITIVOS] — inclusive os que nem contem a palavra
+    `DROP`, como `ALTER COLUMN ... TYPE` e `... SET NOT NULL`.
+    """
+    if not comando.startswith("ALTER TABLE"):
+        return False
+    return any(operacao in comando for operacao in ALTER_ADITIVOS)
 
 
 def _migracoes_guardadas() -> list[Path]:
@@ -222,7 +265,10 @@ class TestMigracaoAditiva:
         )
         for c in comandos:
             inicio = c.strip().upper()
-            assert inicio.startswith(PERMITIDOS), (
+            # O `ALTER TABLE` nao esta nos prefixos de proposito: ele passa pela
+            # conferencia propria, que exige que a operacao seja um acrescimo.
+            permitido = inicio.startswith(PERMITIDOS) or _alter_e_aditivo(inicio)
+            assert permitido, (
                 f"{arquivo.name}: comando nao permitido: {c[:60]}"
             )
 
@@ -244,6 +290,58 @@ class TestMigracaoAditiva:
         assert "9999" in fonte, f"{arquivo.name}: dimensao sem o sentinela 9999"
         assert "'desconhecido'" in fonte, (
             f"{arquivo.name}: o 9999 existe mas nao se chama 'desconhecido'"
+        )
+
+
+class TestARegraDoPermitido:
+    """A propria regra do permitido, conferida caso a caso.
+
+    ⚠️ **Por que isto existe.** Os testes acima aplicam a regra a arquivos que
+    ja estao no repositorio — e todos passam, porque foram escritos para passar.
+    Nenhum deles prova que a regra ainda RECUSA o que tem de recusar.
+
+    Isso importa porque a lista de permitidos ja foi ampliada uma vez (na 0013,
+    para caber `ADD COLUMN`), e ampliar cadeado e exatamente o momento em que
+    ele silenciosamente para de guardar. Aqui a intencao fica escrita como
+    exemplo, e nao como prosa: acrescentar `"ALTER TABLE"` aos prefixos por
+    descuido faz **estes** casos falharem na hora.
+    """
+
+    # (comando, pode passar?)
+    CASOS = [
+        # Os que a 0013 precisou, e sao genuinamente aditivos.
+        ("ALTER TABLE jogo_damas.tb002_jogada ADD COLUMN co_motor_busca VARCHAR(10)", True),
+        ("ALTER TABLE x ADD CONSTRAINT ck_y CHECK (z IS NULL)", True),
+        ("CREATE OR REPLACE VIEW jogo_damas.vw002_jogada AS SELECT 1", True),
+        ("COMMENT ON COLUMN x.y IS 'z'", True),
+        ("CREATE TABLE x (a INTEGER)", True),
+        ("INSERT INTO x VALUES (1)", True),
+        # `ALTER` destrutivo — o obvio.
+        ("ALTER TABLE x DROP COLUMN y", False),
+        # ⚠️ E os `ALTER` que NAO contem a palavra DROP, e que por isso o teste
+        # da palavra proibida nao pegaria. Numa tabela com dados, o primeiro
+        # falha se houver um NULL e o segundo pode reescrever a tabela inteira.
+        ("ALTER TABLE x ALTER COLUMN y SET NOT NULL", False),
+        ("ALTER TABLE x ALTER COLUMN y TYPE INTEGER", False),
+        ("ALTER TABLE x RENAME COLUMN y TO z", False),
+        # E o resto do que destroi dado.
+        ("DELETE FROM x", False),
+        ("TRUNCATE x", False),
+        ("UPDATE x SET y = 1", False),
+        ("REVOKE ALL ON x FROM y", False),
+    ]
+
+    @pytest.mark.parametrize("comando, esperado", CASOS)
+    def test_a_regra_aceita_e_recusa_o_que_deve(self, comando: str, esperado: bool):
+        # A mesma expressao usada em `test_upgrade_so_acrescenta`. Se as duas
+        # divergirem um dia, este teste passa a guardar outra coisa — por isso
+        # ela e curta e esta escrita igual nos dois lugares.
+        maiusculo = comando.strip().upper()
+        obtido = maiusculo.startswith(PERMITIDOS) or _alter_e_aditivo(maiusculo)
+
+        assert obtido == esperado, (
+            f"{comando!r}: a regra {'aceitou' if obtido else 'recusou'}, "
+            f"e deveria {'aceitar' if esperado else 'recusar'}"
         )
 
 
