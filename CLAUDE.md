@@ -55,6 +55,32 @@ com seu Postgres e seu Firebase:
   `alembic upgrade head` da sua máquina, com a URL **pública** do Postgres
   (`*.proxy.rlwy.net`); a interna só funciona dentro da Railway.
 
+### ⚠️ ANTES de `alembic upgrade`, identifique o banco
+
+```powershell
+cd D:\Desenvolvimentorena-sagazrena-sagaz-backend
+.venv\Scripts\python scripts\identificar_banco.py   # somente leitura
+```
+
+**O comando do alembic não diz contra qual banco ele roda**, e não dá para
+saber olhando: a URL vem de `DATABASE_URL`, e os dois bancos se chamam
+`railway` — o nome padrão do Postgres em todo projeto Railway.
+
+⚠️ **`AMBIENTE` no `.env` não é prova.** Ela diz como a API se comporta, não a
+qual banco ela se liga. As duas variáveis são independentes, e trocar a URL sem
+trocar o `AMBIENTE` é um descuido de um segundo que nada acusa.
+
+O script compara host e porta com `ferramentas/debug-bancos/ambientes.env` (na
+raiz do ecossistema, não versionado) e responde **DES**, **PRD** ou
+**DESCONHECIDO** — este último tratado como PARE, porque é um banco que ninguém
+catalogou. Sai com `0` no DES e `2` nos outros dois, para poder ser encadeado.
+
+Hoje: DES = `hopper.proxy.rlwy.net:21165` · PRD = `hayabusa.proxy.rlwy.net:42857`.
+
+Isto nasceu de uma pergunta do dono em 2026-08-25, ao receber um
+`alembic upgrade head` que não dizia o ambiente. Há usuários reais em `prd`
+desde 04/08 — migração no banco errado não é um susto, é um incidente.
+
 > ⚠️ **"Healthcheck failure" no Railway quase nunca é problema de rede.**
 > `api/nucleo/banco.py` chama `create_async_engine` **no import do módulo**: uma
 > `DATABASE_URL` vazia ou inválida levanta `ArgumentError` antes de o uvicorn
