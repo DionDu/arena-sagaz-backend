@@ -27,28 +27,18 @@ from api.notificacoes.repositorio import RepositorioNotificacao
 from api.notificacoes.servico import ServicoNotificacoes, enviar_fcm_topico
 from api.notificacoes.servico_preferencias import ServicoPreferenciasNotificacao
 from api.nucleo.banco import obter_sessao
-from api.nucleo.dependencias import usuario_atual
+from api.nucleo.dependencias import usuario_atual, usuario_atual_opcional
 from api.nucleo.excecoes import ErroNaoAutorizado
 from api.nucleo.seguranca_firebase import IdentidadeFirebase, obter_verificador
 
 router = APIRouter()
 
 
-async def usuario_atual_opcional(
-    authorization: Optional[str] = Header(default=None),
-) -> Optional[IdentidadeFirebase]:
-    """Como [usuario_atual], mas **não obriga** login: devolve a identidade se
-    houver um token válido, ou `None` (sessão de convidado). Usado no registro de
-    dispositivo, que aceita convidado (token sem dono)."""
-    if not authorization or not authorization.lower().startswith("bearer "):
-        return None
-    token = authorization[7:].strip()
-    if not token:
-        return None
-    try:
-        return await obter_verificador().verificar(token)
-    except ErroNaoAutorizado:
-        return None  # token inválido → trata como convidado
+# ⚠️ `usuario_atual_opcional` MOROU AQUI ate 27/08/2026 e subiu para
+# `api/nucleo/dependencias.py`, quando o segundo endpoint sem login apareceu (o
+# diagnostico do motor nativo). O `import` acima traz o **mesmo objeto funcao**,
+# entao `app.dependency_overrides[usuario_atual_opcional]` nos testes deste
+# modulo continua funcionando sem uma linha de mudanca.
 
 
 def obter_servico_preferencias(

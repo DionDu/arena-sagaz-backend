@@ -21,6 +21,107 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-08-27 — Diagnóstico de campo: um endpoint novo, e não o `js_extra`
+
+**Contexto.** Desde 25/08 o app esconde o nível **Sagaz** das damas quando o
+motor nativo (Rust) não carrega — porque o orçamento daquele nível foi
+dimensionado para ele. A trava funciona. O problema é que ela esconde **em
+silêncio**, que é exatamente o defeito que veio consertar: o Release do iOS
+jogou semanas no motor Dart sem que nada denunciasse.
+
+**Decisão 1: endpoint novo — `POST /v1/diagnosticos/motor-nativo`.** Do dono:
+
+> *"Não vejo sentido em mandar logs de erros no `js_extra` de outras partidas
+> que não têm nada a ver com isso. Vamos criar esse novo endpoint."*
+
+**Descartado: pendurar o aviso no `js_extra` do log de partida.** Era a
+recomendação anterior, por ser aditiva e não pedir migração. O argumento que a
+derrubou é bom: **com a trava ligada, ninguém joga no Sagaz naquele aparelho** —
+o aviso viajaria preso a partidas de outros níveis, misturando dado de
+diagnóstico com dado de jogo, num lugar onde ninguém o procuraria.
+
+**Decisão 2: schema `log`, e `co_jogo` como COLUNA.** "O binário não carregou" é
+problema do **app**, não do jogo. O TFLite do Pontinhos é igualmente nativo e a
+mesma pergunta vale para ele; uma tabela em `jogo_damas` obrigaria a copiar a
+estrutura por jogo. Tabela: `log.tb002_diagnostico_motor_nativo` (migração
+`0016`, aditiva).
+
+**Decisão 3: as cinco regras, e cada uma é um modo de falha real.**
+
+1. **Deduplicar no APP.** Sem isso, um aparelho quebrado relata a cada abertura,
+   para sempre — e a tabela passa a medir *aberturas* em vez de *aparelhos*,
+   respondendo outra pergunta sem que ninguém perceba. A assinatura é
+   jogo + motor + motivo + versão do app + versão do binário encontrada.
+2. **Sem login.** `id_usuario` é nulo-ável e **sem FK**. Uma FK obrigaria login,
+   e o relato mais valioso — o de quem está experimentando o app pela primeira
+   vez — seria o único impossível.
+3. **Nunca lançar nem bloquear.** `202 Accepted`, e o app não trata a resposta.
+4. **Tolerar servidor antigo.** `404`/`501` é silêncio, pela diretriz de
+   versionamento da API.
+5. **Nada de identificador estável de aparelho.** Sem IMEI, sem `androidId`, sem
+   `identifierForVendor`: modelo e ABI bastam para saber qual build refazer e
+   não permitem seguir uma pessoa. ⚠️ **É esta regra que obriga o dedupe a morar
+   no app** — no servidor ele exigiria justamente o identificador proibido.
+
+**O motivo é gravado duas vezes, e não é redundância.** `co_motivo` é a
+categoria (o que se agrupa numa consulta); `de_motivo` é o texto cru (o que diz
+**onde olhar** — o nome do símbolo que faltou, o caminho, a mensagem do
+`dlopen`). Guardar só a categoria perderia o diagnóstico; guardar só o texto
+tornaria impossível contar.
+
+**`co_motivo` é `VARCHAR` com `CHECK`, e não dimensão `tb9xx`** — mesma escolha,
+e pelo mesmo motivo, do `co_motor_busca` na `0013`: cinco valores fechados, e uma
+dimensão custaria um `JOIN` em toda consulta para não entregar nada.
+
+⚠️ **`plataforma_sem_motor` está na lista de motivos e NÃO é defeito.** É o que a
+VM do `flutter test` e qualquer desktop respondem. Existe como categoria própria
+para não cair em `falha_desconhecida` e poluir a contagem do que importa.
+
+**Efeito colateral bom:** `usuario_atual_opcional` subiu de
+`api/notificacoes/rotas.py` para `api/nucleo/dependencias.py`, ao lado da irmã
+obrigatória. Era a segunda rota sem login, e copiá-la seria a armadilha que o
+projeto já pagou caro. `api.notificacoes.rotas` reexporta o **mesmo objeto**, e
+os `dependency_overrides` dos testes de lá continuam valendo sem uma linha de
+mudança.
+
+---
+
+## 2026-08-27 (2) — O motivo de parada `6 = base_finais`
+
+**Contexto.** Desde 26/08 o Magno das damas consulta uma **base de finais** antes
+de pensar: em toda posição de até 4 peças a resposta já está gravada no asset,
+com veredito exato e distância até o fim. Esses lances gravam
+`co_motivo_parada_busca = 'base_finais'`, um valor que não existia na dimensão.
+
+**Decisão: `6` na `jogo_damas.tb902_motivo_parada_busca`** (migração `0015`), no
+molde exato do `5 = lance_unico` da `0013`.
+
+⚠️ **Isto nunca quebrou nada.** O sentinela `9999 = desconhecido` existe
+justamente para um app **mais novo** que o backend: o valor caía nele e o texto
+cru ia para o `js_extra`. Foi assim que o `lance_unico` viveu até a `0013`. O que
+se ganha não é integridade — é poder **contar** quantos lances vieram da base.
+
+**Não acrescenta coluna e não mexe em view.** A `0013` precisou refazer a
+`vw002_jogada` porque acrescentava `co_motor_busca` à tabela, e o `SELECT j.*`
+não enxerga coluna criada depois. Aqui o valor entra na **dimensão**, que a view
+já lê pelo `JOIN`.
+
+**Os campos de busca continuam indo a `NULL`, não a zero.** `base_finais` é irmão
+de `lance_unico`: nos dois não houve árvore, nós nem avaliação. Zero em
+`nu_avaliacao_brancas` significaria **posição equilibrada** — afirmação falsa
+sobre uma posição que ninguém olhou. Foi o defeito que a `0013` corrigiu.
+
+⚠️ **`co_motor_busca` fica nulo também.** `dart` e `rust` respondem *"quem
+escolheu"*, e na base ninguém escolheu: a resposta estava gravada. Marcar um dos
+dois inflaria a contagem "lances por motor" justamente nos **finais**, que é onde
+os dois motores mais divergem — num levantamento que existe para compará-los.
+
+**Nada converte os dados já gravados.** Os lances anteriores continuam como
+`desconhecido` com o texto no `js_extra`: o projeto não reescreve histórico
+de log.
+
+---
+
 ## 2026-08-13 — `nu_dias_jogados`: o total de dias vira número DERIVADO, como a chama
 
 **Contexto.** Relato de campo: uma usuária (Android, 1.0.1+3) com **21 dias de

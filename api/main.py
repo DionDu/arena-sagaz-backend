@@ -7,6 +7,7 @@ from api.configuracao import configuracoes
 from api.conta import rotas as rotas_conta
 from api.legal import rotas as rotas_legal
 from api.notificacoes import rotas as rotas_notif
+from api.diagnosticos import rotas as rotas_diagnosticos
 from api.nucleo.excecoes import registrar_handlers
 from api.nucleo.log import obter_logger
 from api.nucleo.middleware_gzip import GzipRequestMiddleware
@@ -77,6 +78,11 @@ app.include_router(rotas_notif.router, prefix="/v1/notificacoes")
 app.include_router(rotas_sync.router, prefix="/v1/sincronizacao")
 # Ranking + progressão na nuvem: leaderboard, visibilidade (opt-out), perfil (006).
 app.include_router(rotas_ranking.router, prefix="/v1/ranking")
+# Diagnosticos de campo: o app avisando que um motor NATIVO nao carregou (T199b).
+# ⚠️ Aceita convidado de proposito — a falha atinge quem esta experimentando o
+# app pela primeira vez, e exigir login tornaria impossivel justamente o relato
+# mais valioso.
+app.include_router(rotas_diagnosticos.router, prefix="/v1/diagnosticos")
 # Documentos legais como páginas HTML públicas (G3) — fora de /v1, é conteúdo web
 # (URLs de privacidade/exclusão exigidas pelas lojas).
 app.include_router(rotas_legal.router, prefix="/legal")
