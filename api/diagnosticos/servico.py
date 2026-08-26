@@ -26,8 +26,12 @@ class ServicoDiagnostico:
 
     async def registrar_motor_nativo(
         self, uid: Optional[str], dados: dict[str, Any]
-    ) -> str:
+    ) -> tuple[str, int]:
         """Resolve o dono (se houver), grava e confirma a transação.
+
+        Devolve `(id_diagnostico, qt_ocorrencias)`. O contador vem do UPSERT do
+        repositório: `1` na primeira vez, e o total acumulado dali em diante —
+        a tabela guarda **uma linha por configuração**, não uma por relato.
 
         [uid] é o identificador do Firebase, ou `None` para convidado. Três
         caminhos levam a um relato **sem dono**, e os três são legítimos:
@@ -45,10 +49,10 @@ class ServicoDiagnostico:
         if uid is not None:
             id_usuario = await self.repo.id_usuario_por_identidade(uid)
 
-        id_diagnostico = await self.repo.registrar_motor_nativo(
+        id_diagnostico, ocorrencias = await self.repo.registrar_motor_nativo(
             {**dados, "id_usuario": id_usuario}
         )
         # O serviço é dono da transação — o repositório só escreve. Sem este
         # `commit` a linha morre junto com a sessão da requisição.
         await self.sessao.commit()
-        return id_diagnostico
+        return id_diagnostico, ocorrencias

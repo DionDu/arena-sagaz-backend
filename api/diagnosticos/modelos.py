@@ -48,8 +48,13 @@ class DiagnosticoMotorNativoRequest(BaseModel):
     """Um relato de que o motor nativo não está disponível neste aparelho."""
 
     # ── O que falhou ────────────────────────────────────────────────────────
+    # ⚠️ 30, e não 20: é a largura de `co_jogo` em `partida.tb001_partida` e nas
+    # duas tabelas do schema `log_treino`. O dono pegou a divergência em 27/08 —
+    # *"Precisa manter um padrão de dados nos campos correlatos."* Larguras
+    # diferentes para a mesma coisa são a primeira rachadura de um `JOIN` que um
+    # dia trunca.
     jogo: str = Field(
-        max_length=20,
+        max_length=30,
         description="Qual jogo tentou usar o motor nativo. Hoje só 'damas'.",
     )
     motor: MotorNativo = Field(description="Qual motor nativo não carregou.")
@@ -62,13 +67,30 @@ class DiagnosticoMotorNativoRequest(BaseModel):
     # categoria não basta — carrega o nome do símbolo que faltou, o caminho, a
     # mensagem do `dlopen`.
     #
-    # ⚠️ 300 caracteres é o limite da coluna. O app já corta antes de enviar; o
-    # `max_length` aqui é a segunda rede, para uma build antiga que não cortasse
-    # não tomar `500` do banco.
+    # ⚠️ **O teto era 300 e virou 4000, e a pergunta do dono foi boa:** *"de
+    # motivo com varchar(300) é suficiente para trazer todo o stacktrace de um
+    # erro?"*. **Não era.** Um stacktrace de Dart tem alguns milhares de
+    # caracteres, e 300 mal cobrem a primeira linha.
+    #
+    # A coluna virou `TEXT` (sem teto) na migração 0016. Este `max_length`
+    # continua existindo, mas agora ele é **sanidade**, e não espelho de coluna:
+    # ele impede que um defeito no app despeje megabytes num endpoint que aceita
+    # convidado sem login. 4000 comporta um stacktrace inteiro com folga.
     detalhe: Optional[str] = Field(
         default=None,
-        max_length=300,
-        description="O texto cru do erro, para investigar. Opcional.",
+        max_length=4000,
+        description="O texto cru do erro (mensagem e, se houver, stacktrace).",
+    )
+
+    # ⚠️ A versão do motor **lógico** (Dart) — `dart_1.3.0`, a mesma string do
+    # `co_versao_motor` do log de partida. É a TERCEIRA versão, e ela não se
+    # confunde com as duas do binário: o `.so`/`.a` é compilado por script à
+    # parte, então "Dart novo com binário velho" é um estado real (foi o do iOS
+    # entre 26 e 27/08/2026).
+    versao_motor: Optional[str] = Field(
+        default=None,
+        max_length=40,
+        description="Versão do motor lógico, ex.: 'dart_1.3.0'.",
     )
 
     # ── As duas versões do binário ──────────────────────────────────────────
@@ -123,4 +145,13 @@ class DiagnosticoResposta(BaseModel):
     """
 
     id_diagnostico: str
+
+    # Quantas vezes esta MESMA configuração já foi relatada — `1` na primeira
+    # vez. A tabela guarda uma linha por configuração, não uma por relato (ver o
+    # cabeçalho da migração 0016), e este número é o contador dela.
+    #
+    # ⚠️ Serve ao **operador**, não ao app: dá para bater um relato de suporte
+    # ("meu Sagaz sumiu") contra a linha certa sem abrir o banco.
+    ocorrencias: int = 1
+
     registrado: bool = True

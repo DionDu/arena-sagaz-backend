@@ -84,6 +84,66 @@ projeto já pagou caro. `api.notificacoes.rotas` reexporta o **mesmo objeto**, e
 os `dependency_overrides` dos testes de lá continuam valendo sem uma linha de
 mudança.
 
+### ⚠️ Revisao no mesmo dia — quatro correcoes do dono, e uma delas derrubou um argumento meu
+
+**1. `co_jogo` era `VARCHAR(20)` e virou `(30)`.** *"Precisa manter um padrao de
+dados nos campos correlatos."* E `(30)` em `partida.tb001_partida` e nas duas
+tabelas de `log_treino`. Larguras diferentes para a mesma coisa sao a primeira
+rachadura de um JOIN que um dia trunca.
+
+**2. `co_versao_motor` nova — sao TRES versoes, e nao duas.** *"Tem `co_motor`. E
+a versao do motor? O codigo do App tem uma versao esperada e podemos ter outra
+compilada no App?"* Sim: o motor **logico** (`dart_1.3.0`), o **minimo** que ele
+exige do binario (`0.3.0`) e o que o binario **declarou** (`0.2.0`). O `.so`/`.a`
+e compilado por script a parte, entao "Dart novo com binario velho" e um estado
+real — foi o do iOS entre 26 e 27/08/2026.
+
+**3. `de_motivo` era `VARCHAR(300)` e virou `TEXT`.** *"E suficiente para trazer
+todo o stacktrace de um erro?"* **Nao era** — um stacktrace de Dart tem alguns
+milhares de caracteres. No Postgres, `TEXT` e `VARCHAR(n)` tem o mesmo desempenho
+e o mesmo armazenamento. O corte continua no app (4000), onde ele serve para
+alguma coisa: evitar a viagem, e nao a gravacao.
+
+**4. ⚠️ `co_assinatura UNIQUE` — e aqui um argumento meu estava errado.**
+
+*"O que vai garantir ai que um mesmo telefone de 1 usuario nao vai ficar
+alimentando essa tabela indefinidamente com o mesmo registro?"*
+
+Eu havia escrito, em tres lugares, que *"deduplicar no servidor exigiria um
+identificador estavel de aparelho, que a regra 5 proibe"*. **Falso.** Deduplicar
+por **configuracao** — modelo, ABI, SO, versoes, motivo — nao precisa de
+identificador de pessoa nenhum, e e justamente a unidade que se quer contar.
+
+O desenho antigo apostava so no dedupe do app, que vive no `shared_preferences`:
+some numa reinstalacao, some num "limpar dados", e nao e gravado quando o envio
+falha (corretamente). Cada caso desses gerava linha nova.
+
+⚠️ **E o problema nao era volume; era leitura.** Com uma linha por relato, a
+consulta *"quantas configuracoes estao quebradas?"* passa a responder *"quantas
+vezes alguem reinstalou o app num aparelho quebrado"* — outra pergunta, sem que
+nada denuncie a troca.
+
+**Conserto:** `co_assinatura CHAR(64) UNIQUE` (SHA-256 de doze colunas, calculado
+**no servidor**) + `ON CONFLICT DO UPDATE`, com `qt_ocorrencias`, `dh_primeiro` e
+`dh_ultimo`. Um telefone em laco incrementa um contador.
+
+A assinatura **nao** inclui `id_usuario` (a tabela conta configuracoes quebradas,
+nao pessoas) nem `de_motivo` (varia entre execucoes, e faria a garantia sumir em
+silencio). `dh_primeiro` **nao** e atualizado: e ele que diz ha quanto tempo a
+configuracao esta quebrada.
+
+**O que se perde, e e honesto dizer:** nao se sabe quantos aparelhos
+**distintos** sofreram. Isso ja era verdade — sem identificador estavel nao ha
+como contar aparelhos distintos de jeito nenhum.
+
+**5. Descartado: um motivo de parada `base_finais_dentro_busca`.** O
+`co_motivo_parada_busca` responde *"por que a busca parou"*, e um *probing*
+dentro da arvore nao faz a busca parar. O que entra junto com a T185 parte 2b sao
+outras duas coisas: `qt_consultas_base` + `qt_acertos_base` (quantidades, nao
+motivo) e um `7 = decidido_por_base`, que separa *"a busca achou um mate
+forcado"* de *"a resposta estava gravada"*. Nenhum dos dois entra antes de o app
+produzir o dado.
+
 ---
 
 ## 2026-08-27 (2) — O motivo de parada `6 = base_finais`

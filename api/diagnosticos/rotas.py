@@ -21,13 +21,25 @@ As cinco regras do desenho estão no cabeçalho da migração
   silêncio. A consequência aqui é que nada nesta rota pode ser pré-requisito de
   outra coisa.
 
-A regra 1 (**deduplicar**) mora no **app**, e é deliberado: deduplicar no
-servidor exigiria um identificador estável de aparelho, que a regra 5 proíbe.
+A regra 1 (**deduplicar**) mora nos **dois lados**, e a divisão importa:
+
+* no **app**, para não gastar rede a cada abertura — é **economia**, e ela se
+  perde numa reinstalação ou num "limpar dados";
+* no **servidor**, com `co_assinatura UNIQUE` + `ON CONFLICT DO UPDATE` — é a
+  **garantia**, e ela não se perde. Ver `repositorio.py`.
+
+⚠️ **A versão anterior deste parágrafo dizia que o dedupe só podia morar no app,
+"porque no servidor exigiria um identificador estável de aparelho".** Estava
+errado, e o dono pegou em 27/08 perguntando o que garantiria que um telefone não
+alimentasse a tabela indefinidamente. Deduplicar por **configuração** (modelo,
+ABI, SO, versões, motivo) não precisa de identificador de pessoa nenhum — e é
+justamente a unidade que se quer contar.
 
 ⚠️ **Rate limit já cobre esta rota** sem uma linha a mais: o
 `RateLimitMiddleware` é global e conta `POST` como escrita, com o teto mais
-apertado. Um aparelho em laço não derruba nada — leva `429`, que para o app é
-silêncio como qualquer outra falha.
+apertado. Ele barra **volume**, não repetição — quem barra a repetição é o
+`UNIQUE`. Um aparelho em laço leva `429`, que para o app é silêncio como
+qualquer outra falha.
 """
 from __future__ import annotations
 
@@ -98,13 +110,18 @@ async def relatar_motor_nativo(
     # dado — e a segunda é a que fica errada quando as duas discordam.
     plataforma = _PLATAFORMA_NA_COLUNA.get(contexto.plataforma, "outra")
 
-    id_diagnostico = await servico.registrar_motor_nativo(
+    id_diagnostico, ocorrencias = await servico.registrar_motor_nativo(
         uid=identidade.uid if identidade is not None else None,
         dados={
             "co_jogo": corpo.jogo,
             "co_motor": corpo.motor,
             "co_motivo": corpo.motivo,
             "de_motivo": corpo.detalhe,
+            # ⚠️ TRÊS versões, e elas se movem separadas: o motor lógico (Dart),
+            # o mínimo que ele exige do binário, e o que o binário declarou. O
+            # `.so`/`.a` é compilado por script à parte, então "Dart novo com
+            # binário velho" é um estado real — foi o do iOS entre 26 e 27/08.
+            "co_versao_motor": corpo.versao_motor,
             "co_versao_binario_esperada": corpo.versao_binario_esperada,
             "co_versao_binario_encontrada": corpo.versao_binario_encontrada,
             "co_plataforma": plataforma,
@@ -124,16 +141,19 @@ async def relatar_motor_nativo(
     # que se aprende a ignorar.
     log.info(
         "motor nativo indisponivel: jogo=%s motor=%s motivo=%s plataforma=%s "
-        "abi=%s app=%s",
+        "abi=%s app=%s ocorrencias=%s",
         corpo.jogo,
         corpo.motor,
         corpo.motivo,
         plataforma,
         corpo.abi,
         contexto.versao_app,
+        ocorrencias,
     )
 
     # ⚠️ `no-store`: nada aqui é cacheável, e um proxy que guardasse o `202`
     # faria os relatos seguintes nunca chegarem.
     resposta.headers["Cache-Control"] = "no-store"
-    return DiagnosticoResposta(id_diagnostico=id_diagnostico)
+    return DiagnosticoResposta(
+        id_diagnostico=id_diagnostico, ocorrencias=ocorrencias
+    )
