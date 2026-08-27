@@ -3,8 +3,15 @@
 **Escrito em 28/08/2026.** Este documento é **autossuficiente de propósito**: ele
 existe para ser lido do zero, meses depois, sem a conversa que o originou.
 
-> ⛔ **Estado em 28/08/2026: a `0017` NÃO foi aplicada em nenhum banco.**
-> Marque os passos abaixo à medida que rodar.
+> **Estado em 28/08/2026:**
+> ✅ **DES em `0017`** (migrado, em segundos, sobre 134 mil jogadas).
+> ⬜ **PRD em `0011`** — lá o `upgrade head` aplica **seis** migrações
+> (`0012`…`0017`), e não uma. Ver o passo 3, que analisa as seis uma a uma.
+>
+> ⚠️ A branch `main` do backend também está em `0011`: o código em produção
+> conhece o schema até ali. Migrar o PRD deixa o **banco à frente do código**, o
+> que é seguro (tudo é aditivo) e é justamente o desenho — mas explica por que
+> nada muda em produção até o backend novo subir.
 
 ---
 
@@ -132,6 +139,54 @@ SELECT column_name
 ---
 
 ## 3. A migração no **PRD**
+
+> ✅ **DES migrado em 28/08/2026.** `0016 -> 0017` em segundos, sobre
+> **134.247 linhas** em `partida.tb002_jogada` e 4.849 em `tb001_partida`.
+> `alembic current` = `0017_poder_e_probing_base (head)`.
+
+### ⚠️ O PRD estava em `0011` — lá são SEIS migrações, não uma
+
+Descoberto em 28/08/2026, e é a informação mais importante desta seção. Um
+`alembic upgrade head` no PRD aplica, de uma vez:
+
+| revisão | o que faz | toca o que o app em campo usa? |
+|---|---|---|
+| `0012` | cria o schema `jogo_damas` inteiro | **não** — schema novo |
+| `0013` | `co_motor_busca` + dimensão, em `jogo_damas` | **não** |
+| `0014` | alarga `co_versao_motor` (30→60), em `jogo_damas` | **não** |
+| `0015` | o motivo `6 = base_finais`, em `jogo_damas` | **não** |
+| `0016` | cria `log.tb002_diagnostico_motor_nativo` | **não** — tabela nova |
+| `0017` | o poder, em `partida.*` + o probing, em `jogo_damas` | **sim** ⬅ a única |
+
+**Cinco das seis não tocam nada que o app publicado ou o backend em produção
+conheçam** — elas vivem em `jogo_damas` e `log`. As damas não estão publicadas;
+o app em campo (v1.1.0+8) tem Pontinhos e Velha.
+
+### Por que a `0017` também não quebra quem está em campo
+
+1. **Toda coluna nova é anulável ou tem `DEFAULT`.** O `INSERT` do backend que
+   está em produção **não cita** as colunas novas, e continua válido.
+2. **Os CHECKs são satisfeitos pelas linhas que já existem**: elas ficam com
+   `ic_cancelada = FALSE` (o default) e os demais campos nulos, que é exatamente
+   o ramo permitido de `ck_jogada_cancelamento_completo`.
+3. **O código em produção NÃO lê `partida.vw001_partida` nem
+   `partida.vw002_jogada`** — conferido na branch `main`: ele escreve direto nas
+   tabelas, e as únicas views que consulta com `SELECT *` são
+   `conta.vw001_usuario`, `conta.vw002_provedor_login` e
+   `progressao.vw001_progressao_usuario`, nenhuma tocada aqui. As duas views de
+   `partida` são de **gestão**, não do caminho quente.
+4. **`ADD COLUMN` com `DEFAULT` não reescreve a tabela** no Postgres moderno, e o
+   `ADD CONSTRAINT CHECK` (que varre) levou segundos sobre as 134 mil linhas do
+   DES. Se um dia a tabela crescer a ponto de isso incomodar, a saída é
+   `NOT VALID` + `VALIDATE CONSTRAINT` — hoje não é necessário.
+
+⚠️ **O que a migração no PRD NÃO faz é mudar alguma coisa hoje.** O app em campo
+não joga damas, e o poder só existe nas damas: as colunas nascem e ficam
+esperando. Isso é bom — o risco é quase nulo e o ganho imediato é zero. Aplicar
+agora é **preparação**, e o efeito só aparece quando o backend novo subir e um
+app com damas chegar às lojas.
+
+### Ordem recomendada
 
 Só depois de o DES estar verde **e** de você ter jogado uma partida de damas no
 `des` usando o poder (passo 5) — não faz sentido levar ao PRD um formato que
