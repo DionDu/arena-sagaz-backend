@@ -21,7 +21,7 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
-## 2026-08-28 — O poder "voltar jogada" mora em `partida`, e não em `jogo_damas`
+## 2026-08-27 — O poder "voltar jogada" mora em `partida`, e não em `jogo_damas`
 
 **Contexto.** O app ganhou o poder **voltar jogada**: a pessoa assiste a um
 anúncio premiado e desfaz o próprio lance mais a resposta do personagem. Ele
@@ -89,7 +89,7 @@ consulta antiga muda de resultado hoje — mas é dívida, e ela tem dono (**T20
 
 ### O XP e a reputação foram decididos, e são coisas diferentes
 
-Do dono, em 28/08/2026:
+Do dono, em 27/08/2026:
 
 - **XP: igual com e sem poder.** *"O poder existe para a pessoa continuar
   jogando, e cortar o XP dela puniria exatamente o comportamento que se quer."*
@@ -125,9 +125,9 @@ aparelho. Com um `CHECK`, esse risco não se aplica.
 
 ---
 
-## 2026-08-28 (2) — O *probing* da base de finais: dois contadores, e `NULL` ≠ `0`
+## 2026-08-27 (2) — O *probing* da base de finais: dois contadores, e `NULL` ≠ `0`
 
-**Contexto.** A base de finais entrou na busca dos dois motores em 28/08/2026
+**Contexto.** A base de finais entrou na busca dos dois motores em 27/08/2026
 (Dart 1.4.0, Rust 0.4.0). Perguntar à base **custa**: é um acesso a arquivo no
 disco, no meio da árvore. Os dois números já chegavam à tela desde então
 (`RespostaDaBuscaDamas`); não havia onde gravá-los.

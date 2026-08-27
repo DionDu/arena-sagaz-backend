@@ -2,7 +2,7 @@
 
 Revision ID: 0017_poder_e_probing_base
 Revises: 0016_diagnostico_motor_nativo
-Create Date: 2026-08-28
+Create Date: 2026-08-27
 
 ⛔⛔⛔ **PROPOSTA — NAO FOI APLICADA EM NENHUM BANCO.** ⛔⛔⛔
 
@@ -19,7 +19,7 @@ O QUE ENTRA, E POR QUE TUDO NUMA MIGRACAO SO
 ═══════════════════════════════════════════════════════════════════════════
 
 Duas coisas que nasceram separadas e chegam juntas por pedido explicito do dono
-em 28/08/2026: *"Lembre-se que aqueles 2 campos de quantidade de busca de base
+em 27/08/2026: *"Lembre-se que aqueles 2 campos de quantidade de busca de base
 devem entrar juntos nestas tarefas."*
 
 **(A) O poder "voltar jogada"** (T203 e T204). A pessoa assiste a um anuncio
@@ -28,7 +28,7 @@ dizer que isso aconteceu — se nao disser, a partida sobe como se ela tivesse
 acertado de primeira.
 
 **(B) O probing da base de finais** (motor Dart 1.4.0 / Rust 0.4.0). Os dois
-numeros ja chegam a tela desde 28/08; ate agora nao havia onde grava-los.
+numeros ja chegam a tela desde 27/08; ate agora nao havia onde grava-los.
 
 Uma migracao, e nao duas: as duas mexem no mesmo caminho de gravacao, e duas
 migracoes seguidas dobrariam a janela em que `des` e `prd` estao em versoes
@@ -52,7 +52,7 @@ dois parecidos"*), aparecendo agora no banco.
 ⚠️ `nu_ordem` E `nu_lance` SAO DOIS NUMEROS — e e a decisao central daqui
 ═══════════════════════════════════════════════════════════════════════════
 
-**Decisao do dono, 28/08/2026:** a numeracao e **sequencia continua de eventos**.
+**Decisao do dono, 27/08/2026:** a numeracao e **sequencia continua de eventos**.
 
     A pessoa joga os lances 1..8. Usa o poder: os lances 7 e 8 saem do
     tabuleiro. Ela joga de novo.
@@ -107,7 +107,7 @@ consulta antiga muda de resultado — mas as novas precisam do filtro.
 ⚠️ `qt_usos_poder` NA PARTIDA — a T208 depende dela
 ═══════════════════════════════════════════════════════════════════════════
 
-**Nas palavras do dono, 28/08/2026:** *"Conta como vitoria. Mas nao leva a
+**Nas palavras do dono, 27/08/2026:** *"Conta como vitoria. Mas nao leva a
 conquista SEM USO DE PODER. A reputacao do Magno passa a ser contada pelas
 vitorias sem uso de poder pelo humano."*
 

@@ -44,7 +44,7 @@ def _jogada(**extras: Any) -> dict[str, Any]:
         "id_jogada": "11111111-1111-1111-1111-111111111111",
         "nu_ordem": 1,
         "nu_jogador": 1,
-        "dh_jogada": "2026-08-28T20:00:00.000",
+        "dh_jogada": "2026-08-27T20:00:00.000",
         "nu_tempo_decisao_ms": 1200,
         "co_origem_decisao": "humano",
     }
@@ -99,7 +99,7 @@ class TestOsCamposDoPoderSaoGenericos:
                     nu_lance=7,
                     ic_cancelada=True,
                     co_poder="voltar_jogada",
-                    dh_cancelamento="2026-08-28T20:01:00.000Z",
+                    dh_cancelamento="2026-08-27T20:01:00.000Z",
                 )
             )
         assert caplog.records == []
@@ -131,7 +131,7 @@ class TestOEventoContinuaValido:
                     [
                         _jogada(nu_ordem=7, nu_lance=7, ic_cancelada=True,
                                 co_poder="voltar_jogada",
-                                dh_cancelamento="2026-08-28T20:01:00.000Z"),
+                                dh_cancelamento="2026-08-27T20:01:00.000Z"),
                         _jogada(
                             id_jogada="33333333-3333-3333-3333-333333333333",
                             nu_ordem=9,

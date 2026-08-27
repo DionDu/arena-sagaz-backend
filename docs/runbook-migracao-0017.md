@@ -1,9 +1,9 @@
 # Runbook — aplicar a migração `0017` e o que vem depois
 
-**Escrito em 28/08/2026.** Este documento é **autossuficiente de propósito**: ele
+**Escrito em 27/08/2026.** Este documento é **autossuficiente de propósito**: ele
 existe para ser lido do zero, meses depois, sem a conversa que o originou.
 
-> **Estado em 28/08/2026:**
+> **Estado em 27/08/2026:**
 > ✅ **DES em `0017`** (migrado, em segundos, sobre 134 mil jogadas).
 > ⬜ **PRD em `0011`** — lá o `upgrade head` aplica **seis** migrações
 > (`0012`…`0017`), e não uma. Ver o passo 3, que analisa as seis uma a uma.
@@ -73,7 +73,7 @@ como PARE, igual ao PRD.
 
 ⚠️ **Rode-o também antes de CONSULTAR, e não só antes de migrar.** O `.env` é
 um arquivo que muda: basta alguém apontá-lo para o PRD para conferir uma coisa e
-esquecer de devolver. Em 28/08/2026 isso aconteceu no meio de uma sessão, e
+esquecer de devolver. Em 27/08/2026 isso aconteceu no meio de uma sessão, e
 medidas do PRD foram anotadas como sendo do DES. Eram leituras, e o estrago foi
 um número errado num documento - mas a próxima pode não ser leitura.
 
@@ -148,15 +148,15 @@ SELECT column_name
 
 ## 3. A migração no **PRD**
 
-> ✅ **DES migrado em 28/08/2026.** `0016 -> 0017` em segundos.
+> ✅ **DES migrado em 27/08/2026.** `0016 -> 0017` em segundos.
 > `alembic current` = `0017_poder_e_probing_base (head)`.
 > O DES tem **333 partidas / 6.791 jogadas**.
 >
-> 📏 **O PRD tem 4.849 partidas e 134.247 jogadas** (medido em 28/08). É sobre
+> 📏 **O PRD tem 4.849 partidas e 134.247 jogadas** (medido em 27/08). É sobre
 > esse tamanho que os `ADD CONSTRAINT CHECK` da `0017` vão varrer - e 134 mil
 > linhas é uma varredura de milissegundos. Não é preciso `NOT VALID`.
 >
-> ⚠️ **Erro de leitura que já aconteceu, em 28/08:** essas 134 mil linhas foram
+> ⚠️ **Erro de leitura que já aconteceu, em 27/08:** essas 134 mil linhas foram
 > medidas achando que eram do DES, porque o `.env` havia sido apontado para o
 > PRD entre uma execução e outra e ninguém rodou o `identificar_banco.py` de
 > novo. Foram só `SELECT`s - nada foi escrito -, mas é exatamente o engano que o
@@ -165,7 +165,7 @@ SELECT column_name
 
 ### ⚠️ O PRD estava em `0011` — lá são SEIS migrações, não uma
 
-Descoberto em 28/08/2026, e é a informação mais importante desta seção. Um
+Descoberto em 27/08/2026, e é a informação mais importante desta seção. Um
 `alembic upgrade head` no PRD aplica, de uma vez:
 
 | revisão | o que faz | toca o que o app em campo usa? |
@@ -357,7 +357,7 @@ Ver `arena-sagaz-frontend/specs/006-conta-nuvem/checklist-producao.md`.
   toda consulta que conta lances ganha `WHERE NOT ic_cancelada`. Enquanto as
   damas não estiverem publicadas isso não muda número nenhum — não há partida com
   poder em campo —, mas é dívida.
-* ~~A ad unit PREMIADA do iOS~~ - **feita em 28/08/2026**
+* ~~A ad unit PREMIADA do iOS~~ - **feita em 27/08/2026**
   (`ca-app-pub-7502939199237784/3057876314`). As duas premiadas estao em
   `config/prod.json`, e so valem no **release do prd**: `AdUnits._resolver`
   exige `kReleaseMode` E o ID preenchido.
