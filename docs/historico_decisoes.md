@@ -21,6 +21,179 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-08-28 — O poder "voltar jogada" mora em `partida`, e não em `jogo_damas`
+
+**Contexto.** O app ganhou o poder **voltar jogada**: a pessoa assiste a um
+anúncio premiado e desfaz o próprio lance mais a resposta do personagem. Ele
+estreia nas damas, mas nasceu em `lib/core/poderes/` — a tela de qualquer jogo do
+hub pode chamá-lo. O log precisa registrar que aquilo aconteceu; se não
+registrar, a partida sobe como se a pessoa tivesse acertado de primeira.
+
+**Decisão.** As quatro colunas do cancelamento (`nu_lance`, `ic_cancelada`,
+`co_poder`, `dh_cancelamento`) entram em **`partida.tb002_jogada`**, e
+`qt_usos_poder` em **`partida.tb001_partida`** — as tabelas **genéricas**.
+Migração `0017_poder_e_probing_base.py`.
+
+**Alternativa considerada e descartada:** `jogo_damas.tb004_retorno`, uma tabela
+de eventos de retorno com o par `(nu_ordem_apos, nu_ordem_alvo)`. Ela estava
+esboçada no `data-model.md` §7.1 da spec 008 desde 15/08, e caiu por dois
+motivos que só apareceram quando a feature foi escrita:
+
+1. **O poder não é das damas.** Uma tabela em `jogo_damas` obrigaria a copiá-la
+   para `jogo_velha` e `jogo_pontinhos` no dia em que o dono ligasse o poder
+   neles — e a escrever a consulta de reputação três vezes. É a armadilha que o
+   frontend já pagou caro três vezes (*"tela igual em dois jogos é UM widget,
+   não dois parecidos"*), aparecendo agora no banco.
+2. **A pergunta que se faz ao log é por LINHA**: *"esta jogada valeu?"*.
+   Respondê-la a partir de uma tabela de retornos exige reconstruir a sequência
+   inteira; uma marca na própria jogada responde direto.
+
+### ⚠️ `nu_ordem` e `nu_lance` são dois números, e confundi-los é o erro mais provável de quem mexer nisto depois
+
+`nu_ordem` é **sequência contínua de eventos**: nunca recua, nunca se repete —
+`partida.tb002_jogada` tem `UNIQUE (id_partida, nu_ordem)` desde a `0003`, e
+reaproveitar o número quebraria a chave. Mexer nessa constraint seria alterar uma
+tabela **já publicada**, contra a regra aditiva que vale desde a `0011`.
+
+`nu_lance` é o número do lance **no tabuleiro**, e recua com o desfazer:
+
+```
+nu_ordem  |  1 2 3 4 5 6   7    8    9  10
+nu_lance  |  1 2 3 4 5 6   7    8    7   8
+cancelada |  . . . . . .   X    X    .   .
+```
+
+`nu_lance` é **anulável e sem backfill**: o Pontinhos e a velha não o informam
+(não têm poder, então lá `nu_lance` **é** `nu_ordem`), e o app só o envia quando
+o jogo o preenche — é isso que mantém o payload dos dois jogos publicados byte a
+byte idêntico ao que já está em campo. A leitura correta é
+`COALESCE(nu_lance, nu_ordem)`, e a VIEW `partida.vw002_jogada` já a entrega
+pronta em `nu_lance_efetivo`, para ninguém precisar lembrar.
+
+**Um `UPDATE ... SET nu_lance = nu_ordem` foi considerado e recusado** — pelo
+mesmo argumento com que a `0014` recusou consertar 25 linhas de teste no `des`:
+custaria pôr `UPDATE` na lista de comandos permitidos do cadeado, e um `UPDATE`
+mal escrito destrói dado tão bem quanto um `DELETE`.
+
+### A linha cancelada não é apagada
+
+O log é *append-only*, e a jogada desfeita **aconteceu**: a pessoa a viu no
+tabuleiro, o personagem respondeu a ela, o relógio andou. Apagar esconderia
+justamente o que a reputação do Magno precisa enxergar, e tornaria impossível
+saber se o poder está sendo usado para consertar um deslize ou para procurar o
+lance certo por tentativa e erro.
+
+**Consequência para toda consulta já escrita:** contar lances passa a ser
+`WHERE NOT ic_cancelada`. A coluna nasce `NOT NULL DEFAULT FALSE`, então nenhuma
+consulta antiga muda de resultado hoje — mas é dívida, e ela tem dono (**T208**).
+
+### O XP e a reputação foram decididos, e são coisas diferentes
+
+Do dono, em 28/08/2026:
+
+- **XP: igual com e sem poder.** *"O poder existe para a pessoa continuar
+  jogando, e cortar o XP dela puniria exatamente o comportamento que se quer."*
+- **Reputação: só sem poder.** *"Conta como vitória. Mas não leva a conquista SEM
+  USO DE PODER. A reputação do Magno passa a ser contada pelas vitórias sem uso
+  de poder pelo humano."*
+
+Daí `qt_usos_poder` na partida, e o índice parcial `ix_partida_sem_poder` sobre
+`(co_jogo, co_dificuldade) WHERE qt_usos_poder = 0` — o filtro exato dessa
+consulta. Derivar de `EXISTS (SELECT 1 FROM tb002_jogada WHERE ic_cancelada)`
+funcionaria, e rodaria uma subconsulta por partida em todo levantamento.
+
+⚠️ **A coluna conta USOS, e não jogadas canceladas.** Um uso de "voltar jogada"
+desfaz **duas** jogadas; um poder futuro (uma dica) pode não desfazer nenhuma.
+Contar linhas canceladas responderia outra pergunta, e responderia errado no dia
+em que o segundo poder chegar.
+
+⚠️ **Uma coluna, e não duas.** Um `ic_com_poder` ao lado seria `qt_usos_poder >
+0` escrito de novo. Duas verdades sobre o mesmo fato divergem no dia em que
+alguém atualizar só uma — e a VIEW já entrega o booleano derivado de graça.
+
+### `co_poder` é `VARCHAR` com `CHECK`, e não dimensão
+
+Mesma escolha, e pelo mesmo motivo, do `co_motor_busca` na `0013` e do
+`co_motivo` na `0016`: pouquíssimos valores fechados, e uma dimensão custaria um
+JOIN em toda consulta para não entregar nada. Se um dia a lista crescer ou
+precisar de rótulo traduzido, o CHECK vira dimensão — e aí o JOIN se paga.
+
+Consequência: **nenhum sentinela `9999` novo**. Ele existe para o caso de um app
+mais novo mandar um código que a dimensão ainda não conhece — sem ele a FK
+estoura, o endpoint devolve 500, e o evento fica preso para sempre na fila do
+aparelho. Com um `CHECK`, esse risco não se aplica.
+
+---
+
+## 2026-08-28 (2) — O *probing* da base de finais: dois contadores, e `NULL` ≠ `0`
+
+**Contexto.** A base de finais entrou na busca dos dois motores em 28/08/2026
+(Dart 1.4.0, Rust 0.4.0). Perguntar à base **custa**: é um acesso a arquivo no
+disco, no meio da árvore. Os dois números já chegavam à tela desde então
+(`RespostaDaBuscaDamas`); não havia onde gravá-los.
+
+**Decisão.** `qt_consultas_base` e `qt_acertos_base` em
+`jogo_damas.tb002_jogada`, na mesma migração `0017` — por pedido explícito do
+dono: *"Lembre-se que aqueles 2 campos de quantidade de busca de base devem
+entrar juntos nestas tarefas."*
+
+**São dois, e não um**, porque é a **razão** entre eles que diz se o probing se
+paga: muitas consultas com poucos acertos significa que a árvore quase nunca
+alcança finais de 4 peças naquele tipo de partida, e aí o esforço custa mais do
+que rende. Com um número só, esse diagnóstico não existe.
+
+⚠️ **`NULL` não é `0`.** `NULL` = *"não houve busca"* (lance do humano, lance
+único, lance que veio pronto da base); `0` = *"houve busca e ela não consultou
+uma vez sequer"* — o estado normal com o probing desligado, e o sintoma a
+investigar com ele ligado. O ingestor **não** tem `.get(..., 0)` nesses dois
+campos, de propósito: colapsá-los repetiria, numa coluna nova, o defeito que
+custou caro na T197 — a telemetria que responde `0` onde a verdade é "não sei".
+
+⚠️ **Um lance vindo da base NÃO grava `1`/`1`.** É o erro tentador — a base
+respondeu, afinal. Mas ela respondeu na **raiz**, antes de qualquer nó, e estes
+dois contam o probing **dentro** da árvore. Marcar 1/1 faria a razão incluir
+lances de 100% de acerto em que busca nenhuma houve. O motivo de parada já diz de
+onde o lance veio: `6 = base_finais`.
+
+⚠️ **Não há motivo de parada novo.** O `tasks.md` da spec 008 falava em
+`7 = decidido_por_base`; conferido no motor, **ele não existe** — o probing não
+encerra a busca.
+
+### O que a `0017` obrigou a aprender sobre VIEWs
+
+`partida.vw001_partida` e `partida.vw002_jogada` foram criadas com `SELECT p.*`,
+e o PostgreSQL expande o `*` no momento da criação. Sem recriá-las, as colunas
+novas existiriam na tabela e seriam **invisíveis** para quem lê pela VIEW — que é
+como o projeto manda ler. Nenhum erro, nenhuma falha: só a coluna nunca
+aparecendo, e alguém concluindo meses depois que "o app não está gravando".
+
+E o conserto é `DROP VIEW` + `CREATE VIEW`, e não `CREATE OR REPLACE`: as duas
+terminam numa coluna **derivada** (`co_resultado`, `ic_cpu`), e as colunas novas
+do `p.*` entrariam **antes** dela — `CREATE OR REPLACE VIEW` só aceita
+acrescentar ao fim. É a exceção que a `0014` abriu, e é segura: VIEW não guarda
+dado, e o DDL do Postgres é transacional.
+
+⚠️ **E os `DROP VIEW` vêm ANTES dos `ALTER TABLE`.** `test_migracoes_aditivas.py`
+procura `ALTER TABLE …DROP` com `re.DOTALL`, então qualquer `DROP` **depois** de
+um `ALTER TABLE` no mesmo `upgrade()` é recusado — mesmo sendo um `DROP VIEW`
+legítimo. O cadeado pegou a primeira versão do arquivo; a `0014` já usava essa
+ordem.
+
+⚠️ **`qt_usos_poder` é sanitizado no ingestor** (`_inteiro_nao_negativo`), pela
+mesma assimetria da decisão V-5 e a mesma escolha que `_offset` já fazia: um
+valor podre do cliente estouraria o `CHECK` ou o `SMALLINT`, a partida voltaria
+500, e o evento ficaria preso para sempre na fila daquele aparelho. Perder um
+número de telemetria é barato; perder a partida não é. ⚠️ `bool` é `int` em
+Python, e é recusado explicitamente: `"qt_usos_poder": true` viraria "um uso" em
+silêncio.
+
+⛔ **A `0017` está ESCRITA e NÃO APLICADA**, à espera do OK do dono. Ordem de
+deploy: **migração em `des` → conferir → `prd` → backend com o ingestor novo →
+só então o app às lojas.** Antes de qualquer `alembic upgrade`, rodar
+`scripts/identificar_banco.py` — o `AMBIENTE` do `.env` não é prova.
+
+---
+
 ## 2026-08-27 — Diagnóstico de campo: um endpoint novo, e não o `js_extra`
 
 **Contexto.** Desde 25/08 o app esconde o nível **Sagaz** das damas quando o

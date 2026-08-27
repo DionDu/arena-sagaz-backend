@@ -54,6 +54,13 @@ _CAMPOS_GENERICOS_DA_JOGADA = frozenset(
         "nu_timer_ms",
         "nu_tempo_decisao_ms",
         "co_origem_decisao",
+        # O poder "voltar jogada" (T203). ⚠️ Sao GENERICOS, e nao das damas: o
+        # poder nasceu em `lib/core/poderes/` e vale para qualquer jogo do hub.
+        # Uma jogada desfeita e uma jogada desfeita em qualquer tabuleiro.
+        "nu_lance",
+        "ic_cancelada",
+        "co_poder",
+        "dh_cancelamento",
     }
 )
 
@@ -85,6 +92,10 @@ _CAMPOS_GENERICOS_DA_PARTIDA = frozenset(
         "dh_fim",
         "nu_offset_minuto_j1",
         "nu_offset_minuto_j2",
+        # Quantos USOS de poder houve na partida (T204). ⚠️ So chega quando e
+        # maior que zero: o app o omite no caso comum, para o payload dos jogos
+        # sem poder continuar byte a byte igual ao que ja esta em campo.
+        "qt_usos_poder",
         # Campo de app antigo: a coluna sumiu na migracao 0007 e o valor e
         # ignorado, mas ele ainda chega. Listar aqui evita um warning inutil a
         # cada partida de quem nao atualizou.
@@ -193,6 +204,33 @@ def _offset(valor: Any) -> int | None:
     return valor if -840 <= valor <= 840 else None
 
 
+def _inteiro_nao_negativo(valor: Any, *, teto: int = 999) -> int:
+    """Sanitiza uma CONTAGEM que vem do cliente (hoje: ``qt_usos_poder``).
+
+    Devolve ``0`` para qualquer coisa que nao seja um inteiro dentro de
+    ``0..teto`` — inclusive ``None``, que e o caso comum: o app so envia a chave
+    quando ela e maior que zero, para o payload dos jogos sem poder continuar
+    identico ao que ja esta em campo.
+
+    ⚠️ **Por que sanitizar em vez de confiar.** A coluna e ``SMALLINT NOT NULL``
+    com ``CHECK (qt_usos_poder >= 0)``. Um valor podre do cliente — negativo, uma
+    string, um numero absurdo — estouraria o CHECK ou o tipo e derrubaria a
+    **partida inteira** com 500; e a partida da pessoa ficaria presa para sempre
+    na fila de sincronizacao daquele aparelho. E a mesma assimetria da decisao
+    V-5, e a mesma escolha de :func:`_offset`: perder um numero de telemetria e
+    barato, perder a partida nao e.
+
+    ⚠️ ``bool`` e ``int`` em Python (``True == 1``), e por isso ele e recusado
+    explicitamente: ``"qt_usos_poder": true`` viraria "um uso" em silencio.
+
+    O teto de 999 nao e uma regra de jogo — os limites por personagem vivem no
+    Remote Config e mudam sem migracao. Ele so barra o absurdo.
+    """
+    if isinstance(valor, bool) or not isinstance(valor, int):
+        return 0
+    return valor if 0 <= valor <= teto else 0
+
+
 def calcular_sequencia_de_dias(dias: list[date]) -> int:
     """Calcula a "chama" (sequência) a partir da lista de **dias LOCAIS distintos**
     em que o jogador jogou, em ordem CRESCENTE.
@@ -286,13 +324,15 @@ class RepositorioSincronizacao:
               (id_partida, co_evento, co_jogo, co_variante, co_modo, id_usuario,
                id_usuario_j2, co_dificuldade, nu_placar_j1,
                nu_placar_j2, ic_pontua, co_status, co_lote_migracao,
-               dh_inicio, dh_fim, nu_offset_minuto_j1, nu_offset_minuto_j2)
+               dh_inicio, dh_fim, nu_offset_minuto_j1, nu_offset_minuto_j2,
+               qt_usos_poder)
             VALUES
               (:id_partida, :co_evento, :co_jogo, :co_variante, :co_modo,
                :id_usuario, :id_usuario_j2, :co_dificuldade,
                :nu_placar_j1, :nu_placar_j2, :ic_pontua, :co_status,
                :co_lote_migracao, :dh_inicio, :dh_fim,
-               :nu_offset_minuto_j1, :nu_offset_minuto_j2)
+               :nu_offset_minuto_j1, :nu_offset_minuto_j2,
+               :qt_usos_poder)
             ON CONFLICT (co_evento) DO NOTHING
             RETURNING id_partida
             """
@@ -324,6 +364,18 @@ class RepositorioSincronizacao:
                 # "às 21h da noite do jogador".
                 "nu_offset_minuto_j1": _offset(partida.get("nu_offset_minuto_j1")),
                 "nu_offset_minuto_j2": _offset(partida.get("nu_offset_minuto_j2")),
+                # Quantos USOS de poder houve nesta partida (T204).
+                #
+                # ⚠️ **`0` no default, e nao `None`.** A coluna e `NOT NULL
+                # DEFAULT 0`, e a ausencia da chave significa exatamente zero: o
+                # app que nao a envia e o app que nao tem o recurso. E `0` e o
+                # que faz `qt_usos_poder = 0` ser um filtro utilizavel para a
+                # reputacao do Magno (T208) sem `COALESCE` em toda consulta.
+                #
+                # ⚠️ **Conta USOS, e nao jogadas canceladas** — um uso de
+                # "voltar jogada" desfaz duas jogadas, e um poder futuro pode nao
+                # desfazer nenhuma.
+                "qt_usos_poder": _inteiro_nao_negativo(partida.get("qt_usos_poder")),
             },
         )
         if resultado.first() is None:
@@ -374,10 +426,12 @@ class RepositorioSincronizacao:
                 """
                 INSERT INTO partida.tb002_jogada
                   (id_jogada, id_partida, nu_ordem, nu_jogador, dh_jogada,
-                   nu_timer_ms, nu_tempo_decisao_ms, nu_origem_decisao)
+                   nu_timer_ms, nu_tempo_decisao_ms, nu_origem_decisao,
+                   nu_lance, ic_cancelada, co_poder, dh_cancelamento)
                 VALUES
                   (:id_jogada, :id_partida, :nu_ordem, :nu_jogador, :dh_jogada,
-                   :nu_timer_ms, :nu_tempo_decisao_ms, :nu_origem_decisao)
+                   :nu_timer_ms, :nu_tempo_decisao_ms, :nu_origem_decisao,
+                   :nu_lance, :ic_cancelada, :co_poder, :dh_cancelamento)
                 """
             ),
             {
@@ -389,6 +443,28 @@ class RepositorioSincronizacao:
                 "nu_timer_ms": jogada.get("nu_timer_ms"),
                 "nu_tempo_decisao_ms": jogada.get("nu_tempo_decisao_ms", 0),
                 "nu_origem_decisao": nu_origem,
+                # ── O poder "voltar jogada" (T203) ─────────────────────────
+                #
+                # ⚠️ **`nu_lance` NAO e `nu_ordem`, e a coluna fica NULA quando o
+                # app nao a manda.** `nu_ordem` e sequencia continua de EVENTOS
+                # (nunca recua, nunca repete — a tabela tem `UNIQUE (id_partida,
+                # nu_ordem)`); `nu_lance` e o numero do lance no TABULEIRO, que
+                # recua junto com o desfazer. Nos jogos sem poder os dois sao
+                # iguais, e a view entrega `COALESCE(nu_lance, nu_ordem)` pronto
+                # em `nu_lance_efetivo`.
+                #
+                # Preencher aqui com `nu_ordem` seria tentador e errado: passaria
+                # a afirmar que o app **disse** qual era o lance, quando ele nao
+                # disse — e no dia em que um jogo enviasse os dois diferentes
+                # ninguem saberia distinguir o valor real do inventado.
+                "nu_lance": jogada.get("nu_lance"),
+                # As tres do cancelamento chegam JUNTAS ou nenhuma — o app tem o
+                # mesmo `assert`, e a tabela tem o CHECK
+                # `ck_jogada_cancelamento_completo`. Aqui o default e o caso
+                # comum: a jogada nao foi desfeita.
+                "ic_cancelada": bool(jogada.get("ic_cancelada", False)),
+                "co_poder": jogada.get("co_poder"),
+                "dh_cancelamento": _dt(jogada.get("dh_cancelamento")),
             },
         )
         # Extensão específica do JOGO (1:1), quando presente no payload.
@@ -678,14 +754,16 @@ class RepositorioSincronizacao:
                    co_tipo_peca_inicio, qt_nos_visitados,
                    nu_profundidade_atingida, nu_motivo_parada_busca,
                    nu_tempo_busca_ms, nu_avaliacao_brancas, nu_semente,
-                   co_motor_busca, js_extra)
+                   co_motor_busca, qt_consultas_base, qt_acertos_base,
+                   js_extra)
                 VALUES
                   (:id_jogada, :co_jogador, :co_lance, :co_fen_antes,
                    :qt_captura_pedra, :qt_captura_dama, :ic_promoveu,
                    :co_tipo_peca_inicio, :qt_nos_visitados,
                    :nu_profundidade_atingida, :nu_motivo_parada_busca,
                    :nu_tempo_busca_ms, :nu_avaliacao_brancas, :nu_semente,
-                   :co_motor_busca, :js_extra)
+                   :co_motor_busca, :qt_consultas_base, :qt_acertos_base,
+                   :js_extra)
                 """
             ),
             {
@@ -724,6 +802,19 @@ class RepositorioSincronizacao:
                 # Sem ela o replay nao reproduz — e e justamente nos niveis que
                 # ERRAM DE PROPOSITO que a semente decide o resultado.
                 "nu_semente": damas.get("nu_semente"),
+                # O *probing* da base de finais: quantas vezes a busca perguntou
+                # a base neste lance, e quantas dessas perguntas tiveram
+                # resposta. E a RAZAO entre os dois que diz se consultar durante
+                # a busca se paga.
+                #
+                # ⚠️ **Sem default, e `None` nao e `0`.** `None` = "nao houve
+                # busca" (lance do humano, lance unico, lance vindo pronto da
+                # base); `0` = "houve busca e ela nao consultou uma vez sequer",
+                # que e o estado normal com o probing desligado. Um `.get(..., 0)`
+                # aqui apagaria a distincao e faria toda media incluir lances em
+                # que busca nenhuma aconteceu.
+                "qt_consultas_base": damas.get("qt_consultas_base"),
+                "qt_acertos_base": damas.get("qt_acertos_base"),
                 "js_extra": json.dumps(js_extra) if js_extra is not None else None,
             },
         )
