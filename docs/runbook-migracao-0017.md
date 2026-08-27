@@ -71,7 +71,15 @@ diagnosticou.
 inofensivo** — significa um banco que ninguém catalogou. O script trata esse caso
 como PARE, igual ao PRD.
 
-**Em 28/08/2026 o `.env` apontava para o DES**, revisão `0016`, 92 contas.
+⚠️ **Rode-o também antes de CONSULTAR, e não só antes de migrar.** O `.env` é
+um arquivo que muda: basta alguém apontá-lo para o PRD para conferir uma coisa e
+esquecer de devolver. Em 28/08/2026 isso aconteceu no meio de uma sessão, e
+medidas do PRD foram anotadas como sendo do DES. Eram leituras, e o estrago foi
+um número errado num documento - mas a próxima pode não ser leitura.
+
+⚠️ **Depois de apontar para o PRD, DEVOLVA o `.env` para o DES.** Deixá-lo
+apontando para produção é como deixar a chave na porta: o próximo comando que
+você rodar sem pensar rodará lá.
 
 ---
 
@@ -140,9 +148,20 @@ SELECT column_name
 
 ## 3. A migração no **PRD**
 
-> ✅ **DES migrado em 28/08/2026.** `0016 -> 0017` em segundos, sobre
-> **134.247 linhas** em `partida.tb002_jogada` e 4.849 em `tb001_partida`.
+> ✅ **DES migrado em 28/08/2026.** `0016 -> 0017` em segundos.
 > `alembic current` = `0017_poder_e_probing_base (head)`.
+> O DES tem **333 partidas / 6.791 jogadas**.
+>
+> 📏 **O PRD tem 4.849 partidas e 134.247 jogadas** (medido em 28/08). É sobre
+> esse tamanho que os `ADD CONSTRAINT CHECK` da `0017` vão varrer - e 134 mil
+> linhas é uma varredura de milissegundos. Não é preciso `NOT VALID`.
+>
+> ⚠️ **Erro de leitura que já aconteceu, em 28/08:** essas 134 mil linhas foram
+> medidas achando que eram do DES, porque o `.env` havia sido apontado para o
+> PRD entre uma execução e outra e ninguém rodou o `identificar_banco.py` de
+> novo. Foram só `SELECT`s - nada foi escrito -, mas é exatamente o engano que o
+> script existe para impedir. **Rode-o antes de cada sessão de consultas, e não
+> só antes de migrar.**
 
 ### ⚠️ O PRD estava em `0011` — lá são SEIS migrações, não uma
 
