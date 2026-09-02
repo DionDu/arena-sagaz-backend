@@ -46,6 +46,38 @@ async def usuario_atual(
     return await verificador.verificar(token)
 
 
+async def usuario_atual_opcional(
+    authorization: Optional[str] = Header(default=None),
+) -> Optional[IdentidadeFirebase]:
+    """Como [usuario_atual], mas **nao obriga** login.
+
+    Devolve a identidade quando ha um token valido, ou `None` quando nao ha
+    token, o token e vazio ou o token e invalido — os tres casos sao "sessao de
+    convidado", e nenhum deles e erro.
+
+    ⚠️ **Por que um token INVALIDO vira `None` e nao 401.** Quem chama isto sao
+    endpoints que aceitam convidado; devolver 401 ali transformaria um token
+    expirado (coisa rotineira) numa falha de funcionalidade que nada tem a ver
+    com identidade. O endpoint faz o seu trabalho e apenas nao sabe de quem e.
+
+    ⚠️ **Ela morava em `api/notificacoes/rotas.py`** ate 27/08/2026, e subiu para
+    ca quando o segundo endpoint sem login apareceu (o diagnostico do motor
+    nativo). Copiar seria a armadilha que o projeto ja pagou caro: duas funcoes
+    que nascem iguais divergem, e o dia em que divergirem ninguem percebe.
+    `api.notificacoes.rotas` reexporta o **mesmo objeto**, entao os
+    `dependency_overrides` dos testes de notificacoes continuam valendo.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization[7:].strip()
+    if not token:
+        return None
+    try:
+        return await obter_verificador().verificar(token)
+    except ErroNaoAutorizado:
+        return None  # token invalido → trata como convidado
+
+
 @dataclass(frozen=True)
 class ContextoRequisicao:
     """Dados de contexto extraídos dos cabeçalhos obrigatórios da requisição."""

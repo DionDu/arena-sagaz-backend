@@ -63,6 +63,90 @@ def test_broadcast_com_token_valido_200(client):
     assert registro[0][3] == "todos"
 
 
+def test_broadcast_por_idioma_vai_para_o_topico_do_idioma(client):
+    """Com `idioma`, o destino é `todos_<idioma>` — e só quem lê o app naquele
+    idioma recebe.
+
+    É o que permite avisar nos três idiomas com o texto certo em cada um: são
+    três chamadas, uma por idioma. Quem faz a inscrição do aparelho no tópico é
+    o app (`lib/core/notificacoes/topico_de_idioma.dart`), desde 02/09/2026.
+    """
+    registro: list = []
+    _usar_enviador_fake(registro)
+
+    r = client.post(
+        "/v1/notificacoes/broadcast",
+        headers={"X-Admin-Token": SEGREDO},
+        json={
+            "titulo": "New game!",
+            "corpo": "Checkers is here.",
+            "idioma": "en",
+        },
+    )
+
+    assert r.status_code == 200
+    # A resposta diz para onde foi — o operador confere sem olhar log.
+    assert r.json()["topico"] == "todos_en"
+    assert registro[0][3] == "todos_en"
+
+
+def test_broadcast_sem_idioma_continua_indo_para_todos(client):
+    """O campo é opcional: quem não o manda continua atingindo o app inteiro.
+
+    ⚠️ Isto não é detalhe de compatibilidade — é o comportamento que se quer
+    para o aviso que não depende de idioma (uma manutenção, por exemplo).
+    """
+    registro: list = []
+    _usar_enviador_fake(registro)
+
+    r = client.post(
+        "/v1/notificacoes/broadcast",
+        headers={"X-Admin-Token": SEGREDO},
+        json={"titulo": "x", "corpo": "y"},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["topico"] == "todos"
+
+
+def test_broadcast_idioma_desconhecido_422(client):
+    """Idioma fora dos três é recusado, e não enviado.
+
+    ⚠️ É o caso que justifica o `Literal` no modelo. Um `str` livre aceitaria
+    `"pr"` e mandaria para `todos_pr` — o FCM devolveria sucesso com um id de
+    mensagem, e a notificação não chegaria a ninguém. Falha silenciosa perfeita.
+    """
+    registro: list = []
+    _usar_enviador_fake(registro)
+
+    r = client.post(
+        "/v1/notificacoes/broadcast",
+        headers={"X-Admin-Token": SEGREDO},
+        json={"titulo": "x", "corpo": "y", "idioma": "pr"},
+    )
+
+    assert r.status_code == 422
+    assert registro == [], "nada pode ter sido enviado"
+
+
+def test_topicos_de_idioma_batem_com_os_do_app():
+    """Os nomes têm de ser os mesmos dos dois lados.
+
+    Do lado do app, `topico_de_idioma.dart` monta `todos_<código>` a partir do
+    `supportedLocales`. Aqui a lista é escrita; se as duas se separarem, o envio
+    vai para um tópico sem inscritos e ninguém recebe nada — com sucesso no
+    retorno.
+    """
+    from api.notificacoes.servico import IDIOMAS_COM_TOPICO, topico_do_idioma
+
+    assert set(IDIOMAS_COM_TOPICO) == {"pt", "en", "es"}
+    assert [topico_do_idioma(i) for i in IDIOMAS_COM_TOPICO] == [
+        "todos_pt",
+        "todos_en",
+        "todos_es",
+    ]
+
+
 def test_broadcast_sem_token_401(client):
     _usar_enviador_fake([])
     r = client.post(

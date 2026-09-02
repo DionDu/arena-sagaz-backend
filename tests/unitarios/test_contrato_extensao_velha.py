@@ -162,12 +162,28 @@ class TestC3AppNovoBackendAntigo:
 
         O `warning` e o unico sinal de que ha um app em campo mais novo que este
         backend, e de que falta o ingestor daquele jogo.
+
+        ⚠️ **O CANARIO MORREU EM 20/08/2026, E FOI TROCADO — 2a vez do projeto.**
+        Este caso usava `damas` como o jogo desconhecido. No dia em que a
+        migracao 0012 entrou, as damas viraram extensao CONHECIDA, e o caso
+        passou a falhar — corretamente, porque ele deixara de testar o que dizia
+        testar.
+
+        O jogo desconhecido agora e `xadrez`, que nao existe em lugar nenhum. **E
+        ele tera de ser trocado de novo** no dia em que o xadrez entrar. Isso nao
+        e defeito do teste: e o preco de guardar a tolerancia ao DESCONHECIDO
+        usando um exemplo concreto — e o preco vale, porque a alternativa (nao
+        testar) e o modo de falha que este backend nao pode ter.
+
+        A mesma armadilha ja tinha custado caro no frontend, em
+        `conquista_desconhecida_app_antigo_test.dart`, e la o canario tambem
+        morreu duas vezes.
         """
         with caplog.at_level(logging.WARNING):
-            _avisar_extensao_desconhecida(_jogada(damas={"co_casa": "D_3_4"}))
+            _avisar_extensao_desconhecida(_jogada(xadrez={"co_casa": "e4"}))
         # `getMessage()` aplica os args ao formato; `r.message % r.args` faria
         # a interpolacao duas vezes e estouraria.
-        assert any("damas" in r.getMessage() for r in caplog.records)
+        assert any("xadrez" in r.getMessage() for r in caplog.records)
 
     def test_as_extensoes_CONHECIDAS_nao_geram_aviso(self, caplog):
         with caplog.at_level(logging.WARNING):
@@ -186,8 +202,14 @@ class TestC3AppNovoBackendAntigo:
             _avisar_extensao_desconhecida(_jogada(nu_campo_futuro=7))
         assert not caplog.records
 
-    def test_as_duas_extensoes_conhecidas_estao_declaradas(self):
-        assert _EXTENSOES_CONHECIDAS == {"pontinhos", "velha"}
+    def test_as_extensoes_conhecidas_estao_declaradas(self):
+        """As tres que este backend sabe gravar hoje.
+
+        ⚠️ Chamava-se `test_as_DUAS_extensoes...` ate 20/08/2026. O numero saiu
+        do nome de proposito: um nome que conta itens envelhece a cada jogo novo,
+        e renomear um teste a cada release perde o historico dele no CI.
+        """
+        assert _EXTENSOES_CONHECIDAS == {"pontinhos", "velha", "damas"}
 
 
 class TestC4CodigoDeAcaoDesconhecido:

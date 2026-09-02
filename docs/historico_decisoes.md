@@ -21,6 +21,388 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-02 — O broadcast passa a ter destino por idioma (`todos_pt` · `todos_en` · `todos_es`)
+
+**Contexto.** O broadcast sempre foi **um tópico só** (`todos`): o servidor manda
+uma mensagem, o FCM entrega a todos os inscritos, e não guardamos token de
+aparelho no banco. O preço disso é que **todo aviso saía num idioma só** — o
+mesmo texto para quem lê o app em português, inglês ou espanhol. O dono pediu a
+separação para poder avisar cada pessoa no idioma dela.
+
+**Decisão.** Três tópicos novos, um por idioma suportado, **somados** ao `todos`:
+
+* o **app** inscreve o aparelho em `todos_<idioma>` e o **desinscreve dos
+  outros** (`lib/core/notificacoes/topico_de_idioma.dart`);
+* o `POST /v1/notificacoes/broadcast` ganhou o campo opcional
+  `idioma: "pt" | "en" | "es"`. Com ele, o destino é `todos_<idioma>`; **sem
+  ele, nada muda** — vai para `todos`, como sempre foi.
+
+Avisar nos três idiomas são **três chamadas**, cada uma com o seu texto. Não
+existe envio "em três idiomas de uma vez": o FCM entrega o texto que recebe.
+
+**Alternativas consideradas.**
+
+1. **Guardar o idioma no banco e enviar por token** (`log.tb00x_dispositivo` já
+   tem `co_idioma`). Descartada: exigiria iterar tokens, tratar token expirado e
+   paginar o envio — trabalho de infraestrutura para resolver o que um tópico
+   resolve de graça. O `co_idioma` continua útil para **relatório**, não para
+   entrega.
+2. **Mandar os três textos numa mensagem só**, com o app escolhendo. Descartada:
+   o texto viajaria três vezes maior para todo mundo, e a escolha ficaria no
+   cliente — versões antigas do app em campo mostrariam o idioma errado para
+   sempre.
+3. **`idioma: str` livre.** Descartada em favor de
+   `Literal["pt","en","es"]`: com `str`, um `"pr"` digitado errado viraria um
+   envio para `todos_pr` — e o FCM **devolve sucesso e um id de mensagem** para
+   tópico sem inscritos. A falha seria perfeita: ninguém recebe, e o log diz que
+   deu certo. Com `Literal`, é `422` com a lista dos aceitos.
+
+**⚠️ O que descobrimos no caminho, e valia mais que a tarefa.** O app mandava
+`co_idioma` no registro do dispositivo como
+`locale?.languageCode ?? 'pt'`. O `locale` é **nulo** em "seguir o sistema", que
+é o padrão de quem nunca abriu os Ajustes — então **toda essa gente estava
+gravada como falante de português**, inclusive quem via o app em inglês. Os
+dados de `co_idioma` anteriores a 02/09/2026 estão enviesados para `pt` e não
+servem para dimensionar público por idioma. Corrigido no app
+(`lib/core/i18n/idioma_efetivo.dart`); o banco se corrige sozinho conforme os
+aparelhos reabrem o app e reenviam o registro.
+
+---
+
+## 2026-08-27 — O poder "voltar jogada" mora em `partida`, e não em `jogo_damas`
+
+**Contexto.** O app ganhou o poder **voltar jogada**: a pessoa assiste a um
+anúncio premiado e desfaz o próprio lance mais a resposta do personagem. Ele
+estreia nas damas, mas nasceu em `lib/core/poderes/` — a tela de qualquer jogo do
+hub pode chamá-lo. O log precisa registrar que aquilo aconteceu; se não
+registrar, a partida sobe como se a pessoa tivesse acertado de primeira.
+
+**Decisão.** As quatro colunas do cancelamento (`nu_lance`, `ic_cancelada`,
+`co_poder`, `dh_cancelamento`) entram em **`partida.tb002_jogada`**, e
+`qt_usos_poder` em **`partida.tb001_partida`** — as tabelas **genéricas**.
+Migração `0017_poder_e_probing_base.py`.
+
+**Alternativa considerada e descartada:** `jogo_damas.tb004_retorno`, uma tabela
+de eventos de retorno com o par `(nu_ordem_apos, nu_ordem_alvo)`. Ela estava
+esboçada no `data-model.md` §7.1 da spec 008 desde 15/08, e caiu por dois
+motivos que só apareceram quando a feature foi escrita:
+
+1. **O poder não é das damas.** Uma tabela em `jogo_damas` obrigaria a copiá-la
+   para `jogo_velha` e `jogo_pontinhos` no dia em que o dono ligasse o poder
+   neles — e a escrever a consulta de reputação três vezes. É a armadilha que o
+   frontend já pagou caro três vezes (*"tela igual em dois jogos é UM widget,
+   não dois parecidos"*), aparecendo agora no banco.
+2. **A pergunta que se faz ao log é por LINHA**: *"esta jogada valeu?"*.
+   Respondê-la a partir de uma tabela de retornos exige reconstruir a sequência
+   inteira; uma marca na própria jogada responde direto.
+
+### ⚠️ `nu_ordem` e `nu_lance` são dois números, e confundi-los é o erro mais provável de quem mexer nisto depois
+
+`nu_ordem` é **sequência contínua de eventos**: nunca recua, nunca se repete —
+`partida.tb002_jogada` tem `UNIQUE (id_partida, nu_ordem)` desde a `0003`, e
+reaproveitar o número quebraria a chave. Mexer nessa constraint seria alterar uma
+tabela **já publicada**, contra a regra aditiva que vale desde a `0011`.
+
+`nu_lance` é o número do lance **no tabuleiro**, e recua com o desfazer:
+
+```
+nu_ordem  |  1 2 3 4 5 6   7    8    9  10
+nu_lance  |  1 2 3 4 5 6   7    8    7   8
+cancelada |  . . . . . .   X    X    .   .
+```
+
+`nu_lance` é **anulável e sem backfill**: o Pontinhos e a velha não o informam
+(não têm poder, então lá `nu_lance` **é** `nu_ordem`), e o app só o envia quando
+o jogo o preenche — é isso que mantém o payload dos dois jogos publicados byte a
+byte idêntico ao que já está em campo. A leitura correta é
+`COALESCE(nu_lance, nu_ordem)`, e a VIEW `partida.vw002_jogada` já a entrega
+pronta em `nu_lance_efetivo`, para ninguém precisar lembrar.
+
+**Um `UPDATE ... SET nu_lance = nu_ordem` foi considerado e recusado** — pelo
+mesmo argumento com que a `0014` recusou consertar 25 linhas de teste no `des`:
+custaria pôr `UPDATE` na lista de comandos permitidos do cadeado, e um `UPDATE`
+mal escrito destrói dado tão bem quanto um `DELETE`.
+
+### A linha cancelada não é apagada
+
+O log é *append-only*, e a jogada desfeita **aconteceu**: a pessoa a viu no
+tabuleiro, o personagem respondeu a ela, o relógio andou. Apagar esconderia
+justamente o que a reputação do Magno precisa enxergar, e tornaria impossível
+saber se o poder está sendo usado para consertar um deslize ou para procurar o
+lance certo por tentativa e erro.
+
+**Consequência para toda consulta já escrita:** contar lances passa a ser
+`WHERE NOT ic_cancelada`. A coluna nasce `NOT NULL DEFAULT FALSE`, então nenhuma
+consulta antiga muda de resultado hoje — mas é dívida, e ela tem dono (**T208**).
+
+### O XP e a reputação foram decididos, e são coisas diferentes
+
+Do dono, em 27/08/2026:
+
+- **XP: igual com e sem poder.** *"O poder existe para a pessoa continuar
+  jogando, e cortar o XP dela puniria exatamente o comportamento que se quer."*
+- **Reputação: só sem poder.** *"Conta como vitória. Mas não leva a conquista SEM
+  USO DE PODER. A reputação do Magno passa a ser contada pelas vitórias sem uso
+  de poder pelo humano."*
+
+Daí `qt_usos_poder` na partida, e o índice parcial `ix_partida_sem_poder` sobre
+`(co_jogo, co_dificuldade) WHERE qt_usos_poder = 0` — o filtro exato dessa
+consulta. Derivar de `EXISTS (SELECT 1 FROM tb002_jogada WHERE ic_cancelada)`
+funcionaria, e rodaria uma subconsulta por partida em todo levantamento.
+
+⚠️ **A coluna conta USOS, e não jogadas canceladas.** Um uso de "voltar jogada"
+desfaz **duas** jogadas; um poder futuro (uma dica) pode não desfazer nenhuma.
+Contar linhas canceladas responderia outra pergunta, e responderia errado no dia
+em que o segundo poder chegar.
+
+⚠️ **Uma coluna, e não duas.** Um `ic_com_poder` ao lado seria `qt_usos_poder >
+0` escrito de novo. Duas verdades sobre o mesmo fato divergem no dia em que
+alguém atualizar só uma — e a VIEW já entrega o booleano derivado de graça.
+
+### `co_poder` é `VARCHAR` com `CHECK`, e não dimensão
+
+Mesma escolha, e pelo mesmo motivo, do `co_motor_busca` na `0013` e do
+`co_motivo` na `0016`: pouquíssimos valores fechados, e uma dimensão custaria um
+JOIN em toda consulta para não entregar nada. Se um dia a lista crescer ou
+precisar de rótulo traduzido, o CHECK vira dimensão — e aí o JOIN se paga.
+
+Consequência: **nenhum sentinela `9999` novo**. Ele existe para o caso de um app
+mais novo mandar um código que a dimensão ainda não conhece — sem ele a FK
+estoura, o endpoint devolve 500, e o evento fica preso para sempre na fila do
+aparelho. Com um `CHECK`, esse risco não se aplica.
+
+---
+
+## 2026-08-27 (2) — O *probing* da base de finais: dois contadores, e `NULL` ≠ `0`
+
+**Contexto.** A base de finais entrou na busca dos dois motores em 27/08/2026
+(Dart 1.4.0, Rust 0.4.0). Perguntar à base **custa**: é um acesso a arquivo no
+disco, no meio da árvore. Os dois números já chegavam à tela desde então
+(`RespostaDaBuscaDamas`); não havia onde gravá-los.
+
+**Decisão.** `qt_consultas_base` e `qt_acertos_base` em
+`jogo_damas.tb002_jogada`, na mesma migração `0017` — por pedido explícito do
+dono: *"Lembre-se que aqueles 2 campos de quantidade de busca de base devem
+entrar juntos nestas tarefas."*
+
+**São dois, e não um**, porque é a **razão** entre eles que diz se o probing se
+paga: muitas consultas com poucos acertos significa que a árvore quase nunca
+alcança finais de 4 peças naquele tipo de partida, e aí o esforço custa mais do
+que rende. Com um número só, esse diagnóstico não existe.
+
+⚠️ **`NULL` não é `0`.** `NULL` = *"não houve busca"* (lance do humano, lance
+único, lance que veio pronto da base); `0` = *"houve busca e ela não consultou
+uma vez sequer"* — o estado normal com o probing desligado, e o sintoma a
+investigar com ele ligado. O ingestor **não** tem `.get(..., 0)` nesses dois
+campos, de propósito: colapsá-los repetiria, numa coluna nova, o defeito que
+custou caro na T197 — a telemetria que responde `0` onde a verdade é "não sei".
+
+⚠️ **Um lance vindo da base NÃO grava `1`/`1`.** É o erro tentador — a base
+respondeu, afinal. Mas ela respondeu na **raiz**, antes de qualquer nó, e estes
+dois contam o probing **dentro** da árvore. Marcar 1/1 faria a razão incluir
+lances de 100% de acerto em que busca nenhuma houve. O motivo de parada já diz de
+onde o lance veio: `6 = base_finais`.
+
+⚠️ **Não há motivo de parada novo.** O `tasks.md` da spec 008 falava em
+`7 = decidido_por_base`; conferido no motor, **ele não existe** — o probing não
+encerra a busca.
+
+### O que a `0017` obrigou a aprender sobre VIEWs
+
+`partida.vw001_partida` e `partida.vw002_jogada` foram criadas com `SELECT p.*`,
+e o PostgreSQL expande o `*` no momento da criação. Sem recriá-las, as colunas
+novas existiriam na tabela e seriam **invisíveis** para quem lê pela VIEW — que é
+como o projeto manda ler. Nenhum erro, nenhuma falha: só a coluna nunca
+aparecendo, e alguém concluindo meses depois que "o app não está gravando".
+
+E o conserto é `DROP VIEW` + `CREATE VIEW`, e não `CREATE OR REPLACE`: as duas
+terminam numa coluna **derivada** (`co_resultado`, `ic_cpu`), e as colunas novas
+do `p.*` entrariam **antes** dela — `CREATE OR REPLACE VIEW` só aceita
+acrescentar ao fim. É a exceção que a `0014` abriu, e é segura: VIEW não guarda
+dado, e o DDL do Postgres é transacional.
+
+⚠️ **E os `DROP VIEW` vêm ANTES dos `ALTER TABLE`.** `test_migracoes_aditivas.py`
+procura `ALTER TABLE …DROP` com `re.DOTALL`, então qualquer `DROP` **depois** de
+um `ALTER TABLE` no mesmo `upgrade()` é recusado — mesmo sendo um `DROP VIEW`
+legítimo. O cadeado pegou a primeira versão do arquivo; a `0014` já usava essa
+ordem.
+
+⚠️ **`qt_usos_poder` é sanitizado no ingestor** (`_inteiro_nao_negativo`), pela
+mesma assimetria da decisão V-5 e a mesma escolha que `_offset` já fazia: um
+valor podre do cliente estouraria o `CHECK` ou o `SMALLINT`, a partida voltaria
+500, e o evento ficaria preso para sempre na fila daquele aparelho. Perder um
+número de telemetria é barato; perder a partida não é. ⚠️ `bool` é `int` em
+Python, e é recusado explicitamente: `"qt_usos_poder": true` viraria "um uso" em
+silêncio.
+
+⛔ **A `0017` está ESCRITA e NÃO APLICADA**, à espera do OK do dono. Ordem de
+deploy: **migração em `des` → conferir → `prd` → backend com o ingestor novo →
+só então o app às lojas.** Antes de qualquer `alembic upgrade`, rodar
+`scripts/identificar_banco.py` — o `AMBIENTE` do `.env` não é prova.
+
+---
+
+## 2026-08-27 — Diagnóstico de campo: um endpoint novo, e não o `js_extra`
+
+**Contexto.** Desde 25/08 o app esconde o nível **Sagaz** das damas quando o
+motor nativo (Rust) não carrega — porque o orçamento daquele nível foi
+dimensionado para ele. A trava funciona. O problema é que ela esconde **em
+silêncio**, que é exatamente o defeito que veio consertar: o Release do iOS
+jogou semanas no motor Dart sem que nada denunciasse.
+
+**Decisão 1: endpoint novo — `POST /v1/diagnosticos/motor-nativo`.** Do dono:
+
+> *"Não vejo sentido em mandar logs de erros no `js_extra` de outras partidas
+> que não têm nada a ver com isso. Vamos criar esse novo endpoint."*
+
+**Descartado: pendurar o aviso no `js_extra` do log de partida.** Era a
+recomendação anterior, por ser aditiva e não pedir migração. O argumento que a
+derrubou é bom: **com a trava ligada, ninguém joga no Sagaz naquele aparelho** —
+o aviso viajaria preso a partidas de outros níveis, misturando dado de
+diagnóstico com dado de jogo, num lugar onde ninguém o procuraria.
+
+**Decisão 2: schema `log`, e `co_jogo` como COLUNA.** "O binário não carregou" é
+problema do **app**, não do jogo. O TFLite do Pontinhos é igualmente nativo e a
+mesma pergunta vale para ele; uma tabela em `jogo_damas` obrigaria a copiar a
+estrutura por jogo. Tabela: `log.tb002_diagnostico_motor_nativo` (migração
+`0016`, aditiva).
+
+**Decisão 3: as cinco regras, e cada uma é um modo de falha real.**
+
+1. **Deduplicar no APP.** Sem isso, um aparelho quebrado relata a cada abertura,
+   para sempre — e a tabela passa a medir *aberturas* em vez de *aparelhos*,
+   respondendo outra pergunta sem que ninguém perceba. A assinatura é
+   jogo + motor + motivo + versão do app + versão do binário encontrada.
+2. **Sem login.** `id_usuario` é nulo-ável e **sem FK**. Uma FK obrigaria login,
+   e o relato mais valioso — o de quem está experimentando o app pela primeira
+   vez — seria o único impossível.
+3. **Nunca lançar nem bloquear.** `202 Accepted`, e o app não trata a resposta.
+4. **Tolerar servidor antigo.** `404`/`501` é silêncio, pela diretriz de
+   versionamento da API.
+5. **Nada de identificador estável de aparelho.** Sem IMEI, sem `androidId`, sem
+   `identifierForVendor`: modelo e ABI bastam para saber qual build refazer e
+   não permitem seguir uma pessoa. ⚠️ **É esta regra que obriga o dedupe a morar
+   no app** — no servidor ele exigiria justamente o identificador proibido.
+
+**O motivo é gravado duas vezes, e não é redundância.** `co_motivo` é a
+categoria (o que se agrupa numa consulta); `de_motivo` é o texto cru (o que diz
+**onde olhar** — o nome do símbolo que faltou, o caminho, a mensagem do
+`dlopen`). Guardar só a categoria perderia o diagnóstico; guardar só o texto
+tornaria impossível contar.
+
+**`co_motivo` é `VARCHAR` com `CHECK`, e não dimensão `tb9xx`** — mesma escolha,
+e pelo mesmo motivo, do `co_motor_busca` na `0013`: cinco valores fechados, e uma
+dimensão custaria um `JOIN` em toda consulta para não entregar nada.
+
+⚠️ **`plataforma_sem_motor` está na lista de motivos e NÃO é defeito.** É o que a
+VM do `flutter test` e qualquer desktop respondem. Existe como categoria própria
+para não cair em `falha_desconhecida` e poluir a contagem do que importa.
+
+**Efeito colateral bom:** `usuario_atual_opcional` subiu de
+`api/notificacoes/rotas.py` para `api/nucleo/dependencias.py`, ao lado da irmã
+obrigatória. Era a segunda rota sem login, e copiá-la seria a armadilha que o
+projeto já pagou caro. `api.notificacoes.rotas` reexporta o **mesmo objeto**, e
+os `dependency_overrides` dos testes de lá continuam valendo sem uma linha de
+mudança.
+
+### ⚠️ Revisao no mesmo dia — quatro correcoes do dono, e uma delas derrubou um argumento meu
+
+**1. `co_jogo` era `VARCHAR(20)` e virou `(30)`.** *"Precisa manter um padrao de
+dados nos campos correlatos."* E `(30)` em `partida.tb001_partida` e nas duas
+tabelas de `log_treino`. Larguras diferentes para a mesma coisa sao a primeira
+rachadura de um JOIN que um dia trunca.
+
+**2. `co_versao_motor` nova — sao TRES versoes, e nao duas.** *"Tem `co_motor`. E
+a versao do motor? O codigo do App tem uma versao esperada e podemos ter outra
+compilada no App?"* Sim: o motor **logico** (`dart_1.3.0`), o **minimo** que ele
+exige do binario (`0.3.0`) e o que o binario **declarou** (`0.2.0`). O `.so`/`.a`
+e compilado por script a parte, entao "Dart novo com binario velho" e um estado
+real — foi o do iOS entre 26 e 27/08/2026.
+
+**3. `de_motivo` era `VARCHAR(300)` e virou `TEXT`.** *"E suficiente para trazer
+todo o stacktrace de um erro?"* **Nao era** — um stacktrace de Dart tem alguns
+milhares de caracteres. No Postgres, `TEXT` e `VARCHAR(n)` tem o mesmo desempenho
+e o mesmo armazenamento. O corte continua no app (4000), onde ele serve para
+alguma coisa: evitar a viagem, e nao a gravacao.
+
+**4. ⚠️ `co_assinatura UNIQUE` — e aqui um argumento meu estava errado.**
+
+*"O que vai garantir ai que um mesmo telefone de 1 usuario nao vai ficar
+alimentando essa tabela indefinidamente com o mesmo registro?"*
+
+Eu havia escrito, em tres lugares, que *"deduplicar no servidor exigiria um
+identificador estavel de aparelho, que a regra 5 proibe"*. **Falso.** Deduplicar
+por **configuracao** — modelo, ABI, SO, versoes, motivo — nao precisa de
+identificador de pessoa nenhum, e e justamente a unidade que se quer contar.
+
+O desenho antigo apostava so no dedupe do app, que vive no `shared_preferences`:
+some numa reinstalacao, some num "limpar dados", e nao e gravado quando o envio
+falha (corretamente). Cada caso desses gerava linha nova.
+
+⚠️ **E o problema nao era volume; era leitura.** Com uma linha por relato, a
+consulta *"quantas configuracoes estao quebradas?"* passa a responder *"quantas
+vezes alguem reinstalou o app num aparelho quebrado"* — outra pergunta, sem que
+nada denuncie a troca.
+
+**Conserto:** `co_assinatura CHAR(64) UNIQUE` (SHA-256 de doze colunas, calculado
+**no servidor**) + `ON CONFLICT DO UPDATE`, com `qt_ocorrencias`, `dh_primeiro` e
+`dh_ultimo`. Um telefone em laco incrementa um contador.
+
+A assinatura **nao** inclui `id_usuario` (a tabela conta configuracoes quebradas,
+nao pessoas) nem `de_motivo` (varia entre execucoes, e faria a garantia sumir em
+silencio). `dh_primeiro` **nao** e atualizado: e ele que diz ha quanto tempo a
+configuracao esta quebrada.
+
+**O que se perde, e e honesto dizer:** nao se sabe quantos aparelhos
+**distintos** sofreram. Isso ja era verdade — sem identificador estavel nao ha
+como contar aparelhos distintos de jeito nenhum.
+
+**5. Descartado: um motivo de parada `base_finais_dentro_busca`.** O
+`co_motivo_parada_busca` responde *"por que a busca parou"*, e um *probing*
+dentro da arvore nao faz a busca parar. O que entra junto com a T185 parte 2b sao
+outras duas coisas: `qt_consultas_base` + `qt_acertos_base` (quantidades, nao
+motivo) e um `7 = decidido_por_base`, que separa *"a busca achou um mate
+forcado"* de *"a resposta estava gravada"*. Nenhum dos dois entra antes de o app
+produzir o dado.
+
+---
+
+## 2026-08-27 (2) — O motivo de parada `6 = base_finais`
+
+**Contexto.** Desde 26/08 o Magno das damas consulta uma **base de finais** antes
+de pensar: em toda posição de até 4 peças a resposta já está gravada no asset,
+com veredito exato e distância até o fim. Esses lances gravam
+`co_motivo_parada_busca = 'base_finais'`, um valor que não existia na dimensão.
+
+**Decisão: `6` na `jogo_damas.tb902_motivo_parada_busca`** (migração `0015`), no
+molde exato do `5 = lance_unico` da `0013`.
+
+⚠️ **Isto nunca quebrou nada.** O sentinela `9999 = desconhecido` existe
+justamente para um app **mais novo** que o backend: o valor caía nele e o texto
+cru ia para o `js_extra`. Foi assim que o `lance_unico` viveu até a `0013`. O que
+se ganha não é integridade — é poder **contar** quantos lances vieram da base.
+
+**Não acrescenta coluna e não mexe em view.** A `0013` precisou refazer a
+`vw002_jogada` porque acrescentava `co_motor_busca` à tabela, e o `SELECT j.*`
+não enxerga coluna criada depois. Aqui o valor entra na **dimensão**, que a view
+já lê pelo `JOIN`.
+
+**Os campos de busca continuam indo a `NULL`, não a zero.** `base_finais` é irmão
+de `lance_unico`: nos dois não houve árvore, nós nem avaliação. Zero em
+`nu_avaliacao_brancas` significaria **posição equilibrada** — afirmação falsa
+sobre uma posição que ninguém olhou. Foi o defeito que a `0013` corrigiu.
+
+⚠️ **`co_motor_busca` fica nulo também.** `dart` e `rust` respondem *"quem
+escolheu"*, e na base ninguém escolheu: a resposta estava gravada. Marcar um dos
+dois inflaria a contagem "lances por motor" justamente nos **finais**, que é onde
+os dois motores mais divergem — num levantamento que existe para compará-los.
+
+**Nada converte os dados já gravados.** Os lances anteriores continuam como
+`desconhecido` com o texto no `js_extra`: o projeto não reescreve histórico
+de log.
+
+---
+
 ## 2026-08-13 — `nu_dias_jogados`: o total de dias vira número DERIVADO, como a chama
 
 **Contexto.** Relato de campo: uma usuária (Android, 1.0.1+3) com **21 dias de

@@ -69,14 +69,24 @@ class PreferenciasResposta(BaseModel):
 class BroadcastRequest(BaseModel):
     """Corpo do `POST /v1/notificacoes/broadcast`.
 
-    - [titulo]/[corpo]: o texto que aparece na notificação (já no idioma desejado
-      por quem dispara — o broadcast é uma mensagem única para todos).
+    - [titulo]/[corpo]: o texto que aparece na notificação, já escrito no idioma
+      de quem vai receber.
+    - [idioma]: `pt`, `en` ou `es` — manda só para quem lê o app naquele idioma
+      (tópico `todos_<idioma>`). **Omitir manda para todo mundo**, como sempre
+      foi, e aí o texto chega igual a quem lê o app em outro idioma.
     - [dados]: pares chave→valor opcionais entregues junto (ex.: uma rota/deep
       link para o app abrir ao tocar). Tudo vira string no FCM.
+
+    ⚠️ Avisar nos três idiomas são TRÊS chamadas, uma por idioma, cada uma com o
+    seu texto. Não há envio "em três idiomas de uma vez": o FCM entrega o texto
+    que recebe, e é o remetente quem sabe traduzi-lo.
     """
 
     titulo: str = Field(min_length=1, max_length=120)
     corpo: str = Field(min_length=1, max_length=500)
+    # `Literal` em vez de `str`: um idioma errado vira 422 com a lista dos
+    # aceitos, em vez de um envio bem-sucedido para um tópico sem ninguém.
+    idioma: Optional[Literal["pt", "en", "es"]] = None
     dados: Optional[dict[str, str]] = None
 
 

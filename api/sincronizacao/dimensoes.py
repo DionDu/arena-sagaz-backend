@@ -58,6 +58,25 @@ _DIMENSOES: dict[str, tuple[str, str, str]] = {
     "situacao": ("jogo_pontinhos.vw902_jogada_situacao", "co_situacao", "nu_situacao"),
     # ---- Jogo da Velha ----
     "acao_velha": ("jogo_velha.vw901_jogada_acao", "co_acao", "nu_acao"),
+    # ---- Jogo das Damas ----
+    #
+    # São DUAS, e elas descrevem coisas de naturezas diferentes:
+    #
+    #  · `regra_recusa_damas` — qual REGRA barrou um gesto do jogador. Mede se o
+    #    jogo está sendo justo com quem joga;
+    #  · `motivo_parada_damas` — por que a BUSCA da CPU parou. Mede se o nível
+    #    prometido é o nível entregue naquele aparelho (um `'tempo'` recorrente
+    #    é diagnóstico de celular lento, e aparece antes de alguém reclamar).
+    "regra_recusa_damas": (
+        "jogo_damas.vw901_regra_recusa",
+        "co_regra",
+        "nu_regra",
+    ),
+    "motivo_parada_damas": (
+        "jogo_damas.vw902_motivo_parada_busca",
+        "co_motivo_parada_busca",
+        "nu_motivo_parada_busca",
+    ),
     # ---- Genéricas (da partida, valem para qualquer jogo) ----
     "origem_decisao": (
         "partida.vw901_jogada_origem_decisao",
