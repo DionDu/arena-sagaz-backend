@@ -28,7 +28,7 @@ from api.notificacoes.servico import ServicoNotificacoes, enviar_fcm_topico
 from api.notificacoes.servico_preferencias import ServicoPreferenciasNotificacao
 from api.nucleo.banco import obter_sessao
 from api.nucleo.dependencias import usuario_atual, usuario_atual_opcional
-from api.nucleo.excecoes import ErroNaoAutorizado
+from api.nucleo.excecoes import ErroNaoAutorizado, ErroNegocio
 from api.nucleo.seguranca_firebase import IdentidadeFirebase, obter_verificador
 
 router = APIRouter()
@@ -87,19 +87,29 @@ async def broadcast(
 ) -> BroadcastResposta:
     """Dispara a notificação e devolve o id da mensagem.
 
-    Sem `idioma` no corpo, vai para o tópico `todos` (todo mundo). Com `idioma`,
-    vai só para quem lê o app naquele idioma (`todos_pt`, `todos_en`,
-    `todos_es`) - é assim que se avisa nos três idiomas, com três chamadas.
+    Sem critério de público, vai para o tópico `todos` (todo mundo). Com um ou
+    mais (`idioma`, `fuso`, `plataforma`, `topicos`), o destino é o cruzamento
+    deles: só recebe quem está em **todos**.
 
-    A resposta traz o tópico atingido, para o operador conferir para onde a
-    mensagem foi de fato.
+    A resposta traz o destino usado — `topico` ou `condicao` —, para o operador
+    conferir para onde a mensagem foi de fato.
     """
-    return servico.enviar_broadcast(
-        titulo=corpo.titulo,
-        corpo=corpo.corpo,
-        dados=corpo.dados,
-        idioma=corpo.idioma,
-    )
+    try:
+        return servico.enviar_broadcast(
+            titulo=corpo.titulo,
+            corpo=corpo.corpo,
+            dados=corpo.dados,
+            idioma=corpo.idioma,
+            fuso=corpo.fuso,
+            plataforma=corpo.plataforma,
+            topicos=corpo.topicos,
+        )
+    except ValueError as erro:
+        # Hoje só o teto de 5 tópicos na condição chega aqui. É pedido inválido
+        # (422), e não falha do servidor: quem dispara consegue corrigir.
+        raise ErroNegocio(
+            str(erro), "broadcast_combinacao_invalida", status_http=422
+        )
 
 
 @router.post("/dispositivo", status_code=200)
