@@ -21,6 +21,54 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-02 — O broadcast passa a ter destino por idioma (`todos_pt` · `todos_en` · `todos_es`)
+
+**Contexto.** O broadcast sempre foi **um tópico só** (`todos`): o servidor manda
+uma mensagem, o FCM entrega a todos os inscritos, e não guardamos token de
+aparelho no banco. O preço disso é que **todo aviso saía num idioma só** — o
+mesmo texto para quem lê o app em português, inglês ou espanhol. O dono pediu a
+separação para poder avisar cada pessoa no idioma dela.
+
+**Decisão.** Três tópicos novos, um por idioma suportado, **somados** ao `todos`:
+
+* o **app** inscreve o aparelho em `todos_<idioma>` e o **desinscreve dos
+  outros** (`lib/core/notificacoes/topico_de_idioma.dart`);
+* o `POST /v1/notificacoes/broadcast` ganhou o campo opcional
+  `idioma: "pt" | "en" | "es"`. Com ele, o destino é `todos_<idioma>`; **sem
+  ele, nada muda** — vai para `todos`, como sempre foi.
+
+Avisar nos três idiomas são **três chamadas**, cada uma com o seu texto. Não
+existe envio "em três idiomas de uma vez": o FCM entrega o texto que recebe.
+
+**Alternativas consideradas.**
+
+1. **Guardar o idioma no banco e enviar por token** (`log.tb00x_dispositivo` já
+   tem `co_idioma`). Descartada: exigiria iterar tokens, tratar token expirado e
+   paginar o envio — trabalho de infraestrutura para resolver o que um tópico
+   resolve de graça. O `co_idioma` continua útil para **relatório**, não para
+   entrega.
+2. **Mandar os três textos numa mensagem só**, com o app escolhendo. Descartada:
+   o texto viajaria três vezes maior para todo mundo, e a escolha ficaria no
+   cliente — versões antigas do app em campo mostrariam o idioma errado para
+   sempre.
+3. **`idioma: str` livre.** Descartada em favor de
+   `Literal["pt","en","es"]`: com `str`, um `"pr"` digitado errado viraria um
+   envio para `todos_pr` — e o FCM **devolve sucesso e um id de mensagem** para
+   tópico sem inscritos. A falha seria perfeita: ninguém recebe, e o log diz que
+   deu certo. Com `Literal`, é `422` com a lista dos aceitos.
+
+**⚠️ O que descobrimos no caminho, e valia mais que a tarefa.** O app mandava
+`co_idioma` no registro do dispositivo como
+`locale?.languageCode ?? 'pt'`. O `locale` é **nulo** em "seguir o sistema", que
+é o padrão de quem nunca abriu os Ajustes — então **toda essa gente estava
+gravada como falante de português**, inclusive quem via o app em inglês. Os
+dados de `co_idioma` anteriores a 02/09/2026 estão enviesados para `pt` e não
+servem para dimensionar público por idioma. Corrigido no app
+(`lib/core/i18n/idioma_efetivo.dart`); o banco se corrige sozinho conforme os
+aparelhos reabrem o app e reenviam o registro.
+
+---
+
 ## 2026-08-27 — O poder "voltar jogada" mora em `partida`, e não em `jogo_damas`
 
 **Contexto.** O app ganhou o poder **voltar jogada**: a pessoa assiste a um

@@ -20,6 +20,32 @@ from api.notificacoes.modelos import BroadcastResposta
 # Tópico em que TODOS os aparelhos se inscrevem (espelha o `topicoTodos` do app).
 TOPICO_TODOS = "todos"
 
+# ── Tópicos POR IDIOMA ────────────────────────────────────────────────────
+#
+# Desde 02/09/2026 cada aparelho também se inscreve num tópico do idioma em que
+# o app está: `todos_pt`, `todos_en`, `todos_es`. Quem faz a inscrição (e a
+# DESinscrição do idioma anterior) é o app, em
+# `lib/core/notificacoes/topico_de_idioma.dart`.
+#
+# Por que existe: o broadcast sempre foi um tópico só, então todo aviso saía num
+# idioma só - o mesmo texto para quem lê o app em português, inglês ou espanhol.
+# Com os tópicos por idioma, avisar em três idiomas é disparar três vezes, cada
+# uma com o seu texto, e continua sem guardar token de aparelho no banco.
+#
+# ⚠️ O nome tem de bater EXATAMENTE com o do app. O FCM não acusa envio para um
+# tópico sem inscritos: a chamada volta com sucesso e um id de mensagem, e a
+# notificação simplesmente não chega a ninguém.
+PREFIXO_TOPICO_IDIOMA = "todos_"
+
+# Os idiomas que o app publica. Espelha o `supportedLocales` do Flutter; um
+# idioma novo entra aqui e no app na mesma mudança.
+IDIOMAS_COM_TOPICO = ("pt", "en", "es")
+
+
+def topico_do_idioma(idioma: str) -> str:
+    """O tópico do [idioma] (`pt` -> `todos_pt`)."""
+    return f"{PREFIXO_TOPICO_IDIOMA}{idioma}"
+
 # Assinatura do "enviador": (titulo, corpo, dados, topico) -> id_da_mensagem.
 EnviadorFcm = Callable[[str, str, Optional[dict[str, str]], str], str]
 
@@ -37,10 +63,17 @@ class ServicoNotificacoes:
         corpo: str,
         dados: Optional[dict[str, str]] = None,
         topico: str = TOPICO_TODOS,
+        idioma: Optional[str] = None,
     ) -> BroadcastResposta:
-        """Envia a mensagem para o [topico] (default: todos) e devolve o id."""
-        id_mensagem = self._enviador(titulo, corpo, dados, topico)
-        return BroadcastResposta(id_mensagem=id_mensagem, topico=topico)
+        """Envia a mensagem e devolve o id.
+
+        Quando [idioma] vem preenchido, o destino é o tópico daquele idioma
+        (`todos_pt`), e só quem lê o app naquele idioma recebe. Sem ele, o
+        destino é [topico] - por padrão, o `todos` de sempre.
+        """
+        destino = topico_do_idioma(idioma) if idioma else topico
+        id_mensagem = self._enviador(titulo, corpo, dados, destino)
+        return BroadcastResposta(id_mensagem=id_mensagem, topico=destino)
 
 
 def enviar_fcm_topico(

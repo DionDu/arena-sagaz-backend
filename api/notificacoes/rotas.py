@@ -85,9 +85,20 @@ async def broadcast(
     _admin: None = Depends(exigir_admin),
     servico: ServicoNotificacoes = Depends(obter_servico_notificacoes),
 ) -> BroadcastResposta:
-    """Dispara a notificação para TODOS (tópico `todos`) e devolve o id da msg."""
+    """Dispara a notificação e devolve o id da mensagem.
+
+    Sem `idioma` no corpo, vai para o tópico `todos` (todo mundo). Com `idioma`,
+    vai só para quem lê o app naquele idioma (`todos_pt`, `todos_en`,
+    `todos_es`) - é assim que se avisa nos três idiomas, com três chamadas.
+
+    A resposta traz o tópico atingido, para o operador conferir para onde a
+    mensagem foi de fato.
+    """
     return servico.enviar_broadcast(
-        titulo=corpo.titulo, corpo=corpo.corpo, dados=corpo.dados
+        titulo=corpo.titulo,
+        corpo=corpo.corpo,
+        dados=corpo.dados,
+        idioma=corpo.idioma,
     )
 
 
