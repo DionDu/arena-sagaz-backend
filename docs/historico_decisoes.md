@@ -21,6 +21,64 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-02 (3) — A reconciliação dos tópicos exclusivos: rastro + faxina
+
+**Contexto.** Horas depois de os tópicos de fuso entrarem, o dono leu a frase
+"o fuso sai só do anterior" e reconheceu um padrão que já custou caro:
+
+> *"fiquei preocupado de só excluir o que ficou salvo no aparelho. Já tivemos
+> muito problema com isso na assinatura dos termos. (…) O que acontece se houver
+> alguma falha na hora de apagar o tópico anterior e cadastrar o novo? Nestas
+> situações de erro teremos o usuário em vários tópicos de fuso e ele poderá
+> receber várias mensagens repetidas."*
+
+Ele estava certo, e o furo é maior que uma falha isolada. Guardando só "o
+anterior": estando em `X` e indo para `Y`, o app inscreve em `Y`, falha ao sair
+de `X` e **não grava** (a marca continua `X`). Numa segunda viagem, para `Z`:
+inscreve em `Z`, tenta sair de `X`, falha. O aparelho está nos três, e a memória
+local só conhece `X` — **o `Y` nunca mais seria limpo**.
+
+**Decisão.** Duas camadas, as duas no app:
+
+1. **Rastro** (`<chave>_rastro`): antes de falar com o FCM, grava-se em disco o
+   conjunto de tudo o que *pode* estar assinado. Como é escrito **antes**, uma
+   falha no meio não o perde — a próxima sincronização sabe de onde sair. Só
+   depois do sucesso completo o conjunto encolhe para um item.
+2. **Faxina** (`<chave>_faxina`): a cada **30 dias**, a saída passa pela família
+   **inteira**, e não só pelo rastro. É o que cura o que nenhuma memória local
+   conhece — tópico assinado por versão anterior do app, aparelho restaurado de
+   backup, falha ocorrida antes deste código existir. E ela roda **mesmo quando
+   nada mudou**, que é justamente quando serve.
+
+**Sobre "excluir vários tópicos de uma vez", que o dono perguntou.** Não existe:
+o SDK do app aceita **um tópico por chamada**, e não há versão em lote. O que
+existe é do lado do servidor — `unsubscribe_from_topic(tokens, topic)` do Admin
+SDK, que agrupa **até 1000 tokens** para *um* tópico. É lote em token, não em
+tópico. Serviria a uma limpeza em massa feita pelo backend (varrendo
+`conta.tb005`), e fica registrada aqui como opção **não implementada**: hoje a
+reconciliação no aparelho resolve, e ela não depende de o backend conhecer o
+token certo.
+
+**Alternativas consideradas.**
+
+1. **Varrer a família inteira em toda sincronização.** São ~40 chamadas de rede
+   por troca de fuso (viagem, horário de verão) e ~40 na primeira abertura de
+   cada instalação, para sair de tópicos onde nunca se esteve. Rejeitada pelo
+   custo, e porque o `subscribe`/`unsubscribe` do cliente tem limite de taxa.
+2. **Reconciliar pelo servidor**, com o backend perguntando ao FCM em que
+   tópicos um token está. A API de Instance ID que fazia isso foi descontinuada;
+   não há como consultar as inscrições de forma suportada.
+3. **Não guardar estado e sempre reinscrever.** Não resolve: reinscrever no
+   certo não tira do errado.
+
+**⚠️ O que fica valendo para o resto do app.** Este é o segundo caso (depois dos
+termos) em que confiar num único valor local produziu um estado que ninguém
+consegue corrigir depois. A forma da solução — **rastro escrito antes da ação +
+reconciliação periódica que não depende do histórico local** — é a que deve ser
+copiada na próxima vez que houver estado espelhado num serviço de terceiro.
+
+---
+
 ## 2026-09-02 (2) — Os tópicos de PÚBLICO (idioma · fuso · plataforma) e o envio por combinação
 
 **Contexto.** Poucas horas depois de o broadcast ganhar destino por idioma, o
