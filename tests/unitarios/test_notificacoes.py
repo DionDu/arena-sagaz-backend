@@ -201,6 +201,27 @@ def test_nomes_de_topico_sao_validos_e_nao_colidem():
         vistos[nome] = minuto
 
 
+def test_lista_de_fusos_bate_com_a_do_app():
+    """A lista que o JOB percorre e a que a FAXINA do app usa são a mesma.
+
+    ⚠️ Um offset que exista só de um lado é gente que o job alcança e a faxina
+    do aparelho nunca limpa — ou o contrário, um tópico que o app assina e para
+    o qual ninguém nunca publica. O espelho está em
+    `lib/core/notificacoes/topico_de_fuso.dart` (`offsetsDeFuso`), e o teste de
+    lá confere os mesmos números.
+    """
+    from api.notificacoes.servico import OFFSETS_DE_FUSO
+
+    assert len(OFFSETS_DE_FUSO) == 38
+    assert OFFSETS_DE_FUSO[0] == -720
+    assert OFFSETS_DE_FUSO[-1] == 840
+    assert list(OFFSETS_DE_FUSO) == sorted(OFFSETS_DE_FUSO), (
+        "a lista é percorrida do oeste para o leste; fora de ordem, o job "
+        "dispara em ordem imprevisível e fica difícil de acompanhar"
+    )
+    assert len(set(OFFSETS_DE_FUSO)) == len(OFFSETS_DE_FUSO), "offset repetido"
+
+
 def test_broadcast_por_fuso(client):
     """O offset chega em MINUTOS e vira o tópico canônico na resposta."""
     registro: list = []
