@@ -21,6 +21,66 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-02 (2) — Os tópicos de PÚBLICO (idioma · fuso · plataforma) e o envio por combinação
+
+**Contexto.** Poucas horas depois de o broadcast ganhar destino por idioma, o
+dono pediu o resto do desenho: tópicos por **fuso** e por **plataforma**, e um
+envio que aceite **combinar** tópicos. O objetivo declarado, nas palavras dele:
+
+> *"o que eu quero destes tópicos é que no futuro a gente possa ter um JOB ou
+> rotina que consiga fazer um loop por todos os fusos possíveis e vai
+> disparando os pushes num horário razoável (ex: 20h no fuso de cada usuário)"*
+> — e, sobre a alternativa: *"Teria como fazer a nível de usuário, mas pode cair
+> no token do FCM que mudou para alguns usuários."*
+
+**Decisão.** Três famílias de tópico, com regras diferentes de propósito:
+
+| família | exemplo | exclusiva? | de onde sai |
+|---|---|---|---|
+| idioma | `todos_pt` | sim - entra num, sai dos outros | idioma efetivo do app |
+| fuso | `fuso_utc_menos_3` | sim - entra num, sai do **anterior** | offset do aparelho, em minutos |
+| plataforma | `plataforma_ios` | **não** | a plataforma do aparelho |
+
+E o envio: `POST /v1/notificacoes/broadcast` aceita `idioma`, `fuso`,
+`plataforma` e `topicos` (avulsos). **Nenhum critério** → `todos`, como sempre.
+**Um** → aquele tópico (`topic=`). **Dois ou mais** → uma condição
+(`condition=`), com `&&`: só recebe quem está em todos.
+
+**Alternativas consideradas.**
+
+1. **Varrer os tokens do banco** (`conta.tb005` tem `co_idioma`, `co_fuso` e
+   `nu_offset_minuto`). É a que o dono levantou e descartou pelo motivo certo:
+   **token roda**. Um token velho falha no envio e a pessoa não recebe nada;
+   quem varre tokens precisa tratar token morto, paginar e limpar a tabela. A
+   inscrição em tópico é do FCM, e ele a mantém quando o token da instalação
+   muda.
+2. **Fuso pelo nome IANA** (`America/Sao_Paulo`), que resolve horário de verão
+   sozinho. Descartada como chave de tópico: são ~400 nomes, e o job teria de
+   percorrer 400 disparos em vez de ~38. O IANA continua no banco, onde é útil
+   para relatório.
+3. **`fuso` em horas na API** (`-3`, `+5:30`). Descartada depois de o dono dizer
+   que não vai digitar fuso à mão: quem consome é um job, e ele tem o offset em
+   **minutos** - que é também como o aparelho o reporta. Sem parser no meio e
+   sem a ambiguidade de `5.5` para UTC+5:30.
+4. **Nome de tópico `fuso_+3`.** Impossível: o FCM só aceita
+   `[a-zA-Z0-9-_.~%]`, e o `+` está fora. Daí `menos`/`mais` por extenso.
+
+**⚠️ O que o teste pegou antes de o job existir.** A janela de tolerância de
+`fusos_na_hora_local` nasceu **fechada dos dois lados**, e os oito fusos de meia
+hora (Índia, Nepal, Terra Nova, Chatham, Marquesas…) caíam na borda de **duas**
+janelas consecutivas - o job entregaria o mesmo push duas vezes para eles, e
+para mais ninguém. A janela é semiaberta desde então, e
+`test_a_janela_do_job_cobre_o_dia_sem_repetir` percorre as 24 horas conferindo
+que cada fuso é atingido **exatamente uma vez**.
+
+**⚠️ O que ainda NÃO existe: o job.** O FCM não agenda nada; ele entrega no
+instante da chamada. O backend saiu com as duas peças que a rotina vai pedir -
+`OFFSETS_DE_FUSO` (a lista a percorrer) e `fusos_na_hora_local(hora, agora_utc)`
+(quem está naquela hora agora, com a hora como **parâmetro**, não como
+constante). Falta quem as chame de tempos em tempos.
+
+---
+
 ## 2026-09-02 — O broadcast passa a ter destino por idioma (`todos_pt` · `todos_en` · `todos_es`)
 
 **Contexto.** O broadcast sempre foi **um tópico só** (`todos`): o servidor manda
