@@ -21,6 +21,83 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-08 — O ingestor precisa aceitar a MESMA partida duas vezes
+
+**Contexto.** O Desafio do Dia (spec 009 do frontend) traz um caso que o log de
+partidas nunca teve: uma partida que sobe **antes de terminar**. Quando a linha de
+chegada do desafio cai antes do fim natural - *"feche 4 caixas em 2 turnos"* deixa
+8 caixas em aberto -, o desafio fecha no objetivo, o XP é creditado ali, e o app
+**não interrompe** a partida de quem quiser continuar. Então o envio é em dois
+tempos: no objetivo, com `co_status = 'em_andamento'`; depois, o resto.
+
+O dono perguntou, ao revisar o `data-model.md`, se a coluna de status aguentava
+isso, e o que aconteceria com uma partida abandonada.
+
+**O que se descobriu.** A coluna aguenta desde a `0006` - `ck_partida_status` já
+aceita `('concluida', 'abandonada', 'em_andamento')`. **O defeito estava no
+ingestor**, em `api/sincronizacao/repositorio.py`:
+
+```sql
+INSERT INTO partida.tb001_partida (…) VALUES (…)
+ON CONFLICT (co_evento) DO NOTHING
+```
+
+`DO NOTHING`. O segundo envio - o que completaria a partida - seria descartado
+**em silêncio**: as jogadas novas subiriam (a `tb002_jogada` é append-only, com
+`UNIQUE (id_partida, nu_ordem)`), mas `co_status`, `dh_fim` e os placares
+ficariam congelados no primeiro envio. A partida ficaria `em_andamento` para
+sempre, sem erro nenhum no log.
+
+**Decisão.** Trocar por `DO UPDATE`, **restrito à transição legítima**:
+
+```sql
+ON CONFLICT (co_evento) DO UPDATE SET
+       co_status     = EXCLUDED.co_status,
+       dh_fim        = EXCLUDED.dh_fim,
+       nu_placar_j1  = EXCLUDED.nu_placar_j1,
+       nu_placar_j2  = EXCLUDED.nu_placar_j2,
+       qt_usos_poder = EXCLUDED.qt_usos_poder
+ WHERE partida.tb001_partida.co_status = 'em_andamento'
+```
+
+⚠️ **O `WHERE` é a decisão, não um detalhe.** Só uma partida `em_andamento` pode
+ser alterada, e ela sai desse estado uma vez só; `concluida` e `abandonada` voltam
+a ser imutáveis. Um reenvio antigo - o que a fila de sincronização faz o tempo
+todo - não reabre nada nem reescreve um placar fechado.
+
+**Alternativa considerada e descartada:** `DO UPDATE` sem o `WHERE`. Transformaria
+a idempotência do `co_evento` em *"o último envio manda"*, que é pior que o defeito
+que conserta - qualquer reenvio de fila poderia sobrescrever um resultado final com
+um estado intermediário guardado no aparelho.
+
+**E o job de expiração.** A pessoa pode cumprir o objetivo e fechar o app; o
+segundo envio nunca vem, e nenhuma regra do aparelho alcança isso (desinstalou,
+trocou de aparelho, limpou o armazenamento). Entra um job diário, junto com o de
+publicação do desafio:
+
+```sql
+UPDATE partida.tb001_partida
+   SET co_status = 'abandonada',
+       dh_fim    = COALESCE(dh_fim, dh_inicio)
+ WHERE co_modo   = 'desafio'
+   AND co_status = 'em_andamento'
+   AND dh_inicio < now() - INTERVAL '7 days';
+```
+
+Sete dias, e não sete horas, porque a fila de sincronização segura eventos
+enquanto o aparelho está sem rede - fechar cedo demais marcaria como abandonada
+uma partida que esperava Wi-Fi. Se um envio atrasado chegar depois disso, o `WHERE`
+do ingestor o recusa, que é o comportamento certo: a partida já foi arquivada.
+
+⛔ **Abandonar não desfaz nada** - a resolução, o XP e a linha do quadro foram
+creditados no instante do objetivo e não dependem do desfecho da partida.
+
+**Onde está:** `arena-sagaz-frontend/specs/009-desafio-do-dia/data-model.md`,
+§*"O que muda no schema `partida`"*, e os requisitos RF-DES-225 da spec. Nada foi
+implementado ainda - a migração do Desafio do Dia não foi escrita.
+
+---
+
 ## 2026-09-02 (3) — A reconciliação dos tópicos exclusivos: rastro + faxina
 
 **Contexto.** Horas depois de os tópicos de fuso entrarem, o dono leu a frase
