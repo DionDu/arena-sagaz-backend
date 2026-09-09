@@ -46,10 +46,26 @@ COMO SE USA
     cd D:\\Desenvolvimento\\arena-sagaz\\arena-sagaz-backend
     ..\\ia\\.venv_tf\\Scripts\\python scripts\\conferir_runtime_inferencia.py --runtime tensorflow --gravar-referencia
 
-    # 2) Conferir com o runtime DO JOB, na imagem que vai para o Railway:
-    docker run --rm -v "${PWD}:/app" -w /app python:3.11-slim sh -c "pip install -q ai-edge-litert==2.2.0 numpy && python scripts/conferir_runtime_inferencia.py"
+    # 2) Conferir com o runtime DO JOB. ⚠️ Isto NAO se roda a mao: e o
+    #    `Dockerfile.job` que o roda, no build da imagem que vai para o Railway.
 
 Codigo de saida 0 = confere. Diferente de 0 = **nao troque o runtime**.
+
+═══════════════════════════════════════════════════════════════════════════
+POR QUE A CONFERENCIA IN-IMAGE E UM PORTAO DE BUILD, E NAO UM COMANDO
+═══════════════════════════════════════════════════════════════════════════
+
+A maquina do dono nao tem Docker, nem WSL, nem Python 3.11 - conferido em
+09/09/2026. Rodar isto em `linux/amd64` a mao exigiria instalar um dos tres so
+para esta conferencia.
+
+Entao a chamada mora dentro do `Dockerfile.job`, depois do `pip install`: se o
+runtime da imagem divergir da referencia versionada, **o build falha**.
+
+⚠️ **E melhor assim, e nao e um contorno.** Um comando manual se roda uma vez e
+envelhece; o portao re-confere a cada imagem construida - inclusive no dia em que
+alguem subir a versao do `ai-edge-litert` sem pensar. E ele e a UNICA execucao em
+`linux/amd64` que o projeto tem.
 """
 
 from __future__ import annotations

@@ -126,12 +126,33 @@ calibração do desafio sairia então de um adversário que não é o adversári
 pessoa enfrenta, e nada no sistema denunciaria — é o mesmo tipo de defeito
 silencioso que o contrato de codificação existe para impedir.
 
-**O que ainda falta, e é comando do dono.** A prova rodou em Windows (Python 3.12
-para o TensorFlow, 3.14 para o LiteRT), porque não há Docker nem Python 3.11 nesta
-máquina. Falta rodar o mesmo script **dentro** de `python:3.11-slim`, em
-`linux/amd64` — o comando está na docstring do script. O arquivo de referência
-`scripts/referencia_runtime_inferencia.json` é versionado justamente para que essa
-execução seja uma comparação, e não uma nova medida.
+**A execução em `linux/amd64` virou PORTÃO DE BUILD.** A prova rodou em Windows
+(Python 3.12 para o TensorFlow, 3.14 para o LiteRT), e a máquina do dono **não tem
+Docker, nem WSL, nem Python 3.11** — os três foram conferidos em 09/09/2026. Rodar
+o script dentro de `python:3.11-slim` exigiria instalar um deles só para isso.
+
+Em vez disso, a conferência entra no **`Dockerfile.job`** (T018): depois do
+`pip install`, a imagem roda `scripts/conferir_runtime_inferencia.py` contra o
+`scripts/referencia_runtime_inferencia.json` versionado, e **o build falha** se
+divergir.
+
+⚠️ **É melhor que o comando avulso, e não um contorno.** Um comando manual se roda
+uma vez e envelhece; o portão re-confere a cada imagem construída — inclusive no
+dia em que alguém subir a versão do `ai-edge-litert` sem pensar. E é a **única**
+execução em `linux/amd64` que o projeto tem.
+
+**O que sustenta a decisão enquanto o build não roda**, medido em 09/09/2026:
+
+| evidência | resultado |
+|---|---|
+| o wheel existe para o alvo | `ai_edge_litert-2.2.0-cp311-cp311-manylinux_2_27_x86_64.whl`, 21,3 MB |
+| é o binário certo | ELF de 64 bits, máquina x86-64 |
+| a glibc cabe | a maior versão exigida pelos `.so` é **2.26**; `python:3.11-slim` é bookworm, glibc **2.36** |
+| os números batem | saída idêntica à do `tensorflow.lite` 2.21.0, os 31 neurônios, 12 tensores |
+
+O que **não** está provado, dito com todas as letras: que o wheel *executa* em
+Python 3.11. É risco baixo — mesma família de wheels, mesma biblioteca C, ABI
+declarada — e é exatamente o que o portão de build vai fechar.
 
 **Alternativa considerada e descartada:** comparar contra a saída do app rodando
 em `flutter test`. Descartada porque o `tflite_flutter` depende de `dart:ffi` e a
