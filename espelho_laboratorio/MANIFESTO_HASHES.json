@@ -1,0 +1,138 @@
+{
+  "versao_do_manifesto": "1.0.0",
+  "sobre": "SHA-256 de cada arquivo copiado do laboratório para dentro do backend. A fonte da verdade continua sendo o código em ia/ - esta é uma cópia autorizada, não a posse (RF-DES-148/149). O cadeado tests/unitarios/test_espelho_laboratorio.py confere estes valores SEM precisar do ia/ no disco, e por isso NUNCA pula.",
+  "origem": "ia/ (repositório arena-sagaz)",
+  "como_atualizar": "Não edite nada dentro de espelho_laboratorio/. Mexa no laboratório e rode, na máquina do dono: .venv\\\\Scripts\\\\python scripts\\\\espelhar_laboratorio.py",
+  "arquivos": [
+    {
+      "caminho": "jogos/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tamanho_bytes": 0
+    },
+    {
+      "caminho": "jogos/jogo_damas/__init__.py",
+      "sha256": "ba23e4b7ae28f4ee4f048b8354a4ba219468449dc6dd0ce01a01622f11d71ea0",
+      "tamanho_bytes": 256
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/__init__.py",
+      "sha256": "f0605b71fa9ab4773a8746167568505a4d862b2799dc0e07b4ce2bb4f2518515",
+      "tamanho_bytes": 64
+    },
+    {
+      "caminho": "jogos/jogo_damas/tablebase/__init__.py",
+      "sha256": "362738bccd2c7cbc16b5ee1be9d96a8a6617d04a4ff7346fe28fc31f52f19bb7",
+      "tamanho_bytes": 68
+    },
+    {
+      "caminho": "jogos/jogo_damas/treino/__init__.py",
+      "sha256": "4b92bd1cfed55ba0cb4766d226f2fdc7bc9793d2c4b1071919c8f172cc4ecff9",
+      "tamanho_bytes": 90
+    },
+    {
+      "caminho": "nucleo/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tamanho_bytes": 0
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/avaliacao_damas.py",
+      "sha256": "a9f3be509d6b0b33714457be91271e041cab16ec124d09c6216501d7422b5aef",
+      "tamanho_bytes": 8051
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/avaliacao_treinada_damas.py",
+      "sha256": "2248880f30eb3c9cd833fdd8fe288331835c935496b74d8ba0ad53d4789bb86f",
+      "tamanho_bytes": 23782
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/busca_damas.py",
+      "sha256": "6276fe884659145f6d48a38a72e06253ad2fac43c859e766c5a9325161a3dcfe",
+      "tamanho_bytes": 67276
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/empates_por_historico_damas.py",
+      "sha256": "579fb4c917a979977a41ba17fb7248543cdb126b7510f2aaefe5fb591e24de79",
+      "tamanho_bytes": 24060
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/especificacao_captura_damas.py",
+      "sha256": "48cc527835793a2be2897fe48d41dfc41498e6a6a376ff0ec5b78bb672052a74",
+      "tamanho_bytes": 23316
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/explicacao_de_recusa_damas.py",
+      "sha256": "572682f92da14ca5ad83d9ede2f29a95f166580df193beaaeb9816eff9592be2",
+      "tamanho_bytes": 18596
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/notacao_algebrica_damas.py",
+      "sha256": "5500c521203c94f7cefe8ece09158ec91cb480a38820bed5f8afe1d192f32d06",
+      "tamanho_bytes": 10740
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/politica_dificuldade_damas.py",
+      "sha256": "bc443fb8da56921dea812df8c903325d6aeaa2d44dcb0e5d24016a2cf8dc3f1e",
+      "tamanho_bytes": 8967
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/regras_damas.py",
+      "sha256": "c0d42c170ae2cabf53ff13a333ac723d6c77291165fdd8fca76de821d0b5cc11",
+      "tamanho_bytes": 40139
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/tabuleiro_damas.py",
+      "sha256": "c2bff2e99f65d0a9a4910b4c7d2f293e93934c3e27784bd59558eeacd23d7f69",
+      "tamanho_bytes": 28615
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor/zobrist_damas.py",
+      "sha256": "d90f98481be39de6808013a85fde3d909507b620e79cafb7cef093bd885d9fd9",
+      "tamanho_bytes": 6812
+    },
+    {
+      "caminho": "jogos/jogo_damas/tablebase/carregar_base_damas.py",
+      "sha256": "b8e9515fe55c3ff3e10ef1a83469063fef8ea8be25b7710e4c9a6be66709c68e",
+      "tamanho_bytes": 6498
+    },
+    {
+      "caminho": "jogos/jogo_damas/tablebase/empates_declarados_damas.py",
+      "sha256": "65ebf86ff657dc61b54610f231b4e0f9190ae5455a1168306d13148d1a46e2ac",
+      "tamanho_bytes": 10930
+    },
+    {
+      "caminho": "jogos/jogo_damas/tablebase/indice_damas.py",
+      "sha256": "2aab6e33d7e915c149f91c467960cfe89bd30e9bc5b7a3cee83d8863dc8247e3",
+      "tamanho_bytes": 14139
+    },
+    {
+      "caminho": "jogos/jogo_damas/tablebase/retrograda_damas.py",
+      "sha256": "5cf5fa7f8f0ba958a787f2439bdb4a540c90b73c74aecdea50c78d8c4946d1bd",
+      "tamanho_bytes": 20050
+    },
+    {
+      "caminho": "jogos/jogo_damas/treino/janelas_damas.py",
+      "sha256": "7d6b3cd1b86ae7a2b317d75400cb41f2ddb1d4920c8daf9859ecbb1720b13b37",
+      "tamanho_bytes": 14099
+    },
+    {
+      "caminho": "nucleo/log.py",
+      "sha256": "53fc1d972cdb142da3c992a645cb5d2efb2160287e22e86caf144350bd696e65",
+      "tamanho_bytes": 2851
+    },
+    {
+      "caminho": "jogos/jogo_damas/contrato/__init__.py",
+      "sha256": "42fa2e42679d69877dda728241f8bd538721e24abdd26cdd748b9681cebc5bd0",
+      "tamanho_bytes": 81
+    },
+    {
+      "caminho": "jogos/jogo_damas/contrato/contrato_damas.json",
+      "sha256": "84d97218178db58bdefb98ad5fb690e10adcaf789ea313bd95108f8830834be4",
+      "tamanho_bytes": 30102
+    },
+    {
+      "caminho": "jogos/jogo_damas/contrato/MANIFESTO_HASHES.json",
+      "sha256": "d4e7c5ffcf2028e6d8b499008ba407a4f1bf5b5de2444172e3035ee15a64d199",
+      "tamanho_bytes": 1498
+    }
+  ]
+}

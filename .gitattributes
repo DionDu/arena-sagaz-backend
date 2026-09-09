@@ -1,0 +1,45 @@
+# ⚠️ FIM DE LINHA — a terceira metade de uma decisão que já existe nos outros
+# dois repositórios (`arena-sagaz/.gitattributes` e
+# `arena-sagaz-frontend/.gitattributes`, com o mesmo texto e o mesmo motivo).
+#
+# ── O problema ─────────────────────────────────────────────────────────────
+#
+# Este repositório tem `core.autocrlf=true`. Sem nenhuma regra, o Git converte
+# LF → CRLF no checkout. E `espelho_laboratorio/` é, por definição, uma **cópia
+# byte-idêntica** do código que mora em `ia/` no repositório guarda-chuva
+# (RF-DES-148): dois cadeados comparam o **SHA-256 dos bytes** de cada arquivo,
+# um contra o laboratório e outro contra o manifesto.
+#
+# Basta um dos dois lados ser convertido e o outro não — um clone novo, um
+# `git config` diferente numa máquina, o CI do Railway em Linux — para o cadeado
+# acusar divergência num arquivo **idêntico linha a linha**. Um portão que grita
+# por um motivo que não é o dele é um portão que se aprende a ignorar, e é
+# exatamente o que este não pode virar: ele é o que impede o job de rodar na
+# nuvem com um motor diferente do que o laboratório mediu.
+#
+# ── A regra ────────────────────────────────────────────────────────────────
+#
+# `-text` = **nunca converter**. O que está no disco é o que vai para o
+# repositório, e vice-versa.
+#
+# ⛔ Não troque `-text` por `text eol=lf` achando que dá no mesmo. Dá, hoje. Mas
+# `text` ainda **normaliza** na entrada, e normalizar é a operação que se quer
+# ausente dos dois lados de uma comparação de bytes.
+espelho_laboratorio/** -text
+
+# A REFERÊNCIA DO RUNTIME DE INFERÊNCIA (T001).
+#
+# `scripts/conferir_runtime_inferencia.py` compara a saída da CNN contra os
+# números deste arquivo, e ele atravessa sistemas operacionais: gerado no Windows
+# do dono, conferido dentro de `python:3.11-slim`. Aqui a conversão não corromperia
+# o JSON, mas sujaria o diff a cada troca de máquina — e um arquivo que "muda
+# sozinho" ensina a ignorar o diff dele.
+scripts/referencia_runtime_inferencia.json -text
+
+# ⚠️ SCRIPT DE SHELL SEMPRE COM LF, EM QUALQUER MÁQUINA.
+#
+# Um `.sh` que chegue ao Linux com CRLF não roda: o CR gruda no nome do
+# interpretador e o erro é `bad interpreter: /usr/bin/env bash^M` — que não diz
+# nada a quem o vê pela primeira vez. `eol=lf` força o fim de linha no checkout,
+# aconteça o que acontecer com a configuração local de quem clonou.
+*.sh text eol=lf

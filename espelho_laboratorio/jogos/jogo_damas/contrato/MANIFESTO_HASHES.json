@@ -1,0 +1,34 @@
+{
+  "versao_do_manifesto": "1.0.0",
+  "versao_do_contrato": "1.0.0",
+  "atualizado_em": "2026-07-29",
+  "sobre": "SHA-256 de cada cópia autorizada do contrato de damas. Cada repositório confere a SUA cópia contra o valor declarado aqui, sem precisar dos outros repositórios no disco - é o nível de CI da conferência em dois níveis (RF-DES-143a), e ele NUNCA pula.",
+  "como_atualizar": "Não edite este arquivo. Ele é gerado junto com o contrato por jogos/jogo_damas/contrato/gerar_contrato_damas.py. Regere e copie o contrato E o manifesto para os outros dois repositórios, na mesma resposta.",
+  "arquivos": [
+    {
+      "nome": "contrato_damas.json",
+      "sha256": "84d97218178db58bdefb98ad5fb690e10adcaf789ea313bd95108f8830834be4",
+      "tamanho_bytes": 30102,
+      "copias": [
+        {
+          "repositorio": "arena-sagaz",
+          "caminho": "ia/jogos/jogo_damas/contrato/contrato_damas.json",
+          "papel": "fonte gerada",
+          "quem_le": "o laboratório e os testes"
+        },
+        {
+          "repositorio": "arena-sagaz-frontend",
+          "caminho": "assets/jogos/damas/contrato_damas.json",
+          "papel": "cópia autorizada",
+          "quem_le": "o app, em runtime"
+        },
+        {
+          "repositorio": "arena-sagaz-backend",
+          "caminho": "espelho_laboratorio/jogos/jogo_damas/contrato/contrato_damas.json",
+          "papel": "cópia autorizada",
+          "quem_le": "o job em batch, em runtime"
+        }
+      ]
+    }
+  ]
+}

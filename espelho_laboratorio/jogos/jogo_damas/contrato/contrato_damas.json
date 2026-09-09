@@ -1,0 +1,667 @@
+{
+  "versao": "1.0.0",
+  "atualizado_em": "2026-07-29",
+  "sobre_este_arquivo": {
+    "proposito": "Fonte única da verdade sobre tudo o que o laboratório de IA (Python) e o aplicativo (Dart/Flutter) precisam concordar para que o jogo de damas seja o MESMO jogo dos dois lados: a geometria do tabuleiro, a codificação das peças, o que cada modalidade liga, os orçamentos de dificuldade e o formato dos dados que o app carrega.",
+    "este_arquivo_e_GERADO": "NÃO edite este JSON à mão. Ele é produzido por jogos/jogo_damas/contrato/gerar_contrato_damas.py a partir do código do motor, que é a fonte da verdade. Editar aqui cria uma segunda fonte, e o teste test_contrato_damas.py desfaz a edição na primeira execução — ele regera e compara.",
+    "como_atualizar": "1) mexa no código do motor (regras_damas.py, tabuleiro_damas.py, busca_damas.py); 2) rode `.venv_tf\\Scripts\\python -m jogos.jogo_damas.contrato.gerar_contrato_damas`; 3) copie o arquivo IDÊNTICO para arena-sagaz-frontend/assets/jogos/damas/, quando o app tiver damas; 4) rode `pytest jogos/jogo_damas/testes/test_contrato_damas.py`; 5) commite os dois repositórios juntos.",
+    "copias_autorizadas": [
+      "ia/jogos/jogo_damas/contrato/contrato_damas.json  <-- FONTE GERADA (a fonte da verdade é o código do motor, ao lado)",
+      "arena-sagaz-frontend/assets/jogos/damas/contrato_damas.json  <-- lido em runtime pelo Flutter",
+      "arena-sagaz-backend/espelho_laboratorio/jogos/jogo_damas/contrato/contrato_damas.json  <-- lido em runtime pelo job em batch; viaja dentro do espelho do laboratório, porque o Railway constrói a imagem a partir do repositório do backend e o que não estiver lá dentro não existe na nuvem (RF-DES-148)"
+    ],
+    "conferencia_em_dois_niveis": "MANIFESTO_HASHES.json, ao lado deste arquivo, declara o SHA-256 de cada cópia autorizada e viaja junto com ela. Nível local: cópia contra cópia, quando o laboratório está no disco. Nível de CI: cada repositório confere a SUA cópia contra o manifesto, sem precisar dos outros - e esse nível NUNCA pula (RF-DES-143a).",
+    "porque_o_desenho_difere_do_contrato_do_jogo_dos_pontinhos": "Lá o JSON é a fonte da verdade e o código obedece, porque a codificação da matriz não existe em lugar nenhum além do contrato. Aqui a fonte já existe e é o código — Regulamento, Nivel, a geometria —, então repetir os valores à mão criaria duas fontes que divergem. O JSON é derivado, e um teste o mantém honesto."
+  },
+  "estado_dos_blocos": {
+    "geometria": {
+      "estado": "fechado",
+      "desde": "2026-07-24 (etapa 1)",
+      "observacao": "32 casas e a numeração 1..32 são padrão de mercado; mudá-las quebraria a compatibilidade com FEN e PDN."
+    },
+    "codificacao": {
+      "estado": "fechado",
+      "desde": "2026-07-24 (etapa 1)",
+      "observacao": "Os valores 0 a 4 das peças e o formato FEN de damas."
+    },
+    "regulamentos": {
+      "estado": "fechado",
+      "desde": "2026-07-29 (etapa 2)",
+      "observacao": "As quatro modalidades, com todas as regras de jogo e de empate. A última lacuna — as duas regras próprias das portuguesas (FPD 3.8.a e 3.8.b) — fechou nesta data."
+    },
+    "dificuldade": {
+      "estado": "parcial",
+      "desde": "2026-07-28 (o orçamento de nós)",
+      "observacao": "Os orçamentos dos quatro níveis estão travados, e os quatro níveis são ofertados nas quatro modalidades sem condicional. Ver `o_sagaz_e_por_modalidade` logo abaixo."
+    },
+    "relogios_de_empate_na_tela": {
+      "estado": "fechado",
+      "desde": "2026-07-29 (etapa 2)",
+      "observacao": "Requisito de interface pedido pelo dono. O que a tela exibe sai daqui; o desenho nasce no Claude Design."
+    },
+    "base_de_finais": {
+      "estado": "parcial",
+      "desde": "2026-07-29 (o formato de armazenamento)",
+      "observacao": "O formato — blocos comprimidos independentes de 16 KB — está decidido e medido. O esquema de indexação por fatia de material ainda pode mudar na etapa 8."
+    },
+    "tabelas_de_padroes": {
+      "estado": "parcial",
+      "desde": "2026-07-30 (o formato do arquivo de pesos)",
+      "observacao": "Fecharam a GEOMETRIA (nove janelas, quais casas, a ordem de leitura, as cinco tabelas, a simetria) e o FORMATO DO ARQUIVO `pesos_padroes_<modalidade>.bin` — o app já pode escrever o leitor contra este contrato. O que continua ABERTO são duas coisas: os pesos existem só para as brasileiras (as outras três modalidades precisam de auto-jogo próprio), e o VEREDITO da arena da etapa 9 — se a avaliação treinada não ganhar da manual por 100 Elo, este ramo não vai para o app."
+    }
+  },
+  "geometria": {
+    "lado": 8,
+    "casas_jogaveis": 32,
+    "casas_por_fileira": 4,
+    "numeracao": "As casas escuras são numeradas de 1 a 32, da esquerda para a direita e de cima para baixo, com a fileira 0 no topo. É a numeração que o mundo do jogo usa, e é o que permite colar uma posição nossa em qualquer programa de damas.",
+    "lados": {
+      "brancas": "ficam embaixo (casas 21 a 32) e sobem o tabuleiro",
+      "pretas": "ficam em cima (casas 1 a 12) e descem",
+      "observacao": "Quem joga primeiro NÃO é constante: muda com a modalidade (ver `quem_comeca` em cada regulamento). Por isso a vez é um dado da posição."
+    },
+    "casas_de_coroacao": {
+      "brancas": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "pretas": [
+        29,
+        30,
+        31,
+        32
+      ]
+    },
+    "grande_diagonal": [
+      4,
+      8,
+      11,
+      15,
+      18,
+      22,
+      25,
+      29
+    ],
+    "rio": {
+      "casas": [
+        4,
+        8,
+        11,
+        15,
+        18,
+        22,
+        25,
+        29
+      ],
+      "observacao": "É a MESMA grande diagonal. «Rio» é como o regulamento português a chama (FPD 2.3), e a Forçada (3.8.a) depende dela. A definição não está no texto daquele regulamento: está numa figura da página 7."
+    },
+    "numeracao_portuguesa": {
+      "aviso": "O documento da Federação Portuguesa de Damas numera as casas ao contrário (art. 2.2) E monta o tabuleiro espelhado (art. 1.2). Converter com `33 - k` é ERRADO: é uma bijeção que quebra as diagonais. Use motor/notacao_algebrica_damas.py::casa_da_numeracao_portuguesa."
+    }
+  },
+  "codificacao": {
+    "pecas": {
+      "vazia": 0,
+      "pedra_branca": 1,
+      "dama_branca": 2,
+      "pedra_preta": 3,
+      "dama_preta": 4
+    },
+    "cores": {
+      "brancas": 0,
+      "pretas": 1
+    },
+    "fen": {
+      "exemplo": "W:W21,22,K23:B1,2,K5",
+      "leitura": "letra da vez, dois-pontos, as peças brancas, dois-pontos, as peças pretas. O prefixo K marca dama. É padrão de mercado.",
+      "armadilha": "No FEN, W é *white* (brancas) e B é *black* (pretas). Em português o B puxa para 'brancas' — código que misture as duas convenções troca os lados em silêncio."
+    }
+  },
+  "regulamentos": {
+    "brasileira": {
+      "identificador": "brasileira",
+      "nome": "damas brasileiras",
+      "dama_voa": true,
+      "pedra_captura_para_tras": true,
+      "captura_maxima_obrigatoria": true,
+      "coroacao_encerra_o_lance": false,
+      "quem_comeca": 0,
+      "fonte": "Regras Oficiais de Jogo de Damas, CBD/FMJD, Anexo I — ../referencias/texto/12_regras_oficiais_cbjd.md; e as regras 8.3 e 8.5 de ../referencias/texto/14_regras_fmjd64_classicas.md (FMJD-64), que o CBJD não contradiz",
+      "oficial": true,
+      "desempate_por_qualidade": false,
+      "lances_sem_progresso_para_empate": 20,
+      "repeticoes_para_empate": 3,
+      "empates_declarados_por_posicao": true,
+      "artigo_da_repeticao": "art. 98",
+      "artigo_dos_lances_sem_progresso": "art. 97b",
+      "lances_tres_damas_contra_uma": 15,
+      "maximo_de_pecas_por_lado_para_contar": null,
+      "exige_dama_dos_dois_lados_para_contar": false,
+      "lances_da_forcada": null,
+      "artigo_da_forcada": "FPD 3.8.a",
+      "damas_da_forcada": 3,
+      "lances_equilibrio_parado": [
+        [
+          4,
+          5,
+          30
+        ],
+        [
+          6,
+          7,
+          60
+        ]
+      ]
+    },
+    "anglo": {
+      "identificador": "anglo",
+      "nome": "damas anglo-americanas (checkers)",
+      "dama_voa": false,
+      "pedra_captura_para_tras": false,
+      "captura_maxima_obrigatoria": false,
+      "coroacao_encerra_o_lance": true,
+      "quem_comeca": 1,
+      "fonte": "Revised Rules of Draughts, World Checkers & Draughts Federation — ../referencias/texto/13_regras_wcdf_anglo.md (texto normativo no repositório, consultado em 2026-07-28 na publicação oficial da American Checker Federation, que remete a ela as regras de jogo)",
+      "oficial": true,
+      "desempate_por_qualidade": false,
+      "lances_sem_progresso_para_empate": 40,
+      "repeticoes_para_empate": 3,
+      "empates_declarados_por_posicao": false,
+      "artigo_da_repeticao": "WCDF 1.27.1",
+      "artigo_dos_lances_sem_progresso": "WCDF 1.27.2",
+      "lances_tres_damas_contra_uma": null,
+      "maximo_de_pecas_por_lado_para_contar": null,
+      "exige_dama_dos_dois_lados_para_contar": false,
+      "lances_da_forcada": null,
+      "artigo_da_forcada": "FPD 3.8.a",
+      "damas_da_forcada": 3,
+      "lances_equilibrio_parado": []
+    },
+    "portuguesa": {
+      "identificador": "portuguesa",
+      "nome": "damas portuguesas (espanholas)",
+      "dama_voa": true,
+      "pedra_captura_para_tras": false,
+      "captura_maxima_obrigatoria": true,
+      "coroacao_encerra_o_lance": true,
+      "quem_comeca": 0,
+      "fonte": "Rules of Portuguese Draughts (Spanish Draughts), Federação Portuguesa de Damas, em vigor desde 01/04/2026 — ../referencias/texto/16_regras_portuguesas_espanholas_fmjd.md",
+      "oficial": true,
+      "desempate_por_qualidade": true,
+      "lances_sem_progresso_para_empate": 20,
+      "repeticoes_para_empate": 3,
+      "empates_declarados_por_posicao": false,
+      "artigo_da_repeticao": "FPD 5.3",
+      "artigo_dos_lances_sem_progresso": "FPD 3.8.b",
+      "lances_tres_damas_contra_uma": null,
+      "maximo_de_pecas_por_lado_para_contar": 4,
+      "exige_dama_dos_dois_lados_para_contar": true,
+      "lances_da_forcada": 12,
+      "artigo_da_forcada": "FPD 3.8.a",
+      "damas_da_forcada": 3,
+      "lances_equilibrio_parado": []
+    },
+    "casa": {
+      "identificador": "casa",
+      "nome": "damas de casa",
+      "dama_voa": true,
+      "pedra_captura_para_tras": true,
+      "captura_maxima_obrigatoria": false,
+      "coroacao_encerra_o_lance": false,
+      "quem_comeca": 0,
+      "fonte": "NÃO É REGULAMENTO DE FEDERAÇÃO. É a variante simplificada definida por este projeto em 2026-07-29, por decisão do dono: as damas brasileiras sem a Lei da Maioria, que é como a maior parte das pessoas joga em casa no Brasil. Ver docs/modalidades_de_damas.md e o diário do plano.",
+      "oficial": false,
+      "desempate_por_qualidade": false,
+      "lances_sem_progresso_para_empate": 20,
+      "repeticoes_para_empate": 3,
+      "empates_declarados_por_posicao": true,
+      "artigo_da_repeticao": "art. 98",
+      "artigo_dos_lances_sem_progresso": "art. 97b",
+      "lances_tres_damas_contra_uma": 15,
+      "maximo_de_pecas_por_lado_para_contar": null,
+      "exige_dama_dos_dois_lados_para_contar": false,
+      "lances_da_forcada": null,
+      "artigo_da_forcada": "FPD 3.8.a",
+      "damas_da_forcada": 3,
+      "lances_equilibrio_parado": [
+        [
+          4,
+          5,
+          30
+        ],
+        [
+          6,
+          7,
+          60
+        ]
+      ]
+    }
+  },
+  "dificuldade": {
+    "como_funciona": "Os quatro níveis não são quatro motores: são o mesmo motor com mais ou menos permissão para pensar. O orçamento é contado em NÓS visitados, e não em segundos — é o que faz o nível ser o mesmo nível num aparelho rápido e num lento.",
+    "a_rede_de_seguranca_e_folgada": "Os 10 s de `tempo_maximo` sao um numero so para os quatro niveis, e nao um parametro de dificuldade. Toda vez que a rede morde, a promessa do teto de nos se quebra: o nivel deixa de ser o mesmo nivel naquele aparelho, e o log grava motivo_parada=tempo. Logo, quanto mais alta a rede, mais fiel o nivel. Ela cobre o telefone fraco OU ocupado com tarefas em segundo plano, e cabe folgada no menor relogio da tela (os 20 s do Magno). Nao confundir com a espera-alvo da encenacao (5,0/4,0/3,0/2,0 x base do Remote Config), que esta mudanca nao tocou.",
+    "o_ruido_nunca_entra_na_escolha_do_lance": "O ruído dos níveis fáceis entra na AVALIAÇÃO, não no sorteio do lance. Reduzir profundidade e embaralhar a nota produz erros humanos (não enxergar a combinação longa); sortear o lance produz erros absurdos, que irritam em vez de divertir.",
+    "niveis": {
+      "cacau": {
+        "identificador": "cacau",
+        "nome": "Cacau",
+        "profundidade": 1,
+        "ruido": 90,
+        "teto_de_nos": 24000,
+        "tempo_maximo": 10.0,
+        "extensao_de_captura": false,
+        "chance_de_errar": 0.35,
+        "margem_do_erro": 200
+      },
+      "pita": {
+        "identificador": "pita",
+        "nome": "Pita",
+        "profundidade": 2,
+        "ruido": 40,
+        "teto_de_nos": 24000,
+        "tempo_maximo": 10.0,
+        "extensao_de_captura": false,
+        "chance_de_errar": 0.25,
+        "margem_do_erro": 150
+      },
+      "tex": {
+        "identificador": "tex",
+        "nome": "Tex",
+        "profundidade": 3,
+        "ruido": 0,
+        "teto_de_nos": 48000,
+        "tempo_maximo": 10.0,
+        "extensao_de_captura": true,
+        "chance_de_errar": 0.08,
+        "margem_do_erro": 80
+      },
+      "sagaz": {
+        "identificador": "sagaz",
+        "nome": "Sagaz",
+        "profundidade": 64,
+        "ruido": 0,
+        "teto_de_nos": 288000,
+        "tempo_maximo": 10.0,
+        "extensao_de_captura": true,
+        "chance_de_errar": 0.0,
+        "margem_do_erro": 200
+      }
+    },
+    "o_sagaz_e_por_modalidade": "As quatro modalidades saem com QUATRO níveis, sem condicional nenhuma. ⚠️ DECISÃO DO DONO EM 27/08/2026 (fecha a T177): o alvo de menos de 1% de derrota do Sagaz é contra HUMANO, e isso não se mede antes de o app estar em campo com pessoas jogando — medir contra motor responde outra pergunta. A prova disponível é a arena contra o juiz parado de 2.880.000 nós, e foi ela que fixou o teto em 288.000. ⚠️ EM 27/08/2026 O CAMPO DE LIBERAÇÃO POR MODALIDADE FOI REMOVIDO deste contrato: ele guardava um `false` que nunca viraria `true` por medição de arena, o app nunca o leu, e a cada leitura do contrato ele reabria uma decisão já fechada. O que o substitui é esta frase. Registro em `docs/DECISOES-do-dono.md` §3."
+  },
+  "relogios_de_empate_na_tela": {
+    "porque_existe": "Um lance recusado o jogador entende: o app trava a peça e explica. Um EMPATE, não — a partida acaba num tabuleiro em que ele achava que estava ganhando, e isso é indistinguível de bug. Requisito pedido pelo dono em 2026-07-29.",
+    "nao_existe_um_contador_unico": "Cada modalidade tem um conjunto diferente de contagens, com prazos, gatilhos e UNIDADES diferentes. A tela lê esta lista; não traz uma própria em Dart.",
+    "regras_de_exibicao": [
+      "Só aparece quando está correndo. Um contador parado a partida inteira vira ruído — e nas portuguesas isso é regra, não estética: o relógio dos 20 lances não corre fora do final.",
+      "A unidade da Forçada é diferente: '4 de 12' ali quer dizer lances DAS BRANCAS, não meios-lances dos dois lados.",
+      "Quando o empate chegar, o texto vem do motor (HistoricoDaPartida.motivo_de_empate), com o artigo citado — não uma frase reescrita no app."
+    ],
+    "por_modalidade": {
+      "brasileira": [
+        {
+          "identificador": "sem_progresso",
+          "artigo": "art. 97b",
+          "limite": 20,
+          "unidade": "lances_de_cada_lado",
+          "quando_anda": "sempre",
+          "campo_do_historico": "meios_lances_sem_progresso",
+          "substitui_os_outros": false
+        },
+        {
+          "identificador": "tres_damas_contra_uma",
+          "artigo": "FMJD 8.3",
+          "limite": 15,
+          "unidade": "lances_de_cada_lado",
+          "quando_anda": "3 damas ou mais contra 1 dama, sem pedras em jogo",
+          "campo_do_historico": "meios_lances_sem_progresso",
+          "substitui_os_outros": false
+        },
+        {
+          "identificador": "equilibrio_parado",
+          "artigo": "FMJD 8.5",
+          "limite": null,
+          "faixas": [
+            [
+              4,
+              5,
+              30
+            ],
+            [
+              6,
+              7,
+              60
+            ]
+          ],
+          "unidade": "lances_de_cada_lado",
+          "quando_anda": "dama dos dois lados, com o total de peças na faixa",
+          "campo_do_historico": "meios_lances_sem_mudar_o_equilibrio",
+          "substitui_os_outros": false
+        },
+        {
+          "identificador": "repeticao",
+          "artigo": "art. 98",
+          "limite": 3,
+          "unidade": "ocorrencias_da_mesma_posicao",
+          "quando_anda": "sempre",
+          "campo_do_historico": "repeticoes",
+          "substitui_os_outros": false
+        }
+      ],
+      "anglo": [
+        {
+          "identificador": "sem_progresso",
+          "artigo": "WCDF 1.27.2",
+          "limite": 40,
+          "unidade": "lances_de_cada_lado",
+          "quando_anda": "sempre",
+          "campo_do_historico": "meios_lances_sem_progresso",
+          "substitui_os_outros": false
+        },
+        {
+          "identificador": "repeticao",
+          "artigo": "WCDF 1.27.1",
+          "limite": 3,
+          "unidade": "ocorrencias_da_mesma_posicao",
+          "quando_anda": "sempre",
+          "campo_do_historico": "repeticoes",
+          "substitui_os_outros": false
+        }
+      ],
+      "portuguesa": [
+        {
+          "identificador": "forcada",
+          "artigo": "FPD 3.8.a",
+          "limite": 12,
+          "unidade": "lances_do_lado_forte",
+          "quando_anda": "3 damas contra 1 dama, sem pedras, com o lado forte ocupando o Rio",
+          "campo_do_historico": "lances_de_forcada",
+          "substitui_os_outros": true
+        },
+        {
+          "identificador": "sem_progresso",
+          "artigo": "FPD 3.8.b",
+          "limite": 20,
+          "unidade": "lances_de_cada_lado",
+          "quando_anda": "só em final de até 4 peças por lado, com dama dos dois lados",
+          "campo_do_historico": "meios_lances_sem_progresso",
+          "substitui_os_outros": false
+        },
+        {
+          "identificador": "repeticao",
+          "artigo": "FPD 5.3",
+          "limite": 3,
+          "unidade": "ocorrencias_da_mesma_posicao",
+          "quando_anda": "sempre",
+          "campo_do_historico": "repeticoes",
+          "substitui_os_outros": false
+        }
+      ],
+      "casa": [
+        {
+          "identificador": "sem_progresso",
+          "artigo": "art. 97b",
+          "limite": 20,
+          "unidade": "lances_de_cada_lado",
+          "quando_anda": "sempre",
+          "campo_do_historico": "meios_lances_sem_progresso",
+          "substitui_os_outros": false
+        },
+        {
+          "identificador": "tres_damas_contra_uma",
+          "artigo": "FMJD 8.3",
+          "limite": 15,
+          "unidade": "lances_de_cada_lado",
+          "quando_anda": "3 damas ou mais contra 1 dama, sem pedras em jogo",
+          "campo_do_historico": "meios_lances_sem_progresso",
+          "substitui_os_outros": false
+        },
+        {
+          "identificador": "equilibrio_parado",
+          "artigo": "FMJD 8.5",
+          "limite": null,
+          "faixas": [
+            [
+              4,
+              5,
+              30
+            ],
+            [
+              6,
+              7,
+              60
+            ]
+          ],
+          "unidade": "lances_de_cada_lado",
+          "quando_anda": "dama dos dois lados, com o total de peças na faixa",
+          "campo_do_historico": "meios_lances_sem_mudar_o_equilibrio",
+          "substitui_os_outros": false
+        },
+        {
+          "identificador": "repeticao",
+          "artigo": "art. 98",
+          "limite": 3,
+          "unidade": "ocorrencias_da_mesma_posicao",
+          "quando_anda": "sempre",
+          "campo_do_historico": "repeticoes",
+          "substitui_os_outros": false
+        }
+      ]
+    }
+  },
+  "tabelas_de_padroes": {
+    "o_que_e": "A avaliação treinada da etapa 7. Em vez de uma rede neural, o modelo é um punhado de tabelas grandes: recorta-se o tabuleiro em janelas, cada janela vira um número, e o número é o índice de uma tabela que diz quanto aquele arranjo local vale. Avaliar é somar nove leituras de vetor — sem multiplicação de matriz, sem runtime de inferência, sem GPU.",
+    "estados_por_casa": 5,
+    "significado_dos_estados": {
+      "0": "vazia",
+      "1": "minha pedra",
+      "2": "minha dama",
+      "3": "pedra dele",
+      "4": "dama dele"
+    },
+    "casas_por_janela": 8,
+    "entradas_por_tabela": 390625,
+    "bytes_por_entrada": 2,
+    "memoria_por_modalidade_mb": 3.73,
+    "como_o_indice_se_monta": "Um número na base 5, com a PRIMEIRA casa da janela como dígito MENOS significativo: índice = d₀·5⁰ + d₁·5¹ + … + d₇·5⁷. A ordem das casas é parte do contrato — trocá-la muda todos os índices e invalida uma tabela já treinada, sem dar erro.",
+    "tabelas": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5"
+    ],
+    "janelas": [
+      {
+        "identificador": "L0C0",
+        "casas": [
+          1,
+          2,
+          5,
+          6,
+          9,
+          10,
+          13,
+          14
+        ],
+        "tabela": "T1",
+        "inverte_o_ponto_de_vista": false
+      },
+      {
+        "identificador": "L0C2",
+        "casas": [
+          2,
+          3,
+          6,
+          7,
+          10,
+          11,
+          14,
+          15
+        ],
+        "tabela": "T2",
+        "inverte_o_ponto_de_vista": false
+      },
+      {
+        "identificador": "L0C4",
+        "casas": [
+          3,
+          4,
+          7,
+          8,
+          11,
+          12,
+          15,
+          16
+        ],
+        "tabela": "T3",
+        "inverte_o_ponto_de_vista": false
+      },
+      {
+        "identificador": "L2C0",
+        "casas": [
+          9,
+          10,
+          13,
+          14,
+          17,
+          18,
+          21,
+          22
+        ],
+        "tabela": "T4",
+        "inverte_o_ponto_de_vista": false
+      },
+      {
+        "identificador": "L2C2",
+        "casas": [
+          10,
+          11,
+          14,
+          15,
+          18,
+          19,
+          22,
+          23
+        ],
+        "tabela": "T5",
+        "inverte_o_ponto_de_vista": false
+      },
+      {
+        "identificador": "L2C4",
+        "casas": [
+          24,
+          23,
+          20,
+          19,
+          16,
+          15,
+          12,
+          11
+        ],
+        "tabela": "T4",
+        "inverte_o_ponto_de_vista": true
+      },
+      {
+        "identificador": "L4C0",
+        "casas": [
+          30,
+          29,
+          26,
+          25,
+          22,
+          21,
+          18,
+          17
+        ],
+        "tabela": "T3",
+        "inverte_o_ponto_de_vista": true
+      },
+      {
+        "identificador": "L4C2",
+        "casas": [
+          31,
+          30,
+          27,
+          26,
+          23,
+          22,
+          19,
+          18
+        ],
+        "tabela": "T2",
+        "inverte_o_ponto_de_vista": true
+      },
+      {
+        "identificador": "L4C4",
+        "casas": [
+          32,
+          31,
+          28,
+          27,
+          24,
+          23,
+          20,
+          19
+        ],
+        "tabela": "T1",
+        "inverte_o_ponto_de_vista": true
+      }
+    ],
+    "porque_nove_janelas_dao_cinco_tabelas": "A rotação de 180° com troca de cor é a ÚNICA simetria deste tabuleiro — espelhar da esquerda para a direita levaria casa escura em casa clara. Ela agrupa as nove janelas em cinco órbitas, e cada órbita é uma tabela. As janelas com `inverte_o_ponto_de_vista` são as derivadas: leem as casas giradas e com «minha» e «dele» trocados.",
+    "limitacao_conhecida": "A cobertura não é uniforme: 8 casas aparecem em 4 janelas, 16 em 2, e as 8 das quinas em UMA só. Deslizar de uma em uma resolveria, mas daria 25 janelas e nenhuma economia de simetria salvaria a memória.",
+    "arquivo_de_pesos": {
+      "fechado_em": "2026-07-30",
+      "nome": "pesos_padroes_<modalidade>.bin",
+      "o_que_e": "O único artefato que o app carrega desta parte do motor. O laboratório grava com `motor/avaliacao_treinada_damas.py`; o aparelho lê com `motor_dart/lib/avaliacao_treinada_damas.dart`. As duas pontas são conferidas nota a nota pelo teste `test_paridade_avaliacao_treinada_damas.py`.",
+      "magia": "DAMAPAD\\n",
+      "porque_a_magia_termina_em_nova_linha": "Truque emprestado do PNG: se o arquivo for transferido em modo texto entre Windows e Unix, o `\\n` viaja como `\\r\\n`, a magia deixa de bater e o arquivo é RECUSADO — em vez de ser lido com todos os deslocamentos deslizados em um byte.",
+      "versao_do_layout": 1,
+      "ordem_dos_bytes": "little-endian, sem preenchimento",
+      "tamanho_do_cabecalho_fixo": 50,
+      "blocos_em_ordem": [
+        "cabeçalho fixo: magia, versão, geometria (estados, casas por janela, número de tabelas, número de janelas, entradas por tabela), escala float32, viés int16, 4 coeficientes de material int16, total de entradas não nulas int32, soma dos valores int64, tamanho do nome da modalidade uint16",
+        "o nome da modalidade, em UTF-8",
+        "a GEOMETRIA: por janela, identificador, nome da tabela, um byte dizendo se inverte o ponto de vista, e as oito casas em um byte cada — NA ORDEM DE LEITURA",
+        "as TABELAS: por tabela, o nome, a contagem de entradas não nulas, e os pares (índice int32, valor int16)"
+      ],
+      "porque_o_arquivo_e_esparso": "Medido em 2026-07-30 com o modelo das brasileiras: 13.257 das 1.953.125 entradas têm peso (0,68%). O arquivo esparso tem 79.813 bytes; o denso teria 3,73 MB — 49x mais para carregar zeros. Na RAM é o contrário: o leitor expande para vetores densos, porque lá o que importa é a consulta ser um acesso a vetor.",
+      "porque_a_geometria_viaja_dentro_do_arquivo": "Para pesos e geometria não poderem se separar. Duas cópias de uma geometria divergem em silêncio, e o sintoma é uma avaliação plausível e ERRADA. Medido em 2026-07-30: com a ordem de leitura invertida de propósito, 202 de 202 posições tiveram os índices errados e apenas 6 tiveram a NOTA diferente — a esparsidão das tabelas esconde o erro.",
+      "conferencias_que_o_leitor_faz": [
+        "a magia bate",
+        "a versão do layout é a que o código lê",
+        "a geometria do arquivo é a deste contrato",
+        "o número de entradas não nulas bate com o cabeçalho",
+        "a soma dos valores bate com o cabeçalho — é esta que pega byte-order trocada e corrupção que não muda o tamanho"
+      ],
+      "unidade_da_nota": "centésimos de pedra, do ponto de vista de QUEM TEM A VEZ — a mesma unidade e a mesma convenção de sinal da avaliação escrita à mão, para que a arena possa trocar uma pela outra.",
+      "atencao_a_nota_treinada_nao_e_antissimetrica": "O viés é a vantagem de TER A VEZ e não muda de sinal com a cor. Negar a nota de quem tem a vez não dá a nota do outro lado. As notas são coerentes dentro de um lance, que é o que log e relatório precisam.",
+      "custo_medido": {
+        "medido_em": "2026-07-30, no PC (Ryzen 5700X), AOT",
+        "avaliacoes_por_segundo_treinada": 1965000,
+        "avaliacoes_por_segundo_manual": 5774000,
+        "razao": 2.9,
+        "observacao": "Medido em cima de mil posições DISTINTAS, de propósito: com cinco posições em ciclo a treinada dava 5,65 milhões/s, porque as entradas ficavam no cache do processador. A falha de cache é o custo principal desta avaliação, e uma medição que a esconde não serve."
+      }
+    },
+    "o_que_ainda_NAO_esta_no_contrato": "Duas coisas. (1) Os pesos das outras TRÊS modalidades: cada uma precisa do seu auto-jogo, porque as regras mudam o que é uma boa posição. (2) O VEREDITO: a etapa 9 mede se a avaliação treinada ganha da manual por 100 Elo. Se não ganhar, este ramo não vai para o app — e o formato aqui descrito fica sem uso."
+  },
+  "base_de_finais": {
+    "o_que_e": "Uma tabela com o resultado EXATO de toda posição de até N peças, calculada por análise retrógrada. Onde ela alcança, o motor não busca: consulta.",
+    "formato_de_armazenamento": {
+      "decidido_em": "2026-07-29",
+      "formato": "blocos comprimidos independentes",
+      "tamanho_do_bloco_kb": 16,
+      "porque": "Um .gz do arquivo inteiro só se lê do começo, o que obrigaria a expandir a base no aparelho: 35,3 MB de download virariam 288,8 MB instalados. Em blocos independentes a consulta abre UM bloco e o resto fica no disco como está — o que se baixa é o que fica.",
+      "custo_medido_mb": {
+        "quatro_pecas_quatro_modalidades": 1.7,
+        "cinco_pecas_quatro_modalidades": 37.47,
+        "observacao": "Medido em 2026-07-29 por scripts/medir_tamanho_das_bases_damas.py sobre a base brasileira, multiplicado por 4. O espaço de índices é idêntico entre modalidades; o que muda é o VALOR de cada posição."
+      },
+      "pendente_de_medicao": "O custo de CPU por consulta. Blocos pagam uma descompressão de 16 KB por acesso, e a busca consulta muitas vezes por segundo. A saída conhecida é um cache dos últimos blocos abertos — medir isso é tarefa da etapa C, quando houver a consulta de verdade no aparelho."
+    },
+    "uma_base_por_modalidade": "As bases NÃO se compartilham entre modalidades. Medido em 2026-07-29: brasileiras e Damas de Casa divergem em 3,18% das posições de até 4 peças — o bastante para uma base declarar vitória onde a outra empata."
+  }
+}
