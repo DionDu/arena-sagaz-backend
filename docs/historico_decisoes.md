@@ -21,6 +21,44 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-09 — O serviço do job se declara em `railway.job.json`, não dentro do `railway.json`
+
+**Contexto.** A T018 pedia "declarar o **terceiro serviço** do Railway em
+`arena-sagaz-backend/railway.json`". Ao implementar, a frase não se sustenta ao pé
+da letra, e vale registrar por quê antes que alguém tente de novo.
+
+**O fato.** O `railway.json` **não modela vários serviços**. O schema
+(`railway.schema.json`) descreve **um** serviço: um `build` e um `deploy`. Não há
+chave `services`, nem lista. O que o Railway oferece é *config as code* **por
+serviço**: cada serviço aponta, nas suas configurações, para **qual arquivo** do
+repositório ele lê.
+
+**Decisão.** Dois arquivos, um por serviço:
+
+| arquivo | serviço | o que declara |
+|---|---|---|
+| `railway.json` | API | `Dockerfile`, `healthcheckPath: /v1/health`, reinício `ON_FAILURE` |
+| `railway.job.json` | job | `Dockerfile.job`, `cronSchedule`, reinício **`NEVER`**, sem healthcheck |
+
+⚠️ **O passo que não dá erro quando é esquecido** está no console, e por isso
+entrou no `checklist-producao.md`: se o serviço do job não for apontado para
+`railway.job.json`, ele lê o `railway.json` e sobe **uma segunda API** — deploy
+verde, healthcheck verde, e o desafio do dia nunca gerado. É exatamente a classe
+de falha silenciosa que o projeto vem catalogando desde o push que dizia
+`Everything up-to-date`.
+
+**Alternativa descartada:** um `railway.json` com um objeto por serviço e um
+script que o traduz. Inventaria um formato que o Railway não lê, e a tradução
+seria mais uma peça a manter entre o que está escrito e o que roda.
+
+**O cron entra aqui, e não em T038.** `cronSchedule: "0 6 * * *"` (06:00 UTC =
+03:00 em Brasília) é **cadência de operação**, não regra de produto — RF-DES-011
+diz isso com todas as letras: *"a frequência do job não é a frequência do
+desafio"*. Quem garante que nenhum dia fica descoberto é a folga de 7 a 30 dias da
+T038, não este horário; mudá-lo não muda o conteúdo de nada.
+
+---
+
 ## 2026-09-09 — A camada de motores nasce: quatro decisões que o código não conta sozinho
 
 **Contexto.** O BLOCO 1 do Desafio do Dia (T004 a T017) trouxe `motores/` e

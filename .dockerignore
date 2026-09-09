@@ -40,3 +40,20 @@ Thumbs.db
 
 # Dependencias de desenvolvimento — a imagem instala requirements_api.txt
 requirements.txt
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ATENCAO: este arquivo serve as DUAS imagens (Dockerfile e Dockerfile.job).
+#
+# O Docker le o `.dockerignore` do CONTEXTO de build, nao do Dockerfile — as
+# duas imagens compartilham a mesma lista. Consequencias praticas:
+#
+#   - `espelho_laboratorio/` NAO pode ser excluido aqui. A imagem do job precisa
+#     da `.tflite` de 19,8 MB para jogar Pontinhos (RF-DES-148). O preco e que
+#     ela viaja tambem na imagem da API, que nunca a abre — peso morto conhecido
+#     e aceito, porque excluir daqui quebraria o job em silencio.
+#   - `scripts/` NAO pode ser excluido: o `Dockerfile.job` roda
+#     `scripts/conferir_runtime_inferencia.py` como PORTAO DE BUILD, e sem o
+#     arquivo o build falharia por motivo errado.
+#   - `requirements.txt` continua fora das duas: cada imagem instala a SUA lista
+#     (`requirements_api.txt` na API, `requirements_job.txt` no job).
+# ─────────────────────────────────────────────────────────────────────────────

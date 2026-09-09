@@ -1,0 +1,82 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# IMAGEM DO JOB EM BATCH DO DESAFIO DO DIA (RF-DES-011a) — T018.
+#
+# São DUAS imagens neste repositório, de propósito:
+#
+#   Dockerfile      → a API. Serve HTTP, fica de pé, tem healthcheck.
+#   Dockerfile.job  → ESTA. Acorda pelo cron, gera e mede os candidatos do
+#                     Desafio do Dia, GRAVA no Postgres e TERMINA.
+#
+# ⚠️ "Terminar é sucesso." Não há porta, não há rota e não há `healthcheckPath`;
+#    a política de reinício do serviço é `NEVER` (ver `railway.job.json`). Um
+#    container que sai com código 0 aqui fez exatamente o que devia.
+#
+# ⚠️ A API nunca chama o job e o job nunca chama a API. Os dois se falam pelo
+#    **Postgres**, que já é a fronteira entre eles. O preço aceito por essa
+#    separação são duas imagens Docker a manter — e está dito em voz alta na
+#    spec (RF-DES-011a) porque é custo real, não detalhe.
+#
+# Por que o job não mora dentro da API, em ordem de peso:
+#   (a) medir dezenas de candidatos × 20 execuções × 4 níveis disputaria CPU
+#       com quem serve o aplicativo, deixando-o lento sem que nada denuncie;
+#   (b) uma queda do job por memória levaria a API junto;
+#   (c) o runtime de inferência entraria na imagem da API sem que ela o use.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# A MESMA base da API. Não é coincidência nem gosto: o `ai-edge-litert` publica
+# wheel para `cp311` em `linux/amd64`, e é a dependência mais estreita do
+# conjunto — quem manda na versão do Python é ela (`research.md` §R-03).
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# ── 1. Dependências ──────────────────────────────────────────────────────────
+# Copiar SÓ o `requirements` antes do código faz o Docker reaproveitar esta
+# camada enquanto a lista não mudar: alterar uma linha de Python não reinstala
+# o LiteRT inteiro.
+COPY requirements_job.txt .
+RUN pip install --no-cache-dir -r requirements_job.txt
+
+# ── 2. O código, o espelho e o modelo ────────────────────────────────────────
+# Entra tudo o que o `.dockerignore` não barrou: `motores/`, `job/`, `api/`
+# (o job importa os *models* de banco de lá), `scripts/` e — o item pesado —
+# `espelho_laboratorio/`, que carrega a `.tflite` de 19,8 MB.
+# ⚠️ O que não estiver aqui dentro NÃO EXISTE na nuvem (RF-DES-148): o Railway
+#    constrói a imagem a partir deste repositório e de mais nada.
+COPY . .
+
+# ── 3. O PORTÃO DE BUILD (T001) ──────────────────────────────────────────────
+# ⚠️ ESTA LINHA É A ÚNICA EXECUÇÃO EM `linux/amd64` QUE O PROJETO TEM.
+#
+# O script monta 12 tensores determinísticos, roda a inferência com o
+# `ai-edge-litert` desta imagem e compara, número por número, com
+# `scripts/referencia_runtime_inferencia.json` — arquivo gerado pelo
+# `tensorflow.lite` que o `tflite_flutter` do aplicativo embrulha.
+#
+# `RUN` falhando **derruba o build**, e é esse o objetivo: uma imagem que
+# calcula diferente do aplicativo nunca chega ao Railway.
+#
+# ⚠️ O risco que ele fecha NÃO é "não instalou" — isso falharia alto e cedo. É
+#    instalar, abrir o modelo e devolver números *um pouco* diferentes: a
+#    calibração do desafio sairia de um adversário que não é o adversário que a
+#    pessoa enfrenta (RF-DES-018b), e nada no sistema denunciaria.
+#
+# ⚠️ E por que portão, e não um comando que alguém roda: comando avulso se roda
+#    uma vez e envelhece. O portão re-confere a cada imagem construída —
+#    inclusive no dia em que alguém subir a versão do `ai-edge-litert` sem
+#    pensar. A máquina do dono não tem Docker nem WSL (conferido em 09/09/2026),
+#    então esta é a única oportunidade que existe de conferir no alvo real.
+RUN python scripts/conferir_runtime_inferencia.py --runtime litert
+
+# ── 4. Usuário sem privilégios ───────────────────────────────────────────────
+# Defesa em profundidade (MEL-01), a mesma do `Dockerfile` da API: se um dia
+# houver execução remota de código numa dependência, o atacante não cai como
+# root dentro do container.
+RUN adduser --disabled-password --gecos "" appjob && chown -R appjob /app
+USER appjob
+
+# ── 5. O que ele faz ao acordar ──────────────────────────────────────────────
+# Forma "exec" (lista, sem `sh -c`): o processo do Python vira o PID 1 e recebe
+# o SIGTERM do Railway diretamente, sem um shell no meio engolindo o sinal.
+# ⚠️ Sem `$PORT`, sem `--host`, sem `--port`: o job não escuta nada.
+CMD ["python", "-m", "job"]

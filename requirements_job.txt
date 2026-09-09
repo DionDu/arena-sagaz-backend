@@ -1,0 +1,68 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependências de RUNTIME do JOB EM BATCH do Desafio do Dia (RF-DES-011a).
+#
+# ⚠️ UM `requirements` POR IMAGEM. Esta é a terceira lista do repositório, e a
+#    separação não é preferência:
+#
+#      requirements_api.txt  → o que a API precisa para SERVIR (FastAPI, uvicorn)
+#      requirements.txt      → o de cima MAIS as ferramentas de teste (máquina)
+#      requirements_job.txt  → ESTE: o que o job precisa para GERAR e MEDIR
+#
+#    A lição vem de 2026-07: o `requirements.txt` completo não cabia em Python
+#    3.11 por causa do `ipython`, e o build da API quebrava. A regra que saiu de
+#    lá vale aqui: cada imagem instala a SUA lista, e nada mais.
+#
+# ⚠️ O QUE NÃO ENTRA, E POR QUÊ:
+#
+#    - `fastapi`, `uvicorn`, `starlette` — o job NÃO tem HTTP. Sem porta, sem
+#      rota, sem `healthcheckPath` (RF-DES-011a). Ele fala com a API pelo
+#      Postgres, que já é a fronteira entre os dois.
+#    - `tensorflow` / `tensorflow-cpu` — a imagem existe para RODAR a rede, não
+#      para treiná-la. O TensorFlow completo passa de 600 MB e traz o compilador
+#      de grafos, o Keras e o treinador, dos quais o job não usa uma linha.
+#      ⚠️ Ele é o **plano B** de `research.md` §R-03, e só entra se o
+#      `ai-edge-litert` deixar de funcionar — nunca "por segurança".
+#    - `firebase-admin` — quem autentica pessoa é a API. O job não vê ninguém.
+#    - `alembic` — quem aplica migração é o deploy da API, uma vez por versão.
+#      O job encontra o banco já na forma certa; se ele pudesse migrar, duas
+#      coisas poderiam mexer no esquema ao mesmo tempo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Inferência: a CNN do Pontinhos ───────────────────────────────────────────
+# `ai-edge-litert` é o runtime AUTÔNOMO do LiteRT (o sucessor do
+# `tflite-runtime`): ele carrega o `.tflite` e executa, e é só isso que sabe
+# fazer. É a mesma biblioteca C que o `tflite_flutter` embrulha no aplicativo —
+# e é por isso que os números batem.
+#
+# ⚠️ A VERSÃO ESTÁ PRESA DE PROPÓSITO, e mexer nela tem portão. A T001 mediu, em
+#    09/09/2026, que a 2.2.0 reproduz número por número a saída do
+#    `tensorflow.lite` 2.21.0 que o app usa (o registro está em
+#    `docs/historico_decisoes.md`). Trocar esta linha sem rodar
+#    `scripts/conferir_runtime_inferencia.py` calibraria o desafio contra um
+#    adversário que NÃO é o adversário que a pessoa enfrenta — e nada no sistema
+#    denunciaria. O `Dockerfile.job` roda essa conferência no build justamente
+#    para que esquecer não seja possível.
+ai-edge-litert==2.2.0
+
+# `numpy` monta o tensor de entrada (1, 4, 3, 12) segundo o contrato de
+# codificação. Vem junto com o LiteRT de qualquer forma; declarar a versão aqui
+# é o que impede uma resolução silenciosa diferente da que foi medida.
+numpy==2.2.6
+
+# ── Banco: o job GRAVA, e é assim que ele fala com a API ─────────────────────
+# As mesmas versões do `requirements_api.txt`, e isso importa: o job importa os
+# *models* de `api/desafios/`, e duas versões de SQLAlchemy no mesmo repositório
+# fariam o mesmo código se comportar diferente conforme a imagem.
+SQLAlchemy==2.0.49
+asyncpg==0.31.0
+greenlet==3.4.0
+
+# ── Configuração: de onde sai a DATABASE_URL ─────────────────────────────────
+# O job lê `api/configuracao.py`, que é `BaseSettings` do pydantic-settings.
+pydantic==2.13.2
+pydantic-core==2.46.2
+pydantic-settings==2.13.1
+annotated-types==0.7.0
+typing_extensions==4.15.0
+typing-inspection==0.4.2
+python-dotenv==1.2.2

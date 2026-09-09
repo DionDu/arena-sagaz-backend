@@ -58,9 +58,16 @@ _CREATE_TABLE = re.compile(
 
 # `INSERT INTO schema.tabela (col, col, col) VALUES` ... ate o fim do comando.
 _INSERT = re.compile(
-    r"INSERT\s+INTO\s+([a-z_][a-z0-9_.]*)\s*\(([^)]*)\)\s*VALUES(.*?)(?:ON\s+CONFLICT|;|\Z)",
+    r"INSERT\s+INTO\s+([a-z_][a-z0-9_.]*)\s*\(([^)]*)\)\s*VALUES"
+    r"(.*?)(?:ON\s+CONFLICT|;|CREATE\s+|INSERT\s+INTO|\Z)",
     re.I | re.S,
 )
+# ⚠️ `CREATE` e `INSERT INTO` entraram na lista de terminadores em 09/09/2026, e
+# nao por elegancia. Um `INSERT` sem ponto-e-virgula seguido de um `CREATE TABLE`
+# fazia o corpo do primeiro se esticar ate o FIM DO ARQUIVO: o parser passava a
+# ler as colunas da tabela seguinte como se fossem valores, e reprovava a `0019`
+# dizendo que `no_tipo_reacao` continha a palavra `nu_sequencia`. Alarme falso e
+# o comeco de todo teste ignorado.
 
 # Uma tupla de valores: `(1, 'texto', 'outro')`.
 _TUPLA = re.compile(r"\(([^()]*)\)", re.S)

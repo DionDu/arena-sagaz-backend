@@ -189,9 +189,31 @@ def _alter_alarga_varchar(comando: str, arquivo: Path) -> bool:
 
 
 def _comandos_do_upgrade(arquivo: Path) -> list[str]:
-    """Os textos SQL que o `upgrade()` executa, um por `op.execute`."""
+    """Os textos SQL que o `upgrade()` executa, um por `op.execute`.
+
+    ⚠️ **O `(?:[fFrRbBuU]{1,2})?` nao e enfeite — ele fecha um buraco real**,
+    encontrado em 09/09/2026 ao escrever a `0020`.
+
+    Antes, o padrao exigia que a aspa viesse logo depois do parenteses. Uma
+    chamada `op.execute(f"ALTER TABLE ...")` — com o prefixo de f-string — nao
+    casava, e o comando **desaparecia da varredura**: o teste "so acrescenta"
+    percorria uma lista sem ele e passava. Uma migracao escrita inteira com
+    f-strings nao teria um unico comando conferido, e nada avisaria.
+
+    O caso nao era hipotetico: a `0020` monta o `CHECK` novo a partir da lista de
+    modos, justamente para que `upgrade` e `downgrade` nao possam divergir por
+    digitacao.
+
+    ⚠️ O que sai daqui e o texto **antes** da interpolacao (`{...}` continua
+    literal). Para o que este cadeado confere — qual comando SQL esta sendo
+    executado — isso basta: o verbo e a tabela estao sempre na parte fixa.
+    """
     codigo = _sem_comentarios(_corpo_do_upgrade(arquivo))
-    return re.findall(r"op\.execute\(\s*(?:'|\")(.*?)(?:'|\")", codigo, re.S)
+    return re.findall(
+        r"op\.execute\(\s*(?:[fFrRbBuU]{1,2})?(?:'|\")(.*?)(?:'|\")",
+        codigo,
+        re.S,
+    )
 
 
 def _e_drop_de_view_recriada(comando: str, recriadas: set[str]) -> bool:
@@ -241,6 +263,69 @@ def _views_recriadas(comandos: list[str]) -> set[str]:
         if casa:
             criadas.add(casa.group(1).lower())
     return derrubadas & criadas
+
+
+def _constraints_trocadas(comandos: list[str]) -> set[tuple[str, str]]:
+    """Os pares (tabela, constraint) que a migracao **derruba e recria** no
+    mesmo `upgrade()`.
+
+    ⚠️ **A SEGUNDA excecao ao `DROP`, e ela e ainda mais estreita que a das
+    views.** O motivo tem data: em 09/09/2026 a `0020` precisou fazer
+    `partida.co_modo` aceitar `'desafio'`, e o Postgres **nao tem**
+    `ALTER TABLE ... ALTER CONSTRAINT ... CHECK`. Alargar um vocabulario e
+    sempre derrubar a constraint e criar outra com o mesmo nome.
+
+    Por que a troca de um `CHECK` nao e destruicao:
+
+      · constraint **nao guarda dado**. Nao ha linha a perder;
+      · o DDL do Postgres e **transacional**: se o `ADD` falhar, o `DROP` volta
+        atras junto — nao existe instante com a tabela desguardada;
+      · o `ADD CONSTRAINT` **revalida a tabela inteira**. Uma constraint nova que
+        recusasse alguma linha ja gravada faria a migracao inteira falhar, em vez
+        de passar deixando dado invalido para tras.
+
+    ⚠️ **O QUE ESTA FUNCAO NAO CONSEGUE VER, e por isso ha um teste dedicado:**
+    ela nao le o conteudo do `CHECK`. Um par `DROP`+`ADD` do mesmo nome com uma
+    regra MAIS RESTRITIVA passaria por aqui. Quem guarda o conteudo e
+    `test_migracao_modo_desafio.py`, que exige que o vocabulario novo contenha
+    todo o antigo. Duas conferencias, porque nenhuma das duas basta sozinha.
+    """
+    derrubadas: set[tuple[str, str]] = set()
+    criadas: set[tuple[str, str]] = set()
+    for comando in comandos:
+        limpo = " ".join(comando.split())
+        casa = re.match(
+            r"ALTER\s+TABLE\s+([a-z_][a-z0-9_.]*)\s+"
+            r"DROP\s+CONSTRAINT\s+(?:IF\s+EXISTS\s+)?([a-z_][a-z0-9_]*)",
+            limpo,
+            re.I,
+        )
+        if casa:
+            derrubadas.add((casa.group(1).lower(), casa.group(2).lower()))
+        casa = re.match(
+            r"ALTER\s+TABLE\s+([a-z_][a-z0-9_.]*)\s+"
+            r"ADD\s+CONSTRAINT\s+([a-z_][a-z0-9_]*)",
+            limpo,
+            re.I,
+        )
+        if casa:
+            criadas.add((casa.group(1).lower(), casa.group(2).lower()))
+    return derrubadas & criadas
+
+
+def _e_drop_de_constraint_trocada(
+    comando: str, trocadas: set[tuple[str, str]]
+) -> bool:
+    """Este comando e o `DROP CONSTRAINT` de uma constraint que a migracao recria?"""
+    casa = re.match(
+        r"ALTER\s+TABLE\s+([a-z_][a-z0-9_.]*)\s+"
+        r"DROP\s+CONSTRAINT\s+(?:IF\s+EXISTS\s+)?([a-z_][a-z0-9_]*)",
+        " ".join(comando.split()),
+        re.I,
+    )
+    if casa is None:
+        return False
+    return (casa.group(1).lower(), casa.group(2).lower()) in trocadas
 
 
 def _alter_e_aditivo(comando: str) -> bool:
@@ -382,6 +467,16 @@ class TestMigracaoAditiva:
                 codigo,
                 flags=re.IGNORECASE,
             )
+        # E o `DROP CONSTRAINT` de uma constraint que a MESMA migracao recria
+        # tambem sai — ver [_constraints_trocadas] para o porque, e para o quao
+        # estreita a excecao e.
+        for _, constraint in _constraints_trocadas(_comandos_do_upgrade(arquivo)):
+            codigo = re.sub(
+                rf"DROP\s+CONSTRAINT\s+(?:IF\s+EXISTS\s+)?{re.escape(constraint)}\b",
+                "",
+                codigo,
+                flags=re.IGNORECASE,
+            )
         achado = re.search(rf"\b{palavra}\b", codigo, flags=re.IGNORECASE)
         assert achado is None, (
             f"{arquivo.name} usa {palavra} no upgrade(). "
@@ -395,6 +490,16 @@ class TestMigracaoAditiva:
         a intencao inclui o `ALTER` destrutivo, e nao so o `DROP TABLE`.
         """
         codigo = _codigo_limpo(arquivo)
+        # A troca de um `CHECK` (par DROP+ADD do mesmo nome, na mesma migracao)
+        # sai do texto antes da busca. `ALTER TABLE ... DROP COLUMN` continua
+        # recusado: nenhuma coluna e "recriada" por um `ADD CONSTRAINT`.
+        for _, constraint in _constraints_trocadas(_comandos_do_upgrade(arquivo)):
+            codigo = re.sub(
+                rf"DROP\s+CONSTRAINT\s+(?:IF\s+EXISTS\s+)?{re.escape(constraint)}\b",
+                "",
+                codigo,
+                flags=re.IGNORECASE,
+            )
         assert re.search(r"ALTER\s+TABLE.*DROP", codigo, flags=re.I | re.S) is None
 
     def test_upgrade_so_acrescenta(self, arquivo: Path):
@@ -411,6 +516,7 @@ class TestMigracaoAditiva:
             "lugar errado"
         )
         recriadas = _views_recriadas(comandos)
+        trocadas = _constraints_trocadas(comandos)
         for c in comandos:
             inicio = " ".join(c.split()).upper()
             # O `ALTER TABLE` nao esta nos prefixos de proposito: ele passa pela
@@ -422,6 +528,7 @@ class TestMigracaoAditiva:
                 or _alter_e_aditivo(inicio)
                 or _alter_alarga_varchar(c, arquivo)
                 or _e_drop_de_view_recriada(c, recriadas)
+                or _e_drop_de_constraint_trocada(c, trocadas)
             )
             assert permitido, (
                 f"{arquivo.name}: comando nao permitido: {c[:60]}"
