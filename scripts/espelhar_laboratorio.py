@@ -35,8 +35,13 @@ COMO SE USA
     .venv\\Scripts\\python scripts\\espelhar_laboratorio.py            # copia e regrava o manifesto
     .venv\\Scripts\\python scripts\\espelhar_laboratorio.py --conferir  # só confere, não escreve
 
-⚠️ Ele **precisa do `ia/` no disco**, então roda na máquina do dono, nunca no CI.
-O CI usa o outro lado do mecanismo: o manifesto, que viaja junto com a cópia.
+⚠️ Ele **precisa do `ia/` e do `arena-sagaz-frontend/` no disco**, então roda na
+máquina do dono, nunca no CI. O CI usa o outro lado do mecanismo: o manifesto,
+que viaja junto com a cópia.
+
+⚠️ **Duas origens, e não uma** (ver ARQUIVOS_DO_APP): o motor de damas vem do
+laboratório; o contrato de dificuldade do Pontinhos vem do **aplicativo**, porque
+é lá que a política dele vive (R-20).
 """
 
 from __future__ import annotations
@@ -52,6 +57,7 @@ from pathlib import Path
 RAIZ_BACKEND = Path(__file__).resolve().parents[1]
 RAIZ_ECOSSISTEMA = RAIZ_BACKEND.parent
 RAIZ_LABORATORIO = RAIZ_ECOSSISTEMA / "ia"
+RAIZ_APP = RAIZ_ECOSSISTEMA / "arena-sagaz-frontend"
 
 ESPELHO = RAIZ_BACKEND / "espelho_laboratorio"
 CAMINHO_DO_MANIFESTO = ESPELHO / "MANIFESTO_HASHES.json"
@@ -122,6 +128,34 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
 )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O QUE VEM DO APLICATIVO, E NÃO DO LABORATÓRIO
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **A fonte da verdade de cada jogo está num lugar diferente, e isso é
+# deliberado** (R-20). No damas, a política de dificuldade vive no Python do
+# laboratório e o contrato é **gerado** dela. No Pontinhos, ela vive em **Dart**,
+# no enum `Dificuldade` de `lib/modulos/jogos/pontinhos/logica/modelos.dart` — o
+# aplicativo é a origem, e o contrato é a declaração dela.
+#
+# Então o espelho tem duas origens. ⛔ Não "uniformize": fingir que o Pontinhos
+# vem do laboratório criaria uma segunda fonte de números de dificuldade, que é
+# exatamente o que o contrato existe para impedir.
+#
+# ⚠️ Estes vão para a **raiz do espelho**, e não para dentro de `jogos/`: aquela
+# subárvore é a estrutura de pacotes Python do laboratório, e o motor se importa
+# por caminho absoluto dentro dela. Um JSON do app ali dentro seria mentira sobre
+# de onde ele veio.
+
+ARQUIVOS_DO_APP: tuple[tuple[str, str], ...] = (
+    (
+        "assets/jogos/pontinhos/contrato_dificuldade_pontinhos.json",
+        "contrato_dificuldade_pontinhos.json",
+    ),
+)
+"""Pares `(caminho no frontend, caminho dentro do espelho)`."""
+
+
 def _origem(relativo: str) -> Path:
     """Onde o arquivo vive no laboratório."""
     return RAIZ_LABORATORIO / relativo
@@ -130,6 +164,19 @@ def _origem(relativo: str) -> Path:
 def _destino(relativo: str) -> Path:
     """Onde a cópia vive no backend — mesma estrutura, outra raiz."""
     return ESPELHO / relativo
+
+
+def _todos_os_pares() -> list[tuple[Path, Path, str]]:
+    """Todos os arquivos espelhados: `(origem, destino, caminho no espelho)`.
+
+    Junta as duas origens numa lista só, para que copiar, conferir e manifestar
+    percorram exatamente o mesmo conjunto. ⚠️ Três funções percorrendo listas
+    separadas é como um arquivo acaba copiado e fora do manifesto — e o cadeado
+    do outro lado não teria o que conferir.
+    """
+    pares = [(_origem(r), _destino(r), r) for r in ARQUIVOS_ESPELHADOS]
+    pares += [(RAIZ_APP / o, _destino(d), d) for o, d in ARQUIVOS_DO_APP]
+    return pares
 
 
 def _sha256(caminho: Path) -> str:
@@ -148,13 +195,13 @@ def copiar() -> list[str]:
     horário de modificação viajando junto e produzindo diferença onde não há.
     """
     mudaram: list[str] = []
-    for relativo in ARQUIVOS_ESPELHADOS:
-        origem, destino = _origem(relativo), _destino(relativo)
+    for origem, destino, relativo in _todos_os_pares():
         if not origem.exists():
             raise SystemExit(
                 f"ORIGEM AUSENTE: {origem}\n"
-                "O laboratório mudou de forma. Ajuste ARQUIVOS_ESPELHADOS antes "
-                "de espelhar — copiar por adivinhação é pior que não copiar."
+                "A origem mudou de forma. Ajuste ARQUIVOS_ESPELHADOS ou "
+                "ARQUIVOS_DO_APP antes de espelhar — copiar por adivinhação é "
+                "pior que não copiar."
             )
         destino.parent.mkdir(parents=True, exist_ok=True)
         if not destino.exists() or destino.read_bytes() != origem.read_bytes():
@@ -179,7 +226,10 @@ def montar_manifesto() -> dict:
             "tests/unitarios/test_espelho_laboratorio.py confere estes valores "
             "SEM precisar do ia/ no disco, e por isso NUNCA pula."
         ),
-        "origem": "ia/ (repositório arena-sagaz)",
+        "origens": [
+            "ia/ (repositório arena-sagaz) - o motor de damas e o contrato dele",
+            "arena-sagaz-frontend/ - o contrato de dificuldade do Pontinhos, cuja fonte da verdade é o Dart do aplicativo (R-20)",
+        ],
         "como_atualizar": (
             "Não edite nada dentro de espelho_laboratorio/. Mexa no laboratório e "
             "rode, na máquina do dono: "
@@ -188,10 +238,10 @@ def montar_manifesto() -> dict:
         "arquivos": [
             {
                 "caminho": relativo,
-                "sha256": _sha256(_destino(relativo)),
-                "tamanho_bytes": _destino(relativo).stat().st_size,
+                "sha256": _sha256(destino),
+                "tamanho_bytes": destino.stat().st_size,
             }
-            for relativo in ARQUIVOS_ESPELHADOS
+            for _, destino, relativo in _todos_os_pares()
         ],
     }
 
@@ -215,12 +265,11 @@ def conferir() -> list[str]:
     está no disco. Quando ele não está, quem responde é o manifesto.
     """
     divergentes: list[str] = []
-    for relativo in ARQUIVOS_ESPELHADOS:
-        origem, destino = _origem(relativo), _destino(relativo)
+    for origem, destino, relativo in _todos_os_pares():
         if not destino.exists():
             divergentes.append(f"{relativo}  (falta no espelho)")
         elif not origem.exists():
-            divergentes.append(f"{relativo}  (falta no laboratório)")
+            divergentes.append(f"{relativo}  (falta na origem: {origem})")
         elif origem.read_bytes() != destino.read_bytes():
             divergentes.append(f"{relativo}  (bytes diferentes)")
     return divergentes
@@ -237,12 +286,13 @@ def main() -> int:
     )
     args = analisador.parse_args()
 
-    if not RAIZ_LABORATORIO.is_dir():
-        raise SystemExit(
-            f"LABORATÓRIO NÃO ENCONTRADO em {RAIZ_LABORATORIO}.\n"
-            "Este script roda na máquina do dono, onde os três repositórios "
-            "convivem. No CI, quem confere é o manifesto."
-        )
+    for nome, raiz in (("LABORATÓRIO", RAIZ_LABORATORIO), ("APLICATIVO", RAIZ_APP)):
+        if not raiz.is_dir():
+            raise SystemExit(
+                f"{nome} NÃO ENCONTRADO em {raiz}.\n"
+                "Este script roda na máquina do dono, onde os três repositórios "
+                "convivem. No CI, quem confere é o manifesto."
+            )
 
     if args.conferir:
         divergentes = conferir()
@@ -252,13 +302,13 @@ def main() -> int:
                 print(f"  {linha}")
             print("\nRode sem --conferir para atualizar.")
             return 1
-        print(f"OK - os {len(ARQUIVOS_ESPELHADOS)} arquivos do espelho conferem.")
+        print(f"OK - os {len(_todos_os_pares())} arquivos do espelho conferem.")
         return 0
 
     mudaram = copiar()
     escrever_manifesto()
 
-    print(f"espelho_laboratorio/  -  {len(ARQUIVOS_ESPELHADOS)} arquivos")
+    print(f"espelho_laboratorio/  -  {len(_todos_os_pares())} arquivos")
     if mudaram:
         print(f"  {len(mudaram)} atualizado(s):")
         for relativo in mudaram:

@@ -1,7 +1,10 @@
 {
   "versao_do_manifesto": "1.0.0",
   "sobre": "SHA-256 de cada arquivo copiado do laboratório para dentro do backend. A fonte da verdade continua sendo o código em ia/ - esta é uma cópia autorizada, não a posse (RF-DES-148/149). O cadeado tests/unitarios/test_espelho_laboratorio.py confere estes valores SEM precisar do ia/ no disco, e por isso NUNCA pula.",
-  "origem": "ia/ (repositório arena-sagaz)",
+  "origens": [
+    "ia/ (repositório arena-sagaz) - o motor de damas e o contrato dele",
+    "arena-sagaz-frontend/ - o contrato de dificuldade do Pontinhos, cuja fonte da verdade é o Dart do aplicativo (R-20)"
+  ],
   "como_atualizar": "Não edite nada dentro de espelho_laboratorio/. Mexa no laboratório e rode, na máquina do dono: .venv\\\\Scripts\\\\python scripts\\\\espelhar_laboratorio.py",
   "arquivos": [
     {
@@ -133,6 +136,11 @@
       "caminho": "jogos/jogo_damas/contrato/MANIFESTO_HASHES.json",
       "sha256": "d4e7c5ffcf2028e6d8b499008ba407a4f1bf5b5de2444172e3035ee15a64d199",
       "tamanho_bytes": 1498
+    },
+    {
+      "caminho": "contrato_dificuldade_pontinhos.json",
+      "sha256": "0971d48f329419d6f71aa11de7aaa9e384c20bc1a15bda58eddf78ade0591c74",
+      "tamanho_bytes": 7203
     }
   ]
 }

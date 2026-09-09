@@ -1,0 +1,89 @@
+{
+  "versao": "1.0.0",
+  "atualizado_em": "2026-09-09",
+
+  "sobre_este_arquivo": {
+    "proposito": "Declaração única dos parâmetros de DIFICULDADE do Jogo dos Pontinhos - epsilon, captura gulosa e timer, por nível. O backend LÊ este arquivo em tempo de execução para calibrar os desafios com o MESMO adversário que a pessoa enfrenta no aplicativo (RF-DES-141/144).",
+
+    "porque_e_um_arquivo_NOVO_e_nao_um_bloco_do_contrato_de_codificacao": "O contrato_codificacao_pontinhos.json trata de outro assunto - como o tabuleiro vira tensor da CNN - e tem o SHA-256 travado por teste no CI do backend. Misturar dificuldade ali faria toda afinação de nível quebrar um cadeado que existe para outra coisa, e quem afinasse um epsilon veria falhar um teste sobre encoding de matriz.",
+
+    "quem_e_a_FONTE_DA_VERDADE": "O código Dart do aplicativo: o enum `Dificuldade` em lib/modulos/jogos/pontinhos/logica/modelos.dart. Este JSON é a DECLARAÇÃO dele, não o contrário.",
+
+    "porque_aqui_e_ao_contrario_das_damas": "No jogo de damas o contrato é GERADO do código Python do laboratório, e o JSON é artefato derivado (RF-DES-149). Aqui a política vive em Dart, dentro do aplicativo, então o contrato nasce a partir dela e o cadeado aponta o Dart como origem. ⛔ A diferença é deliberada e NÃO deve ser uniformizada - ela existe porque a fonte da verdade de cada jogo está em um lugar diferente, e fingir o contrário criaria uma segunda fonte num dos dois.",
+
+    "quem_le_este_arquivo": {
+      "o_backend": "LÊ em tempo de execução. O job em batch precisa jogar Pontinhos nos quatro níveis para calibrar o desafio do dia, e é daqui que ele tira os números.",
+      "o_aplicativo": "NÃO LÊ - o aplicativo é CONFERIDO (RF-DES-142). Os literais continuam no enum Dart, e o teste test/modulos/jogos/pontinhos/contrato_dificuldade_test.dart falha nomeando o campo quando divergirem. Ler este asset em runtime tiraria a CPU do ar dentro do isolate se o arquivo faltasse, e um teste custa menos que I/O em código publicado."
+    },
+
+    "como_atualizar": "1) Mexa no enum Dificuldade em lib/modulos/jogos/pontinhos/logica/modelos.dart. 2) Traga o mesmo número para cá, na mesma resposta. 3) Rode `flutter test test/modulos/jogos/pontinhos/contrato_dificuldade_test.dart`. 4) Copie este arquivo para o espelho do backend (`.venv\\Scripts\\python scripts\\espelhar_laboratorio.py`), senão o job segue calibrando com o número velho."
+  },
+
+  "glossario": {
+    "epsilon": "A PROBABILIDADE de a CPU jogar de propósito fora do melhor lance. A cada jogada tática ela sorteia entre 0 e 1: caindo abaixo do epsilon, escolhe um traço aleatório que NÃO seja o melhor; senão, joga o melhor lance da CNN.",
+    "usa_captura_gulosa": "Se a CPU fecha caixa de graça sem pensar. Capturar caixa aberta não é habilidade, é instinto - todo iniciante faz. Sabotar isso com o epsilon faria a CPU ignorar caixa de graça na cara dela, o que parece DEFEITO e não dificuldade.",
+    "timer_segundos": "Relógio da jogada do humano naquele nível. Nulo = sem relógio."
+  },
+
+  "porque_epsilon_e_nao_nucleo_top_p": "O núcleo top-p sorteava entre os lances de maior probabilidade até somar um alvo p. Ele é ADAPTATIVO À CONFIANÇA DA REDE: quando a CNN concentra ~99% num traço - o que acontece justamente no fim de jogo, com as cadeias formadas -, o primeiro lance sozinho estoura qualquer p, o núcleo colapsa para um lance, e até a Cacau passava a jogar perfeito exatamente no lance que decide a partida. Quanto mais decisivo o momento, MENOS aleatória a CPU ficava - o inverso do desejado, e nenhum valor de p corrigia. O epsilon é probabilidade fixa: o fácil continua errando no fim de jogo, que é onde tem de errar.",
+
+  "niveis": [
+    {
+      "chave": "facil",
+      "personagem": "Cacau",
+      "indice_forca": 0,
+      "estrelas": 1,
+      "epsilon": 0.80,
+      "usa_captura_gulosa": true,
+      "timer_segundos": null
+    },
+    {
+      "chave": "normal",
+      "personagem": "Pita",
+      "indice_forca": 1,
+      "estrelas": 2,
+      "epsilon": 0.50,
+      "usa_captura_gulosa": true,
+      "timer_segundos": 20
+    },
+    {
+      "chave": "dificil",
+      "personagem": "Tex",
+      "indice_forca": 2,
+      "estrelas": 3,
+      "epsilon": 0.14,
+      "usa_captura_gulosa": true,
+      "timer_segundos": 15
+    },
+    {
+      "chave": "sagaz",
+      "personagem": "Magno",
+      "indice_forca": 3,
+      "estrelas": 4,
+      "epsilon": 0.00,
+      "usa_captura_gulosa": false,
+      "timer_segundos": 10
+    }
+  ],
+
+  "excecao_do_magno_na_abertura": {
+    "desde": "2026-07-30",
+    "o_que_e": "Quando é o Magno quem abre a partida, o PRIMEIRO lance - e só ele - é sorteado entre os traços disponíveis.",
+    "porque": "Com epsilon 0.00 e a CNN sendo determinística, ele abria toda partida com a mesma aresta. No tabuleiro vazio todos os traços são equivalentes por simetria, então sortear dá variedade sem tirar força.",
+    "onde_no_codigo": "Fase 0 de escolherLance, em lib/modulos/jogos/pontinhos/logica/oraculo.dart"
+  },
+
+  "porque_o_magno_nao_usa_captura_gulosa": "Ele decide TUDO pela CNN, e é isso que o deixa livre para o sacrifício da dupla-cruz - abrir mão das duas últimas caixas de uma cadeia para manter o turno. É a jogada mestre que os outros três nunca fazem.",
+
+  "de_onde_vieram_estes_numeros": {
+    "ajuste_de_2026_08_06": "2.690 partidas de 24 pessoas em produção mostraram a escada comprimida, e num degrau invertida em relação ao alvo. O humano vencia 51,0% no fácil (alvo 70%) e 30,4% no difícil (alvo 20%) - o difícil estava mais FÁCIL que o alvo, o único degrau errado para cima. Sem os dados de campo isso não apareceria: a sensação de quem joga é 'está tudo difícil', que aponta para o lado oposto. Mexeu-se em dois parâmetros: epsilon do fácil 0,70 → 0,80 e do difícil 0,20 → 0,14.",
+    "aviso": "⚠️ Estes dois números são CHUTE calibrado pela DIREÇÃO, não por medição. Decisão consciente do dono em 2026-08-06: mexer só no parâmetro, sem tocar na dinâmica, e deixar a calibração precisa para a branch de revisão de dificuldade, quando houver dados dos dois jogos em banco. O plano está em specs/007-jogo-da-velha/revisao-dificuldade-e-xp.md.",
+    "consequencia_para_o_desafio": "É por isso que todo candidato e todo desafio publicado gravam a `co_versao_perfil` (RF-DES-146): um desafio aprovado hoje foi calibrado com ESTA régua, e ela vai mudar."
+  },
+
+  "o_que_este_contrato_NAO_declara": {
+    "o_tamanho_do_tabuleiro": "Só existe modelo .tflite para o tabuleiro PEQUENO (RF-DES-018d). Os níveis valem para ele.",
+    "o_remote_config": "Remote Config NÃO substitui este contrato (RF-DES-147): ele exigiria um fallback compilado, então o número continuaria no código - o contrato não sairia, e o RC seria uma TERCEIRA fonte. Quando a branch de parâmetros entrar, o RC entra POR CIMA, como override, com este contrato como default e o teste travando o default.",
+    "os_outros_jogos": "Cada jogo tem o seu, desde o primeiro dia (RF-DES-145). Os números não viajam: os das damas são profundidade e teto de nós, e o Sagaz de lá são 288 mil nós."
+  }
+}
