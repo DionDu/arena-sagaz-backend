@@ -21,6 +21,70 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-09 — Os modelos do Desafio do Dia não são ORM, e o catálogo de feitos vira manifesto
+
+Duas decisões da mesma tarde, ao escrever `api/desafios/` (T024 a T026).
+
+### 1. Não há `class Desafio(Base)` — e não deveria haver
+
+As tarefas T024/T025 pediam *"models SQLAlchemy"*. Ao implementar, isso não se
+sustenta neste repositório: **o projeto não tem ORM declarativo em lugar nenhum**.
+Toda a API fala com o banco por `sqlalchemy.text(...)` com parâmetros nomeados,
+lendo pelas VIEWs — `api/sincronizacao/repositorio.py` tem mais de mil linhas
+assim, e `api/nucleo/banco.py` entrega uma `AsyncSession`, não uma
+`DeclarativeBase`.
+
+Introduzir mapeamento declarativo agora criaria **duas formas** de falar com o
+mesmo banco, e as duas discordariam em silêncio no primeiro ponto em que o
+mapeamento envelhecesse. E há um agravante de convenção: um `Mapped[...]` mapeia
+**tabela**, enquanto a regra do projeto é que a leitura nunca toca a tabela.
+
+**O que os dois módulos entregam, então:** os vocabulários fechados como
+`Literal` (o mesmo recurso que `api/conta/modelos.py` usa para `IdiomaSuportado`),
+os nomes das VIEWs em constantes, e os modelos Pydantic do que cruza fronteira.
+
+⚠️ **O preço declarado:** os vocabulários passam a existir duas vezes — como
+`CHECK` na migração e como `Literal` no modelo. É proposital (cada um pega o erro
+num momento diferente), mas as duas cópias podem se separar sem dar erro. Por
+isso `tests/unitarios/test_modelos_desafio.py` lê o `CHECK` da migração e o
+`Literal` do modelo e exige que digam a mesma coisa — inclusive os números da
+dimensão de tipo de XP, que o código guarda como constantes nomeadas em vez de
+espalhar `nu_tipo_xp == 5`.
+
+### 2. O catálogo de feitos passa por um manifesto, e não por comparação direta
+
+⚠️ **O CI não pode comparar Dart com Python.** Cada repositório roda sozinho, sem
+o outro no disco. É a mesma lição do RF-DES-143a, que já produziu o
+`MANIFESTO_HASHES.json` do espelho: a comparação entre repositórios **não é
+executável**; o que é executável é cada lado conferir a sua cópia contra um
+manifesto versionado.
+
+```text
+fonte da verdade   lib/core/feitos/catalogo_feitos.dart      (o aplicativo)
+        ↓ dart run tool/gerar_manifesto_feitos.dart
+manifesto          catalogo_feitos.json, em DUAS cópias byte-idênticas
+        ↓                                    ↓
+cadeado do app     cadeado do backend (T026, migração 0018)
+```
+
+Os dois são de **nível de CI e ⛔ nunca pulam**: manifesto ausente é falha, não
+motivo para pular. Um cadeado que se desliga quando o alvo some não guarda nada.
+
+**O que o gerador acrescenta ao que o Dart já tem**, e por isso ele existe em vez
+de um `jsonEncode` de três linhas: o `nu_feito` (numeração por blocos, com folga:
+comuns 1-9, Pontinhos 10-19, velha 20-29, damas 30-39, sessão 40-49), o rótulo
+para o painel de curadoria, o sentinela `9999` — que ⛔ **não** vem do catálogo do
+app, de propósito: declará-lo lá ofereceria a alguém a chance de usá-lo como
+feito de verdade — e a tradução dos `enum` de camelCase para o snake_case do
+banco (`marcoAtingido` → `marco_atingido`).
+
+⚠️ **O atributo mais perigoso é `co_direcao`.** Um feito marcado `maior_melhor`
+de um lado e `menor_melhor` do outro **não produz erro nenhum**: só paga mais XP
+a quem jogou pior. Ele tem caso próprio nos dois cadeados, e os dois foram
+provados que reprovam.
+
+---
+
 ## 2026-09-09 — O serviço do job se declara em `railway.job.json`, não dentro do `railway.json`
 
 **Contexto.** A T018 pedia "declarar o **terceiro serviço** do Railway em

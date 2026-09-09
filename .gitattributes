@@ -43,3 +43,19 @@ scripts/referencia_runtime_inferencia.json -text
 # nada a quem o vê pela primeira vez. `eol=lf` força o fim de linha no checkout,
 # aconteça o que acontecer com a configuração local de quem clonou.
 *.sh text eol=lf
+
+# ⚠️ O MANIFESTO DO CATÁLOGO DE FEITOS (09/09/2026) — CADEADO 4.
+#
+# Este arquivo existe em DUAS cópias, uma em cada repositório, e elas precisam
+# ser byte-idênticas: é assim que o CI de cada lado confere o seu catálogo sem
+# ter o outro repositório no disco (RF-DES-143a).
+#
+# Ele é GERADO por `tool/gerar_manifesto_feitos.dart`, no frontend, que escreve
+# as duas cópias na mesma execução. Com a conversão de fim de linha ligada, a
+# cópia convertida deixaria de bater com a outra por um motivo que não tem nada
+# a ver com o conteúdo.
+#
+# ⛔ NÃO troque `-text` por `text eol=lf`: `text` ainda NORMALIZA na entrada, e
+#    normalizar é exatamente a operação que se quer ausente dos dois lados de
+#    uma comparação de bytes.
+contratos/catalogo_feitos.json -text

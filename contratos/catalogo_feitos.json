@@ -1,0 +1,160 @@
+{
+  "de_documento": "Manifesto do catalogo de feitos do hub Arena Sagaz. GERADO por tool/gerar_manifesto_feitos.dart - nao edite a mao.",
+  "co_fonte_da_verdade": "arena-sagaz-frontend/lib/core/feitos/catalogo_feitos.dart",
+  "nu_versao_catalogo": 1,
+  "feitos": [
+    {
+      "nu_feito": 1,
+      "co_feito": "vitoria",
+      "no_feito": "Venceu",
+      "co_unidade": "marco",
+      "co_direcao": "marco_atingido",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": null
+    },
+    {
+      "nu_feito": 2,
+      "co_feito": "empate",
+      "no_feito": "Empatou",
+      "co_unidade": "marco",
+      "co_direcao": "marco_atingido",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": null
+    },
+    {
+      "nu_feito": 3,
+      "co_feito": "lances_do_jogador",
+      "no_feito": "Lances do jogador",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": null
+    },
+    {
+      "nu_feito": 4,
+      "co_feito": "desafio_concluido",
+      "no_feito": "Desafio concluido",
+      "co_unidade": "marco",
+      "co_direcao": "marco_atingido",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": null
+    },
+    {
+      "nu_feito": 10,
+      "co_feito": "caixas_fechadas",
+      "no_feito": "Caixas fechadas",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "pontinhos"
+    },
+    {
+      "nu_feito": 11,
+      "co_feito": "caixas_do_adversario",
+      "no_feito": "Caixas do adversario",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "pontinhos"
+    },
+    {
+      "nu_feito": 20,
+      "co_feito": "lances_otimos",
+      "no_feito": "Lances otimos",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "velha"
+    },
+    {
+      "nu_feito": 21,
+      "co_feito": "partida_perfeita",
+      "no_feito": "Partida perfeita",
+      "co_unidade": "marco",
+      "co_direcao": "marco_atingido",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "velha"
+    },
+    {
+      "nu_feito": 30,
+      "co_feito": "damas_coroadas",
+      "no_feito": "Damas coroadas",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "damas"
+    },
+    {
+      "nu_feito": 31,
+      "co_feito": "capturas_extras",
+      "no_feito": "Capturas extras",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "damas"
+    },
+    {
+      "nu_feito": 32,
+      "co_feito": "maior_captura",
+      "no_feito": "Maior captura",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "damas"
+    },
+    {
+      "nu_feito": 33,
+      "co_feito": "material_restante",
+      "no_feito": "Material restante",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "damas"
+    },
+    {
+      "nu_feito": 34,
+      "co_feito": "material_do_adversario",
+      "no_feito": "Material do adversario",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "damas"
+    },
+    {
+      "nu_feito": 40,
+      "co_feito": "tempo_ate_resolver",
+      "no_feito": "Tempo ate resolver",
+      "co_unidade": "milissegundos",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "sessao",
+      "co_jogo": null
+    },
+    {
+      "nu_feito": 41,
+      "co_feito": "tentativas",
+      "no_feito": "Tentativas",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "sessao",
+      "co_jogo": null
+    },
+    {
+      "nu_feito": 42,
+      "co_feito": "dicas_usadas",
+      "no_feito": "Dicas usadas",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "sessao",
+      "co_jogo": null
+    },
+    {
+      "nu_feito": 9999,
+      "co_feito": "desconhecido",
+      "no_feito": "Desconhecido",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "sessao",
+      "co_jogo": null
+    }
+  ]
+}
