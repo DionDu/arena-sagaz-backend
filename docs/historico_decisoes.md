@@ -21,6 +21,50 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-09 — O runtime de inferência do job: `ai-edge-litert` confere com o do app
+
+**Contexto.** O `research.md` §R-03 da spec 009 escolheu `python:3.11-slim` +
+`ai-edge-litert` para a imagem do job em batch, e deixou um ponto explícito a
+confirmar antes de qualquer outra coisa (tarefa **T001**): a versão que instala em
+`linux/amd64` + Python 3.11 e abre o `.tflite` de 19,8 MB. O plano B declarado era
+`tensorflow-cpu` — imagem muito maior, mesmo resultado. ⛔ Reimplementar a
+inferência nunca foi opção (RF-DES-018b).
+
+**O que se mediu.** Duas coisas, e a segunda é a que importa:
+
+1. **O wheel existe.** `ai-edge-litert` 2.2.0 publica
+   `cp311-manylinux_2_27_x86_64` (21,3 MB). O `python:3.11-slim` é Debian
+   bookworm, glibc 2.36 — folgado sobre o 2.27 exigido.
+2. **Os números batem.** `scripts/conferir_runtime_inferencia.py` roda 12 tensores
+   determinísticos `(1,4,3,12)` pelo modelo pequeno e compara a saída dos 31
+   neurônios, arredondada a 6 casas. O `ai-edge-litert` 2.2.0 e o
+   `tensorflow.lite` 2.21.0 — a **mesma** biblioteca C que o `tflite_flutter` do
+   app embrulha — produziram saída **idêntica, número por número**.
+
+**Decisão.** Vale o **plano A**: `ai-edge-litert==2.2.0` no `requirements_job.txt`.
+`tensorflow` não entra na imagem do job.
+
+**Por que a conferência é por número, e não por "abriu".** "Abrir" falha alto e
+cedo; o risco de verdade era abrir e devolver números **um pouco** diferentes. A
+calibração do desafio sairia então de um adversário que não é o adversário que a
+pessoa enfrenta, e nada no sistema denunciaria — é o mesmo tipo de defeito
+silencioso que o contrato de codificação existe para impedir.
+
+**O que ainda falta, e é comando do dono.** A prova rodou em Windows (Python 3.12
+para o TensorFlow, 3.14 para o LiteRT), porque não há Docker nem Python 3.11 nesta
+máquina. Falta rodar o mesmo script **dentro** de `python:3.11-slim`, em
+`linux/amd64` — o comando está na docstring do script. O arquivo de referência
+`scripts/referencia_runtime_inferencia.json` é versionado justamente para que essa
+execução seja uma comparação, e não uma nova medida.
+
+**Alternativa considerada e descartada:** comparar contra a saída do app rodando
+em `flutter test`. Descartada porque o `tflite_flutter` depende de `dart:ffi` e a
+biblioteca nativa não existe na VM de teste — `carregarOraculoCnn()` devolve `null`
+lá de propósito. O `tensorflow.lite` do laboratório é o mesmo runtime C, e está
+disponível.
+
+---
+
 ## 2026-09-08 — O ingestor precisa aceitar a MESMA partida duas vezes
 
 **Contexto.** O Desafio do Dia (spec 009 do frontend) traz um caso que o log de
