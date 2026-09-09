@@ -117,6 +117,15 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     "jogos/jogo_damas/treino/janelas_damas.py",
     # ── O logger, que `retrograda_damas` usa ──
     "nucleo/log.py",
+    # ── O motor do Pontinhos: as REGRAS e a CODIFICAÇÃO ──
+    # ⛔ Nada aqui é reimplementado no backend (RF-DES-018b). A extração dos 12
+    # canais tem BFS no grafo dual das caixas e é justamente o tipo de código que
+    # uma segunda escrita erraria em silêncio: o tensor sairia plausível, a CNN
+    # responderia, e o adversário do desafio seria outro.
+    "jogos/jogo_pontinhos/__init__.py",
+    "jogos/jogo_pontinhos/motor/__init__.py",
+    "jogos/jogo_pontinhos/motor/tabuleiro_pontinhos.py",
+    "jogos/jogo_pontinhos/motor/analisador_estrutural_pontinhos.py",
     # ── O contrato de damas e o seu manifesto (RF-DES-141/149) ──
     # O job LÊ o contrato em tempo de execução: é a declaração única dos
     # parâmetros de nível, e é ela que o motor consulta para saber o que é o
@@ -151,6 +160,36 @@ ARQUIVOS_DO_APP: tuple[tuple[str, str], ...] = (
     (
         "assets/jogos/pontinhos/contrato_dificuldade_pontinhos.json",
         "contrato_dificuldade_pontinhos.json",
+    ),
+    # ── A CNN do Pontinhos: os MESMOS arquivos que vão no aparelho ──
+    #
+    # ⚠️ RF-DES-018b não diz "um modelo equivalente": diz **o mesmo**. O job tem
+    # de enfrentar o adversário que a pessoa enfrenta, e um `.tflite` diferente
+    # — ainda que treinado igual — daria outro jogador.
+    #
+    # ⚠️ São 19,8 MB entrando no Git, e é o preço declarado de RF-DES-148: o
+    # Railway constrói a imagem a partir deste repositório, e o que não estiver
+    # aqui dentro não existe na nuvem.
+    (
+        "assets/jogos/pontinhos/modelos/"
+        "pontinhos_pequeno_cnn_12canais_boxnetv4_oraculo_exato_refinamento2_8p3M.tflite",
+        "modelos/"
+        "pontinhos_pequeno_cnn_12canais_boxnetv4_oraculo_exato_refinamento2_8p3M.tflite",
+    ),
+    # O mapeamento diz qual neurônio de saída é qual traço. ⚠️ A ordem é a
+    # varredura canônica da matriz, que INTERCALA H_ e V_; a ordem alfabética
+    # inutilizaria 28 das 31 predições, e já inutilizou uma vez.
+    (
+        "assets/jogos/pontinhos/ia_mappings/mapeamento_pequeno.json",
+        "ia_mappings/mapeamento_pequeno.json",
+    ),
+    # O contrato de codificação: a fonte única sobre como o tabuleiro vira
+    # tensor. ⚠️ **Este arquivo tem o SHA-256 travado no CI**, e é conferido
+    # contra a cópia da API — a que vive em `gerador_dados/`. A cópia daqui é uma
+    # terceira, dentro do espelho, e o manifesto é quem a trava.
+    (
+        "assets/jogos/pontinhos/contrato_codificacao_pontinhos.json",
+        "contrato_codificacao_pontinhos.json",
     ),
 )
 """Pares `(caminho no frontend, caminho dentro do espelho)`."""

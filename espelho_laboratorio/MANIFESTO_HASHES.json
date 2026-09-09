@@ -123,6 +123,26 @@
       "tamanho_bytes": 2851
     },
     {
+      "caminho": "jogos/jogo_pontinhos/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tamanho_bytes": 0
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tamanho_bytes": 0
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor/tabuleiro_pontinhos.py",
+      "sha256": "c65b72fc061dac5f7d0822a168c327729c223beb933363439ca39c33e2484651",
+      "tamanho_bytes": 7051
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor/analisador_estrutural_pontinhos.py",
+      "sha256": "07d1792fc90a3089c9f17cee2e6a8037aca66eae737b678b1ad80944aa2f9802",
+      "tamanho_bytes": 13891
+    },
+    {
       "caminho": "jogos/jogo_damas/contrato/__init__.py",
       "sha256": "42fa2e42679d69877dda728241f8bd538721e24abdd26cdd748b9681cebc5bd0",
       "tamanho_bytes": 81
@@ -141,6 +161,21 @@
       "caminho": "contrato_dificuldade_pontinhos.json",
       "sha256": "0971d48f329419d6f71aa11de7aaa9e384c20bc1a15bda58eddf78ade0591c74",
       "tamanho_bytes": 7203
+    },
+    {
+      "caminho": "modelos/pontinhos_pequeno_cnn_12canais_boxnetv4_oraculo_exato_refinamento2_8p3M.tflite",
+      "sha256": "d1d3641a4ba5b4f81b1370073695d7e30e5edd445dc16b0cf0e443af5ffcdf97",
+      "tamanho_bytes": 19801152
+    },
+    {
+      "caminho": "ia_mappings/mapeamento_pequeno.json",
+      "sha256": "10ee67174e48ddfc14322b87fe8a367b0462c95ad620a2f68eb19bc700089125",
+      "tamanho_bytes": 553
+    },
+    {
+      "caminho": "contrato_codificacao_pontinhos.json",
+      "sha256": "7399222bdbe51a4231dddae206c554c71dd24af9cdba19567c7449640c4a279d",
+      "tamanho_bytes": 12361
     }
   ]
 }

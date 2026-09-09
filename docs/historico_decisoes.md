@@ -21,6 +21,82 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-09 — A camada de motores nasce: quatro decisões que o código não conta sozinho
+
+**Contexto.** O BLOCO 1 do Desafio do Dia (T004 a T017) trouxe `motores/` e
+`espelho_laboratorio/` para o backend. O que segue são as decisões que apareceram
+**durante** a implementação e não estavam escritas em lugar nenhum.
+
+### 1. A versão do motor sai dos hashes do espelho, não de um número à mão
+
+`co_versao_motor` é `damas-py-<8 hex>` e `pontinhos-py-<8 hex>`, onde os oito
+dígitos são o começo do SHA-256 da lista de hashes dos arquivos daquele motor no
+manifesto do espelho.
+
+**Por quê.** Um número escrito à mão envelhece calado: alguém reespelha um motor
+novo, esquece de subir a versão, e as medições novas ficam indistinguíveis das
+velhas no banco. É exatamente a armadilha registrada em 26/08/2026, e o campo
+existe para não cair nela.
+
+**Alternativa descartada:** usar a versão do contrato. Ela descreve a **forma** do
+contrato, não o motor — dois motores diferentes podem gerar contratos de mesma
+versão.
+
+### 2. O adaptador traduz o motivo de empate; o espelho não se toca
+
+O motor de damas do laboratório devolve o motivo em **prosa** — `"posicao repetida
+3 vezes (art. 98)"` —, porque o destino dele é o PDN da partida, onde "empatou"
+sem dizer o artigo é o registro que não deixa auditar depois.
+
+RF-DES-019b exige que o servidor devolva **identificador**, com o app traduzindo
+pelo `l10n`. ⛔ Consertar isso dentro do espelho está fora de questão: ele é cópia
+byte-idêntica, e editá-lo derruba o cadeado 6. Então a tradução mora no adaptador
+(`_MOTIVOS_DE_EMPATE`), e ela **falha alto** em motivo desconhecido — deixar a
+prosa passar mandaria português para dentro de `co_motivo`, e o app cairia na tela
+de "motivo desconhecido" sem que ninguém soubesse por quê.
+
+⚠️ **Nota de fato:** o app hoje mostra essa prosa crua no subtítulo da tela de
+resultado das damas, então quem joga em inglês ou espanhol vê português sem
+acento. É defeito do app, tem tarefa própria (T003), e não se conserta daqui.
+
+### 3. O espelho tem DUAS origens, e elas não se fundem
+
+`espelho_laboratorio/` recebe do `ia/` (o motor de damas, o contrato dele, a
+extração dos 12 canais e as regras do Pontinhos) **e** do
+`arena-sagaz-frontend/` (o contrato de dificuldade do Pontinhos, o `.tflite` de
+19,8 MB, o mapeamento de rótulos e o contrato de codificação).
+
+**Por quê.** A fonte da verdade de cada jogo está num lugar diferente, de
+propósito (`research.md` §R-20): no damas a política vive no Python e o contrato é
+gerado dela; no Pontinhos ela vive em Dart e o contrato é a declaração dela. ⛔
+Fingir que os dois vêm do laboratório criaria uma segunda fonte de números de
+dificuldade — o que o contrato existe para impedir.
+
+Os arquivos do laboratório preservam a **estrutura de pacotes**
+(`jogos/jogo_damas/motor/...`), porque o motor se importa por caminho absoluto e
+editar esses imports quebraria a cópia byte-idêntica. Os do app vão para a raiz
+do espelho: um JSON do aplicativo dentro de `jogos/` seria mentira sobre de onde
+ele veio.
+
+### 4. `newline=""` em todo arquivo que é comparado por hash
+
+O `write_text` do Python converte cada quebra de linha em CR+LF no Windows. O
+contrato de damas gravado assim tinha **667 bytes a mais** que o texto medido, e o
+hash declarado no manifesto não descrevia o arquivo declarado — o manifesto pegou
+o próprio defeito no dia em que nasceu.
+
+Todo arquivo que atravessa repositórios e é comparado por SHA-256 agora é gravado
+com `newline=""` e marcado `-text` no `.gitattributes` dos três repositórios. ⛔
+Não troque `-text` por `text eol=lf`: `text` ainda **normaliza** na entrada, e
+normalizar é a operação que se quer ausente dos dois lados de uma comparação de
+bytes.
+
+**Custo aceito, dito em voz alta:** 19,8 MB de `.tflite` entram no Git do backend.
+É o preço declarado de RF-DES-148 — o Railway constrói a imagem a partir deste
+repositório, e o que não estiver aqui dentro não existe na nuvem.
+
+---
+
 ## 2026-09-09 — O runtime de inferência do job: `ai-edge-litert` confere com o do app
 
 **Contexto.** O `research.md` §R-03 da spec 009 escolheu `python:3.11-slim` +
