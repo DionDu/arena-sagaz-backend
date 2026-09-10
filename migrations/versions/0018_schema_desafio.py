@@ -4,12 +4,22 @@ Revision ID: 0018_schema_desafio
 Revises: 0017_poder_e_probing_base
 Create Date: 2026-09-09
 
-⛔⛔⛔ **PROPOSTA — NAO FOI APLICADA EM NENHUM BANCO.** ⛔⛔⛔
+⛔⛔⛔ **AINDA NAO FOI APLICADA EM NENHUM BANCO.** ⛔⛔⛔
 
-Este arquivo existe para ser **lido e aprovado** pelo dono antes de rodar, pela
-regra permanente do projeto: nada de banco sem o OK dele. Antes de qualquer
-`alembic upgrade`, rodar `scripts/identificar_banco.py` — o `AMBIENTE` do `.env`
-**nao e prova** de para onde a conexao aponta.
+⚠️ **E ela NAO espera leitura de ninguem.** Decisao do dono, 09/09/2026:
+
+    "Eu nao vou conferir codigo de Alembic. Eu ja pre validei o data-model.md."
+
+O que foi aprovado e o **modelo**, e nao este arquivo. O que garante que os dois
+dizem a mesma coisa e um cadeado, e nao a atencao de quem escreveu:
+`tests/unitarios/test_migracao_bate_com_data_model.py` compara tabela a tabela,
+coluna a coluna **na ordem**, constraint a constraint e indice a indice. Ele nao
+tem `skip` nem `xfail`, e ha um teste que prova que nunca ganhara um.
+
+⚠️ **O que continua valendo e a conferencia de AMBIENTE**, que e outra coisa:
+antes de qualquer `alembic upgrade`, rodar `scripts/identificar_banco.py` — o
+`AMBIENTE` do `.env` **nao e prova** de para onde a conexao aponta, e confundir
+`des` com `prd` nao tem volta.
 
     DES = hopper.proxy.rlwy.net:21165
     PRD = hayabusa.proxy.rlwy.net:42857

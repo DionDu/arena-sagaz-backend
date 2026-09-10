@@ -21,6 +21,51 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-09 — A migração deixa de esperar leitura, e ganha um cadeado contra o modelo
+
+**Decisão do dono:** *"Eu não vou conferir código de Alembic. Eu já pré validei o
+data-model.md."*
+
+Os cabeçalhos das três migrações pediam leitura e aprovação antes de rodar. Isso
+saiu: o que foi aprovado é o **modelo**, e a migração é a tradução dele.
+
+⚠️ **A decisão transfere o peso da prova**, e a contrapartida entrou junto:
+`tests/unitarios/test_migracao_bate_com_data_model.py` compara o `data-model.md`
+com as migrações `0018` e `0019` — tabela a tabela, coluna a coluna **na ordem**,
+constraint a constraint, índice a índice.
+
+**Por que a ordem das colunas entra na comparação:** a regra §8b diz que campo
+importante não fica no fim da tabela. Uma comparação de conjuntos perderia
+exatamente isso — uma coluna que escorregasse para o fim passaria por qualquer
+teste que só olhasse *quais* colunas existem.
+
+**O que ele deliberadamente não compara** é o texto dos `CHECK`: o documento os
+escreve com outra indentação, e comparar texto formatado geraria alarme falso a
+cada reindentação — e alarme falso é o começo de todo teste ignorado. Quem guarda
+o **conteúdo** dos `CHECK` é `test_modelos_desafio.py`, que lê os valores e os
+compara com os `Literal` do código. Dois cadeados, duas metades.
+
+⚠️ **E ele não pode ganhar saída de emergência.** Um caso do próprio arquivo lê a
+árvore de si mesmo com `ast` e falha se aparecer um `skip`, `skipif` ou `xfail` —
+porque um `skip` aqui devolveria a pré-validação ao estado de cheque em branco.
+
+**Provado que reprova**, com três sabotagens simultâneas na `0018`:
+`nu_versao_catalogo` movida para o fim da tabela, `co_versao_minima` alargada de
+`VARCHAR(20)` para `VARCHAR(30)`, e `ck005_solucao` apagada. As três foram
+apontadas pelo nome.
+
+⚠️ **O `ast` foi necessário de novo**, e pelo mesmo motivo da terceira vez: as
+migrações escrevem comandos curtos como strings adjacentes (`"CREATE INDEX x "`
+`"ON tabela (coluna)"`), e no arquivo há uma aspa e uma quebra de linha entre o
+nome e o `ON` — nenhum regex de SQL casa com isso. O cadeado tem de ler o que o
+código **executa**, e não como ele está escrito.
+
+**O que continua valendo:** `scripts/identificar_banco.py` antes de qualquer
+`alembic upgrade`. Isso nunca foi sobre aprovar conteúdo — é sobre não escrever
+no banco errado.
+
+---
+
 ## 2026-09-09 — O job do Desafio do Dia: três decisões que saíram de medida, não de gosto
 
 O BLOCO 2 (T018 a T038) trouxe `job/` para o backend. As três decisões abaixo
