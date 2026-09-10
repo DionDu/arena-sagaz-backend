@@ -1,4 +1,10 @@
-"""CONFERE AS MIGRACOES 0018/0019/0020 NO BANCO — diagnostico SOMENTE-LEITURA.
+"""CONFERE AS MIGRACOES DO DESAFIO NO BANCO — diagnostico SOMENTE-LEITURA.
+
+⚠️ **Quais migracoes, e qual revisao, sao DESCOBERTOS** — nao ha lista aqui.
+Ate 10/09/2026 este arquivo nomeava `0018`/`0019` e esperava a revisao `0020`;
+no dia em que a `0021` chegou, ele passou a acusar *"16 no banco, 15 na
+migracao"* e a exigir uma revisao que nao era mais a cabeca. ⛔ Um conferidor que
+reprova o banco CERTO ensina a ignora-lo, que e pior do que nao te-lo.
 
 ═══════════════════════════════════════════════════════════════════════════
 POR QUE ESTE SCRIPT EXISTE
@@ -78,9 +84,37 @@ sys.path.insert(0, str(RAIZ_BACKEND))
 
 MIGRACOES = RAIZ_BACKEND / "migrations" / "versions"
 
-#: As duas migracoes que criam schema, e a revisao que tem de estar no banco.
-ARQUIVOS_DE_SCHEMA = ("0018_schema_desafio.py", "0019_schema_desafio_dia.py")
-REVISAO_ESPERADA = "0020_partida_modo_desafio"
+#: Os schemas que este conferidor cobre.
+SCHEMAS = ("desafio", "desafio_dia")
+
+
+def revisao_esperada() -> str:
+    """A **cabeca** da cadeia de migracoes, descoberta dos arquivos.
+
+    ⚠️ **Era uma constante escrita a mao**, e ela envelheceu no primeiro dia em
+    que uma migracao nova chegou: a `0021` subiu e o conferidor continuou
+    esperando a `0020`. Uma constante assim nao falha — ela passa a conferir a
+    coisa errada, que e pior.
+
+    A cabeca e a revisao que **nenhuma outra** aponta como `down_revision`.
+    """
+    revisoes: set[str] = set()
+    anteriores: set[str] = set()
+    for arquivo in sorted(MIGRACOES.glob("[0-9]*.py")):
+        texto = arquivo.read_text(encoding="utf-8")
+        casa = re.search(r'^revision: str = "([^"]+)"', texto, re.M)
+        if casa:
+            revisoes.add(casa.group(1))
+        casa = re.search(r'^down_revision[^=]*= "([^"]+)"', texto, re.M)
+        if casa:
+            anteriores.add(casa.group(1))
+    cabecas = revisoes - anteriores
+    if len(cabecas) != 1:
+        raise RuntimeError(
+            f"a cadeia de migracoes tem {len(cabecas)} cabecas ({sorted(cabecas)}). "
+            "⛔ Ou ha um ramo, ou uma revisao ficou orfa."
+        )
+    return cabecas.pop()
 
 #: As dimensoes que a propria migracao popula com `INSERT` — tem de ter linha.
 DIMENSOES_POPULADAS = (
@@ -130,16 +164,29 @@ def _url_do_banco() -> str:
 def _objetos_esperados() -> tuple[set[str], set[str]]:
     """`(tabelas, views)` que as migracoes `0018`/`0019` mandam criar.
 
-    Lidos dos arquivos com expressao regular sobre o texto do `CREATE`. E de
-    proposito que a fonte seja a migracao, e nao uma lista aqui: lista a mao
-    envelhece em silencio.
+    ⚠️ **Quais migracoes olhar tambem e DESCOBERTO**, e nao uma lista aqui: ate
+    10/09/2026 estas duas linhas nomeavam a `0018` e a `0019`, e no dia em que a
+    `0021` criou uma tabela o conferidor passou a dizer *"16 no banco, 15 na
+    migracao"* — acusando divergencia onde nao havia, que ensina a ignora-lo.
+
+    ⚠️ E o SQL vem do extrator por `ast`, e nao do texto cru do arquivo: um
+    `CREATE TABLE` citado numa docstring contaria como tabela.
     """
+    from tests.unitarios.leitura_de_migracao import sql_da_migracao
+    from tests.unitarios.test_migracao_bate_com_data_model import (
+        migracoes_dos_schemas,
+    )
+
     tabelas: set[str] = set()
     views: set[str] = set()
-    for nome in ARQUIVOS_DE_SCHEMA:
-        texto = (MIGRACOES / nome).read_text(encoding="utf-8")
-        tabelas |= set(re.findall(r"CREATE TABLE\s+(\w+\.\w+)", texto))
-        views |= set(re.findall(r"CREATE (?:OR REPLACE )?VIEW\s+(\w+\.\w+)", texto))
+    for arquivo in migracoes_dos_schemas():
+        sql = sql_da_migracao(arquivo)
+        tabelas |= set(re.findall(r"CREATE TABLE\s+(\w+\.\w+)", sql))
+        views |= set(re.findall(r"CREATE (?:OR REPLACE )?VIEW\s+(\w+\.\w+)", sql))
+    # ⛔ So os dois schemas cobertos: uma migracao pode criar tabela em `partida`
+    # ou `log` na mesma passada, e ela nao e assunto deste conferidor.
+    tabelas = {n for n in tabelas if n.split(".")[0] in SCHEMAS}
+    views = {n for n in views if n.split(".")[0] in SCHEMAS}
     return tabelas, views
 
 
@@ -162,10 +209,13 @@ def _colunas_esperadas() -> dict[str, list[str]]:
     # mesmos que rodam no CI — e essa e a razao de importa-los em vez de
     # reescreve-los.
     from tests.unitarios.leitura_de_migracao import sql_da_migracao
-    from tests.unitarios.test_migracao_bate_com_data_model import MIGRACOES, _tabelas
+    from tests.unitarios.test_migracao_bate_com_data_model import (
+        _tabelas,
+        migracoes_dos_schemas,
+    )
 
     esperadas: dict[str, list[str]] = {}
-    for arquivo in MIGRACOES.values():
+    for arquivo in migracoes_dos_schemas():
         for tabela, dados in _tabelas(sql_da_migracao(arquivo)).items():
             esperadas[tabela] = [nome for nome, _tipo in dados["colunas"]]
     return esperadas
@@ -193,10 +243,11 @@ async def _conferir(url: str) -> int:
                     text("SELECT version_num FROM alembic_version LIMIT 1")
                 )
             ).scalar()
+            cabeca = revisao_esperada()
             print(f"  revisao do alembic        {revisao}")
-            if revisao != REVISAO_ESPERADA:
+            if revisao != cabeca:
                 reprovacoes.append(
-                    f"a revisao e {revisao!r}, e deveria ser {REVISAO_ESPERADA!r} — "
+                    f"a revisao e {revisao!r}, e deveria ser {cabeca!r} — "
                     "o `upgrade` nao chegou ao fim, ou este e outro banco"
                 )
 
