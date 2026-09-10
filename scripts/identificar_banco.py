@@ -157,7 +157,8 @@ async def _inspecionar(url: str) -> int:
             "schemas do projeto",
             "SELECT COALESCE(string_agg(nspname, ', ' ORDER BY nspname), '(nenhum)') "
             "FROM pg_namespace WHERE nspname IN "
-            "('conta','partida','progressao','log','jogo_pontinhos','jogo_velha','jogo_damas')",
+            "('conta','partida','progressao','log','jogo_pontinhos','jogo_velha',"
+            "'jogo_damas','desafio','desafio_dia')",
         ),
         ("contas cadastradas", "SELECT COUNT(*)::text FROM conta.tb001_usuario"),
         (

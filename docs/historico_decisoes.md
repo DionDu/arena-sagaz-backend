@@ -21,6 +21,37 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-10 — Aplicar migração tem runbook próprio, e um conferidor que lê as migrações
+
+**Contexto.** O dono perguntou como executar o `alembic upgrade` das `0018`,
+`0019` e `0020`. A resposta não cabia numa mensagem: `upgrade` que termina sem
+erro **não prova** que o banco ficou como deveria — foi a lição da `0017`, em que
+o defeito perigoso era o silencioso (VIEW que deixa de enxergar coluna, dimensão
+que ninguém populou).
+
+**Decisão.** O procedimento vira arquivo — `docs/runbook-migracoes-desafio.md` —
+e a conferência vira script: `scripts/conferir_migracao_desafio.py`, somente
+leitura, com código de saída (`0` confere · `2` reprovou · `1` não conectou).
+
+⛔ **E ele não tem lista de tabelas escrita à mão.** O esperado é extraído das
+próprias migrações (`CREATE TABLE` / `CREATE VIEW`), porque lista à mão envelhece
+calada: alguém acrescenta uma tabela, esquece de acrescentá-la no conferidor, e
+ele fica **verde e cego** — o defeito que já custou quatro fluxos de fim de
+partida no app.
+
+**O que ele confere:** a revisão do alembic · as 15 tabelas e as 15 VIEWs · as
+cinco dimensões populadas pela migração · a `tb903_perfil_dificuldade` **vazia**,
+que é o certo (quem a preenche é o job) · o `CHECK` `ck_partida_modo` aceitando
+`'desafio'`. Coluna que a VIEW irmã não expõe sai como **AVISO**, não como falha:
+há VIEW que reduz de propósito, e um portão que acusa o que é correto ensina a
+ser ignorado.
+
+**Mudança de uma linha, no mesmo passo:** `scripts/identificar_banco.py` passou a
+listar `desafio` e `desafio_dia` entre os schemas do projeto — sem isso, o
+diagnóstico rodado **depois** da migração não mostraria o que ela criou.
+
+---
+
 ## 2026-09-09 — A migração deixa de esperar leitura, e ganha um cadeado contra o modelo
 
 **Decisão do dono:** *"Eu não vou conferir código de Alembic. Eu já pré validei o
