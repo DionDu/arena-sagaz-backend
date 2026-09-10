@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.configuracao import configuracoes
 from api.conta import rotas as rotas_conta
+from api.desafios import rotas as rotas_desafios
 from api.desafios.painel import rotas as rotas_painel
 from api.legal import rotas as rotas_legal
 from api.notificacoes import rotas as rotas_notif
@@ -84,6 +85,11 @@ app.include_router(rotas_ranking.router, prefix="/v1/ranking")
 # app pela primeira vez, e exigir login tornaria impossivel justamente o relato
 # mais valioso.
 app.include_router(rotas_diagnosticos.router, prefix="/v1/diagnosticos")
+# Desafio do Dia: o que o aplicativo baixa para jogar (T042).
+# ⚠️ **Le sem login** (convidado incluso): o desafio publicado e o mesmo
+# para todo mundo, e nada na resposta depende de quem pergunta. Resolver, ai
+# sim, exige conta.
+app.include_router(rotas_desafios.router, prefix="/v1/desafios")
 # Documentos legais como páginas HTML públicas (G3) — fora de /v1, é conteúdo web
 # (URLs de privacidade/exclusão exigidas pelas lojas).
 app.include_router(rotas_legal.router, prefix="/legal")

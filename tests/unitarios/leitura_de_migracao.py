@@ -18,9 +18,21 @@ O historico e curto e caro, e explica cada linha daqui:
     cobrava sentinela de uma migracao que apenas *mencionava* uma dimensao no
     cabecalho, para explicar que **nao** a toca. Foi o caso da `0020`.
 
-Os tres sao a mesma especie de defeito: **o cadeado confundiu o que a migracao
-diz com o que ela faz**. A resposta e sempre `ast` — ler o que o codigo executa,
+  · **10/09/2026** — e o quarto, ja fora das migracoes: o cadeado de T043a
+    (*"a auditoria nao chama `escolher_lance`"*) foi escrito com `in fonte` e
+    **reprovou o codigo correto**, porque a docstring do modulo auditado
+    menciona `escolher_lance` exatamente para dizer que ele nao o chama. O
+    conserto foi ler imports e chamadas com `ast`
+    (`test_auditoria_de_resolucoes.py`).
+
+Os quatro sao a mesma especie de defeito: **o cadeado confundiu o que o codigo
+diz com o que ele faz**. A resposta e sempre `ast` — ler o que o codigo executa,
 e nao como ele esta escrito.
+
+⚠️ **E o padrao se repete fora das migracoes**, como o quarto caso mostra: todo
+cadeado que pergunta *"este arquivo faz X?"* le `ast`, e nunca texto. Um `in
+fonte` acerta enquanto ninguem escrever um comentario sobre o assunto — e o
+comentario sobre o assunto e justamente o que um arquivo bem documentado tem.
 """
 
 from __future__ import annotations
