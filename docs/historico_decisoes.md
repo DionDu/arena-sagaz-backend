@@ -1898,3 +1898,76 @@ os dois nem sempre são o mesmo objeto: nas damas `MotorDamas` faz as duas coisa
 no Pontinhos quem escolhe lance é `JogadorPontinhos` (que não tem `veredito`) e
 quem arbitra é `MotorPontinhos`. Deixar isso para o chamador adivinhar plantaria
 um `AttributeError` no meio da medição.
+
+---
+
+## 2026-09-10 — O portão T001 reprovou o primeiro build real, e o defeito era dele
+
+**O que aconteceu.** O primeiro build do serviço `job-desafio` no Railway — o
+primeiro que de fato usou o `Dockerfile.job` — reprovou no portão de runtime:
+
+```
+[X] DIVERGIU. O runtime do job NAO reproduz o do app:
+    vetor  1: desvio maximo 0.000001000
+    vetor  2: desvio maximo 0.000001000
+    vetor  3: desvio maximo 0.000001000
+    vetor 10: desvio maximo 0.000001000
+```
+
+⚠️ **Os quatro desvios eram idênticos e exatamente 1e-6** — um passo da sexta casa
+decimal, nunca dois. E os outros oito vetores bateram **dígito a dígito**: 248
+valores exatos.
+
+### O diagnóstico
+
+O portão arredondava a saída a **6 casas** e exigia igualdade **exata**
+(`if desvio > 0`). A intenção estava escrita na docstring e estava certa:
+absorver a divergência de último bit que dois interpretadores corretos têm por
+ordem de soma.
+
+⛔ **Mas arredondar não absorve nada — apenas muda o problema de lugar.** Um
+valor a 1e-7 de uma fronteira `x.xxxxxx5` arredonda para lados opostos nas duas
+máquinas, e a diferença medida vira um degrau inteiro da última casa.
+
+**Medido**, rodando o runtime de referência (`tensorflow`, no `ia/.venv_tf`) e
+guardando a saída crua: **65 dos 372 neurônios — 17% — ficam a menos de 1e-7 de
+uma fronteira de arredondamento**, distribuídos por 11 dos 12 vetores.
+
+⚠️ **A comparação anterior era incapaz de passar.** Nem dois runtimes idênticos
+em CPUs diferentes a satisfariam — e um portão sem condição de aprovação
+alcançável é um portão que se aprende a ignorar.
+
+### A correção
+
+- `inferir()` deixa de arredondar e guarda o valor **cru**;
+- a comparação passa a ser por **tolerância absoluta**, `TOLERANCIA = 1e-5`;
+- a referência foi **regerada** com valores crus, pelo mesmo `tensorflow` de
+  antes (mesma semente, mesmo modelo, mesmos 12 vetores);
+- ⚠️ **o pior desvio passa a ser impresso SEMPRE**, inclusive quando aprova. Um
+  portão que só diz "sim" ou "não" esconde a deriva: o dia em que esse número
+  pular de 1e-7 para 1e-6 é o dia de olhar, mesmo dentro da tolerância.
+
+**Por que 1e-5.** Fica **100× acima** do ruído de último bit observado (~1e-7) e
+ao menos **10× abaixo** do que uma implementação de fato diferente produziria —
+kernel outro, quantização outra, grafo outro aparecem em 1e-4 ou mais.
+
+### ⛔ Isto NÃO é afrouxar o portão, e a distinção precisa ficar registrada
+
+O próprio projeto tem a regra de que *"alguém 'consertaria' o teste afrouxando a
+comparação, que é como uma regra vira decoração"*. A diferença aqui:
+
+- **afrouxar** seria aumentar a tolerância porque o número não passa;
+- **consertar** é trocar uma comparação matematicamente impossível de satisfazer
+  por uma que tem significado — e o portão saiu mais informativo do que entrou.
+
+⚠️ **A prova de que os runtimes concordam veio do que PASSOU**, e não do que
+falhou: 248 valores exatos a 6 casas. Um runtime calculando outro grafo não faz
+isso. O plano B de `research.md` §R-03 (`tensorflow-cpu` na imagem) ⛔ **não é
+necessário**.
+
+⚠️ **O que ainda não foi verificado**: a máquina do dono não roda o
+`ai-edge-litert` (ele publica wheel para cp311, e o `.venv` do backend é 3.14).
+A conferência local prova o encanamento — `tensorflow` contra a própria
+referência dá desvio **0.000000000** —, e ⛔ **quem prova a concordância entre os
+dois runtimes continua sendo o build no Railway**, que é a única execução em
+`linux/amd64` que o projeto tem.

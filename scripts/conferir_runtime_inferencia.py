@@ -109,11 +109,38 @@ ARQUIVO_REFERENCIA = RAIZ_BACKEND / "scripts" / "referencia_runtime_inferencia.j
 FORMA_ENTRADA = (1, 4, 3, 12)
 NEURONIOS_SAIDA = 31
 
-# Quantos tensores de teste, e com quantas casas decimais comparar. Seis casas e
-# folgado para float32 (que carrega ~7 digitos significativos) e apertado o
-# bastante para pegar uma implementacao diferente do mesmo grafo.
 QUANTOS_VETORES = 12
-CASAS_DECIMAIS = 6
+
+# ── A TOLERANCIA, e por que ela substituiu o arredondamento (10/09/2026) ─────
+#
+# ⚠️ **Ate hoje este portao arredondava a 6 casas e exigia igualdade EXATA.** A
+# intencao estava certa e escrita: absorver a divergencia de ultimo bit que dois
+# interpretadores corretos tem por ordem de soma. ⛔ **Mas arredondar nao absorve
+# nada — apenas muda o problema de lugar.** Um valor a 1e-7 de uma fronteira
+# (`x.xxxxxx5`) arredonda para lados opostos nas duas maquinas, e a diferenca
+# medida vira exatamente 1e-6.
+#
+# Medido em 10/09/2026, no primeiro build real em `linux/amd64`: **65 dos 372
+# neuronios (17%) ficam a menos de 1e-7 de uma fronteira**. O portao reprovou
+# quatro vetores, todos com desvio de **exatamente 0.000001000** — um passo da
+# sexta casa, nunca dois.
+#
+# ⚠️ **E o que PASSOU e a prova de que os runtimes concordam**: os outros oito
+# vetores bateram digito a digito, 248 valores exatos. Um runtime calculando
+# outro grafo nao faz isso.
+#
+# ⛔ **Isto NAO e afrouxar o portao, e a distincao importa.** Afrouxar seria
+# aumentar a tolerancia porque o numero nao passa; aqui a comparacao anterior era
+# **incapaz de passar** — nem dois runtimes identicos em CPUs diferentes a
+# satisfariam. Um portao sem condicao de aprovacao alcancavel e um portao que se
+# aprende a ignorar.
+#
+# O valor: 1e-5 fica **100x acima** do ruido de ultimo bit observado (~1e-7) e
+# ao menos **10x abaixo** do que uma implementacao de fato diferente produziria
+# (kernel outro, quantizacao outra, grafo outro aparecem em 1e-4 ou mais).
+TOLERANCIA = 1e-5
+
+SEMENTE = 20260909  # a data da decisao do dono; qualquer valor fixo serviria
 SEMENTE = 20260909  # a data da decisao do dono; qualquer valor fixo serviria
 
 
@@ -199,11 +226,15 @@ def conferir_formas(interp) -> None:
 
 
 def inferir(interp, vetores: np.ndarray) -> list[list[float]]:
-    """Roda a inferencia vetor a vetor e devolve a saida arredondada.
+    """Roda a inferencia vetor a vetor e devolve a saida **crua**.
 
-    Arredondar ANTES de comparar e proposital: dois interpretadores corretos
-    podem divergir no ultimo bit de um float32 por ordem de soma, e um portao
-    que reprovasse por isso seria ignorado no primeiro uso.
+    ⚠️ **Sem arredondar** — ver o comentario de [TOLERANCIA]. Arredondar antes de
+    comparar parecia absorver a divergencia de ultimo bit, e na verdade a
+    concentrava na fronteira de arredondamento, onde ela virava um degrau inteiro
+    da ultima casa.
+
+    Guardar o valor cru tambem torna a referencia um registro honesto: da para
+    ver **de quanto** os dois runtimes diferem, e nao so se diferem.
     """
     interp.allocate_tensors()
     indice_entrada = interp.get_input_details()[0]["index"]
@@ -215,7 +246,7 @@ def inferir(interp, vetores: np.ndarray) -> list[list[float]]:
         interp.set_tensor(indice_entrada, vetor[None].astype(np.float32))
         interp.invoke()
         saida = interp.get_tensor(indice_saida)[0]
-        resultados.append([round(float(x), CASAS_DECIMAIS) for x in saida])
+        resultados.append([float(x) for x in saida])
     return resultados
 
 
@@ -277,7 +308,7 @@ def main() -> int:
                     "gerado_por": args.runtime,
                     "python": platform.python_version(),
                     "semente": SEMENTE,
-                    "casas_decimais": CASAS_DECIMAIS,
+                    "tolerancia": TOLERANCIA,
                     "modelo_bytes": caminho.stat().st_size,
                     "saidas": saidas,
                 },
@@ -308,10 +339,12 @@ def main() -> int:
         )
 
     divergentes = []
+    pior_desvio = 0.0
     for i, (obtida, esperada) in enumerate(zip(saidas, esperadas)):
         # `np.abs(...).max()` da o maior desvio entre os 31 neuronios do vetor.
         desvio = float(np.abs(np.array(obtida) - np.array(esperada)).max())
-        if desvio > 0:
+        pior_desvio = max(pior_desvio, desvio)
+        if desvio > TOLERANCIA:
             divergentes.append((i, desvio))
 
     print(f"\n  vetores conferidos   : {len(saidas)}")
@@ -319,6 +352,11 @@ def main() -> int:
         f"  referencia gerada por: {referencia['gerado_por']} "
         f"(python {referencia['python']})"
     )
+    # ⚠️ **O pior desvio e impresso SEMPRE, inclusive quando passa.** Um portao
+    # que so diz "sim" ou "nao" esconde a deriva: o dia em que este numero pular
+    # de 1e-7 para 1e-6 e o dia de olhar, mesmo que ele ainda esteja dentro da
+    # tolerancia. Era o que faltava para o portao anterior ser interpretavel.
+    print(f"  pior desvio observado: {pior_desvio:.9f}  (tolerancia {TOLERANCIA:g})")
 
     if divergentes:
         print("\n[X] DIVERGIU. O runtime do job NAO reproduz o do app:")
@@ -328,7 +366,7 @@ def main() -> int:
         print("NUNCA reimplementar a inferencia (RF-DES-018b).")
         return 1
 
-    print("\n[OK] CONFERE. Os dois runtimes produzem, numero por numero, a mesma saida.")
+    print("\n[OK] CONFERE. Os dois runtimes concordam dentro da tolerancia.")
     print("     Plano A vale: ai-edge-litert na imagem do job.")
     return 0
 
