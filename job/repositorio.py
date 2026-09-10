@@ -296,6 +296,35 @@ class RepositorioDoJob:
         )
         return [linha["co_tipo_desafio"] for linha in resultado.mappings().all()]
 
+    async def taxa_observada(
+        self, *, dt_inicio: date, dt_fim: date
+    ) -> tuple[int, int]:
+        """Quantas pessoas TENTARAM e quantas RESOLVERAM, na janela.
+
+        Returns:
+            `(nu_tentaram, nu_resolveram)`, somados sobre os dias da janela.
+
+        ⚠️ **É o insumo do alvo móvel da régua** (`job/alvo_observado.py`): a
+        banda de dificuldade começa fixa em 70–80% e passa a seguir a taxa real
+        quando houver volume. Sem esta leitura, aquele módulo é código morto — e
+        foi exatamente o que ele era até 10/09/2026.
+
+        ⚠️ **Zero é a resposta esperada por muito tempo.** O alvo observado só
+        entra com 200 tentativas; abaixo disso vale o fixo, e isso não é
+        limitação temporária escondida: a taxa de 12 pessoas não diz nada sobre a
+        dificuldade de um desafio.
+        """
+        from .alvo_observado import SQL_TAXA_OBSERVADA
+
+        resultado = await self.sessao.execute(
+            text(SQL_TAXA_OBSERVADA), {"dt_inicio": dt_inicio, "dt_fim": dt_fim}
+        )
+        linhas = resultado.mappings().all()
+        return (
+            sum(int(linha["nu_tentaram"]) for linha in linhas),
+            sum(int(linha["nu_resolveram"]) for linha in linhas),
+        )
+
     # ── A gravacao de um desafio inteiro ────────────────────────────────────
 
     async def publicar_desafio(

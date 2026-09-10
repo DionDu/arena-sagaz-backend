@@ -204,3 +204,34 @@ def dentro_da_banda(
         return False
     media = sum(m.taxa for m in medicoes) / len(medicoes)
     return piso <= media <= teto
+
+
+def distancia_da_banda(
+    medicoes: Sequence[Medicao], *, piso: float, teto: float
+) -> float:
+    """Quao longe da banda a taxa media ficou. Zero quando esta dentro.
+
+    Args:
+        medicoes: as linhas da regua daquele candidato.
+        piso, teto: a banda alvo.
+
+    Returns:
+        A distancia em fracao de taxa — `0.05` quer dizer "cinco pontos
+        percentuais fora".
+
+    ⚠️ **Existe para ESCOLHER entre candidatos que nenhum coube.** Sem ela, a
+    unica resposta possivel seria "nenhum serve", e o dia ficaria descoberto — o
+    unico defeito deste job que a pessoa ve na tela. Com ela da para publicar o
+    **menos pior** e dizer, no log, de quanto foi o erro.
+
+    ⚠️ **Lista vazia devolve infinito**, e nao zero: nada a medir nao pode virar
+    "encaixou perfeitamente". E o mesmo principio do cadeado de uniao de XP.
+    """
+    if not medicoes:
+        return float("inf")
+    media = sum(m.taxa for m in medicoes) / len(medicoes)
+    if media < piso:
+        return piso - media
+    if media > teto:
+        return media - teto
+    return 0.0

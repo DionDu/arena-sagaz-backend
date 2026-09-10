@@ -25,10 +25,12 @@ from typing import Any
 import pytest
 
 from job import __main__ as principal_mod
+from job.alvo_observado import PISO_FIXO, TETO_FIXO, Alvo
 from job.editorial import EDITORIAL, TipoSemEditorial, publicacao_de
 from job import posicao_inicial as posicao_mod
 from job.gerador import Candidato, escolher_jogo, escolher_tipo
 from job.gravacao import DIAS_MINIMOS
+from job.regua import Medicao
 from job.medidas_de_saida import conferir
 from job.tipos_de_desafio import RECEITAS, receita_de
 from tests.unitarios.fakes_desafio import FakeSessaoSQL
@@ -156,12 +158,24 @@ def _gerar_nenhum(*_a: Any, **_k: Any) -> list[Candidato]:
     return []
 
 
+#: A banda que os testes de ENCADEAMENTO usam.
+#:
+#: ⚠️ **Aceita qualquer taxa, e e deliberado.** O duble resolve sempre, entao a
+#: regua mede 100% — que esta legitimamente **fora** da banda real de 70-80%. Sem
+#: esta banda larga, todo teste de encadeamento passaria a medir a decisao de
+#: calibracao, e a falha diria "fora da banda" em vez de dizer o que quebrou.
+#:
+#: ⛔ A banda de verdade tem casos proprios, mais abaixo.
+BANDA_LARGA = Alvo(piso=0.0, teto=1.0, co_origem="teste-encadeamento")
+
+
 async def _rodar(
     sessao: FakeSessaoSQL,
     *,
     gerar: Any = _gerar_um,
     bancada: Any = None,
     dt_hoje: date = date(2026, 9, 20),
+    alvo: Any = BANDA_LARGA,
 ) -> principal_mod.Relatorio:
     """Roda a execucao inteira com os dubles."""
     banc = bancada or _Bancada()
@@ -170,6 +184,7 @@ async def _rodar(
         dt_hoje=dt_hoje,
         gerar=gerar,
         bancada_de=lambda _c: banc,
+        alvo=alvo,
         # ⚠️ Uma execucao por mascote: a regua e a contagem, e o que se testa aqui
         # e o encadeamento. Vinte multiplicariam o duble por vinte sem provar mais.
         nu_execucoes_da_regua=1,
@@ -231,7 +246,10 @@ async def test_a_AUDITORIA_e_o_ultimo_passo() -> None:
     ultimo_desafio = max(
         i for i, s in enumerate(ordem) if "INSERT INTO desafio" in s
     )
-    auditoria = min(i for i, s in enumerate(ordem) if "vw003_resolucao" in s)
+    # ⚠️ **`vw003_resolucao` nao serve mais de marcador**: desde 10/09 o alvo
+    # movel da regua tambem le essa VIEW, e ele roda ANTES dos dias. O que so a
+    # auditoria tem e o filtro por `co_auditoria`.
+    auditoria = min(i for i, s in enumerate(ordem) if "co_auditoria" in s)
     assert auditoria > ultimo_desafio
 
 
@@ -530,3 +548,151 @@ def test_o_rodizio_do_jogo_e_do_tipo_continua_DETERMINISTICO() -> None:
     jogo = escolher_jogo(dia)
     assert escolher_jogo(dia) == jogo
     assert escolher_tipo(jogo, dia) == escolher_tipo(jogo, dia)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. A BANDA da regua — a medicao virando DECISAO
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⛔ **Ate 10/09/2026 nada disto existia.** `dentro_da_banda` e `alvo_para_a_regua`
+# eram chamadas so pelos proprios testes — codigo morto —, e a primeira execucao
+# real no `des` publicou um desafio que os TRES mascotes resolveram 20 de 20.
+# A regua era medida, gravada e ignorada.
+
+
+def test_a_banda_REAL_recusa_o_desafio_banal() -> None:
+    """🔒 O caso que a primeira execucao real produziu, virado teste.
+
+    Tres mascotes resolvendo 20 de 20 e um desafio que nao desafia ninguem — e
+    ele foi publicado assim mesmo, porque ninguem perguntava.
+    """
+    from job.regua import distancia_da_banda
+
+    banal = [
+        Medicao(
+            co_personagem=quem,
+            nu_execucoes=20,
+            nu_resolveu=20,
+            co_versao_perfil="p",
+            co_versao_motor="v",
+        )
+        for quem in ("cacau", "tex", "magno")
+    ]
+    assert distancia_da_banda(banal, piso=PISO_FIXO, teto=TETO_FIXO) > 0
+
+
+@pytest.mark.asyncio
+async def test_fora_da_banda_PUBLICA_o_menos_pior_e_sai_com_UM() -> None:
+    """⚠️ Deixar o dia vazio seria pior, e a razao e a curadoria.
+
+    ⛔ Tudo o que o job grava nasce `candidato` (RF-DES-012a) — nada vai ao ar sem
+    o dono aprovar no painel. Entao publicar um desafio fora da banda **nao e
+    publicar**: e enfileirar para revisao. O que nao pode e a calibracao
+    escorregar em silencio, e por isso a execucao sai com **1**.
+    """
+    relatorio = await _rodar(
+        _sessao_feliz(), alvo=Alvo(piso=PISO_FIXO, teto=TETO_FIXO, co_origem="fixo")
+    )
+
+    assert relatorio.gerados == DIAS_MINIMOS, "o dia precisa ficar coberto"
+    assert relatorio.fora_da_banda, "a divergencia de calibracao nao foi registrada"
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_DIVERGIU
+    assert "FORA DA BANDA" in relatorio.resumo()
+
+
+@pytest.mark.asyncio
+async def test_dentro_da_banda_sai_com_ZERO_e_nao_registra_nada() -> None:
+    """O contraste do caso acima: quando encaixa, ninguem e avisado de nada."""
+    relatorio = await _rodar(_sessao_feliz(), alvo=BANDA_LARGA)
+
+    assert relatorio.gerados == DIAS_MINIMOS
+    assert relatorio.fora_da_banda == []
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_FEZ
+
+
+@pytest.mark.asyncio
+async def test_o_job_gera_MAIS_DE_UM_candidato_por_dia() -> None:
+    """🔒 Com um candidato so, a banda nao tem o que decidir.
+
+    ⚠️ Ou se publica o que veio, ou se deixa o dia descoberto — e ai medir a
+    regua seria cerimonia. E por isso que `CANDIDATOS_POR_DIA` existe.
+    """
+    pedidos: list[int] = []
+
+    def gerar_espiao(dt_dia: date, **kwargs: Any) -> list[Candidato]:
+        pedidos.append(kwargs["quantos"])
+        return [_candidato()]
+
+    await _rodar(_sessao_feliz(), gerar=gerar_espiao)
+
+    assert pedidos, "a geracao nem foi chamada"
+    assert all(q >= 2 for q in pedidos), (
+        f"o job pediu {pedidos} candidato(s) por dia; com um so a banda da regua "
+        "nao tem o que decidir"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_medicao_PARA_no_primeiro_candidato_que_encaixa() -> None:
+    """⚠️ O custo de gerar tres so se paga quando o primeiro nao serve.
+
+    Medir e a parte cara — `3 mascotes x 20 execucoes` por candidato. Medir os
+    tres sempre triplicaria o tempo do job por uma escolha que ja estava feita no
+    primeiro.
+    """
+    medidos: list[str] = []
+
+    class _BancadaContada(_Bancada):
+        def julgar(self, fita: list[dict[str, Any]]) -> _Julgamento:
+            medidos.append("julgou")
+            return _Julgamento(True)
+
+    def gerar_tres(*_a: Any, **_k: Any) -> list[Candidato]:
+        return [_candidato(), _candidato(), _candidato()]
+
+    relatorio = await _rodar(
+        _sessao_feliz(), gerar=gerar_tres, bancada=_BancadaContada(), alvo=BANDA_LARGA
+    )
+
+    # 3 mascotes x 1 execucao x 1 lance = 3 julgamentos por candidato medido.
+    # Sete dias, um candidato medido em cada: 21. Se medisse os tres, seriam 63.
+    assert relatorio.gerados == DIAS_MINIMOS
+    assert len(medidos) == 3 * DIAS_MINIMOS, (
+        f"{len(medidos)} julgamentos — o job mediu mais candidatos do que "
+        "precisava depois de ja ter achado um que encaixa"
+    )
+
+
+@pytest.mark.asyncio
+async def test_o_alvo_e_lido_UMA_VEZ_por_execucao() -> None:
+    """⚠️ A taxa observada e a mesma para todos os dias da safra.
+
+    Sete consultas dariam sete respostas iguais, numa rotina que ja e a mais cara
+    do job.
+    """
+    sessao = _sessao_feliz()
+    await principal_mod.executar(
+        sessao,
+        dt_hoje=date(2026, 9, 20),
+        gerar=_gerar_um,
+        bancada_de=lambda _c: _Bancada(),
+        nu_execucoes_da_regua=1,
+        # ⚠️ Sem `alvo` — para o caminho da LEITURA ser exercitado.
+    )
+    leituras = [
+        sql for sql, _ in sessao.executadas if "count(DISTINCT t.id_usuario)" in sql
+    ]
+    assert len(leituras) == 1, f"o alvo foi lido {len(leituras)} vezes"
+
+
+def test_sem_volume_a_banda_e_a_FIXA() -> None:
+    """⚠️ Nao e limitacao temporaria escondida: e a resposta correta.
+
+    A taxa observada de doze pessoas nao diz nada sobre a dificuldade de um
+    desafio, e sera esse o caso por muito tempo.
+    """
+    from job.alvo_observado import alvo_para_a_regua
+
+    alvo = alvo_para_a_regua(nu_tentaram=0, nu_resolveram=0)
+    assert (alvo.piso, alvo.teto) == (PISO_FIXO, TETO_FIXO)
+    assert alvo.co_origem == "fixo"

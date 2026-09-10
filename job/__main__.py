@@ -9,7 +9,8 @@ A SEQUENCIA, E POR QUE ELA E ESTA
                                     o primeiro desafio sem ele
     3. descobrir os dias a cobrir → a folga de 7 a 30 dias (T038)
     4. por dia descoberto:
-         gerar  →  medir a regua  →  provar que a partida termina  →  gravar
+         gerar N candidatos  →  provar que a partida termina  →  medir a
+         regua  →  escolher o que cai na BANDA  →  gravar
          (e, se nao der para gerar, **reprisar**)
     5. auditar as resolucoes pendentes (T043a)
 
@@ -55,6 +56,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any, Callable, Optional, Sequence
 
+from . import alvo_observado as alvo_mod
 from . import auditoria as auditoria_mod
 from . import editorial as editorial_mod
 from . import estado_terminal as terminal_mod
@@ -100,6 +102,20 @@ MILISSEGUNDOS_POR_LANCE_DO_GABARITO = 6_000
 #: vezes na mesma semana.
 JANELA_DO_RODIZIO_EM_DIAS = 30
 
+#: Quantos candidatos gerar por dia, antes de escolher.
+#:
+#: ⚠️ **Um so nao serve, e a banda da regua e a razao.** Com um unico candidato a
+#: medicao nao tem o que decidir: ou se publica o que veio, ou se deixa o dia
+#: descoberto. Tres da chance de o proximo cair na banda, e o custo so aparece
+#: quando o primeiro nao cai — a medicao para no primeiro que encaixa.
+CANDIDATOS_POR_DIA = 3
+
+#: Quantos dias de historico alimentam o alvo movel da regua.
+#:
+#: ⚠️ **Trinta dias, e nao "tudo"**: a dificuldade percebida muda com quem esta
+#: jogando, e uma media de um ano atras descreveria outra base de jogadores.
+JANELA_DA_TAXA_OBSERVADA_EM_DIAS = 30
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # O relatorio da execucao
@@ -122,6 +138,7 @@ class Relatorio:
     gerados: int = 0
     reprisados: int = 0
     descartados: list[str] = field(default_factory=list)
+    fora_da_banda: list[str] = field(default_factory=list)
     nao_cobertos: list[str] = field(default_factory=list)
     auditoria: dict[str, int] = field(
         default_factory=lambda: {"conferem": 0, "divergentes": 0, "impossiveis": 0}
@@ -141,6 +158,12 @@ class Relatorio:
         """
         if self.nao_cobertos:
             return CODIGO_DIVERGIU
+        # ⚠️ **Fora da banda tambem acende a luz.** Nada disto vai ao ar sozinho
+        # (tudo nasce `candidato`), mas a calibracao escorregando em silencio e
+        # como a fila vira uma sequencia de desafios banais sem ninguem decidir
+        # isso.
+        if self.fora_da_banda:
+            return CODIGO_DIVERGIU
         if self.auditoria.get("divergentes", 0) or self.auditoria.get("impossiveis", 0):
             return CODIGO_DIVERGIU
         return CODIGO_FEZ
@@ -157,6 +180,11 @@ class Relatorio:
         ]
         if self.descartados:
             linhas.append(f"[job] descartes: {self.descartados}")
+        if self.fora_da_banda:
+            linhas.append(
+                f"⚠️ [job] FORA DA BANDA: {self.fora_da_banda}. Publicados como "
+                "candidato — a curadoria decide, mas a calibracao merece olhada."
+            )
         if self.nao_cobertos:
             linhas.append(
                 f"⛔ [job] DIAS SEM DESAFIO: {self.nao_cobertos}. A fila tem "
@@ -179,6 +207,7 @@ async def cobrir_um_dia(
     gerar: Callable[..., Sequence[Any]] = gerador_mod.gerar_candidatos,
     bancada_de: Callable[[Any], Any] = gerador_mod.bancada,
     nu_execucoes_da_regua: int = regua_mod.EXECUCOES_PADRAO,
+    alvo: Optional[alvo_mod.Alvo] = None,
 ) -> Optional[str]:
     """Gera, mede e grava o desafio de um dia. Ou reprisa, se nao der.
 
@@ -207,6 +236,10 @@ async def cobrir_um_dia(
     gravado com os parametros de um tipo e a linha de chegada de outro. ⛔ Nada
     acusaria: as duas linhas seriam validas.
     """
+    # ⚠️ Sem alvo declarado vale o FIXO (70-80%) — a mesma resposta que
+    # `alvo_para_a_regua` da enquanto nao ha volume de resolucoes reais.
+    alvo = alvo or alvo_mod.alvo_para_a_regua()
+
     co_jogo = gerador_mod.escolher_jogo(dt_dia)
     janela = timedelta(days=JANELA_DO_RODIZIO_EM_DIAS)
     recentes = await repositorio.tipos_recentes(
@@ -219,7 +252,10 @@ async def cobrir_um_dia(
     candidatos = gerar(
         dt_dia,
         parametros=publicacao.parametros,
-        quantos=1,
+        # ⚠️ **Mais de um, e e a banda que exige isso.** Com um candidato so, a
+        # medicao da regua nao tem o que decidir: ou publica o que veio, ou deixa
+        # o dia descoberto. Gerar tres da a chance de o proximo cair na banda.
+        quantos=CANDIDATOS_POR_DIA,
         tipos_recentes=recentes,
         maximo_de_lances=MAXIMO_DE_LANCES,
     )
@@ -228,52 +264,106 @@ async def cobrir_um_dia(
             sessao, dt_dia=dt_dia, relatorio=relatorio, porque=f"{co_tipo}: sem candidato"
         )
 
-    candidato = candidatos[0]
-
-    # ⚠️ **A posicao publicada e conferida antes de virar linha.** E este passo
-    # que faz `vez_de` e `placar` valerem alguma coisa; sem ele seriam anotacao
-    # decorativa, e um desafio com a vez errada passaria pelo banco e quebraria
-    # no aparelho de quem o jogasse.
-    posicao_mod.conferir(
-        candidato.co_formato_posicao,
-        candidato.js_posicao_inicial,
-        co_modalidade=candidato.co_modalidade or "brasileira",
-    )
-
-    bancada = bancada_de(candidato)
     co_versao_perfil = perfil_mod.versao_vigente()
-    co_versao_motor = gerador_mod.versao_do_motor_de(candidato.co_jogo)
+    co_versao_motor = gerador_mod.versao_do_motor_de(candidatos[0].co_jogo)
 
-    # ── A regua: os TRES mascotes que nao sao o adversario do dia ───────────
-    medicoes = regua_mod.medir_candidato(
-        co_personagem_do_dia=candidato.co_personagem,
-        tentar=regua_mod.tentativa_com_motor(
+    escolhido: Optional[tuple[Any, list[regua_mod.Medicao]]] = None
+    reserva: Optional[tuple[float, Any, list[regua_mod.Medicao]]] = None
+
+    for candidato in candidatos:
+        # ⚠️ **A posicao publicada e conferida antes de virar linha.** E este
+        # passo que faz `vez_de` e `placar` valerem alguma coisa; sem ele seriam
+        # anotacao decorativa, e um desafio com a vez errada passaria pelo banco
+        # e quebraria no aparelho de quem o jogasse.
+        posicao_mod.conferir(
+            candidato.co_formato_posicao,
+            candidato.js_posicao_inicial,
+            co_modalidade=candidato.co_modalidade or "brasileira",
+        )
+
+        bancada = bancada_de(candidato)
+
+        # ── A prova de que a partida chega ao fim (RF-DES-188) ──────────────
+        #
+        # ⚠️ **Vem ANTES da regua de proposito**: e a recusa mais barata (ate 200
+        # lances a 0,5 s) e a mais dura (o candidato nao serve de jeito nenhum).
+        # Medir a regua primeiro gastaria `3 mascotes x 20 execucoes` num
+        # candidato que seria descartado logo depois.
+        prova = terminal_mod.provar_termino(
             jogador=bancada.jogador,
             estado_inicial=bancada.estado_inicial,
-            julgar=bancada.julgar,
+            veredito_de=bancada.arbitro.veredito,
             nu_semente=candidato.nu_semente,
-            maximo_de_lances=MAXIMO_DE_LANCES,
-        ),
-        co_versao_perfil=co_versao_perfil,
-        co_versao_motor=co_versao_motor,
-        nu_execucoes=nu_execucoes_da_regua,
-    )
-
-    # ── A prova de que a partida chega ao fim (RF-DES-188) ──────────────────
-    prova = terminal_mod.provar_termino(
-        jogador=bancada.jogador,
-        estado_inicial=bancada.estado_inicial,
-        veredito_de=bancada.arbitro.veredito,
-        nu_semente=candidato.nu_semente,
-    )
-    if not prova.tem_fim:
-        # ⚠️ **Descartar por nao provar nao e provar que o jogo nao acaba**, e o
-        # motivo diz isso. A distincao importa para quem investigar, meses depois,
-        # uma fila que ficou curta.
-        relatorio.descartados.append(f"{dt_dia}: {prova.de_descarte}")
-        return await _tentar_reprisar(
-            sessao, dt_dia=dt_dia, relatorio=relatorio, porque="termino nao provado"
         )
+        if not prova.tem_fim:
+            # ⚠️ **Descartar por nao provar nao e provar que o jogo nao acaba**, e
+            # o motivo diz isso. A distincao importa para quem investigar, meses
+            # depois, uma fila que ficou curta.
+            relatorio.descartados.append(f"{dt_dia}: {prova.de_descarte}")
+            continue
+
+        # ── A regua: os TRES mascotes que nao sao o adversario do dia ───────
+        medicoes = regua_mod.medir_candidato(
+            co_personagem_do_dia=candidato.co_personagem,
+            tentar=regua_mod.tentativa_com_motor(
+                jogador=bancada.jogador,
+                estado_inicial=bancada.estado_inicial,
+                julgar=bancada.julgar,
+                nu_semente=candidato.nu_semente,
+                maximo_de_lances=MAXIMO_DE_LANCES,
+            ),
+            co_versao_perfil=co_versao_perfil,
+            co_versao_motor=co_versao_motor,
+            nu_execucoes=nu_execucoes_da_regua,
+        )
+
+        # ── ⚠️ A BANDA: e aqui que a medicao vira DECISAO ───────────────────
+        #
+        # ⛔ Ate 10/09/2026 este passo nao existia: a regua era medida, gravada e
+        # **ignorada**. `dentro_da_banda` e `alvo_para_a_regua` eram chamadas so
+        # pelos proprios testes — codigo morto —, e a primeira execucao real
+        # publicou um desafio que os tres mascotes resolveram **20 de 20**.
+        distancia = regua_mod.distancia_da_banda(
+            medicoes, piso=alvo.piso, teto=alvo.teto
+        )
+        if distancia == 0.0:
+            escolhido = (candidato, medicoes)
+            break
+
+        # ⚠️ Guarda o **menos pior** e continua. Sem isto, a unica resposta
+        # possivel seria "nenhum serve", e o dia ficaria descoberto — que e o
+        # unico defeito deste job que a pessoa ve na tela.
+        if reserva is None or distancia < reserva[0]:
+            reserva = (distancia, candidato, medicoes)
+
+    if escolhido is None:
+        if reserva is None:
+            return await _tentar_reprisar(
+                sessao,
+                dt_dia=dt_dia,
+                relatorio=relatorio,
+                porque="nenhum candidato chegou a estado terminal",
+            )
+        # ⚠️ **Publica o menos pior, e GRITA.** A alternativa seria deixar o dia
+        # vazio, e ⛔ isso e pior: tudo nasce `candidato` (RF-DES-012a), entao
+        # nada disto vai ao ar sem o dono aprovar no painel. O que nao pode e a
+        # calibracao escorregar **em silencio** — por isso a linha no log e a
+        # contagem que leva a execucao a sair com 1.
+        distancia, candidato, medicoes = reserva
+        escolhido = (candidato, medicoes)
+        relatorio.fora_da_banda.append(
+            f"{dt_dia}: taxa media {distancia:.2f} fora da banda "
+            f"[{alvo.piso:.2f}, {alvo.teto:.2f}] (alvo {alvo.co_origem})"
+        )
+        print(
+            f"⚠️ [job] {dt_dia}: nenhum dos {len(candidatos)} candidatos caiu na "
+            f"banda [{alvo.piso:.2f}, {alvo.teto:.2f}]. Publicando o mais "
+            f"proximo (erro {distancia:.2f}) como CANDIDATO, para a curadoria "
+            "decidir.",
+            file=sys.stderr,
+        )
+
+    candidato, medicoes = escolhido
 
     # ── As medidas de saida e a regua de tempo ──────────────────────────────
     medidas = publicacao.medidas(publicacao.parametros)
@@ -340,6 +430,7 @@ async def executar(
     gerar: Callable[..., Sequence[Any]] = gerador_mod.gerar_candidatos,
     bancada_de: Callable[[Any], Any] = gerador_mod.bancada,
     nu_execucoes_da_regua: int = regua_mod.EXECUCOES_PADRAO,
+    alvo: Optional[alvo_mod.Alvo] = None,
 ) -> Relatorio:
     """Roda o job inteiro sobre uma sessao ja aberta.
 
@@ -390,6 +481,27 @@ async def executar(
     relatorio.dias_no_plano = len(plano)
     relatorio.ja_publicados = sum(1 for p in plano if p.ja_publicado)
 
+    # ── 3b. O ALVO da regua, lido UMA VEZ para a execucao inteira ───────────
+    #
+    # ⚠️ **Uma leitura so, e nao uma por dia**: a taxa observada e a mesma para
+    # todos os dias desta safra, e sete consultas dariam sete respostas iguais.
+    #
+    # ⚠️ **Sem volume ele devolve o alvo FIXO (70-80%)**, e isso nao e caso de
+    # erro nem limitacao escondida: a taxa de doze pessoas nao diz nada sobre a
+    # dificuldade de um desafio. E o que vai acontecer por muito tempo.
+    if alvo is None:
+        tentaram, resolveram = await repositorio.taxa_observada(
+            dt_inicio=dt_hoje - timedelta(days=JANELA_DA_TAXA_OBSERVADA_EM_DIAS),
+            dt_fim=dt_hoje,
+        )
+        alvo = alvo_mod.alvo_para_a_regua(
+            nu_tentaram=tentaram, nu_resolveram=resolveram
+        )
+    print(
+        f"[job] banda alvo da regua: [{alvo.piso:.2f}, {alvo.teto:.2f}] "
+        f"({alvo.co_origem}, {alvo.nu_amostras} tentativa(s) de referencia)"
+    )
+
     # ── 4. Cobrir dia a dia ─────────────────────────────────────────────────
     for numero, passo in enumerate(plano, start=1):
         if not passo.precisa_gerar:
@@ -413,6 +525,7 @@ async def executar(
                 gerar=gerar,
                 bancada_de=bancada_de,
                 nu_execucoes_da_regua=nu_execucoes_da_regua,
+                alvo=alvo,
             )
         except Exception as erro:  # noqa: BLE001 - ver a docstring
             # ⚠️ **Amplo de proposito, e so aqui.** Este laco fala com dois
