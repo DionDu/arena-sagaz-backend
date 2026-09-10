@@ -32,6 +32,17 @@ class Configuracoes(BaseSettings):
     # Em produção, definir nas Variables do Railway.
     ADMIN_BROADCAST_TOKEN: str = ""
 
+    # Segredo que abre o **painel de curadoria** do Desafio do Dia
+    # (`GET /painel/desafios`, T039). VAZIO = painel **desabilitado**, e esse e o
+    # default seguro: um painel que abre sozinho quando alguem esquece a variavel
+    # falha em silencio; um que nao abre falha alto.
+    #
+    # ⚠️ **E um segredo PROPRIO, e nao o do broadcast**: quem pode disparar
+    # notificacao para toda a base nao deveria, pelo mesmo token, poder aprovar
+    # conteudo que vai ao ar — e vice-versa. Dois segredos custam uma linha a
+    # mais no Railway e separam dois estragos diferentes.
+    PAINEL_CURADORIA_TOKEN: str = ""
+
     # ── Rate limiting (SEG-04) ───────────────────────────────────────────────
     # Limites por IP, por minuto (janela deslizante). `RATE_LIMIT_ENABLED=false`
     # desliga tudo (usado nos testes). Leituras (GET) usam o limite geral; escritas

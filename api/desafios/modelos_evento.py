@@ -22,12 +22,37 @@ resolucao, e ela chega la **pela tentativa**.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+
+def encerramento_do_dia(dt_dia: date) -> datetime:
+    """O instante em que o desafio daquele dia encerra: 00:00 UTC do dia seguinte.
+
+    Args:
+        dt_dia: o dia do desafio.
+
+    Returns:
+        O `dh_encerramento` a gravar em `tb001_desafio_dia`.
+
+    ⚠️ **UTC, e a conta e sempre esta** (RF-DES-008). O dia do Desafio do Dia e um
+    dia **UTC**, e nao o dia do fuso de ninguem: e isso que faz o quadro do dia
+    ser o mesmo quadro para o mundo inteiro. O aplicativo nunca exibe esta hora —
+    ele mostra *"faltam 4h37"*, calculado a partir da diferenca entre este
+    instante e o `agora_no_servidor` que viaja junto na resposta.
+
+    ⚠️ **Ela mora aqui, e nao no painel nem no job**, porque os DOIS a
+    escrevem: o painel quando o dono troca a data (T039) e o job quando publica
+    uma reprise (T041). Duas contas de encerramento discordariam no primeiro
+    horario de verao que alguem tentasse acomodar — e a resposta certa e que fuso
+    nenhum entra nesta conta.
+    """
+    # `datetime.combine` cola uma data com uma hora; `time.min` e 00:00:00.
+    return datetime.combine(dt_dia + timedelta(days=1), time.min, tzinfo=timezone.utc)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. As VIEWs

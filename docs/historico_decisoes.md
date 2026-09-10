@@ -21,6 +21,144 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-10 — O painel de curadoria é HTML servido pela API, sem framework e sem dependência nova
+
+**Contexto.** RF-DES-012e pede *"página administrativa servida pelo próprio
+backend, protegida por token, sem app novo e sem build de Flutter Web"*. O
+Flutter Web foi descontinuado como alvo em 2026-07, e ressuscitá-lo para uma
+ferramenta interna de **um** usuário criaria um segundo pipeline de build, um
+segundo deploy e um segundo lugar onde a identidade visual envelhece.
+
+**Decisão.** `api/desafios/painel/`, servido em `/painel/desafios` — HTML gerado
+por string, CSS embutido, **zero JavaScript**, toda ação num `<form method=post>`
+com o padrão POST → 303 → GET.
+
+**Três dependências que NÃO entraram, e o motivo de cada uma:**
+
+- **Jinja2** — seria conforto de escrita, ao preço de um pacote novo na imagem
+  que serve o app em produção. A troca foi escapar à mão, com uma regra única:
+  *todo* valor vindo do banco passa por `_txt()`. Sem exceção — nem para o que
+  "claramente" é um UUID, porque a próxima coluna a entrar não será.
+- **`python-multipart`** — `Form(...)` do FastAPI e até `await request.form()` do
+  Starlette 1.0 o exigem, mesmo para `application/x-www-form-urlencoded`. O corpo
+  de um `<form>` sem `enctype` é lido pela **biblioteca padrão**
+  (`urllib.parse.parse_qsl`), que trata percent-encoding, `+` como espaço e
+  chaves repetidas. ⛔ Isso não aceita `multipart/form-data`, e não precisa: não
+  há campo de arquivo neste painel.
+- **o motor de jogo** — a posição é desenhada em SVG a partir do JSON cru
+  (`painel/desenho.py`), sem importar `motores/`. A imagem da API instala
+  `requirements_api.txt`; quem instala o runtime de inferência é o
+  `Dockerfile.job`. Um `from motores.pontinhos...` derrubaria a API inteira no
+  import — e a rota que quebraria primeiro seria o `/health`, que é o
+  `healthcheckPath` do Railway.
+  ⚠️ **Desenhar não é conferir:** quem prova que a posição é alcançável, que a
+  vez bate e que o placar fecha é `job/posicao_inicial.conferir()`, na geração,
+  com o motor de verdade. Se aquilo passou, o JSON é confiável.
+
+**A precisão que virou duas ações.** RF-DES-153 diz que aprovar acontece *antes*
+de o desafio entrar em qualquer coleção, e que agendar é ato separado. O painel
+reflete isso: **aprovar** mexe em `desafio.tb001_desafio.co_curadoria`;
+**agendar** cria ou move a linha de `desafio_dia.tb001_desafio_dia`.
+
+⛔ **Só aprovado entra no calendário**, e a regra vive em `painel/servico.py`, não
+num botão desabilitado. Um `<form>` ausente na tela é decoração que um `curl`
+ignora; e o estrago seria silencioso — um candidato agendado ocupa a data
+(`un001_dia` recusa outro) e a rota não o serve, então o app abriria com o dia em
+branco e **nada** acusaria.
+
+**Segredo próprio, e não o do broadcast.** `PAINEL_CURADORIA_TOKEN`, vazio por
+padrão (= painel desabilitado, como o broadcast). São dois porque quem pode
+disparar notificação para toda a base não deveria, pelo mesmo token, poder
+aprovar conteúdo que vai ao ar. Entrou no `.env.example` e no
+`specs/006-conta-nuvem/checklist-producao.md`.
+
+**O cookie, e por que ele existe.** Navegador não manda cabeçalho próprio ao
+seguir um link, e `?token=` em toda URL deixaria o segredo no histórico e no
+`Referer`. A primeira visita traz o token na query; o servidor confere, grava um
+cookie `HttpOnly`/`SameSite=strict` (`Secure` só em produção — em
+`http://localhost` o navegador o descartaria **sem avisar**) e redireciona para a
+URL limpa.
+
+**Alternativas consideradas.** (a) Papel de administrador no banco: exigiria
+coluna nova em `conta`, migração em schema **de produção** e uma superfície de
+escalonamento de privilégio, tudo para uma página que uma pessoa abre. (b)
+Servir o painel sob `/v1`: `/v1` é a promessa feita aos apps em campo, e uma tela
+interna não participa dela — o painel mora ao lado de `/legal`, que também é
+conteúdo web.
+
+---
+
+## 2026-09-10 — A vigilância avisa antes de a fila acabar, e conta dias consecutivos
+
+**Contexto.** RF-DES-012f pede duas seções de alerta no painel, vistas na **mesma
+visita** em que os candidatos são aprovados. Elas moram ali, e não num canal
+próprio, porque o SDK de telemetria saiu de escopo em 02/09/2026 e o backend
+**não tem canal de alerta**: sem um lugar que o dono já abre por outro motivo,
+"alerta" vira linha de log que ninguém lê.
+
+**Decisão 1 — o limiar do aviso é o `DIAS_MINIMOS` do job (7).** O mesmo número,
+de propósito. Se divergissem, o painel chamaria de confortável uma fila que o job
+considera curta, e um dos dois estaria mentindo. Abaixo de 7 é atenção; 3 ou
+menos, crítico.
+
+**Decisão 2 — a cobertura conta dias CONSECUTIVOS a partir de hoje.** Um
+calendário com hoje e o dia 20 preenchidos tem **um** dia de folga, não dois: é a
+sequência sem buraco que diz quando o app abre vazio pela primeira vez. Somar
+dias soltos daria um número maior e uma promessa falsa.
+
+**Decisão 3 — ⛔ candidato agendado NÃO conta como dia coberto.** É a armadilha
+silenciosa desta feature: a data fica ocupada (`un001_dia` impede outro desafio
+de entrar), a rota só serve `aprovado`, e o app abre com o dia em branco. Contar
+essa data como coberta faria o painel jurar que está tudo bem exatamente no dia
+em que não está.
+
+**Decisão 4 — os três contadores de auditoria aparecem juntos.** `divergente = 0`
+sozinho significa duas coisas opostas — *"conferimos tudo e está certo"* e
+*"ninguém conferiu nada"* —, e é o contador de **pendentes** que as separa. Há
+aviso vermelho próprio para o caso de haver resoluções e nenhuma conferida: é o
+sinal de que o avaliador (T043a) não está rodando, e como `co_auditoria` tem
+`DEFAULT 'pendente'`, **nada mais no sistema acusaria**.
+
+---
+
+## 2026-09-10 — A reprise copia com `INSERT ... SELECT`, e os feitos vão antes do dia
+
+**Contexto.** RF-DES-152, precisado pelo dono em 04/09/2026: a reprise é uma
+**cópia** — identificador próprio, ponteiro para a origem, marca de reprise —, e
+não o mesmo desafio publicado de novo. É essa regra que mantém o vínculo
+dia↔desafio em 1:1, o quadro da reprise limpo e o teto de duas dicas por desafio
+sem exceção.
+
+**Decisão 1 — `INSERT ... SELECT`, e não ler em Python e reescrever campo a
+campo.** Uma coluna nova em `tb001_desafio` entraria na tabela e ficaria de fora
+da cópia **sem que nada acusasse**: a reprise sairia com um campo `NULL` que
+ninguém procuraria. Só as cinco colunas que mudam estão escritas, cada uma com o
+motivo ao lado.
+
+**Decisão 2 — os feitos de saída são copiados ANTES de o dia ser publicado.** Sem
+`tb003_feito_desafio`, a reprise vai ao ar pagando **só o piso de 18 XP**, e nada
+dá erro: o `INSERT` do desafio passa, o app baixa a linha, e a diferença só
+aparece no extrato de quem jogou — que ninguém confere. Publicar o dia antes
+abriria uma janela curta, intermitente e impossível de reproduzir depois.
+
+**Decisão 3 — não há cadeia de cópias.** A origem apontada é sempre a linha
+**original**: `COALESCE(id_desafio_origem, id_desafio)`. Sem isso, *"quantas vezes
+este desafio já foi ao ar"* deixaria de ser uma consulta e viraria travessia
+recursiva.
+
+**Os números da elegibilidade, e de onde cada um veio.** ≥ 20 tentativas (o mesmo
+piso de RF-DES-063: "2 de 3 resolveram" não é uma medida), taxa ≥ 70% (o alvo de
+RF-DES-014), e ≥ 60 dias desde a estreia — repetir o desafio da semana passada
+parece o job travado. Entre as elegíveis, ganha a de **menor participação**
+(RF-DES-029, textual).
+
+**⛔ Sem candidata, exceção — não `None`.** `RepriseImpossivel` existe porque este
+é o pior caso operacional da spec: a fila acabou **e** não há reprise. Um `None`
+devolvido calado faria o job "terminar bem" no dia em que o app abre sem desafio
+— indistinguível, no painel do Railway, de um dia normal.
+
+---
+
 ## 2026-09-10 — Aplicar migração tem runbook próprio, e um conferidor que lê as migrações
 
 **Contexto.** O dono perguntou como executar o `alembic upgrade` das `0018`,

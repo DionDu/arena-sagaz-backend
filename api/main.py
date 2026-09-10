@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.configuracao import configuracoes
 from api.conta import rotas as rotas_conta
+from api.desafios.painel import rotas as rotas_painel
 from api.legal import rotas as rotas_legal
 from api.notificacoes import rotas as rotas_notif
 from api.diagnosticos import rotas as rotas_diagnosticos
@@ -86,6 +87,11 @@ app.include_router(rotas_diagnosticos.router, prefix="/v1/diagnosticos")
 # Documentos legais como páginas HTML públicas (G3) — fora de /v1, é conteúdo web
 # (URLs de privacidade/exclusão exigidas pelas lojas).
 app.include_router(rotas_legal.router, prefix="/legal")
+# Painel de curadoria do Desafio do Dia (T039) — pagina administrativa, FORA
+# de /v1 de proposito: /v1 e o contrato com os aplicativos em campo, e o
+# painel nao tem cliente publicado nenhum. Protegido por
+# `PAINEL_CURADORIA_TOKEN`; sem a variavel, ele responde 401 e nao existe.
+app.include_router(rotas_painel.router, prefix="/painel")
 # Os MESMOS documentos, em JSON (markdown cru + versão), para o APP. É o que
 # permite trocar os termos sem publicar uma build nova: o texto do app deixa de
 # ser um asset congelado e passa a ser baixado e cacheado.
