@@ -1,8 +1,10 @@
 # Runbook — aplicar as migrações `0018`, `0019` e `0020` (Desafio do Dia)
 
-**Escrito em 10/09/2026**, quando as três migrações ainda **não tinham sido
-aplicadas em nenhum banco**. Ele é autossuficiente: não depende da conversa em
-que foi escrito.
+**Escrito em 10/09/2026**, e **executado no `des` no mesmo dia** — as três
+migrações estão aplicadas lá (revisão `0020`), e ⛔ **no `prd` não**. Ele é
+autossuficiente: não depende da conversa em que foi escrito, e serve tanto para o
+`prd`, quando chegar a hora, quanto para reaplicar no `des` depois de uma
+correção de modelagem.
 
 | migração | o que faz | risco |
 |---|---|---|
@@ -90,6 +92,11 @@ esperado sai das próprias migrações:
 
 1. a revisão do alembic é `0020_partida_modo_desafio`;
 2. as **15 tabelas** e as **15 VIEWs** existem, e nenhuma sobra;
+2b. as **126 colunas**, **na ordem**, batem com o que a migração declara — e o
+   parser não é escrito lá: é o mesmo do cadeado
+   `test_migracao_bate_com_data_model.py`, porque duas implementações de leitura
+   de SQL acabam discordando, e a que discordaria calada seria a que ninguém roda
+   no CI;
 3. as cinco dimensões que a migração popula têm linha — e
    `desafio.tb903_perfil_dificuldade` está **vazia**, de propósito: quem a
    preenche é o job;
@@ -97,6 +104,35 @@ esperado sai das próprias migrações:
 5. **AVISO** (não falha) para coluna de tabela que a VIEW irmã não expõe.
 
 Última linha esperada: `OK - o banco esta como as migracoes 0018/0019/0020 mandam`.
+
+---
+
+## ⚠️ E se, depois disto, um defeito de modelagem aparecer
+
+A regra §8b (dropa e recria) continua valendo até o `prd` subir — mas com o `des`
+já migrado ela ganhou um passo que **não avisa**:
+
+```
+editar a 0018 e rodar `alembic upgrade head`  →  NÃO FAZ NADA
+```
+
+O alembic não reaplica revisão já aplicada. O arquivo passa a dizer uma coisa e o
+`des` a ter outra, e `test_migracao_bate_com_data_model.py` fica **verde**: ele
+compara o documento com o arquivo, e nenhum dos dois é o banco.
+
+O caminho certo, depois de editar:
+
+```powershell
+.venv\Scripts\python -m alembic downgrade 0017_poder_e_probing_base
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python scripts\conferir_migracao_desafio.py
+```
+
+É a conferência 2b do passo 3 que pega o esquecimento — ela compara as colunas do
+**banco** com as da migração, na ordem.
+
+⛔ Isso deixa de ser possível no dia em que o `prd` subir, e é por isso que a §8b
+tem prazo.
 
 ---
 

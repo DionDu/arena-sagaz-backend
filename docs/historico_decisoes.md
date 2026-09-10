@@ -50,6 +50,38 @@ ser ignorado.
 listar `desafio` e `desafio_dia` entre os schemas do projeto — sem isso, o
 diagnóstico rodado **depois** da migração não mostraria o que ela criou.
 
+**✅ Aplicado no `des` no mesmo dia**, revisão `0017` → `0020`, e conferido: 15
+tabelas, 15 VIEWs, **126 colunas na ordem**, cinco dimensões populadas,
+`tb903_perfil_dificuldade` vazia e `ck_partida_modo` aceitando `'desafio'`. ⛔ No
+`prd` não, e não vai antes do portão T050.
+
+**A conferência de colunas (2b) nasceu depois de aplicar, e por causa disso.**
+Com o `des` migrado, o dropa-e-recria da §8b ganhou um passo silencioso: editar a
+`0018` e rodar `upgrade head` **não faz nada** — o alembic não reaplica revisão
+aplicada —, e o cadeado contra o `data-model.md` continuaria verde, porque ele
+compara o documento com o arquivo e **nenhum dos dois é o banco**. A 2b é o único
+lugar do projeto onde o banco entra na comparação. ⚠️ Ela **não escreve o próprio
+parser**: importa o do cadeado, porque ler SQL de migração tem sutileza bastante
+(f-string, strings adjacentes, comentário dentro do SQL) para duas
+implementações discordarem — e a que discordasse calada seria esta, a que não
+roda no CI.
+
+**E aí apareceu o quarto buraco da mesma espécie.** Atualizar o cabeçalho da
+`0020` — que menciona `tb903_perfil_dificuldade` justamente para dizer que **não**
+a toca — fez `test_o_sentinela_9999_existe_se_ha_dimensao` reprovar: ele lia o
+**arquivo inteiro**, e não distinguia o que a migração diz do que ela faz. Ao
+corrigi-lo, a cegueira oposta apareceu: a `0013`, a `0015` e a `0017` passavam
+**porque a palavra "9999" estava numa docstring** — nenhuma delas cria dimensão,
+todas apenas fazem `JOIN` com uma. Duas cegueiras que se anulavam, e por isso
+nunca deram sinal.
+
+Agora a marca é **criar** (`CREATE TABLE …tb9NN_`), não mencionar, e o SQL vem de
+`ast`. O extrator saiu de dentro do cadeado e virou
+`tests/unitarios/leitura_de_migracao.py` — **um** lugar, usado pelos dois
+cadeados e pelo script, com o histórico dos quatro buracos escrito na docstring.
+Todos foram o mesmo defeito: o cadeado confundiu o texto do arquivo com o
+comando executado.
+
 ---
 
 ## 2026-09-09 — A migração deixa de esperar leitura, e ganha um cadeado contra o modelo

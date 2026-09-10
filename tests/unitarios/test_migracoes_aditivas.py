@@ -50,6 +50,10 @@ from pathlib import Path
 
 import pytest
 
+# ⚠️ O extrator de SQL mora em modulo proprio: tres cadeados o usam, e tres
+# implementacoes acabariam discordando — ver a docstring de la.
+from tests.unitarios.leitura_de_migracao import sql_da_migracao
+
 # `parents[2]` sobe de tests/unitarios/ ate a raiz do repositorio do backend.
 RAIZ = Path(__file__).resolve().parents[2]
 PASTA = RAIZ / "migrations" / "versions"
@@ -544,10 +548,22 @@ class TestMigracaoAditiva:
 
         So cobra de quem tem dimensao: uma migracao que so crie tabela de fato
         nao precisa de sentinela nenhum.
+
+        ⚠️ **Olha o SQL EXECUTADO, e nao o texto do arquivo.** Ate 10/09/2026 ele
+        lia o arquivo inteiro, e uma migracao que apenas *mencionasse*
+        `tb903_perfil_dificuldade` no cabecalho — para explicar que ela NAO a
+        toca — era cobrada de um sentinela que nao tinha por que existir. Foi o
+        que aconteceu com a `0020`. O sintoma e sempre este: o cadeado confunde
+        o que a migracao **diz** com o que ela **faz**.
         """
-        fonte = arquivo.read_text(encoding="utf-8")
-        # A marca de que ha uma dimensao e uma tabela `tb9NN_`.
-        if not re.search(r"tb9\d\d_", fonte):
+        fonte = sql_da_migracao(arquivo)
+        # ⚠️ A marca e **CRIAR** uma `tb9NN_`, e nao mencionar uma. Ate
+        # 10/09/2026 bastava a sequencia `tb9\d\d_` aparecer em qualquer lugar, e
+        # com isso a `0013`, a `0015` e a `0017` eram cobradas de um sentinela
+        # que nao lhes cabia: elas apenas fazem `JOIN` com dimensoes que outra
+        # migracao criou. Passavam mesmo assim — porque a palavra "9999" estava
+        # numa docstring. Duas cegueiras que se anulavam.
+        if not re.search(r"CREATE TABLE\s+[\w.]*tb9\d\d_", fonte, re.I):
             pytest.skip(f"{arquivo.name} nao cria tabela de dimensao")
         assert "9999" in fonte, f"{arquivo.name}: dimensao sem o sentinela 9999"
         assert "'desconhecido'" in fonte, (

@@ -4,7 +4,12 @@ Revision ID: 0018_schema_desafio
 Revises: 0017_poder_e_probing_base
 Create Date: 2026-09-09
 
-⛔⛔⛔ **AINDA NAO FOI APLICADA EM NENHUM BANCO.** ⛔⛔⛔
+✅ **APLICADA NO `des` em 10/09/2026** (revisao `0020`), e conferida por
+`scripts/conferir_migracao_desafio.py`: 15 tabelas, 15 VIEWs, as dimensoes
+populadas e a `tb903_perfil_dificuldade` vazia — que e o correto, quem a
+preenche e o job.
+
+⛔ **NO `prd` ainda NAO**, e nao vai antes do portao T050.
 
 ⚠️ **E ela NAO espera leitura de ninguem.** Decisao do dono, 09/09/2026:
 

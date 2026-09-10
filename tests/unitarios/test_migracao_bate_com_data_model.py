@@ -62,6 +62,10 @@ from pathlib import Path
 
 import pytest
 
+# ⚠️ O extrator de SQL mora em modulo proprio: tres cadeados o usam, e tres
+# implementacoes acabariam discordando — ver a docstring de la.
+from tests.unitarios.leitura_de_migracao import sql_da_migracao
+
 RAIZ = Path(__file__).resolve().parents[2]
 DATA_MODEL = (
     RAIZ.parent
@@ -128,47 +132,6 @@ def _corpo_da_tabela(texto: str, inicio: int) -> str:
             if profundidade == 0:
                 return texto[abre + 1 : posicao]
     raise AssertionError("CREATE TABLE sem parentese de fechamento")
-
-
-def sql_da_migracao(caminho: Path) -> str:
-    """Todo o SQL que uma migracao executa, junto, lido com `ast`.
-
-    ⚠️ **Ler o texto cru nao serve, e a razao apareceu na primeira execucao deste
-    cadeado.** As migracoes escrevem comandos curtos como strings adjacentes:
-
-        op.execute(
-            "CREATE INDEX ix001_desafio_curadoria "
-            "ON desafio.tb001_desafio (co_curadoria)"
-        )
-
-    No arquivo, entre o nome do indice e o `ON` ha uma aspa, uma quebra de linha e
-    a indentacao — e nenhum regex de SQL casa com isso. O Python junta as duas na
-    compilacao; `ast` enxerga a string ja unida, como o banco a recebera.
-
-    ⚠️ E o mesmo cuidado que `test_migracoes_aditivas.py` precisou com f-strings:
-    o cadeado tem de ler o que o codigo **executa**, e nao como ele esta escrito.
-    """
-    arvore = ast.parse(caminho.read_text(encoding="utf-8"))
-    pedacos: list[str] = []
-    for no in ast.walk(arvore):
-        if not isinstance(no, ast.Call):
-            continue
-        alvo = no.func
-        if not (isinstance(alvo, ast.Attribute) and alvo.attr == "execute"):
-            continue
-        for argumento in no.args:
-            if isinstance(argumento, ast.Constant) and isinstance(argumento.value, str):
-                pedacos.append(argumento.value)
-            elif isinstance(argumento, ast.JoinedStr):
-                pedacos.append(
-                    "".join(
-                        parte.value
-                        for parte in argumento.values
-                        if isinstance(parte, ast.Constant)
-                        and isinstance(parte.value, str)
-                    )
-                )
-    return "\n".join(pedacos)
 
 
 def _tabelas(texto: str) -> dict[str, dict[str, object]]:

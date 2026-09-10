@@ -28,6 +28,8 @@ Conferencias, na ordem em que um defeito custa caro:
   1. **a revisao do alembic** e a `head` dos arquivos — se nao for, o resto da
      conferencia estaria descrevendo outro estado do banco;
   2. **toda tabela e toda VIEW** das `0018`/`0019` existem, e nenhuma sobra;
+  2b. **as colunas de cada tabela, NA ORDEM**, batem com o que a migracao
+     declara — ver a armadilha logo abaixo;
   3. **as dimensoes que a migracao popula tem linha** — e a
      `desafio.tb903_perfil_dificuldade` esta VAZIA, de proposito: quem a
      preenche e o job, e enche-la aqui seria dado inventado;
@@ -35,6 +37,25 @@ Conferencias, na ordem em que um defeito custa caro:
      a `0020` faz, e a unica que toca tabela com dado real;
   5. **coluna de tabela que nao aparece na VIEW irma** — sai como AVISO, e nao
      como falha: ha VIEW que reduz de proposito.
+
+═══════════════════════════════════════════════════════════════════════════
+⚠️ A ARMADILHA QUE A CONFERENCIA 2b EXISTE PARA PEGAR
+═══════════════════════════════════════════════════════════════════════════
+
+A regra §8b diz que, enquanto o `prd` nao tiver subido, defeito de modelagem
+**dropa e recria dentro da propria migracao**. Depois que o `des` foi migrado
+(10/09/2026) isso ganhou um degrau novo, e ele e silencioso:
+
+    editar a `0018` e rodar `alembic upgrade head` **nao faz nada** —
+    o banco ja esta em `0020`, e o alembic nao reaplica revisao aplicada.
+
+O arquivo passa a dizer uma coisa e o `des` a ter outra. E o cadeado
+`test_migracao_bate_com_data_model.py` continuaria **verde**: ele compara o
+documento com o arquivo, e nenhum dos dois e o banco.
+
+Quem edita uma dessas migracoes agora precisa de
+`alembic downgrade 0017_poder_e_probing_base` e `upgrade head` — e e esta
+conferencia que avisa quando alguem esquecer.
 
     cd D:\\Desenvolvimento\\arena-sagaz\\arena-sagaz-backend
     .venv\\Scripts\\python scripts\\conferir_migracao_desafio.py
@@ -122,6 +143,34 @@ def _objetos_esperados() -> tuple[set[str], set[str]]:
     return tabelas, views
 
 
+def _colunas_esperadas() -> dict[str, list[str]]:
+    """`{tabela: [coluna, ...]}` NA ORDEM em que a migracao as declara.
+
+    ⚠️ **O parser nao e escrito aqui.** Ele ja existe, em
+    `tests/unitarios/test_migracao_bate_com_data_model.py`, e ler o SQL de uma
+    migracao tem sutileza suficiente (`op.execute` com f-string, strings
+    adjacentes concatenadas, comentario dentro do SQL) para que duas
+    implementacoes acabem discordando — e a que discordasse em silencio seria
+    justamente esta, a que ninguem roda no CI.
+
+    Raises:
+        Exception: se o modulo do cadeado nao puder ser importado. Falhar aqui e
+            melhor que devolver `{}`: um dicionario vazio faria a conferencia
+            passar sem ter olhado nada.
+    """
+    # O extrator de SQL e o parser de `CREATE TABLE` vivem nos cadeados, e sao os
+    # mesmos que rodam no CI — e essa e a razao de importa-los em vez de
+    # reescreve-los.
+    from tests.unitarios.leitura_de_migracao import sql_da_migracao
+    from tests.unitarios.test_migracao_bate_com_data_model import MIGRACOES, _tabelas
+
+    esperadas: dict[str, list[str]] = {}
+    for arquivo in MIGRACOES.values():
+        for tabela, dados in _tabelas(sql_da_migracao(arquivo)).items():
+            esperadas[tabela] = [nome for nome, _tipo in dados["colunas"]]
+    return esperadas
+
+
 async def _conferir(url: str) -> int:
     """Faz as cinco conferencias e imprime o resultado de cada uma.
 
@@ -187,6 +236,46 @@ async def _conferir(url: str) -> int:
                     reprovacoes.append(
                         f"{rotulo} no banco que a migracao nao cria: {sobrando}"
                     )
+
+            # ── 2b. as colunas, NA ORDEM ────────────────────────────────────
+            # `ordinal_position` e a ordem fisica das colunas na tabela, e ela
+            # entra na comparacao de proposito: a regra §8b diz que campo
+            # importante nao fica no fim, e comparar conjuntos perderia
+            # exatamente isso.
+            colunas_no_banco: dict[str, list[str]] = {}
+            for linha in (
+                await conexao.execute(
+                    text(
+                        "SELECT table_schema || '.' || table_name, column_name "
+                        "FROM information_schema.columns "
+                        "WHERE table_schema IN ('desafio','desafio_dia') "
+                        "ORDER BY table_schema, table_name, ordinal_position"
+                    )
+                )
+            ).all():
+                colunas_no_banco.setdefault(linha[0], []).append(linha[1])
+
+            divergentes: list[str] = []
+            esperadas = _colunas_esperadas()
+            for tabela in sorted(tabelas_esperadas):
+                no_banco = colunas_no_banco.get(tabela, [])
+                na_migracao = esperadas.get(tabela, [])
+                if no_banco != na_migracao:
+                    divergentes.append(tabela)
+            print(
+                f"  {'colunas na ordem':<25} "
+                f"{len(tabelas_esperadas) - len(divergentes)}/"
+                f"{len(tabelas_esperadas)} tabelas conferem"
+            )
+            for tabela in divergentes:
+                reprovacoes.append(
+                    f"{tabela}: as colunas do banco nao batem com as da migracao.\n"
+                    f"        no banco:    {colunas_no_banco.get(tabela, [])}\n"
+                    f"        na migracao: {esperadas.get(tabela, [])}\n"
+                    "        ⚠️ editar a migracao NAO reaplica: o alembic ja esta "
+                    "em 0020. E preciso `downgrade 0017_poder_e_probing_base` e "
+                    "`upgrade head`."
+                )
 
             # ── 3. as dimensoes ─────────────────────────────────────────────
             for dimensao in DIMENSOES_POPULADAS:
