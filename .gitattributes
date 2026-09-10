@@ -59,3 +59,11 @@ scripts/referencia_runtime_inferencia.json -text
 #    normalizar é exatamente a operação que se quer ausente dos dois lados de
 #    uma comparação de bytes.
 contratos/catalogo_feitos.json -text
+
+# ⚠️ OS VETORES DE VERIFICAÇÃO DO DESAFIO (09/09/2026) — T027.
+#
+# Mesma disciplina do manifesto do catálogo de feitos, e pelo mesmo motivo: duas
+# cópias comparadas por SHA-256, uma em cada repositório. Conversão de fim de
+# linha faria as duas divergirem por um motivo que não tem nada a ver com o
+# conteúdo.
+contratos/vetores-verificacao-desafio.json -text
