@@ -391,9 +391,19 @@ async def executar(
     relatorio.ja_publicados = sum(1 for p in plano if p.ja_publicado)
 
     # ── 4. Cobrir dia a dia ─────────────────────────────────────────────────
-    for passo in plano:
+    for numero, passo in enumerate(plano, start=1):
         if not passo.precisa_gerar:
             continue
+
+        # ⚠️ **Uma linha ANTES de comecar o dia, e nao so depois.** Gerar e medir
+        # um candidato leva minutos: sem este aviso, o log fica parado e um job
+        # sadio fica indistinguivel de um pendurado. ⛔ E foi exatamente o que
+        # aconteceu na primeira operacao real (10/09/2026) — o painel do Railway
+        # mostrava a tela vazia enquanto o container trabalhava.
+        print(
+            f"[job] dia {numero}/{len(plano)} — {passo.dt_dia}: gerando e medindo…"
+        )
+
         try:
             motivo = await cobrir_um_dia(
                 sessao,
@@ -415,6 +425,8 @@ async def executar(
         if motivo:
             relatorio.nao_cobertos.append(f"{passo.dt_dia}: {motivo}")
             print(f"⛔ [job] {passo.dt_dia} sem desafio: {motivo}", file=sys.stderr)
+        else:
+            print(f"[job] dia {numero}/{len(plano)} — {passo.dt_dia}: pronto ✅")
 
     # ── 5. Auditar as resolucoes pendentes ──────────────────────────────────
     relatorio.auditoria = await auditoria_mod.auditar_lote(sessao)

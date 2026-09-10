@@ -401,3 +401,26 @@ def test_o_dockerignore_nao_barra_o_que_o_job_precisa(caminho: str, motivo: str)
         f"`{caminho}` esta no .dockerignore e nao pode estar: {motivo}. "
         f"Padrao encontrado: {barrados}"
     )
+
+
+def test_o_log_do_job_sai_ENQUANTO_ele_roda() -> None:
+    """🔒 Sem `PYTHONUNBUFFERED`, o painel do Railway fica em branco por 40 min.
+
+    ⚠️ Fora de um terminal, o Python usa buffer de bloco no `stdout`: os `print()`
+    ficam presos ate encher ~8 KB ou ate o processo terminar. Numa API isso passa
+    despercebido; ⛔ **aqui a execucao cobre 7 dias e leva dezenas de minutos**, e
+    um job sadio ficaria indistinguivel de um pendurado.
+
+    ⚠️ E a assimetria seria pior que o silencio: `stderr` e de linha mesmo sem
+    terminal, entao os `⛔` de erro apareceriam **ao vivo** e os `[job]` de
+    sucesso so no fim - um log em que so as mas noticias chegam na hora.
+
+    Aconteceu na primeira operacao real, em 10/09/2026.
+    """
+    ambiente = [
+        ln for ln in linhas_de_instrucao(DOCKERFILE_JOB) if ln.startswith("ENV ")
+    ]
+    assert any("PYTHONUNBUFFERED" in ln for ln in ambiente), (
+        "o Dockerfile.job perdeu `ENV PYTHONUNBUFFERED`. Sem ela o log do job so "
+        f"aparece quando ele termina. ENVs encontradas: {ambiente}"
+    )

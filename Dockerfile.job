@@ -30,6 +30,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# ── 0. O log tem de sair ENQUANTO o job roda ─────────────────────────────────
+# ⚠️ Fora de um terminal, o Python usa buffer de bloco no `stdout`: os `print()`
+#    ficam presos até encher ~8 KB ou até o processo terminar. Numa API isso
+#    passa despercebido — as respostas são curtas e frequentes. ⛔ **Aqui não**:
+#    a execução cobre 7 dias, leva dezenas de minutos, e o painel do Railway
+#    mostraria a tela vazia o tempo todo, indistinguível de um job pendurado.
+#
+# ⚠️ E o pior seria a assimetria: `stderr` é de linha mesmo sem terminal, então
+#    os `⛔` de erro apareceriam **na hora** e os `[job]` de sucesso só no fim —
+#    um log em que só as más notícias chegam ao vivo.
+ENV PYTHONUNBUFFERED=1
+
 # ── 1. Dependências ──────────────────────────────────────────────────────────
 # Copiar SÓ o `requirements` antes do código faz o Docker reaproveitar esta
 # camada enquanto a lista não mudar: alterar uma linha de Python não reinstala
