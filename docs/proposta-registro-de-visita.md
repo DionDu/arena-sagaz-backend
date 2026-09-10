@@ -1,11 +1,21 @@
-# ⛔ DECISÃO PENDENTE DO DONO — onde a visita ao desafio incompatível se grava
+# ✅ DECIDIDA — onde a visita ao desafio incompativel se grava
 
-> **Estado:** aberta em **10/09/2026**, durante a T043. As outras duas rotas do
-> envio (`/resolucao` e `/dica`) foram entregues; **`POST /v1/desafios/visita`
-> não**, e a razão está aqui.
+> **Aberta em 10/09/2026** durante a T043; **fechada pelo dono no mesmo dia.**
 >
-> **O que é preciso de você:** escolher entre as três opções da última seção. A
-> escrita da migração e do código leva minutos depois da escolha.
+> ✅ **Ele escolheu a Opção A**, com **dois ajustes** que procedem e já estão
+> incorporados abaixo:
+>
+> 1. **o nome** — `tb007_visita` fazia parecer que a tabela registra a visita de
+>    **todo mundo**. Passa a ser `desafio_dia.tb007_visita_impedida`: a entidade
+>    é a **visita** (que é o que a chave diz) e *impedida* separa quem
+>    ⬛ **não pôde** de quem **não quis**;
+> 2. **as colunas de diagnóstico** — *"o que o usuário tinha naquele momento
+>    contra o que o backend exigia"*. ⚠️ Isso conserta um defeito real do desenho
+>    original: `co_motivo` dizia a **categoria** e nunca **qual** jogo ou chave.
+>
+> O registro completo, com o porquê de cada escolha, está em
+> `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8e. O texto abaixo é o da
+> proposta original, mantido porque explica **por que a chama não aceitava a rota**.
 
 ---
 

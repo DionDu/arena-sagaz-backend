@@ -43,6 +43,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.desafios.modelos_envio import (
+    EnvioDeDesafioImpedido,
     EnvioDeDica,
     EnvioDeResolucao,
     RespostaDeResolucao,
@@ -51,6 +52,7 @@ from api.desafios.modelos_resposta import DesafioPublicado, ProximosPublicados
 from api.desafios.publicacao import para_resposta
 from api.desafios.repositorio import DIAS_DE_CACHE, RepositorioDesafio
 from api.desafios.quadro import RepositorioQuadro
+from api.desafios.impedido import RepositorioImpedido
 from api.desafios.repositorio_envio import RepositorioEnvio
 from api.desafios.servico_envio import ServicoEnvio
 from api.desafios.servico_quadro import ServicoQuadro
@@ -60,6 +62,11 @@ from api.nucleo.dependencias import (
     exigir_cabecalhos,
     usuario_atual,
     usuario_atual_opcional,
+)
+from api.nucleo.dependencias_conta_nuvem import (
+    UsuarioAutenticado,
+    usuario_autenticado,
+    usuario_opcional,
 )
 from api.nucleo.excecoes import ErroNaoEncontrado
 from api.nucleo.log import obter_logger
@@ -203,7 +210,7 @@ def obter_servico_envio(
 async def enviar_resolucao(
     id_desafio: UUID,
     envio: EnvioDeResolucao,
-    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    dono: UsuarioAutenticado = Depends(usuario_autenticado),
     servico: ServicoEnvio = Depends(obter_servico_envio),
     _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
 ) -> RespostaDeResolucao:
@@ -220,7 +227,7 @@ async def enviar_resolucao(
         ErroNegocio: 400, dado impossivel (RF-DES-033).
     """
     resultado = await servico.registrar_resolucao(
-        id_desafio=id_desafio, id_usuario=identidade.uid, envio=envio
+        id_desafio=id_desafio, id_usuario=dono.id_usuario, envio=envio
     )
     log.info(
         "desafio: resolucao registrada",
@@ -238,7 +245,7 @@ async def enviar_resolucao(
 async def registrar_dica(
     id_desafio: UUID,
     envio: EnvioDeDica,
-    identidade: IdentidadeFirebase = Depends(usuario_atual),
+    dono: UsuarioAutenticado = Depends(usuario_autenticado),
     servico: ServicoEnvio = Depends(obter_servico_envio),
     _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
 ) -> None:
@@ -257,7 +264,7 @@ async def registrar_dica(
     Responde `204` — nao ha corpo a devolver, e o aplicativo nao espera nada.
     """
     nova = await servico.registrar_dica(
-        id_desafio=id_desafio, id_usuario=identidade.uid, envio=envio
+        id_desafio=id_desafio, id_usuario=dono.id_usuario, envio=envio
     )
     log.info(
         "desafio: dica registrada",
@@ -281,6 +288,56 @@ async def registrar_dica(
 # ter linha exige identidade, e reagir tambem (RF-DES-084).
 
 
+def obter_repositorio_impedido(
+    sessao: AsyncSession = Depends(obter_sessao),
+) -> RepositorioImpedido:
+    """A dependencia do repositorio do dia impedido."""
+    return RepositorioImpedido(sessao)
+
+
+@router.post("/impedido", status_code=204)
+async def registrar_desafio_impedido(
+    envio: EnvioDeDesafioImpedido,
+    dono: UsuarioAutenticado = Depends(usuario_autenticado),
+    repo: RepositorioImpedido = Depends(obter_repositorio_impedido),
+) -> Response:
+    """Registra o dia em que o desafio NAO COUBE na versao do aplicativo.
+
+    ⚠️ **O que isto protege e a CHAMA** (RF-DES-024): o dia ⛔ **nao conta contra
+    a pessoa**. Como a chama e **derivada** — um conjunto de dias lido do
+    historico, e nunca um contador —, a unica forma de proteger o dia e gravar
+    mais uma **fonte de dias**, e e o que a linha faz.
+
+    ⚠️ **A rota nao tem `{id_desafio}` no caminho**, e e de proposito: quem cai
+    aqui pode nem ter conseguido ler a resposta do desafio. O identificador vai
+    no corpo, e e opcional.
+
+    ⚠️ **Versao do aplicativo e plataforma saem dos CABECALHOS**, e nunca do
+    corpo: elas ja sao obrigatorias em toda requisicao, e aceita-las tambem no
+    corpo daria ao aplicativo dois lugares para errar — com o diagnostico sem
+    saber em qual acreditar.
+
+    ⚠️ **204 tanto na primeira vez quanto na repeticao.** O `un001_dia_impedido`
+    absorve o reenvio, e um 409 aqui faria a fila do aplicativo tratar um fato
+    repetido como falha, reenviando para sempre.
+    """
+    gravou = await repo.gravar(
+        id_usuario=dono.id_usuario,
+        envio=envio,
+        co_versao_app=dono.contexto.versao_app,
+        co_plataforma=dono.contexto.plataforma,
+    )
+    log.info(
+        "desafio: dia impedido registrado",
+        extra={
+            "motivo": envio.motivo,
+            "desconhecido": envio.desconhecido,
+            "ja_existia": not gravou,
+        },
+    )
+    return Response(status_code=204)
+
+
 def obter_servico_quadro(
     sessao: AsyncSession = Depends(obter_sessao),
 ) -> ServicoQuadro:
@@ -292,7 +349,7 @@ def obter_servico_quadro(
 async def quadro_do_dia(
     id_desafio: UUID,
     servico: ServicoQuadro = Depends(obter_servico_quadro),
-    identidade=Depends(usuario_atual_opcional),
+    dono: Optional[UsuarioAutenticado] = Depends(usuario_opcional),
     _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
 ) -> dict:
     """O quadro do dia: os quatro mascotes e quem resolveu.
@@ -303,7 +360,7 @@ async def quadro_do_dia(
     """
     return await servico.montar(
         id_desafio=id_desafio,
-        id_usuario=identidade.uid if identidade else None,
+        id_usuario=dono.id_usuario if dono else None,
         agora=agora_utc(),
     )
 
@@ -313,7 +370,7 @@ async def replay_do_sujeito(
     id_desafio: UUID,
     sujeito: str,
     servico: ServicoQuadro = Depends(obter_servico_quadro),
-    identidade=Depends(usuario_atual_opcional),
+    dono: Optional[UsuarioAutenticado] = Depends(usuario_opcional),
     _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
 ) -> dict:
     """O Raio-X de um sujeito — `eu` · `jogador/{id}` · `desafio`.
@@ -333,6 +390,6 @@ async def replay_do_sujeito(
     return await servico.replay(
         id_desafio=id_desafio,
         sujeito=sujeito,
-        id_usuario=identidade.uid if identidade else None,
+        id_usuario=dono.id_usuario if dono else None,
         agora=agora_utc(),
     )

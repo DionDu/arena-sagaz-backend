@@ -1679,3 +1679,82 @@ o selo servido e escondido, que é pior do que não servi-lo.
 **sem os comentários** e exige `linkApple`/`seloApple` e `linkPlay`/`seloPlay`. O
 teste antigo (`..._conteudo_esperado`) não pegava isto: ele procura o domínio
 `play.google.com` no texto, que continuava aparecendo **dentro** do comentário.
+
+---
+
+## 2026-09-10 — O dia impedido, e o defeito que ele desenterrou
+
+**Contexto.** O dono escolheu a **Opção A** da proposta de registro de visita:
+tabela nova em `desafio_dia`, com a chama continuando **derivada**. Ele pediu
+dois ajustes, e os dois procediam.
+
+**Decisão 1 — o nome é `tb007_desafio_impedido`.** O rascunho dizia
+`tb007_visita`, e ele recusou: *"fica parecendo que registrará a visita de todos
+os usuários"*. Eu propus `visita_impedida`; ele preferiu `desafio_impedido`,
+porque *"visita impedida me remete ao App ter rejeitado o usuário a abrir a
+Home"*. ⚠️ Ele está certo sobre o que o nome sugere: o que foi impedido não foi a
+pessoa de entrar — foi **o desafio de chegar até ela**.
+
+**Decisão 2 — os motores vão em `js_motores` JSONB, como LISTA.** O pedido dele
+foi guardar *"o que o usuário tinha naquele momento contra o que o backend
+exigia"*, notando que os motores são **vários e por jogo**.
+
+⛔ **A forma composta plana não escala, e o projeto já tem a cicatriz.**
+`partida.tb001_partida.co_versao_motor` guarda `dart_X|rust_Y` porque uma partida
+é de **um** jogo com **dois** motores conhecidos — e mesmo assim
+`_versoes_do_motor()` existe só para impedir que duas formas convivam na mesma
+coluna. Estendê-la daria `damas:dart_1.4.0|rust_0.4.0;pontinhos:tflite_2.2.0`:
+uma mini-linguagem que ninguém valida. ⛔ E coluna por motor faria **jogo novo
+exigir migração**, o acoplamento que *"modalidade é DADO, não `enum`"* ensinou a
+evitar.
+
+⚠️ **Lista, e não dicionário por jogo**, porque é a mesma forma que uma tabela
+filha teria: `jsonb_to_recordset` a abre em linhas e devolve o relacional de
+graça. Um `{"damas": {"rust": "0.4.0"}}` põe o jogo na **posição de chave**, e
+toda consulta agregada passa a ter de saber os jogos de antemão.
+
+⛔ **Sem `CHECK` de vocabulário em `co_motor`**, e é o lado certo da troca: um
+aplicativo **mais novo** que o servidor vai reportar motor que ele nunca ouviu
+falar, e recusar perderia o diagnóstico exatamente quando ele é mais
+interessante. O `ck003_motores` é guarda **estrutural** (é uma lista?), não de
+vocabulário.
+
+**Decisão 3 — migração nova, e não edição da `0019`.** *"Não quero que você
+modifique migração já aplicada."* ⚠️ E não há contradição com a §8b: aquela regra
+é contra **remendar modelagem defeituosa com `ALTER`**; aqui é uma tabela
+**nova**, aditiva por natureza.
+
+### ⚠️ O `CHECK` que era mais estreito que o cabeçalho
+
+O primeiro rascunho da migração aceitava `co_plataforma IN ('android', 'ios')`.
+`PLATAFORMAS_VALIDAS` tem **três** valores — `web` continua no vocabulário do
+`exigir_cabecalhos`, mesmo tendo deixado de ser alvo do produto. Uma requisição
+**válida** viraria erro de banco, e ⛔ **nenhum teste de unidade veria**, porque
+eles não passam pelo Postgres. Cadeado escrito no mesmo padrão "contrato ×
+realidade" do da união de XP.
+
+### ⛔ O defeito que isto desenterrou: o uid do Firebase não é o `id_usuario`
+
+As rotas de desafio que eu entreguei na T043/T044 passavam `identidade.uid` — a
+string do Firebase — para colunas `UUID` que são chave estrangeira de
+`conta.tb001_usuario`. **Toda resolução e toda dica teriam estourado no `des`.**
+
+⚠️ **E a suíte passava, antes e depois da correção.** Os testes trocam a
+dependência por um fake e nunca veem o tipo real — o defeito era invisível ao CI
+por construção, e só apareceria no portão T050.
+
+Quem resolve o id interno é `usuario_autenticado` / `usuario_opcional`
+(`api/nucleo/dependencias_conta_nuvem.py`), que busca a linha pelo
+`co_identidade_externa`. As quatro chamadas foram corrigidas, e o cadeado novo lê
+`ast` — um `"identidade.uid" in fonte` reprovaria a própria docstring que explica
+o defeito, que é a **sexta** vez que esse padrão apareceria neste projeto.
+
+### 🔒 E o cadeado do `data-model` estava cego
+
+`test_migracao_bate_com_data_model.py` nomeava `0018` e `0019` **em duas linhas
+fixas**. A `0021` criou uma tabela, e o cadeado passou **verde sem nunca tê-la
+visto** — o único teste do projeto cuja falha significa *"o que foi aprovado não
+é o que vai rodar"* estava aprovando uma tabela que o dono não tinha visto.
+
+Passou a **descobrir** as migrações que criam tabela nesses dois schemas, e há
+caso que falha se a lista fixa voltar disfarçada.

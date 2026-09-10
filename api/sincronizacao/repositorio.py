@@ -1271,7 +1271,10 @@ class RepositorioSincronizacao:
     ) -> tuple[int, date | None, int]:
         """Recalcula a "chama" (sequência), o último dia jogado e o TOTAL de dias
         jogados de forma **AUTORITATIVA**, a partir dos DIAS LOCAIS distintos das
-        partidas concluídas que pontuam (``vs_cpu``). Persiste sequência e data
+        partidas concluídas que pontuam (``vs_cpu``) **unidos aos dias em que o
+        desafio não coube na versão do app** (``tb007_desafio_impedido``,
+        RF-DES-024 — o dia não conta contra quem não pôde participar). Persiste
+        sequência e data
         (SOBRESCREVE — não ``GREATEST`` — pois é a verdade derivada do histórico)
         e devolve ``(sequencia, ultimo_dia, total_de_dias)``.
 
@@ -1296,14 +1299,27 @@ class RepositorioSincronizacao:
         resultado = await self.sessao.execute(
             text(
                 """
-                SELECT DISTINCT
-                  ((COALESCE(dh_fim, dh_inicio) AT TIME ZONE 'UTC')
-                     + make_interval(mins => COALESCE(nu_offset_minuto_j1, 0)))::date
-                    AS dia
-                FROM partida.tb001_partida
-                WHERE id_usuario = :id
-                  AND ic_pontua = true
-                  AND co_status = 'concluida'
+                -- ⚠️ DUAS fontes de dias, unidas. A segunda entrou em
+                -- 10/09/2026 (RF-DES-024): o dia em que o desafio NAO COUBE na
+                -- versao do aplicativo ⛔ nao pode contar contra a pessoa. Como
+                -- a chama e DERIVADA e nunca incrementada, a unica forma de
+                -- proteger o dia e ele ser mais uma linha de historico.
+                --
+                -- `UNION` (e nao `UNION ALL`) ja elimina o dia repetido: quem
+                -- visitou e depois jogou no mesmo dia tem UM dia, nao dois.
+                SELECT dia FROM (
+                  SELECT ((COALESCE(dh_fim, dh_inicio) AT TIME ZONE 'UTC')
+                           + make_interval(mins => COALESCE(nu_offset_minuto_j1, 0)))::date
+                           AS dia
+                    FROM partida.tb001_partida
+                   WHERE id_usuario = :id
+                     AND ic_pontua = true
+                     AND co_status = 'concluida'
+                  UNION
+                  SELECT dt_dia_local AS dia
+                    FROM desafio_dia.vw007_desafio_impedido
+                   WHERE id_usuario = :id
+                ) AS dias_da_chama
                 ORDER BY dia
                 """
             ),

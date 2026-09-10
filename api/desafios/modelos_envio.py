@@ -157,10 +157,30 @@ class EnvioDeDica(BaseModel):
     consumida_em: datetime
 
 
-class EnvioDeVisita(BaseModel):
-    """O corpo de `POST /v1/desafios/visita`.
 
-    ⚠️ **Registra o dia quando o desafio NAO COUBE na versao do aplicativo**
+
+class MotorDoAparelho(BaseModel):
+    """Um motor que o aparelho tinha no instante em que o desafio nao coube.
+
+    ⚠️ **Um registro por (jogo, motor)** — e nao um campo por motor. As damas
+    carregam hoje dois (`dart` e `rust`); um jogo novo pode trazer outro par, e
+    um campo fixo faria jogo novo exigir migracao.
+
+    ⛔ **O vocabulario de `co_motor` e ABERTO, de proposito.** Um aplicativo mais
+    novo que este servidor vai reportar motor que ele nunca ouviu falar. Recusar
+    a linha perderia o diagnostico exatamente quando ele e mais interessante —
+    entao o servidor guarda o que veio, e quem le lida com o desconhecido.
+    """
+
+    co_jogo: str = Field(min_length=1, max_length=30)
+    co_motor: str = Field(min_length=1, max_length=20)
+    co_versao: str = Field(min_length=1, max_length=20)
+
+
+class EnvioDeDesafioImpedido(BaseModel):
+    """O corpo de `POST /v1/desafios/impedido`.
+
+    ⚠️ **Registra o dia em que o desafio NAO COUBE na versao do aplicativo**
     (RF-DES-024/028) — jogo que ele nao tem, tipo que nao conhece, chave de i18n
     ausente. ⛔ **O dia nao pode contar contra a pessoa**: a chama sobrevive, e o
     caminho e o mesmo que ja a alimenta.
@@ -173,6 +193,12 @@ class EnvioDeVisita(BaseModel):
     conseguido ler a resposta do desafio (chave desconhecida, versao minima
     maior). Exigi-lo faria justamente o caso que a rota existe para cobrir
     falhar.
+
+    ⛔ **Versao do aplicativo e plataforma NAO estao aqui.** Elas ja chegam nos
+    cabecalhos obrigatorios `X-App-Version`/`X-Platform`, e aceita-las tambem no
+    corpo criaria uma segunda fonte que pode discordar da primeira — o aplicativo
+    passaria a ter dois lugares para errar, e o diagnostico nao saberia em qual
+    acreditar.
     """
 
     id_desafio_dia: Optional[UUID] = None
@@ -183,6 +209,13 @@ class EnvioDeVisita(BaseModel):
         "chave_desconhecida",
         "versao_insuficiente",
     ]
+    #: ⚠️ **O VALOR que o aplicativo nao reconheceu** — o codigo do jogo, da
+    #: modalidade, da forma, ou a chave de i18n ausente.
+    #:
+    #: Sem ele, `motivo` diz a CATEGORIA e nunca QUAL: a linha provaria que
+    #: alguem foi barrado sem dizer por que de forma acionavel, que e meio
+    #: caminho para a tabela que ninguem consulta.
+    desconhecido: Optional[str] = Field(default=None, max_length=60)
     visitado_em: datetime
     #: O deslocamento do fuso do jogador, em MINUTOS.
     #:
@@ -190,3 +223,5 @@ class EnvioDeVisita(BaseModel):
     #: sem o offset o servidor creditaria a visita no dia UTC — que pode ser
     #: ontem ou amanha para quem visitou.
     nu_offset_minuto: Optional[int] = Field(default=None, ge=-840, le=840)
+    #: Os motores do aparelho. Vazio quando o aplicativo nao souber informar.
+    motores: Optional[list[MotorDoAparelho]] = None

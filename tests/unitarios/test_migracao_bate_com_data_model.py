@@ -74,10 +74,39 @@ DATA_MODEL = (
     / "009-desafio-do-dia"
     / "data-model.md"
 )
-MIGRACOES = {
-    "desafio": RAIZ / "migrations" / "versions" / "0018_schema_desafio.py",
-    "desafio_dia": RAIZ / "migrations" / "versions" / "0019_schema_desafio_dia.py",
-}
+VERSOES = RAIZ / "migrations" / "versions"
+
+#: Os schemas que o `data-model.md` descreve — e so eles.
+SCHEMAS = ("desafio", "desafio_dia")
+
+
+def migracoes_dos_schemas() -> list[Path]:
+    """Toda migracao que cria tabela em `desafio` ou `desafio_dia`.
+
+    ⚠️ **DESCOBERTA, e nao lista escrita a mao.** Ate 10/09/2026 este modulo
+    nomeava `0018` e `0019` em duas linhas fixas. No dia em que a `0021` trouxe
+    `desafio_dia.tb007_desafio_impedido`, o cadeado passou **VERDE sem nunca ter
+    olhado para a tabela nova** — e o unico teste do projeto cuja falha significa
+    *"o que foi aprovado nao e o que vai rodar"* estava aprovando uma tabela que
+    o dono nao tinha visto.
+
+    ⚠️ E a **sexta** aparicao do mesmo defeito no projeto: cadeado que *acha*
+    que sabe o que existe fica cego exatamente quando algo novo chega, que e
+    quando ele precisava enxergar.
+    """
+    achadas = [
+        caminho
+        for caminho in sorted(VERSOES.glob("[0-9]*.py"))
+        if any(
+            f"CREATE TABLE {schema}." in sql_da_migracao(caminho)
+            for schema in SCHEMAS
+        )
+    ]
+    assert achadas, (
+        "⛔ nenhuma migracao cria tabela em desafio/desafio_dia. **Nada a varrer "
+        "e FALHA**, e nao sucesso: sem isso o cadeado compara dois vazios e passa."
+    )
+    return achadas
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -211,11 +240,15 @@ def do_documento() -> dict[str, dict[str, object]]:
 
 @pytest.fixture(scope="module")
 def da_migracao() -> dict[str, dict[str, object]]:
-    """As tabelas criadas pelas migracoes `0018` e `0019`."""
+    """As tabelas de `desafio`/`desafio_dia` criadas por QUALQUER migracao."""
     juntas: dict[str, dict[str, object]] = {}
-    for schema, caminho in MIGRACOES.items():
-        assert caminho.is_file(), f"a migracao de {schema} nao esta em {caminho}"
-        juntas.update(_tabelas(sql_da_migracao(caminho)))
+    for caminho in migracoes_dos_schemas():
+        for nome, corpo in _tabelas(sql_da_migracao(caminho)).items():
+            # ⛔ So os dois schemas que o documento descreve: uma migracao pode
+            # criar tabela em `partida` ou `log` na mesma passada, e compara-la
+            # com o `data-model.md` acusaria divergencia que nao existe.
+            if nome.split(".")[0] in SCHEMAS:
+                juntas[nome] = corpo
     return juntas
 
 
@@ -233,6 +266,24 @@ def test_a_varredura_enxerga_os_dois_lados(do_documento, da_migracao) -> None:
     """
     assert len(do_documento) >= 12, f"o documento rendeu {len(do_documento)} tabelas"
     assert len(da_migracao) >= 12, f"as migracoes renderam {len(da_migracao)} tabelas"
+
+
+def test_a_varredura_NAO_e_uma_lista_escrita_a_mao() -> None:
+    """🔒 O cadeado nao pode voltar a nomear as migracoes uma a uma.
+
+    ⚠️ **Este caso existe por causa de um verde falso**, em 10/09/2026: o modulo
+    nomeava `0018` e `0019`, a `0021` criou uma tabela nova, e a comparacao
+    passou sem nunca te-la visto. Exigir que a varredura ache **alguma migracao
+    alem daquelas duas** e o que impede a lista fixa de voltar disfarcada.
+    """
+    nomes = {caminho.name for caminho in migracoes_dos_schemas()}
+    assert "0018_schema_desafio.py" in nomes
+    assert "0019_schema_desafio_dia.py" in nomes
+    assert nomes - {"0018_schema_desafio.py", "0019_schema_desafio_dia.py"}, (
+        "⛔ a varredura achou APENAS as duas migracoes originais. Ou nenhuma "
+        "migracao posterior criou tabela nestes schemas — e ai este caso deve "
+        "ser reescrito com consciencia — ou a descoberta virou lista fixa de novo."
+    )
 
 
 def test_as_MESMAS_tabelas_dos_dois_lados(do_documento, da_migracao) -> None:
@@ -330,7 +381,7 @@ def test_os_indices_batem() -> None:
         if tabela.startswith(("desafio.", "desafio_dia."))
     }
     da_mig: set[tuple[str, str]] = set()
-    for caminho in MIGRACOES.values():
+    for caminho in migracoes_dos_schemas():
         da_mig |= _indices(sql_da_migracao(caminho))
 
     faltando = sorted(do_doc - da_mig)
