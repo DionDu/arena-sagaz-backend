@@ -1758,3 +1758,143 @@ visto** — o único teste do projeto cuja falha significa *"o que foi aprovado 
 
 Passou a **descobrir** as migrações que criam tabela nesses dois schemas, e há
 caso que falha se a lista fixa voltar disfarçada.
+
+---
+
+## 2026-09-10 — O job passa a rodar: a conexão, a ordem das escritas e o editorial
+
+**Contexto.** Todas as peças do BLOCO 2 existiam e eram testadas, e **nenhuma
+falava com o Postgres**. `job/__main__.py` era um esqueleto que saía com 2. O
+`tasks.md` ia de T038 direto ao portão T050 sem nenhuma tarefa que abrisse
+conexão nem que encadeasse os passos — ⛔ o portão era inalcançável por
+impossibilidade física, e não por dependência declarada. Daí T049b, T049c e
+T049d.
+
+### Decisão 1 — o job tem engine PRÓPRIA (`job/banco.py`)
+
+⛔ **Não se importa `api/nucleo/banco.py`.** Aquele módulo **constrói a engine no
+import**, com o pool dimensionado para um servidor web que fica de pé. Importá-lo
+faria duas coisas erradas de uma vez: a engine da API nasceria dentro do
+container do job só por importar, e a gravação do job passaria a depender da
+afinação do **servidor** — mudar o pool da API para aguentar mais gente mudaria,
+calado, como o job escreve. É a fronteira RF-DES-011a: os dois se falam **pelo
+Postgres**.
+
+⚠️ **E `DATABASE_URL` aqui não tem padrão de fábrica.** O de `api/configuracao.py`
+existe por um motivo bom — a app precisa importar sem banco, e os testes fazem
+isso o tempo todo. ⛔ Herdá-lo seria caro: um container sem a Variable tentaria
+`localhost:5432`, não acharia ninguém, e morreria com `ConnectionRefusedError` —
+que no log do Railway **se lê como "o banco caiu"**. A causa real (alguém
+esqueceu a Variable no serviço novo) só apareceria depois de investigar um banco
+que está perfeitamente de pé. Agora a ausência tem exceção própria, com recado
+que diz **onde arrumar**, e vira saída 2.
+
+⚠️ **`dispose()` ao sair não é zelo: é o que permite o processo TERMINAR.** A
+política de reinício do serviço é `NEVER`, e sair com 0 é o comportamento
+correto; uma engine viva segura conexões e o loop de eventos, e o container
+ficaria de pé depois de o trabalho acabar — indistinguível, no painel, de um job
+travado.
+
+⚠️ **A normalização da URL está escrita duas vezes**, porque não dá para importar
+a da API sem construir a engine dela. Duas cópias de uma regra envelhecem torto,
+então há cadeado comparando as duas funções sobre as mesmas entradas. Sem ele, o
+esquecimento seria um job escolhendo o driver **síncrono** (`psycopg2`, que nem
+está na imagem) e morrendo com `ModuleNotFoundError` no meio da primeira
+consulta.
+
+### Decisão 2 — a ordem das escritas é parte da modelagem, não arrumação
+
+    perfil → desafio → régua → medidas → **dia**
+
+**O perfil vem primeiro** porque `fk001_perfil` é uma FK composta e recusa o
+desafio sem ele — e recusaria **depois** de o candidato ter sido gerado e medido
+pelos três mascotes. A parte cara feita e jogada fora, uma vez por dia. Gravar o
+perfil custa milissegundos.
+
+**O dia vem por último**, depois dos feitos de saída: publicar antes abriria uma
+janela em que o aplicativo baixaria um desafio **sem medidas**, pagando só o piso
+de XP. ⚠️ **Nada daria erro** — o `INSERT` passa, a resposta sai, e a diferença só
+apareceria no extrato de quem jogou. É a mesma lição que `reprise.py` já
+registrava sobre `SQL_COPIAR_FEITOS`; agora ela é teste.
+
+**Um `commit` só, no fim.** Commitar a cada passo deixaria, se a máquina caísse no
+meio, um desafio sem medidas no banco — e a curadoria o aprovaria sem que nada
+aparentasse estar errado.
+
+⚠️ **`co_feito` é texto aqui e `nu_feito` no banco**, e a tradução acontece **no
+próprio `INSERT`**, por subconsulta na VIEW do catálogo: chave que não existe
+devolve `NULL` numa coluna `NOT NULL`, e o banco recusa. Traduzir em Python antes
+exigiria reimplementar a mesma recusa — e a primeira versão esquecida dela
+gravaria uma medida que nenhum jogo produz, pagando zero para sempre, sem erro
+nenhum.
+
+### 🔒 O cadeado que importa: o `INSERT` contra a MIGRAÇÃO
+
+`test_banco_e_repositorio_do_job.py` lê a migração com `ast` e exige que **toda
+coluna `NOT NULL` sem `DEFAULT`** de `desafio.tb001_desafio` (são 21) apareça no
+`INSERT` do job. ⛔ Uma coluna nova esquecida ali **não daria erro no CI** — nada
+do CI passa pelo Postgres —, e o estouro chegaria no Railway, uma vez por dia,
+depois da parte cara. Há caso que prova a varredura reprovando.
+
+⚠️ **E o leitor de DDL subiu** de `test_migracao_bate_com_data_model.py` para
+`tests/unitarios/leitura_de_migracao.py`. Escrever um segundo seria exatamente a
+segunda fonte que aquele módulo existe para evitar — a docstring dele já dizia
+que três cadeados o usam e que três implementações acabariam discordando. Agora
+são quatro.
+
+### Decisão 3 — RECEITA e EDITORIAL são coisas diferentes
+
+    `tipos_de_desafio.py`  → a RECEITA: como um tipo vira linha de chegada
+    `editorial.py`         → com QUE NÚMEROS ele vai ao ar, o que MEDE, que
+                             versão EXIGE, qual é o teto do log
+
+⚠️ Trocar 4 caixas por 6 é mudança de **DADO** (SC-027): não toca `.arb`, não toca
+código do aplicativo, não muda `co_versao_minima`. Se os números morassem dentro
+da receita, mexer na dificuldade **pareceria** mexer na regra que julga. ⛔ E não
+cabia em `gravacao.py`, que é sobre a fila.
+
+⛔ **Sem padrão de fábrica também aqui.** Um *"se não souber, use 3"* poria no ar
+um desafio cuja dificuldade ninguém escolheu, e ele pareceria igual aos outros na
+tela. `TipoSemEditorial` falha alto; há caso garantindo que todo tipo publicável
+tem editorial, e o inverso.
+
+⚠️ **`MILISSEGUNDOS_POR_LANCE_DO_GABARITO = 6000` não é chute.** É o número que
+reproduz o exemplo **pré-validado** do `data-model.md`: `nu_lances_solucao = 5` →
+piso 30000, teto 180000 (a folga de 6× é de `regua_de_tempo`). Há caso travando
+isso — sem ele, alguém ajustaria a constante sem saber que existe um documento
+aprovado do outro lado.
+
+### Decisão 4 — a convenção de saída, e o que ela protege
+
+    0 → fez · 1 → fez e algo divergiu · 2 → nem começou
+
+⛔ **Dia descoberto sai com 1**, mesmo com todo o resto certo. Era a única coisa
+que o esqueleto antigo protegia, e não podia se perder na troca: um job que
+*"termina bem"* sem gerar nada é indistinguível, no painel do Railway, de um que
+funcionou — e a fila secaria em silêncio até alguém abrir o aplicativo e ver o dia
+vazio.
+
+⚠️ **`2` é reservado ao que aconteceu ANTES do trabalho.** Um estouro no quarto
+dia, com três publicados, **não** é "nem começou": vira dia descoberto, o log diz
+qual foi o erro, e o código é 1. Confundir os dois faria alguém reiniciar o job
+achando que nada tinha sido gravado.
+
+⚠️ **`impossiveis` da auditoria também acende a luz.** Uma resolução que a
+auditoria não consegue reproduzir é sintoma de **desafio publicado quebrado**, e
+não de trapaça — e ele fica no ar enquanto ninguém olhar, com `co_auditoria` em
+`pendente`, que na tela de divergências se lê como *"está tudo certo"*.
+
+### Duas peças novas no gerador
+
+**`Candidato.estado_inicial`** — a posição de partida **como objeto do motor**. A
+régua e a prova de término precisam jogar de novo a partir dali, e reconstruir a
+posição a partir de `js_posicao_inicial` seria uma segunda travessia do mesmo
+caminho, capaz de discordar da primeira. ⛔ **Isso não dispensa
+`posicao_inicial.conferir()`**, que o `principal()` chama antes de gravar: é ele
+que faz `vez_de` e `placar` valerem alguma coisa.
+
+**`bancada(candidato)`** — jogador **e** árbitro, montados para o jogo dele. ⛔ E
+os dois nem sempre são o mesmo objeto: nas damas `MotorDamas` faz as duas coisas;
+no Pontinhos quem escolhe lance é `JogadorPontinhos` (que não tem `veredito`) e
+quem arbitra é `MotorPontinhos`. Deixar isso para o chamador adivinhar plantaria
+um `AttributeError` no meio da medição.
