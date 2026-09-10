@@ -129,6 +129,23 @@ class Candidato:
     nu_lances_solucao: int
     de_diagnostico: list[str] = field(default_factory=list, compare=False)
 
+    #: A posicao de partida **como objeto do motor**, e nao como JSON.
+    #:
+    #: ⚠️ Ela existe porque os dois passos seguintes — medir a regua (T035) e
+    #: provar que a partida termina (T036) — precisam **jogar de novo a partir
+    #: dali**, e reconstruir o estado a partir de `js_posicao_inicial` seria uma
+    #: segunda travessia do mesmo caminho, capaz de discordar da primeira.
+    #:
+    #: ⛔ **Isto NAO dispensa `posicao_inicial.conferir()`**: quem prova que o
+    #: JSON publicado reproduz esta posicao e ele, e o `principal()` o chama
+    #: antes de gravar. Sem essa conferencia, `vez_de` e `placar` seriam
+    #: anotacao decorativa.
+    #:
+    #: `compare=False` porque dois candidatos iguais continuam iguais mesmo que
+    #: so um carregue o estado; `repr=False` porque o tabuleiro inteiro num log
+    #: de erro esconderia a mensagem.
+    estado_inicial: Any = field(default=None, compare=False, repr=False)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. As tres escolhas do dia
@@ -435,6 +452,7 @@ def gerar_candidatos(
                 js_solucao=js_solucao,
                 nu_lances_solucao=gabarito_mod.nu_lances_solucao(js_solucao),
                 de_diagnostico=[f"tentativa {tentativa}"],
+                estado_inicial=base,
             )
         )
 
@@ -476,3 +494,111 @@ def _preparar_damas(
             break
         estado = motor.aplicar(estado, sorteio.choice(legais))
     return estado
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. A bancada: com que pecas se MEDE um candidato
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Os tres passos seguintes precisam do mesmo ferramental que a geracao
+# usou**, e montá-lo de novo la fora seria a segunda fonte da verdade: a regua
+# mediria com um jogador e o candidato teria sido achado com outro, e a taxa
+# "14 de 20" passaria a descrever um adversario que ninguem enfrenta.
+#
+# ⛔ E ha um detalhe que so quem escreveu o gerador sabe: **o jogador e o arbitro
+# nem sempre sao o mesmo objeto**. Nas damas, `MotorDamas` faz as duas coisas; no
+# Pontinhos, quem escolhe lance e `JogadorPontinhos` (que nao tem `aplicar` nem
+# `veredito`) e quem arbitra e `MotorPontinhos`. Deixar isso para o chamador
+# adivinhar seria plantar um `AttributeError` no meio da medicao.
+
+
+@dataclass(frozen=True, slots=True)
+class Bancada:
+    """As pecas para medir um candidato, ja montadas para o jogo dele.
+
+    Atributos:
+        jogador: quem escolhe lance (`escolher_lance`).
+        arbitro: quem diz se a partida acabou (`veredito`) e aplica lance.
+        estado_inicial: a posicao de partida do candidato.
+        julgar: `(fita) -> Julgamento`, com a linha de chegada daquele desafio.
+    """
+
+    jogador: Any
+    arbitro: Any
+    estado_inicial: Any
+    julgar: Any
+
+
+def bancada(candidato: Candidato) -> Bancada:
+    """Monta a bancada de medicao daquele candidato.
+
+    Raises:
+        SemCandidato: quando o candidato veio sem `estado_inicial` — o que so
+            acontece se alguem o construiu a mao. ⚠️ **Falhar aqui e melhor que
+            reconstruir a posicao**: uma reconstrucao silenciosa mediria a partir
+            de um tabuleiro que pode nao ser o que foi gerado.
+    """
+    from motores.juiz import julgar_desafio
+    from motores.pontinhos.motor_pontinhos import MotorPontinhos
+
+    if candidato.estado_inicial is None:
+        raise SemCandidato(
+            "o candidato nao carrega `estado_inicial`, e sem ele nao ha de onde "
+            "medir a regua nem provar o termino. ⛔ Reconstruir a posicao aqui "
+            "seria uma segunda travessia do mesmo caminho."
+        )
+
+    if candidato.co_jogo == "pontinhos":
+        jogador: Any = JogadorPontinhos()
+        arbitro: Any = MotorPontinhos()
+    else:
+        # Nas damas o mesmo objeto joga e arbitra — e isso e do motor, nao uma
+        # escolha daqui.
+        jogador = arbitro = MotorDamas()
+
+    def julgar(fita: list[dict[str, Any]]):
+        """Julga a fita contra a linha de chegada **deste** candidato."""
+        return julgar_desafio(
+            co_jogo=candidato.co_jogo,
+            js_posicao_inicial=candidato.js_posicao_inicial,
+            js_chegada=candidato.js_chegada,
+            fita=fita,
+            jogador=candidato.js_posicao_inicial["vez_de"],
+            co_modalidade=candidato.co_modalidade or "brasileira",
+        )
+
+    return Bancada(
+        jogador=jogador,
+        arbitro=arbitro,
+        estado_inicial=candidato.estado_inicial,
+        julgar=julgar,
+    )
+
+
+def versao_do_motor_de(co_jogo: str) -> str:
+    """O `co_versao_motor` daquele jogo, para o carimbo da medicao.
+
+    ⚠️ **Deriva dos hashes do espelho do laboratorio**, e nao de um numero escrito
+    a mao — a mesma disciplina de `co_versao_perfil`. Trocar a `.tflite` e
+    esquecer de subir a versao deixaria medicoes novas indistinguiveis das velhas
+    no banco, e *"a Pita resolveu 14 de 20"* perderia a regua.
+
+    Raises:
+        SemCandidato: para jogo fora do rodizio. ⚠️ **Falhar aqui e melhor que
+        devolver um texto generico**: um carimbo `desconhecido` gravado passaria
+        pelo `VARCHAR(40)` e so seria notado meses depois, ao tentar explicar uma
+        medicao.
+    """
+    from motores.damas.motor_damas import versao_do_motor as versao_das_damas
+    from motores.pontinhos.motor_pontinhos import (
+        versao_do_motor as versao_do_pontinhos,
+    )
+
+    if co_jogo == "pontinhos":
+        return versao_do_pontinhos()
+    if co_jogo == "damas":
+        return versao_das_damas()
+    raise SemCandidato(
+        f"o jogo {co_jogo!r} nao esta no rodizio e nao tem versao de motor a "
+        f"carimbar. Os do rodizio sao {JOGOS_DO_RODIZIO}."
+    )

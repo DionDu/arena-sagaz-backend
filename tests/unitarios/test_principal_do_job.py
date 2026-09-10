@@ -1,0 +1,532 @@
+"""T049c - o `principal()`: o ENCADEAMENTO que faz o job rodar.
+
+═══════════════════════════════════════════════════════════════════════════
+⚠️ O QUE ESTE ARQUIVO MEDE
+═══════════════════════════════════════════════════════════════════════════
+
+A **ordem** dos passos e as **decisoes** entre eles: o perfil antes de tudo, o
+dia descoberto virando codigo de saida 1, o estouro de um dia nao derrubando os
+outros, a reprise entrando quando a geracao nao acha candidato.
+
+⛔ **Nada aqui roda motor.** A geracao e a bancada de medicao entram por
+parametro, e o duble de banco nunca executa SQL. Com a bancada de verdade, medir
+a regua roda a CNN do Pontinhos **tres vezes por execucao** — o teste do
+encadeamento nao pode custar isso, e quem prova que a bancada real funciona e a
+T034, com geracao de verdade e `scope="module"`.
+
+⚠️ **E o portao T050 e quem prova o conjunto**, no `des`, com banco de verdade.
+"""
+
+from __future__ import annotations
+
+from datetime import date, timedelta
+from typing import Any
+
+import pytest
+
+from job import __main__ as principal_mod
+from job.editorial import EDITORIAL, TipoSemEditorial, publicacao_de
+from job import posicao_inicial as posicao_mod
+from job.gerador import Candidato, escolher_jogo, escolher_tipo
+from job.gravacao import DIAS_MINIMOS
+from job.medidas_de_saida import conferir
+from job.tipos_de_desafio import RECEITAS, receita_de
+from tests.unitarios.fakes_desafio import FakeSessaoSQL
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Os dubles
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class _Julgamento:
+    """O que o juiz devolve, na parte que a regua e o gerador leem."""
+
+    def __init__(self, cumpriu: bool = True) -> None:
+        self.cumpriu = cumpriu
+        self.nu_lance_cumpre_desafio = 1 if cumpriu else None
+
+
+class _Veredito:
+    """O que o arbitro devolve. `acabou=True` fecha a prova de termino no ato."""
+
+    def __init__(self, acabou: bool = True) -> None:
+        self.acabou = acabou
+        self.co_motivo = "vitoria_j1" if acabou else None
+
+
+class _EstadoFalso:
+    """Uma posicao falsa, com o unico campo que a regua le.
+
+    ⚠️ `vez_de` existe porque a regua monta a fita com ele — e a fita e o que o
+    juiz recebe. Um `object()` cru estourava com `AttributeError` no meio da
+    medicao, e o laco de `executar` engolia isso como "dia descoberto": o teste
+    passava a medir o tratamento de erro em vez do encadeamento.
+    """
+
+    vez_de = 1
+
+    def com_lance(self, lance: str) -> "_EstadoFalso":
+        """Nada muda: quem aplica de verdade e o motor, e ele nao esta aqui."""
+        return self
+
+
+class _JogadorFalso:
+    """Escolhe sempre o mesmo lance e aplica sem regra nenhuma.
+
+    ⚠️ **Nao imita o motor**, e isso e deliberado: um duble fiel esconderia,
+    atras da propria fidelidade, o fato de que nada aqui joga de verdade.
+    """
+
+    def escolher_lance(self, estado: Any, nivel: Any, **_: Any) -> str:
+        return "H_0_0"
+
+    def aplicar(self, estado: Any, lance: str) -> Any:
+        return estado
+
+    def veredito(self, estado: Any) -> _Veredito:
+        return _Veredito(acabou=True)
+
+
+class _Bancada:
+    """As pecas de medicao, todas falsas."""
+
+    def __init__(self, cumpre: bool = True, acaba: bool = True) -> None:
+        motor = _JogadorFalso()
+        self.jogador = motor
+        self.arbitro = motor
+        self.estado_inicial = _EstadoFalso()
+        self._cumpre = cumpre
+        if not acaba:
+            self.arbitro = type(
+                "ArbitroSemFim", (), {"veredito": lambda _s, _e: _Veredito(False)}
+            )()
+
+    def julgar(self, fita: list[dict[str, Any]]) -> _Julgamento:
+        return _Julgamento(self._cumpre)
+
+
+def _candidato(co_tipo: str = "pontinhos_fechar_caixas") -> Candidato:
+    """Um candidato pronto, sem ter passado por motor nenhum."""
+    receita = receita_de(co_tipo)
+    publicacao = publicacao_de(co_tipo)
+    parametros = dict(publicacao.parametros)
+    return Candidato(
+        co_jogo=receita.co_jogo,
+        co_variante="pequeno",
+        co_modalidade=None,
+        co_formato_posicao="sequencia_lances",
+        # ⚠️ **Montada pelo proprio produtor**, e nao escrita a mao: o
+        # `principal()` chama `posicao_inicial.conferir` antes de gravar, e um
+        # JSON de teste escrito a mao testaria o conferidor em vez do
+        # encadeamento — foi o que aconteceu na primeira versao deste arquivo,
+        # com o placar em `{"1": ...}` onde o formato usa `{"j1": ...}`.
+        js_posicao_inicial=posicao_mod.do_pontinhos([]),
+        receita=receita,
+        js_chegada=receita.montar(parametros),
+        js_objetivo=receita.valores_da_frase(parametros, "pita"),
+        co_personagem="pita",
+        nu_semente=2087461933,
+        js_solucao={"versao": 1, "origem": "busca_sagaz", "lances": [], "lance_chave": 1},
+        nu_lances_solucao=5,
+        estado_inicial=_EstadoFalso(),
+    )
+
+
+def _sessao_feliz() -> FakeSessaoSQL:
+    """Um duble em que toda escrita grava e nenhuma leitura devolve nada."""
+    return FakeSessaoSQL(
+        respostas={
+            "INSERT INTO desafio.tb903_perfil_dificuldade": [{"id_perfil": "p"}],
+            "INSERT INTO desafio.tb001_desafio": [{"id_desafio": "d"}],
+            "INSERT INTO desafio.tb002_medicao_regua": [{"id_medicao": "m"}],
+            "INSERT INTO desafio.tb003_feito_desafio": [{"id_feito_desafio": "f"}],
+            "INSERT INTO desafio_dia.tb001_desafio_dia": [{"id_desafio_dia": "dd"}],
+        }
+    )
+
+
+def _gerar_um(*_a: Any, **_k: Any) -> list[Candidato]:
+    """Uma geracao que sempre acha candidato."""
+    return [_candidato()]
+
+
+def _gerar_nenhum(*_a: Any, **_k: Any) -> list[Candidato]:
+    """Uma geracao que nunca acha — o caso que chama a reprise."""
+    return []
+
+
+async def _rodar(
+    sessao: FakeSessaoSQL,
+    *,
+    gerar: Any = _gerar_um,
+    bancada: Any = None,
+    dt_hoje: date = date(2026, 9, 20),
+) -> principal_mod.Relatorio:
+    """Roda a execucao inteira com os dubles."""
+    banc = bancada or _Bancada()
+    return await principal_mod.executar(
+        sessao,
+        dt_hoje=dt_hoje,
+        gerar=gerar,
+        bancada_de=lambda _c: banc,
+        # ⚠️ Uma execucao por mascote: a regua e a contagem, e o que se testa aqui
+        # e o encadeamento. Vinte multiplicariam o duble por vinte sem provar mais.
+        nu_execucoes_da_regua=1,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1. A ORDEM dos passos
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_o_PERFIL_e_gravado_antes_do_primeiro_desafio() -> None:
+    """🔒 ⛔ Sem as linhas do perfil, a `fk001_perfil` recusa o desafio.
+
+    ⚠️ E ela recusaria **depois** de o candidato ter sido gerado e medido pelos
+    tres mascotes — a parte cara feita e jogada fora, uma vez por dia, no Railway.
+
+    Gravar o perfil custa milissegundos e roda no comeco.
+    """
+    sessao = _sessao_feliz()
+    await _rodar(sessao)
+
+    ordem = [texto for texto, _ in sessao.executadas]
+    perfil = next(i for i, s in enumerate(ordem) if "tb903_perfil_dificuldade" in s)
+    desafio = next(i for i, s in enumerate(ordem) if "INSERT INTO desafio.tb001_desafio" in s)
+    assert perfil < desafio
+
+
+@pytest.mark.asyncio
+async def test_a_EXPIRACAO_roda_antes_de_gerar() -> None:
+    """⚠️ Ela e barata e independente, e fecha partidas que ja deviam estar fechadas.
+
+    Rodar depois da geracao a deixaria de fora sempre que a geracao estourasse —
+    e o defeito que ela conserta (partida `em_andamento` para sempre, sem replay)
+    nao tem nada a ver com a fila.
+    """
+    sessao = _sessao_feliz()
+    await _rodar(sessao)
+
+    ordem = [texto for texto, _ in sessao.executadas]
+    expiracao = next(i for i, s in enumerate(ordem) if "UPDATE partida.tb001_partida" in s)
+    assert expiracao == 0
+
+
+@pytest.mark.asyncio
+async def test_a_AUDITORIA_e_o_ultimo_passo() -> None:
+    """⚠️ Ela e a unica rotina que pode ser adiada sem custo.
+
+    Uma resolucao auditada amanha continua valendo hoje — ⛔ **vale o aplicativo**
+    (RF-DES-032). Gerar, nao: um dia descoberto e um dia sem produto. Se a
+    auditoria rodasse antes e consumisse o tempo do container, a fila e que
+    pagaria.
+    """
+    sessao = _sessao_feliz()
+    await _rodar(sessao)
+
+    ordem = [texto for texto, _ in sessao.executadas]
+    ultimo_desafio = max(
+        i for i, s in enumerate(ordem) if "INSERT INTO desafio" in s
+    )
+    auditoria = min(i for i, s in enumerate(ordem) if "vw003_resolucao" in s)
+    assert auditoria > ultimo_desafio
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 2. O CODIGO DE SAIDA
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_execucao_limpa_sai_com_ZERO() -> None:
+    relatorio = await _rodar(_sessao_feliz())
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_FEZ
+    assert relatorio.gerados == DIAS_MINIMOS
+
+
+@pytest.mark.asyncio
+async def test_dia_DESCOBERTO_sai_com_UM_mesmo_com_o_resto_certo() -> None:
+    """🔒 ⛔ Um job que "termina bem" sem gerar nada parece um job que funcionou.
+
+    ⚠️ Este e o caso que o esqueleto antigo protegia com a saida 2 fixa, e a
+    protecao nao podia se perder ao trocar o esqueleto por codigo de verdade: a
+    fila secaria em silencio ate alguem abrir o aplicativo e ver o dia vazio.
+
+    Aqui a geracao nao acha nada e a reprise tambem nao (o duble nao tem
+    candidatas) — sete dias descobertos.
+    """
+    relatorio = await _rodar(_sessao_feliz(), gerar=_gerar_nenhum)
+
+    assert relatorio.gerados == 0
+    assert len(relatorio.nao_cobertos) == DIAS_MINIMOS
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_DIVERGIU
+
+
+@pytest.mark.asyncio
+async def test_resolucao_DIVERGENTE_tambem_sai_com_UM() -> None:
+    """⚠️ Divergencia e alerta, nunca correcao — mas precisa acender luz.
+
+    ⛔ O job nao toca em `nu_xp`, nao apaga resolucao e nao tira ninguem do
+    quadro (RF-DES-032). O que ele pode fazer e **avisar**, e o codigo de saida e
+    o unico aviso que o painel do Railway mostra sozinho.
+    """
+    relatorio = await _rodar(_sessao_feliz())
+    relatorio.auditoria = {"conferem": 10, "divergentes": 1, "impossiveis": 0}
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_DIVERGIU
+
+
+@pytest.mark.asyncio
+async def test_auditoria_IMPOSSIVEL_tambem_sai_com_UM() -> None:
+    """⚠️ Ela e sintoma de DESAFIO PUBLICADO QUEBRADO, e nao de trapaca.
+
+    Ele fica no ar enquanto ninguem olhar, e `co_auditoria` continua `pendente` —
+    que, na secao de divergencias do painel, se le como *"esta tudo certo"*.
+    """
+    relatorio = await _rodar(_sessao_feliz())
+    relatorio.auditoria = {"conferem": 0, "divergentes": 0, "impossiveis": 3}
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_DIVERGIU
+
+
+def test_sem_DATABASE_URL_o_processo_sai_com_DOIS(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⛔ "Nem comecou" e o codigo certo: nada foi gravado.
+
+    ⚠️ E **sem `traceback`**: a causa e uma Variable esquecida no console do
+    Railway, e o rastro de pilha so afogaria o recado que diz onde arrumar.
+    """
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    assert principal_mod.principal() == principal_mod.CODIGO_NEM_COMECOU
+
+    erro = capsys.readouterr().err
+    assert "DATABASE_URL" in erro
+    assert "Traceback" not in erro
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 3. Um dia que estoura NAO derruba os outros
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_um_dia_que_ESTOURA_nao_derruba_a_execucao() -> None:
+    """🔒 Seis dias publicados e um com defeito valem mais que sete dias vazios.
+
+    ⚠️ O laco fala com dois motores, com o juiz e com o banco. Enumerar as
+    excecoes deles seria uma lista que envelhece — e a que faltasse derrubaria a
+    execucao inteira por causa de um dia.
+    """
+    chamadas = {"n": 0}
+
+    def gerar_com_um_defeito(*_a: Any, **_k: Any) -> list[Candidato]:
+        chamadas["n"] += 1
+        if chamadas["n"] == 3:
+            raise RuntimeError("o motor engasgou neste dia")
+        return [_candidato()]
+
+    relatorio = await _rodar(_sessao_feliz(), gerar=gerar_com_um_defeito)
+
+    assert relatorio.gerados == DIAS_MINIMOS - 1
+    assert len(relatorio.nao_cobertos) == 1
+    assert "o motor engasgou" in relatorio.nao_cobertos[0]
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_DIVERGIU
+
+
+@pytest.mark.asyncio
+async def test_termino_NAO_PROVADO_descarta_e_diz_a_diferenca() -> None:
+    """⚠️ Descartar por nao provar NAO e provar que o jogo nao acaba.
+
+    A distincao importa meses depois, para quem investigar uma fila curta: uma
+    coisa e o job nao ter conseguido levar a partida ao fim dentro do teto; outra
+    e o jogo nao ter fim.
+    """
+    relatorio = await _rodar(
+        _sessao_feliz(), bancada=_Bancada(acaba=False)
+    )
+    assert relatorio.gerados == 0
+    assert relatorio.descartados
+    assert "NAO prova" in relatorio.descartados[0]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. O rodizio e o editorial
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_a_lista_de_RECENTES_e_lida_uma_vez_e_usada_nas_DUAS_escolhas() -> None:
+    """🔒 O defeito silencioso do rodizio.
+
+    `escolher_tipo` e chamada aqui, para saber quais parametros passar, e de novo
+    dentro de `gerar_candidatos`. As duas sao puras da data — ⛔ **mas discordam
+    se a lista de recentes mudar entre elas**, e o desafio sairia gravado com os
+    parametros de um tipo e a linha de chegada de outro.
+
+    ⚠️ **Nada acusaria**: as duas linhas seriam validas.
+    """
+    vistos: list[Any] = []
+
+    def gerar_espiao(dt_dia: date, **kwargs: Any) -> list[Candidato]:
+        vistos.append(tuple(kwargs["tipos_recentes"]))
+        return [_candidato()]
+
+    sessao = FakeSessaoSQL(
+        respostas={
+            "INSERT INTO desafio.tb903_perfil_dificuldade": [{"id_perfil": "p"}],
+            "INSERT INTO desafio.tb001_desafio": [{"id_desafio": "d"}],
+            "INSERT INTO desafio_dia.tb001_desafio_dia": [{"id_desafio_dia": "dd"}],
+            # A leitura do rodizio devolve algo, para o teste nao passar com
+            # duas listas vazias — que seriam iguais por acidente.
+            "co_tipo_desafio": [{"co_tipo_desafio": "pontinhos_fechar_caixas"}],
+        }
+    )
+    await _rodar(sessao, gerar=gerar_espiao)
+
+    assert vistos, "a geracao nem chegou a ser chamada"
+    assert all(v == ("pontinhos_fechar_caixas",) for v in vistos)
+
+
+@pytest.mark.parametrize("co_tipo", sorted(RECEITAS))
+def test_todo_tipo_PUBLICAVEL_tem_editorial(co_tipo: str) -> None:
+    """🔒 Receita e vetor dizem COMO julgar; falta dizer com QUE NUMEROS publicar.
+
+    ⛔ Um padrao — *"se nao souber, use 3"* — poria no ar um desafio cuja
+    dificuldade ninguem escolheu, e ele pareceria igual aos outros na tela. O
+    editorial falha alto; este caso garante que ele nunca precisa falhar.
+    """
+    assert publicacao_de(co_tipo).parametros
+
+
+@pytest.mark.parametrize("co_tipo", sorted(EDITORIAL))
+def test_as_medidas_de_cada_tipo_FECHAM_em_1000(co_tipo: str) -> None:
+    """⚠️ E a soma que mantem `Q` dentro de [0, 1].
+
+    Ela e conferida na hora de gravar, mas descobrir la seria descobrir tarde: o
+    candidato ja teria sido gerado e medido.
+    """
+    publicacao = publicacao_de(co_tipo)
+    conferir(publicacao.medidas(publicacao.parametros))
+
+
+@pytest.mark.parametrize("co_tipo", sorted(EDITORIAL))
+def test_os_parametros_de_cada_tipo_MONTAM_a_chegada(co_tipo: str) -> None:
+    """🔒 O editorial e a receita precisam falar dos mesmos numeros.
+
+    ⚠️ Um `{"caixas": 4}` para uma receita que le `p["turnos"]` estouraria com
+    `KeyError` **no meio da geracao do dia**, depois de o perfil ter sido gravado
+    — e o dia ficaria descoberto por um erro de digitacao numa tabela.
+    """
+    receita_de(co_tipo).montar(publicacao_de(co_tipo).parametros)
+
+
+def test_tipo_SEM_editorial_falha_alto() -> None:
+    """E a mensagem diz o que falta: numeros, e nao regra."""
+    with pytest.raises(TipoSemEditorial, match="nao tem editorial"):
+        publicacao_de("pontinhos_tipo_que_nao_existe")
+
+
+@pytest.mark.parametrize("co_tipo", sorted(EDITORIAL))
+def test_o_editorial_NAO_publica_tipo_sem_receita(co_tipo: str) -> None:
+    """⛔ O outro sentido: numeros escolhidos para um tipo que ninguem sabe julgar.
+
+    ⚠️ O desafio sairia com uma linha de chegada vazia, e o julgamento devolveria
+    "nao cumpriu" para todo mundo — sem erro nenhum.
+    """
+    assert co_tipo in RECEITAS
+
+
+def test_a_regua_de_tempo_reproduz_o_exemplo_do_DATA_MODEL() -> None:
+    """🔒 O `data-model.md` foi PRE-VALIDADO pelo dono, e os numeros sao dele.
+
+    La, `nu_lances_solucao = 5` leva a `nu_tempo_piso_ms = 30000` e
+    `nu_tempo_teto_ms = 180000`. ⚠️ Este caso trava a constante que produz isso —
+    sem ele, `MILISSEGUNDOS_POR_LANCE_DO_GABARITO` viraria um numero que alguem
+    ajustaria sem saber que ha um documento aprovado do outro lado.
+    """
+    from job.medidas_de_saida import regua_de_tempo
+
+    piso, teto = regua_de_tempo(
+        nu_tempo_do_gabarito_ms=5 * principal_mod.MILISSEGUNDOS_POR_LANCE_DO_GABARITO
+    )
+    assert (piso, teto) == (30_000, 180_000)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. A reprise, que e a saida de emergencia
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_sem_candidato_o_job_TENTA_REPRISAR() -> None:
+    """⚠️ A fila vazia e o unico defeito deste job que a pessoa ve.
+
+    Antes de deixar o dia descoberto, republica-se um desafio antigo bem
+    avaliado — ⚠️ **como COPIA, com identificador proprio**: um desafio e
+    publicado uma vez so (determinacao do dono, 04/09/2026).
+    """
+    sessao = _sessao_feliz()
+    await _rodar(sessao, gerar=_gerar_nenhum)
+    assert sessao.sql_executado("vw001_desafio_dia"), (
+        "a reprise nem chegou a procurar candidata"
+    )
+
+
+@pytest.mark.asyncio
+async def test_o_dia_que_JA_ESTAVA_publicado_nao_e_gerado_de_novo() -> None:
+    """⚠️ E a idempotencia vista daqui: ela evita TRABALHO.
+
+    ⛔ Quem garante a unicidade e o `un001_dia` do banco — uma checagem "ja
+    existe?" nao bastaria, porque duas execucoes simultaneas passariam as duas
+    por ela.
+    """
+    hoje = date(2026, 9, 20)
+    ja_tem = [hoje, hoje + timedelta(days=1)]
+    sessao = FakeSessaoSQL(
+        respostas={
+            "INSERT INTO desafio.tb903_perfil_dificuldade": [{"id_perfil": "p"}],
+            "INSERT INTO desafio.tb001_desafio": [{"id_desafio": "d"}],
+            "INSERT INTO desafio_dia.tb001_desafio_dia": [{"id_desafio_dia": "dd"}],
+            "FROM desafio_dia.vw001_desafio_dia\n WHERE dt_dia BETWEEN": [
+                {"dt_dia": dia} for dia in ja_tem
+            ],
+        }
+    )
+    relatorio = await _rodar(sessao, dt_hoje=hoje)
+
+    assert relatorio.ja_publicados == 2
+    assert relatorio.gerados == DIAS_MINIMOS - 2
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. O resumo que vai para o log do Railway
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_resumo_DISTINGUE_fila_cheia_de_job_que_nao_fez_nada() -> None:
+    """⚠️ "Cobri 7 dias" nao diz qual das duas aconteceu.
+
+    E as duas pedem reacoes opostas de quem le o log: uma e o estado saudavel, a
+    outra e para investigar agora.
+    """
+    relatorio = principal_mod.Relatorio(dias_no_plano=7, ja_publicados=7, gerados=0)
+    texto = relatorio.resumo()
+    assert "7 ja publicado(s)" in texto
+    assert "0 gerado(s)" in texto
+
+
+def test_o_resumo_GRITA_quando_ha_buraco_na_fila() -> None:
+    """O aplicativo vai mostrar dia vazio, e o log precisa dizer isso em voz alta."""
+    relatorio = principal_mod.Relatorio(nao_cobertos=["2026-09-22: sem candidato"])
+    assert "DIAS SEM DESAFIO" in relatorio.resumo()
+
+
+def test_o_rodizio_do_jogo_e_do_tipo_continua_DETERMINISTICO() -> None:
+    """⚠️ Se ele nao fosse, duas execucoes para o mesmo dia gerariam desafios
+    diferentes — e a idempotencia dependeria de sorte, e nao do `un001_dia`."""
+    dia = date(2026, 9, 20)
+    jogo = escolher_jogo(dia)
+    assert escolher_jogo(dia) == jogo
+    assert escolher_tipo(jogo, dia) == escolher_tipo(jogo, dia)
