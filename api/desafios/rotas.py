@@ -50,8 +50,10 @@ from api.desafios.modelos_envio import (
 from api.desafios.modelos_resposta import DesafioPublicado, ProximosPublicados
 from api.desafios.publicacao import para_resposta
 from api.desafios.repositorio import DIAS_DE_CACHE, RepositorioDesafio
+from api.desafios.quadro import RepositorioQuadro
 from api.desafios.repositorio_envio import RepositorioEnvio
 from api.desafios.servico_envio import ServicoEnvio
+from api.desafios.servico_quadro import ServicoQuadro
 from api.nucleo.banco import obter_sessao
 from api.nucleo.dependencias import (
     ContextoRequisicao,
@@ -264,4 +266,73 @@ async def registrar_dica(
             "grau": envio.grau,
             "nova": nova,
         },
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O QUADRO E O REPLAY (T044)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Exigem rede** (RF-DES-123) — sao dados de outras pessoas. Isso **nao
+# impede jogar**: o botao de jogar continua funcionando sem rede, porque o
+# desafio ja foi baixado.
+#
+# ⚠️ **Convidado VE o quadro** e nao tem linha propria nem replays. Ver e social;
+# ter linha exige identidade, e reagir tambem (RF-DES-084).
+
+
+def obter_servico_quadro(
+    sessao: AsyncSession = Depends(obter_sessao),
+) -> ServicoQuadro:
+    """Monta o servico do quadro ligado a sessao da requisicao."""
+    return ServicoQuadro(RepositorioQuadro(sessao))
+
+
+@router.get("/{id_desafio}/quadro")
+async def quadro_do_dia(
+    id_desafio: UUID,
+    servico: ServicoQuadro = Depends(obter_servico_quadro),
+    identidade=Depends(usuario_atual_opcional),
+    _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+) -> dict:
+    """O quadro do dia: os quatro mascotes e quem resolveu.
+
+    ⛔ As quatro regras que a tela nao pode contornar moram no servidor: zero
+    nunca aparece, fracao abaixo de 20 tentativas nao e servida, so quem resolveu
+    aparece, e `ic_publico` desligado some — inclusive no meio do dia.
+    """
+    return await servico.montar(
+        id_desafio=id_desafio,
+        id_usuario=identidade.uid if identidade else None,
+        agora=agora_utc(),
+    )
+
+
+@router.get("/{id_desafio}/replay/{sujeito:path}")
+async def replay_do_sujeito(
+    id_desafio: UUID,
+    sujeito: str,
+    servico: ServicoQuadro = Depends(obter_servico_quadro),
+    identidade=Depends(usuario_atual_opcional),
+    _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+) -> dict:
+    """O Raio-X de um sujeito — `eu` · `jogador/{id}` · `desafio`.
+
+    ⚠️ **`{sujeito:path}` porque `jogador/{id}` tem barra dentro.** O contrato
+    escreve o sujeito assim, e um parametro comum pararia na primeira `/` — a
+    rota nem casaria, e o erro seria um 404 sem explicacao.
+
+    ⚠️ **A trava de spoiler e resolvida AQUI** (403), e nao na tela: esconder so
+    na interface deixaria o dado a um `curl` de distancia, e o quadro viraria
+    gabarito.
+    """
+    # `jogador/<id>` chega inteiro; o que o servico quer e o identificador.
+    if sujeito.startswith("jogador/"):
+        sujeito = sujeito[len("jogador/") :]
+
+    return await servico.replay(
+        id_desafio=id_desafio,
+        sujeito=sujeito,
+        id_usuario=identidade.uid if identidade else None,
+        agora=agora_utc(),
     )

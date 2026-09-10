@@ -21,6 +21,167 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-10 — O quadro do dia: a escada tem TRÊS degraus, não quatro
+
+**Contexto.** Ao implementar T044, RF-DES-060a mandava pôr *"os quatro"* mascotes
+no quadro desde 00:00 UTC. Foi o que fiz — e estava errado.
+
+**RF-DES-203, de 04/09/2026, reescreve aquela leitura:** ⛔ **o personagem do dia
+não joga contra si mesmo, logo não é régua naquele dia.** A escada tem **três**
+degraus, e ela **roda junto** com o adversário:
+
+    dia de Magno  →  Cacau · Pita · Tex     (mais encorajadora)
+    dia de Cacau  →  Pita · Tex · Magno     (mais dura)
+
+A regra de precedência da spec é explícita — *onde os blocos discordarem, vale o
+mais recente* —, e é ela que resolve. Corrigido, com a precedência citada no
+código para que a próxima leitura não refaça o mesmo caminho.
+
+⚠️ **E RF-DES-204 fecha a consequência:** a banda *"a Pita resolve, a Cacau não"*
+pressupunha adversário fixo; com rotação, a régua é a taxa dos **três que não são
+o adversário**.
+
+**Decisão de implementação — o tempo é encenado por SHA-256, e não por `random`.**
+⛔ `hash()` do Python não serve: ele é salgado por processo desde a 3.3, e dois
+reinícios do servidor dariam tempos diferentes para o mesmo mascote no mesmo dia
+— o Magno mudaria de tempo no meio da tarde, e a conversa *"o Magno fez em 21
+segundos"* deixaria de fazer sentido.
+
+⚠️ **O XP dos mascotes também é encenado, e isso é decisão.** Calcular `Q` pela
+fórmula real daria `1` para os quatro: `Q` soma parcelas de tentativas, tempo e
+dicas, e o mascote não tem nenhuma das três de verdade. A **taxa medida** da
+régua entra como modulador — é o único número real ali, e é o que faz um desafio
+duro para o Magno lhe dar XP no pé da faixa.
+
+**⛔ A trava de spoiler responde 403, e não 404.** O replay **existe**; o que
+falta é o direito de vê-lo. Um 404 faria a tela dizer "não encontrado" para algo
+que está lá, e a pessoa concluiria que o app perdeu a partida dela.
+
+---
+
+## 2026-09-10 — O ingestor completa a partida, e o `WHERE` é o que impede o estrago
+
+**Contexto.** RF-DES-213: quando a linha de chegada cai antes do fim, a resolução
+sobe com a partida ainda `em_andamento` e o resto dos lances sobe depois. Com
+`ON CONFLICT (co_evento) DO NOTHING`, o segundo envio era **descartado em
+silêncio**: a partida ficava `em_andamento` para sempre, sem `dh_fim` e sem
+replay (RF-DES-187).
+
+**Decisão 1 — `DO UPDATE`, com `WHERE co_status = 'em_andamento'`.** ⛔ O `WHERE`
+não é detalhe: sem ele, a idempotência do `co_evento` viraria *"o último envio
+manda"*, e um reenvio antigo do outbox **reabriria** uma partida já concluída —
+pior que o defeito que a mudança conserta. Com ele, a mudança é de mão única:
+`em_andamento → concluida/abandonada`, e nunca de volta.
+
+**Decisão 2 — `RETURNING id_partida, (xmax = 0)`.** É o truque do Postgres para
+distinguir INSERT de UPDATE: na linha recém-inserida `xmax` é zero. Sem isso não
+daria para saber se o envio é o primeiro (grava tudo) ou a completação (grava só
+o que falta) — e gravar tudo de novo **dobraria o XP da partida**.
+
+**Decisão 3 — as jogadas viraram append-only.** `ON CONFLICT DO NOTHING`, ⛔ **sem
+nomear a constraint**: o app reenvia a fita inteira com o **mesmo `id_jogada`**, e
+esse conflito é na chave primária — nomear só `(id_partida, nu_ordem)` deixaria o
+erro passar e o evento inteiro seria rejeitado.
+
+**Decisão 4 — a sentinela do XP é a própria ausência.** `partida.tb003_xp_partida`
+não tem chave natural, então nada no banco impede gravar as mesmas parcelas duas
+vezes. Na completação, o XP e a progressão só entram se ainda não houver parcela
+nenhuma.
+
+**O job de expiração (T046) é o outro lado disso.** ⚠️ `dh_fim = COALESCE(dh_fim,
+dh_inicio)`, e não `now()`: a partida parou quando a pessoa parou, e carimbar o
+instante da expiração poria no log uma partida de sete dias de duração — qualquer
+análise de tempo passaria a mentir. Sete dias porque **a fila do app segura
+eventos sem rede**: fechar antes marcaria como abandonada uma partida que ainda
+vai chegar completa, e aí o `WHERE` do ingestor barraria a completação, com razão,
+por causa de uma decisão tomada cedo demais.
+
+---
+
+## 2026-09-10 — O cadeado 8 tem duas metades, e uma delas não cabe no CI
+
+**Contexto.** T048 pede que *"toda resolução aponte para partida em estado
+terminal, e **sem resolução para conferir é falha**"*. A segunda parte é sobre
+**dados**, e o CI não tem Postgres.
+
+**Decisão.** Duas metades, e a divisão é a mesma "conferência em dois níveis" que
+o projeto já usa nas migrações:
+
+- `tests/unitarios/test_partida_de_desafio_fechada.py` prova a **estrutura**: as
+  três saídas de `em_andamento` existem, o replay recusa partida sem desfecho,
+  abandonar não desfaz nada. Roda no CI, sempre.
+- `scripts/conferir_desafio_no_banco.py` prova o **dado**, e ⛔ **reprova banco
+  vazio** — porque um conferidor que aprova o nada ensina a confiar nele
+  exatamente quando ele não está olhando nada. O portão T050 o executa.
+
+⛔ **E há um caso no CI que falha se aquele script sumir.** Sem ele, a metade de
+dados poderia desaparecer num commit e o CI continuaria verde — que é a cegueira
+que os cadeados existem para impedir.
+
+**O cadeado 7 (união de XP) e a regra contra listas escritas à mão.** A proibição
+do projeto é contra cadeado que *acha* que sabe o que existe. Aqui o padrão é o
+oposto: `api/nucleo/uniao_xp.py` é o **contrato** (o que a união cobre) e a
+varredura das migrações é a **realidade** — o cadeado falha quando a realidade tem
+algo que o contrato não tem. Uma tabela de XP nova quebra o CI, e o conserto é uma
+linha tomada com decisão consciente.
+
+---
+
+## 2026-09-10 — O quinto buraco: cadeado que lê texto em vez de `ast`
+
+**Contexto.** Ao escrever o cadeado de *"validar não é jogar"* (T043a), usei
+`assert "escolher_lance" not in fonte`. Ele **reprovou o código correto** — porque
+a docstring do módulo auditado menciona `escolher_lance` justamente para dizer que
+não o chama.
+
+**É a quinta ocorrência da mesma espécie neste projeto**, e a primeira fora das
+migrações. As quatro anteriores estão na docstring de
+`tests/unitarios/leitura_de_migracao.py`; esta entrou lá junto.
+
+**A regra, generalizada:** todo cadeado que pergunta *"este arquivo faz X?"* lê
+`ast`, e nunca texto. Um `in fonte` acerta enquanto ninguém escrever um comentário
+sobre o assunto — e o comentário sobre o assunto é justamente o que um arquivo bem
+documentado tem.
+
+⚠️ O mesmo cuidado apareceu duas vezes mais no mesmo dia, e as duas foram
+consertadas do mesmo jeito: o cadeado do `DO UPDATE` recorta o comando `INSERT`
+em vez de ler o arquivo (a docstring do módulo descreve as três formas de
+idempotência que ele usa), e o do `DO NOTHING` das jogadas busca um trecho longo o
+bastante para não casar com outro.
+
+---
+
+## 2026-09-10 — Onze tipos novos de desafio, e o que eles revelaram do formato
+
+**Contexto.** RF-DES-128, pedido do dono em 03/09: *"eu espero na fase de
+implementação que se proponha diversos outros tipos criativos de desafios para os
+2 jogos"*.
+
+**Decisão — a proposta é código validável, e não prosa.** `job/tipos_propostos.py`
+traz onze receitas (cinco de Pontinhos, seis de damas), e cada `js_chegada` passa
+pelo **mesmo avaliador** que julgaria o desafio de verdade. 60 testes provam duas
+coisas: que cada uma é formalmente válida, e ⛔ que **nenhuma exige vocabulário
+novo** — o critério de ser publicável como **dado**, e não como release.
+
+**⛔ Nenhuma entrou em `RECEITAS`**, e há cadeado que falha se alguém as importar.
+Faltam três coisas, e nenhuma é minha: linha em `desafio.tb901_tipo_desafio` (é
+migração, e o `data-model.md` é o que o dono pré-validou), chave de i18n nos três
+`.arb` (BLOCO 3) e vetor de verificação.
+
+**O que o exercício revelou** — três folgas do formato que o catálogo atual não
+mostrava:
+
+1. **A janela `turnos_do_adversario` nunca foi usada.** Dois dos onze a usam, e
+   ela abre uma família inteira de objetivos **defensivos** — *impedir* em vez de
+   *fazer*, que é metade do Pontinhos e das damas.
+2. **A conjunção de cláusulas nunca foi exercitada.** Três dos onze usam duas, e é
+   isso que separa *"feche caixas"* de *"feche caixas sem entregar"*.
+3. ⚠️ **Nenhum precisou de medida nova** — é a prova prática de que o catálogo de
+   tipos é estrutura de dados, e não `enum` de código. Era a promessa de
+   RF-DES-128; agora está medida.
+
+---
+
 ## 2026-09-10 — O painel de curadoria é HTML servido pela API, sem framework e sem dependência nova
 
 **Contexto.** RF-DES-012e pede *"página administrativa servida pelo próprio

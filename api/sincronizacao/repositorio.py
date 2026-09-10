@@ -10,8 +10,20 @@ repositório FALSO e validam o serviço/rotas sem banco. A validação do SQL re
 depende de aplicar a migração (Railway des) e rodar os testes de integração.
 
 Idempotência:
- • ingestão de partida → ``INSERT ... ON CONFLICT (co_evento) DO NOTHING RETURNING``;
+ • ingestão de partida → ``INSERT ... ON CONFLICT (co_evento) DO UPDATE ... WHERE
+   co_status = 'em_andamento' RETURNING id_partida, (xmax = 0)``;
+ • jogadas → ``INSERT ... ON CONFLICT DO NOTHING RETURNING`` (append-only);
  • merge convidado → ``INSERT ... ON CONFLICT (co_lote_migracao) DO NOTHING RETURNING``.
+
+⚠️ **A ingestão de partida virou ``DO UPDATE`` em 10/09/2026 (T045, RF-DES-213).**
+Antes era ``DO NOTHING``, e isso descartava **em silêncio** o segundo envio de uma
+partida de desafio — aquela em que a linha de chegada cai antes do fim, a
+resolução sobe no instante do objetivo e o resto dos lances sobe depois. A partida
+ficava ``em_andamento`` para sempre, sem ``dh_fim`` e sem replay (RF-DES-187).
+
+⛔ **O ``WHERE co_status = 'em_andamento'`` é o que impede isso de virar "o último
+envio manda"**: sem ele, um reenvio antigo do outbox reabriria uma partida já
+concluída — pior que o defeito que a mudança conserta.
 """
 from __future__ import annotations
 
@@ -316,8 +328,28 @@ class RepositorioSincronizacao:
         """
         partida = payload.get("partida") or {}
 
-        # 1) Partida (raiz do evento). ON CONFLICT no co_evento garante o dedupe.
-        #    O id_usuario é SEMPRE o do token (ignora qualquer valor do cliente).
+        # 1) Partida (raiz do evento). O `ON CONFLICT (co_evento)` garante o
+        #    dedupe. O id_usuario é SEMPRE o do token (ignora o valor do cliente).
+        #
+        # ⚠️ **`DO UPDATE`, e não `DO NOTHING` — a correção de T045 (RF-DES-213).**
+        #    Quando a linha de chegada de um desafio cai ANTES do fim da partida,
+        #    o app sobe a partida ainda `em_andamento` (para a resolução poder ser
+        #    gravada no instante do objetivo) e a completa depois. Com
+        #    `DO NOTHING`, o segundo envio era **descartado em silêncio**: a
+        #    partida ficava `em_andamento` para sempre, sem replay (RF-DES-187) e
+        #    sem `dh_fim`.
+        #
+        # ⛔ **E o `WHERE co_status = 'em_andamento'` NÃO é detalhe.** Sem ele, a
+        #    idempotência do `co_evento` viraria "o último envio manda", e um
+        #    reenvio antigo do outbox **reabriria** uma partida já concluída — o
+        #    que é pior que o defeito que isto conserta. Com ele, a mudança é de
+        #    mão única: `em_andamento → concluida/abandonada`, e nunca de volta.
+        #
+        # ⚠️ **`xmax = 0` distingue INSERT de UPDATE.** É o truque do Postgres: na
+        #    linha recém-inserida `xmax` é zero; na atualizada, carrega a
+        #    transação que a travou. Sem isso não daria para saber se este envio
+        #    é o primeiro (grava tudo) ou a completação (grava só o que falta) — e
+        #    gravar tudo de novo duplicaria o XP da partida.
         sql_partida = text(
             """
             INSERT INTO partida.tb001_partida
@@ -333,8 +365,14 @@ class RepositorioSincronizacao:
                :co_lote_migracao, :dh_inicio, :dh_fim,
                :nu_offset_minuto_j1, :nu_offset_minuto_j2,
                :qt_usos_poder)
-            ON CONFLICT (co_evento) DO NOTHING
-            RETURNING id_partida
+            ON CONFLICT (co_evento) DO UPDATE
+               SET co_status    = EXCLUDED.co_status,
+                   dh_fim       = EXCLUDED.dh_fim,
+                   nu_placar_j1 = EXCLUDED.nu_placar_j1,
+                   nu_placar_j2 = EXCLUDED.nu_placar_j2,
+                   qt_usos_poder = EXCLUDED.qt_usos_poder
+             WHERE partida.tb001_partida.co_status = 'em_andamento'
+            RETURNING id_partida, (xmax = 0) AS ic_inserida
             """
         )
         resultado = await self.sessao.execute(
@@ -378,10 +416,41 @@ class RepositorioSincronizacao:
                 "qt_usos_poder": _inteiro_nao_negativo(partida.get("qt_usos_poder")),
             },
         )
-        if resultado.first() is None:
-            return False  # co_evento já existia → retry no-op
+        linha = resultado.first()
+        if linha is None:
+            # O `WHERE` do `DO UPDATE` barrou: a partida já existe **e já está
+            # fechada**. É o retry no-op de sempre — e agora ele significa
+            # exatamente isso, em vez de esconder um envio que completava.
+            return False
 
+        # `ic_inserida` diz qual dos dois caminhos este envio é.
+        ic_inserida = bool(linha[1])
         id_partida = partida.get("id_partida")
+
+        if not ic_inserida:
+            # ── A COMPLETAÇÃO (RF-DES-213) ───────────────────────────────────
+            #
+            # A partida acabou de sair de `em_andamento`. O que falta gravar são
+            # os lances que vieram depois do objetivo — e **só eles**.
+            #
+            # ⚠️ As jogadas entram com `ON CONFLICT DO NOTHING` na chave natural
+            # `(id_partida, nu_ordem)`: o app reenvia a fita inteira, e as que já
+            # estavam ficam como estão. É append-only de verdade.
+            #
+            # ⛔ **O XP e a progressão NÃO se regravam por padrão.** Duas
+            # gravações dobrariam o XP da partida, e `tb003_xp_partida` não tem
+            # chave natural que impeça isso. A sentinela é a própria ausência:
+            # se ainda não há parcela nenhuma, este é o envio que as traz.
+            for jogada in payload.get("jogadas", []):
+                await self._gravar_jogada(id_partida, jogada)
+
+            if not await self._ja_tem_xp(id_partida):
+                for parcela in payload.get("xp", []):
+                    await self._gravar_xp(id_partida, id_usuario, parcela)
+                await self._incrementar_progressao(
+                    id_usuario, partida, payload.get("xp", [])
+                )
+            return True
 
         # 1b) Extensão de PARTIDA, quando o jogo tiver uma.
         #
@@ -412,6 +481,29 @@ class RepositorioSincronizacao:
         await self._incrementar_progressao(id_usuario, partida, payload.get("xp", []))
         return True
 
+    async def _ja_tem_xp(self, id_partida: str) -> bool:
+        """A partida já tem parcelas de XP gravadas?
+
+        ⚠️ É a sentinela da completação (T045): `tb003_xp_partida` não tem chave
+        natural, então nada no banco impede gravar as mesmas parcelas duas vezes
+        — e o efeito seria **XP dobrado**, sem erro nenhum.
+
+        ⚠️ `LIMIT 1`, e não `COUNT(*)`: a pergunta é "existe alguma?", e contar
+        todas para responder isso varre o índice à toa.
+        """
+        resultado = await self.sessao.execute(
+            text(
+                """
+                SELECT 1
+                  FROM partida.tb003_xp_partida
+                 WHERE id_partida = :id_partida
+                 LIMIT 1
+                """
+            ),
+            {"id_partida": id_partida},
+        )
+        return resultado.first() is not None
+
     async def _gravar_jogada(self, id_partida: str, jogada: dict[str, Any]) -> None:
         # O app envia a STRING (`'cpu'`); a coluna guarda o NÚMERO. A dimensão faz
         # a tradução. Código que não existe vira 9999 (em vez de estourar a FK com
@@ -421,7 +513,7 @@ class RepositorioSincronizacao:
             "origem_decisao",
             jogada.get("co_origem_decisao", "humano"),
         )
-        await self.sessao.execute(
+        resultado_jogada = await self.sessao.execute(
             text(
                 """
                 INSERT INTO partida.tb002_jogada
@@ -432,6 +524,8 @@ class RepositorioSincronizacao:
                   (:id_jogada, :id_partida, :nu_ordem, :nu_jogador, :dh_jogada,
                    :nu_timer_ms, :nu_tempo_decisao_ms, :nu_origem_decisao,
                    :nu_lance, :ic_cancelada, :co_poder, :dh_cancelamento)
+                ON CONFLICT DO NOTHING
+                RETURNING id_jogada
                 """
             ),
             {
@@ -467,6 +561,18 @@ class RepositorioSincronizacao:
                 "dh_cancelamento": _dt(jogada.get("dh_cancelamento")),
             },
         )
+        if resultado_jogada.first() is None:
+            # ⚠️ **A jogada já estava gravada** — é o reenvio da fita inteira na
+            # completação de uma partida de desafio (T045). Gravar a extensão
+            # agora estouraria a PK dela (`id_jogada` é a chave da 1:1), e o
+            # evento inteiro seria rejeitado por um detalhe que **já está lá**.
+            #
+            # ⛔ `ON CONFLICT DO NOTHING` sem nomear a constraint, e não
+            # `(id_partida, nu_ordem)`: o app reenvia com o MESMO `id_jogada`, e
+            # esse conflito é na **chave primária** — nomear só a outra deixaria
+            # o erro passar.
+            return
+
         # Extensão específica do JOGO (1:1), quando presente no payload.
         #
         # ⚠️ **Chave desconhecida é IGNORADA, nunca rejeitada** (decisão V-5 de
