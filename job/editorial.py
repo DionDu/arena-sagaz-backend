@@ -69,6 +69,27 @@ VERSAO_MINIMA_DOS_TIPOS_FUNDADORES = "1.3.0"
 #: comeca de um molde, ja perto do fim.
 TETO_DE_LOG_PADRAO = 120
 
+# ── Os dois botoes da GERACAO, e por que eles sao por tipo ───────────────────
+#
+# ⚠️ **Medido em 10/09/2026, depois de a primeira execucao real nao gerar NENHUM
+# desafio de Pontinhos em quatro dias.** Os dois tipos falhavam, e por motivos
+# opostos:
+#
+#     pontinhos_fechar_caixas    → 0 candidatos com preparo 8; **1 com preparo 14**
+#     pontinhos_chegar_ao_placar → 0 candidatos com teto 12;   **1 com teto 34**
+#
+# ⛔ Um numero global nao serve para os dois. *"Feche 4 caixas em 2 turnos"* falha
+# porque um tabuleiro com so 8 tracos **nao tem cadeia de 4 caixas para fechar** —
+# nao adianta procurar por mais tempo, a posicao nao existe. Ja *"chegue a 7 de
+# 12 caixas"* tem a janela da **partida inteira**, e 12 lances nao chegam la de
+# jeito nenhum: a solucao medida usa 22.
+#
+# ⚠️ E o mesmo `nu_maximo_de_lances` vale para a REGUA. Medir com um teto maior
+# que o da geracao faria os mascotes resolverem desafios que o gerador nao
+# conseguiu montar, e a taxa descreveria uma tarefa diferente da publicada.
+MAXIMO_DE_LANCES_PADRAO = 12
+LANCES_DE_PREPARO_PADRAO = 8
+
 
 @dataclass(frozen=True, slots=True)
 class Publicacao:
@@ -87,6 +108,8 @@ class Publicacao:
     medidas: Callable[[Mapping[str, Any]], list[dict[str, Any]]]
     co_versao_minima: str = VERSAO_MINIMA_DOS_TIPOS_FUNDADORES
     nu_teto_log: int = TETO_DE_LOG_PADRAO
+    nu_maximo_de_lances: int = MAXIMO_DE_LANCES_PADRAO
+    nu_lances_de_preparo: int = LANCES_DE_PREPARO_PADRAO
 
 
 class TipoSemEditorial(ValueError):
@@ -207,6 +230,9 @@ EDITORIAL: dict[str, Publicacao] = {
         parametros={"caixas": 4, "turnos": 2},
         # Quatro de doze deixam o jogo em aberto.
         ic_chegada_encerra_partida=False,
+        # ⚠️ **Preparo 14, e nao 8** — medido: com 8 tracos o tabuleiro nao tem
+        # cadeia de 4 caixas, e procurar por mais tempo nao inventa uma.
+        nu_lances_de_preparo=14,
         medidas=_medidas_do_pontinhos_fechar_caixas,
     ),
     "pontinhos_chegar_ao_placar": Publicacao(
@@ -216,6 +242,9 @@ EDITORIAL: dict[str, Publicacao] = {
         # sobram tracos no tabuleiro, e ⛔ o aplicativo nao interrompe quem quiser
         # continuar (RF-DES-213/214).
         ic_chegada_encerra_partida=False,
+        # ⚠️ **A janela e a PARTIDA INTEIRA**, e por isso o teto e outro: a
+        # solucao medida usa 22 lances, e com 12 nunca se chega a sete caixas.
+        nu_maximo_de_lances=34,
         medidas=_medidas_do_pontinhos_placar,
     ),
     "damas_coroar": Publicacao(
@@ -261,6 +290,8 @@ def parametros_de(co_tipo_desafio: str) -> dict[str, Any]:
 
 __all__ = [
     "EDITORIAL",
+    "LANCES_DE_PREPARO_PADRAO",
+    "MAXIMO_DE_LANCES_PADRAO",
     "TETO_DE_LOG_PADRAO",
     "VERSAO_MINIMA_DOS_TIPOS_FUNDADORES",
     "Publicacao",

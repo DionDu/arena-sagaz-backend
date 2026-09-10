@@ -76,12 +76,13 @@ CODIGO_FEZ = 0
 CODIGO_DIVERGIU = 1
 CODIGO_NEM_COMECOU = 2
 
-#: Quantos lances a busca tenta, na geracao e na medicao.
+#: O teto de lances, quando o tipo nao pede outro.
 #:
-#: ⚠️ **O mesmo numero nos dois**, e isso importa: medir com um teto maior que o
-#: da geracao faria a regua resolver desafios que o gerador nao conseguiu montar,
-#: e a taxa descreveria uma tarefa diferente da publicada.
-MAXIMO_DE_LANCES = 12
+#: ⚠️ **Desde 10/09/2026 ele e POR TIPO**, e mora no editorial: os dois tipos de
+#: Pontinhos falharam na primeira execucao real por motivos opostos, e um numero
+#: global nao servia para os dois. Ver o comentario de
+#: `editorial.MAXIMO_DE_LANCES_PADRAO`.
+MAXIMO_DE_LANCES = editorial_mod.MAXIMO_DE_LANCES_PADRAO
 
 #: Quanto tempo se supoe que uma pessoa leva por lance, em milissegundos.
 #:
@@ -257,7 +258,11 @@ async def cobrir_um_dia(
         # o dia descoberto. Gerar tres da a chance de o proximo cair na banda.
         quantos=CANDIDATOS_POR_DIA,
         tipos_recentes=recentes,
-        maximo_de_lances=MAXIMO_DE_LANCES,
+        # ⚠️ **Os dois botoes vem do TIPO**, e nao de uma constante global — ver
+        # `editorial.MAXIMO_DE_LANCES_PADRAO`. Um numero so nao servia: um tipo
+        # falhava por falta de horizonte, o outro por falta de tabuleiro.
+        maximo_de_lances=publicacao.nu_maximo_de_lances,
+        lances_de_preparo=publicacao.nu_lances_de_preparo,
     )
     if not candidatos:
         return await _tentar_reprisar(
@@ -310,7 +315,10 @@ async def cobrir_um_dia(
                 estado_inicial=bancada.estado_inicial,
                 julgar=bancada.julgar,
                 nu_semente=candidato.nu_semente,
-                maximo_de_lances=MAXIMO_DE_LANCES,
+                # ⚠️ **O MESMO teto da geracao.** Medir com um teto maior faria
+                # os mascotes resolverem desafios que o gerador nao conseguiu
+                # montar, e a taxa descreveria outra tarefa.
+                maximo_de_lances=publicacao.nu_maximo_de_lances,
             ),
             co_versao_perfil=co_versao_perfil,
             co_versao_motor=co_versao_motor,

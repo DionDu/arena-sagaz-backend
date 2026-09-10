@@ -183,18 +183,38 @@ def candidato_de_damas():
     repetissem cobrariam um minuto de todo `pytest` do projeto por uma garantia
     que uma geracao ja da — e uma suite lenta e uma suite que se roda menos.
     """
+    # ⚠️ **O dia e escolhido pelo TIPO, e nao so pelo jogo.** `damas_coroar` e o
+    # tipo cujos moldes foram escritos exatamente para isto — finais com uma
+    # branca a poucos passos da oitava fileira.
+    #
+    # ⛔ `damas_capturar_multipla` **nao serve de fixture**: a geracao dele e
+    # dependente da data (a semente sai do dia), e ha dias em que dez tentativas
+    # dao zero candidatos. Medido em 10/09/2026. Isso e uma fragilidade real da
+    # geracao — e nao deste teste —, e o lugar de resolve-la e nos moldes, nao
+    # aqui: um teste que dependesse da sorte do calendario falharia sozinho
+    # semanas depois, e ensinaria a ignorar a suite.
     dia = next(
         EPOCA_DO_RODIZIO + timedelta(days=n)
         for n in range(10)
         if escolher_jogo(EPOCA_DO_RODIZIO + timedelta(days=n)) == "damas"
+        and escolher_tipo("damas", EPOCA_DO_RODIZIO + timedelta(days=n))
+        == "damas_coroar"
     )
+    # ⚠️ **Os numeros saem do EDITORIAL, e nao sao escritos aqui.** Ate 10/09/2026
+    # esta fixture fixava `parametros`, `lances_de_preparo` e `maximo_de_lances` a
+    # mao — e no dia em que o rodizio de tipo foi consertado ela passou a gerar
+    # outro tipo com os botoes do anterior, e deu zero candidatos. ⛔ O teste
+    # estava medindo uma configuracao que a producao nao usa.
+    from job.editorial import publicacao_de
+
+    publicacao = publicacao_de(escolher_tipo("damas", dia))
     candidatos = gerar_candidatos(
         dia,
-        parametros={"damas": 1, "lances": 6, "pecas": 2},
+        parametros=publicacao.parametros,
         quantos=1,
         tentativas_por_candidato=4,
-        lances_de_preparo=8,
-        maximo_de_lances=8,
+        lances_de_preparo=publicacao.nu_lances_de_preparo,
+        maximo_de_lances=publicacao.nu_maximo_de_lances,
     )
     assert candidatos, (
         "nenhum candidato de damas. ⚠️ Isto guarda a descoberta de 09/09/2026: o "
@@ -244,3 +264,31 @@ def test_o_candidato_gerado_e_JULGADO_como_cumprido_pela_sua_propria_solucao(
         f"o gabarito do candidato NAO cumpre a propria linha de chegada: "
         f"{julgamento.veredito} ({julgamento.de_motivo})"
     )
+
+
+def test_o_rodizio_de_TIPO_nao_fica_travado_em_fase_com_o_de_JOGO() -> None:
+    """🔒 O defeito que a primeira execucao real expos (10/09/2026).
+
+    ⛔ `escolher_jogo` usava `dias % 2` e `escolher_tipo` usava `dias % 2`. Um
+    jogo so aparece numa das duas paridades de `dias`, entao **para ele o segundo
+    `% 2` e constante**: sete dias seguidos escolheram `pontinhos_chegar_ao_placar`
+    e `damas_coroar`, e os outros dois tipos publicaveis nunca sairiam.
+
+    ⚠️ **E era quase invisivel:** `tipos_recentes` mascarava metade do sintoma,
+    trocando o tipo **so depois** de um dia ter publicado. Nos dias em que a
+    geracao falhava, nada entrava em recentes e o mesmo tipo quebrado voltava —
+    quatro vezes seguidas, no `des`.
+
+    ⚠️ Este caso roda **sem `tipos_recentes`** de proposito: e assim que se ve o
+    rodizio de verdade, e nao o remendo que o mascarava.
+    """
+    for co_jogo in JOGOS_DO_RODIZIO:
+        vistos = {
+            escolher_tipo(co_jogo, EPOCA_DO_RODIZIO + timedelta(days=n))
+            for n in range(40)
+            if escolher_jogo(EPOCA_DO_RODIZIO + timedelta(days=n)) == co_jogo
+        }
+        assert vistos == set(tipos_do_jogo(co_jogo)), (
+            f"o rodizio de {co_jogo} so produziu {sorted(vistos)} em 40 dias; os "
+            f"publicaveis sao {tipos_do_jogo(co_jogo)}. ⛔ Rodizio travado em fase."
+        )

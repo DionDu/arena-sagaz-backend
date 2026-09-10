@@ -187,7 +187,26 @@ def escolher_tipo(co_jogo: str, dt_dia: date, *, tipos_recentes: Sequence[str] =
 
     frescos = [t for t in disponiveis if t not in tipos_recentes] or disponiveis
     dias = (dt_dia - EPOCA_DO_RODIZIO).days
-    return frescos[dias % len(frescos)]
+
+    # ⛔ **A conta e sobre a VEZ daquele jogo, e nao sobre o dia** — e a
+    # diferenca entre um rodizio que roda e um que fica parado.
+    #
+    # ⚠️ **O defeito, medido na primeira execucao real (10/09/2026):** `dias % 2`
+    # escolhia o jogo, e `dias % 2` escolhia o tipo. Um jogo so aparece numa das
+    # duas paridades de `dias`, entao, para ele, `dias % 2` e **constante** — os
+    # dois rodizios ficavam travados em fase. Sete dias seguidos escolheram
+    # `pontinhos_chegar_ao_placar` e `damas_coroar`, e os outros dois tipos
+    # publicaveis nunca sairiam.
+    #
+    # ⚠️ E ele era quase invisivel: `tipos_recentes` mascarava metade do sintoma,
+    # trocando o tipo **so depois** de um dia ter publicado. Nos dias em que a
+    # geracao falhava, nada entrava na lista de recentes e o mesmo tipo quebrado
+    # voltava no dia seguinte — quatro vezes seguidas.
+    #
+    # `dias // len(JOGOS_DO_RODIZIO)` conta quantas vezes o rodizio ja deu a volta,
+    # e essa contagem avanca **a cada aparicao** do jogo, e nao a cada dia.
+    vez_do_jogo = dias // len(JOGOS_DO_RODIZIO)
+    return frescos[vez_do_jogo % len(frescos)]
 
 
 def escolher_personagem(dt_dia: date) -> str:
