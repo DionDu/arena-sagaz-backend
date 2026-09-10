@@ -21,6 +21,76 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-09 — O job do Desafio do Dia: três decisões que saíram de medida, não de gosto
+
+O BLOCO 2 (T018 a T038) trouxe `job/` para o backend. As três decisões abaixo
+apareceram **durante** a implementação, cada uma a partir de um número.
+
+### 1. A geração precisa de ORÇAMENTO de busca — medido, não suposto
+
+Sem teto, **uma única geração de damas passou de 6 minutos sem terminar**. O
+motivo não é o motor estar lento: o contrato do nível foi calibrado para o
+**aparelho de alguém** esperando ~0,8 s por lance, e no job são dezenas de
+candidatos × vários lances cada.
+
+O motor usa o **menor** entre o teto do contrato e o do orçamento — um define o
+*nível*, o outro protege o *job*. Deixar o maior mandar anularia um dos dois.
+
+⚠️ **O preço, dito em voz alta:** com teto baixo o Sagaz joga um pouco pior, e o
+gabarito pode não ser a solução mais curta. É aceitável — o gabarito prova que o
+desafio **tem** solução (RF-DES-196), e não que aquela é a melhor.
+
+Três orçamentos diferentes, e a diferença entre eles é a frequência: geração
+(60 mil nós), medição da régua (20 mil, porque ela roda 3 × 20 vezes) e prova de
+término (8 mil, porque ali não se quer jogar bem, se quer **acabar**).
+
+### 2. Os MOLDES de posição, e por que o gerador ingênuo não serve para damas
+
+O gerador ingênuo parte da posição inicial e joga lances aleatórios até chegar a
+algo interessante. Isso funciona no Pontinhos e **não funciona nas damas**:
+medido, três tentativas de gerar *"coroe uma dama em 6 lances"* a partir de 40
+lances aleatórios deram **zero** candidatos em 35 segundos.
+
+A razão é do jogo: coroar exige atravessar o tabuleiro, e uma abertura aleatória
+quase nunca deixa uma peça perto da oitava fileira com caminho livre.
+
+**Molde** é uma posição de onde o objetivo é alcançável, escrita à mão e validada
+pelo motor; o gerador a **varia** com poucos lances legais. ⚠️ Molde **não é
+garantia**: se a variação destruir o objetivo, o gerador não acha solução e tenta
+outra. Com moldes, dois candidatos de damas saem em 12 segundos.
+
+### 3. O perfil de dificuldade é um CARIMBO, e não uma tabela de parâmetros
+
+`co_versao_perfil` não tinha dono no código. A tentação era criar
+`motores/perfis/perfil-2026-09.json` com os números de cada mascote — e isso
+seria uma **segunda fonte da verdade**: os números já existem nos dois contratos
+do espelho, e as duas cópias divergiriam no primeiro ajuste.
+
+`job/perfil.py` lê os contratos vigentes, tira o SHA-256 de cada um e monta as
+oito linhas de `desafio.tb903_perfil_dificuldade`. O `js_perfil` de cada linha
+traz os números **extraídos** dos contratos — copiar para *explicar* não é
+segunda fonte: quem **roda** continua sendo o contrato, e o hash ao lado prova
+qual foi.
+
+⚠️ **A versão deriva dos hashes** (`perfil-<8 hex>`), como `co_versao_motor`. Um
+`perfil-2026-09` escrito à mão envelheceria calado: alguém afina a Pita, esquece
+de subir a versão, e as medições novas ficam indistinguíveis das velhas.
+
+### O que o cadeado 2 pegou, e por que isso é uma boa notícia
+
+O arquivo que liga a linha de chegada aos motores nasceu como
+`motores/juiz_do_desafio.py`, e o cadeado recusou: **a camada de motores não
+conhece desafio** (RF-DES-165). Ele virou `motores/juiz.py` — o nome diz o que a
+peça faz, e não para quem ela serve.
+
+⚠️ Dois buracos de cadeado foram consertados no caminho, ambos da mesma espécie —
+o teste que deixa de olhar sem avisar: o extrator de comandos de migração
+ignorava `op.execute(f"...")` **inteiro**, e o parser de `INSERT`, sem
+ponto-e-vírgula, esticava o corpo até o fim do arquivo e lia as colunas da tabela
+seguinte como valores.
+
+---
+
 ## 2026-09-09 — Os modelos do Desafio do Dia não são ORM, e o catálogo de feitos vira manifesto
 
 Duas decisões da mesma tarde, ao escrever `api/desafios/` (T024 a T026).
