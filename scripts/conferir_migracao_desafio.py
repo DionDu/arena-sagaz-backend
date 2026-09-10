@@ -424,7 +424,10 @@ async def _conferir(url: str) -> int:
         for motivo in reprovacoes:
             print(f"    · {motivo}")
         return 2
-    print("  OK - o banco esta como as migracoes 0018/0019/0020 mandam")
+    # ⚠️ A revisao sai da CABECA descoberta, e nao de um texto fixo: a
+    # mensagem anterior dizia "0018/0019/0020" e continuaria dizendo isso
+    # depois da 0021 — um OK que nomeia o estado errado e um OK que mente.
+    print(f"  OK - o banco esta como as migracoes mandam (ate {revisao_esperada()})")
     return 0
 
 
