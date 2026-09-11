@@ -2050,3 +2050,86 @@ chato, não há formas diferentes de jogar para caber num desafio."*
 juiz, sem vetores) e parecia uma tarefa esperando a vez. Agora é **escolha de
 produto**: ela não ganha medidor nem vetores para este fim, e a T050(a) deixou de
 pedir *"os três jogos"* — são dois.
+
+## 2026-09-11 — A posição inicial do Pontinhos passa a vir do AUTOPLAY (T049h)
+
+**Contexto.** O gerador sorteava os traços da posição de partida **às cegas**, e
+o comentário que justificava isso dizia que *"uma partida bem jogada dos dois
+lados converge para posições parecidas; o acaso é o que dá variedade à fila"*.
+
+⛔ **É o mesmo argumento que o projeto já testou e descartou.** O dono o
+relembrou: no começo do Jogo dos Pontinhos o dataset era de traços aleatórios, a
+CNN treinada assim jogava mal *"pois 2 jogadores jogando quase nunca chegavam
+àqueles estados aleatórios"*, e foi por isso que se passou ao **autoplay de
+minimax** — com o melhor lance de cada estado definido depois pelo oráculo
+perfeito. É essa a rede que joga no aplicativo hoje.
+
+**O que torna a reincidência cara aqui**, e não apenas incoerente: **o gabarito
+do desafio é produzido pela própria CNN** (o backend roda o mesmo `.tflite` do
+aplicativo, e o portão T001 existe para provar que os dois runtimes concordam).
+Posição fora da distribuição de treino ⇒ solução de referência subótima ⇒ a régua
+mede a coisa errada — e ⚠️ **nada no log denuncia**.
+
+### ⚠️ A ponte não era direta, e o obstáculo é de modelagem
+
+O desafio guarda uma **sequência de lances** (`co_formato_posicao =
+'sequencia_lances'`), não uma matriz: a posse de uma caixa é **histórico**, e de
+quem é a vez depende de quem fechou caixa. Os NPZ têm só a matriz `9×7`, e os
+valores `{0, 1, 8, 9}` dizem *que* uma caixa está fechada, **não de quem** ela é.
+
+✅ **A saída são as posições sem caixa fechada nenhuma.** Nelas o placar é 0-0, a
+vez sai da paridade, e **qualquer ordem dos mesmos traços dá o mesmo estado** —
+porque "sem caixa fechada" é **monótono**: se o conjunto final não fecha caixa
+nenhuma, nenhum prefixo dele fecha. É essa propriedade que devolve um conjunto de
+traços à forma de sequência legal.
+
+### O que foi medido, e o que entrou
+
+Dos **3.423.460** estados dos 419 NPZ de
+`ia/dados/jogo_pontinhos/profundidade_minimax_11_adaptativo/`, **1.362.893** não
+têm caixa fechada, e destes **897.125 são distintos** — 107.577 com 8 traços e
+36.000 com 14, as duas fases que o editorial usa hoje.
+
+⚠️ **As três pastas de `ia/dados/jogo_pontinhos/` carregam os mesmos estados** —
+3.423.460 em cada uma, com as mesmas 897.125 posições. O que muda entre elas são
+os rótulos e os canais, não os tabuleiros. A escolhida é a que **nomeia a
+procedência**.
+
+**Formato** (escolha de implementação; o critério do dono foi *"o que fique mais
+limpo, claro e de fácil manutenção"*): um `uint32` por posição, um bit por traço.
+`dados/jogo_pontinhos/posicoes_de_autoplay_pequeno.npz` — **2,58 MB**, contra
+106 MB dos NPZ de origem.
+
+⚠️ **A ordem canônica dos 31 rótulos viaja DENTRO do arquivo** (`co_rotulo`), e
+não combinada de boca entre o script e o módulo. Ler um bit com a ordem errada
+daria um tabuleiro diferente e **igualmente válido** — a falha mais cara que
+existe, porque nada a acusa. `test_posicoes_de_autoplay_pontinhos.py` compara
+essa ordem com a do motor do backend.
+
+**Onde está:**
+
+| peça | arquivo |
+|---|---|
+| constrói o acervo | `scripts/extrair_posicoes_de_autoplay_pontinhos.py` |
+| o acervo | `dados/jogo_pontinhos/posicoes_de_autoplay_pequeno.npz` + `LEIA-ME.md` |
+| sorteia a posição do dia | `job/posicoes_de_autoplay_pontinhos.py` |
+| consome | `job/gerador.py::_preparar_pontinhos` |
+
+### Decisões menores, ditas em voz alta
+
+- ⚠️ **A ordem sai embaralhada, e não a canônica.** Sem caixa fechada os jogadores
+  se alternam estritamente, então a ordem decide **de quem é cada traço** — e é
+  isso que o aplicativo pinta de azul e vermelho. A ordem canônica é uma varredura
+  geométrica do tabuleiro e daria sempre o mesmo padrão. Embaralhar **não** tira a
+  posição da distribuição da CNN: a rede não vê dono de traço
+  (`partida_para_dataset` manda todo traço ocupado para `9`).
+- ⛔ **Pedir uma fase sem acervo falha alto**, com a mensagem dizendo o teto real
+  (20 traços no 4×3) e onde se ajusta (`nu_lances_de_preparo`, no editorial).
+  Cair de volta no sorteio às cegas resolveria o sintoma e reintroduziria,
+  calado, o defeito que a tarefa veio corrigir.
+- ⛔ **A semente continua vindo do dia.** O módulo não cria gerador próprio —
+  trocar a fonte da posição não podia custar a idempotência de T038.
+- ⚠️ **`dados/` não pode voltar ao `.dockerignore`.** A nota histórica daquele
+  arquivo diz que `dados/` saiu por ter se mudado para o laboratório, e isso
+  convida alguém a reexcluí-lo; sem o acervo na imagem, o job quebra no Railway
+  às 6 da manhã e o build fica verde. Cadeado em `test_imagem_do_job.py`.

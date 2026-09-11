@@ -52,6 +52,7 @@ from motores.pontinhos.motor_pontinhos import EstadoPontinhos
 from motores.pontinhos.politica import JogadorPontinhos
 
 from . import gabarito as gabarito_mod
+from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicao_inicial as posicao_mod
 from . import semente as semente_mod
 from .tipos_de_desafio import Receita, receita_de, tipos_do_jogo
@@ -337,39 +338,39 @@ def exigir_vetor(co_tipo_desafio: str) -> None:
 
 
 def _preparar_pontinhos(sorteio: random.Random, lances_de_preparo: int) -> EstadoPontinhos:
-    """Joga alguns lances aleatorios para sair do tabuleiro vazio.
+    """A posicao de partida do Pontinhos: uma posicao REAL de autoplay.
 
-    ⚠️ **Aleatorio, e nao "a melhor jogada"**: a posicao inicial de um desafio
-    precisa ser *interessante*, e uma partida bem jogada dos dois lados converge
-    para posicoes parecidas. O acaso e o que da variedade a fila.
+    Args:
+        sorteio: o `random.Random` ja semeado pelo dia — e ele que escolhe qual
+            das centenas de milhares de posicoes daquela fase sai hoje.
+        lances_de_preparo: quantos tracos a posicao deve ter marcados.
 
-    ⚠️ **E ele evita fechar caixa de proposito**: uma preparacao que ja fechou
-    caixas entrega placar inicial diferente de zero, e a frase do desafio teria
-    de explicar de onde veio aquele placar.
+    ⚠️ **Ate 11/09/2026 esta funcao sorteava os tracos as cegas**, e o comentario
+    que a justificava dizia que *"uma partida bem jogada dos dois lados converge
+    para posicoes parecidas; o acaso e o que da variedade a fila"*.
+
+    ⛔ **E o mesmo argumento que o projeto ja testou e DESCARTOU no treino da
+    CNN**: o dataset de tabuleiros aleatorios deu uma rede ruim, porque dois
+    jogadores quase nunca chegam aqueles estados — foi por isso que se passou ao
+    autoplay de minimax, e a rede melhorou muito.
+
+    ⚠️ E aqui a consequencia de reintroduzi-lo e **concreta**: o gabarito deste
+    desafio e produzido logo abaixo, por `_resolver`, **pela propria CNN** (o
+    backend roda o mesmo `.tflite` do aplicativo — e o portao T001 existe para
+    provar que os dois runtimes concordam). Uma posicao fora da distribuicao de
+    treino produz uma solucao de referencia subotima, a regua mede a coisa
+    errada, e ⛔ **nada no log denuncia**.
+
+    ⚠️ **O placar inicial continua 0-0, e agora por construcao e nao por
+    cuidado.** A versao anterior precisava recusar, lance a lance, todo traco que
+    fechasse caixa; o acervo so guarda posicoes que ja nasceram sem caixa
+    fechada, porque e nelas — e so nelas — que um conjunto de tracos volta a ser
+    uma sequencia de lances (a posse de caixa e historico, e os NPZ nao a
+    guardam). O porque inteiro esta em `posicoes_de_autoplay_pontinhos.py`.
     """
-    estado = EstadoPontinhos()
-    for _ in range(lances_de_preparo):
-        opcoes = [
-            lance
-            for lance in estado.tabuleiro.tracos_disponiveis()
-            if _nao_fecha_caixa(estado, lance)
-        ]
-        if not opcoes:
-            break
-        estado = estado.com_lance(sorteio.choice(opcoes))
-    return estado
-
-
-def _nao_fecha_caixa(estado: EstadoPontinhos, lance: str) -> bool:
-    """O traco fecharia alguma caixa?
-
-    Pergunta ao motor aplicando o lance num estado descartavel: a regra de
-    fechamento mora la, e reimplementa-la aqui criaria a segunda fonte da verdade
-    que este projeto passa o tempo todo evitando.
-    """
-    antes = estado.placar
-    depois = estado.com_lance(lance).placar
-    return antes == depois
+    return EstadoPontinhos(
+        lances=autoplay_mod.sortear(sorteio, nu_tracos=lances_de_preparo)
+    )
 
 
 def _resolver(
@@ -443,7 +444,12 @@ def gerar_candidatos(
         tipos_recentes: para o rodizio nao repetir.
         tentativas_por_candidato: quantas posicoes de partida tentar por
             candidato antes de desistir.
-        lances_de_preparo: quantos lances jogar para sair da posicao inicial.
+        lances_de_preparo: o tamanho da posicao de partida. ⚠️ **Ele quer
+            dizer coisas diferentes nos dois jogos**: no Pontinhos e quantos
+            **tracos** a posicao de autoplay tem marcados (T049h); nas damas
+            e quantos lances de variacao se joga a partir do molde. Os dois
+            saem do mesmo `nu_lances_de_preparo` do editorial porque os tipos
+            de um jogo nunca veem o do outro.
         maximo_de_lances: o teto da busca por solucao.
 
     Returns:

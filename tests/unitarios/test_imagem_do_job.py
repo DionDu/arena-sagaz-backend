@@ -384,6 +384,11 @@ def test_os_dois_servicos_sao_arquivos_DIFERENTES() -> None:
         ("scripts", "o portao de build roda scripts/conferir_runtime_inferencia.py"),
         ("motores", "e a camada que o job importa para jogar"),
         ("job", "e o codigo do proprio job"),
+        (
+            "dados",
+            "guarda o acervo de posicoes de autoplay do Pontinhos (T049h) — e "
+            "a nota historica do .dockerignore convida a exclui-lo por engano",
+        ),
         ("requirements_job.txt", "e a lista que a imagem do job instala"),
     ],
 )

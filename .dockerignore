@@ -56,4 +56,10 @@ requirements.txt
 #     arquivo o build falharia por motivo errado.
 #   - `requirements.txt` continua fora das duas: cada imagem instala a SUA lista
 #     (`requirements_api.txt` na API, `requirements_job.txt` no job).
+#   - `dados/` NAO pode voltar para esta lista. ⚠️ A nota historica no topo diz
+#     que `dados/` saiu daqui por ter se mudado para o laboratorio — e desde
+#     11/09/2026 existe de novo uma pasta `dados/` aqui, com outro conteudo:
+#     `dados/jogo_pontinhos/posicoes_de_autoplay_pequeno.npz`, de onde sai a
+#     POSICAO INICIAL de todo desafio de Pontinhos (T049h). Sem ela na imagem, o
+#     job quebra no Railway as 6 da manha, e o build fica verde.
 # ─────────────────────────────────────────────────────────────────────────────
