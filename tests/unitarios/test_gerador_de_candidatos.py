@@ -18,6 +18,7 @@ import pytest
 from job.gerador import (
     EPOCA_DO_RODIZIO,
     JOGOS_DO_RODIZIO,
+    MODALIDADES_POR_JOGO,
     PERSONAGENS,
     SemCandidato,
     escolher_jogo,
@@ -292,3 +293,94 @@ def test_o_rodizio_de_TIPO_nao_fica_travado_em_fase_com_o_de_JOGO() -> None:
             f"o rodizio de {co_jogo} so produziu {sorted(vistos)} em 40 dias; os "
             f"publicaveis sao {tipos_do_jogo(co_jogo)}. ⛔ Rodizio travado em fase."
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O rodizio de MODALIDADE (decisao do dono, 10/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_modalidade_e_o_tipo_NAO_travam_em_fase() -> None:
+    """🔒 O mesmo defeito do rodizio de tipo, um andar acima.
+
+    ⛔ Se a modalidade usasse `vez_do_jogo % 4` enquanto o tipo usa
+    `vez_do_jogo % 2`, os dois andariam juntos: o tipo par so sairia com as
+    modalidades pares, e **metade das combinacoes nunca apareceria**.
+
+    ⚠️ E seria mais dificil de ver que o anterior: a fila pareceria variada —
+    tipos alternando, modalidades alternando — e so uma contagem revelaria que
+    metade dos pares nunca sai.
+    """
+    from job.gerador import escolher_modalidade
+
+    for co_jogo, modalidades in MODALIDADES_POR_JOGO.items():
+        if not modalidades:
+            continue
+        pares = {
+            (
+                escolher_tipo(co_jogo, EPOCA_DO_RODIZIO + timedelta(days=n)),
+                escolher_modalidade(co_jogo, EPOCA_DO_RODIZIO + timedelta(days=n)),
+            )
+            for n in range(200)
+            if escolher_jogo(EPOCA_DO_RODIZIO + timedelta(days=n)) == co_jogo
+        }
+        esperados = len(tipos_do_jogo(co_jogo)) * len(modalidades)
+        assert len(pares) == esperados, (
+            f"{co_jogo}: so {len(pares)} das {esperados} combinacoes "
+            f"(tipo x modalidade) aparecem em 200 dias. ⛔ Travamento em fase."
+        )
+
+
+def test_jogo_SEM_modalidade_devolve_None() -> None:
+    """⚠️ E `None`, e nao `"brasileira"`: o Pontinhos nao tem regulamento.
+
+    Um padrao aqui poria `modalidade` no enunciado de um jogo que nao tem uma, e
+    a frase falaria de uma regra inexistente.
+    """
+    from job.gerador import escolher_modalidade
+
+    assert escolher_modalidade("pontinhos", EPOCA_DO_RODIZIO) is None
+
+
+def test_o_MOTOR_nasce_com_a_modalidade_do_candidato(candidato_de_damas) -> None:
+    """🔒 ⛔ O defeito que nao daria erro nenhum.
+
+    `MotorDamas()` tem `brasileira` por padrao. Se a bancada de medicao o
+    construisse sem a modalidade, a regua mediria por um regulamento enquanto o
+    desafio publicado diria outro — ⚠️ **e os dois lados seriam internamente
+    coerentes**. A divergencia so apareceria no aparelho de quem jogasse, como
+    "lance ilegal" num gabarito que o servidor jurava valido.
+
+    E a mesma classe do `uid` do Firebase: tipo errado que atravessa tudo calado.
+    """
+    from job.gerador import bancada
+
+    esperada = candidato_de_damas.co_modalidade
+    assert esperada, "o candidato de damas saiu sem modalidade"
+    banc = bancada(candidato_de_damas)
+    assert banc.jogador.co_modalidade == esperada, (
+        "a bancada montou o motor com um regulamento diferente do publicado"
+    )
+
+
+def test_o_enunciado_carrega_ONDE_e_COMO_se_joga(candidato_de_damas) -> None:
+    """⚠️ Decisao do dono: a modalidade entra em `js_objetivo`.
+
+    ⛔ Sem ela, quem so joga brasileira receberia regras anglo — pedra sem
+    captura para tras, coroacao encerrando o lance, as pretas comecando — e
+    concluiria que o aplicativo esta quebrado.
+    """
+    js = candidato_de_damas.js_objetivo
+    assert js["modalidade"] == candidato_de_damas.co_modalidade
+    assert js["variante"] == candidato_de_damas.co_variante
+
+
+def test_a_variante_das_damas_ACOMPANHA_a_modalidade(candidato_de_damas) -> None:
+    """🔒 `co_variante` das damas usa o vocabulario de `partida.tb001`.
+
+    ⚠️ E la o aplicativo grava a modalidade (`coVariante: config.modalidade`); a
+    migracao `0012` diz o mesmo. Um rotulo fixo `"brasileiras"` faria o desafio
+    sair com `variante: brasileiras` ao lado de `modalidade: casa`, e ⛔ um
+    `JOIN` com o log de partidas nunca casaria.
+    """
+    assert candidato_de_damas.co_variante == candidato_de_damas.co_modalidade

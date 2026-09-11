@@ -68,6 +68,29 @@ JOGOS_DO_RODIZIO = ("pontinhos", "damas")
 #: Os quatro mascotes, na ordem da escada de dificuldade.
 PERSONAGENS = ("cacau", "pita", "tex", "magno")
 
+#: As modalidades que cada jogo rodizia. Tupla vazia = o jogo nao tem modalidade.
+#:
+#: ⚠️ **Decisao do dono, 10/09/2026: "quanto mais variado, melhor"** — e a medicao
+#: apoiou. Os quatro regulamentos rodam nos MESMOS moldes (todos sao damas de 32
+#: casas; o que muda sao as regras, nao o tabuleiro), e a taxa de geracao melhora:
+#: dos 8 moldes de hoje, brasileira resolveu 4, anglo 5, **portuguesa 7** e casa 4.
+#: Rodiziar nao so quadruplica a variedade — alivia o gargalo que e achar
+#: candidato.
+#:
+#: ⚠️ **`casa` nao e regulamento de federacao**: e a variante do proprio projeto —
+#: brasileiras sem a Lei da Maioria, *"como a maior parte das pessoas joga em casa
+#: no Brasil"*. Para o Desafio do Dia ela pode ser a **mais** familiar, e nao a
+#: menos.
+#:
+#: ⛔ **E a modalidade PRECISA aparecer no enunciado.** Sem isso, quem so joga
+#: brasileira receberia regras anglo — pedra sem captura para tras, coroacao
+#: encerrando o lance, **as pretas comecando** — e concluiria que o aplicativo
+#: esta quebrado. E por isso que ela entra em `js_objetivo`.
+MODALIDADES_POR_JOGO: dict[str, tuple[str, ...]] = {
+    "pontinhos": (),
+    "damas": ("brasileira", "anglo", "portuguesa", "casa"),
+}
+
 #: O ORCAMENTO de busca por lance, na geracao.
 #:
 #: ⚠️ **Sem teto, a geracao nao termina.** O Sagaz das damas busca ate onde o
@@ -207,6 +230,35 @@ def escolher_tipo(co_jogo: str, dt_dia: date, *, tipos_recentes: Sequence[str] =
     # e essa contagem avanca **a cada aparicao** do jogo, e nao a cada dia.
     vez_do_jogo = dias // len(JOGOS_DO_RODIZIO)
     return frescos[vez_do_jogo % len(frescos)]
+
+
+def escolher_modalidade(co_jogo: str, dt_dia: date) -> str | None:
+    """A modalidade do dia, ou `None` para jogo que nao tem.
+
+    ⛔ **O contador NAO pode ser o mesmo do tipo, e essa e a licao de 10/09/2026.**
+    Se a modalidade usasse `vez_do_jogo % 4` enquanto o tipo usa
+    `vez_do_jogo % 2`, os dois andariam juntos: o tipo par so apareceria com as
+    modalidades pares, e **metade das combinacoes nunca sairia**. E exatamente o
+    travamento em fase que fez o Pontinhos publicar o mesmo tipo quatro dias
+    seguidos, so que mais dificil de enxergar.
+
+    A modalidade anda **um passo a cada volta completa dos tipos** — um
+    odometro: o digito da direita (o tipo) gira rapido, o da esquerda (a
+    modalidade) gira quando o da direita completa a volta. Assim as `tipos x
+    modalidades` combinacoes saem todas.
+    """
+    modalidades = MODALIDADES_POR_JOGO.get(co_jogo, ())
+    if not modalidades:
+        return None
+
+    dias = (dt_dia - EPOCA_DO_RODIZIO).days
+    vez_do_jogo = dias // len(JOGOS_DO_RODIZIO)
+    # ⚠️ Conta os tipos **publicaveis**, e nao os `frescos` de `escolher_tipo`:
+    # `tipos_recentes` varia com o que ja foi publicado, e uma modalidade que
+    # dependesse disso mudaria de dono conforme a fila — deixando de ser
+    # reproduzivel, que e o que a idempotencia de T038 precisa.
+    quantos_tipos = max(1, len(tipos_do_jogo(co_jogo)))
+    return modalidades[(vez_do_jogo // quantos_tipos) % len(modalidades)]
 
 
 def escolher_personagem(dt_dia: date) -> str:
@@ -402,7 +454,7 @@ def gerar_candidatos(
 
     co_personagem = escolher_personagem(dt_dia)
     js_chegada = receita.montar(parametros)
-    js_objetivo = receita.valores_da_frase(parametros, co_personagem)
+    js_objetivo_base = receita.valores_da_frase(parametros, co_personagem)
 
     encontrados: list[Candidato] = []
 
@@ -424,13 +476,51 @@ def gerar_candidatos(
             co_modalidade = None
             co_variante = "pequeno"
         else:
+            co_modalidade = escolher_modalidade(co_jogo, dt_dia) or "brasileira"
             base = _preparar_damas(
-                sorteio, lances_de_preparo, moldes=receita.moldes
+                sorteio,
+                lances_de_preparo,
+                moldes=receita.moldes,
+                co_modalidade=co_modalidade,
             )
-            js_posicao = posicao_mod.das_damas(base.fen)
-            jogador = MotorDamas()
-            co_modalidade = "brasileira"
-            co_variante = "brasileiras"
+            js_posicao = posicao_mod.das_damas(base.fen, co_modalidade=co_modalidade)
+            # ⛔ **O motor PRECISA nascer com a modalidade do dia.** `MotorDamas()`
+            # tem `brasileira` por padrao, e um esquecimento aqui faria o gabarito
+            # ser buscado por um regulamento enquanto o desafio publicado diz
+            # outro — ⚠️ **sem erro nenhum**: os dois lados seriam internamente
+            # coerentes, e a solucao so seria recusada no aparelho de quem
+            # jogasse. E a mesma classe do defeito do `uid` do Firebase.
+            jogador = MotorDamas(co_modalidade)
+            # ⚠️ **`co_variante` das damas E a modalidade**, e nao um rotulo fixo.
+            # O `data-model.md` diz que esta coluna usa *"o mesmo vocabulario de
+            # `partida.tb001`"*, e la o aplicativo grava exatamente isso
+            # (`coVariante: widget.config.modalidade`); a migracao `0012` afirma
+            # o mesmo com todas as letras: *"a modalidade JA esta gravada na
+            # partida (`co_variante`)"*.
+            #
+            # ⛔ Ate 10/09/2026 aqui havia `"brasileiras"` fixo. Enquanto so
+            # existia um regulamento, a mentira era invisivel; no instante em que
+            # a modalidade passou a rodiziar, o desafio saiu dizendo
+            # `variante: brasileiras` ao lado de `modalidade: casa` — e um `JOIN`
+            # com o log de partidas nunca casaria.
+            co_variante = co_modalidade
+
+        # ⚠️ **ONDE e COMO se joga entram no enunciado, e por FORA da receita.**
+        # Decisao do dono, 10/09/2026: *"precisamos colocar a modalidade no campo
+        # (…) nos pontinhos hoje temos apenas 4x3, mas no futuro teremos outros"*.
+        #
+        # ⛔ **Por fora, e nao dentro de `valores_da_frase`**, e a razao e
+        # estrutural: modalidade e variante nao sao conhecimento do TIPO — sao
+        # fatos do candidato. Se cada receita tivesse de lembrar de inclui-las, a
+        # primeira que esquecesse publicaria uma frase sem dizer por quais regras
+        # se joga, e ⚠️ **nada acusaria** — a frase sairia bem formada, so que
+        # incompleta.
+        #
+        # `modalidade` so entra quando existe: o Pontinhos nao tem uma, e uma
+        # chave nula num espaco de frase renderiza "null" na tela de alguem.
+        js_objetivo = {**js_objetivo_base, "variante": co_variante}
+        if co_modalidade:
+            js_objetivo["modalidade"] = co_modalidade
 
         def julgar(fita: list[dict[str, Any]]):
             return julgar_desafio(
@@ -483,6 +573,7 @@ def _preparar_damas(
     lances_de_preparo: int,
     *,
     moldes: Sequence[str] = (),
+    co_modalidade: str = "brasileira",
 ) -> EstadoDamas:
     """A posicao de partida das damas: de um MOLDE, ou da abertura.
 
@@ -495,16 +586,19 @@ def _preparar_damas(
     40 lances aleatorios deu **zero** candidatos em 35 segundos. E por isso que os
     tipos de damas tem molde, e nao por gosto.
     """
-    motor = MotorDamas()
+    # ⚠️ O preparo joga lances legais, e "legal" depende do regulamento — uma
+    # variacao jogada pelas regras erradas produziria uma posicao que o desafio
+    # publicado considera impossivel de alcancar.
+    motor = MotorDamas(co_modalidade)
 
     if moldes:
         estado = EstadoDamas(
-            co_modalidade="brasileira", fen_inicial=sorteio.choice(list(moldes))
+            co_modalidade=co_modalidade, fen_inicial=sorteio.choice(list(moldes))
         )
         # No maximo dois lances de variacao — e so quando ainda ha o que jogar.
         variacao = min(2, max(0, lances_de_preparo // 8))
     else:
-        estado = estado_inicial()
+        estado = estado_inicial(co_modalidade)
         variacao = lances_de_preparo
 
     for _ in range(variacao):
@@ -573,7 +667,9 @@ def bancada(candidato: Candidato) -> Bancada:
     else:
         # Nas damas o mesmo objeto joga e arbitra — e isso e do motor, nao uma
         # escolha daqui.
-        jogador = arbitro = MotorDamas()
+        # ⛔ **Com a modalidade do candidato.** Medir a regua com outro
+        # regulamento daria uma taxa que descreve um jogo que ninguem vai jogar.
+        jogador = arbitro = MotorDamas(candidato.co_modalidade or "brasileira")
 
     def julgar(fita: list[dict[str, Any]]):
         """Julga a fita contra a linha de chegada **deste** candidato."""
