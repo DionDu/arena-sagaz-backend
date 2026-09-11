@@ -148,6 +148,39 @@ def modalidades_declaradas() -> tuple[str, ...]:
     return tuple(carregar_contrato()["regulamentos"])
 
 
+def arquivos_do_motor() -> tuple[dict[str, str], ...]:
+    """Os arquivos do espelho que DEFINEM este motor, com o SHA-256 de cada um.
+
+    Returns:
+        Uma tupla de `{"caminho", "sha256"}`, **ordenada pelo caminho** — a ordem
+        de leitura humana, que é a que serve à linha do banco.
+
+    ⚠️ **Esta função existe para que a lista seja UMA só** (T049e). Ela nasceu de
+    dentro de `versao_do_motor`, que é quem já sabia quais arquivos entram no
+    resumo; `desafio.tb904_motor` precisa da mesma lista para tornar o
+    `damas-py-<8 hex>` decifrável, e reescrevê-la lá seria a segunda fonte que
+    divergiria no primeiro arquivo novo do motor — com o sintoma pior possível:
+    a linha do banco diria que o resumo saiu de um conjunto, e o resumo teria
+    saído de outro.
+
+    ⛔ **Não é cacheada de propósito.** Ela devolve dicionários novos a cada
+    chamada, e quem os recebe pode guardá-los num JSON; um objeto compartilhado
+    entre chamadas convidaria a mutação acidental do que o cadeado compara.
+    """
+    manifesto = json.loads(CAMINHO_DO_MANIFESTO.read_text(encoding="utf-8"))
+    return tuple(
+        {"caminho": item["caminho"], "sha256": item["sha256"]}
+        for item in sorted(
+            (
+                item
+                for item in manifesto["arquivos"]
+                if item["caminho"].startswith(PREFIXO_DO_MOTOR)
+            ),
+            key=lambda item: item["caminho"],
+        )
+    )
+
+
 @functools.lru_cache(maxsize=1)
 def versao_do_motor() -> str:
     """O identificador do motor que jogou — para o carimbo (RF-DES-164).
@@ -163,14 +196,13 @@ def versao_do_motor() -> str:
     """
     import hashlib
 
-    manifesto = json.loads(CAMINHO_DO_MANIFESTO.read_text(encoding="utf-8"))
-    # Ordenado pelo caminho: a ordem do manifesto pode mudar sem que nada tenha
-    # mudado de verdade, e uma versão que oscila não identifica coisa nenhuma.
-    hashes = sorted(
-        item["sha256"]
-        for item in manifesto["arquivos"]
-        if item["caminho"].startswith(PREFIXO_DO_MOTOR)
-    )
+    # ⚠️ **Ordenado pelos HASHES, e não pelos caminhos** — e a diferença não é
+    # cosmética: é esta ordem que o resumo de 8 dígitos já publicado no banco
+    # usou. Trocá-la por `sorted(por caminho)` daria outro `damas-py-…` sem que
+    # um único byte do motor tivesse mudado, e as medições novas ficariam
+    # indistinguíveis de motor novo. A lista de arquivos vem de
+    # `arquivos_do_motor()` para não haver dois filtros a divergir (T049e).
+    hashes = sorted(arquivo["sha256"] for arquivo in arquivos_do_motor())
     digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
     return f"damas-py-{digesto[:8]}"
 

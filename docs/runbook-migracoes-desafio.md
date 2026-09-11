@@ -158,3 +158,42 @@ exatamente o descuido de um segundo que o passo 1 existe para pegar.
 
 ⚠️ **A migração não roda no start**: não há `alembic upgrade` no `Dockerfile` nem
 no `railway.json`, e isso é deliberado (mesma decisão da `0017`).
+
+---
+
+## ⏳ A `0022_motor_decifravel` — escrita em 11/09/2026, **ainda não aplicada**
+
+| migração | o que faz | risco |
+|---|---|---|
+| `0022_motor_decifravel` | cria `desafio.tb904_motor` + `vw904_motor`, e acrescenta a `fk002_motor` em `tb001_desafio` e em `tb002_medicao_regua` | tabela **nova e vazia**; as duas FKs entram `NOT VALID`, então ⛔ **nenhuma linha existente é revalidada** |
+
+⚠️ **Por que as FKs são `NOT VALID`:** o `des` já tem desafios publicados,
+gerados antes de a dimensão existir. Validá-los agora exigiria **inventar** para
+eles uma linha com um `co_sha256` de manifesto que ninguém conferiu - o oposto do
+que a tabela existe para fazer. Para frente nada é afrouxado: toda linha nova é
+conferida normalmente.
+
+**O passo 1 continua obrigatório** (`identificar_banco.py`). Depois dele:
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -m alembic current      # esperado: 0021_desafio_impedido
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m alembic current      # esperado: 0022_motor_decifravel (head)
+```
+
+**O que conferir depois**, na ordem:
+
+1. `.venv\Scripts\python scripts\conferir_migracao_desafio.py` - a
+   `desafio.tb904_motor` tem de aparecer com **0 linha(s)**, ao lado da
+   `tb903_perfil_dificuldade`. ⚠️ **Zero é o resultado correto**: quem preenche
+   é o job, e uma linha ali agora seria hash de manifesto que ninguém conferiu.
+2. A primeira execução do job depois disto grava **2 linhas** (uma por jogo) e
+   imprime `[job] motor: 2 linha(s) nova(s)`.
+3. ⚠️ **Olhe o aviso `MOTOR FORA DA DIMENSÃO` no resumo.** Se ele listar alguma
+   versão, são desafios anteriores à `0022` cujo carimbo a dimensão não conhece -
+   e uma **reprise** de um deles falharia na `fk002_motor`. Na prática o aviso
+   deve sumir na primeira execução, porque o espelho não mudou desde que aqueles
+   desafios foram gerados: a versão que o job grava é a mesma que eles carimbam.
+   ⛔ Se **não** sumir, o caminho certo é regerar aqueles dias, e nunca inventar
+   a linha de dimensão.

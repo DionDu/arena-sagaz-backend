@@ -17,7 +17,7 @@ vao a `tb…`.
 ⛔ A ORDEM DAS ESCRITAS NAO E LIVRE, E CADA PASSO TEM UM MOTIVO DIFERENTE
 ═══════════════════════════════════════════════════════════════════════════
 
-    1. `tb903_perfil_dificuldade`   ← **antes de tudo**
+    1. `tb903_perfil_dificuldade` e `tb904_motor`   ← **antes de tudo**
     2. `tb001_desafio`
     3. `tb002_medicao_regua` · `tb003_feito_desafio`
     4. `desafio_dia.tb001_desafio_dia`  ← **por ultimo**
@@ -27,6 +27,11 @@ estrangeira **composta** para `(co_versao_perfil, co_jogo, co_personagem)`.
 Enquanto as oito linhas do perfil vigente nao existirem, ⛔ **o primeiro
 `INSERT` de desafio falha** — depois de o job ter gerado e medido o candidato,
 que e a parte cara. Gravar o perfil custa milissegundos e roda no comeco.
+
+**E o motor vem junto, pelo mesmo motivo.** Desde a migracao `0022` (T049e) ha a
+`fk002_motor`, composta para `(co_versao_motor, co_jogo)` em `tb904_motor` — a
+dimensao que torna `damas-py-2f8e15cd` decifravel. Sao duas linhas, uma por jogo,
+e elas custam a leitura de um manifesto.
 
 **Por que o dia vem por ultimo.** Publicar o dia antes de copiar os feitos de
 saida abriria uma janela em que o aplicativo baixaria um desafio **sem medidas**,
@@ -60,6 +65,7 @@ from api.desafios.modelos_evento import VW_DESAFIO_DIA, encerramento_do_dia
 from api.desafios.modelos_producao import (
     VW_CATALOGO_FEITO,
     VW_DESAFIO,
+    VW_MOTOR,
     VW_TIPO_DESAFIO,
 )
 
@@ -89,6 +95,52 @@ VALUES (:co_versao_perfil, :co_jogo, :co_personagem,
         CAST(:js_perfil AS JSONB), :co_arquivo, :co_sha256)
 ON CONFLICT (co_versao_perfil, co_jogo, co_personagem) DO NOTHING
 RETURNING id_perfil
+"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1b. O motor — a dimensao irma, e pelo mesmo motivo (T049e)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: ⚠️ **Tambem e o job que grava, nunca a migracao**: uma migracao que soubesse o
+#: hash do motor estaria afirmando, por `INSERT`, um fato sobre arquivos que ela
+#: nao tem como conferir.
+#:
+#: ⚠️ `ON CONFLICT DO NOTHING` sobre `un001_motor`, e **nao** `DO UPDATE`: o
+#: `co_versao_motor` deriva dos hashes do espelho, entao motor diferente e chave
+#: diferente, e a linha existente descreve uma versao que ainda explica desafios
+#: publicados. Reescreve-la apagaria a procedencia de tudo o que foi medido com
+#: ela — e sem erro nenhum.
+SQL_GRAVAR_MOTOR = """
+INSERT INTO desafio.tb904_motor
+       (co_versao_motor, co_jogo, js_motores, co_sha256, js_arquivos)
+VALUES (:co_versao_motor, :co_jogo, CAST(:js_motores AS JSONB),
+        :co_sha256, CAST(:js_arquivos AS JSONB))
+ON CONFLICT (co_versao_motor, co_jogo) DO NOTHING
+RETURNING id_motor
+"""
+
+#: As versoes de motor que ja estao em desafios publicados e ⛔ **nao existem na
+#: dimensao**.
+#:
+#: ⚠️ **Isto existe para transformar uma falha futura em aviso de hoje.** A
+#: `fk002_motor` nasceu `NOT VALID` — as linhas anteriores a `0022` ficaram como
+#: estavam, porque inventar dimensao para elas seria o oposto do que a tabela
+#: existe para fazer. So que a **reprise** copia o `co_versao_motor` da origem, e
+#: uma copia e linha nova: se a origem for de antes da dimensao, o `INSERT` da
+#: reprise bate na FK — no **pior dia operacional**, que e justamente aquele em
+#: que a fila de aprovados secou e a reprise e o unico caminho.
+#:
+#: ⛔ **Le da VIEW**, como toda leitura do job.
+SQL_MOTORES_ORFAOS = f"""
+SELECT DISTINCT d.co_versao_motor, d.co_jogo
+  FROM {VW_DESAFIO} d
+ WHERE NOT EXISTS (
+           SELECT 1
+             FROM {VW_MOTOR} m
+            WHERE m.co_versao_motor = d.co_versao_motor
+              AND m.co_jogo         = d.co_jogo
+       )
 """
 
 
@@ -310,6 +362,68 @@ class RepositorioDoJob:
 
         await self.sessao.commit()
         return novas
+
+    # ── O motor ─────────────────────────────────────────────────────────────
+
+    async def garantir_motor(self, linhas: Sequence[Mapping[str, Any]]) -> int:
+        """Grava as linhas dos motores vigentes. Devolve quantas eram novas.
+
+        Args:
+            linhas: o que `job.motor.linhas_da_dimensao()` produziu — uma por
+                jogo.
+
+        Returns:
+            Quantas foram inseridas agora. ⚠️ **Zero e o caso comum e saudavel**:
+            a versao so muda quando o espelho do laboratorio muda.
+
+        ⛔ **Roda no comeco, junto com o perfil, e nao e arrumacao.** Com a
+        `fk002_motor` no lugar, sem estas linhas o primeiro `INSERT` de desafio
+        falha — depois de toda a geracao e toda a medicao.
+        """
+        import json
+
+        novas = 0
+        for linha in linhas:
+            resultado = await self.sessao.execute(
+                text(SQL_GRAVAR_MOTOR),
+                {
+                    "co_versao_motor": linha["co_versao_motor"],
+                    "co_jogo": linha["co_jogo"],
+                    "js_motores": json.dumps(
+                        linha["js_motores"], ensure_ascii=False
+                    ),
+                    "co_sha256": linha["co_sha256"],
+                    # ⚠️ Sem `default=str` aqui, ao contrario do perfil: estes
+                    # valores sao caminhos e hashes, todos texto. Um tipo
+                    # inesperado neste JSON seria defeito de quem montou a lista,
+                    # e converte-lo em silencio esconderia isso.
+                    "js_arquivos": json.dumps(
+                        linha["js_arquivos"], ensure_ascii=False
+                    ),
+                },
+            )
+            if resultado.first() is not None:
+                novas += 1
+
+        await self.sessao.commit()
+        return novas
+
+    async def motores_orfaos(self) -> list[str]:
+        """As versoes de motor publicadas que a dimensao **nao** conhece.
+
+        Returns:
+            Uma lista de `"<co_jogo>/<co_versao_motor>"`, vazia no caso saudavel.
+
+        ⚠️ **Existe para adiantar uma falha que so apareceria na reprise**, e no
+        pior dia — ver a nota de [SQL_MOTORES_ORFAOS]. Quem chama **avisa**, e
+        ⛔ nao muda o codigo de saida: sinal que dispara sempre ninguem le, e a
+        licao ja custou caro em `fora_da_banda`.
+        """
+        resultado = await self.sessao.execute(text(SQL_MOTORES_ORFAOS))
+        return [
+            f"{linha['co_jogo']}/{linha['co_versao_motor']}"
+            for linha in resultado.mappings().all()
+        ]
 
     # ── As leituras ─────────────────────────────────────────────────────────
 

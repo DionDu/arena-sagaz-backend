@@ -55,6 +55,7 @@ VW_FEITO_DESAFIO = "desafio.vw003_feito_desafio"
 VW_TIPO_DESAFIO = "desafio.vw901_tipo_desafio"
 VW_CATALOGO_FEITO = "desafio.vw902_catalogo_feito"
 VW_PERFIL_DIFICULDADE = "desafio.vw903_perfil_dificuldade"
+VW_MOTOR = "desafio.vw904_motor"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

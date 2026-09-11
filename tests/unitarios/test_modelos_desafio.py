@@ -206,22 +206,43 @@ def test_o_piso_e_o_teto_batem_com_o_check_de_nu_xp() -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+def _views_criadas_por_todas_as_migracoes() -> set[str]:
+    """Toda VIEW criada por QUALQUER migracao, em minusculas.
+
+    ⚠️ **Varre a pasta, e nao um arquivo escolhido a mao** (11/09/2026, T049e).
+    Ate aqui o cadeado comparava as constantes `VW_` de `modelos_producao` com a
+    `0018` e as de `modelos_evento` com a `0019` — e a `0022` criou a
+    `desafio.vw904_motor`, que existe de verdade e seria acusada de nao existir.
+
+    ⚠️ **O defeito do outro sentido e pior**, e e o que este arquivo ja carrega
+    na docstring de `migracoes_dos_schemas`: uma VIEW criada numa migracao nova e
+    apagada por engano de uma constante continuaria "conferida" contra um arquivo
+    que nao a menciona. Varrer tudo resolve os dois.
+    """
+    criadas: set[str] = set()
+    for arquivo in sorted(MIG_DESAFIO.parent.glob("[0-9]*.py")):
+        fonte = arquivo.read_text(encoding="utf-8")
+        criadas |= {
+            nome.lower()
+            for nome in re.findall(
+                r"CREATE VIEW\s+([a-z_][a-z0-9_.]*)", fonte, re.I
+            )
+        }
+    return criadas
+
+
 @pytest.mark.parametrize(
-    "modulo, migracao",
-    [(prod, MIG_DESAFIO), (ev, MIG_DESAFIO_DIA)],
+    "modulo",
+    [prod, ev],
     ids=["desafio", "desafio_dia"],
 )
-def test_toda_VW_declarada_e_criada_pela_migracao(modulo, migracao: Path) -> None:
+def test_toda_VW_declarada_e_criada_pela_migracao(modulo) -> None:
     """🔒 Uma constante apontando para VIEW inexistente so falha em runtime.
 
     E falha longe: no primeiro `SELECT` que a use, com um erro de "relation does
     not exist" que nao diz quem escreveu o nome errado.
     """
-    fonte = migracao.read_text(encoding="utf-8")
-    criadas = {
-        nome.lower()
-        for nome in re.findall(r"CREATE VIEW\s+([a-z_][a-z0-9_.]*)", fonte, re.I)
-    }
+    criadas = _views_criadas_por_todas_as_migracoes()
     declaradas = {
         valor
         for nome, valor in vars(modulo).items()

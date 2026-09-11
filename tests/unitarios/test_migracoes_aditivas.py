@@ -109,6 +109,30 @@ PERMITIDOS = (
 # migracao recusar do que gravar um estado que o CHECK diz ser impossivel.
 ALTER_ADITIVOS = ("ADD COLUMN", "ADD CONSTRAINT")
 
+# As dimensoes que ⛔ **nao recebem codigo vindo do aplicativo**, e por isso nao
+# levam o sentinela `9999`.
+#
+# ⚠️ **O sentinela existe para um caso so, e ele e de ENTRADA**: um aplicativo
+# mais novo que o backend manda um codigo que a dimensao ainda nao conhece, a FK
+# estoura, o endpoint devolve 500 — e o evento fica **preso para sempre** na fila
+# de sincronizacao daquele aparelho. Numa dimensao que **so viaja do servidor
+# para o aplicativo**, esse caso nao existe: quem escreve e o job, e um
+# `desconhecido` la seria uma linha que nada jamais aponta.
+#
+# ⛔ **E uma EXCECAO DECLARADA, e nao uma lista de conveniencia.** O padrao e
+# **exigir**: dimensao nova que nao estiver aqui reprova sem o sentinela. A
+# omissao, portanto, falha fechada — que e a direcao certa para um cadeado cujo
+# defeito custa a partida de um usuario real.
+DIMENSOES_SO_DO_SERVIDOR = {
+    # ⚠️ Esta nao e dimensao de codigo: e uma tabela de LIGACAO (que regra vale em
+    # que modalidade), sem codigo proprio. O destino de escape de quem aponta
+    # para ela e o `9999` da `tb901_regra_recusa`, que ela referencia.
+    "jogo_damas.tb903_regra_modalidade": "ligacao regra x modalidade, sem codigo proprio",
+    "desafio.tb901_tipo_desafio": "o tipo do desafio: o job publica, o app le",
+    "desafio.tb903_perfil_dificuldade": "com que numeros o job mediu a regua",
+    "desafio.tb904_motor": "com que motor o job mediu (0022, T049e)",
+}
+
 
 # ── ALARGAR UM `varchar` — a excecao que a 0014 obrigou a escrever ─────────
 #
@@ -344,6 +368,32 @@ def _alter_e_aditivo(comando: str) -> bool:
     return any(operacao in comando for operacao in ALTER_ADITIVOS)
 
 
+def _insercoes_em(sql: str, tabela: str) -> str:
+    """So os `INSERT INTO <tabela>` do SQL, juntos.
+
+    ⚠️ **Existe porque a pergunta era de ARQUIVO e passou a ser de TABELA**
+    (11/09/2026, T049e). Ate aqui bastava a palavra `9999` aparecer em qualquer
+    lugar do SQL da migracao: a `0018` cria quatro dimensoes e so **uma** leva o
+    sentinela, e as outras tres passavam de carona. Uma dimensao nova que
+    precisasse do sentinela e nao o tivesse passaria igual, desde que uma irma
+    no mesmo arquivo o tivesse — que e o mesmo defeito de cegueira que este
+    modulo ja registra tres vezes.
+
+    Args:
+        sql: o SQL executado pela migracao.
+        tabela: o nome qualificado, em minusculas.
+
+    Returns:
+        O texto de todos os `INSERT` naquela tabela, ou `""` se nao houver — e o
+        vazio e a resposta certa para "esta dimensao nao insere linha nenhuma".
+    """
+    pedacos: list[str] = []
+    for parte in re.split(r"INSERT\s+INTO\s+", sql, flags=re.I)[1:]:
+        if parte.strip().lower().startswith(tabela):
+            pedacos.append(parte)
+    return "\n".join(pedacos)
+
+
 def _migracoes_guardadas() -> list[Path]:
     """Os arquivos de migracao a partir do corte, em ordem.
 
@@ -563,12 +613,29 @@ class TestMigracaoAditiva:
         # que nao lhes cabia: elas apenas fazem `JOIN` com dimensoes que outra
         # migracao criou. Passavam mesmo assim — porque a palavra "9999" estava
         # numa docstring. Duas cegueiras que se anulavam.
-        if not re.search(r"CREATE TABLE\s+[\w.]*tb9\d\d_", fonte, re.I):
+        criadas = [
+            nome.lower()
+            for nome in re.findall(
+                r"CREATE TABLE\s+([\w.]*tb9\d\d_[\w]*)", fonte, re.I
+            )
+        ]
+        if not criadas:
             pytest.skip(f"{arquivo.name} nao cria tabela de dimensao")
-        assert "9999" in fonte, f"{arquivo.name}: dimensao sem o sentinela 9999"
-        assert "'desconhecido'" in fonte, (
-            f"{arquivo.name}: o 9999 existe mas nao se chama 'desconhecido'"
-        )
+
+        for tabela in criadas:
+            if tabela in DIMENSOES_SO_DO_SERVIDOR:
+                continue
+            trecho = _insercoes_em(fonte, tabela)
+            assert "9999" in trecho, (
+                f"{arquivo.name}: a dimensao {tabela} nao tem o sentinela 9999 "
+                "nos seus proprios `INSERT`. Se ela so viaja do servidor para o "
+                "aplicativo, declare-a em DIMENSOES_SO_DO_SERVIDOR — com o "
+                "motivo, e nao para calar o teste."
+            )
+            assert "'desconhecido'" in trecho, (
+                f"{arquivo.name}: o 9999 de {tabela} existe mas nao se chama "
+                "'desconhecido'"
+            )
 
 
 class TestARegraDoPermitido:

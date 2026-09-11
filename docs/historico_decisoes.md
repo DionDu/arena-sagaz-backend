@@ -2295,3 +2295,119 @@ de nenhum deles — o que viraria dia descoberto, e não erro.
   ⛔ não conhece o editorial, e se conhecesse passaria a depender de com que
   números as coisas vão ao ar — a fronteira que `editorial.py` existe para
   desenhar.
+
+---
+
+## 2026-09-11 — T049e: o `co_versao_motor` deixa de ser um resumo mudo
+
+**Contexto.** `desafio.tb001_desafio.co_versao_motor` guarda `damas-py-2f8e15cd`.
+Os oito dígitos são o começo de um SHA-256 da lista de hashes dos arquivos do
+motor dentro do espelho do laboratório. ⛔ **Isso não se inverte, e nada no banco
+diz de que arquivos saiu.**
+
+O dono viu as primeiras linhas geradas no `des` e pediu a tabela
+(`DECISOES-do-dono.md` §8f, 10/09/2026). O argumento que fecha o caso é a
+comparação com a irmã:
+
+| | como se decifra |
+|---|---|
+| `co_versao_perfil` = `perfil-50aede72` | ✅ **sem o Git** — `js_perfil` traz os números, `co_arquivo` e `co_sha256` dizem de onde |
+| `co_versao_motor` = `damas-py-2f8e15cd` | ⛔ **de jeito nenhum** |
+
+**Decisão.** `desafio.tb904_motor`, na migração **`0022`** (nova — a `0021` já
+estabeleceu que migração aplicada não se edita). Uma linha por
+`(co_versao_motor, co_jogo)`, com `js_motores`, o `co_sha256` do
+`MANIFESTO_HASHES.json` e `js_arquivos`.
+
+### O formato de `js_motores` não é livre — ele fecha o par de diagnóstico
+
+    o aparelho reporta  →  dart_1.4.0|rust_0.4.0   (tb007_desafio_impedido)
+    o servidor guardava →  damas-py-2f8e15cd       (tb001_desafio)
+
+Uma é versão semântica de dois motores; a outra é um hash de um terceiro. ⚠️ **As
+duas metades não se cruzavam**, e a pergunta *"por que este desafio não coube no
+aparelho desta pessoa?"* ficava sem resposta exatamente quando alguém a fazia.
+
+Por isso a coluna usa a **mesma lista de registros** da `tb007` —
+`[{co_jogo, co_motor, co_versao}]` sob a chave `motores`, com `"versao": 1` —, e
+as duas se abrem com o mesmo `jsonb_to_recordset`.
+
+⚠️ **São dois registros por jogo, e o contrato entra de propósito:**
+
+| jogo | registros |
+|---|---|
+| damas | `python` (o port do laboratório) · `contrato` (`contrato_damas.json`, `1.0.0`) |
+| pontinhos | `tflite` (SHA-256 do modelo) · `codificacao` (o contrato, `1.0.0`) |
+
+O port Python do servidor e o Dart do aparelho são implementações diferentes e
+⛔ **não têm número em comum**. O que os dois lados obedecem, byte a byte — e
+onde a comparação é possível — é o contrato.
+
+### A lista de arquivos subiu para os motores, e esse é o ponto delicado
+
+Até aqui o filtro que escolhe os arquivos do resumo era **variável local** dentro
+de `versao_do_motor()`. Montar a linha do banco exigiria reescrevê-lo noutro
+módulo, e ⛔ **as duas cópias divergiriam no primeiro arquivo novo do motor** —
+com o pior sintoma possível: a linha do banco afirmando que o resumo saiu de um
+conjunto de arquivos, quando ele saiu de outro, e nada acusando.
+
+Então nasceu `arquivos_do_motor()` nos dois motores, e `versao_do_motor()` passou
+a resumir **essa** lista. ⚠️ **A ordem do digesto continua sendo a dos hashes, e
+não a dos caminhos** — trocá-la daria outro carimbo sem que um byte do motor
+tivesse mudado. Conferido antes e depois: `damas-py-2f8e15cd` e
+`pontinhos-py-cd28a45b`, iguais.
+
+### O cadeado que vale por todos: a linha se decifra sozinha
+
+`test_motor_decifravel.py` soma os hashes de `js_arquivos`, recalcula o resumo e
+exige chegar de volta ao `co_versao_motor` — com uma **segunda implementação** da
+conta, porque reusar a de produção provaria apenas que ela é igual a si mesma. E
+um caso **estraga a lista de propósito** (tira um arquivo) e exige que a conta
+deixe de bater, para o cadeado não virar decoração.
+
+⚠️ **É isso que liberta a decifração da fórmula de hoje.** Enquanto a única forma
+fosse *"descobrir o commit e refazer a conta"*, no dia em que alguém mudasse a
+derivação **toda string antiga ficaria irresolvível para sempre** — e ninguém
+notaria, porque nada quebra.
+
+### As duas `fk002_motor`, e por que são `NOT VALID`
+
+*"Um catálogo que ninguém referencia não é catálogo"* (o dono, 08/09). A FK
+entrou em `tb001_desafio` **e** em `tb002_medicao_regua`: o desafio diz com que
+motor foi gerado, a medição diz com que motor a taxa da Pita foi medida.
+
+⚠️ **`NOT VALID` porque o `des` já tem desafios de antes da dimensão.** Validá-los
+agora exigiria **inventar** para eles uma linha com um `co_sha256` de manifesto
+que ninguém conferiu — ⛔ o oposto do que a tabela existe para fazer. A cláusula
+confere toda linha nova e não revarre as antigas; no `prd` a diferença nem
+existe, porque lá a tabela nasce vazia.
+
+⚠️ **A reprise é o caso a vigiar, e ganhou vigia.** Ela copia o `co_versao_motor`
+da origem, e cópia é **linha nova**: se a origem for anterior à `0022`, o
+`INSERT` bate na FK ⛔ **no pior dia operacional** — aquele em que a fila de
+aprovados secou e a reprise é o único caminho. Por isso o job pergunta, no começo
+de cada execução, se há versão publicada fora da dimensão (`motores_orfaos`) e
+**grita no resumo**; ⛔ sem mudar o código de saída, pela mesma lição de
+`fora_da_banda`.
+
+### Dois cadeados de migração ficaram menos cegos no caminho
+
+- **O sentinela `9999`** era pergunta de **arquivo**: bastava a palavra aparecer
+  em qualquer lugar do SQL. A `0018` cria **quatro** dimensões e só **uma** leva o
+  sentinela — as outras três passavam de carona, e uma dimensão nova que
+  precisasse dele passaria igual. Agora a pergunta é **tabela a tabela**, sobre os
+  `INSERT` daquela tabela, e a isenção é declarada em `DIMENSOES_SO_DO_SERVIDOR`
+  com o motivo. ⚠️ **O padrão é exigir**: dimensão nova que não estiver na lista
+  reprova — a omissão falha fechada.
+- **`test_toda_VW_declarada_e_criada_pela_migracao`** comparava as constantes com
+  **uma** migração escolhida à mão, e teria acusado a `vw904_motor` (que existe)
+  de não existir. Passou a varrer a pasta. ⚠️ É a sétima aparição do mesmo
+  defeito no projeto: cadeado que sabe de antemão onde olhar fica cego
+  exatamente quando algo novo chega.
+
+### ⏳ O que ficou pendente
+
+Rodar a `0022` no `des` é do dono (`scripts/identificar_banco.py` **antes** de
+qualquer `alembic upgrade`). ⚠️ **A migração vem antes do deploy do backend** — a
+lição da `0017` —, e enquanto ela não rodar o job falha no `INSERT` da dimensão,
+já no começo da execução.

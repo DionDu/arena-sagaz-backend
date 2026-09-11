@@ -125,9 +125,20 @@ DIMENSOES_POPULADAS = (
     "desafio_dia.tb903_tipo_reacao",
 )
 
-#: ⚠️ Esta NASCE VAZIA e continua vazia ate o job rodar. Uma linha aqui agora
-#: seria perfil de dificuldade inventado, e ele decide o que a pessoa joga.
-DIMENSAO_QUE_O_JOB_PREENCHE = "desafio.tb903_perfil_dificuldade"
+#: ⚠️ Estas NASCEM VAZIAS e continuam vazias ate o job rodar.
+#:
+#: Uma linha em `tb903_perfil_dificuldade` agora seria perfil de dificuldade
+#: inventado, e ele decide o que a pessoa joga. Uma linha em `tb904_motor` seria
+#: pior ainda: um hash de manifesto que ninguem conferiu, na tabela que existe
+#: justamente para que a procedencia do motor nao precise de fe.
+#:
+#: ⚠️ **Era UMA constante ate 11/09/2026** (T049e). Virou tupla no dia em que a
+#: segunda dimensao assim nasceu — e uma constante singular nao falha quando a
+#: irma chega: ela simplesmente **para de conferir** a nova, calada.
+DIMENSOES_QUE_O_JOB_PREENCHE = (
+    "desafio.tb903_perfil_dificuldade",
+    "desafio.tb904_motor",
+)
 
 
 def _ler_env(arquivo: Path) -> dict[str, str]:
@@ -341,21 +352,22 @@ async def _conferir(url: str) -> int:
                         "primeira gravacao"
                     )
 
-            vazia = (
-                await conexao.execute(
-                    text(f"SELECT COUNT(*) FROM {DIMENSAO_QUE_O_JOB_PREENCHE}")
+            for dimensao in DIMENSOES_QUE_O_JOB_PREENCHE:
+                vazia = (
+                    await conexao.execute(
+                        text(f"SELECT COUNT(*) FROM {dimensao}")
+                    )
+                ).scalar()
+                print(
+                    f"  {dimensao:<38} {vazia} linha(s)  "
+                    "(quem preenche e o job)"
                 )
-            ).scalar()
-            print(
-                f"  {DIMENSAO_QUE_O_JOB_PREENCHE:<38} {vazia} linha(s)  "
-                "(quem preenche e o job)"
-            )
-            if vazia:
-                reprovacoes.append(
-                    f"{DIMENSAO_QUE_O_JOB_PREENCHE} deveria nascer VAZIA — quem a "
-                    "preenche e o job, e perfil de dificuldade inventado decide o "
-                    "que a pessoa joga"
-                )
+                if vazia:
+                    reprovacoes.append(
+                        f"{dimensao} deveria nascer VAZIA — quem a preenche e o "
+                        "job, e dimensao inventada por migracao decide o que a "
+                        "pessoa joga ou de onde o carimbo saiu"
+                    )
 
             # ── 4. o CHECK de `partida.co_modo` ─────────────────────────────
             # `pg_get_constraintdef` devolve o texto da constraint como o banco a

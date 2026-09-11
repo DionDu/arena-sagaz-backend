@@ -5,8 +5,9 @@ A SEQUENCIA, E POR QUE ELA E ESTA
 ═══════════════════════════════════════════════════════════════════════════
 
     1. expirar partidas paradas  →  fecha o que o aplicativo nunca fechou (T046)
-    2. gravar o perfil vigente   →  ⛔ **antes de tudo**: a `fk001_perfil` recusa
-                                    o primeiro desafio sem ele
+    2. gravar o perfil e o motor →  ⛔ **antes de tudo**: a `fk001_perfil` e a
+                                    `fk002_motor` recusam o primeiro desafio
+                                    sem eles
     3. descobrir os dias a cobrir → a folga de 7 a 30 dias (T038)
     4. por dia descoberto:
          gerar N candidatos  →  provar que a partida termina  →  medir a
@@ -69,6 +70,7 @@ from . import expirar_partidas as expiracao_mod
 from . import gerador as gerador_mod
 from . import gravacao as gravacao_mod
 from . import medidas_de_saida as medidas_mod
+from . import motor as motor_mod
 from . import perfil as perfil_mod
 from . import posicao_inicial as posicao_mod
 from . import regua as regua_mod
@@ -138,6 +140,23 @@ class Relatorio:
     """
 
     perfis_novos: int = 0
+
+    #: Quantas linhas de `tb904_motor` nasceram nesta execucao (T049e).
+    #:
+    #: ⚠️ **Zero e o caso comum**: a versao do motor so muda quando o espelho do
+    #: laboratorio muda. Um numero diferente de zero e informacao de primeira
+    #: ordem — quer dizer que este job mediu com um motor que nunca tinha medido,
+    #: e que as taxas de hoje nao se comparam com as de ontem.
+    motores_novos: int = 0
+
+    #: Versoes de motor que ja estao em desafios publicados e **nao existem na
+    #: dimensao** — `["damas/damas-py-2f8e15cd"]`.
+    #:
+    #: ⛔ **Nao entra no `codigo_de_saida`**, e a razao e a mesma de
+    #: `fora_da_banda`: e uma pendencia herdada da migracao `0022`, que nao
+    #: quebra a execucao de hoje. O que ela faz e adiantar uma falha que so
+    #: apareceria numa **reprise**, e no pior dia possivel.
+    motores_orfaos: list[str] = field(default_factory=list)
     partidas_expiradas: int = 0
     dias_no_plano: int = 0
     ja_publicados: int = 0
@@ -198,6 +217,7 @@ class Relatorio:
         """A linha de log da execucao, para o painel do Railway."""
         linhas = [
             f"[job] perfil: {self.perfis_novos} linha(s) nova(s)",
+            f"[job] motor: {self.motores_novos} linha(s) nova(s)",
             f"[job] expiracao: {self.partidas_expiradas} partida(s) fechada(s)",
             f"[job] fila: {self.dias_no_plano} dia(s) no plano, "
             f"{self.ja_publicados} ja publicado(s), {self.gerados} gerado(s), "
@@ -206,6 +226,14 @@ class Relatorio:
         ]
         if self.descartados:
             linhas.append(f"[job] descartes: {self.descartados}")
+        if self.motores_orfaos:
+            linhas.append(
+                f"⚠️ [job] MOTOR FORA DA DIMENSAO: {self.motores_orfaos}. Sao "
+                "versoes que ja carimbam desafios publicados e nao tem linha em "
+                "`tb904_motor` (desafios anteriores a migracao 0022). ⛔ Uma "
+                "REPRISE de um deles falha na `fk002_motor` — e a reprise so "
+                "acontece no dia em que a fila de aprovados secou."
+            )
         if self.repetidos:
             linhas.append(
                 f"⚠️ [job] JA PUBLICADOS ANTES: {self.repetidos}. Recusados por "
@@ -562,11 +590,28 @@ async def executar(
     relatorio.partidas_expiradas = len(fechadas)
     print(expiracao_mod.resumo(fechadas))
 
-    # ── 2. O perfil, ANTES de qualquer desafio ──────────────────────────────
+    # ── 2. O perfil e o motor, ANTES de qualquer desafio ────────────────────
+    #
+    # ⛔ **As duas dimensoes vem juntas e vem primeiro**, e nao e arrumacao: a
+    # `fk001_perfil` e a `fk002_motor` recusam o primeiro `INSERT` de desafio
+    # enquanto as linhas nao existirem — depois de toda a geracao e toda a
+    # medicao, que e a parte cara da execucao. Gravar as duas custa a leitura de
+    # tres arquivos.
     relatorio.perfis_novos = await repositorio.garantir_perfil(
         perfil_mod.linhas_da_dimensao()
     )
     print(f"[job] perfil vigente: {perfil_mod.resumo()}")
+
+    relatorio.motores_novos = await repositorio.garantir_motor(
+        motor_mod.linhas_da_dimensao()
+    )
+    print(f"[job] motores vigentes: {motor_mod.resumo()}")
+
+    # ⚠️ **A pergunta que adianta uma falha de reprise** (T049e): ha versao de
+    # motor carimbando desafio publicado que a dimensao nao conhece? Custa um
+    # `SELECT DISTINCT` sobre uma tabela que cresce uma linha por dia, e o que
+    # ela evita e a `fk002_motor` estourar no **pior dia operacional**.
+    relatorio.motores_orfaos = await repositorio.motores_orfaos()
 
     # ── 3. Que dias cobrir ──────────────────────────────────────────────────
     dias = gravacao_mod.dias_a_cobrir(dt_hoje=dt_hoje)

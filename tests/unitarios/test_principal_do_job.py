@@ -148,6 +148,7 @@ def _sessao_feliz() -> FakeSessaoSQL:
     return FakeSessaoSQL(
         respostas={
             "INSERT INTO desafio.tb903_perfil_dificuldade": [{"id_perfil": "p"}],
+            "INSERT INTO desafio.tb904_motor": [{"id_motor": "m"}],
             "INSERT INTO desafio.tb001_desafio": [{"id_desafio": "d"}],
             "INSERT INTO desafio.tb002_medicao_regua": [{"id_medicao": "m"}],
             "INSERT INTO desafio.tb003_feito_desafio": [{"id_feito_desafio": "f"}],
@@ -220,6 +221,51 @@ async def test_o_PERFIL_e_gravado_antes_do_primeiro_desafio() -> None:
     perfil = next(i for i, s in enumerate(ordem) if "tb903_perfil_dificuldade" in s)
     desafio = next(i for i, s in enumerate(ordem) if "INSERT INTO desafio.tb001_desafio" in s)
     assert perfil < desafio
+
+
+@pytest.mark.asyncio
+async def test_o_MOTOR_e_gravado_antes_do_primeiro_desafio() -> None:
+    """🔒 ⛔ Sem a linha de `tb904_motor`, a `fk002_motor` recusa o desafio.
+
+    ⚠️ **E a mesma armadilha do perfil, com o mesmo preco**: a recusa viria
+    **depois** de o candidato ter sido gerado e medido pelos tres mascotes — a
+    parte cara feita e jogada fora, uma vez por dia, no Railway.
+
+    A dimensao nasceu em 11/09/2026 (T049e, migracao `0022`) para que
+    `damas-py-2f8e15cd` deixe de ser um resumo que ninguem consegue inverter.
+    """
+    sessao = _sessao_feliz()
+    await _rodar(sessao)
+
+    ordem = [texto for texto, _ in sessao.executadas]
+    motor = next(i for i, s in enumerate(ordem) if "tb904_motor" in s)
+    desafio = next(
+        i for i, s in enumerate(ordem) if "INSERT INTO desafio.tb001_desafio" in s
+    )
+    assert motor < desafio
+
+
+@pytest.mark.asyncio
+async def test_o_MOTOR_ORFAO_vira_aviso_e_NAO_muda_o_codigo_de_saida() -> None:
+    """⛔ Sinal que dispara sempre ninguem le — a licao de `fora_da_banda`.
+
+    ⚠️ **O que o aviso faz e adiantar uma falha de REPRISE.** A `fk002_motor`
+    nasceu `NOT VALID`, entao os desafios anteriores a `0022` continuam validos;
+    mas uma reprise **copia** o `co_versao_motor` da origem, e copia e linha nova
+    — ela bateria na FK exatamente no dia em que a fila de aprovados secou.
+
+    ⚠️ E nao e quebra da execucao de hoje: e pendencia herdada da migracao. Por
+    isso ela grita no resumo e o codigo de saida continua `0`.
+    """
+    sessao = _sessao_feliz()
+    sessao.respostas["vw904_motor"] = [
+        {"co_versao_motor": "damas-py-antigo1", "co_jogo": "damas"}
+    ]
+    relatorio = await _rodar(sessao)
+
+    assert relatorio.motores_orfaos == ["damas/damas-py-antigo1"]
+    assert "MOTOR FORA DA DIMENSAO" in relatorio.resumo()
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_FEZ
 
 
 @pytest.mark.asyncio
@@ -402,6 +448,7 @@ async def test_a_lista_de_RECENTES_e_lida_uma_vez_e_usada_nas_DUAS_escolhas() ->
     sessao = FakeSessaoSQL(
         respostas={
             "INSERT INTO desafio.tb903_perfil_dificuldade": [{"id_perfil": "p"}],
+            "INSERT INTO desafio.tb904_motor": [{"id_motor": "m"}],
             "INSERT INTO desafio.tb001_desafio": [{"id_desafio": "d"}],
             "INSERT INTO desafio_dia.tb001_desafio_dia": [{"id_desafio_dia": "dd"}],
             # A leitura do rodizio devolve algo, para o teste nao passar com
@@ -521,6 +568,7 @@ async def test_o_dia_que_JA_ESTAVA_publicado_nao_e_gerado_de_novo() -> None:
     sessao = FakeSessaoSQL(
         respostas={
             "INSERT INTO desafio.tb903_perfil_dificuldade": [{"id_perfil": "p"}],
+            "INSERT INTO desafio.tb904_motor": [{"id_motor": "m"}],
             "INSERT INTO desafio.tb001_desafio": [{"id_desafio": "d"}],
             "INSERT INTO desafio_dia.tb001_desafio_dia": [{"id_desafio_dia": "dd"}],
             "FROM desafio_dia.vw001_desafio_dia\n WHERE dt_dia BETWEEN": [

@@ -259,6 +259,45 @@ def contrato_de_codificacao() -> dict:
     return json.loads(CAMINHO_DO_CONTRATO.read_text(encoding="utf-8"))
 
 
+#: Os prefixos do manifesto que definem o jogador do Pontinhos.
+#:
+#: ⚠️ **São TRÊS porque o jogador é três coisas**: o código que codifica o
+#: tabuleiro (`jogos/jogo_pontinhos/`), o modelo que decide (`modelos/`) e o
+#: mapeamento que traduz o neurônio de saída em traço (`ia_mappings/`). Trocar
+#: qualquer um dos três muda o lance escolhido — e é por isso que os três entram
+#: no resumo.
+#:
+#: ⛔ **Era uma variável local dentro de `versao_do_motor`**, e subiu para cá em
+#: 11/09/2026 (T049e): `desafio.tb904_motor` precisa listar exatamente estes
+#: arquivos, e um segundo filtro escrito lá divergiria deste no dia em que um
+#: quarto prefixo entrasse.
+PREFIXOS_DO_MOTOR = ("jogos/jogo_pontinhos/", "modelos/", "ia_mappings/")
+
+
+def arquivos_do_motor() -> tuple[dict[str, str], ...]:
+    """Os arquivos do espelho que DEFINEM este jogador, com o SHA-256 de cada um.
+
+    Returns:
+        Uma tupla de `{"caminho", "sha256"}`, **ordenada pelo caminho**.
+
+    Ver a gêmea em `motores/damas/contrato_damas.py`: as duas existem para que a
+    lista que vai a `desafio.tb904_motor` seja a **mesma** que o resumo de 8
+    dígitos resumiu, e não uma cópia que se parece com ela.
+    """
+    manifesto = json.loads(CAMINHO_DO_MANIFESTO.read_text(encoding="utf-8"))
+    return tuple(
+        {"caminho": item["caminho"], "sha256": item["sha256"]}
+        for item in sorted(
+            (
+                item
+                for item in manifesto["arquivos"]
+                if item["caminho"].startswith(PREFIXOS_DO_MOTOR)
+            ),
+            key=lambda item: item["caminho"],
+        )
+    )
+
+
 @functools.lru_cache(maxsize=1)
 def versao_do_motor() -> str:
     """Identificador do motor do Pontinhos, para o carimbo (RF-DES-164).
@@ -270,13 +309,10 @@ def versao_do_motor() -> str:
     """
     import hashlib
 
-    manifesto = json.loads(CAMINHO_DO_MANIFESTO.read_text(encoding="utf-8"))
-    interessa = ("jogos/jogo_pontinhos/", "modelos/", "ia_mappings/")
-    hashes = sorted(
-        item["sha256"]
-        for item in manifesto["arquivos"]
-        if item["caminho"].startswith(interessa)
-    )
+    # ⚠️ **A ordem é a dos HASHES, e não a dos caminhos** — ver a nota gêmea em
+    # `contrato_damas.versao_do_motor`: mudá-la daria outro resumo sem que o
+    # motor tivesse mudado.
+    hashes = sorted(arquivo["sha256"] for arquivo in arquivos_do_motor())
     digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
     return f"pontinhos-py-{digesto[:8]}"
 
