@@ -96,16 +96,42 @@ def url_do_des() -> str:
     raise SystemExit(f"⛔ DATABASE_URL_DES nao esta em {CATALOGO}")
 
 
+def sem_comentarios(sql: str) -> str:
+    """Devolve o SQL sem os comentarios `--` e sem os blocos `/* */`.
+
+    ⛔ **Isto nasceu de um falso positivo real, em 11/09/2026.** A consulta que
+    pesca lances do Pontinhos comeca com um comentario em portugues — *"os lances
+    do Jogo dos Pontinhos"* —, e a conferencia recusou a consulta inteira
+    apontando a palavra **`do`**, que e palavra-chave do Postgres (`DO $$ ... $$`).
+
+    ⚠️ **Todo comentario em portugues tem "do", "da" ou "com"**, entao o cadeado
+    recusaria praticamente qualquer SQL comentado — e a diretriz do projeto manda
+    comentar tudo. Um cadeado que recusa o uso correto ensina a contorna-lo, que e
+    o pior resultado possivel para um cadeado.
+
+    ⚠️ **A ordem importa:** os blocos `/* */` saem primeiro. Um `--` dentro de um
+    bloco e comentario, nao inicio de linha de comentario.
+    """
+    sem_bloco = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
+    return re.sub(r"--[^\n]*", " ", sem_bloco)
+
+
 def conferir_leitura(sql: str) -> None:
     """Recusa o que nao parece consulta.
+
+    ⚠️ **Olha so o CODIGO, sem os comentarios** (ver `sem_comentarios`). E a
+    terceira e mais fraca das tres travas — as duas que de fato defendem sao usar
+    sempre `DATABASE_URL_DES` e a transacao `READ ONLY` imposta pelo banco. Esta
+    existe para dar uma mensagem clara a quem escreveu a consulta errada.
 
     Raises:
         SystemExit: quando uma palavra de escrita aparece como palavra inteira.
     """
+    codigo = sem_comentarios(sql)
     achadas = [
         palavra
         for palavra in PALAVRAS_DE_ESCRITA
-        if re.search(rf"\b{palavra}\b", sql, flags=re.IGNORECASE)
+        if re.search(rf"\b{palavra}\b", codigo, flags=re.IGNORECASE)
     ]
     if achadas:
         raise SystemExit(

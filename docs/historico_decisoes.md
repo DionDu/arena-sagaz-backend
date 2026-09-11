@@ -21,6 +21,67 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 — A pesca medida no acervo do `prd`, e o pescador do Pontinhos
+
+O dono exportou do `prd` os lances de damas (4.519 posicoes, contra 2.034 do
+`des`) e pediu: *"para os 2 jogos, se conseguirmos pescar os desafios da base de
+producao sera o melhor dos mundos, pois dispensaria mecanismos complexos de
+geracao de desafios."*
+
+### ✅ Damas: medido, e funciona
+
+Calibracao em amostras de 48 posicoes sorteadas do acervo real (4.090 unicas
+depois do espelho), com 14 processos:
+
+    tipo                     | rendimento | material medio | distancias
+    -------------------------+------------+----------------+--------------
+    damas_capturar_multipla  | 4 de 48    | 16,8 pecas     | 3, 4, 4, 7
+    damas_coroar             | 3 de 48    | 10,0 pecas     | 3, 7, 8
+
+⚠️ **Compare com o acervo sorteado:** 7,0 e 6,0 pecas, sempre. E o de captura
+tinha **zero** moldes com distancia ≥5 — a pesca achou um de 7 na primeira
+amostra de 48.
+
+**Projecao para o acervo inteiro:** ~340 moldes de captura e ~208 de coroar.
+⛔ **Custo: ~11 h de CPU** (peneira + medicao nas quatro modalidades), que e
+comando do dono, nao do assistente.
+
+### ⚠️ Pontinhos: a pesca e conversao, mas NAO conserta o que o dono relatou
+
+A posicao do Pontinhos **e o conjunto de tracos marcados**, e marcar um traco
+nunca desmarca outro. Logo **todo prefixo de uma partida real e uma posicao
+real** — sem motor, sem busca, sem custo. `scripts/pescar_posicoes_pontinhos.py`
+converte o CSV de lances no NPZ que `posicoes_de_autoplay_pontinhos.carregar` ja
+le. Provado com os dados do `des`: 167 partidas, **4.251 posicoes distintas**, bem
+distribuidas em todas as fases, e ⚠️ **as 167 reproduziram sem um unico traco
+repetido** — o log e integro.
+
+⛔ **Mas trocar a fonte nao resolve o relato** *"os desafios dos pontinhos sao
+quase sempre baseados numa jogada errada do personagem"*. Quem seleciona e o
+gerador, pela pergunta *"o objetivo cai aqui?"*; como o objetivo e *"feche N
+caixas"* e fechar cadeia **exige que o adversario abra**, a selecao continua
+concentrada no instante seguinte a uma abertura, venha a posicao de onde vier.
+⚠️ O problema esta no **objetivo**, nao na fonte.
+
+⚠️ **E o acervo de autoplay tem 897 mil posicoes** contra as ~4 mil por
+167 partidas reais: no Pontinhos a pesca troca variedade por representatividade,
+e essa troca e uma decisao de produto, nao uma correcao de defeito.
+
+### ⛔ O cadeado do `consultar_des.py` recusava portugues
+
+A consulta que pesca lances do Pontinhos foi recusada pelo proprio script:
+*"isto nao e uma consulta de leitura: **do**"*. A palavra vinha do comentario
+*"os lances **do** Jogo dos Pontinhos"*, e `DO` e palavra-chave do Postgres.
+
+⚠️ **Todo comentario em portugues tem "do", "da" ou "com"**, e a diretriz do
+projeto manda comentar tudo — o cadeado recusaria praticamente qualquer SQL
+comentado. `sem_comentarios()` agora tira `--` e `/* */` antes da conferencia.
+⚠️ O preco, dito em voz alta no teste: `-- DELETE` deixa de ser recusado. Esta
+certo — e comentario, o banco nao o executa, e **quem defende de verdade e a
+transacao `READ ONLY`**.
+
+---
+
 ## 2026-09-11 — Por que os desafios de damas sao faceis: o MATERIAL
 
 **O relato.** *"Os desafios de coroar damas tem muitos lances agora, no entanto

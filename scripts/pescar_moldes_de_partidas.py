@@ -68,6 +68,7 @@ parece travada.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import random
@@ -156,7 +157,15 @@ def carregar(caminho: Path) -> list[str]:
     so diferem pelo lado da vez viram a mesma candidata, e medir as duas seria
     pagar o dobro pela mesma resposta.
     """
-    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    if caminho.suffix.lower() == ".csv":
+        # ⚠️ `utf-8-sig` e nao `utf-8`: o Excel e o export do Postgres no Windows
+        # escrevem um BOM no comeco, e sem isto a PRIMEIRA coluna se chamaria
+        # `﻿fen` — o cabecalho parece certo na tela e o `linha["fen"]` falha.
+        with caminho.open(encoding="utf-8-sig", newline="") as arquivo:
+            dados: list = list(csv.DictReader(arquivo))
+    else:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+
     vistas: dict[str, None] = {}  # dict e nao set: preserva a ordem de chegada
     for linha in dados:
         fen = linha["fen"] if isinstance(linha, dict) else linha
