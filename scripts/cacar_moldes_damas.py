@@ -369,6 +369,14 @@ def cacar(co_tipo: str, quantas_candidatas: int) -> list[tuple[int, float, str]]
             for modalidade in MODALIDADES
         ]
         cumpridos = [lance for lance in lances if lance is not None]
+        # ⛔ **A trivialidade se confere nas QUATRO, e nao so na brasileira.** A
+        # peneira roda num regulamento so, e na medicao de 11/09 dois moldes
+        # passaram por ela com a portuguesa cumprindo no lance 1 — publicariam um
+        # desafio de um lance em um dia de cada quatro. Basta uma modalidade
+        # trivial para o molde nao servir.
+        if cumpridos and min(cumpridos) < LANCE_MINIMO:
+            motivos_da_medicao[f"trivial_em_alguma_modalidade_no_lance_{min(cumpridos)}"] += 1
+            cumpridos = []
         quantas = len(cumpridos)
         # O lance medio so tem sentido entre as modalidades que cumpriram; sem
         # nenhuma, guarda-se zero para a ordenacao nao estourar.

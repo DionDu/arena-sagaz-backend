@@ -174,11 +174,45 @@ RECEITAS: dict[str, Receita] = {
         },
         # Finais em que uma branca esta a poucos passos da oitava fileira, com
         # pretas suficientes para a partida nao acabar antes.
+        #
+        # ⚠️ **Os quatro primeiros foram desenhados a mao; os vinte seguintes
+        # foram MEDIDOS** por `scripts/cacar_moldes_damas.py` em 11/09/2026 — o
+        # Sagaz jogou os dois lados a partir de cada um, nas quatro modalidades,
+        # com o mesmo orcamento do gerador. Cada comentario diz em que lance o
+        # objetivo caiu por regulamento.
+        #
+        # ⛔ **Nenhum entrou com alguma modalidade cumprindo abaixo do lance 3.**
+        # Dois candidatos passaram na peneira (que roda so na brasileira) com a
+        # portuguesa cumprindo no LANCE 1: publicariam um desafio de um lance em
+        # um dia de cada quatro, e nada no log acusaria. O corte agora olha as
+        # quatro, e o script foi corrigido junto.
         moldes=(
+            # ── Os quatro fundadores, escritos a mao em 09/09/2026 ───────────
             "W:W9,23,27:B5,12,20",
             "W:W10,24,28:B6,14,21",
             "W:W13,25,30:B8,17,22",
             "W:W14,26,31:B7,18,24",
+            # ── Medidos em 11/09/2026, do mais demorado ao mais curto ────────
+            "W:W12,25,28:B13,15,17",  # 4/4 — bras 11, angl 9, port 3, casa 11
+            "W:W10,24,28:B18,20,21",  # 4/4 — bras 5, angl 9, port 9, casa 5
+            "W:W9,22,26:B13,14,18",  # 4/4 — bras 7, angl 5, port 7, casa 7
+            "W:W12,24,27:B13,15,19",  # 4/4 — bras 5, angl 11, port 5, casa 5
+            "W:W10,17,24:B14,15,20",  # 4/4 — bras 9, angl 5, port 3, casa 9
+            "W:W9,27,30:B14,18,20",  # 4/4 — bras 5, angl 3, port 11, casa 5
+            "W:W9,18,28:B16,20,22",  # 4/4 — bras 5, angl 7, port 7, casa 5
+            "W:W9,18,25:B15,16,23",  # 4/4 — bras 5, angl 5, port 7, casa 5
+            "W:W5,20,22:B14,16,18",  # 4/4 — bras 5, angl 3, port 3, casa 11
+            "W:W11,21,30:B13,19,23",  # 4/4 — bras 5, angl 9, port 3, casa 5
+            "W:W6,26,29:B19,23,24",  # 4/4 — bras 3, angl 11, port 3, casa 3
+            "W:W12,18,27:B20,22,24",  # 4/4 — bras 5, angl 5, port 5, casa 5
+            "W:W8,22,30:B18,20,21",  # 4/4 — bras 3, angl 5, port 3, casa 3
+            "W:W6,18,26:B15,20,22",  # 4/4 — bras 3, angl 5, port 3, casa 3
+            "W:W10,27,29:B13,18,21",  # 3/4 — bras 3, port 5, casa 3 (anglo nao)
+            "W:W7,26,32:B15,22,23",  # 4/4 — 3 nas quatro
+            "W:W7,25,31:B14,17,22",  # 4/4 — 3 nas quatro
+            "W:W7,21,27:B13,22,24",  # 4/4 — 3 nas quatro
+            "W:W7,20,27:B17,18,23",  # 4/4 — 3 nas quatro
+            "W:W7,17,29:B14,19,23",  # 4/4 — 3 nas quatro
         ),
     ),
     "damas_capturar_multipla": Receita(
@@ -198,11 +232,27 @@ RECEITAS: dict[str, Receita] = {
         },
         # Posicoes com material suficiente para uma captura encadeada aparecer
         # depois de um ou dois lances.
+        #
+        # ⚠️ **Este tipo resiste a geracao automatica, e o motivo e o jogo, nao a
+        # ferramenta.** A caçada de 11/09/2026 mediu 30 posicoes sinteticas e
+        # aprovou **uma**: 18 nunca cumpriram dentro do teto e 8 ja nasciam com a
+        # captura dupla armada (trivial no lance 1). Coroar aprovou 22 das mesmas
+        # 30 tentativas.
+        #
+        # A razao e que **capturar duas em sequencia e um objetivo ADVERSARIAL**:
+        # um Sagaz do outro lado nao concede captura encadeada, e a captura
+        # obrigatoria das damas e justamente o que ele usa para nao conceder. Ou
+        # a posicao ja tem a cadeia armada — e ai o desafio dura um lance — ou
+        # ela nunca se forma. Coroar nao tem esse problema: o adversario pode
+        # atrapalhar, mas nao pode proibir que uma pedra avance.
         moldes=(
+            # ── Os quatro fundadores, escritos a mao em 09/09/2026 ───────────
             "W:W27,28,31:B15,19,23,4",
             "W:W26,30,32:B14,18,22,3",
             "W:W25,29,31:B13,17,21,2",
             "W:W28,30,32:B16,20,24,1",
+            # ── Medido em 11/09/2026 ────────────────────────────────────────
+            "W:W26,27,30:B10,15,18,19",  # 4/4 — lance 3 nas quatro
         ),
     ),
 }
