@@ -519,3 +519,78 @@ def test_tipo_com_UMA_variante_sempre_devolve_zero() -> None:
     for n in range(30):
         dia = EPOCA_DO_RODIZIO + timedelta(days=n)
         assert escolher_variante("damas", dia, quantas_variantes=1) == 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ A POSICAO QUE VAI AO AR NAO SE RESOLVE NO PRIMEIRO TOQUE
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ Os moldes ja passam por `moldes_triviais` (T049g), e mesmo assim a primeira
+# execucao real no Railway publicou um desafio de UM lance: o que vai ao ar e o
+# molde **mais um lance de variacao**, e ninguem perguntava nada sobre o
+# resultado dessa soma.
+
+
+def test_a_posicao_do_candidato_NAO_se_resolve_no_PRIMEIRO_TOQUE(
+    candidato_de_damas,
+) -> None:
+    """🔒 A pergunta feita sobre o que o job realmente publica.
+
+    ⚠️ **De graca:** usa a fixture de modulo, entao nao gera nada de novo.
+    """
+    from job.moldes_de_damas import objetivo_no_primeiro_lance
+
+    candidato = candidato_de_damas
+    fen = candidato.js_posicao_inicial["fen"]
+    lance = objetivo_no_primeiro_lance(
+        fen, candidato.receita.co_tipo_desafio, candidato.co_modalidade
+    )
+    assert lance is None, (
+        f"o candidato publicaria {fen}, onde {lance} cumpre o objetivo sozinho — "
+        "um desafio de um toque, com regua, XP e gabarito bem formados"
+    )
+
+
+def test_o_gerador_RECUSA_toda_posicao_trivial_em_vez_de_publicar(monkeypatch) -> None:
+    """🔒 O controle positivo: com TODA posicao trivial, nada e publicado.
+
+    ⛔ Sem este caso, o de cima poderia estar verde por sorte — os moldes de hoje
+    raramente produzem uma variacao trivial, e um `continue` apagado por engano
+    so apareceria meses depois, num dia de captura.
+
+    ⚠️ **A posicao forcada aqui e a de producao** (`72542794`, 11/09/2026): as
+    pretas capturam duas de uma vez com `21x30x23`.
+    """
+    from job import gerador as gerador_mod
+    from motores.damas.motor_damas import EstadoDamas
+
+    trivial = "B:W25,26,29:B16,17,18,21"
+
+    def sempre_trivial(*_args, **kwargs):
+        return EstadoDamas(
+            co_modalidade=kwargs.get("co_modalidade", "brasileira"),
+            fen_inicial=trivial,
+        )
+
+    monkeypatch.setattr(gerador_mod, "_preparar_damas", sempre_trivial)
+
+    dia = next(
+        EPOCA_DO_RODIZIO + timedelta(days=n)
+        for n in range(10)
+        if escolher_jogo(EPOCA_DO_RODIZIO + timedelta(days=n)) == "damas"
+        and escolher_tipo("damas", EPOCA_DO_RODIZIO + timedelta(days=n))
+        == "damas_capturar_multipla"
+    )
+    candidatos = gerador_mod.gerar_candidatos(
+        dia,
+        parametros={"pecas": 2, "lances": 4},
+        quantos=1,
+        tentativas_por_candidato=2,
+        lances_de_preparo=8,
+        maximo_de_lances=8,
+    )
+    assert candidatos == [], (
+        "com todas as posicoes triviais o gerador tem de voltar de maos vazias — "
+        "o dia cai na reprise, que e o caminho previsto. ⛔ Publicar um desafio "
+        "de um toque nao e uma alternativa aceitavel a um dia sem desafio."
+    )

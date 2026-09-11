@@ -60,6 +60,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 #: O nome da variavel de ambiente. Escrito uma vez para a mensagem de erro e o
 #: teste falarem do mesmo nome.
@@ -126,23 +127,36 @@ def criar_engine(url: str | None = None):
     Args:
         url: a URL ja normalizada. `None` le do ambiente.
 
-    ⚠️ **`pool_size=1`**, e nao o padrao: este processo faz uma coisa de cada vez
-    — gerar e medir sao trabalho de CPU, e nada aqui e concorrente. Um pool de
-    cinco conexoes ociosas so ocupa lugar no limite do Postgres, que e
-    compartilhado com a API.
+    ⛔ **`NullPool`: este job NAO guarda conexao entre operacoes**, e a razao foi
+    medida em producao, na primeira execucao real no Railway (11/09/2026).
 
-    ⚠️ **`pool_pre_ping=True` mesmo assim**: a geracao de um dia pode levar
+    O desenho anterior era `pool_size=1` + `pool_pre_ping=True`, com um
+    comentario que descrevia certo o problema — *"a geracao de um dia pode levar
     minutos de CPU sem tocar no banco, e uma conexao parada tanto tempo pode ter
-    sido derrubada pelo servidor. Sem o ping, a primeira gravacao depois da
-    medicao estouraria — depois de todo o trabalho ter sido feito.
+    sido derrubada"* — e escolhia a defesa errada. ⚠️ **O pre-ping FOI quem
+    quebrou:**
+
+        asyncpg.exceptions._base.InternalClientError:
+        cannot switch to state 15; another operation (2) is in progress
+
+    O pre-ping abre uma transacao para testar a conexao. Numa conexao que o
+    proxy do Railway derrubou durante os minutos de busca, o asyncpg nao devolve
+    um erro de desconexao — devolve um `InternalClientError`, que ⛔ **o dialeto
+    do SQLAlchemy nao reconhece como "conexao morta"**. Entao, em vez de
+    descartar a conexao e abrir outra (que e o que o pre-ping existe para fazer),
+    o erro sobe e mata o dia. Foi o que aconteceu com 2026-09-17: seis dias
+    gerados, o setimo perdido, e a fila com buraco.
+
+    ⚠️ **Sem pool nao ha conexao dormindo**, e o problema deixa de existir por
+    construcao — nao ha o que testar antes de usar. O custo e uma conexao TCP
+    nova por operacao, e ⚠️ **isso e irrelevante aqui**: este job faz dezenas de
+    consultas numa execucao, e passa a maior parte do tempo em CPU.
+
+    ⛔ **Nao troque isto por "pool_recycle" nem por um `try/except` em volta da
+    consulta.** O primeiro so encurta a janela (a conexao ainda dorme); o segundo
+    reintroduz o mesmo erro em cada chamada nova que alguem escrever.
     """
-    return create_async_engine(
-        url or url_do_banco(),
-        echo=False,
-        pool_pre_ping=True,
-        pool_size=1,
-        max_overflow=0,
-    )
+    return create_async_engine(url or url_do_banco(), echo=False, poolclass=NullPool)
 
 
 def fabrica_de_sessoes(engine) -> async_sessionmaker[AsyncSession]:

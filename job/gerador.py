@@ -55,6 +55,7 @@ from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicao_inicial as posicao_mod
 from . import semente as semente_mod
+from .moldes_de_damas import objetivo_no_primeiro_lance
 from .tipos_de_desafio import Receita, receita_de, tipos_do_jogo
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -564,6 +565,33 @@ def gerar_candidatos(
                 moldes=receita.moldes,
                 co_modalidade=co_modalidade,
             )
+            # ── ⛔ ESTA POSICAO SE RESOLVE NO PRIMEIRO TOQUE? ────────────
+            #
+            # ⚠️ **A pergunta e sobre o que VAI AO AR, e nao sobre o molde.** Os
+            # moldes ja foram peneirados (T049g), mas o que se publica e o molde
+            # **mais um lance de variacao** — e um lance basta para armar uma
+            # cadeia de captura que o molde nao tinha.
+            #
+            # ⛔ Foi assim que `72542794` foi publicado em 11/09/2026, ja com os
+            # moldes limpos: `B:W25,26,29:B16,17,18,21`, solucao `21x30x23`,
+            # **um lance**. E a regua nao acusa — ela mediu tres mascotes
+            # resolvendo 20 de 20, que e o que se espera de um desafio banal.
+            #
+            # ⚠️ **E a variacao troca o lado**: o molde tem as brancas a jogar, a
+            # posicao publicada tem as pretas, e e com elas que a pessoa resolve.
+            # Por isso `objetivo_no_primeiro_lance` pergunta por **quem esta a
+            # jogar** na FEN que recebe, e nao por uma cor fixa.
+            #
+            # ⛔ **Descartar aqui nao deixa o dia descoberto**: o laco continua, e
+            # ha `tentativas_por_candidato * quantos` posicoes para tentar.
+            de_cara = objetivo_no_primeiro_lance(base.fen, co_tipo, co_modalidade)
+            if de_cara is not None:
+                print(
+                    f"⚠️ [job] {dt_dia}: posicao descartada — o objetivo cai no "
+                    f"lance 1 ({co_modalidade}: {de_cara}). FEN {base.fen}"
+                )
+                continue
+
             js_posicao = posicao_mod.das_damas(base.fen, co_modalidade=co_modalidade)
             # ⛔ **O motor PRECISA nascer com a modalidade do dia.** `MotorDamas()`
             # tem `brasileira` por padrao, e um esquecimento aqui faria o gabarito

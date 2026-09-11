@@ -26,7 +26,11 @@ from __future__ import annotations
 
 import pytest
 
-from job.moldes_de_damas import MODALIDADES, moldes_triviais
+from job.moldes_de_damas import (
+    MODALIDADES,
+    moldes_triviais,
+    objetivo_no_primeiro_lance,
+)
 from job.tipos_de_desafio import receita_de
 from motores.damas.motor_damas import EstadoDamas, MotorDamas
 
@@ -163,3 +167,81 @@ def test_o_verificador_ENXERGA_um_molde_trivial() -> None:
     achados = moldes_triviais([trivial], "damas_capturar_multipla")
     assert trivial in achados
     assert len(achados[trivial]) == len(MODALIDADES)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. ⛔ A POSICAO PUBLICADA — o que o cadeado acima NAO cobria
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ Os casos de cima olham o **molde**. O que vai ao ar e o molde **mais um
+# lance de variacao**, e a primeira execucao no Railway (11/09/2026, a noite)
+# publicou um desafio de um lance com todos os moldes ja limpos.
+#
+# ⛔ E ha um segundo erro embutido no primeiro: o lance de variacao **troca o
+# lado**. O molde tem as brancas a jogar; a posicao publicada tem as pretas, e e
+# com elas que a pessoa resolve. Este modulo perguntava sempre pelas brancas.
+
+#: A FEN exata que o job publicou como `72542794` em 11/09/2026, com
+#: `js_solucao` de **um** lance (`21x30x23`) e a regua marcando 20/20 nos tres
+#: mascotes.
+#:
+#: ⚠️ **E dado de producao, e nao um exemplo inventado** — e por isso que ela
+#: prova alguma coisa: se um dia deixar de ser acusada, o defeito voltou.
+POSICAO_PUBLICADA_DE_UM_LANCE = "B:W25,26,29:B16,17,18,21"
+
+#: O desafio de coroar do dia 13, que e saudavel: solucao de sete meios-lances.
+POSICAO_PUBLICADA_SAUDAVEL = "B:W11,17,32:B13,23"
+
+
+def test_a_posicao_PUBLICADA_de_um_lance_e_acusada() -> None:
+    """🔒 O caso real que passou por todos os cadeados anteriores.
+
+    ⚠️ **As pretas estao a jogar** (`B:`), e sao elas que capturam duas de uma
+    vez. Enquanto `_coroou`/`_capturou_duas` perguntavam pelas brancas, esta
+    posicao passava limpa — o verificador olhava o lado que nao resolve nada.
+    """
+    lance = objetivo_no_primeiro_lance(
+        POSICAO_PUBLICADA_DE_UM_LANCE, "damas_capturar_multipla", "brasileira"
+    )
+    assert lance == "21x30x23", (
+        "a posicao que o Railway publicou com solucao de UM lance precisa ser "
+        f"acusada; veio {lance!r}"
+    )
+
+
+def test_uma_posicao_publicada_SAUDAVEL_nao_e_acusada() -> None:
+    """🔒 O controle negativo do caso acima.
+
+    Sem ele, um verificador que respondesse "trivial" para tudo passaria no teste
+    anterior e reprovaria a fila inteira — e a fila vazia se parece com um
+    gerador quebrado, nao com um cadeado exagerado.
+    """
+    assert (
+        objetivo_no_primeiro_lance(
+            POSICAO_PUBLICADA_SAUDAVEL, "damas_coroar", "casa"
+        )
+        is None
+    )
+
+
+def test_o_verificador_enxerga_os_DOIS_lados() -> None:
+    """🔒 A mesma posicao, com a vez trocada, nao pode dar a mesma resposta.
+
+    ⚠️ Este e o cadeado do **lado**, e ele e independente do caso de producao: se
+    alguem reescrever `_lado_e_adversario` para olhar uma cor fixa, os dois testes
+    de cima podem continuar verdes por acaso — este nao.
+    """
+    # Com as PRETAS a jogar, 21 captura duas brancas de uma vez.
+    com_pretas = objetivo_no_primeiro_lance(
+        "B:W25,26,29:B16,17,18,21", "damas_capturar_multipla", "brasileira"
+    )
+    # A MESMA distribuicao de pecas, mas quem joga sao as brancas: elas nao tem
+    # captura dupla nenhuma disponivel.
+    com_brancas = objetivo_no_primeiro_lance(
+        "W:W25,26,29:B16,17,18,21", "damas_capturar_multipla", "brasileira"
+    )
+    assert com_pretas is not None, "as pretas capturam duas — tem de ser acusado"
+    assert com_brancas is None, (
+        "as brancas nao capturam duas nesta posicao; acusar aqui quer dizer que o "
+        "verificador esta olhando o campo errado da FEN"
+    )

@@ -706,3 +706,42 @@ async def test_assinatura_REPETIDA_devolve_o_id_anterior() -> None:
         js_chegada={"janela": {}, "clausulas": []},
     )
     assert achado == "o-de-marco"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ A CONEXAO DO JOB NAO DORME NO POOL
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_engine_do_job_usa_NULLPOOL() -> None:
+    """🔒 O cadeado do crash de 11/09/2026 no Railway.
+
+    A engine tinha `pool_size=1` + `pool_pre_ping=True`, e o comentario que
+    justificava o ping descrevia o problema certo: a geracao de um dia passa
+    minutos em CPU sem tocar no banco, e o proxy do Railway derruba a conexao
+    parada.
+
+    ⛔ **A defesa e que estava errada.** O pre-ping abre uma transacao para testar
+    a conexao; numa conexao derrubada o asyncpg devolve
+
+        InternalClientError: cannot switch to state 15;
+        another operation (2) is in progress
+
+    que o dialeto do SQLAlchemy **nao** reconhece como desconexao. Em vez de
+    trocar a conexao, o erro sobe — e matou o dia 2026-09-17 depois de seis dias
+    gerados, deixando buraco na fila.
+
+    ⚠️ Sem pool nao ha conexao dormindo, e o problema deixa de existir por
+    construcao. O preco (uma conexao nova por operacao) e irrelevante num
+    processo que acorda uma vez por dia.
+    """
+    from sqlalchemy.pool import NullPool
+
+    from job.banco import criar_engine
+
+    engine = criar_engine("postgresql+asyncpg://u:s@h:5432/d")
+    assert isinstance(engine.pool, NullPool), (
+        f"a engine do job voltou a usar {type(engine.pool).__name__}. ⛔ Qualquer "
+        "pool guarda conexao entre as operacoes, e e exatamente a conexao "
+        "guardada que o proxy derruba durante a busca."
+    )

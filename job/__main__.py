@@ -514,15 +514,24 @@ async def cobrir_um_dia(
         # contagem que leva a execucao a sair com 1.
         distancia, candidato, medicoes = reserva
         escolhido = (candidato, medicoes)
+        # ⚠️ **`distancia` e o quanto FALTOU, e nao a taxa.** Ate 11/09/2026
+        # esta linha dizia *"taxa media 0.10 fora da banda [0.70, 0.80]"*, o que
+        # se le como um desafio duríssimo — quando o caso era o oposto: taxa 0.90,
+        # dez pontos ACIMA do teto. ⛔ Um relatorio que troca o sinal do problema
+        # e pior que um relatorio ausente: manda investigar o lado errado.
+        taxa_media = regua_mod.taxa_media(medicoes)
         relatorio.fora_da_banda.append(
-            f"{dt_dia}: taxa media {distancia:.2f} fora da banda "
+            f"{dt_dia}: taxa media {taxa_media:.2f} "
+            f"({'acima' if taxa_media > alvo.teto else 'abaixo'} por "
+            f"{distancia:.2f}) fora da banda "
             f"[{alvo.piso:.2f}, {alvo.teto:.2f}] (alvo {alvo.co_origem})"
         )
         print(
             f"⚠️ [job] {dt_dia}: nenhum dos {len(candidatos)} candidatos caiu na "
             f"banda [{alvo.piso:.2f}, {alvo.teto:.2f}]. Publicando o mais "
-            f"proximo (erro {distancia:.2f}) como CANDIDATO, para a curadoria "
-            "decidir.",
+            f"proximo (taxa media {taxa_media:.2f}, "
+            f"{'banal' if taxa_media > alvo.teto else 'duro'} por "
+            f"{distancia:.2f}) como CANDIDATO, para a curadoria decidir.",
             file=sys.stderr,
         )
 

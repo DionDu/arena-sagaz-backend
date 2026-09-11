@@ -187,6 +187,24 @@ def tentativa_com_motor(
     return tentar
 
 
+def taxa_media(medicoes: Sequence[Medicao]) -> float:
+    """A taxa media dos mascotes medidos.
+
+    ⚠️ **Escrita uma vez.** Ate 11/09/2026 esta conta existia identica dentro de
+    `dentro_da_banda` e de `distancia_da_banda`, e o log precisava de uma
+    terceira copia para dizer ao dono se o candidato ficou **acima** ou
+    **abaixo** da banda. Tres copias de uma media e uma divergencia esperando o
+    dia em que alguem mudar o criterio (ponderar pelo mascote, por exemplo) num
+    lugar so.
+
+    Args:
+        medicoes: as linhas da regua daquele candidato. ⛔ Nao pode ser vazia —
+            quem chama ja precisa ter tratado esse caso, porque "nada medido"
+            nao tem media, e devolver zero faria o desafio parecer duríssimo.
+    """
+    return sum(m.taxa for m in medicoes) / len(medicoes)
+
+
 def dentro_da_banda(
     medicoes: Sequence[Medicao],
     *,
@@ -202,8 +220,7 @@ def dentro_da_banda(
     """
     if not medicoes:
         return False
-    media = sum(m.taxa for m in medicoes) / len(medicoes)
-    return piso <= media <= teto
+    return piso <= taxa_media(medicoes) <= teto
 
 
 def distancia_da_banda(
@@ -229,7 +246,7 @@ def distancia_da_banda(
     """
     if not medicoes:
         return float("inf")
-    media = sum(m.taxa for m in medicoes) / len(medicoes)
+    media = taxa_media(medicoes)
     if media < piso:
         return piso - media
     if media > teto:
