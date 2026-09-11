@@ -42,9 +42,19 @@ TIPOS = ("damas_coroar", "damas_capturar_multipla")
 #: ⚠️ **Nao e numero de enfeite:** a fila publica um desafio de damas a cada dois
 #: dias, rodiziando quatro modalidades sobre os MESMOS moldes. Com meia duzia, a
 #: mesma posicao volta dentro de um mes — foi o que aconteceu no `des` com quatro
-#: moldes, e e a razao de T049g existir. Este piso pega a exclusao acidental de um
-#: pedaco da lista, que e o acidente provavel num arquivo de 170 linhas de dado.
-PISO_DE_MOLDES = {"damas_coroar": 100, "damas_capturar_multipla": 8}
+#: moldes, e e a razao de T049g existir.
+#:
+#: ⚠️ **O piso subiu em 11/09/2026, com a cacada de 1.000.** O acervo passou a
+#: 330 moldes de coroar e 29 de captura; um piso de 100 continuaria verde depois
+#: de alguem apagar **dois tercos** da lista, e um cadeado que so acusa a perda
+#: quase total nao esta guardando nada.
+#:
+#: ⛔ **Ele nao e o tamanho do acervo**, e isso e deliberado: escrever 330 aqui
+#: faria o teste falhar no dia em que um molde legitimamente saisse (por ser
+#: trivial numa modalidade nova, por exemplo), e o conserto seria mexer no
+#: numero — que e como um cadeado vira decoracao. O piso e uma **fracao**, e
+#: pega o acidente provavel: um pedaco da lista apagado por engano.
+PISO_DE_MOLDES = {"damas_coroar": 250, "damas_capturar_multipla": 25}
 
 
 def moldes(co_tipo: str) -> tuple[str, ...]:
