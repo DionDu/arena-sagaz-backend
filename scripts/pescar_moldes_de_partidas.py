@@ -178,6 +178,221 @@ def carregar(caminho: Path) -> list[str]:
     return list(vistas)
 
 
+class Diario:
+    """O caderno em disco: o que ja foi medido nao se mede de novo.
+
+    ═══════════════════════════════════════════════════════════════════════
+    ⚠️ POR QUE ISTO EXISTE
+    ═══════════════════════════════════════════════════════════════════════
+
+    A pescaria de captura multipla leva ~7 h. O dono pediu, com razao, que ela
+    *"permita interromper e retomar, sem perder todo o trabalho"* — em sete horas
+    acontece queda de energia, atualizacao do Windows e arrependimento.
+
+    ⚠️ **O formato e JSONL — uma linha por posicao medida**, e nao um JSON unico.
+    Um JSON so teria de ser reescrito inteiro a cada posicao (caro, e com janela
+    de corrupcao a cada gravacao); no JSONL, uma queda no meio da escrita perde
+    **a ultima linha** e nada mais. ⛔ A leitura ignora linha quebrada de
+    proposito, em vez de falhar: perder a ultima posicao e barato, refazer sete
+    horas nao e.
+
+    ⚠️ **`flush()` a cada linha.** Sem ele o Python segura os dados num buffer de
+    8 KB, e um `Ctrl+C` jogaria fora dezenas de posicoes ja calculadas — o
+    trabalho estaria feito e o arquivo nao saberia.
+    """
+
+    def __init__(self, caminho: Path, assinatura: dict) -> None:
+        """Abre o diario, conferindo que ele e da MESMA pescaria.
+
+        Args:
+            caminho: o arquivo `.jsonl`.
+            assinatura: os parametros que definem esta pescaria (tipo, filtros,
+                arquivo de origem).
+
+        Raises:
+            SystemExit: se o diario existente for de outra pescaria. ⛔ **Retomar
+                com filtro diferente misturaria dois acervos** — metade das
+                posicoes medidas com um criterio e metade com outro —, e o
+                resultado pareceria normal.
+        """
+        self.caminho = caminho
+        self.peneira: dict[str, object] = {}
+        self.medicao: dict[str, list] = {}
+        self.motivos: Counter[str] = Counter()
+
+        if caminho.exists():
+            self._ler(assinatura)
+
+        # Abre em modo append: retomar acrescenta, ⛔ nunca sobrescreve — abrir em
+        # `w` apagaria as sete horas anteriores sem dizer nada.
+        vazio = not caminho.exists() or caminho.stat().st_size == 0
+        # ⛔ **Se a sessao anterior morreu no meio de uma linha, ela nao terminou
+        # em `\n`** — e o proximo registro grudaria nela, corrompendo tambem um
+        # registro BOM. Um `\n` antes de tudo isola o lixo numa linha so.
+        precisa_de_quebra = not vazio and not caminho.read_bytes().endswith(b"\n")
+
+        self._arquivo = caminho.open("a", encoding="utf-8")
+        if precisa_de_quebra:
+            self._arquivo.write("\n")
+            self._arquivo.flush()
+        if vazio:
+            self._escrever({"tipo_de_linha": "assinatura", **assinatura})
+
+    def _ler(self, assinatura: dict) -> None:
+        """Carrega o que ja foi feito, e confere a assinatura."""
+        for numero, linha in enumerate(
+            self.caminho.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            if not linha.strip():
+                continue
+            try:
+                registro = json.loads(linha)
+            except json.JSONDecodeError:
+                # ⚠️ Quase sempre a ultima linha, cortada por uma queda. Avisa e
+                # segue: e exatamente o caso para o qual o JSONL foi escolhido.
+                print(f"  ⚠️ linha {numero} do diario esta quebrada; ignorada")
+                continue
+
+            tipo_de_linha = registro.get("tipo_de_linha")
+            if tipo_de_linha == "assinatura":
+                divergentes = [
+                    f"{chave}: diario={registro.get(chave)!r} agora={valor!r}"
+                    for chave, valor in assinatura.items()
+                    if registro.get(chave) != valor
+                ]
+                if divergentes:
+                    raise SystemExit(
+                        f"⛔ o diario {self.caminho.name} e de OUTRA pescaria:\n    "
+                        + "\n    ".join(divergentes)
+                        + "\n   Apague-o para comecar do zero, ou use --diario com "
+                        "outro nome."
+                    )
+            elif tipo_de_linha == "peneira":
+                self.peneira[registro["fen"]] = registro["lance"]
+                self.motivos.update(registro.get("motivos") or {})
+            elif tipo_de_linha == "medicao":
+                self.medicao[registro["fen"]] = registro["lances"]
+
+    def _escrever(self, registro: dict) -> None:
+        """Uma linha, e o disco na hora."""
+        self._arquivo.write(json.dumps(registro, ensure_ascii=False) + "\n")
+        self._arquivo.flush()
+
+    def anotar_peneira(self, fen: str, lance: object, motivos: dict) -> None:
+        """Guarda o resultado da fase 1 para uma posicao."""
+        self.peneira[fen] = lance
+        self.motivos.update(motivos)
+        self._escrever(
+            {"tipo_de_linha": "peneira", "fen": fen, "lance": lance, "motivos": motivos}
+        )
+
+    def anotar_medicao(self, fen: str, lances: list) -> None:
+        """Guarda o resultado da fase 2 para uma posicao."""
+        self.medicao[fen] = lances
+        self._escrever({"tipo_de_linha": "medicao", "fen": fen, "lances": lances})
+
+    def fechar(self) -> None:
+        """Fecha o arquivo. Chamado tambem quando a pescaria e interrompida."""
+        self._arquivo.close()
+
+
+def _distancias(lances: list[int]) -> str:
+    """`[3, 3, 7]` vira `3L:2 7L:1` — quantos desafios de cada tamanho ja sairam.
+
+    ⚠️ **E o indicador que mais importa durante a pescaria**, e foi o que o dono
+    pediu: *"quantas ja sao elegiveis para cada um dos desafios"*. O acervo
+    sorteado nao tinha NENHUM molde de captura acima de 4 lances; ver um `7L`
+    aparecer na primeira hora diz, sem esperar as sete, que a pesca esta valendo.
+    """
+    if not lances:
+        return "nenhum ainda"
+    contagem = Counter(lances)
+    return " ".join(f"{n}L:{contagem[n]}" for n in sorted(contagem))
+
+
+def _resumo_da_peneira(diario: "Diario") -> str:
+    """Quantas passaram, e com que tamanho de solucao.
+
+    ⚠️ **A peneira ja sabe a distancia** — ela devolve em que lance o objetivo
+    caiu, e nao um sim/nao. Entao o retrato do acervo aparece desde a primeira
+    fase, horas antes de a medicao confirmar.
+    """
+    passaram = [v for v in diario.peneira.values() if v is not None]
+    return f"— elegiveis {len(passaram)} | {_distancias(passaram)}"
+
+
+def _resumo_da_medicao(diario: "Diario") -> str:
+    """Quantos moldes fecharam, com que distancia e com quanto material."""
+    distancias: list[int] = []
+    material: list[int] = []
+    for fen, lances in diario.medicao.items():
+        validos = [n for n in lances if n is not None]
+        if len(validos) >= MINIMO_DE_MODALIDADES:
+            distancias.append(round(sum(validos) / len(validos)))
+            material.append(sum(pecas_da_fen(fen)))
+    media = f" | material {sum(material) / len(material):.1f}" if material else ""
+    return f"— moldes {len(distancias)} | {_distancias(distancias)}{media}"
+
+
+def _tempo(segundos: float) -> str:
+    """`4530` vira `1h15m`. Numero de sete horas em segundos nao se le."""
+    if segundos < 90:
+        return f"{segundos:.0f}s"
+    minutos = int(segundos // 60)
+    if minutos < 90:
+        return f"{minutos}m"
+    return f"{minutos // 60}h{minutos % 60:02d}m"
+
+
+def _andamento(
+    nome: str, feitas: int, total: int, retomadas: int, relogio: float, extra: str
+) -> str:
+    """A linha de progresso, com previsao de termino.
+
+    ⚠️ **A previsao usa so o que foi medido NESTA execucao** (`feitas -
+    retomadas`): incluir as posicoes lidas do diario daria uma velocidade
+    fantasiosa — elas vieram do disco, em microssegundos.
+    """
+    nesta_vez = feitas - retomadas
+    decorrido = time.monotonic() - relogio
+    if nesta_vez > 0 and feitas < total:
+        falta = (total - feitas) * (decorrido / nesta_vez)
+        previsao = f" — faltam ~{_tempo(falta)}"
+    else:
+        previsao = ""
+    return f"  {nome} {feitas}/{total} ({100 * feitas // total}%) {extra}{previsao}"
+
+
+def _rodar_fase(
+    nome: str,
+    funcao,
+    pendentes: list[str],
+    ja_feitas: int,
+    total: int,
+    args,
+    parametros,
+    anotar,
+    resumo,
+) -> None:
+    """Roda uma fase em paralelo, anotando cada resultado no diario.
+
+    ⚠️ **Anota ANTES de contar**, e nao depois: se a maquina cair entre uma coisa
+    e outra, e melhor ter a posicao no diario e o numero na tela errado do que o
+    contrario.
+    """
+    relogio = time.monotonic()
+    feitas = ja_feitas
+    for resultado in _mapear(
+        funcao, [(f, args.tipo, parametros) for f in pendentes], args.processos
+    ):
+        anotar(resultado)
+        feitas += 1
+        # A cada 25 posicoes, e sempre na ultima: sete horas caladas parecem
+        # travamento, e foi isso que o dono pediu para nao acontecer.
+        if feitas % 25 == 0 or feitas == total:
+            print(_andamento(nome, feitas, total, ja_feitas, relogio, resumo()), flush=True)
+
+
 def main() -> int:
     """Pesca, peneira, mede e imprime — nesta ordem, com o tempo de cada fase."""
     ap = argparse.ArgumentParser(description=__doc__)
@@ -220,11 +435,25 @@ def main() -> int:
     )
     ap.add_argument("--processos", type=int, default=processos_padrao())
     ap.add_argument(
+        "--diario",
+        type=Path,
+        default=None,
+        help=(
+            "onde guardar o andamento, para poder interromper e retomar. "
+            "Padrao: `pescaria_<tipo>.jsonl` ao lado do CSV. ⚠️ Rodar o MESMO "
+            "comando de novo continua de onde parou; apagar o arquivo recomeça."
+        ),
+    )
+    ap.add_argument(
         "--bloco",
         action="store_true",
         help="imprime as aprovadas como um bloco Python, pronto para colar",
     )
     args = ap.parse_args()
+    if args.diario is None:
+        # Ao lado do CSV, com o tipo no nome: as duas pescarias (coroar e
+        # captura) rodam no mesmo CSV e ⛔ nao podem dividir o mesmo diario.
+        args.diario = args.arquivo.parent / f"pescaria_{args.tipo}.jsonl"
 
     parametros = TIPOS[args.tipo]
     candidatas = carregar(args.arquivo)
@@ -259,41 +488,86 @@ def main() -> int:
         flush=True,
     )
 
-    # ── Fase 1: a peneira ────────────────────────────────────────────────────
-    relogio = time.monotonic()
-    motivos: Counter[str] = Counter()
-    aprovadas: list[str] = []
-    for i, (fen, lance, causas) in enumerate(
-        _mapear(_peneirar_uma, [(f, args.tipo, parametros) for f in candidatas], args.processos),
-        start=1,
-    ):
-        motivos.update(causas)
-        if lance is not None:
-            aprovadas.append(fen)
-        if i % 50 == 0:
-            print(f"  peneira {i}/{len(candidatas)} — passaram {len(aprovadas)}", flush=True)
-    print(
-        f"peneira: {len(aprovadas)} de {len(candidatas)} "
-        f"em {time.monotonic() - relogio:.0f}s"
+    # ── O diario: e ele que torna a pescaria retomavel ───────────────────────
+    diario = Diario(
+        args.diario,
+        {
+            "tipo": args.tipo,
+            "arquivo": args.arquivo.name,
+            "minimo_pecas": args.minimo_pecas,
+            "alcancavel": args.alcancavel,
+            "embaralhar": args.embaralhar,
+            "amostra": args.amostra,
+            "posicoes": len(candidatas),
+        },
     )
-    for causa, quantas in motivos.most_common(8):
-        print(f"    {causa}: {quantas}")
+    if diario.peneira or diario.medicao:
+        print(
+            f"↻ retomando de {args.diario.name}: "
+            f"{len(diario.peneira)} peneiradas, {len(diario.medicao)} medidas"
+        )
 
-    if not aprovadas:
-        print("⛔ nenhuma posicao real resolve este objetivo dentro da janela.")
-        return 1
+    try:
+        # ── Fase 1: a peneira ────────────────────────────────────────────────
+        pendentes = [f for f in candidatas if f not in diario.peneira]
+        if pendentes:
+            _rodar_fase(
+                "peneira",
+                _peneirar_uma,
+                pendentes,
+                len(candidatas) - len(pendentes),
+                len(candidatas),
+                args,
+                parametros,
+                anotar=lambda r: diario.anotar_peneira(r[0], r[1], r[2]),
+                resumo=lambda: _resumo_da_peneira(diario),
+            )
 
-    # ── Fase 2: a medicao nas quatro modalidades ─────────────────────────────
-    relogio = time.monotonic()
-    bons: list[tuple[int, float, str]] = []
-    for fen, lances, _causas in _mapear(
-        _medir_uma, [(f, args.tipo, parametros) for f in aprovadas], args.processos
-    ):
-        validos = [n for n in lances if n is not None]
-        if len(validos) >= MINIMO_DE_MODALIDADES:
-            bons.append((len(validos), sum(validos) / len(validos), fen))
-    bons.sort(key=lambda t: (-t[0], -t[1]))
-    print(f"medicao: {len(bons)} moldes em {time.monotonic() - relogio:.0f}s")
+        aprovadas = [f for f in candidatas if diario.peneira.get(f) is not None]
+        print(f"peneira: {len(aprovadas)} de {len(candidatas)}")
+        for causa, quantas in diario.motivos.most_common(8):
+            print(f"    {causa}: {quantas}")
+
+        if not aprovadas:
+            print("⛔ nenhuma posicao real resolve este objetivo dentro da janela.")
+            return 1
+
+        # ── Fase 2: a medicao nas quatro modalidades ─────────────────────────
+        pendentes = [f for f in aprovadas if f not in diario.medicao]
+        if pendentes:
+            _rodar_fase(
+                "medicao",
+                _medir_uma,
+                pendentes,
+                len(aprovadas) - len(pendentes),
+                len(aprovadas),
+                args,
+                parametros,
+                anotar=lambda r: diario.anotar_medicao(r[0], r[1]),
+                resumo=lambda: _resumo_da_medicao(diario),
+            )
+    except KeyboardInterrupt:
+        # ⚠️ Sai limpo e diz como voltar. Sem esta mensagem, um Ctrl+C deixaria a
+        # impressao de que as horas ja rodadas foram perdidas — e elas nao foram.
+        print(
+            f"\n⚠️ interrompido. Nada se perdeu: {len(diario.peneira)} peneiradas e "
+            f"{len(diario.medicao)} medidas estao em {args.diario}.\n"
+            "   Rode o MESMO comando para continuar de onde parou."
+        )
+        return 130
+    finally:
+        diario.fechar()
+
+    bons = sorted(
+        (
+            (len(validos), sum(validos) / len(validos), fen)
+            for fen in aprovadas
+            if (validos := [n for n in diario.medicao.get(fen, []) if n is not None])
+            and len(validos) >= MINIMO_DE_MODALIDADES
+        ),
+        key=lambda t: (-t[0], -t[1]),
+    )
+    print(f"medicao: {len(bons)} moldes")
 
     # ── O retrato: material e distancia, que e o que se quer comparar ────────
     if bons:
