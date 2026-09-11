@@ -337,15 +337,62 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # medida e pior que nenhuma: os moldes foram escritos e validados contra
     # *"coroar em 6 lances"*, e uma janela mais curta pode nao ser alcancavel a
     # partir de nenhum deles — o que viraria dia descoberto, e nao erro.
+    # ⚠️ **MEDIDO em 11/09/2026**, depois da limpeza dos moldes triviais
+    # (`scripts/medir_variantes_do_editorial.py damas`, tres dias por candidata):
+    #
+    #     {damas:1, lances: 4}   pior 3   solucao media 4.3 meios-lances   210s
+    #     {damas:1, lances: 6}   pior 3   solucao media 6.8 meios-lances   117s
+    #     {damas:1, lances: 8}   pior 3   solucao media 6.8 meios-lances   117s
+    #     {damas:1, lances:10}   pior 3   solucao media 6.8 meios-lances   117s
+    #
+    # ⛔ **So as duas primeiras entraram, e o motivo esta nos numeros iguais.**
+    # `lances` e a janela em **lances do jogador**; `nu_lances_solucao` conta
+    # **meios-lances** (a fita do gabarito inclui o adversario). Entao 6,8
+    # meios-lances sao ~3,4 lances do jogador — e a janela de 6 ja nao aperta
+    # nada. As linhas de 6, 8 e 10 saem identicas **inclusive no tempo de
+    # geracao** porque o gerador nao descarta candidato nenhum por causa delas:
+    # sao a mesma tarefa com um numero maior escrito na frase.
+    #
+    # ⚠️ **A de 4 aperta de verdade**, e a prova e o custo: 210s contra 117s, com
+    # a solucao caindo para 4,3 — o gerador teve de recusar candidatos e procurar
+    # mais. E ela que torna a fila variada em DIFICULDADE, e nao so no texto.
+    #
+    # ⏳ **A variacao que falta medir e a do OUTRO parametro** (`damas: 2`), que
+    # muda a tarefa em vez da folga — esta escrita em `A_MEDIR` do script.
     "damas_coroar": (
         Publicacao(
-            # Uma dama em seis lances — o mesmo alvo com que os moldes foram
-            # escritos e com que a T034 foi medida.
+            # Uma dama em seis lances — o alvo com que os moldes foram escritos.
             parametros={"damas": 1, "lances": 6},
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_coroar,
         ),
+        Publicacao(
+            # A mesma dama com a janela apertada: a unica medida que muda o que o
+            # gerador aceita.
+            parametros={"damas": 1, "lances": 4},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_coroar,
+        ),
     ),
+    # ⚠️ **MEDIDO no mesmo dia, e o resultado foi UMA variante so:**
+    #
+    #     {pecas:2, lances:4}   pior 3   solucao media 2.8 meios-lances   116s
+    #     {pecas:2, lances:6}   pior 3   solucao media 2.8 meios-lances   116s
+    #     {pecas:2, lances:8}   pior 3   solucao media 2.8 meios-lances   116s
+    #
+    # ⛔ **Os tres numeros sao o mesmo numero.** A captura encadeada cai em ~1,4
+    # lances do jogador; qualquer janela de 4 para cima e folga pura, e as tres
+    # linhas descrevem a mesma geracao. Publicar as tres seria a "pura repeticao"
+    # que esta tarefa existe para acabar, com tres rotulos diferentes.
+    #
+    # ⚠️ **E a medicao ANTERIOR deste tipo estava contaminada**: ela deu `[3,2,1]`
+    # com solucao media 2,0 porque rodou sobre 5 moldes, **tres deles entregando
+    # o objetivo no primeiro lance** (T049g). Com os 9 moldes limpos, os mesmos
+    # parametros dao `[3,3,3]` — a fragilidade era dos moldes, nao do tipo.
+    #
+    # ⏳ **Para ter uma segunda variante aqui, a janela precisa APERTAR** (`lances:
+    # 2`, ja escrita em `A_MEDIR`) — mexer em `pecas` para 3 esbarra no que T049g
+    # mediu: capturar tres em sequencia contra um Sagaz quase nao acontece.
     "damas_capturar_multipla": (
         Publicacao(
             # Uma captura de duas pecas em quatro lances.

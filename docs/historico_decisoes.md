@@ -2542,3 +2542,51 @@ numa captura de quatro.)
 lances** — o sintoma de que 3 dos 5 moldes daquele tipo eram triviais. ⏳ Refazer
 depois da limpeza; ⛔ variante escolhida sobre medição contaminada é pior que
 nenhuma, porque parece fundamentada.
+
+---
+
+## 2026-09-11 — T049f fecha: o que é variante, e o que é só um número na frase
+
+A medição das damas foi **refeita** depois da limpeza dos moldes triviais, e a
+contaminação era exatamente o que se supunha:
+
+| tipo | antes (moldes sujos) | depois (moldes limpos) |
+|---|---|---|
+| `damas_coroar` | pior 3, solução média **3,9** | pior 3, solução média **6,8** |
+| `damas_capturar_multipla` | **`[3,2,1]`**, média **2,0** | **`[3,3,3]`**, média **2,8** |
+
+⚠️ A fragilidade do `capturar_multipla` era dos **moldes**, não do tipo. Três dos
+cinco entregavam o objetivo no primeiro lance.
+
+### ⚠️ A unidade que não estava clara, e sem a qual os números enganam
+
+`lances`, no `js_chegada`, é a janela em **lances do jogador**
+(`{"tipo": "lances_do_jogador"}`). Já o `nu_lances_solucao` que o script imprime
+é `len(js_solucao["lances"])` — e a fita do gabarito **inclui os lances do
+adversário**, de propósito (sem eles a sequência não é reproduzível). São
+**meios-lances**.
+
+Por isso uma solução de 6,8 cabe numa janela de 6: são ~3,4 lances do jogador.
+
+### O que isso revelou: janela que não aperta não é variante
+
+Medindo `coroar` com janelas 4, 6, 8 e 10, as três últimas saíram **idênticas —
+inclusive no tempo de geração** (117s, solução 6,8). ⚠️ Números iguais ali não são
+coincidência: é o gerador **não descartando candidato nenhum** por causa da
+janela. Só a de 4 apertou — 210s contra 117s, com a solução caindo para 4,3 —, e é
+esse custo que prova que ela muda o que é aceito.
+
+Em `capturar_multipla` as três janelas medidas deram o mesmo número (116s, 2,8),
+porque a captura encadeada cai em ~1,4 lances do jogador.
+
+⛔ **Então entraram duas variantes em `coroar` e uma em `capturar_multipla`.**
+Publicar `{lances: 8}` e `{lances: 10}` seria a mesma tarefa com outro número na
+frase — e a frase é o que a pessoa lê, mas não é o que ela joga. Era essa
+repetição que a prioridade do dono (*"é muito importante que estes parâmetros
+variem"*) mandou acabar.
+
+⏳ **A variação que falta muda a TAREFA, e não a folga**, e está escrita em
+`A_MEDIR`: `{damas: 2}` no coroar e `{lances: 2}` / `{lances: 3}` na captura.
+⚠️ `{damas: 2}` pode não ser alcançável a partir de moldes escritos para uma dama;
+se der `pior 0`, a resposta é caçar moldes próprios, ⛔ nunca afrouxar a janela
+para o número passar.

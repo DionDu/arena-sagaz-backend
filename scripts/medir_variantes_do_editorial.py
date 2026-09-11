@@ -104,16 +104,35 @@ A_MEDIR: dict[str, tuple[Mapping[str, Any], ...]] = {
         {"caixas": 8},
         {"caixas": 9},
     ),
+    # ⚠️ **O QUE A RODADA DE 11/09/2026 ENSINOU, e vale para escrever candidata
+    # nova:** `lances` e a janela em **lances do jogador**, e a solucao media que
+    # este script imprime conta **meios-lances** (a fita do gabarito inclui o
+    # adversario). Coroar cai em ~6,8 meios-lances = ~3,4 lances do jogador, entao
+    # ⛔ **toda janela de 6 para cima e folga pura**: 6, 8 e 10 sairam identicas,
+    # inclusive no tempo de geracao, porque o gerador nao descarta nada por causa
+    # delas. So a de 4 apertou (210s contra 117s, solucao caindo para 4,3).
+    #
+    # ⛔ **Candidata que so afrouxa a janela nao e variante** — e a mesma tarefa
+    # com outro numero na frase, que e a "pura repeticao" que T049f existe para
+    # acabar. As de baixo mexem no que **muda a tarefa**.
     "damas_coroar": (
         {"damas": 1, "lances": 6},
         {"damas": 1, "lances": 4},
-        {"damas": 1, "lances": 8},
-        {"damas": 1, "lances": 10},
+        # ⏳ NAO MEDIDA: duas damas muda o objetivo, e nao a folga. ⚠️ Pode nao
+        # ser alcancavel a partir dos moldes, que foram escritos para UMA — se
+        # der `pior 0`, a resposta e cacar moldes proprios, nao afrouxar a janela.
+        {"damas": 2, "lances": 8},
+        {"damas": 2, "lances": 10},
     ),
     "damas_capturar_multipla": (
         {"pecas": 2, "lances": 4},
-        {"pecas": 2, "lances": 6},
-        {"pecas": 2, "lances": 8},
+        # ⏳ NAO MEDIDA: a captura encadeada cai em ~1,4 lances do jogador, entao
+        # 4 ja e folga. ⚠️ `lances: 2` e a unica janela que pode apertar aqui.
+        # ⛔ E `pecas: 3` esbarra no que T049g mediu: capturar tres em sequencia
+        # contra um Sagaz quase nao acontece — 185 de 295 candidatas nem as duas
+        # conseguiram.
+        {"pecas": 2, "lances": 2},
+        {"pecas": 2, "lances": 3},
     ),
 }
 
