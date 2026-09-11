@@ -55,6 +55,7 @@ from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicao_inicial as posicao_mod
 from . import semente as semente_mod
+from .espelho_de_damas import com_as_brancas_a_jogar
 from .moldes_de_damas import objetivo_no_primeiro_lance
 from .perfil import NIVEL_POR_PERSONAGEM
 from .tipos_de_desafio import Receita, receita_de, tipos_do_jogo
@@ -488,13 +489,32 @@ def _resolver(
             nos_maximos=NOS_POR_LANCE_NA_GERACAO,
             segundos_maximos=SEGUNDOS_POR_LANCE_NA_GERACAO,
         ).iniciar()
+        nivel_do_lance = (
+            nivel if atual.vez_de == vez_do_solucionador else nivel_do_adversario
+        )
+        co_acao: str | None = None
         try:
-            lance = jogador.escolher_lance(
-                atual,
-                nivel if atual.vez_de == vez_do_solucionador else nivel_do_adversario,
-                limite=orcamento,
-                semente=semente_mod.semente_do_lance(nu_semente, numero),
-            )
+            # ⚠️ **`decidir` devolve o lance E o motivo**; nem todo motor o tem
+            # (o das damas nao), e por isso a escolha e por capacidade, e nao
+            # por nome de jogo — um `if co_jogo == "pontinhos"` aqui teria de ser
+            # lembrado no dia em que o motor das damas ganhasse o mesmo metodo.
+            if hasattr(jogador, "decidir"):
+                # ⚠️ **`decidir` nao recebe orcamento, e nao e esquecimento:**
+                # no Pontinhos a escolha e uma inferencia da CNN, que nao tem no
+                # para contar. O orcamento acima serve a busca das damas.
+                decisao = jogador.decidir(
+                    atual,
+                    nivel_do_lance,
+                    semente=semente_mod.semente_do_lance(nu_semente, numero),
+                )
+                lance, co_acao = decisao.lance, decisao.co_acao
+            else:
+                lance = jogador.escolher_lance(
+                    atual,
+                    nivel_do_lance,
+                    limite=orcamento,
+                    semente=semente_mod.semente_do_lance(nu_semente, numero),
+                )
         except ValueError:
             # A partida acabou antes de o objetivo cair.
             return None
@@ -504,6 +524,21 @@ def _resolver(
             "jogador": atual.vez_de,
             "lance": lance,
         }
+        if co_acao:
+            # ── ⚠️ ESTE LANCE FOI UM ERRO DE PROPOSITO? ──────────────────────
+            #
+            # Os tres primeiros niveis jogam fora do melhor lance com uma certa
+            # probabilidade (`epsilon`: 0,80 na Cacau, 0,50 na Pita, **0,14 no
+            # Tex**). Quando isso acontece, o `co_acao` do lance sai como
+            # `cnn_epsilon_aleatorio`.
+            #
+            # ⚠️ **Sem esta marca, a curadoria nao tem como saber.** O dono olhou
+            # um gabarito e escreveu: *"este desafio depende do Tex fazer uma
+            # jogada muito ruim e ate mesmo improvavel (...) nao entra na minha
+            # cabeca como pode ter feito esta escolha"*. Entrava: era o epsilon.
+            # ⛔ Um desafio cuja solucao **so** existe porque o adversario errou
+            # e fragil, e agora da para ver isso no cartao.
+            passo["co_acao"] = co_acao
         atual = (
             jogador.aplicar(atual, lance)
             if hasattr(jogador, "aplicar")
@@ -757,28 +792,28 @@ def _preparar_damas(
         estado = EstadoDamas(
             co_modalidade=co_modalidade, fen_inicial=sorteio.choice(list(moldes))
         )
-        # ── ⚠️ A VARIACAO E PAR, E ISSO NAO E DETALHE ────────────────────
+        # ── ⚠️ UM LANCE DE VARIACAO, E O ESPELHO CUIDA DO LADO ───────────
         #
-        # O molde tem as **brancas** a jogar, e os moldes foram cacados para que
-        # sejam as brancas a cumprir o objetivo. Cada lance de variacao troca o
-        # lado; com um numero **impar** deles, quem resolve o desafio passa a ser
-        # as pretas.
+        # ⛔ **Esta linha ja foi `2`, por algumas horas de 11/09/2026, e foi um
+        # erro caro.** O raciocinio era certo pela metade: o molde tem as brancas
+        # a jogar, cada lance troca o lado, e com um numero impar deles quem
+        # resolve o desafio acaba sendo as pretas — contra a regra canonica do
+        # projeto (*"o humano e o Jogador 1, azul"*).
         #
-        # ⛔ **E foi o que aconteceu ate 11/09/2026**, com `variacao = 1`: todo
-        # desafio de damas saiu com `vez_de: -1`, ou seja, com a pessoa jogando
-        # de **jogador 2**. Isso viola a regra canonica do projeto — *"jogador 1
-        # = AZUL, jogador 2 = VERMELHO; no modo contra a CPU o humano e o
-        # jogador 1"* (`CLAUDE.md`) — e o dono viu o efeito no painel: *"no App
-        # eu sou sempre as pecas e arestas azuis; nas damas o humano sempre joga
-        # com as pecas iniciando na parte de baixo do tabuleiro, nao no topo"*.
+        # ⛔ **So que dois lances CONSOMEM a distancia ate o objetivo.** Os moldes
+        # foram cacados como posicoes a ~3 lances do alvo; gastar dois em
+        # variacao deixa o desafio a um lance. O resultado, medido na execucao
+        # seguinte: `damas_capturar_multipla` descartou nove posicoes por
+        # *"objetivo no lance 1"* e **2026-09-11 ficou sem desafio**; e os tres
+        # desafios de damas que sairam tinham `nu_lances_solucao = 3`, sobre os
+        # quais o dono escreveu *"o usuario entra pra resolver um desafio e nao
+        # joga praticamente nada"*.
         #
-        # ⚠️ **O Pontinhos ja estava certo** (`vez_de: 1` em toda linha), o que
-        # tornava a divergencia invisivel em metade da fila.
-        #
-        # ⛔ **Zero nao serve como alternativa:** sem variacao, todo desafio
-        # tirado do mesmo molde seria a mesma posicao, e a variedade da fila
-        # dependeria so de haver molde novo.
-        variacao = 2 if lances_de_preparo >= 8 else 0
+        # ✅ **O espelho resolve as duas coisas de uma vez** (ver
+        # `job/espelho_de_damas.py`): varia-se **um** lance — que preserva a
+        # distancia — e gira-se o tabuleiro 180 graus trocando as cores, o que
+        # devolve a mesma tarefa com as **brancas** a jogar.
+        variacao = min(1, max(0, lances_de_preparo // 8))
     else:
         estado = estado_inicial(co_modalidade)
         variacao = lances_de_preparo
@@ -788,7 +823,22 @@ def _preparar_damas(
         if not legais:
             break
         estado = motor.aplicar(estado, sorteio.choice(legais))
-    return estado
+
+    # ── ⚠️ O ESPELHO: quem resolve o desafio e sempre o JOGADOR 1 ───────────
+    #
+    # Depois de um numero impar de lances, quem joga sao as pretas — e a pessoa
+    # nao pode ser o jogador 2 (`CLAUDE.md`: *"o humano e o Jogador 1, azul"*).
+    # ⚠️ Espelhar e a **mesma tarefa vista do outro lado**, e nao uma posicao
+    # nova: as damas sao simetricas sob rotacao de 180 graus com troca de cor, e
+    # ha cadeado comparando os lances legais dos dois lados nas quatro
+    # modalidades.
+    #
+    # ⛔ **Nao se resolve isto variando um numero par de lances** — ja foi
+    # tentado, no mesmo dia: dois lances consomem a distancia ate o objetivo e
+    # deixam o desafio banal (ou impossivel de gerar).
+    return EstadoDamas(
+        co_modalidade=co_modalidade, fen_inicial=com_as_brancas_a_jogar(estado.fen)
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

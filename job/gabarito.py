@@ -94,7 +94,15 @@ def montar(
     js_solucao: dict[str, Any] = {
         "versao": VERSAO,
         "lances": [
-            {"n": n, "jogador": lance["jogador"], "lance": lance["lance"]}
+            # ⚠️ `co_acao` so entra quando existe — ela e o motivo do lance
+            # (`cnn_epsilon_aleatorio` e um erro de proposito), e o motor das
+            # damas ainda nao a informa.
+            {
+                "n": n,
+                "jogador": lance["jogador"],
+                "lance": lance["lance"],
+                **({"co_acao": lance["co_acao"]} if lance.get("co_acao") else {}),
+            }
             for n, lance in enumerate(lances, start=1)
         ],
         "lance_chave": lance_chave,

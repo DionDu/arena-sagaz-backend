@@ -186,6 +186,13 @@ pre {{ background: var(--papel-2); padding: 8px; border-radius: 8px;
 .quadro.chave {{ border-color: var(--ouro); border-width: 2px; padding: 5px; }}
 .quadro.chave figcaption {{ color: var(--tinta); font-weight: 700; }}
 .quadro .vez {{ font-size: 10px; }}
+/* O id do desafio: monospace e selecionavel, para copiar e colar numa conversa
+   ou numa consulta SQL sem erro de leitura. */
+code.id {{ font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+  background: var(--papel-2); padding: 1px 5px; border-radius: 5px;
+  user-select: all; }}
+/* O aviso de que a CPU errou de proposito naquele lance. */
+.quadro .erro-de-proposito {{ color: var(--terracota); font-weight: 700; }}
 """
 
 
@@ -353,9 +360,18 @@ def _fita(item: DesafioNoPainel) -> str:
             # ⚠️ **O rotulo vem pronto do desenho**, e nao de um lado fixo: quem
             # resolve o desafio e quem joga primeiro, e isso muda por jogo.
             legenda = f"{quadro['n']}. {quadro['titulo']} ({quadro['de_quem']})"
+            if quadro.get("errou_de_proposito"):
+                # ⚠️ **O adversario jogou fora do melhor lance de proposito.**
+                # Um desafio que so se resolve por causa disto e fragil: a regua
+                # mede com sorteios diferentes, e e la que se ve se ha outro
+                # caminho.
+                legenda += " ⚠ erro de proposito"
+        classe_legenda = (
+            ' class="erro-de-proposito"' if quadro.get("errou_de_proposito") else ""
+        )
         partes.append(
             f'<figure class="{classe}">{quadro["svg"]}'
-            f"<figcaption>{_txt(legenda)}</figcaption></figure>"
+            f"<figcaption{classe_legenda}>{_txt(legenda)}</figcaption></figure>"
         )
     partes.append("</div>")
     return "".join(partes)
@@ -410,6 +426,7 @@ def _acoes(item: DesafioNoPainel, *, dt_sugerida: date) -> str:
 
 def _cartao(item: DesafioNoPainel, *, dt_sugerida: date) -> str:
     """Um desafio da fila, com as cinco informacoes que RF-DES-012b exige."""
+    id_txt = _txt(item.id_desafio)
     etiquetas = [
         f'<span class="etiqueta {_txt(item.co_curadoria)}">'
         f"{_txt(item.co_curadoria)}</span>"
@@ -441,6 +458,12 @@ def _cartao(item: DesafioNoPainel, *, dt_sugerida: date) -> str:
         f"&middot; semente {_txt(item.nu_semente)}</dd>"
         f"<dt>solucao</dt><dd>{item.nu_lances_solucao} lance(s)</dd>"
         f"<dt>gerado em</dt><dd>{_txt(item.dh_geracao)}</dd>"
+        # ⚠️ **O id inteiro, e nao encurtado.** Pedido do dono em 11/09/2026:
+        # *"traga o id_desafio para o painel para que possamos discutir os
+        # desafios sem que eu precise printar telas"*. Um id cortado em oito
+        # caracteres obrigaria a voltar ao banco para descobrir de qual linha se
+        # esta falando, que e exatamente o trabalho que ele quer evitar.
+        f'<dt>id</dt><dd><code class="id">{id_txt}</code></dd>'
         + (
             f"<dt>descarte</dt><dd>{_txt(item.de_motivo_descarte)}</dd>"
             if item.de_motivo_descarte

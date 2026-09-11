@@ -21,6 +21,115 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 (madrugada) — O espelho, e a correcao de uma correcao
+
+**Contexto.** A correcao da vespera (*"a variacao passa a ser par, para a pessoa
+ser o jogador 1"*) estava certa no diagnostico e **errada na saida**. A execucao
+seguinte mostrou o preco, no mesmo log:
+
+  · ⛔ **2026-09-11 ficou SEM DESAFIO.** `damas_capturar_multipla` descartou nove
+    posicoes seguidas por *"o objetivo cai no lance 1"*, nao sobrou candidato, e
+    a reprise tambem nao tinha o que copiar - o pior caso operacional previsto;
+  · ⛔ **as damas viraram desafios de dois lances.** As tres linhas de damas da
+    fila sairam com `nu_lances_solucao = 3` (tres **meios**-lances). O dono: *"o
+    usuario entra pra resolver um desafio e nao joga praticamente nada. Consegue
+    resolve-los em uns 10 segundos e sai do App?"*.
+
+⚠️ **A causa das duas coisas e a mesma: o preparo CONSOME a distancia ate o
+objetivo.** Os moldes foram cacados como posicoes a ~3 lances do alvo; gastar
+dois deles em variacao deixa o desafio a um lance - ou a zero, e ai ele e
+descartado pelo cadeado de trivialidade.
+
+### A saida: variar UM lance e ESPELHAR
+
+`job/espelho_de_damas.py` gira o tabuleiro 180 graus e troca as cores. A posicao
+resultante e **a mesma tarefa vista do outro lado**, com o lado a jogar tambem
+trocado - entao um lance de variacao (que preserva a distancia) seguido do
+espelho devolve uma posicao com as **brancas** a jogar, que e o jogador 1.
+
+⚠️ **Isto so vale porque as damas sao simetricas sob essa transformacao**, e isso
+e afirmacao sobre o **motor**, nao sobre a aritmetica: o cadeado pergunta ao
+motor o numero de lances legais dos dois lados do espelho, nas quatro
+modalidades, sobre os 170 moldes. ⛔ Num jogo com regras assimetricas por cor o
+espelho estaria errado - por isso o modulo leva o nome do jogo.
+
+⚠️ **A casa `n` vira `33 - n`**, e a casa escura continua escura: a rotacao leva
+`(l, c)` para `(7-l, 7-c)`, e `14 - (l+c)` tem a mesma paridade que `l + c`.
+
+⛔ **O `K` viaja junto.** Uma dama espelhada que virasse pedra daria uma posicao
+legal e silenciosamente diferente - a pior especie de defeito desta feature.
+
+### O que continua em aberto: as damas ainda sao curtas
+
+⚠️ **O espelho nao conserta isso, e nao deveria.** Com um lance de variacao as
+solucoes voltaram a 3 e 5 meios-lances - melhor, mas ainda curto para o gosto do
+dono. A razao e anterior ao preparo: **os moldes foram cacados com o alvo
+*"objetivo no lance 3"***, entao a fila reflete exatamente o que se pediu a
+cacada.
+
+Os dois caminhos, ambos medicao longa e portanto **comando do dono**:
+
+  1. medir a variante `{damas: 2}` (coroar **duas** damas), ja escrita em
+     `A_MEDIR` de `scripts/medir_variantes_do_editorial.py` - e literalmente o
+     que o dono sugeriu (*"se fosse ao menos coroar 2 damas"*);
+  2. cacar moldes com alvo de distancia maior.
+
+## 2026-09-11 (madrugada) — O painel ganhou o id, rotulos legiveis e o erro de proposito
+
+Tres pedidos do dono na primeira curadoria de verdade, e o terceiro veio de uma
+pergunta que valia mais que o pedido.
+
+### (a) O `id_desafio` no cartao
+
+> *"Traga o id_desafio para o Painel para que possamos discutir os desafios sem
+> que eu precise printar telas."*
+
+Inteiro, em monospace e com `user-select: all`. ⛔ Encurtar para oito caracteres
+obrigaria a voltar ao banco para saber de qual linha se fala - o trabalho que ele
+esta tentando evitar.
+
+### (b) Os rotulos das arestas se sobrepunham
+
+O rotulo de uma vertical, deitado, tem a largura de uma casa inteira e encosta no
+da horizontal vizinha. Agora ele vai **de pe** (`rotate(-90)`), na mesma direcao
+do traco que nomeia, e o tabuleiro da fita e maior que o da miniatura **porque
+leva texto**.
+
+### (c) ⚠️ O lance que a CPU erra de proposito agora aparece
+
+> *"Este desafio depende do Tex fazer uma jogada muito ruim e ate mesmo improvavel
+> (...) Nao entra na minha cabeca como pode ter feito esta escolha? Sera que este
+> lance caiu no epsilon que ele joga errado?"*
+
+Caiu: o Tex tem `epsilon = 0,14` no contrato de dificuldade. A cada jogada
+tatica ele sorteia, e em 14% das vezes joga **fora** do melhor lance.
+
+⚠️ **A informacao ja existia e era jogada fora.** `politica.py` devolve um
+`co_acao` por lance (`cnn_epsilon_aleatorio` quando errou de proposito), e o
+gerador guardava so a notacao. Agora o `co_acao` entra no gabarito e o painel
+marca o quadro.
+
+⛔ **E a pergunta seguinte dele e a boa:** *"e se nao cair neste epsilon na
+partida real?"*. Com a semente publicada, cai — mesmo nivel e mesma semente
+escolhem o mesmo lance. Mas isso vale enquanto a pessoa seguir o gabarito; por
+outro caminho o sorteio encontra outra posicao. ⚠️ **Quem responde se o desafio
+depende do erro e a REGUA**, que mede 20 execucoes com sorteios diferentes - e e
+por isso que a marca no painel nao decide nada sozinha: ela diz onde olhar.
+
+### (d) E o assistente passou a consultar o banco sozinho
+
+> *"Estou cansado de ficar consultando o banco e trazendo os dados das tabelas
+> para voce."*
+
+`scripts/consultar_des.py` le `DATABASE_URL_DES` de
+`ferramentas/debug-bancos/ambientes.env` (fora do Git, ja e o catalogo dos dois
+bancos) e roda a consulta numa transacao `READ ONLY`. ⛔ Tres travas: so a URL do
+`des`, a transacao somente-leitura imposta **pelo banco**, e a conferencia de
+palavra - que e a mais fraca das tres e existe para dar a mensagem boa, nao para
+ser a defesa.
+
+---
+
 ## 2026-09-11 (noite) — Tres perguntas do dono sobre o painel, e duas eram defeitos
 
 O dono curou a primeira fila de verdade e voltou com tres observacoes. Duas

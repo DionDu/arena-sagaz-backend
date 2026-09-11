@@ -277,11 +277,23 @@ def pontinhos(
                         continue
                     if rx2 > max_x or ry2 > max_y:
                         continue
+                    # ⚠️ **O rotulo da vertical vai DE PE.** Deitado, ele
+                    # tem a largura de uma casa inteira e encosta no rotulo da
+                    # horizontal vizinha — o dono relatou exatamente isso:
+                    # *"os nomes das arestas estao ficando sobrepostas e fica
+                    # dificil pra mim identificar"*. Girado 90 graus, ele ocupa
+                    # a direcao em que ha espaco sobrando, que e a mesma direcao
+                    # do traco que ele nomeia.
+                    cx = (px(rx1) + px(rx2)) / 2
+                    cy = (px(ry1) + px(ry2)) / 2
+                    if rotulo.startswith("V"):
+                        giro = f' transform="rotate(-90 {cx:.0f} {cy:.0f})"'
+                    else:
+                        giro = ""
                     partes.append(
-                        f'<text x="{(px(rx1) + px(rx2)) / 2:.0f}" '
-                        f'y="{(px(ry1) + px(ry2)) / 2 + 3:.0f}" '
-                        f'text-anchor="middle" font-size="8" '
-                        f'fill="{TINTA_SUAVE}" opacity="0.75">{rotulo}</text>'
+                        f'<text x="{cx:.0f}" y="{cy + 3:.0f}"{giro} '
+                        f'text-anchor="middle" font-size="9" '
+                        f'fill="{TINTA_SUAVE}" opacity="0.8">{rotulo}</text>'
                     )
 
     # 5) Os pontos, por cima — eles sao a grade, e precisam ficar visiveis.
@@ -519,6 +531,7 @@ def posicao(
     *,
     numerar: bool = False,
     destaque: Any = None,
+    maior: bool = False,
 ) -> str:
     """Desenha a posicao inicial no formato que ela declarar.
 
@@ -538,6 +551,7 @@ def posicao(
     if co_formato == "sequencia_lances":
         return pontinhos(
             js_posicao_inicial,
+            lado_px=58 if maior else 46,
             numerar=numerar,
             destaque=destaque if isinstance(destaque, str) else None,
         )
@@ -625,7 +639,10 @@ def fita_da_solucao(
             "jogador": None,
             "de_quem": None,
             "chave": False,
-            "svg": posicao(co_formato, js_posicao_inicial, numerar=True),
+            "errou_de_proposito": False,
+            "svg": posicao(
+                co_formato, js_posicao_inicial, numerar=True, maior=True
+            ),
         }
     ]
 
@@ -647,6 +664,8 @@ def fita_da_solucao(
                     "jogador": lance.get("jogador"),
                     "de_quem": de_quem(lance.get("jogador")),
                     "chave": indice == n_chave,
+                    "errou_de_proposito": lance.get("co_acao")
+                    == "cnn_epsilon_aleatorio",
                     "svg": damas(
                         {"fen": posicoes[indice]},
                         numerar=True,
@@ -673,8 +692,13 @@ def fita_da_solucao(
                     "jogador": lance.get("jogador"),
                     "de_quem": de_quem(lance.get("jogador")),
                     "chave": indice == n_chave,
+                    "errou_de_proposito": lance.get("co_acao")
+                    == "cnn_epsilon_aleatorio",
                     "svg": pontinhos(
                         {**js_posicao_inicial, "lances": ate_aqui},
+                        # ⚠️ Maior que a miniatura da fila **porque leva texto**:
+                        # com 46 px os rotulos das arestas se encostam.
+                        lado_px=58,
                         numerar=True,
                         destaque=notacao,
                     ),

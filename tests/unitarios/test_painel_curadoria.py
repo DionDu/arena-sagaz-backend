@@ -776,3 +776,31 @@ def test_o_rotulo_do_lance_sai_do_VEZ_DE_e_nao_de_um_lado_fixo() -> None:
     }
     quadros = desenho.fita_da_solucao("sequencia_lances", posicao, solucao)
     assert [q["de_quem"] for q in quadros] == [None, "voce", "adversario"]
+
+
+def test_o_quadro_marca_o_lance_em_que_a_CPU_errou_de_proposito() -> None:
+    """🔒 ⚠️ A informacao que separa um desafio solido de um sortudo.
+
+    Um gabarito que so cumpre o objetivo porque o adversario jogou fora do
+    melhor lance e fragil: ⛔ por outro caminho, a pessoa pode nao ter a mesma
+    chance. Quem decide isso e a regua (ela mede com sorteios diferentes), mas a
+    curadoria precisa **ver** a dependencia para saber que deve olhar a regua com
+    mais atencao.
+    """
+    from api.desafios.painel import desenho
+
+    posicao = {"lances": [{"n": 1, "lance": "H_0_1", "jogador": 1}], "vez_de": 1}
+    solucao = {
+        "lances": [
+            {"n": 1, "jogador": 1, "lance": "V_1_0"},
+            {
+                "n": 2,
+                "jogador": -1,
+                "lance": "H_2_1",
+                "co_acao": "cnn_epsilon_aleatorio",
+            },
+        ],
+        "lance_chave": 2,
+    }
+    quadros = desenho.fita_da_solucao("sequencia_lances", posicao, solucao)
+    assert [q["errou_de_proposito"] for q in quadros] == [False, False, True]

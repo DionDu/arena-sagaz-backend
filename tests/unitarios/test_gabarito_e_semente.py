@@ -171,3 +171,36 @@ def test_a_semente_do_lance_tambem_cabe_na_faixa() -> None:
     """Ela vai para o motor, que a passa ao gerador — fora da faixa, quebra la."""
     for n in range(1, 200):
         assert SEMENTE_MINIMA <= semente_do_lance(7, n) <= SEMENTE_MAXIMA
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ O MOTIVO DO LANCE viaja com ele
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_gabarito_guarda_o_CO_ACAO_quando_ele_existe() -> None:
+    """🔒 O que permite a curadoria ver que a solucao depende de um erro.
+
+    ⚠️ Os tres primeiros niveis jogam fora do melhor lance com probabilidade
+    `epsilon` (0,80 / 0,50 / **0,14**). Quando isso acontece o lance sai marcado
+    como `cnn_epsilon_aleatorio`.
+
+    ⛔ Sem a marca, um gabarito que so funciona porque o adversario errou parece
+    identico a um que funciona sempre — e o dono olhou exatamente um desses:
+    *"este desafio depende do Tex fazer uma jogada muito ruim e ate mesmo
+    improvavel (...) nao entra na minha cabeca como pode ter feito esta
+    escolha"*.
+    """
+    from job.gabarito import montar
+
+    js = montar(
+        [
+            {"n": 1, "jogador": 1, "lance": "H_0_1"},
+            {"n": 2, "jogador": -1, "lance": "V_1_0", "co_acao": "cnn_epsilon_aleatorio"},
+        ],
+        lance_chave=2,
+    )
+    assert "co_acao" not in js["lances"][0], (
+        "lance sem motivo declarado nao ganha chave — a ausencia e informacao"
+    )
+    assert js["lances"][1]["co_acao"] == "cnn_epsilon_aleatorio"
