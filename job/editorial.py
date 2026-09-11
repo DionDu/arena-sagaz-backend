@@ -221,53 +221,150 @@ def _medidas_do_damas_captura(p: Mapping[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-EDITORIAL: dict[str, Publicacao] = {
-    "pontinhos_fechar_caixas": Publicacao(
-        # Os numeros do exemplo do `data-model.md`: quatro caixas em dois turnos,
-        # num tabuleiro de doze. ⚠️ Dois turnos e apertado de proposito — quem
-        # fecha caixa joga de novo, entao quatro caixas cabem num turno so quando
-        # a cadeia esta armada.
-        parametros={"caixas": 4, "turnos": 2},
-        # Quatro de doze deixam o jogo em aberto.
-        ic_chegada_encerra_partida=False,
-        # ⚠️ **Preparo 14, e nao 8** — medido: com 8 tracos o tabuleiro nao tem
-        # cadeia de 4 caixas, e procurar por mais tempo nao inventa uma.
-        nu_lances_de_preparo=14,
-        medidas=_medidas_do_pontinhos_fechar_caixas,
+#: ⚠️ **CADA TIPO TEM UMA LISTA DE VARIANTES, e nao um dicionario so** (T049f).
+#:
+#: > *"E muito importante que estes parametros variem, senao os desafios viram
+#: > pura repeticao."* — o dono, 10/09/2026
+#:
+#: Ate 11/09/2026 havia **uma** publicacao por tipo: todo `chegar_ao_placar` era
+#: "7 caixas", todo `coroar` era "1 dama em 6 lances". A **posicao** variava; a
+#: **tarefa**, nao.
+#:
+#: ⚠️ **A escolha e do odometro, e nao sorteada** — `gerador.escolher_variante()`.
+#: Sortear faria a idempotencia de T038 depender de sorte: duas execucoes do job
+#: para o mesmo dia gerariam desafios diferentes.
+#:
+#: ⛔ **NENHUMA VARIANTE ENTRA SEM SER MEDIDA**, e o numero anotado ao lado de
+#: cada uma e o **pior dia** de oito medidos por
+#: `scripts/medir_variantes_do_editorial.py` — quantos candidatos sairam no dia
+#: em que sairam menos. ⚠️ **A media esconderia o que importa:** uma variante com
+#: 3 candidatos num dia e 0 no outro publica **dia descoberto** a cada duas
+#: aparicoes, e a media de 1,5 pareceria saudavel.
+#:
+#: ⚠️ E o erro nao aparece cedo: uma variante ruim vira dia descoberto **duas
+#: semanas depois** de entrar, e o log diz so *"sem candidato"* — sintoma, e nao
+#: causa. Foi assim que a primeira execucao real passou quatro dias sem gerar
+#: Pontinhos nenhum.
+EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
+    "pontinhos_fechar_caixas": (
+        Publicacao(
+            # Os numeros do exemplo do `data-model.md`: quatro caixas em dois
+            # turnos, num tabuleiro de doze. ⚠️ Dois turnos e apertado de
+            # proposito — quem fecha caixa joga de novo, entao quatro caixas
+            # cabem num turno so quando a cadeia esta armada.
+            #
+            # Medido 11/09/2026: pior dia **2** candidatos · solucao 6,6 lances.
+            parametros={"caixas": 4, "turnos": 2},
+            # Quatro de doze deixam o jogo em aberto.
+            ic_chegada_encerra_partida=False,
+            # ⚠️ **Preparo 14, e nao 8** — medido: com 8 tracos o tabuleiro nao
+            # tem cadeia de 4 caixas, e procurar por mais tempo nao inventa uma.
+            nu_lances_de_preparo=14,
+            medidas=_medidas_do_pontinhos_fechar_caixas,
+        ),
+        Publicacao(
+            # A mais facil da familia: tres caixas na mesma janela apertada.
+            # Medido: pior dia **3** · solucao 5,7 lances.
+            parametros={"caixas": 3, "turnos": 2},
+            ic_chegada_encerra_partida=False,
+            nu_lances_de_preparo=14,
+            medidas=_medidas_do_pontinhos_fechar_caixas,
+        ),
+        Publicacao(
+            # ⚠️ **O mesmo alvo, com um turno a mais** — e a variante que muda a
+            # *forma* da tarefa sem mudar o numero: da para chegar la sem a
+            # cadeia armada, montando-a.
+            # Medido: pior dia **3** · solucao 8,6 lances.
+            parametros={"caixas": 4, "turnos": 3},
+            ic_chegada_encerra_partida=False,
+            nu_lances_de_preparo=14,
+            medidas=_medidas_do_pontinhos_fechar_caixas,
+        ),
+        Publicacao(
+            # A mais dura que gera com folga.
+            # ⛔ Medidas e **recusadas**: `{"caixas": 5, "turnos": 2}` deu pior dia
+            # **0** (2, 0, 2) e `{"caixas": 6, "turnos": 3}` deu pior dia **1**
+            # em oito — nenhuma das duas entra.
+            # Medido: pior dia **3** · solucao 9,8 lances.
+            parametros={"caixas": 5, "turnos": 3},
+            ic_chegada_encerra_partida=False,
+            nu_lances_de_preparo=14,
+            medidas=_medidas_do_pontinhos_fechar_caixas,
+        ),
     ),
-    "pontinhos_chegar_ao_placar": Publicacao(
-        # Sete de doze e a maioria: quem chega la **ja venceu**.
-        parametros={"caixas": 7},
-        # ⚠️ E ainda assim `False`: a partida esta DECIDIDA, e nao terminada —
-        # sobram tracos no tabuleiro, e ⛔ o aplicativo nao interrompe quem quiser
-        # continuar (RF-DES-213/214).
-        ic_chegada_encerra_partida=False,
-        # ⚠️ **A janela e a PARTIDA INTEIRA**, e por isso o teto e outro: a
-        # solucao medida usa 22 lances, e com 12 nunca se chega a sete caixas.
-        nu_maximo_de_lances=34,
-        medidas=_medidas_do_pontinhos_placar,
+    "pontinhos_chegar_ao_placar": (
+        Publicacao(
+            # Sete de doze e a maioria: quem chega la **ja venceu**.
+            # Medido: pior dia **2** · solucao 21,5 lances.
+            parametros={"caixas": 7},
+            # ⚠️ E ainda assim `False`: a partida esta DECIDIDA, e nao terminada
+            # — sobram tracos no tabuleiro, e ⛔ o aplicativo nao interrompe quem
+            # quiser continuar (RF-DES-213/214).
+            ic_chegada_encerra_partida=False,
+            # ⚠️ **A janela e a PARTIDA INTEIRA**, e por isso o teto e outro: a
+            # solucao medida usa 22 lances, e com 12 nunca se chega a sete caixas.
+            nu_maximo_de_lances=34,
+            medidas=_medidas_do_pontinhos_placar,
+        ),
+        Publicacao(
+            # Seis de doze e o empate: quem chega la **nao perdeu**.
+            # Medido: pior dia **3** · solucao 20,2 lances.
+            parametros={"caixas": 6},
+            ic_chegada_encerra_partida=False,
+            nu_maximo_de_lances=34,
+            medidas=_medidas_do_pontinhos_placar,
+        ),
+        Publicacao(
+            # ⚠️ **Cinco nao e maioria**, e a frase nao promete que seja: o
+            # objetivo e um placar, e nao a vitoria. A `vr_max` das medidas sai
+            # do proprio parametro, entao a nota continua cheia em cinco de cinco.
+            # ⛔ Medidas e **recusadas**: `{"caixas": 8}` deu pior dia **0** (0, 0,
+            # 1) e `{"caixas": 9}` nao gerou **nada** em tres dias.
+            # Medido: pior dia **3** · solucao 18,9 lances.
+            parametros={"caixas": 5},
+            ic_chegada_encerra_partida=False,
+            nu_maximo_de_lances=34,
+            medidas=_medidas_do_pontinhos_placar,
+        ),
     ),
-    "damas_coroar": Publicacao(
-        # Uma dama em seis lances — o mesmo alvo com que os moldes foram escritos
-        # e com que a T034 foi medida.
-        parametros={"damas": 1, "lances": 6},
-        ic_chegada_encerra_partida=False,
-        medidas=_medidas_do_damas_coroar,
+    # ⚠️ **AS DAMAS AINDA TEM UMA VARIANTE SO, e isso e pendencia declarada.**
+    # Uma geracao de damas custa ~26 s (medido em 11/09/2026), entao medir as
+    # candidatas e trabalho de outra janela — o comando esta no cabecalho de
+    # `scripts/medir_variantes_do_editorial.py`, e as candidatas ja estao
+    # escritas la, em `A_MEDIR`.
+    #
+    # ⛔ **Ate o numero chegar, elas nao entram.** Uma variante de damas nao
+    # medida e pior que nenhuma: os moldes foram escritos e validados contra
+    # *"coroar em 6 lances"*, e uma janela mais curta pode nao ser alcancavel a
+    # partir de nenhum deles — o que viraria dia descoberto, e nao erro.
+    "damas_coroar": (
+        Publicacao(
+            # Uma dama em seis lances — o mesmo alvo com que os moldes foram
+            # escritos e com que a T034 foi medida.
+            parametros={"damas": 1, "lances": 6},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_coroar,
+        ),
     ),
-    "damas_capturar_multipla": Publicacao(
-        # Uma captura de duas pecas em quatro lances.
-        parametros={"pecas": 2, "lances": 4},
-        ic_chegada_encerra_partida=False,
-        medidas=_medidas_do_damas_captura,
+    "damas_capturar_multipla": (
+        Publicacao(
+            # Uma captura de duas pecas em quatro lances.
+            parametros={"pecas": 2, "lances": 4},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_captura,
+        ),
     ),
 }
 
 
-def publicacao_de(co_tipo_desafio: str) -> Publicacao:
-    """Como aquele tipo vai ao ar. Falha alto se ninguem escolheu os numeros.
+def variantes_de(co_tipo_desafio: str) -> tuple[Publicacao, ...]:
+    """Todas as variantes daquele tipo, na ordem do odometro.
 
     Raises:
         TipoSemEditorial: sempre que o tipo nao estiver em [EDITORIAL].
+
+    ⚠️ **Nunca devolve tupla vazia**: um tipo sem nenhuma variante seria um tipo
+    sem numeros, e e exatamente o que `TipoSemEditorial` existe para recusar.
     """
     if co_tipo_desafio not in EDITORIAL:
         raise TipoSemEditorial(
@@ -276,16 +373,37 @@ def publicacao_de(co_tipo_desafio: str) -> Publicacao:
             "— e um padrao aqui poria no ar um desafio cuja dificuldade ninguem "
             f"escolheu. Os que tem editorial hoje: {sorted(EDITORIAL)}"
         )
-    return EDITORIAL[co_tipo_desafio]
+
+    variantes = EDITORIAL[co_tipo_desafio]
+    if not variantes:
+        raise TipoSemEditorial(
+            f"o tipo {co_tipo_desafio!r} esta no editorial com **zero** variantes. "
+            "⛔ Isso e o mesmo que nao ter editorial, so que mais dificil de ver: "
+            "a lista existe, e esta vazia."
+        )
+    return variantes
 
 
-def parametros_de(co_tipo_desafio: str) -> dict[str, Any]:
-    """Os numeros daquele tipo, como dicionario novo.
+def publicacao_de(co_tipo_desafio: str, nu_variante: int) -> Publicacao:
+    """A variante `nu_variante` daquele tipo.
 
-    ⚠️ **Copia, e nao a referencia**: o gerador recebe isto e nao deveria poder
-    alterar a safra de quem vier depois na mesma execucao.
+    Args:
+        co_tipo_desafio: o tipo.
+        nu_variante: o indice que `gerador.escolher_variante()` devolveu.
+            ⛔ **Obrigatorio, e sem valor padrao.** Um padrao `0` faria uma
+            chamada esquecida publicar a **primeira** variante para sempre — a
+            fila voltaria a repetir a mesma tarefa todo dia, e ⚠️ **nada
+            denunciaria**: o desafio sairia bem formado, so que sempre igual. E o
+            mesmo motivo pelo qual `RegrasXp.calcularGanho` exige o perfil do jogo
+            sem padrao.
+
+    Raises:
+        TipoSemEditorial: se o tipo nao tiver editorial.
+        IndexError: se o indice nao existir. ⚠️ Falhar alto e melhor que dar a
+            volta com `% len(...)` aqui: o resto so esconderia um odometro
+            calculado com o numero errado de variantes.
     """
-    return dict(publicacao_de(co_tipo_desafio).parametros)
+    return variantes_de(co_tipo_desafio)[nu_variante]
 
 
 __all__ = [
@@ -296,6 +414,6 @@ __all__ = [
     "VERSAO_MINIMA_DOS_TIPOS_FUNDADORES",
     "Publicacao",
     "TipoSemEditorial",
-    "parametros_de",
     "publicacao_de",
+    "variantes_de",
 ]

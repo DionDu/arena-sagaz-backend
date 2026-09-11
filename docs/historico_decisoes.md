@@ -2205,3 +2205,93 @@ mesma, e o dia ficaria descoberto justamente quando mais precisa de cobertura.
 
 ⚠️ As reprises já gravadas **contam** como histórico, e não há por que excluí-las:
 uma reprise tem a mesma assinatura da origem, que já está lá.
+
+## 2026-09-11 — Os parâmetros do desafio passam a VARIAR (T049f)
+
+> *"É muito importante que estes parâmetros variem, senão os desafios viram pura
+> repetição."* — o dono, 10/09/2026
+
+**Contexto.** O `EDITORIAL` tinha **um** dicionário por tipo: todo
+`chegar_ao_placar` era "7 caixas", todo `coroar` era "1 dama em 6 lances". A
+**posição** variava; a **tarefa**, não.
+
+**A mudança.** `EDITORIAL` passa a guardar uma **lista de variantes** por tipo, e
+a escolha do dia é do **odômetro** — o mesmo mecanismo que já roda tipo e
+modalidade —, nunca sorteada: sortear faria a idempotência de T038 depender de
+sorte, e duas execuções do job para o mesmo dia gerariam desafios diferentes.
+
+### ⛔ O terceiro dígito, e a armadilha que já pegou duas vezes
+
+O odômetro ganhou um dígito, e é o mesmo erro que apareceu duas vezes em
+10/09/2026:
+
+1. `dias % 2` escolhia o jogo **e** o tipo. Um jogo só aparece numa das paridades
+   de `dias`, então para ele `dias % 2` era **constante** — sete dias seguidos com
+   o mesmo tipo, e os outros nunca.
+2. A modalidade quase usou `vez_do_jogo % 4` enquanto o tipo usava
+   `vez_do_jogo % 2`: metade das combinações nunca sairia. ⚠️ E esse seria **pior
+   de enxergar** — a fila *pareceria* variada, e só uma contagem revelaria os
+   pares ausentes.
+
+A regra: o dígito da direita gira rápido; o da esquerda gira quando o da direita
+completa a volta. A variante divide pelo **produto** dos dois dígitos à sua
+direita — `tipos × modalidades`. Cadeado conta o produto esperado em 400 dias e
+exige que **todas** as combinações saiam; dois cadeados irmãos dizem **qual**
+dígito ficou em fase, quando algum ficar.
+
+⚠️ **O divisor usa os tipos publicáveis, não os `frescos`** de `escolher_tipo` —
+esses variam com `tipos_recentes`, e um divisor que dependesse disso deixaria de
+ser reproduzível.
+
+### ⛔ Nenhuma variante entrou sem ser medida
+
+`scripts/medir_variantes_do_editorial.py` roda cada candidata em **oito dias
+diferentes** (dias diferentes são posições de partida diferentes) e reporta o
+**pior dia**. ⚠️ **A média esconderia o que importa:** 3 candidatos num dia e 0 no
+outro publica dia descoberto a cada duas aparições, e a média de 1,5 pareceria
+saudável.
+
+**Medido em 11/09/2026 — `pontinhos_fechar_caixas`** (preparo 14, teto 12):
+
+| parâmetros | pior dia | solução média | |
+|---|---:|---:|---|
+| `{caixas: 4, turnos: 2}` | 2 | 6,6 | ✅ entra (a atual) |
+| `{caixas: 3, turnos: 2}` | 3 | 5,7 | ✅ entra |
+| `{caixas: 4, turnos: 3}` | 3 | 8,6 | ✅ entra |
+| `{caixas: 5, turnos: 3}` | 3 | 9,8 | ✅ entra |
+| `{caixas: 5, turnos: 2}` | **0** | — | ⛔ recusada |
+| `{caixas: 6, turnos: 3}` | **1** | 10,2 | ⛔ recusada (margem nenhuma) |
+
+**`pontinhos_chegar_ao_placar`** (preparo 8, teto 34):
+
+| parâmetros | pior dia | solução média | |
+|---|---:|---:|---|
+| `{caixas: 7}` | 2 | 21,5 | ✅ entra (a atual) |
+| `{caixas: 6}` | 3 | 20,2 | ✅ entra |
+| `{caixas: 5}` | 3 | 18,9 | ✅ entra |
+| `{caixas: 8}` | **0** | — | ⛔ recusada |
+| `{caixas: 9}` | **0** | — | ⛔ recusada (nada em três dias) |
+
+### ⬜ As damas continuam com UMA variante, e isso é pendência declarada
+
+Uma geração de damas custa **~26 s** (medido), então medir as candidatas é
+trabalho de outra janela. As candidatas já estão escritas em
+`A_MEDIR` do script; ⛔ **até o número chegar, elas não entram**. Uma variante de
+damas não medida é pior que nenhuma: os moldes foram escritos e validados contra
+*"coroar em 6 lances"*, e uma janela mais curta pode não ser alcançável a partir
+de nenhum deles — o que viraria dia descoberto, e não erro.
+
+### Duas decisões de API que evitam o congelamento silencioso
+
+- ⛔ **`publicacao_de(co_tipo, nu_variante)` exige o índice, sem valor padrão.** Um
+  padrão `0` faria uma chamada esquecida publicar a primeira variante para
+  sempre, e ⚠️ nada denunciaria: o desafio sairia bem formado, com posição nova
+  todo dia, só que sempre com a mesma tarefa. É o mesmo motivo pelo qual
+  `RegrasXp.calcularGanho` exige o perfil do jogo sem padrão.
+- ⛔ **`parametros_de()` foi removida.** Ela devolvia "os números daquele tipo"
+  sem passar pela variante — uma segunda porta que voltaria a congelar a fila.
+  Não tinha nenhum chamador.
+- ⚠️ **`quantas_variantes` entra por parâmetro em `escolher_variante`:** o gerador
+  ⛔ não conhece o editorial, e se conhecesse passaria a depender de com que
+  números as coisas vão ao ar — a fronteira que `editorial.py` existe para
+  desenhar.

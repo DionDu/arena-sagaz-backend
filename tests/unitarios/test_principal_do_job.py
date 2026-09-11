@@ -26,7 +26,12 @@ import pytest
 
 from job import __main__ as principal_mod
 from job.alvo_observado import PISO_FIXO, TETO_FIXO, Alvo
-from job.editorial import EDITORIAL, TipoSemEditorial, publicacao_de
+from job.editorial import (
+    EDITORIAL,
+    TipoSemEditorial,
+    publicacao_de,
+    variantes_de,
+)
 from job import posicao_inicial as posicao_mod
 from job.gerador import Candidato, escolher_jogo, escolher_tipo
 from job.gravacao import DIAS_MINIMOS
@@ -111,7 +116,10 @@ class _Bancada:
 def _candidato(co_tipo: str = "pontinhos_fechar_caixas") -> Candidato:
     """Um candidato pronto, sem ter passado por motor nenhum."""
     receita = receita_de(co_tipo)
-    publicacao = publicacao_de(co_tipo)
+    # ⚠️ **A primeira variante basta AQUI**, e so aqui: este e um candidato de
+    # laboratorio, e o que se exercita e o encadeamento. Quem prova que a
+    # variante do dia e escolhida direito sao os casos da secao 8.
+    publicacao = variantes_de(co_tipo)[0]
     parametros = dict(publicacao.parametros)
     return Candidato(
         co_jogo=receita.co_jogo,
@@ -415,7 +423,9 @@ def test_todo_tipo_PUBLICAVEL_tem_editorial(co_tipo: str) -> None:
     dificuldade ninguem escolheu, e ele pareceria igual aos outros na tela. O
     editorial falha alto; este caso garante que ele nunca precisa falhar.
     """
-    assert publicacao_de(co_tipo).parametros
+    assert variantes_de(co_tipo), f"{co_tipo} nao tem nenhuma variante"
+    for publicacao in variantes_de(co_tipo):
+        assert publicacao.parametros
 
 
 @pytest.mark.parametrize("co_tipo", sorted(EDITORIAL))
@@ -425,8 +435,11 @@ def test_as_medidas_de_cada_tipo_FECHAM_em_1000(co_tipo: str) -> None:
     Ela e conferida na hora de gravar, mas descobrir la seria descobrir tarde: o
     candidato ja teria sido gerado e medido.
     """
-    publicacao = publicacao_de(co_tipo)
-    conferir(publicacao.medidas(publicacao.parametros))
+    # ⚠️ **TODAS as variantes**, e nao so a primeira: desde T049f cada tipo tem
+    # uma lista, e uma variante com peso quebrado so apareceria no dia em que o
+    # odometro chegasse nela — semanas depois de entrar.
+    for publicacao in variantes_de(co_tipo):
+        conferir(publicacao.medidas(publicacao.parametros))
 
 
 @pytest.mark.parametrize("co_tipo", sorted(EDITORIAL))
@@ -437,13 +450,16 @@ def test_os_parametros_de_cada_tipo_MONTAM_a_chegada(co_tipo: str) -> None:
     `KeyError` **no meio da geracao do dia**, depois de o perfil ter sido gravado
     — e o dia ficaria descoberto por um erro de digitacao numa tabela.
     """
-    receita_de(co_tipo).montar(publicacao_de(co_tipo).parametros)
+    # ⚠️ **Uma variante por vez, todas elas.** Um `{"caixas": 4}` numa variante
+    # de uma receita que le `p["turnos"]` estouraria so na vez daquela variante.
+    for publicacao in variantes_de(co_tipo):
+        receita_de(co_tipo).montar(publicacao.parametros)
 
 
 def test_tipo_SEM_editorial_falha_alto() -> None:
     """E a mensagem diz o que falta: numeros, e nao regra."""
     with pytest.raises(TipoSemEditorial, match="nao tem editorial"):
-        publicacao_de("pontinhos_tipo_que_nao_existe")
+        variantes_de("pontinhos_tipo_que_nao_existe")
 
 
 @pytest.mark.parametrize("co_tipo", sorted(EDITORIAL))
@@ -830,4 +846,51 @@ async def test_a_pergunta_vem_ANTES_da_medicao_cara() -> None:
 
     assert not sessao.sql_executado("INSERT INTO desafio.tb002_medicao_regua"), (
         "a regua foi medida num candidato que ja seria recusado por repeticao"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8. ⚠️ T049f — a VARIANTE DE PARAMETROS chega ate a geracao
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _gerar_espiao(registro: list[dict[str, Any]]) -> Any:
+    """Uma geracao que ANOTA os parametros que recebeu, e devolve o candidato.
+
+    ⚠️ **E o unico jeito honesto de provar que a variante chega la.** Os dubles
+    de candidato montam a chegada com a primeira variante, entao olhar o `INSERT`
+    diria sempre a mesma coisa — o que se quer saber e com **que numeros** o
+    `principal()` mandou gerar.
+    """
+
+    def gerar(*_a: Any, **kwargs: Any) -> list[Candidato]:
+        registro.append(dict(kwargs["parametros"]))
+        return [_candidato()]
+
+    return gerar
+
+
+@pytest.mark.asyncio
+async def test_os_PARAMETROS_mudam_ao_longo_da_fila() -> None:
+    """🔒 ⚠️ *"E muito importante que estes parametros variem"* — o dono, 10/09.
+
+    ⛔ **O defeito que este caso guarda e o congelamento silencioso:** uma chamada
+    que esquecesse de escolher a variante publicaria a primeira para sempre, e
+    ⚠️ **nada denunciaria** — o desafio sairia bem formado, com posicao nova todo
+    dia, so que sempre com a mesma tarefa. Foi exatamente assim ate 11/09/2026.
+
+    Sessenta dias cobrem varias voltas do odometro nos dois jogos.
+    """
+    vistos: list[dict[str, Any]] = []
+    for n in range(60):
+        await _rodar(
+            _sessao_feliz(),
+            gerar=_gerar_espiao(vistos),
+            dt_hoje=date(2026, 9, 20) + timedelta(days=n),
+        )
+
+    distintos = {tuple(sorted(p.items())) for p in vistos}
+    assert len(distintos) > 1, (
+        "a fila inteira usou os MESMOS parametros: a variante nao esta chegando "
+        f"na geracao. Vistos: {distintos}"
     )

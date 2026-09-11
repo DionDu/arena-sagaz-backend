@@ -272,6 +272,71 @@ def escolher_modalidade(co_jogo: str, dt_dia: date) -> str | None:
     return modalidades[(vez_do_jogo // quantos_tipos) % len(modalidades)]
 
 
+def escolher_variante(co_jogo: str, dt_dia: date, *, quantas_variantes: int) -> int:
+    """Qual VARIANTE de parametros aquele tipo usa hoje (T049f).
+
+    Args:
+        co_jogo: o jogo do dia.
+        dt_dia: a data.
+        quantas_variantes: quantas o tipo tem, hoje. ⛔ **Entra por parametro, e
+            nao e lido do editorial aqui**: este modulo nao conhece o editorial —
+            se conhecesse, o gerador passaria a depender de com que numeros as
+            coisas vao ao ar, que e exatamente a fronteira que `editorial.py`
+            existe para desenhar.
+
+    Returns:
+        O indice da variante, de `0` a `quantas_variantes - 1`.
+
+    ⚠️ **Prioridade do dono, 10/09/2026:** *"e muito importante que estes
+    parametros variem, senao os desafios viram pura repeticao"*. A **posicao**
+    variava; a **tarefa**, nao — todo `chegar_ao_placar` era "7 caixas".
+
+    ⛔ **ESTE E O TERCEIRO DIGITO DO ODOMETRO, E A ARMADILHA JA PEGOU DUAS
+    VEZES.** Se a variante usasse o contador do tipo (`vez_do_jogo`) ou o da
+    modalidade (`vez_do_jogo // quantos_tipos`), ela andaria **em fase** com
+    aquele digito, e uma fatia das combinacoes nunca sairia:
+
+        10/09/2026, 1ª vez: `dias % 2` escolhia o jogo **e** o tipo. Um jogo so
+        aparece numa das paridades de `dias`, entao `dias % 2` era **constante**
+        para ele — sete dias seguidos com o mesmo tipo, e os outros nunca.
+
+        10/09/2026, 2ª vez: a modalidade quase usou `vez_do_jogo % 4` enquanto o
+        tipo usava `vez_do_jogo % 2` — o tipo par so sairia com as modalidades
+        pares, e **metade** das combinacoes nunca apareceria. ⚠️ E este seria
+        **pior de enxergar**: a fila *pareceria* variada, com tipos alternando e
+        modalidades alternando, e so uma contagem revelaria os pares ausentes.
+
+    A regra do odometro: o digito da direita gira rapido; o da esquerda gira
+    quando o da direita **completa a volta**. Entao a variante divide pelo
+    produto dos dois digitos a sua direita — tipos x modalidades.
+
+    ⚠️ **E o divisor usa os tipos PUBLICAVEIS, nao os `frescos`.** `escolher_tipo`
+    filtra por `tipos_recentes`, que varia com o que ja foi publicado; um divisor
+    que dependesse disso deixaria de ser reproduzivel, e a idempotencia de T038
+    precisa que ele seja. E a mesma escolha que `escolher_modalidade` ja faz.
+
+    ⚠️ **Cobertura, com contagens diferentes por tipo:** fixados o tipo e a
+    modalidade, `vez_do_jogo` avanca de `quantos_tipos x quantas_modalidades` em
+    `quantos_tipos x quantas_modalidades` — logo o quociente avanca de 1 em 1, e
+    o resto passa por **todas** as variantes daquele tipo, quantas quer que sejam.
+    """
+    if quantas_variantes <= 1:
+        # ⚠️ Um tipo com uma variante so nao precisa de conta nenhuma — e e o
+        # caso das damas hoje, enquanto as candidatas nao forem medidas.
+        return 0
+
+    dias = (dt_dia - EPOCA_DO_RODIZIO).days
+    vez_do_jogo = dias // len(JOGOS_DO_RODIZIO)
+
+    quantos_tipos = max(1, len(tipos_do_jogo(co_jogo)))
+    # ⚠️ `max(1, ...)` porque o Pontinhos **nao tem modalidade**, e a tupla vazia
+    # daria divisao por zero. Para ele o odometro tem dois digitos, e a variante
+    # anda a cada volta completa dos tipos.
+    quantas_modalidades = max(1, len(MODALIDADES_POR_JOGO.get(co_jogo, ())))
+
+    return (vez_do_jogo // (quantos_tipos * quantas_modalidades)) % quantas_variantes
+
+
 def escolher_personagem(dt_dia: date) -> str:
     """O adversario do dia, por rodizio.
 

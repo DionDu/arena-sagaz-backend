@@ -206,9 +206,18 @@ def candidato_de_damas():
     # mao — e no dia em que o rodizio de tipo foi consertado ela passou a gerar
     # outro tipo com os botoes do anterior, e deu zero candidatos. ⛔ O teste
     # estava medindo uma configuracao que a producao nao usa.
-    from job.editorial import publicacao_de
+    # ⚠️ **A variante e a do DIA, e nao a primeira da lista** (T049f): desde
+    # 11/09/2026 cada tipo tem uma lista de variantes de parametros, e medir com
+    # a primeira repetiria o defeito que o comentario acima descreve — o teste
+    # exercitaria uma configuracao que a producao daquele dia nao usa.
+    from job.editorial import variantes_de
+    from job.gerador import escolher_variante
 
-    publicacao = publicacao_de(escolher_tipo("damas", dia))
+    co_tipo = escolher_tipo("damas", dia)
+    variantes = variantes_de(co_tipo)
+    publicacao = variantes[
+        escolher_variante("damas", dia, quantas_variantes=len(variantes))
+    ]
     candidatos = gerar_candidatos(
         dia,
         parametros=publicacao.parametros,
@@ -384,3 +393,129 @@ def test_a_variante_das_damas_ACOMPANHA_a_modalidade(candidato_de_damas) -> None
     `JOIN` com o log de partidas nunca casaria.
     """
     assert candidato_de_damas.co_variante == candidato_de_damas.co_modalidade
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ T049f — o TERCEIRO DIGITO do odometro, e a armadilha que ja pegou duas vezes
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _combinacoes_em(dias: int) -> set[tuple[str, str, str | None, int]]:
+    """Todas as `(jogo, tipo, modalidade, variante)` que saem em `dias` dias."""
+    from job.editorial import variantes_de
+    from job.gerador import escolher_modalidade, escolher_variante
+
+    vistas: set[tuple[str, str, str | None, int]] = set()
+    for n in range(dias):
+        dia = EPOCA_DO_RODIZIO + timedelta(days=n)
+        co_jogo = escolher_jogo(dia)
+        co_tipo = escolher_tipo(co_jogo, dia)
+        vistas.add(
+            (
+                co_jogo,
+                co_tipo,
+                escolher_modalidade(co_jogo, dia),
+                escolher_variante(
+                    co_jogo, dia, quantas_variantes=len(variantes_de(co_tipo))
+                ),
+            )
+        )
+    return vistas
+
+
+def test_o_odometro_de_TRES_digitos_cobre_TODAS_as_combinacoes() -> None:
+    """🔒 ⛔ A armadilha da fase, pela terceira vez — e agora com cadeado.
+
+    ⚠️ **Duas vezes em 10/09/2026 o mesmo erro apareceu:** primeiro `dias % 2`
+    escolhendo o jogo **e** o tipo (sete dias seguidos com o mesmo tipo), depois a
+    modalidade quase usando o contador do tipo (metade das combinacoes nunca
+    sairia). ⚠️ **O segundo seria pior de enxergar:** a fila *pareceria* variada,
+    com tipos e modalidades alternando, e so uma contagem revelaria os ausentes.
+
+    Este caso e a contagem. Ele conta o **produto** esperado — tipos x
+    modalidades x variantes de cada tipo — e exige que todos saiam.
+    """
+    from job.editorial import variantes_de
+    from job.gerador import MODALIDADES_POR_JOGO
+
+    esperadas = 0
+    for co_jogo in JOGOS_DO_RODIZIO:
+        quantas_modalidades = max(1, len(MODALIDADES_POR_JOGO.get(co_jogo, ())))
+        for co_tipo in tipos_do_jogo(co_jogo):
+            esperadas += quantas_modalidades * len(variantes_de(co_tipo))
+
+    # 400 dias dao ~200 aparicoes de cada jogo — folga suficiente para o digito
+    # mais lento (a variante das damas, que anda a cada 8 aparicoes) dar voltas.
+    vistas = _combinacoes_em(400)
+    assert len(vistas) == esperadas, (
+        f"saem {len(vistas)} combinacoes, e deveriam sair {esperadas}. ⛔ Algum "
+        "digito do odometro anda EM FASE com outro, e uma fatia das combinacoes "
+        f"nunca aparece. Vistas: {sorted(vistas)}"
+    )
+
+
+def test_a_variante_NAO_anda_em_fase_com_o_tipo() -> None:
+    """🔒 O sintoma especifico: cada tipo precisa ver TODAS as suas variantes.
+
+    ⚠️ Se a variante usasse `vez_do_jogo` (o contador do tipo), um tipo so
+    apareceria com as variantes de uma paridade — e o teste da contagem acima
+    pegaria, mas sem dizer **qual** digito quebrou. Este diz.
+    """
+    from job.editorial import variantes_de
+
+    por_tipo: dict[str, set[int]] = {}
+    for _co_jogo, co_tipo, _co_modalidade, nu_variante in _combinacoes_em(400):
+        por_tipo.setdefault(co_tipo, set()).add(nu_variante)
+
+    for co_tipo, vistas in por_tipo.items():
+        assert vistas == set(range(len(variantes_de(co_tipo)))), (
+            f"o tipo {co_tipo!r} so viu as variantes {sorted(vistas)}, e tem "
+            f"{len(variantes_de(co_tipo))}"
+        )
+
+
+def test_a_variante_NAO_anda_em_fase_com_a_MODALIDADE() -> None:
+    """🔒 O outro sintoma: cada modalidade precisa ver todas as variantes.
+
+    ⚠️ E o engano que quase aconteceu com a modalidade em 10/09/2026, agora um
+    digito adiante: se a variante dividisse so por `quantos_tipos`, ela giraria
+    junto com a modalidade, e ⛔ **as damas publicariam sempre a mesma variante em
+    cada regulamento** — com a fila parecendo variada.
+    """
+    from job.editorial import variantes_de
+
+    por_par: dict[tuple[str, str | None], set[int]] = {}
+    for _co_jogo, co_tipo, co_modalidade, nu_variante in _combinacoes_em(400):
+        por_par.setdefault((co_tipo, co_modalidade), set()).add(nu_variante)
+
+    for (co_tipo, co_modalidade), vistas in por_par.items():
+        assert vistas == set(range(len(variantes_de(co_tipo)))), (
+            f"{co_tipo!r}/{co_modalidade!r} so viu as variantes {sorted(vistas)}"
+        )
+
+
+def test_a_variante_e_DETERMINISTICA() -> None:
+    """⚠️ A idempotencia de T038 nao pode passar a depender de sorte.
+
+    Duas execucoes do job para o mesmo dia precisam gerar o mesmo desafio — e se
+    a variante fosse sorteada, os parametros mudariam entre elas.
+    """
+    from job.gerador import escolher_variante
+
+    dia = date(2026, 9, 20)
+    assert escolher_variante("pontinhos", dia, quantas_variantes=4) == (
+        escolher_variante("pontinhos", dia, quantas_variantes=4)
+    )
+
+
+def test_tipo_com_UMA_variante_sempre_devolve_zero() -> None:
+    """As damas hoje — enquanto as candidatas nao forem medidas.
+
+    ⛔ E um `% 1` daria zero de qualquer jeito; o atalho existe para o Pontinhos
+    nao dividir por `len(MODALIDADES) == 0`.
+    """
+    from job.gerador import escolher_variante
+
+    for n in range(30):
+        dia = EPOCA_DO_RODIZIO + timedelta(days=n)
+        assert escolher_variante("damas", dia, quantas_variantes=1) == 0

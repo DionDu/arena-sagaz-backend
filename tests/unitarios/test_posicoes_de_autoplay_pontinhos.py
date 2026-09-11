@@ -65,14 +65,21 @@ def test_o_acervo_cobre_as_fases_QUE_O_EDITORIAL_PEDE() -> None:
     alcanca sem fechar caixa. O job falharia **na madrugada**, e este teste faz a
     mesma pergunta em dois segundos.
     """
-    for co_tipo, publicacao in EDITORIAL.items():
+    # ⚠️ **Uma variante pode trazer um preparo proprio** (T049f): o `EDITORIAL`
+    # guarda uma LISTA por tipo desde 11/09/2026, e conferir so a primeira
+    # deixaria a variante nova sem cadeado ate o odometro chegar nela.
+    for co_tipo, variantes in EDITORIAL.items():
         if not co_tipo.startswith("pontinhos"):
             continue
-        quantas = len(autoplay.carregar().com_tracos(publicacao.nu_lances_de_preparo))
-        assert quantas > 0, (
-            f"o tipo {co_tipo!r} prepara com {publicacao.nu_lances_de_preparo} "
-            "tracos, e o acervo de autoplay nao tem nenhuma posicao dessa fase"
-        )
+        for nu_variante, publicacao in enumerate(variantes):
+            quantas = len(
+                autoplay.carregar().com_tracos(publicacao.nu_lances_de_preparo)
+            )
+            assert quantas > 0, (
+                f"o tipo {co_tipo!r}, variante {nu_variante}, prepara com "
+                f"{publicacao.nu_lances_de_preparo} tracos, e o acervo de "
+                "autoplay nao tem nenhuma posicao dessa fase"
+            )
 
 
 def test_as_fatias_por_fase_sao_CONTIGUAS_e_completas(acervo) -> None:

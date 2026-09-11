@@ -279,7 +279,32 @@ async def cobrir_um_dia(
     )
 
     co_tipo = gerador_mod.escolher_tipo(co_jogo, dt_dia, tipos_recentes=recentes)
-    publicacao = editorial_mod.publicacao_de(co_tipo)
+
+    # ── A VARIANTE DE PARAMETROS do dia (T049f) ─────────────────────────────
+    #
+    # ⚠️ **Prioridade do dono, 10/09/2026:** *"e muito importante que estes
+    # parametros variem, senao os desafios viram pura repeticao"*. Ate 11/09 a
+    # **posicao** variava e a **tarefa**, nao: todo `chegar_ao_placar` era "7
+    # caixas".
+    #
+    # ⛔ **A conta mora em `gerador.escolher_variante`, junto dos dois digitos
+    # irmaos do odometro** — e nao aqui. Espalhar os tres por arquivos diferentes
+    # seria a receita para o quarto ficar em fase com um deles: o aviso sobre a
+    # armadilha precisa estar ao lado de quem a repetiria.
+    #
+    # ⚠️ E `quantas_variantes` entra por parametro porque o gerador ⛔ **nao
+    # conhece o editorial**: ele sabe montar candidatos, nao com que numeros eles
+    # vao ao ar.
+    variantes = editorial_mod.variantes_de(co_tipo)
+    nu_variante = gerador_mod.escolher_variante(
+        co_jogo, dt_dia, quantas_variantes=len(variantes)
+    )
+    publicacao = variantes[nu_variante]
+    if len(variantes) > 1:
+        print(
+            f"[job] {dt_dia}: {co_tipo} variante {nu_variante + 1}/{len(variantes)} "
+            f"— {dict(publicacao.parametros)}"
+        )
 
     candidatos = gerar(
         dt_dia,
