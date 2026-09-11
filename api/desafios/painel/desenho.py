@@ -596,12 +596,34 @@ def fita_da_solucao(
         return []
 
     n_chave = js_solucao.get("lance_chave")
+
+    # ── ⚠️ QUEM RESOLVE O DESAFIO E QUEM JOGA PRIMEIRO ───────────────────────
+    #
+    # E a mesma definicao que o julgamento usa (`julgar(..., jogador=vez_de)`),
+    # e ela **nao** e a mesma nos dois jogos: no Pontinhos a posicao publicada
+    # sai com `vez_de: 1` e nas damas saía com `vez_de: -1`.
+    #
+    # ⛔ Ate 11/09/2026 esta legenda dizia "voce" sempre que o lance era do
+    # jogador -1, e o resultado foi o painel chamar de *"adversario"* o primeiro
+    # lance do gabarito do Pontinhos — que e da propria pessoa. O dono
+    # estranhou, e estava certo: *"a solucao comeca com um lance do adversario.
+    # E garantido que o adversario fara essa jogada?"*. Ninguem ia fazer jogada
+    # nenhuma; era a dele.
+    solucionador = js_posicao_inicial.get("vez_de")
+
+    def de_quem(jogador: Any) -> str:
+        """O rotulo do lado, do ponto de vista de quem cura."""
+        if solucionador is None or jogador is None:
+            return "?"
+        return "voce" if jogador == solucionador else "adversario"
+
     quadros: list[dict[str, Any]] = [
         {
             "n": 0,
             "titulo": "posicao publicada",
             "lance": None,
             "jogador": None,
+            "de_quem": None,
             "chave": False,
             "svg": posicao(co_formato, js_posicao_inicial, numerar=True),
         }
@@ -623,6 +645,7 @@ def fita_da_solucao(
                     "titulo": notacao,
                     "lance": notacao,
                     "jogador": lance.get("jogador"),
+                    "de_quem": de_quem(lance.get("jogador")),
                     "chave": indice == n_chave,
                     "svg": damas(
                         {"fen": posicoes[indice]},
@@ -648,6 +671,7 @@ def fita_da_solucao(
                     "titulo": notacao,
                     "lance": notacao,
                     "jogador": lance.get("jogador"),
+                    "de_quem": de_quem(lance.get("jogador")),
                     "chave": indice == n_chave,
                     "svg": pontinhos(
                         {**js_posicao_inicial, "lances": ate_aqui},

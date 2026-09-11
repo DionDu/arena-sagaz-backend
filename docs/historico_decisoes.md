@@ -21,6 +21,82 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 (noite) — Tres perguntas do dono sobre o painel, e duas eram defeitos
+
+O dono curou a primeira fila de verdade e voltou com tres observacoes. Duas
+viraram correcao; a terceira virou descarte.
+
+### (a) ⛔ Nas damas a pessoa estava jogando de jogador 2
+
+> *"No App eu sou sempre as pecas e arestas azuis. Nas damas o humano sempre joga
+> com as pecas iniciando na parte de baixo do tabuleiro, nao no topo. No painel
+> isso aparece tudo invertido."*
+
+⚠️ **Nao era o painel.** Todo desafio de damas saía com `vez_de: -1` - a pessoa
+como **jogador 2**, vermelho, com as pecas no topo. O `CLAUDE.md` diz o
+contrario com todas as letras: *"jogador 1 = AZUL e jogador 2 = VERMELHO.
+Sempre. (...) No modo contra a CPU, o humano e o Jogador 1"*.
+
+**A causa era aritmetica.** O molde tem as brancas a jogar, e os moldes foram
+cacados para que **as brancas** cumpram o objetivo; sobre ele o gerador jogava
+**um** lance de variacao, e um lance troca o lado. Numero impar de lances =
+solucionador trocado.
+
+**Decisao: a variacao passa a ser par** (`2` com preparo 8). ⛔ Zero foi recusado:
+sem variacao, todo desafio tirado do mesmo molde seria a mesma posicao.
+
+⚠️ **O Pontinhos ja estava certo** (`vez_de: 1` em toda linha), e foi isso que
+escondeu o defeito - metade da fila parecia bem.
+
+### (b) ⛔ O gabarito nao se reproduzia, e a regua media outra partida
+
+> *"E garantido que o adversario fara os lances que estao postos no gabarito caso
+> o humano jogue as mesmas jogadas do gabarito no seu turno?"*
+
+A resposta, antes desta correcao, era **nao** - e por dois motivos independentes:
+
+  · ⛔ **o gabarito era Sagaz contra Sagaz.** `_resolver` recebia
+    `nivel=NivelDeMotor.SAGAZ` e o usava para **todos** os lances. Mas o desafio
+    publica `co_personagem` como adversario: nos dias da Pita, a pessoa enfrenta
+    uma Pita, que nao responde o que um Sagaz responderia;
+  · ⛔ **a regua media "Cacau contra Cacau".** `tentativa_com_motor` aplicava o
+    nivel do mascote medido aos dois lados do tabuleiro.
+
+⚠️ **O mais desconfortavel do segundo caso: o comentario estava certo.** O
+cabecalho de `regua.py` ja dizia *"o adversario do dia esta do outro lado do
+tabuleiro; medir com ele seria perguntar 'a Pita resolve um desafio contra a
+Pita?', que nao e a pergunta"* - e era exatamente isso que o codigo fazia, ha
+meses. ⚠️ `tentativa_com_motor` **nao tinha teste nenhum**; e a licao a levar.
+
+**Decisao: cada lado joga com o seu nivel**, na geracao e na medicao. O lado de
+quem resolve usa o nivel de quem resolve (Sagaz no gabarito, o mascote medido na
+regua) e o outro lado usa sempre `NIVEL_POR_PERSONAGEM[co_personagem]`.
+
+⚠️ **A semente e o que torna isso uma garantia**: ela e publicada (RF-DES-206) e
+derivada por lance, entao o mesmo nivel com a mesma semente escolhe o mesmo
+lance - inclusive nos niveis que erram de proposito, cujo `epsilon` e sorteado a
+partir dela.
+
+⛔ **Consequencia obrigatoria: a fila inteira precisa ser regerada**, e a
+calibracao anterior nao vale mais. As taxas mudam porque o adversario mudou.
+
+### (c) A solucao "banal" - e o dono tem razao, mas o job ja tinha dito
+
+> *"Esta solucao me parece extremamente banal. Ate um macaco treinado conseguiria
+> resolver. Se fosse ao menos coroar 2 damas (...) Este e um tipo de desafio que
+> eu recusaria."*
+
+Era o `55a03cfd` (coroar 1 dama, casa): Cacau 90%, Pita 95%, Tex 100%, media
+**0,95**. ⚠️ **O job ja o tinha marcado**: *"taxa media 0.95 (acima por 0.15)
+fora da banda"*. O julgamento do dono e o da regua bateram - o que e a melhor
+evidencia, ate aqui, de que a banda de 70-80% esta no lugar certo.
+
+⏳ **E o "coroar 2 damas" que ele sugere e a variante `{damas: 2}`**, ja escrita
+em `A_MEDIR` de `scripts/medir_variantes_do_editorial.py` e ainda **nao medida**.
+E a proxima medicao a pedir.
+
+---
+
 ## 2026-09-11 — A primeira execucao real no Railway, e os quatro defeitos que so ela achou
 
 **Contexto.** Ate aqui o job tinha rodado **local**, contra o mesmo banco `des`.

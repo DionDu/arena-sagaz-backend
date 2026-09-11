@@ -56,6 +56,7 @@ from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicao_inicial as posicao_mod
 from . import semente as semente_mod
 from .moldes_de_damas import objetivo_no_primeiro_lance
+from .perfil import NIVEL_POR_PERSONAGEM
 from .tipos_de_desafio import Receita, receita_de, tipos_do_jogo
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -444,6 +445,7 @@ def _resolver(
     estado,
     *,
     nivel: NivelDeMotor,
+    nivel_do_adversario: NivelDeMotor,
     nu_semente: int,
     maximo_de_lances: int,
     julgar,
@@ -452,13 +454,31 @@ def _resolver(
 
     Devolve `(fita, lance_chave)` quando encontra, ou `None`.
 
-    ⚠️ **Quem joga e o SAGAZ** (RF-DES-019a): e o unico nivel reproduzivel — os
-    outros tres tem `epsilon` e jogam errado de proposito, com sorteio. Um
-    gabarito gerado pela Cacau seria diferente a cada execucao, e "a solucao de
-    referencia" deixaria de ser referencia.
+    ⚠️ **Quem procura a solucao e o SAGAZ** (RF-DES-019a): e o melhor caminho
+    que existe, e o unico nivel sem `epsilon`.
+
+    ⛔ **Mas o outro lado e o ADVERSARIO DO DIA, e nao o Sagaz.** Ate 11/09/2026
+    os dois lados jogavam Sagaz, e a consequencia era que o gabarito **nao se
+    reproduzia no aparelho**: o desafio publica `co_personagem` (a Pita, por
+    exemplo) como adversario, e uma Pita nao responde o que um Sagaz responderia.
+    Quem seguisse a solucao de referencia lance a lance veria o adversario fazer
+    outra coisa no segundo lance.
+
+    ⚠️ Foi o dono quem levantou a duvida, olhando o painel: *"e garantido que o
+    adversario fara os lances que estao postos no gabarito caso o humano jogue as
+    mesmas jogadas do gabarito no seu turno?"*. Antes desta correcao a resposta
+    era **nao**, exceto nos dias do Magno.
+
+    ⚠️ **Agora e sim**, e o que garante isso e a semente: ela e publicada
+    (RF-DES-206) e derivada por lance, entao o mesmo nivel com a mesma semente
+    escolhe o mesmo lance — mesmo nos niveis que erram de proposito.
     """
     fita: list[dict[str, Any]] = []
     atual = estado
+
+    # ⚠️ Quem resolve o desafio e quem joga **primeiro** — a mesma definicao que
+    # `julgar(..., jogador=js_posicao["vez_de"])` usa.
+    vez_do_solucionador = estado.vez_de
 
     for numero in range(1, maximo_de_lances + 1):
         # ⚠️ Um orcamento NOVO a cada lance. `para_o_proximo_lance()` existe para
@@ -471,7 +491,7 @@ def _resolver(
         try:
             lance = jogador.escolher_lance(
                 atual,
-                nivel,
+                nivel if atual.vez_de == vez_do_solucionador else nivel_do_adversario,
                 limite=orcamento,
                 semente=semente_mod.semente_do_lance(nu_semente, numero),
             )
@@ -677,6 +697,7 @@ def gerar_candidatos(
             jogador,
             base,
             nivel=NivelDeMotor.SAGAZ,
+            nivel_do_adversario=NIVEL_POR_PERSONAGEM[co_personagem],
             nu_semente=nu_semente,
             maximo_de_lances=maximo_de_lances,
             julgar=julgar,
@@ -736,8 +757,28 @@ def _preparar_damas(
         estado = EstadoDamas(
             co_modalidade=co_modalidade, fen_inicial=sorteio.choice(list(moldes))
         )
-        # No maximo dois lances de variacao — e so quando ainda ha o que jogar.
-        variacao = min(2, max(0, lances_de_preparo // 8))
+        # ── ⚠️ A VARIACAO E PAR, E ISSO NAO E DETALHE ────────────────────
+        #
+        # O molde tem as **brancas** a jogar, e os moldes foram cacados para que
+        # sejam as brancas a cumprir o objetivo. Cada lance de variacao troca o
+        # lado; com um numero **impar** deles, quem resolve o desafio passa a ser
+        # as pretas.
+        #
+        # ⛔ **E foi o que aconteceu ate 11/09/2026**, com `variacao = 1`: todo
+        # desafio de damas saiu com `vez_de: -1`, ou seja, com a pessoa jogando
+        # de **jogador 2**. Isso viola a regra canonica do projeto — *"jogador 1
+        # = AZUL, jogador 2 = VERMELHO; no modo contra a CPU o humano e o
+        # jogador 1"* (`CLAUDE.md`) — e o dono viu o efeito no painel: *"no App
+        # eu sou sempre as pecas e arestas azuis; nas damas o humano sempre joga
+        # com as pecas iniciando na parte de baixo do tabuleiro, nao no topo"*.
+        #
+        # ⚠️ **O Pontinhos ja estava certo** (`vez_de: 1` em toda linha), o que
+        # tornava a divergencia invisivel em metade da fila.
+        #
+        # ⛔ **Zero nao serve como alternativa:** sem variacao, todo desafio
+        # tirado do mesmo molde seria a mesma posicao, e a variedade da fila
+        # dependeria so de haver molde novo.
+        variacao = 2 if lances_de_preparo >= 8 else 0
     else:
         estado = estado_inicial(co_modalidade)
         variacao = lances_de_preparo

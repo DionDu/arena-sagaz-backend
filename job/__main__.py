@@ -474,6 +474,10 @@ async def cobrir_um_dia(
                 # os mascotes resolverem desafios que o gerador nao conseguiu
                 # montar, e a taxa descreveria outra tarefa.
                 maximo_de_lances=publicacao.nu_maximo_de_lances,
+                # ⚠️ **Quem joga do outro lado e o adversario do DIA**, e nao o
+                # mascote que esta sendo medido. Sem isto a regua media 'Cacau
+                # contra Cacau', que e uma partida que ninguem joga.
+                co_personagem_do_dia=candidato.co_personagem,
             ),
             co_versao_perfil=co_versao_perfil,
             co_versao_motor=co_versao_motor,

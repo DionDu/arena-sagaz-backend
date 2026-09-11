@@ -259,3 +259,75 @@ def test_a_consulta_le_pelas_VIEWS() -> None:
     assert "vw003_resolucao" in SQL_TAXA_OBSERVADA
     assert "tb001_desafio_dia" not in SQL_TAXA_OBSERVADA
     assert "tb002_tentativa" not in SQL_TAXA_OBSERVADA
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ CADA LADO DO TABULEIRO JOGA COM O SEU NIVEL
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ `tentativa_com_motor` nao tinha teste nenhum ate 11/09/2026, e e por isso
+# que o defeito sobreviveu meses **com o comentario certo escrito em cima dele**:
+# o cabecalho de `regua.py` dizia que o adversario do dia fica do outro lado, e o
+# codigo aplicava o nivel do mascote medido aos dois lados.
+
+
+class _EstadoFalso:
+    """Um estado de tabuleiro que so sabe de quem e a vez.
+
+    ⚠️ **Nao ha jogo aqui, e e de proposito:** o que se mede e qual NIVEL foi
+    pedido em cada lance, e um motor de verdade so tornaria o teste lento e
+    dependente das regras de um jogo.
+    """
+
+    def __init__(self, vez_de: int, lance_numero: int = 0) -> None:
+        self.vez_de = vez_de
+        self.lance_numero = lance_numero
+
+    def com_lance(self, _lance: str) -> "_EstadoFalso":
+        return _EstadoFalso(-self.vez_de, self.lance_numero + 1)
+
+
+class _JogadorQueAnota:
+    """Escolhe sempre o mesmo lance, e ANOTA com que nivel foi chamado."""
+
+    def __init__(self) -> None:
+        self.pedidos: list[tuple[int, object]] = []
+
+    def escolher_lance(self, estado, nivel, *, limite=None, semente=None) -> str:
+        self.pedidos.append((estado.vez_de, nivel))
+        return "x"
+
+
+def test_o_ADVERSARIO_DO_DIA_joga_o_outro_lado_na_medicao() -> None:
+    """🔒 ⛔ O defeito que media uma partida que ninguem joga.
+
+    ⚠️ **A pessoa enfrenta o `co_personagem` do desafio.** Medir a Cacau contra a
+    Cacau responde outra pergunta — e nos dias em que o adversario e o Magno a
+    diferenca e enorme, porque a taxa passa a descrever um adversario quase
+    perfeito em vez de um iniciante.
+    """
+    from job.perfil import NIVEL_POR_PERSONAGEM
+    from job.regua import tentativa_com_motor
+
+    jogador = _JogadorQueAnota()
+    tentar = tentativa_com_motor(
+        jogador=jogador,
+        estado_inicial=_EstadoFalso(vez_de=1),
+        julgar=lambda fita: type("J", (), {"cumpriu": len(fita) >= 4})(),
+        nu_semente=7,
+        maximo_de_lances=4,
+        co_personagem_do_dia="magno",
+    )
+    tentar("cacau", 1)
+
+    # O solucionador joga primeiro (vez_de = 1); o adversario e o outro lado.
+    niveis_de_quem_resolve = [n for vez, n in jogador.pedidos if vez == 1]
+    niveis_do_adversario = [n for vez, n in jogador.pedidos if vez == -1]
+
+    assert niveis_de_quem_resolve, "ninguem jogou pelo lado de quem resolve"
+    assert niveis_do_adversario, "o adversario nunca jogou"
+    assert set(niveis_de_quem_resolve) == {NIVEL_POR_PERSONAGEM["cacau"]}
+    assert set(niveis_do_adversario) == {NIVEL_POR_PERSONAGEM["magno"]}, (
+        "o outro lado tem de jogar no nivel do adversario do DIA; se vier o "
+        "nivel do mascote medido, a regua voltou a medir 'Cacau contra Cacau'"
+    )

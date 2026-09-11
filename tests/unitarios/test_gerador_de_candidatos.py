@@ -594,3 +594,47 @@ def test_o_gerador_RECUSA_toda_posicao_trivial_em_vez_de_publicar(monkeypatch) -
         "o dia cai na reprise, que e o caminho previsto. ⛔ Publicar um desafio "
         "de um toque nao e uma alternativa aceitavel a um dia sem desafio."
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ QUEM RESOLVE O DESAFIO E O JOGADOR 1 — EM TODO JOGO
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_solucionador_das_damas_e_o_JOGADOR_1(candidato_de_damas) -> None:
+    """🔒 A regra canonica do projeto, aplicada a posicao publicada.
+
+    ⚠️ `CLAUDE.md`: *"jogador 1 = AZUL e jogador 2 = VERMELHO. Sempre. Em todos
+    os modos e em todos os jogos (...) No modo contra a CPU, o humano e o Jogador
+    1 (azul)"*.
+
+    ⛔ Ate 11/09/2026 todo desafio de damas saiu com `vez_de: -1`, porque a
+    variacao a partir do molde era de **um** lance e cada lance troca o lado. O
+    dono viu o efeito no painel: *"no App eu sou sempre as pecas e arestas azuis;
+    nas damas o humano sempre joga com as pecas iniciando na parte de baixo do
+    tabuleiro, nao no topo"*.
+
+    ⚠️ E a posicao no tabuleiro vem junto: as brancas sao as de baixo, entao
+    exigir `W:` e exigir que a pessoa jogue de baixo para cima, como no jogo
+    normal.
+    """
+    posicao = candidato_de_damas.js_posicao_inicial
+    assert posicao["vez_de"] == 1, (
+        "a pessoa tem de resolver o desafio como jogador 1 (azul); veio "
+        f"{posicao['vez_de']}"
+    )
+    assert posicao["fen"].startswith("W:"), (
+        f"a FEN publicada tem de ter as brancas a jogar; veio {posicao['fen']}"
+    )
+
+
+def test_o_PONTINHOS_tambem_publica_com_o_jogador_1() -> None:
+    """🔒 O irmao do caso acima, que ja passava — e e por isso que entra.
+
+    ⚠️ **Metade da fila estava certa**, e foi isso que escondeu o defeito das
+    damas: quem olhasse um desafio de Pontinhos veria tudo no lugar.
+    """
+    from job.posicao_inicial import do_pontinhos
+
+    js = do_pontinhos(["H_0_1", "V_1_0"])
+    assert js["vez_de"] == 1

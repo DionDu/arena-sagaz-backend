@@ -350,11 +350,9 @@ def _fita(item: DesafioNoPainel) -> str:
         if quadro["n"] == 0:
             legenda = "inicio"
         else:
-            # ⚠️ Quem jogou aquele lance, na mesma regra de cor do aplicativo:
-            # jogador 1 e azul, jogador 2 e vermelho. Aqui vai o nome, porque o
-            # que o dono precisa saber e se o lance foi DELE ou do adversario.
-            de_quem = "voce" if quadro["jogador"] == -1 else "adversario"
-            legenda = f"{quadro['n']}. {quadro['titulo']} ({de_quem})"
+            # ⚠️ **O rotulo vem pronto do desenho**, e nao de um lado fixo: quem
+            # resolve o desafio e quem joga primeiro, e isso muda por jogo.
+            legenda = f"{quadro['n']}. {quadro['titulo']} ({quadro['de_quem']})"
         partes.append(
             f'<figure class="{classe}">{quadro["svg"]}'
             f"<figcaption>{_txt(legenda)}</figcaption></figure>"

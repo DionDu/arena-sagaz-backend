@@ -23,6 +23,15 @@ desafio contra a Pita?"*, que nao e a pergunta.
 Os outros tres entram como **quem tenta resolver**, e e a taxa deles que diz se o
 desafio esta na banda certa.
 
+⛔ **E ate 11/09/2026 era exatamente a pergunta errada que o codigo fazia.** O
+cabecalho acima ja estava escrito, mas `tentativa_com_motor` usava o nivel do
+mascote medido para **todos** os lances — os dois lados do tabuleiro. A regua
+media *"Cacau contra Cacau"*, e nao *"Cacau contra o adversario do dia"*, que e
+o que a pessoa vai enfrentar.
+
+⚠️ **Um comentario correto nao conserta um codigo errado**, e este arquivo e o
+exemplo: a intencao estava documentada, e a implementacao nunca a cumpriu.
+
 ═══════════════════════════════════════════════════════════════════════════
 ⚠️ O CARIMBO NAO E OPCIONAL
 ═══════════════════════════════════════════════════════════════════════════
@@ -141,13 +150,22 @@ def tentativa_com_motor(
     julgar,
     nu_semente: int,
     maximo_de_lances: int,
+    co_personagem_do_dia: str,
 ) -> Callable[[str, int], bool]:
     """Monta a funcao `tentar` que a regua consome, usando um motor de verdade.
 
     ⚠️ **Cada execucao recebe uma semente propria** (`semente_do_lance` sobre o
     par candidato/execucao): sem isso, as 20 execucoes de um mascote seriam
     identicas, e "14 de 20" so poderia dar 0 ou 20.
+
+    ⛔ **E cada LADO recebe o seu nivel.** O mascote medido joga o lado de quem
+    resolve; o adversario do dia joga o outro. Ver o topo do modulo: ate
+    11/09/2026 o nivel do mascote medido era aplicado aos dois lados, e a taxa
+    descrevia uma partida que ninguem joga.
     """
+    nivel_do_adversario = NIVEL_POR_PERSONAGEM[co_personagem_do_dia]
+    # ⚠️ Quem resolve e quem joga primeiro — a mesma definicao do julgamento.
+    vez_do_solucionador = estado_inicial.vez_de
 
     def tentar(co_personagem: str, execucao: int) -> bool:
         nivel = NIVEL_POR_PERSONAGEM[co_personagem]
@@ -166,7 +184,12 @@ def tentativa_com_motor(
             )
             try:
                 lance = jogador.escolher_lance(
-                    atual, nivel, limite=orcamento, semente=semente
+                    atual,
+                    nivel
+                    if atual.vez_de == vez_do_solucionador
+                    else nivel_do_adversario,
+                    limite=orcamento,
+                    semente=semente,
                 )
             except ValueError:
                 # A partida acabou antes do objetivo: nao resolveu.

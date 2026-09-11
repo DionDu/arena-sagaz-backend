@@ -754,3 +754,25 @@ def test_casas_do_lance_le_a_notacao_dos_DOIS_tipos_de_lance() -> None:
     # ⚠️ A dama vem com `K` na FEN; na notacao de lance ela pode aparecer, e o
     # numero e que importa.
     assert casas_do_lance("K5-9") == (5, 9)
+
+
+def test_o_rotulo_do_lance_sai_do_VEZ_DE_e_nao_de_um_lado_fixo() -> None:
+    """🔒 ⛔ O painel chamou de "adversario" o primeiro lance do proprio dono.
+
+    ⚠️ Quem resolve o desafio e quem joga **primeiro**, e isso nao e o mesmo
+    numero nos dois jogos. Com o lado escrito a mao, metade das legendas mente —
+    e mente justamente sobre a pergunta que a curadoria faz: *"este lance e meu
+    ou dele?"*.
+    """
+    from api.desafios.painel import desenho
+
+    posicao = {"lances": [{"n": 1, "lance": "H_0_1", "jogador": 1}], "vez_de": 1}
+    solucao = {
+        "lances": [
+            {"n": 1, "jogador": 1, "lance": "V_1_0"},
+            {"n": 2, "jogador": -1, "lance": "H_2_1"},
+        ],
+        "lance_chave": 1,
+    }
+    quadros = desenho.fita_da_solucao("sequencia_lances", posicao, solucao)
+    assert [q["de_quem"] for q in quadros] == [None, "voce", "adversario"]
