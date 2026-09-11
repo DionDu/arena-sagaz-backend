@@ -610,9 +610,19 @@ RECEITAS: dict[str, Receita] = {
             # medidas (`lances` 2, 3 e 4) deram **3,0 meios-lances** em todas,
             # com ate o tempo identico.
             #
-            # ⏳ **Fica uma decisao para o dono**, e ela nao e tecnica: aceitar
-            # que este e o tipo rapido da fila, ou tira-lo do rodizio. Enquanto
-            # nao decidir, ele publica — com o acervo abaixo, que e 3x o anterior.
+            # ✅ **DECIDIDO pelo dono em 11/09/2026** (`DECISOES-do-dono.md`
+            # §8j): *"eu aceito que ela pode ser o tipo rapido"*. O tipo fica no
+            # rodizio, caindo a cada quatro dias, e passa a ser o **respiro** da
+            # fila — o dia em que se resolve em segundos.
+            #
+            # ⛔ **Isso so e aceitavel com o `damas_coroar` do outro lado**, que
+            # publica solucoes de 5 a 9 meios-lances desde o acervo novo. Se o
+            # coroar voltar a encurtar, esta decisao volta a mesa.
+            #
+            # ✅ **E o acervo aguenta**: 29 moldes × 4,0 lances de variacao × 4
+            # modalidades = 460 posicoes (medido), a ~91 publicacoes por ano — cerca de
+            # **4,8 anos** antes de a nao-repeticao apertar. Era ano e meio com
+            # os 9 moldes antigos.
             "W:W26,29,30:B17,18,22,27",   # 3/4 · lance 3.7
             "W:W25,26,28:B13,18,21,22",   # 4/4 · lance 3.0
             "W:W25,26,29:B9,14,17,18",   # 4/4 · lance 3.0
