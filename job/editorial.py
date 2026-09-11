@@ -373,6 +373,41 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_coroar,
         ),
+        # ── ⚠️ DUAS DAMAS: a variante que o dono pediu, e a mais longa ────────
+        #
+        # ⚠️ **Pedido dele, olhando a curadoria** (11/09/2026): *"esta solucao me
+        # parece extremamente banal. Ate um macaco treinado conseguiria resolver.
+        # **Se fosse ao menos coroar 2 damas**, talvez fizesse sentido"*.
+        #
+        # ✅ **MEDIDO no mesmo dia**, e o resultado da razao a ele:
+        #
+        #     {damas:1, lances: 6}   pior 3   solucao media 7.4 meios-lances    88s
+        #     {damas:1, lances: 4}   pior 3   solucao media 5.2 meios-lances   132s
+        #     {damas:2, lances: 8}   pior 3   solucao media 9.7 meios-lances   314s
+        #     {damas:2, lances:10}   pior 3   solucao media 9.4 meios-lances   265s
+        #
+        # ⚠️ **9,7 meios-lances sao ~5 lances do jogador**, contra ~3,7 da melhor
+        # variante de uma dama so. E a tarefa mais longa que as damas tem hoje.
+        #
+        # ⛔ **So a de 8 entrou, e o motivo e o de sempre:** 9,7 e 9,4 sao o mesmo
+        # numero, entao `lances: 10` e a mesma tarefa com uma folga maior escrita
+        # na frase. Publicar as duas seria a repeticao que a variacao existe para
+        # acabar.
+        #
+        # ⚠️ **O preco e tempo de geracao**: ~105 s por dia contra ~29 s da
+        # variante de uma dama. O job acorda uma vez por dia, entao cabe — mas e
+        # o numero a olhar se a execucao no Railway comecar a se arrastar.
+        #
+        # ⚠️ **Ressalva honesta sobre a medida:** as duas linhas de `damas: 2`
+        # foram medidas com a maquina dividida com a cacada de moldes, e o teto
+        # de tempo do gerador (2 s por lance) pode ter mordido. ⛔ Isso torna o
+        # **veredito** conservador (passou apesar da disputa, entao passa sozinho)
+        # mas deixa a media de lances com incerteza para cima.
+        Publicacao(
+            parametros={"damas": 2, "lances": 8},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_coroar,
+        ),
     ),
     # ⚠️ **MEDIDO no mesmo dia, e o resultado foi UMA variante so:**
     #
@@ -390,9 +425,24 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # o objetivo no primeiro lance** (T049g). Com os 9 moldes limpos, os mesmos
     # parametros dao `[3,3,3]` — a fragilidade era dos moldes, nao do tipo.
     #
-    # ⏳ **Para ter uma segunda variante aqui, a janela precisa APERTAR** (`lances:
-    # 2`, ja escrita em `A_MEDIR`) — mexer em `pecas` para 3 esbarra no que T049g
-    # mediu: capturar tres em sequencia contra um Sagaz quase nao acontece.
+    # ✅ **A janela APERTADA foi medida em 11/09/2026, e nao muda nada:**
+    #
+    #     {pecas:2, lances:4}   pior 3   solucao media 3.0 meios-lances   69s
+    #     {pecas:2, lances:3}   pior 3   solucao media 3.0 meios-lances   70s
+    #     {pecas:2, lances:2}   pior 3   solucao media 3.0 meios-lances   70s
+    #
+    # ⛔ **Tres numeros iguais, e desta vez ate o tempo e igual.** A captura
+    # encadeada cai **sempre** em 3 meios-lances — dois lances do jogador —, e
+    # nenhuma janela de 2 para cima chega perto disso. O tipo e estruturalmente
+    # curto, e ⛔ **isso nao se conserta com parametro**: e o que a posicao pede.
+    #
+    # ⚠️ **O dono reclamou exatamente disto** (*"o usuario entra pra resolver um
+    # desafio e nao joga praticamente nada"*), e a resposta honesta e que a saida
+    # esta nos **moldes**, nao aqui: os de hoje foram cacados com o alvo *"o
+    # objetivo cai no lance 3"*, que e o piso do script (`LANCE_MINIMO = 3`).
+    # Moldes mais distantes do alvo dariam capturas que exigem preparo — e e a
+    # cacada de 1.000 candidatas que pode revela-los, escolhendo pelo topo da
+    # ordenacao (ela ja ordena pelo objetivo que demora mais a cair).
     "damas_capturar_multipla": (
         Publicacao(
             # Uma captura de duas pecas em quatro lances.

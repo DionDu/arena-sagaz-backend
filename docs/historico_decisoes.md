@@ -21,6 +21,58 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 — A cacada de moldes passa a usar todos os nucleos
+
+**A pergunta do dono:** *"Para recacar moldes com alvo de distancia maior essas
+horas nao seriam reduzidas se seu script passar a usar 14 nucleos do meu Ryzen
+5700X?"*
+
+Seriam. A cacada e um caso de livro: cada candidata e independente de todas as
+outras, nao ha estado compartilhado e o trabalho e 100% CPU.
+
+⛔ **`threading` nao serve** — o motor e Python puro, e o GIL faria catorze
+threads se revezarem num nucleo so; o programa ficaria **mais lento** que a
+versao sequencial. E `multiprocessing`.
+
+### ⚠️ O que quase passou despercebido: o teto de TEMPO invalidaria a medicao
+
+O orcamento do motor para **no que vier primeiro** — nos ou segundos. Medido
+antes de paralelizar: **~0,66 s por lance**, contra um teto de 2,0 s. Numa
+maquina ociosa o teto de tempo nunca mordia, e o criterio efetivo era o numero
+de nos.
+
+⛔ **Em paralelo isso deixa de valer.** Catorze processos disputando oito nucleos
+fisicos deixam cada busca mais lenta em tempo de **parede**, sem mudar o numero
+de nos. Com o teto antigo, a busca pararia mais cedo — e ⛔ **o resultado da
+cacada passaria a depender do quanto a maquina estava ocupada**. Uma "medicao"
+que muda conforme o dono abre o navegador nao e medicao.
+
+**Decisao: o teto de tempo sobe (30 s na peneira, 60 s na medicao) e passa a ser
+rede de seguranca**, nunca criterio. Quem manda e o numero de nos, que e
+identico em qualquer maquina e com qualquer carga.
+
+⚠️ **Isto tambem melhora a versao sequencial**, e de graca: os poucos lances
+caros que estouravam os 2 s agora terminam a busca.
+
+### Detalhes que o Windows impoe
+
+  · ⚠️ **as funcoes de trabalho sao de MODULO**, e nao closures: o `spawn` do
+    Windows re-importa o arquivo em cada processo e localiza a funcao pelo nome.
+    Uma closure daria `PicklingError` depois de o Pool ja ter aberto;
+  · ⚠️ **o `if __name__ == "__main__"` deixa de ser estilo**: sem ele, cada
+    processo filho re-executaria a cacada inteira ao importar o modulo;
+  · ⚠️ **os motivos de descarte voltam no RETORNO** de cada tarefa. Um `Counter`
+    global seria incrementado em catorze copias, e nenhuma delas chegaria ao pai.
+
+### O padrao
+
+`--processos N`, com padrao `cpu_count() - 2`. ⚠️ **Dois de fora de proposito**:
+o dono roda isto na maquina que ele usa, e uma cacada que trava o computador e
+uma cacada que ninguem deixa terminar. `--processos 1` roda em sequencia, e e o
+modo de depurar — o rastro de uma excecao aparece inteiro.
+
+---
+
 ## 2026-09-11 (madrugada) — O espelho, e a correcao de uma correcao
 
 **Contexto.** A correcao da vespera (*"a variacao passa a ser par, para a pessoa

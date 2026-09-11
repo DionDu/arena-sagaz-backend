@@ -68,6 +68,8 @@ acompanhamento so aparece no fim — foi o que aconteceu na primeira caçada.
 
 from __future__ import annotations
 
+import multiprocessing
+import os
 import random
 import sys
 import time
@@ -116,13 +118,31 @@ TETO_DE_LANCES = editorial_mod.MAXIMO_DE_LANCES_PADRAO
 #: cara. Um falso negativo aqui custa um molde perdido; um falso positivo custa
 #: dois segundos. A assimetria e de proposito.
 NOS_DA_PENEIRA = 20_000
-SEGUNDOS_DA_PENEIRA = 0.5
+
+#: ⛔ **O teto de TEMPO e alto de proposito, e isso mudou em 11/09/2026.**
+#:
+#: O orcamento do motor para no que vier primeiro — nos **ou** segundos. Com 0,5 s
+#: aqui e 2,0 s na medicao, o teto de tempo nunca mordia numa maquina ociosa
+#: (medido: ~0,66 s por lance, contra 2,0 de teto).
+#:
+#: ⚠️ **Mas esta cacada passou a rodar em paralelo**, e ai a conta muda: catorze
+#: processos disputando oito nucleos fisicos deixam cada busca mais lenta em
+#: tempo de **parede**, sem mudar o numero de nos. Com o teto antigo, a busca
+#: pararia mais cedo — e ⛔ **o resultado da cacada passaria a depender do quanto
+#: a maquina estava ocupada**, o que e o oposto de uma medicao.
+#:
+#: Com o teto alto, quem manda e sempre o numero de nos, que e identico em
+#: qualquer maquina e com qualquer carga. ⚠️ O tempo continua la como **rede de
+#: seguranca**: uma posicao patologica nao trava o processo para sempre.
+SEGUNDOS_DA_PENEIRA = 30.0
 
 #: Orcamento da MEDICAO (fase 2): identico ao do gerador
 #: (`job/gerador.py`, `NOS_POR_LANCE_NA_GERACAO`). E o que torna o resultado
 #: transferivel — o molde aprovado aqui gera la.
 NOS_DA_MEDICAO = 60_000
-SEGUNDOS_DA_MEDICAO = 2.0
+
+#: Ver `SEGUNDOS_DA_PENEIRA`: rede de seguranca, e nao criterio.
+SEGUNDOS_DA_MEDICAO = 60.0
 
 #: A semente da busca. Fixa: a medicao precisa ser reproduzivel, senao um molde
 #: "aprovado" hoje pode reprovar amanha e ninguem sabera por que.
@@ -302,7 +322,127 @@ def resolve(
     return None
 
 
-def cacar(co_tipo: str, quantas_candidatas: int) -> list[tuple[int, float, str]]:
+# ═══════════════════════════════════════════════════════════════════════════
+# O TRABALHO EM PARALELO
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Cada candidata e independente de todas as outras**, e e isso que torna
+# esta cacada um caso de livro para `multiprocessing`: nao ha estado
+# compartilhado, nao ha ordem a respeitar, e o trabalho e 100% CPU.
+#
+# ⛔ **Nao serve `threading`.** O motor e Python puro, e o GIL faria catorze
+# threads se revezarem num nucleo so — o programa ficaria **mais lento** que a
+# versao sequencial, por causa do custo de trocar de contexto.
+#
+# ⚠️ **As funcoes abaixo precisam ser de MODULO** (e nao locais nem `lambda`):
+# no Windows o `multiprocessing` usa `spawn`, que **re-importa** este arquivo em
+# cada processo novo e localiza a funcao pelo nome. Uma closure nao sobrevive a
+# isso, e o erro (`PicklingError`) chega so quando o Pool ja abriu.
+#
+# ⚠️ **Por isso o `if __name__ == "__main__"` no fim nao e enfeite:** sem ele,
+# cada processo filho re-executaria a cacada inteira ao importar o modulo.
+
+
+def _mapear(funcao, tarefas: list, processos: int):
+    """Roda `funcao` sobre `tarefas` — em paralelo quando vale a pena.
+
+    Args:
+        funcao: um dos trabalhadores de modulo deste arquivo.
+        tarefas: a lista de entradas.
+        processos: quantos processos usar. `1` roda em sequencia, **no proprio
+            processo**.
+
+    Yields:
+        Os resultados, ⚠️ **fora de ordem** quando em paralelo.
+
+    ⚠️ **A ordem nao importa aqui, e e bom deixar isso explicito:** a peneira so
+    junta as aprovadas num conjunto, e a medicao ordena tudo no fim. Depender da
+    ordem seria depender do escalonador do sistema operacional.
+
+    ⚠️ **`processos=1` nao abre Pool nenhum**, e nao e so economia: com um
+    processo so, o rastro de uma excecao aparece inteiro e no lugar certo, o que
+    torna este o modo de depurar quando algo der errado.
+
+    ⚠️ **`chunksize` pequeno de proposito.** Cada tarefa custa segundos; lotes
+    grandes fariam um processo terminar cedo e ficar parado enquanto outro ainda
+    tem dez candidatas na fila — e o ganho do paralelismo iria embora no fim da
+    execucao, que e justamente quando se esta esperando.
+    """
+    if processos <= 1:
+        for tarefa in tarefas:
+            yield funcao(tarefa)
+        return
+
+    with multiprocessing.Pool(processes=processos) as pool:
+        yield from pool.imap_unordered(funcao, tarefas, chunksize=2)
+
+
+def _peneirar_uma(tarefa: tuple[str, str, dict]) -> tuple[str, object, dict]:
+    """Fase 1 para UMA candidata. Devolve `(fen, lance_ou_None, motivos)`.
+
+    ⚠️ **Os motivos voltam no retorno, e nao num contador compartilhado.** Cada
+    processo tem a sua memoria; um `Counter` global seria incrementado em catorze
+    copias e nenhuma delas chegaria ao pai.
+    """
+    fen, co_tipo, parametros = tarefa
+    motivos = MotivoDeDescarte()
+
+    de_cara = next(
+        (
+            f"{modalidade}:{lance}"
+            for modalidade in MODALIDADES
+            if (lance := objetivo_no_primeiro_lance(fen, co_tipo, modalidade))
+        ),
+        None,
+    )
+    if de_cara is not None:
+        motivos[f"objetivo_no_lance_1_em_{de_cara.split(':')[0]}"] += 1
+        return fen, None, dict(motivos)
+
+    lance = resolve(
+        fen,
+        co_tipo,
+        parametros,
+        "brasileira",
+        nos=NOS_DA_PENEIRA,
+        segundos=SEGUNDOS_DA_PENEIRA,
+        motivos=motivos,
+    )
+    return fen, lance, dict(motivos)
+
+
+def _medir_uma(tarefa: tuple[str, str, dict]) -> tuple[str, list, dict]:
+    """Fase 2 para UMA candidata: as quatro modalidades, orcamento do gerador."""
+    fen, co_tipo, parametros = tarefa
+    motivos = MotivoDeDescarte()
+    lances = [
+        resolve(
+            fen,
+            co_tipo,
+            parametros,
+            modalidade,
+            nos=NOS_DA_MEDICAO,
+            segundos=SEGUNDOS_DA_MEDICAO,
+            motivos=motivos,
+        )
+        for modalidade in MODALIDADES
+    ]
+    return fen, lances, dict(motivos)
+
+
+def processos_padrao() -> int:
+    """Quantos processos usar quando ninguem disser.
+
+    ⚠️ **Deixa dois de fora.** O dono roda isto na maquina que ele usa; tomar
+    todos os nucleos faz o resto do sistema engasgar, e uma cacada que trava o
+    computador e uma cacada que ninguem deixa terminar.
+    """
+    return max(1, (os.cpu_count() or 4) - 2)
+
+
+def cacar(
+    co_tipo: str, quantas_candidatas: int, *, processos: int = 1
+) -> list[tuple[int, float, str]]:
     """Gera, peneira e mede as candidatas de um tipo.
 
     A busca roda em duas fases porque a medicao honesta e cara: com o orcamento
@@ -322,64 +462,39 @@ def cacar(co_tipo: str, quantas_candidatas: int) -> list[tuple[int, float, str]]
     # e responde a mesma coisa.
     candidatas = sorted(set(candidatas))
     print(f"[{co_tipo}] candidatas geradas: {len(candidatas)}")
+    print(
+        f"[{co_tipo}] processos: {processos} "
+        f"(a maquina tem {os.cpu_count()} nucleos logicos)",
+        flush=True,
+    )
 
     # ── Fase 1: a peneira, so na brasileira ──────────────────────────────────
+    #
+    # ⛔ **A pergunta "o objetivo cai no lance 1?" vem antes de tudo, e nao custa
+    # um no de busca** (acrescentada em 11/09/2026, depois que o cadeado
+    # `test_moldes_de_damas.py` reprovou 13 moldes ja aprovados por este script).
+    # O Sagaz joga a **partida**, e nao o **desafio**: coroar de cara costuma ser
+    # mau lance, entao ele escolhia outra coisa e a medicao anotava "objetivo no
+    # lance 3" em posicoes que qualquer pessoa resolve no primeiro toque.
+    #
+    # ⚠️ **Nas QUATRO modalidades**, porque a peneira com Sagaz roda so na
+    # brasileira — e foi assim que dois moldes entraram com a portuguesa
+    # cumprindo no lance 1.
     inicio = time.monotonic()
     peneiradas = []
-    for indice, fen in enumerate(candidatas, start=1):
-        # ── ⛔ O OBJETIVO CAI NO LANCE 1 EM ALGUMA MODALIDADE? ───────────────
-        #
-        # ⚠️ **Esta pergunta vem antes de tudo, e nao custa um no de busca.**
-        # Ela foi acrescentada em 11/09/2026, depois que o cadeado
-        # `test_moldes_de_damas.py` reprovou **13 moldes ja aprovados por este
-        # script** — 10 de coroar e os 3 fundadores de captura.
-        #
-        # ⛔ **Por que a medicao com Sagaz nao pegava:** ele joga a **partida**, e
-        # nao o **desafio**. Coroar de cara costuma ser mau lance — a pedra
-        # avanca sozinha e e capturada na resposta —, entao ele escolhia outra
-        # coisa e a medicao anotava *"objetivo no lance 3"*. Só que quem joga o
-        # desafio nao esta jogando para vencer: esta cumprindo a tarefa, e
-        # cumpre no primeiro toque.
-        #
-        # ⚠️ **Nas QUATRO modalidades**, porque a peneira com Sagaz roda so na
-        # brasileira — e foi assim que dois moldes entraram com a portuguesa
-        # cumprindo no lance 1, publicando um desafio de um lance num dia de
-        # cada quatro.
-        de_cara = next(
-            (
-                f"{modalidade}:{lance}"
-                for modalidade in MODALIDADES
-                if (lance := objetivo_no_primeiro_lance(fen, co_tipo, modalidade))
-            ),
-            None,
-        )
-        if de_cara is not None:
-            motivos[f"objetivo_no_lance_1_em_{de_cara.split(':')[0]}"] += 1
-            continue
-
-        lance = resolve(
-            fen,
-            co_tipo,
-            parametros,
-            "brasileira",
-            nos=NOS_DA_PENEIRA,
-            segundos=SEGUNDOS_DA_PENEIRA,
-            motivos=motivos,
-        )
-        if lance is None:
-            pass
-        elif lance < LANCE_MINIMO:
-            # ⚠️ Descartado AQUI, e nao na medicao: nao vale gastar oito segundos
-            # de Sagaz nas quatro modalidades para confirmar que um molde trivial
-            # continua trivial nas outras tres.
-            motivos[f"trivial_no_lance_{lance}"] += 1
-        else:
+    tarefas = [(fen, co_tipo, parametros) for fen in candidatas]
+    for indice, (fen, lance, motivos_da_vez) in enumerate(
+        _mapear(_peneirar_uma, tarefas, processos), start=1
+    ):
+        motivos.update(motivos_da_vez)
+        if lance is not None:
             peneiradas.append(fen)
-        if indice % 25 == 0:
+        if indice % 25 == 0 or indice == len(tarefas):
             gasto = time.monotonic() - inicio
             print(
                 f"[{co_tipo}] peneira {indice}/{len(candidatas)} "
-                f"— {len(peneiradas)} passaram — {gasto:.0f}s"
+                f"— {len(peneiradas)} passaram — {gasto:.0f}s",
+                flush=True,
             )
     print(
         f"[{co_tipo}] peneira concluida: {len(peneiradas)} de {len(candidatas)} "
@@ -391,19 +506,11 @@ def cacar(co_tipo: str, quantas_candidatas: int) -> list[tuple[int, float, str]]
     motivos_da_medicao = MotivoDeDescarte()
     inicio = time.monotonic()
     resultados: list[tuple[int, float, str]] = []
-    for indice, fen in enumerate(peneiradas, start=1):
-        lances = [
-            resolve(
-                fen,
-                co_tipo,
-                parametros,
-                modalidade,
-                nos=NOS_DA_MEDICAO,
-                segundos=SEGUNDOS_DA_MEDICAO,
-                motivos=motivos_da_medicao,
-            )
-            for modalidade in MODALIDADES
-        ]
+    tarefas = [(fen, co_tipo, parametros) for fen in peneiradas]
+    for indice, (fen, lances, motivos_da_vez) in enumerate(
+        _mapear(_medir_uma, tarefas, processos), start=1
+    ):
+        motivos_da_medicao.update(motivos_da_vez)
         cumpridos = [lance for lance in lances if lance is not None]
         # ⛔ **A trivialidade se confere nas QUATRO, e nao so na brasileira.** A
         # peneira roda num regulamento so, e na medicao de 11/09 dois moldes
@@ -425,7 +532,8 @@ def cacar(co_tipo: str, quantas_candidatas: int) -> list[tuple[int, float, str]]
         print(
             f"[{co_tipo}] medicao {indice}/{len(peneiradas)}: "
             f"{quantas}/4 modalidades, lance medio {lance_medio:.1f} "
-            f"({detalhe}) — {fen}"
+            f"({detalhe}) — {fen}",
+            flush=True,
         )
     print(f"[{co_tipo}] medicao concluida em {time.monotonic() - inicio:.0f}s")
 
@@ -446,13 +554,29 @@ def cacar(co_tipo: str, quantas_candidatas: int) -> list[tuple[int, float, str]]
 
 
 def main() -> int:
-    """Caca moldes para os dois tipos e imprime o que passou, pronto para colar."""
-    quantas = int(sys.argv[1]) if len(sys.argv) > 1 else 150
+    """Caca moldes para os dois tipos e imprime o que passou, pronto para colar.
+
+    Uso:
+
+        python scripts/cacar_moldes_damas.py [quantas] [--processos N]
+
+    ⚠️ **Sem `--processos`, usa todos os nucleos menos dois** — ver
+    `processos_padrao()`. `--processos 1` roda em sequencia, que e o modo de
+    depurar: o rastro de uma excecao aparece inteiro.
+    """
+    argumentos = sys.argv[1:]
+    processos = processos_padrao()
+    if "--processos" in argumentos:
+        onde = argumentos.index("--processos")
+        processos = max(1, int(argumentos[onde + 1]))
+        del argumentos[onde : onde + 2]
+
+    quantas = int(argumentos[0]) if argumentos else 150
 
     aprovados: dict[str, list[tuple[int, float, str]]] = {}
     for co_tipo in TIPOS:
         print(f"\n{'=' * 70}\n{co_tipo}\n{'=' * 70}")
-        aprovados[co_tipo] = cacar(co_tipo, quantas)
+        aprovados[co_tipo] = cacar(co_tipo, quantas, processos=processos)
 
     print(f"\n{'=' * 70}\nMOLDES APROVADOS — prontos para `job/tipos_de_desafio.py`\n{'=' * 70}")
     for co_tipo, lista in aprovados.items():
