@@ -144,36 +144,25 @@ def nu_lances_solucao(js_solucao: Mapping[str, Any]) -> int:
     return len(js_solucao["lances"])
 
 
-def lance_chave_padrao(
-    chegada: LinhaDeChegada,
-    julgamento_por_prefixo,
-) -> int:
-    """Descobre qual lance DECIDE, perguntando a partir de quando o objetivo vale.
-
-    Args:
-        chegada: a linha de chegada do desafio.
-        julgamento_por_prefixo: funcao `(quantos) -> Julgamento`, ja amarrada a
-            fita e ao jogo.
-
-    Returns:
-        O numero do primeiro lance em que a chegada passou a valer.
-
-    ⚠️ **O lance chave nao e o ultimo da fita.** Numa solucao de cinco lances o
-    objetivo pode cair no terceiro, e os dois seguintes serem so o desfecho. O
-    Raio-X destaca o instante da virada, e destacar o ultimo lance mostraria a
-    consequencia em vez da causa.
-
-    Raises:
-        SemSolucao: se a fita nunca cumprir o objetivo — quer dizer que ela nao e
-            uma solucao.
-    """
-    julgamento = julgamento_por_prefixo()
-    if julgamento.veredito != CUMPRIU or julgamento.nu_lance_cumpre_desafio is None:
-        raise SemSolucao(
-            "a fita apresentada como solucao nao cumpre a linha de chegada "
-            f"(veredito: {julgamento.veredito})"
-        )
-    return julgamento.nu_lance_cumpre_desafio
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ `lance_chave_padrao` FOI REMOVIDA em 11/09/2026 — era codigo morto
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Ela prometia descobrir o lance da virada perguntando "a partir de quando o
+# objetivo vale?", e ninguem a chamava: o gerador ja recebe o numero pronto do
+# julgamento (`gerador.py`, `julgamento.nu_lance_cumpre_desafio or numero`).
+#
+# ⚠️ **A prova de que nunca foi exercitada estava nela mesma:** a docstring
+# declarava um parametro `(quantos) -> Julgamento` e o corpo chamava a funcao
+# **sem argumento nenhum**. Uma unica execucao teria levantado `TypeError`.
+#
+# ⛔ **Codigo morto com docstring divergente e pior que codigo morto**: quem
+# precisasse do lance chave um dia leria a docstring, escreveria o chamador
+# conforme ela, e descobriria a divergencia em producao.
+#
+# ⚠️ Ela apareceu numa varredura por funcoes publicas **sem uma unica mencao nos
+# testes** — a mesma varredura que nasceu do defeito de `tentativa_com_motor`,
+# que aplicava o nivel errado aos dois lados do tabuleiro por meses.
 
 
 def conferir(js_solucao: Mapping[str, Any], *, nu_lances_gravado: int) -> None:

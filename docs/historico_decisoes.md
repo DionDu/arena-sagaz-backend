@@ -21,6 +21,62 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 — A varredura por funcoes sem teste, e o que ela achou
+
+**De onde veio.** No mesmo dia, `regua.tentativa_com_motor` revelou um defeito de
+meses: aplicava o nivel do mascote medido aos **dois lados** do tabuleiro, e a
+regua media *"Cacau contra Cacau"*. ⛔ **O comentario no topo do modulo descrevia
+o comportamento certo** — so o codigo nunca o cumpriu.
+
+⚠️ **O que deixou isso durar foi a ausencia de teste:** a funcao nao era
+mencionada em lugar nenhum da suite. Entao a pergunta natural virou uma
+varredura: *quais outras funcoes publicas nao aparecem uma unica vez nos
+testes?*
+
+**Nove.** Duas de infraestrutura (`banco.py`), uma criada no mesmo dia
+(`regua.taxa_media`, ja coberta indiretamente), e seis de dominio.
+
+### (a) `estado_terminal.provar_termino` ganhou cadeado
+
+⚠️ Ela guarda uma garantia declarada em documento — *"toda partida de desafio
+chega a estado terminal, provado **na geracao**"* (`CLAUDE.md`, Bloco 1c) — e
+nao tinha um caso sequer. Quatro entraram, todos com dubles (⛔ sem motor de
+verdade, para caberem na suite):
+
+  · partida que ja nasce terminada;
+  · ⚠️ **a contagem e de lances JOGADOS**, e nao de perguntas ao arbitro — o laco
+    pergunta antes de cada lance, entao a quarta pergunta responde "acabou" numa
+    partida de **tres** lances. Um erro de um aqui nao quebraria nada
+    visivelmente;
+  · ⛔ partida que nao acaba dentro do teto **reprova** — e o caso que a funcao
+    existe para pegar;
+  · ⚠️ motor sem lance legal **pergunta ao arbitro** em vez de supor: se o motor
+    nao tem lance e o arbitro diz que a partida segue, isso e contradicao, e a
+    prova nao pode passar por cima dela.
+
+### (b) ⛔ `gabarito.lance_chave_padrao` era CODIGO MORTO — e foi removida
+
+Ninguem a chamava: o gerador ja recebe o numero pronto do julgamento
+(`julgamento.nu_lance_cumpre_desafio or numero`).
+
+⚠️ **A prova de que nunca foi exercitada estava nela mesma:** a docstring
+declarava um parametro `(quantos) -> Julgamento` e o corpo chamava a funcao **sem
+argumento nenhum**. Uma unica execucao teria levantado `TypeError` — e foi
+exatamente o que aconteceu ao escrever o primeiro teste dela.
+
+⛔ **Codigo morto com docstring divergente e pior que codigo morto:** quem
+precisasse do lance chave um dia leria a docstring, escreveria o chamador
+conforme ela, e descobriria a divergencia em producao. A nota ficou no lugar da
+funcao — quem a procurar daqui a um ano acha o motivo, e nao um vazio.
+
+⚠️ **As outras quatro ficaram sem cadeado, e isso e escolha:** `versao_do_motor_de`
+e `modalidades_declaradas` sao leitura de constante, `tracos_da_mascara` ja e
+exercitada de lado pelos testes do acervo de autoplay, e `reprise.linha_para_copia`
+so tem o que provar quando houver desafio antigo com tentativas reais — hoje ela
+devolveria vazio em qualquer teste, que e o que ela ja faz em producao.
+
+---
+
 ## 2026-09-11 — A cacada de 1.000, e o acervo de moldes refeito por DISTANCIA
 
 **1.000 candidatas por tipo, 14 processos, ~1 h de maquina.** E a primeira
