@@ -1971,3 +1971,82 @@ A conferência local prova o encanamento — `tensorflow` contra a própria
 referência dá desvio **0.000000000** —, e ⛔ **quem prova a concordância entre os
 dois runtimes continua sendo o build no Railway**, que é a única execução em
 `linux/amd64` que o projeto tem.
+
+---
+
+## 2026-09-10 — As modalidades rodiziam, e o enunciado passa a dizer por quais regras se joga
+
+**Contexto.** O dono reparou que as três partidas de damas geradas eram **todas
+brasileiras** e perguntou se era coincidência. Não era: estava fixo no código
+(`co_modalidade = "brasileira"`). Ele decidiu (`DECISOES-do-dono.md` §8g):
+*"precisamos de toda variabilidade de desafios possíveis. Quanto mais variado,
+melhor."*
+
+### A medição veio antes da decisão
+
+Os quatro regulamentos — `brasileira`, `anglo`, `portuguesa`, `casa` — rodam nos
+**mesmos moldes**: todos são damas de 32 casas, e o que muda são as regras, não o
+tabuleiro. Testei os 8 moldes existentes contra cada um:
+
+| modalidade | moldes com solução |
+|---|---|
+| brasileira | 4 de 8 |
+| anglo | 5 de 8 |
+| **portuguesa** | **7 de 8** |
+| casa | 4 de 8 |
+
+⚠️ Rodiziar não só quadruplica a variedade: **alivia o gargalo**, que é achar
+candidato. A portuguesa gera quase o dobro da brasileira com os mesmos moldes.
+
+### ⛔ O ponto perigoso era o motor, e ele não daria erro nenhum
+
+`MotorDamas()` tem `brasileira` por padrão, e ele é construído em **três**
+lugares: a geração, o preparo (lances "legais" dependem do regulamento) e a
+bancada de medição. Esquecer um deles faria o gabarito ser buscado por um
+regulamento enquanto o desafio publicado dizia outro — ⚠️ **e os dois lados
+seriam internamente coerentes**. A divergência só apareceria no aparelho de quem
+jogasse, como "lance ilegal" num gabarito que o servidor jurava válido. É a mesma
+classe do defeito do `uid` do Firebase.
+
+### ⛔ E o rodízio quase travou em fase de novo
+
+Se a modalidade usasse o contador do tipo, metade das combinações
+(tipo × modalidade) nunca sairia — e seria **pior de enxergar** que o travamento
+anterior, porque a fila *pareceria* variada: tipos alternando, modalidades
+alternando, e só uma contagem revelaria os pares ausentes.
+
+Virou um **odômetro**: o dígito da direita (o tipo) gira rápido, o da esquerda (a
+modalidade) gira quando o da direita completa a volta. Cadeado conta as 8
+combinações em 200 dias.
+
+### `js_objetivo` carrega ONDE e COMO se joga
+
+`variante` sempre, `modalidade` quando existe. ⛔ **Acrescentados por fora de
+`valores_da_frase`**, e isso é estrutural: modalidade e variante não são
+conhecimento do **tipo**, são fatos do candidato. Se cada receita tivesse de
+lembrar de incluí-los, a primeira que esquecesse publicaria uma frase que não diz
+por quais regras se joga — e **nada acusaria**, porque a frase sairia bem formada.
+
+### A mentira antiga que isso desenterrou
+
+`co_variante` das damas era `"brasileiras"` fixo. Mas o `data-model.md` diz que
+essa coluna usa *"o mesmo vocabulário de `partida.tb001`"*, e lá o aplicativo
+grava a **modalidade** (`coVariante: config.modalidade`); a migração `0012`
+afirma o mesmo com todas as letras. Enquanto havia um regulamento só, a mentira
+era invisível; com o rodízio, o desafio sairia com `variante: brasileiras` ao
+lado de `modalidade: casa`, e ⛔ um `JOIN` com o log de partidas nunca casaria.
+
+⚠️ **Fica uma redundância não resolvida:** nas damas, `co_variante` e
+`co_modalidade` guardam agora a mesma string. A própria `0012` avisa que *"a
+segunda cópia é a que fica errada quando as duas discordam"*. Largar uma das duas
+colunas é migração nova, e decisão do dono.
+
+### ⛔ E o Jogo da Velha saiu do Desafio do Dia
+
+*"Jogo da velha não teremos no desafio pois ele não tem muita variação. É um jogo
+chato, não há formas diferentes de jogar para caber num desafio."*
+
+⚠️ Até aqui a ausência dela no rodízio era **pendência técnica** (sem medidor no
+juiz, sem vetores) e parecia uma tarefa esperando a vez. Agora é **escolha de
+produto**: ela não ganha medidor nem vetores para este fim, e a T050(a) deixou de
+pedir *"os três jogos"* — são dois.

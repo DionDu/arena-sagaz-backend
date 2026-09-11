@@ -61,8 +61,18 @@ VETORES = RAIZ / "contratos" / "vetores-verificacao-desafio.json"
 
 #: Os jogos do rodizio, em ordem estavel.
 #:
-#: ⚠️ A velha **nao esta aqui**, e e decisao: ela nao tem medidor no juiz nem
-#: vetores. Jogo entra no rodizio quando tem os dois, nunca antes.
+#: ⛔ **A velha NAO entra, e desde 10/09/2026 isso e decisao de PRODUTO, e nao
+#: pendencia tecnica** (`DECISOES-do-dono.md` §8g): *"jogo da velha nao teremos
+#: no desafio pois ele nao tem muita variacao. E um jogo chato, nao ha formas
+#: diferentes de jogar para caber num desafio."*
+#:
+#: ⚠️ A diferenca importa para quem ler isto depois. Ate aquela data a ausencia
+#: era falta de peca — sem medidor no juiz e sem vetores —, e parecia uma tarefa
+#: esperando a vez. Agora ela **nao ganha** medidor nem vetores para este fim: o
+#: esforco nao se justifica, e a T050(a) deixou de pedir "os tres jogos".
+#:
+#: ⚠️ Jogo NOVO continua entrando pela regra antiga: com medidor **e** vetores,
+#: nunca com uma so das duas.
 JOGOS_DO_RODIZIO = ("pontinhos", "damas")
 
 #: Os quatro mascotes, na ordem da escada de dificuldade.
