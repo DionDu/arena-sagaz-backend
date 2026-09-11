@@ -804,3 +804,48 @@ def test_o_quadro_marca_o_lance_em_que_a_CPU_errou_de_proposito() -> None:
     }
     quadros = desenho.fita_da_solucao("sequencia_lances", posicao, solucao)
     assert [q["errou_de_proposito"] for q in quadros] == [False, False, True]
+
+
+def test_os_rotulos_das_ARESTAS_nao_se_sobrepoem() -> None:
+    """🔒 ⛔ Dois rotulos impressos no mesmo pixel, e o dono sem conseguir ler.
+
+    ⚠️ **`H_r_c` usa as coordenadas da MATRIZ do motor**, e nao as da grade de
+    pontos: numa horizontal `r` e par e `c` e impar. O laco que desenhava os
+    rotulos varria a grade de pontos e montava `H_{iy}_{ix}` — nomes que em
+    metade dos casos **nao existem** e que o conversor mapeia para a mesma
+    aresta de um nome valido (`H_0_1` e `H_0_2` dao os dois `(0,0)-(1,0)`).
+
+    ⛔ O sintoma foi o texto de dois rotulos um sobre o outro: *"o identificador
+    das arestas no SVG esta se sobrepondo"*.
+    """
+    import re
+
+    from api.desafios.painel import desenho
+
+    lances = [
+        {"n": i + 1, "lance": l, "jogador": 1 if i % 2 == 0 else -1}
+        for i, l in enumerate(
+            ["V_7_0", "V_5_0", "H_2_1", "V_7_6", "V_1_4", "H_2_3", "V_3_6", "H_0_3"]
+        )
+    ]
+    svg = desenho.pontinhos({"lances": lances, "vez_de": 1}, numerar=True)
+
+    postos = re.findall(r'<text x="(-?\d+)" y="(-?\d+)"[^>]*>([HV]_\d+_\d+)<', svg)
+    lugares: dict[tuple[str, str], list[str]] = {}
+    for x, y, rotulo in postos:
+        lugares.setdefault((x, y), []).append(rotulo)
+
+    colisoes = {k: v for k, v in lugares.items() if len(v) > 1}
+    assert not colisoes, f"rotulos no mesmo ponto: {colisoes}"
+
+    nomes = [r for _, _, r in postos]
+    assert len(nomes) == len(set(nomes)), "o mesmo rotulo foi desenhado duas vezes"
+
+    # ⚠️ E todo rotulo desenhado tem de ser um lance que existe: a paridade e o
+    # que separa um nome valido de um inventado.
+    for rotulo in nomes:
+        tipo, r, c = rotulo.split("_")
+        if tipo == "H":
+            assert int(r) % 2 == 0 and int(c) % 2 == 1, f"{rotulo} nao existe"
+        else:
+            assert int(r) % 2 == 1 and int(c) % 2 == 0, f"{rotulo} nao existe"

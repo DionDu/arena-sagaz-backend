@@ -266,17 +266,30 @@ def pontinhos(
     # nome por cima competiria com a informacao que interessa.
     if numerar:
         marcados = set(rotulos)
+        # ── ⛔ OS ROTULOS SAIEM DA ARESTA, E NAO DA GRADE DE PONTOS ──────────
+        #
+        # ⚠️ **`H_r_c` usa as coordenadas da MATRIZ do motor, e nao as do ponto.**
+        # Numa horizontal, `r` e par e `c` e impar; numa vertical, o contrario.
+        # A aresta horizontal que liga o ponto `(ix, iy)` ao `(ix+1, iy)` chama-se
+        # `H_{2*iy}_{2*ix+1}`.
+        #
+        # ⛔ **Ate 11/09/2026 este laco varria a grade de PONTOS** e montava
+        # `H_{iy}_{ix}` — nomes que em metade dos casos nao existem, e que o
+        # conversor mapeia para a **mesma** aresta de um nome valido: `H_0_1` e
+        # `H_0_2` dao os dois `(0,0)-(1,0)`. O resultado era o texto de dois
+        # rotulos impresso um sobre o outro, e foi o que o dono viu: *"o
+        # identificador das arestas no SVG esta se sobrepondo"*.
         for iy in range(max_y + 1):
             for ix in range(max_x + 1):
-                for rotulo in (f"H_{iy}_{ix}", f"V_{iy}_{ix}"):
+                arestas = []
+                if ix < max_x:  # horizontal para a direita
+                    arestas.append(f"H_{2 * iy}_{2 * ix + 1}")
+                if iy < max_y:  # vertical para baixo
+                    arestas.append(f"V_{2 * iy + 1}_{2 * ix}")
+                for rotulo in arestas:
                     if rotulo in marcados:
                         continue
-                    try:
-                        rx1, ry1, rx2, ry2 = _coordenadas_do_traco(rotulo)
-                    except (ValueError, IndexError):
-                        continue
-                    if rx2 > max_x or ry2 > max_y:
-                        continue
+                    rx1, ry1, rx2, ry2 = _coordenadas_do_traco(rotulo)
                     # ⚠️ **O rotulo da vertical vai DE PE.** Deitado, ele
                     # tem a largura de uma casa inteira e encosta no rotulo da
                     # horizontal vizinha — o dono relatou exatamente isso:

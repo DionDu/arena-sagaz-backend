@@ -913,6 +913,64 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "D8-o-adversario-captura-duas-nao-cumpre",
+      "de_vetor": "⛔ A CAPTURA DUPLA E DO ADVERSARIO, e o desafio NAO se cumpre. Dado de producao: o desafio a98bb871 foi publicado em 11/09/2026 com esta solucao — a pessoa captura uma (15x6), o adversario captura duas (2x9x18) e a pessoa joga qualquer coisa (11-8). O objetivo era 'capture 2 pecas'. ⚠️ Nenhum vetor anterior tinha lance do adversario na fita: todos eram de um lance so, e por isso o defeito passou. maior_captura e do JOGADOR (1), e lances_do_jogador conta so os dele (2).",
+      "co_jogo": "damas",
+      "co_variante": "casa",
+      "co_modalidade": "casa",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W7,11,14,15:B2,5,10",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 8,
+      "co_tipo_desafio": "damas_capturar_multipla",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "15x6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "2x9x18"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "11-8"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "maior_captura",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "damas_coroadas": 0,
+          "capturas_extras": 0,
+          "maior_captura": 1,
+          "material_restante": 2,
+          "material_do_adversario": 2,
+          "lances_do_jogador": 2
+        }
+      }
     }
   ]
 }

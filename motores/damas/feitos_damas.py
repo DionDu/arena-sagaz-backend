@@ -81,10 +81,43 @@ def medir(
     lances_do_jogador = 0
 
     for lance in fita:
-        # ⚠️ A fita de um desafio e do jogador do desafio: quem alterna a vez e o
-        # motor, e um lance fora da vez ja e recusado por ele.
+        # ── ⛔ DE QUEM E ESTE LANCE? ─────────────────────────────────────────
+        #
+        # ⚠️ **A fita de um desafio inclui os lances do ADVERSARIO**, e e preciso
+        # que inclua: sem eles a sequencia nao e reproduzivel e o replay mostraria
+        # a pessoa jogando sozinha (`gabarito.montar` diz isso com todas as
+        # letras).
+        #
+        # ⛔ **Ate 11/09/2026 este laco contava todos os lances como se fossem do
+        # jogador**, sob um comentario que afirmava o contrario — *"a fita de um
+        # desafio e do jogador do desafio"*. Nao e, e nunca foi.
+        #
+        # **O que isso publicou**, achado pelo dono na primeira fila curada:
+        # `a98bb871`, objetivo *"capture 2 pecas"*, com esta solucao:
+        #
+        #     1. 15x6      (jogador  1)  — a pessoa captura UMA
+        #     2. 2x9x18    (jogador -1)  — o ADVERSARIO captura duas
+        #     3. 11-8      (jogador  1)  — a pessoa joga qualquer coisa
+        #
+        # ⚠️ **O objetivo foi cumprido pelo adversario**, e o desafio saiu bem
+        # formado: posicao legal, gabarito, regua medida, XP calculado. A pessoa
+        # so precisava fazer um lance qualquer depois.
+        #
+        # ⚠️ **`estado.vez_de` e a fonte**, e nao um campo do lance: a fita aqui e
+        # uma lista de **strings** (`27x18x11`), sem dono declarado. Quem sabe de
+        # quem e a vez e o motor, e nas damas ela alterna a cada lance — inclusive
+        # depois de uma captura encadeada, que e **um** lance.
         antes = estado
+        de_quem = antes.vez_de
         estado = motor.aplicar(estado, lance)
+
+        if de_quem != jogador:
+            # ⛔ Lance do adversario: nao entra em medida nenhuma do jogador. E
+            # isso vale para TODAS elas — `lances_do_jogador` tambem estava
+            # contando o dobro, e ele normaliza o XP (`co_sobre:
+            # lances_da_solucao`).
+            continue
+
         lances_do_jogador += 1
 
         capturas = lance.count("x")
@@ -93,6 +126,11 @@ def medir(
             capturas_extras += capturas - 1
 
         # Coroou quando o lado ganhou uma dama a mais do que tinha.
+        #
+        # ⚠️ Esta medida ja estava certa antes da correcao, por acidente feliz:
+        # ela pergunta pelas damas **de `jogador`**, entao um lance do adversario
+        # nunca a incrementava. ⛔ Mas ficar certo por acidente nao e ficar
+        # protegido — e ela agora esta dentro do mesmo guarda das outras.
         if _damas(estado.fen, jogador) > _damas(antes.fen, jogador):
             coroadas += 1
 
