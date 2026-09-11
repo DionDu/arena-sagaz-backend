@@ -42,7 +42,7 @@ contrario do que os jogadores vao ver.
 from __future__ import annotations
 
 from html import escape
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 # ── A paleta, espelhada de `lib/core/tema/app_colors.dart` ───────────────────
 AZUL_J1 = "#2A6F8E"
@@ -174,12 +174,26 @@ def _donos_das_caixas(
     return donos
 
 
-def pontinhos(posicao: Mapping[str, Any], *, lado_px: int = 46) -> str:
+def pontinhos(
+    posicao: Mapping[str, Any],
+    *,
+    lado_px: int = 46,
+    numerar: bool = False,
+    destaque: str | None = None,
+) -> str:
     """Desenha a posicao de Pontinhos: pontos, tracos e caixas ja fechadas.
 
     Args:
         posicao: o `js_posicao_inicial` do formato `sequencia_lances`.
         lado_px: quanto vale um passo entre dois pontos, em pixels.
+        numerar: escreve o **rotulo de cada traco livre** (`V_3_4`, `H_0_1`)
+            sobre a grade. ⚠️ **E o que torna a fita do gabarito legivel**: sem
+            isso, `V_3_4` no JSON e uma linha de texto que nao aponta para lugar
+            nenhum do desenho. Fica so nos tracos **livres**, porque o traco ja
+            marcado esta desenhado — e um rotulo por cima dele viraria sujeira
+            sobre a unica coisa que importa.
+        destaque: o rotulo do traco que acabou de ser jogado, contornado em
+            ouro.
 
     Returns:
         Um `<svg>` pronto para ir no HTML.
@@ -233,7 +247,44 @@ def pontinhos(posicao: Mapping[str, Any], *, lado_px: int = 46) -> str:
             f'stroke-width="5" stroke-linecap="round"/>'
         )
 
-    # 3) Os pontos, por cima — eles sao a grade, e precisam ficar visiveis.
+    # 3) O traco que acabou de ser jogado, contornado em ouro.
+    if destaque:
+        try:
+            hx1, hy1, hx2, hy2 = _coordenadas_do_traco(destaque)
+        except (ValueError, IndexError):
+            pass  # rotulo torto nao derruba o desenho inteiro
+        else:
+            partes.append(
+                f'<line x1="{px(hx1)}" y1="{px(hy1)}" x2="{px(hx2)}" '
+                f'y2="{px(hy2)}" stroke="{OURO}" stroke-width="9" '
+                f'stroke-linecap="round" opacity="0.55"/>'
+            )
+
+    # 4) Os rotulos dos tracos LIVRES, quando pedidos.
+    #
+    # ⚠️ **So os livres.** O desenho ja mostra quem marcou os outros; escrever o
+    # nome por cima competiria com a informacao que interessa.
+    if numerar:
+        marcados = set(rotulos)
+        for iy in range(max_y + 1):
+            for ix in range(max_x + 1):
+                for rotulo in (f"H_{iy}_{ix}", f"V_{iy}_{ix}"):
+                    if rotulo in marcados:
+                        continue
+                    try:
+                        rx1, ry1, rx2, ry2 = _coordenadas_do_traco(rotulo)
+                    except (ValueError, IndexError):
+                        continue
+                    if rx2 > max_x or ry2 > max_y:
+                        continue
+                    partes.append(
+                        f'<text x="{(px(rx1) + px(rx2)) / 2:.0f}" '
+                        f'y="{(px(ry1) + px(ry2)) / 2 + 3:.0f}" '
+                        f'text-anchor="middle" font-size="8" '
+                        f'fill="{TINTA_SUAVE}" opacity="0.75">{rotulo}</text>'
+                    )
+
+    # 5) Os pontos, por cima — eles sao a grade, e precisam ficar visiveis.
     for iy in range(max_y + 1):
         for ix in range(max_x + 1):
             partes.append(
@@ -311,12 +362,42 @@ def _ler_fen(fen: str) -> tuple[str, dict[int, tuple[str, bool]]]:
     return vez, ocupadas
 
 
-def damas(posicao: Mapping[str, Any], *, lado_px: int = 30) -> str:
+def casas_do_lance(notacao: str) -> tuple[int, ...]:
+    """As casas citadas por um lance de damas.
+
+    `24-19` da `(24, 19)`; `21x30x23` da `(21, 30, 23)` — origem, casas
+    intermediarias e destino.
+
+    ⚠️ **Isto nao interpreta o lance**, so le os numeros que ele nomeia: serve
+    para **acender** o caminho no desenho, e nao para saber o que aconteceu. Quem
+    sabe o que aconteceu e o motor, e e por isso que a posicao resultante vem
+    gravada em vez de ser recalculada aqui.
+    """
+    numeros: list[int] = []
+    for pedaco in notacao.replace("x", "-").split("-"):
+        pedaco = pedaco.strip().upper().lstrip("K")
+        if pedaco.isdigit():
+            numeros.append(int(pedaco))
+    return tuple(numeros)
+
+
+def damas(
+    posicao: Mapping[str, Any],
+    *,
+    lado_px: int = 30,
+    numerar: bool = False,
+    destaque: Sequence[int] = (),
+) -> str:
     """Desenha a posicao de damas a partir da FEN.
 
     Args:
         posicao: o `js_posicao_inicial` do formato `fen`.
         lado_px: o lado de uma casa, em pixels.
+        numerar: escreve o numero de 1 a 32 nas casas jogaveis. ⚠️ **Sem isso a
+            notacao do gabarito nao se liga ao desenho** — `21x30x23` so quer
+            dizer alguma coisa para quem ja tem a numeracao na cabeca, e a
+            curadoria e feita exatamente por quem ainda nao tem.
+        destaque: casas a acender (as do lance recem-jogado).
 
     Returns:
         Um `<svg>` pronto para ir no HTML.
@@ -354,7 +435,33 @@ def damas(posicao: Mapping[str, Any], *, lado_px: int = 30) -> str:
                 f'fill="{PAPEL_2 if escura else PAPEL}"/>'
             )
 
-    # 2) As pecas.
+    # 2) As casas do lance recem-jogado, acesas por baixo das pecas.
+    for casa in destaque:
+        try:
+            linha, coluna = _linha_coluna(casa)
+        except ValueError:
+            continue
+        partes.append(
+            f'<rect x="{margem + coluna * lado_px}" '
+            f'y="{margem + linha * lado_px}" width="{lado_px}" '
+            f'height="{lado_px}" fill="{OURO}" opacity="0.38"/>'
+        )
+
+    # 3) O numero da casa, quando pedido — pequeno, no canto superior esquerdo,
+    #    e so nas casas JOGAVEIS (as claras nao tem numero no jogo).
+    if numerar:
+        for casa in range(1, LADO_DAMAS * CASAS_POR_FILEIRA + 1):
+            try:
+                linha, coluna = _linha_coluna(casa)
+            except ValueError:
+                continue
+            partes.append(
+                f'<text x="{margem + coluna * lado_px + 3}" '
+                f'y="{margem + linha * lado_px + 10}" font-size="8" '
+                f'fill="{TINTA_SUAVE}" opacity="0.85">{casa}</text>'
+            )
+
+    # 4) As pecas.
     raio = lado_px * 0.36
     for casa, (cor, e_dama) in sorted(ocupadas.items()):
         try:
@@ -407,7 +514,11 @@ def _svg_vazio(motivo: str) -> str:
 
 
 def posicao(
-    co_formato: str, js_posicao_inicial: Mapping[str, Any] | None
+    co_formato: str,
+    js_posicao_inicial: Mapping[str, Any] | None,
+    *,
+    numerar: bool = False,
+    destaque: Any = None,
 ) -> str:
     """Desenha a posicao inicial no formato que ela declarar.
 
@@ -425,7 +536,126 @@ def posicao(
     """
     js_posicao_inicial = js_posicao_inicial or {}
     if co_formato == "sequencia_lances":
-        return pontinhos(js_posicao_inicial)
+        return pontinhos(
+            js_posicao_inicial,
+            numerar=numerar,
+            destaque=destaque if isinstance(destaque, str) else None,
+        )
     if co_formato == "fen":
-        return damas(js_posicao_inicial)
+        return damas(
+            js_posicao_inicial,
+            numerar=numerar,
+            destaque=destaque if isinstance(destaque, (list, tuple)) else (),
+        )
     return _svg_vazio(f"formato {co_formato!r} sem desenho")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A FITA — a solucao de referencia, quadro a quadro
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Por que isto existe** (pedido do dono, 11/09/2026): *"o painel deveria ao
+# menos exibir a solucao de gabarito, lance por lance. Olhando so o JSON dos
+# lances fica muito dificil para mim visualizar isso."*
+#
+# ⛔ **E por que ele NAO reproduz os lances:** aplicar `21x30x23` a uma posicao e
+# trabalho do motor, e a imagem da API nao o importa — ela nao instala numpy, e
+# nao vai instalar por causa de uma pagina interna. Escrever as regras aqui seria
+# a **segunda implementacao**, que e o defeito que este projeto mais persegue.
+#
+# Entao cada jogo entrega o quadro da maneira que lhe e natural:
+#
+#   · **damas** — o job grava a FEN depois de cada lance (`js_solucao.posicoes`),
+#     porque e ele quem tem o motor;
+#   · **Pontinhos** — a posicao **e** a lista de lances, entao o quadro k e a
+#     concatenacao dos lances iniciais com os k primeiros do gabarito. ⚠️ Nenhuma
+#     regra e aplicada: quem decide a posse das caixas ja e `_donos_das_caixas`,
+#     que desenha a posicao inicial desde o primeiro dia.
+
+
+def fita_da_solucao(
+    co_formato: str,
+    js_posicao_inicial: Mapping[str, Any] | None,
+    js_solucao: Mapping[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Os quadros da solucao: o inicial e um por lance.
+
+    Returns:
+        `[{"n", "titulo", "lance", "jogador", "chave", "svg"}]`, com o quadro 0
+        sendo a posicao publicada. ⛔ **Lista vazia quando nao da para montar** —
+        e quem chama explica o motivo ao dono, em vez de desenhar meia sequencia.
+
+    ⚠️ **Desafio gerado antes de 11/09/2026 nao tem `posicoes`**, e o correto e
+    devolver vazio: uma sequencia com buraco desenharia um salto como se fosse um
+    lance, e a curadoria aprovaria uma solucao que nao existe.
+    """
+    js_posicao_inicial = js_posicao_inicial or {}
+    js_solucao = js_solucao or {}
+    lances = [l for l in (js_solucao.get("lances") or []) if isinstance(l, Mapping)]
+    if not lances:
+        return []
+
+    n_chave = js_solucao.get("lance_chave")
+    quadros: list[dict[str, Any]] = [
+        {
+            "n": 0,
+            "titulo": "posicao publicada",
+            "lance": None,
+            "jogador": None,
+            "chave": False,
+            "svg": posicao(co_formato, js_posicao_inicial, numerar=True),
+        }
+    ]
+
+    if co_formato == "fen":
+        posicoes = {
+            p.get("n"): p.get("fen")
+            for p in (js_solucao.get("posicoes") or [])
+            if isinstance(p, Mapping)
+        }
+        if len(posicoes) != len(lances):
+            return []
+        for indice, lance in enumerate(lances, start=1):
+            notacao = str(lance.get("lance", ""))
+            quadros.append(
+                {
+                    "n": indice,
+                    "titulo": notacao,
+                    "lance": notacao,
+                    "jogador": lance.get("jogador"),
+                    "chave": indice == n_chave,
+                    "svg": damas(
+                        {"fen": posicoes[indice]},
+                        numerar=True,
+                        destaque=casas_do_lance(notacao),
+                    ),
+                }
+            )
+        return quadros
+
+    if co_formato == "sequencia_lances":
+        iniciais = [
+            l
+            for l in (js_posicao_inicial.get("lances") or [])
+            if isinstance(l, Mapping)
+        ]
+        for indice, lance in enumerate(lances, start=1):
+            notacao = str(lance.get("lance", ""))
+            ate_aqui = iniciais + lances[:indice]
+            quadros.append(
+                {
+                    "n": indice,
+                    "titulo": notacao,
+                    "lance": notacao,
+                    "jogador": lance.get("jogador"),
+                    "chave": indice == n_chave,
+                    "svg": pontinhos(
+                        {**js_posicao_inicial, "lances": ate_aqui},
+                        numerar=True,
+                        destaque=notacao,
+                    ),
+                }
+            )
+        return quadros
+
+    return []

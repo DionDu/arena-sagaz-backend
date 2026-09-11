@@ -172,6 +172,20 @@ details summary {{ cursor: pointer; color: var(--tinta-suave);
   font-size: 13px; }}
 pre {{ background: var(--papel-2); padding: 8px; border-radius: 8px;
   overflow-x: auto; font-size: 12px; }}
+
+/* A solucao desenhada: uma tira de quadros que quebra em varias linhas.
+   ⚠️ `flex-wrap` e nao `overflow-x`: numa solucao de 19 lances (elas existem,
+   no Pontinhos) uma tira rolavel esconderia o fim da solucao atras de um gesto
+   que ninguem adivinha - e e justamente o fim que decide o desafio. */
+.fita {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }}
+.quadro {{ border: 1px solid var(--borda); border-radius: 10px; padding: 6px;
+  background: var(--papel); }}
+.quadro figcaption {{ font-size: 11px; color: var(--tinta-suave);
+  text-align: center; margin-top: 4px; }}
+/* O lance que CUMPRE o objetivo - e o unico que a curadoria precisa julgar. */
+.quadro.chave {{ border-color: var(--ouro); border-width: 2px; padding: 5px; }}
+.quadro.chave figcaption {{ color: var(--tinta); font-weight: 700; }}
+.quadro .vez {{ font-size: 10px; }}
 """
 
 
@@ -307,6 +321,48 @@ def _regua(item: DesafioNoPainel) -> str:
     return "".join(partes)
 
 
+def _fita(item: DesafioNoPainel) -> str:
+    """A solucao de referencia DESENHADA, um quadro por lance.
+
+    ⚠️ **E o que torna a curadoria possivel sem jogar** (pedido do dono,
+    11/09/2026): *"olhando so o JSON dos lances fica muito dificil para mim
+    visualizar isso"*. O JSON continua ali embaixo, dobrado, para quando a
+    duvida for sobre o dado e nao sobre a partida.
+
+    ⛔ **Quando nao da para montar a sequencia, diz-se isso** — nada de mostrar
+    meia solucao. Desafio gerado antes de 11/09/2026 nao tem as posicoes
+    gravadas, e o recado manda regerar em vez de deixar o dono concluindo que o
+    painel quebrou.
+    """
+    quadros = desenho.fita_da_solucao(
+        item.co_formato_posicao, item.js_posicao_inicial, item.js_solucao
+    )
+    if not quadros:
+        return (
+            '<p class="vazio">Sem sequencia desenhavel. ⚠️ Desafios gerados '
+            "antes de 11/09/2026 nao trazem a posicao de cada lance; rode o job "
+            "de novo para ve-la.</p>"
+        )
+
+    partes = ['<div class="fita">']
+    for quadro in quadros:
+        classe = "quadro chave" if quadro["chave"] else "quadro"
+        if quadro["n"] == 0:
+            legenda = "inicio"
+        else:
+            # ⚠️ Quem jogou aquele lance, na mesma regra de cor do aplicativo:
+            # jogador 1 e azul, jogador 2 e vermelho. Aqui vai o nome, porque o
+            # que o dono precisa saber e se o lance foi DELE ou do adversario.
+            de_quem = "voce" if quadro["jogador"] == -1 else "adversario"
+            legenda = f"{quadro['n']}. {quadro['titulo']} ({de_quem})"
+        partes.append(
+            f'<figure class="{classe}">{quadro["svg"]}'
+            f"<figcaption>{_txt(legenda)}</figcaption></figure>"
+        )
+    partes.append("</div>")
+    return "".join(partes)
+
+
 def _acoes(item: DesafioNoPainel, *, dt_sugerida: date) -> str:
     """Os formularios de aprovar, descartar e agendar.
 
@@ -394,7 +450,9 @@ def _cartao(item: DesafioNoPainel, *, dt_sugerida: date) -> str:
         )
         + "</dl>"
         + _regua(item)
-        + "<details><summary>a solucao de referencia (gabarito)</summary>"
+        + "<details open><summary>a solucao de referencia, lance a lance"
+        "</summary>" + _fita(item) + "</details>"
+        + "<details><summary>o gabarito em JSON</summary>"
         f"<pre>{_txt(item.js_solucao)}</pre></details>"
         + _acoes(item, dt_sugerida=dt_sugerida)
         + "</div></article>"

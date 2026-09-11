@@ -639,3 +639,118 @@ def test_o_formulario_de_agendar_so_aparece_no_aprovado():
 def test_hoje_utc_devolve_o_dia_em_utc():
     """⚠️ O dia do desafio e UTC — nao o dia do fuso do servidor."""
     assert hoje_utc() == datetime.now(timezone.utc).date()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A SOLUCAO DESENHADA — o que torna a curadoria possivel sem jogar
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ Pedido do dono, 11/09/2026, depois de abrir o painel pela primeira vez:
+# *"o painel deveria ao menos exibir a solucao de gabarito, lance por lance.
+# Olhando so o JSON dos lances fica muito dificil para mim visualizar isso."*
+
+#: Uma solucao de damas com as posicoes gravadas — o formato que o job passou a
+#: produzir.
+SOLUCAO_DE_DAMAS = {
+    "lances": [
+        {"n": 1, "jogador": -1, "lance": "20-24"},
+        {"n": 2, "jogador": 1, "lance": "27x20"},
+    ],
+    "posicoes": [
+        {"n": 1, "fen": "W:W5,27,30:B14,18,24"},
+        {"n": 2, "fen": "B:W5,20,30:B14,18"},
+    ],
+    "lance_chave": 2,
+}
+
+POSICAO_DE_DAMAS = {"fen": "B:W5,27,30:B14,18,20", "versao": 1, "vez_de": -1}
+
+
+def test_a_fita_de_damas_tem_um_quadro_POR_LANCE_mais_o_inicio() -> None:
+    """🔒 A contagem, que e o cadeado mais barato contra um quadro perdido."""
+    from api.desafios.painel import desenho
+
+    quadros = desenho.fita_da_solucao("fen", POSICAO_DE_DAMAS, SOLUCAO_DE_DAMAS)
+    assert [q["n"] for q in quadros] == [0, 1, 2]
+    assert quadros[0]["titulo"] == "posicao publicada"
+
+
+def test_o_quadro_do_lance_CHAVE_vem_marcado() -> None:
+    """🔒 ⚠️ **E o unico quadro que a curadoria precisa julgar.**
+
+    O lance chave e onde o objetivo cai; os depois dele sao o resto da partida.
+    Sem a marca, uma solucao de 19 lances (elas existem, no Pontinhos) obriga a
+    contar quadros com o dedo.
+    """
+    from api.desafios.painel import desenho
+
+    quadros = desenho.fita_da_solucao("fen", POSICAO_DE_DAMAS, SOLUCAO_DE_DAMAS)
+    assert [q["chave"] for q in quadros] == [False, False, True]
+
+
+def test_solucao_SEM_posicoes_nao_desenha_MEIA_sequencia() -> None:
+    """🔒 ⛔ Desafio gerado antes de 11/09/2026 devolve lista VAZIA.
+
+    ⚠️ A alternativa — desenhar os quadros que existem — e pior que nao
+    desenhar: o salto entre dois lances apareceria como se fosse um lance, e a
+    curadoria aprovaria uma solucao que nao existe.
+    """
+    from api.desafios.painel import desenho
+
+    sem_posicoes = {k: v for k, v in SOLUCAO_DE_DAMAS.items() if k != "posicoes"}
+    assert desenho.fita_da_solucao("fen", POSICAO_DE_DAMAS, sem_posicoes) == []
+
+
+def test_o_PONTINHOS_monta_a_fita_SEM_posicoes_gravadas() -> None:
+    """🔒 ⚠️ E de proposito: la a posicao **e** a lista de lances.
+
+    O quadro k e a concatenacao dos lances iniciais com os k primeiros do
+    gabarito — ⛔ **nenhuma regra e aplicada aqui**, porque a posse das caixas ja
+    e calculada pelo mesmo `_donos_das_caixas` que desenha a posicao inicial
+    desde o primeiro dia. Exigir `posicoes` no Pontinhos faria o painel recusar
+    desenhar o que ele sabe desenhar.
+    """
+    from api.desafios.painel import desenho
+
+    posicao = {
+        "lances": [{"n": 1, "lance": "H_0_1", "jogador": 1}],
+        "placar": {"j1": 0, "j2": 0},
+        "vez_de": -1,
+    }
+    solucao = {
+        "lances": [
+            {"n": 1, "jogador": -1, "lance": "V_1_0"},
+            {"n": 2, "jogador": 1, "lance": "H_2_1"},
+        ],
+        "lance_chave": 2,
+    }
+    quadros = desenho.fita_da_solucao("sequencia_lances", posicao, solucao)
+    assert len(quadros) == 3, "inicio + dois lances"
+    assert all(q["svg"].startswith("<svg") for q in quadros)
+
+
+def test_o_tabuleiro_de_damas_NUMERA_as_32_casas() -> None:
+    """🔒 ⚠️ Sem numero, `21x30x23` nao se liga a desenho nenhum.
+
+    E a curadoria e feita por quem **nao** tem a numeracao das damas na cabeca —
+    foi o primeiro obstaculo que o dono relatou ao abrir o painel.
+    """
+    from api.desafios.painel import desenho
+
+    svg = desenho.damas(POSICAO_DE_DAMAS, numerar=True)
+    for casa in (1, 17, 32):
+        assert f">{casa}</text>" in svg, f"a casa {casa} ficou sem numero"
+
+    # E sem pedir, nao numera: a miniatura da fila nao precisa do ruido.
+    assert ">32</text>" not in desenho.damas(POSICAO_DE_DAMAS)
+
+
+def test_casas_do_lance_le_a_notacao_dos_DOIS_tipos_de_lance() -> None:
+    """🔒 O caminho aceso sai da notacao, e nao de uma interpretacao do lance."""
+    from api.desafios.painel.desenho import casas_do_lance
+
+    assert casas_do_lance("24-19") == (24, 19)
+    assert casas_do_lance("21x30x23") == (21, 30, 23)
+    # ⚠️ A dama vem com `K` na FEN; na notacao de lance ela pode aparecer, e o
+    # numero e que importa.
+    assert casas_do_lance("K5-9") == (5, 9)

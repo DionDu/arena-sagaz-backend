@@ -75,6 +75,8 @@ def montar(
         lances: a fita, cada item `{"n", "jogador", "lance"}` — o vocabulario do
             log. ⚠️ Ela inclui os lances do **adversario**: sem eles a sequencia
             nao e reproduzivel, e o replay mostraria a pessoa jogando sozinha.
+            ⚠️ **Um item pode trazer `fen`**, a posicao depois daquele lance; ela
+            vira a lista `posicoes`, que o painel de curadoria desenha.
         lance_chave: qual lance decide. E o que o Raio-X destaca.
         co_origem: de onde a solucao veio.
 
@@ -89,7 +91,7 @@ def montar(
             f"lance_chave {lance_chave} fora da fita de {len(lances)} lances"
         )
 
-    return {
+    js_solucao: dict[str, Any] = {
         "versao": VERSAO,
         "lances": [
             {"n": n, "jogador": lance["jogador"], "lance": lance["lance"]}
@@ -98,6 +100,27 @@ def montar(
         "lance_chave": lance_chave,
         "co_origem": co_origem,
     }
+
+    # ── ⚠️ AS POSICOES, quando o jogo tem uma por lance ──────────────────────
+    #
+    # ⚠️ **Aditivo de proposito, e por isso nao houve migracao:** `js_solucao` e
+    # `JSONB`, e a chave nova nasce ausente nas linhas ja gravadas. Quem le
+    # precisa aguentar as duas formas — o painel desenha a sequencia quando ha
+    # `posicoes` e cai na lista de lances quando nao ha.
+    #
+    # ⛔ **A chave so aparece quando TODOS os lances trouxeram posicao.** Uma
+    # sequencia com buraco seria pior que nenhuma: o painel desenharia um salto
+    # como se fosse um lance, e quem estivesse curando aprovaria uma solucao que
+    # nao existe.
+    posicoes = [
+        {"n": n, "fen": lance["fen"]}
+        for n, lance in enumerate(lances, start=1)
+        if lance.get("fen")
+    ]
+    if len(posicoes) == len(lances):
+        js_solucao["posicoes"] = posicoes
+
+    return js_solucao
 
 
 def nu_lances_solucao(js_solucao: Mapping[str, Any]) -> int:

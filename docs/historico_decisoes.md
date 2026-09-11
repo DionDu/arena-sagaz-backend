@@ -21,6 +21,106 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 — A primeira execucao real no Railway, e os quatro defeitos que so ela achou
+
+**Contexto.** Ate aqui o job tinha rodado **local**, contra o mesmo banco `des`.
+O dono contestou essa escolha - *"nao e melhor roda-lo no servidor do Railway
+pra ja corrigir qualquer problema la?"* - e estava certo: rodar local prova o
+codigo e nao prova a operacao. A primeira execucao no servico do Railway gerou
+**6 dias de 7** e terminou em `crashed`. Os quatro achados abaixo saem dela.
+
+### (a) ⛔ Um desafio de UM lance, com os moldes ja limpos
+
+`72542794` foi publicado com `js_solucao` de um unico lance (`21x30x23`) e a
+regua marcando **20/20 nos tres mascotes**. T049g tinha removido os moldes
+triviais na vespera, e mesmo assim.
+
+⚠️ **O cadeado olhava a posicao errada.** O que vai ao ar nao e o molde: e o
+molde **mais um lance de variacao** (`gerador._preparar_damas`). Um lance basta
+para armar uma cadeia de captura que o molde nao tinha - e ninguem perguntava
+nada sobre o resultado dessa soma.
+
+⛔ **E havia um segundo erro dentro do primeiro: a variacao troca o lado.** O
+molde tem as brancas a jogar (`W:`); depois de um lance quem joga sao as
+**pretas**, e e com elas que a pessoa resolve (`vez_de: -1` em toda linha de
+damas ja gravada). `job/moldes_de_damas.py`, escrito para perguntar *"as brancas
+cumprem?"*, perguntava pelo lado que nao resolve nada.
+
+**Decisao.** As duas metades foram consertadas juntas, porque uma sozinha nao
+resolve: as perguntas passaram a ser sobre **quem esta a jogar** na FEN recebida
+(`_lado_e_adversario`), o que as torna validas para molde **e** para posicao
+publicada; e o gerador passou a fazer a pergunta **na posicao preparada**,
+descartando a tentativa. O cadeado do molde continua, como peneira barata.
+
+⚠️ **Alternativa considerada e recusada:** deixar so o cadeado do gerador. Ele
+pegaria tudo, mas gastaria a variacao inteira antes de recusar - e o molde ruim
+voltaria a ser sorteado no dia seguinte.
+
+### (b) ⛔ `InternalClientError` matou o dia 7/7
+
+    asyncpg.exceptions._base.InternalClientError:
+    cannot switch to state 15; another operation (2) is in progress
+
+A engine do job tinha `pool_size=1` + `pool_pre_ping=True`, e o comentario que
+justificava o ping descrevia o problema **certo**: a geracao de um dia passa
+minutos em CPU sem tocar no banco, e o proxy do Railway derruba a conexao parada.
+
+⛔ **A defesa e que estava errada.** O pre-ping abre uma transacao para testar a
+conexao; numa conexao derrubada o asyncpg devolve um `InternalClientError`, que
+o dialeto do SQLAlchemy **nao reconhece como desconexao**. Em vez de trocar a
+conexao (que e o que o pre-ping existe para fazer), o erro sobe.
+
+**Decisao: `NullPool`.** Sem pool nao ha conexao dormindo, e o problema deixa de
+existir por construcao. O preco - uma conexao TCP nova por operacao - e
+irrelevante num processo que acorda uma vez por dia e passa a maior parte do
+tempo em CPU. ⛔ `pool_recycle` foi recusado (so encurta a janela) e um
+`try/except` em volta da consulta tambem (reintroduz o erro em cada chamada nova
+que alguem escrever).
+
+### (c) ⚠️ O relatorio trocava o SINAL do problema
+
+A linha `⚠️ [job] FORA DA BANDA: ['2026-09-11: taxa media 0.10 fora da banda
+[0.70, 0.80]']` nao dizia a taxa: `0.10` era a **distancia**. O caso real era
+taxa **0.90** - dez pontos **acima** do teto, um desafio banal - e o log se lia
+como um desafio duríssimo. ⛔ Um relatorio que troca o sinal manda investigar o
+lado errado.
+
+A media virou `regua.taxa_media()` - ela ja existia identica em `dentro_da_banda`
+e `distancia_da_banda` - e a linha passou a dizer taxa, lado e distancia.
+
+### (d) A curadoria era impossivel na pratica
+
+O dono abriu o painel e relatou: *"realmente fica muito dificil para mim aprovar
+sem conseguir ver as possibilidades de jogadas. O painel deveria ao menos exibir
+a solucao de gabarito, lance por lance. Olhando so o JSON dos lances fica muito
+dificil para mim visualizar isso."*
+
+**Decisao: o gabarito passa a carregar a posicao depois de cada lance**, e o
+painel desenha a sequencia.
+
+⛔ **Quem grava a posicao e quem TEM o motor.** Aplicar `21x30x23` e trabalho do
+motor de damas, e a imagem da API nao o importa - ela nao instala `numpy`, e nao
+vai instalar por causa de uma pagina interna. Reescrever as regras no painel
+seria a **segunda implementacao**.
+
+⚠️ **E no Pontinhos nao ha nada a gravar**, o que parece incoerente e nao e: a
+posicao de la **e** a lista de lances (`co_formato_posicao = sequencia_lances`),
+entao o quadro k e a concatenacao - sem aplicar regra nenhuma. A posse das caixas
+ja era calculada por `_donos_das_caixas`, que desenha a posicao inicial desde o
+primeiro dia.
+
+⚠️ **`js_solucao.posicoes` e aditivo, e por isso nao houve migracao** (a coluna e
+`JSONB`). A chave nasce ausente nas linhas antigas, e o painel **recusa desenhar
+meia sequencia**: ou tem todas as posicoes, ou diz que faltam e manda regerar.
+⛔ Desenhar os quadros que existem seria pior - o salto entre dois lances
+apareceria como se fosse um lance.
+
+Junto entraram a **numeracao** que o dono pediu: casas 1 a 32 nas damas (com o
+caminho do lance aceso) e o rotulo de cada traco livre no Pontinhos (`V_3_4`).
+Sem elas a notacao do gabarito nao se liga a desenho nenhum.
+
+---
+
 ## 2026-09-10 — O quadro do dia: a escada tem TRÊS degraus, não quatro
 
 **Contexto.** Ao implementar T044, RF-DES-060a mandava pôr *"os quatro"* mascotes

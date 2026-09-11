@@ -58,7 +58,12 @@ Três seções, nesta ordem:
 - **Objetivo**, **adversário** (mascote + semente) e **em quantos lances** a
   solução de referência cumpre.
 - **A régua**: uma linha por mascote, com `resolveu N/M` e a barra.
-- **O gabarito**, dobrado num `<details>` — a fita de lances.
+- **A solucao DESENHADA, lance a lance** — um quadro por lance, com o do
+  objetivo em **borda dourada**. Nas damas as casas vao de 1 a 32 e o caminho do
+  lance fica aceso; no Pontinhos cada traco livre traz o rotulo (`V_3_4`).
+  ⚠️ **Desafio gerado antes de 11/09/2026 nao tem as posicoes gravadas** e mostra
+  um recado em vez de meia sequencia - rode o job de novo para ve-la.
+- **O gabarito em JSON**, dobrado, para quando a duvida for sobre o dado.
 
 ---
 

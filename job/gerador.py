@@ -479,8 +479,40 @@ def _resolver(
             # A partida acabou antes de o objetivo cair.
             return None
 
-        fita.append({"n": numero, "jogador": atual.vez_de, "lance": lance})
-        atual = jogador.aplicar(atual, lance) if hasattr(jogador, "aplicar") else atual.com_lance(lance)
+        passo: dict[str, Any] = {
+            "n": numero,
+            "jogador": atual.vez_de,
+            "lance": lance,
+        }
+        atual = (
+            jogador.aplicar(atual, lance)
+            if hasattr(jogador, "aplicar")
+            else atual.com_lance(lance)
+        )
+
+        # ── ⚠️ A POSICAO DEPOIS DO LANCE, quando o jogo tem uma ──────────────
+        #
+        # ⚠️ **Nas damas a fita de lances NAO se le sozinha.** `21x30x23` diz o
+        # que aconteceu para quem ja tem o tabuleiro na cabeca; para o painel de
+        # curadoria (e para o dono) e uma linha de numeros. Guardar a FEN de cada
+        # passo permite **desenhar** a solucao lance a lance, e e o que torna a
+        # curadoria possivel sem jogar (pedido do dono, 11/09/2026).
+        #
+        # ⛔ **Quem grava a posicao e quem TEM o motor.** A imagem da API nao
+        # importa `motores.damas` (ela nao instala numpy, e nao vai instalar por
+        # causa de uma pagina interna), entao o painel nao pode reconstruir a
+        # sequencia — e, se pudesse, seria uma **segunda implementacao das
+        # regras**, que e o defeito que este projeto mais persegue.
+        #
+        # ⚠️ **No Pontinhos nao ha o que gravar, e nao e esquecimento:** a posicao
+        # de la **e** a lista de lances (`co_formato_posicao = sequencia_lances`),
+        # entao o painel monta cada quadro concatenando — sem aplicar regra
+        # nenhuma. O `getattr` cobre os dois casos sem um `if` por jogo.
+        fen_depois = getattr(atual, "fen", None)
+        if fen_depois:
+            passo["fen"] = fen_depois
+
+        fita.append(passo)
 
         julgamento = julgar(fita)
         if julgamento.cumpriu:
