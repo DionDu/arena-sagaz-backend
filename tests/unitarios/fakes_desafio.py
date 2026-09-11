@@ -38,6 +38,15 @@ class _Mappings:
         """Todas as linhas."""
         return self._linhas
 
+    def first(self) -> Optional[Mapping[str, Any]]:
+        """A primeira linha, ou `None` — a semantica do SQLAlchemy.
+
+        ⚠️ Existe porque uma consulta com `LIMIT 1` se le assim
+        (`resultado.mappings().first()`), e um duble sem este metodo obrigaria o
+        codigo de producao a escrever `.all()[0]` so para caber no teste.
+        """
+        return self._linhas[0] if self._linhas else None
+
 
 class FakeResultado:
     """O objeto que uma `session.execute(...)` devolve, na parte que usamos.

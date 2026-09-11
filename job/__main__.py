@@ -145,6 +145,13 @@ class Relatorio:
     reprisados: int = 0
     descartados: list[str] = field(default_factory=list)
     fora_da_banda: list[str] = field(default_factory=list)
+    #: Candidatos recusados por **ja terem sido publicados** (T049i).
+    #:
+    #: ⛔ **A recusa nao pode sair calada.** Sem esta contagem, o dia em que os
+    #: moldes se esgotarem pareceria um dia sem sorte: o log diria "sem
+    #: candidato" e a reprise entraria, e ninguem saberia que a causa foi o
+    #: acervo ter acabado, e nao o jogo ter ficado dificil.
+    repetidos: list[str] = field(default_factory=list)
     nao_cobertos: list[str] = field(default_factory=list)
     auditoria: dict[str, int] = field(
         default_factory=lambda: {"conferem": 0, "divergentes": 0, "impossiveis": 0}
@@ -199,6 +206,12 @@ class Relatorio:
         ]
         if self.descartados:
             linhas.append(f"[job] descartes: {self.descartados}")
+        if self.repetidos:
+            linhas.append(
+                f"⚠️ [job] JA PUBLICADOS ANTES: {self.repetidos}. Recusados por "
+                "repeticao (T049i). Se isto virar rotina, o acervo de posicoes "
+                "daquele tipo esta se esgotando — e nao e falta de sorte."
+            )
         if self.fora_da_banda:
             linhas.append(
                 f"⚠️ [job] FORA DA BANDA: {self.fora_da_banda}. Publicados como "
@@ -294,6 +307,42 @@ async def cobrir_um_dia(
     reserva: Optional[tuple[float, Any, list[regua_mod.Medicao]]] = None
 
     for candidato in candidatos:
+        # ── ⛔ JA FOI PUBLICADO? (T049i) ────────────────────────────────────
+        #
+        # ⚠️ **Primeiro de todos os passos, e o motivo e o preco.** Provar o
+        # termino custa ate 200 lances e medir a regua custa `3 mascotes x 20
+        # execucoes`; esta pergunta custa **um `SELECT` com `LIMIT 1`** numa
+        # tabela que cresce uma linha por dia. Gastar a medicao inteira num
+        # candidato que sera recusado no fim seria pagar o caro antes do barato.
+        #
+        # ⚠️ **Contra o historico inteiro** — ver `SQL_ASSINATURA_JA_PUBLICADA`.
+        # `tipos_recentes` evita repetir o **tipo**; isto evita repetir o
+        # **desafio**, que e outra coisa e ja escapou: a mesma FEN saiu duas
+        # vezes em sete dias no `des`, com sementes diferentes.
+        #
+        # ⛔ **Recusar nao e "deixar o dia descoberto".** Sobram os outros
+        # candidatos; e se nenhum servir, a reprise cobre o dia — e ela e
+        # **copia com identificador proprio**, entao nao fere esta regra.
+        id_anterior = await repositorio.assinatura_ja_publicada(
+            co_tipo_desafio=candidato.receita.co_tipo_desafio,
+            co_modalidade=candidato.co_modalidade,
+            js_posicao_inicial=candidato.js_posicao_inicial,
+            js_chegada=candidato.js_chegada,
+        )
+        if id_anterior is not None:
+            relatorio.repetidos.append(
+                f"{dt_dia}: {co_tipo} repetiria o desafio {id_anterior}"
+            )
+            print(
+                f"⚠️ [job] {dt_dia}: candidato recusado — este desafio "
+                f"({co_tipo}"
+                + (f"/{candidato.co_modalidade}" if candidato.co_modalidade else "")
+                + f") ja foi publicado como {id_anterior}. "
+                "Um desafio vai ao ar uma vez so (T049i).",
+                file=sys.stderr,
+            )
+            continue
+
         # ⚠️ **A posicao publicada e conferida antes de virar linha.** E este
         # passo que faz `vez_de` e `placar` valerem alguma coisa; sem ele seriam
         # anotacao decorativa, e um desafio com a vez errada passaria pelo banco

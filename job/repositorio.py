@@ -205,6 +205,46 @@ SELECT t.co_tipo_desafio
 """
 
 
+#: ⛔ **A ASSINATURA DE UM DESAFIO — o cadeado contra repetir (T049i).**
+#:
+#: > *"Nao podemos ter desafios repetidos, a nao ser como fallback de reprise."*
+#: > — o dono, 11/09/2026 (`DECISOES-do-dono.md` §8h)
+#:
+#: ⚠️ **Hoje nada impedia a repeticao, e ela ja aconteceu:** `SQL_TIPOS_RECENTES`
+#: evita repetir o **tipo**, nao a **posicao** — e a mesma FEN
+#: `B:W25,26,29:B2,13,17,21` saiu duas vezes em sete dias no `des`, com sementes
+#: diferentes.
+#:
+#: ⚠️ **Mede-se contra o HISTORICO INTEIRO, e nao contra os 7 dias da fila.** Um
+#: desafio e publicado **uma vez so** (determinacao do dono, 04/09/2026), e
+#: repetir o de tres meses atras e exatamente o que a regra proibe. Por isso esta
+#: consulta ⛔ **nao tem `BETWEEN`** — e a diferenca dela para as duas de cima.
+#:
+#: ⚠️ **Sem indice novo, e isso e conta e nao descuido:** `tb001_desafio` cresce
+#: uma linha por dia, e em dez anos sao 3.650. Uma coluna de hash com `UNIQUE`
+#: seria migracao para resolver problema que nao existe.
+#:
+#: ⛔ **`IS NOT DISTINCT FROM` e nao `=` no `co_modalidade`.** A coluna e nula no
+#: Pontinhos, e em SQL `NULL = NULL` da `NULL`, nao `TRUE`: com `=`, **todo**
+#: desafio de Pontinhos pareceria inedito, para sempre, e o cadeado protegeria
+#: so as damas — calado, que e o pior jeito de falhar.
+#:
+#: ⚠️ **As reprises contam, e nao ha por que exclui-las.** Uma reprise tem a mesma
+#: assinatura da origem, que ja esta aqui; encontrar uma ou outra da a mesma
+#: resposta. ⛔ E o caminho da reprise nao passa por esta consulta: ele e
+#: `job/reprise.py`, e continua permitido de proposito — a reprise e **copia com
+#: identificador proprio**, e nao um desafio novo.
+SQL_ASSINATURA_JA_PUBLICADA = f"""
+SELECT d.id_desafio
+  FROM {VW_DESAFIO} d
+ WHERE d.co_tipo_desafio = :co_tipo_desafio
+   AND d.co_modalidade IS NOT DISTINCT FROM :co_modalidade
+   AND d.js_posicao_inicial = CAST(:js_posicao_inicial AS JSONB)
+   AND d.js_chegada = CAST(:js_chegada AS JSONB)
+ LIMIT 1
+"""
+
+
 class GravacaoDoJobFalhou(RuntimeError):
     """Uma escrita que deveria ter acontecido nao aconteceu.
 
@@ -295,6 +335,51 @@ class RepositorioDoJob:
             {"co_jogo": co_jogo, "dt_inicio": dt_inicio, "dt_fim": dt_fim},
         )
         return [linha["co_tipo_desafio"] for linha in resultado.mappings().all()]
+
+    async def assinatura_ja_publicada(
+        self,
+        *,
+        co_tipo_desafio: str,
+        co_modalidade: Optional[str],
+        js_posicao_inicial: Mapping[str, Any],
+        js_chegada: Mapping[str, Any],
+    ) -> Optional[UUID]:
+        """Este desafio ja foi publicado alguma vez? (T049i)
+
+        Args:
+            co_tipo_desafio: a chave textual do tipo, e nao o `nu_tipo_desafio` —
+                a VIEW ja traz as duas, e a textual e a que quem le o log entende.
+            co_modalidade: `None` no Pontinhos. ⚠️ A consulta usa
+                `IS NOT DISTINCT FROM` justamente para que o nulo case com o nulo.
+            js_posicao_inicial, js_chegada: os dois JSON do candidato.
+
+        Returns:
+            O `id_desafio` do desafio anterior com a mesma assinatura, ou `None`
+            se ele e inedito.
+
+        ⚠️ **A comparacao e de JSONB, e nao de texto.** O Postgres normaliza
+        `jsonb` — ordem de chave e espaco em branco nao contam —, entao dois
+        candidatos iguais casam mesmo que o `json.dumps` os tenha escrito
+        diferente. Comparar `::text` daria "inedito" para o mesmo tabuleiro com
+        as chaves em outra ordem, e ⛔ nada denunciaria.
+        """
+        import json
+
+        resultado = await self.sessao.execute(
+            text(SQL_ASSINATURA_JA_PUBLICADA),
+            {
+                "co_tipo_desafio": co_tipo_desafio,
+                "co_modalidade": co_modalidade,
+                # `ensure_ascii=False` pelo mesmo motivo do `INSERT`: manter a
+                # serializacao identica a que gravou a linha com que se compara.
+                "js_posicao_inicial": json.dumps(
+                    js_posicao_inicial, ensure_ascii=False
+                ),
+                "js_chegada": json.dumps(js_chegada, ensure_ascii=False),
+            },
+        )
+        linha = resultado.mappings().first()
+        return linha["id_desafio"] if linha else None
 
     async def taxa_observada(
         self, *, dt_inicio: date, dt_fim: date

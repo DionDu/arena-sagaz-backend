@@ -43,6 +43,7 @@ from job.repositorio import (
     SQL_INSERIR_MEDICAO,
     SQL_TIPOS_RECENTES,
     RepositorioDoJob,
+    SQL_ASSINATURA_JA_PUBLICADA,
 )
 from tests.unitarios.fakes_desafio import FakeSessaoSQL
 from tests.unitarios.leitura_de_migracao import sql_da_migracao, tabelas_do_sql
@@ -304,6 +305,7 @@ def test_a_chave_do_feito_vira_nu_feito_NO_BANCO() -> None:
     [
         (SQL_DIAS_PUBLICADOS, "SQL_DIAS_PUBLICADOS"),
         (SQL_TIPOS_RECENTES, "SQL_TIPOS_RECENTES"),
+        (SQL_ASSINATURA_JA_PUBLICADA, "SQL_ASSINATURA_JA_PUBLICADA"),
         (SQL_INSERIR_FEITO, "SQL_INSERIR_FEITO"),
     ],
 )
@@ -612,3 +614,95 @@ async def test_o_js_perfil_sobrevive_a_um_numero_que_o_json_NAO_serializa() -> N
         }
     ]
     assert await RepositorioDoJob(sessao).garantir_perfil(linhas) == 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. ⛔ T049i — nenhum desafio se repete
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_assinatura_olha_o_HISTORICO_INTEIRO_e_nao_a_janela() -> None:
+    """🔒 ⛔ A diferenca desta consulta para as duas irmas e a AUSENCIA de recorte.
+
+    ⚠️ `SQL_DIAS_PUBLICADOS` e `SQL_TIPOS_RECENTES` tem `BETWEEN` de proposito — o
+    rodizio existe para o dia nao parecer o de ontem, e o que foi publicado ha
+    tres meses nao atrapalha ninguem. **Aqui e o contrario:** um desafio e
+    publicado uma vez so, e repetir o de tres meses atras e exatamente o que a
+    regra proibe.
+
+    Um `BETWEEN` que aparecesse aqui faria o cadeado proteger so a janela — e a
+    fila voltaria a repetir, calada, no primeiro desafio com mais de 30 dias.
+    """
+    assert "BETWEEN" not in SQL_ASSINATURA_JA_PUBLICADA.upper()
+    assert "dt_inicio" not in SQL_ASSINATURA_JA_PUBLICADA
+
+
+def test_a_assinatura_compara_os_QUATRO_campos() -> None:
+    """A assinatura e `(tipo, modalidade, posicao inicial, chegada)`.
+
+    ⚠️ **A modalidade nao e redundante com o tipo.** `damas_coroar` roda nas
+    quatro modalidades sobre os MESMOS moldes: a mesma posicao inicial jogada por
+    regulamentos diferentes e um desafio diferente, e tirar a modalidade daqui
+    recusaria tres candidatos legitimos por dia de damas.
+    """
+    for campo in (
+        ":co_tipo_desafio",
+        ":co_modalidade",
+        ":js_posicao_inicial",
+        ":js_chegada",
+    ):
+        assert campo in SQL_ASSINATURA_JA_PUBLICADA, f"falta {campo}"
+
+
+def test_a_modalidade_NULA_casa_com_a_nula() -> None:
+    """🔒 ⛔ O defeito que teria deixado o Pontinhos sem cadeado, em silencio.
+
+    `co_modalidade` e **nula** no Pontinhos, e em SQL `NULL = NULL` da `NULL`, e
+    nao `TRUE`. Com um `=` simples, todo desafio de Pontinhos pareceria inedito
+    para sempre: a consulta rodaria, nao acusaria nada, e o cadeado protegeria
+    apenas as damas — sem que ninguem percebesse.
+    """
+    assert "IS NOT DISTINCT FROM" in SQL_ASSINATURA_JA_PUBLICADA
+
+
+def test_a_comparacao_de_json_e_JSONB_e_nao_texto() -> None:
+    """⚠️ O Postgres normaliza `jsonb`: ordem de chave e espaco nao contam.
+
+    Comparar `::text` diria "inedito" para o mesmo tabuleiro com as chaves em
+    outra ordem — e nada denunciaria, porque a consulta continuaria valida.
+    """
+    assert "CAST(:js_posicao_inicial AS JSONB)" in SQL_ASSINATURA_JA_PUBLICADA
+    assert "CAST(:js_chegada AS JSONB)" in SQL_ASSINATURA_JA_PUBLICADA
+
+
+@pytest.mark.asyncio
+async def test_assinatura_INEDITA_devolve_None() -> None:
+    """Sem linha no banco, o candidato e novo — e o job segue com ele."""
+    sessao = FakeSessaoSQL()
+    achado = await RepositorioDoJob(sessao).assinatura_ja_publicada(
+        co_tipo_desafio="pontinhos_fechar_caixas",
+        co_modalidade=None,
+        js_posicao_inicial={"versao": 1, "lances": []},
+        js_chegada={"janela": {}, "clausulas": []},
+    )
+    assert achado is None
+
+
+@pytest.mark.asyncio
+async def test_assinatura_REPETIDA_devolve_o_id_anterior() -> None:
+    """⚠️ Devolve o **id**, e nao um booleano — e a diferenca vai para o log.
+
+    *"Recusado por repeticao"* nao ajuda ninguem a investigar; *"repetiria o
+    desafio `<uuid>`"* leva direto a linha que ja existe, e e assim que se
+    descobre que o acervo daquele tipo se esgotou.
+    """
+    sessao = FakeSessaoSQL(
+        respostas={"SELECT d.id_desafio": [{"id_desafio": "o-de-marco"}]}
+    )
+    achado = await RepositorioDoJob(sessao).assinatura_ja_publicada(
+        co_tipo_desafio="damas_coroar",
+        co_modalidade="portuguesa",
+        js_posicao_inicial={"versao": 1, "fen": "W:W12,25,28:B13,15,17"},
+        js_chegada={"janela": {}, "clausulas": []},
+    )
+    assert achado == "o-de-marco"

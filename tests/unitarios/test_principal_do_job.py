@@ -718,3 +718,116 @@ def test_sem_volume_a_banda_e_a_FIXA() -> None:
     alvo = alvo_para_a_regua(nu_tentaram=0, nu_resolveram=0)
     assert (alvo.piso, alvo.teto) == (PISO_FIXO, TETO_FIXO)
     assert alvo.co_origem == "fixo"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. ⛔ T049i — nenhum desafio se repete, e a reprise e a unica excecao
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **O duble responde a MESMA assinatura para todos**, e e o que se quer aqui:
+# o que se mede e a reacao do encadeamento a uma repeticao, e nao a consulta —
+# quem prova a consulta e `test_banco_e_repositorio_do_job.py`.
+
+
+def _sessao_com_repeticao() -> FakeSessaoSQL:
+    """Um duble em que TODO candidato ja foi publicado antes.
+
+    ⚠️ **O trecho que identifica a consulta e `IS NOT DISTINCT FROM`**, e nao
+    `SELECT d.id_desafio`. O duble roteia por **substring**, e `SELECT
+    d.id_desafio` tambem aparece na busca de candidatas da reprise — com ele, a
+    reprise recebia esta resposta de uma linha so e estourava com
+    `KeyError: 'id_origem'`, transformando um teste de repeticao num teste de
+    reprise quebrada.
+    """
+    sessao = _sessao_feliz()
+    sessao.respostas["IS NOT DISTINCT FROM"] = [{"id_desafio": "publicado-em-marco"}]
+    return sessao
+
+
+@pytest.mark.asyncio
+async def test_candidato_JA_PUBLICADO_e_recusado() -> None:
+    """🔒 ⛔ *"Nao podemos ter desafios repetidos"* — o dono, 11/09/2026.
+
+    ⚠️ **`tipos_recentes` nao cobria isto.** Ele evita repetir o **tipo**, nao a
+    **posicao**: a mesma FEN `B:W25,26,29:B2,13,17,21` saiu duas vezes em sete
+    dias no `des`, com sementes diferentes, e nada acusou.
+    """
+    sessao = _sessao_com_repeticao()
+    relatorio = await _rodar(sessao, gerar=_gerar_um)
+
+    assert relatorio.gerados == 0, "um desafio repetido foi publicado"
+    assert relatorio.repetidos, "a recusa nao foi registrada em lugar nenhum"
+
+
+@pytest.mark.asyncio
+async def test_a_recusa_NAO_sai_calada() -> None:
+    """⛔ Sem o registro, o dia em que o acervo se esgotar parece falta de sorte.
+
+    ⚠️ O log diria *"sem candidato"*, a reprise entraria, e ninguem saberia que a
+    causa foi o acervo daquele tipo ter acabado — que e um problema com conserto,
+    e diferente de o jogo ter ficado dificil.
+
+    ⚠️ **E a mensagem leva o id do desafio anterior**, para levar quem investiga
+    direto a linha que ja existe.
+    """
+    sessao = _sessao_com_repeticao()
+    relatorio = await _rodar(sessao, gerar=_gerar_um)
+
+    resumo = relatorio.resumo()
+    assert "JA PUBLICADOS ANTES" in resumo
+    assert "publicado-em-marco" in resumo
+
+
+@pytest.mark.asyncio
+async def test_recusado_por_repeticao_o_dia_cai_na_REPRISE() -> None:
+    """⚠️ **A reprise e a unica excecao, e nao fere a regra.**
+
+    Ela e **copia com identificador proprio** (determinacao do dono, 04/09/2026),
+    e o caminho dela ⛔ nao passa pela consulta de assinatura — senao a saida de
+    emergencia se recusaria a si mesma, e o dia ficaria descoberto justamente
+    quando mais precisa de cobertura.
+    """
+    sessao = _sessao_com_repeticao()
+    await _rodar(sessao, gerar=_gerar_um)
+
+    # ⚠️ O duble nao tem candidata para reprisar, entao o que se afirma aqui e
+    # que a reprise **foi tentada** — e o mesmo que
+    # `test_sem_candidato_o_job_TENTA_REPRISAR` afirma. O que importa provar e
+    # que a recusa por repeticao chega ate ela, e nao para antes.
+    assert sessao.sql_executado("vw001_desafio_dia"), (
+        "a reprise nem chegou a procurar candidata"
+    )
+
+
+@pytest.mark.asyncio
+async def test_repeticao_sozinha_NAO_pinta_o_painel_de_vermelho() -> None:
+    """⚠️ A mesma lição de `fora_da_banda`: sinal que dispara sempre ninguem le.
+
+    Uma recusa por repeticao com o dia **coberto** (pela reprise ou pelo proximo
+    candidato) e observacao, e nao quebra. ⛔ O que sai com `1` continua sendo dia
+    descoberto — o unico defeito deste job que a pessoa ve na tela.
+    """
+    relatorio = principal_mod.Relatorio()
+    relatorio.repetidos.append("2026-09-20: damas_coroar repetiria o desafio X")
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_FEZ
+
+    relatorio.nao_cobertos.append("2026-09-21: nem a reprise")
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_DIVERGIU
+
+
+@pytest.mark.asyncio
+async def test_a_pergunta_vem_ANTES_da_medicao_cara() -> None:
+    """⚠️ Um `SELECT` com `LIMIT 1` custa menos que 3 mascotes x 20 execucoes.
+
+    Provar o termino roda ate 200 lances; medir a regua roda a CNN dezenas de
+    vezes. Perguntar *"ja publiquei isto?"* depois disso seria pagar o caro antes
+    do barato — e o candidato seria jogado fora do mesmo jeito.
+
+    O duble recusa todos, entao **nenhuma** linha de regua pode ter sido gravada.
+    """
+    sessao = _sessao_com_repeticao()
+    await _rodar(sessao, gerar=_gerar_um)
+
+    assert not sessao.sql_executado("INSERT INTO desafio.tb002_medicao_regua"), (
+        "a regua foi medida num candidato que ja seria recusado por repeticao"
+    )

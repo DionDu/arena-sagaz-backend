@@ -2133,3 +2133,75 @@ essa ordem com a do motor do backend.
   arquivo diz que `dados/` saiu por ter se mudado para o laboratório, e isso
   convida alguém a reexcluí-lo; sem o acervo na imagem, o job quebra no Railway
   às 6 da manhã e o build fica verde. Cadeado em `test_imagem_do_job.py`.
+
+## 2026-09-11 — ⛔ Nenhum desafio se repete, e a reprise é a única exceção (T049i)
+
+> *"Não podemos ter desafios repetidos, a não ser como fallback de reprise."*
+> — o dono, 11/09/2026
+
+**Contexto.** ⚠️ Nada impedia a repetição, e ela **já tinha acontecido**:
+`SQL_TIPOS_RECENTES` evita repetir o **tipo**, não a **posição** — e a mesma FEN
+`B:W25,26,29:B2,13,17,21` saiu duas vezes em sete dias no `des`, com sementes
+diferentes e sem que nada acusasse.
+
+**A regra.** Um candidato só é publicável se a sua **assinatura** —
+`(co_tipo_desafio, co_modalidade, js_posicao_inicial, js_chegada)` — não existir
+em nenhum desafio já publicado.
+
+⚠️ **Contra o histórico inteiro, não contra os 7 dias da fila.** Um desafio é
+publicado **uma vez só** (determinação do dono, 04/09/2026), e repetir o de três
+meses atrás é exatamente o que a regra proíbe. É por isso que
+`SQL_ASSINATURA_JA_PUBLICADA` ⛔ **não tem `BETWEEN`**, e é a única das três
+consultas de leitura do job que não tem — as outras duas têm de propósito.
+
+⚠️ **A modalidade não é redundante com o tipo.** `damas_coroar` roda nas quatro
+modalidades sobre os **mesmos** moldes: a mesma posição inicial jogada por
+regulamentos diferentes é um desafio diferente. Tirá-la da assinatura recusaria
+três candidatos legítimos por dia de damas.
+
+### Três decisões que evitam falha silenciosa
+
+- ⛔ **`IS NOT DISTINCT FROM` e não `=` na modalidade.** `co_modalidade` é **nula**
+  no Pontinhos, e em SQL `NULL = NULL` dá `NULL`, não `TRUE`. Com um `=` simples,
+  **todo** desafio de Pontinhos pareceria inédito para sempre: a consulta rodaria,
+  não acusaria nada, e o cadeado protegeria apenas as damas.
+- ⚠️ **Comparação de `jsonb`, não de texto.** O Postgres normaliza `jsonb` — ordem
+  de chave e espaço em branco não contam. Comparar `::text` diria "inédito" para o
+  mesmo tabuleiro com as chaves em outra ordem.
+- ⚠️ **A consulta devolve o `id_desafio` anterior, e não um booleano.** *"Recusado
+  por repetição"* não ajuda ninguém a investigar; *"repetiria o desafio `<uuid>`"*
+  leva direto à linha que já existe.
+
+### Sem migração, e a conta
+
+`tb001_desafio` cresce **uma linha por dia**: em dez anos são 3.650. A consulta de
+unicidade cabe num `SELECT` com `LIMIT 1` sem índice novo, e uma coluna de hash
+com `UNIQUE` seria migração para resolver problema que não existe.
+
+### Onde a pergunta entra, e por que ali
+
+**Antes de tudo**, no laço de candidatos de `cobrir_um_dia`. Provar o término
+custa até 200 lances e medir a régua custa `3 mascotes × 20 execuções`; esta
+pergunta custa um `SELECT` com `LIMIT 1`. Perguntar depois seria pagar o caro
+antes do barato — e o candidato seria jogado fora do mesmo jeito.
+
+### ⛔ A recusa não sai calada
+
+Entra em `Relatorio.repetidos`, grita no `stderr` e aparece no resumo. ⚠️ **Sem
+isso, o dia em que o acervo de um tipo se esgotar pareceria um dia sem sorte**: o
+log diria *"sem candidato"*, a reprise entraria, e ninguém saberia que a causa tem
+conserto.
+
+⛔ **Mas repetição sozinha não sai com código 1.** É a mesma lição que
+`fora_da_banda` já registra: sinal que dispara sempre é sinal que ninguém lê. O
+que acende o painel continua sendo **dia descoberto** — o único defeito deste job
+que a pessoa vê na tela.
+
+### ⚠️ E a reprise continua permitida, de propósito
+
+Ela é **cópia com identificador próprio**, e o caminho dela (`job/reprise.py`)
+⛔ **não passa por esta consulta** — senão a saída de emergência se recusaria a si
+mesma, e o dia ficaria descoberto justamente quando mais precisa de cobertura.
+
+⚠️ As reprises já gravadas **contam** como histórico, e não há por que excluí-las:
+uma reprise tem a mesma assinatura da origem, que já está lá.
