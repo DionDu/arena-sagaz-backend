@@ -21,6 +21,83 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 — Por que os desafios de damas sao faceis: o MATERIAL
+
+**O relato.** *"Os desafios de coroar damas tem muitos lances agora, no entanto
+estao absurdamente faceis. E basicamente so seguir em linha reta com a peca ate o
+final, nao tem desafio algum."*
+
+⛔ **Ele estava certo, e a causa nao era a distancia — era o material.** Medida
+tirada do `des`, comparando o que o acervo produz com o que acontece em partida:
+
+    posicao de...                   | nos MOLDES sorteados | em PARTIDAS REAIS
+    --------------------------------+----------------------+------------------
+    coroar                          |  6,0 pecas (SEMPRE)  | 12,3 pecas
+    captura de 3+ pecas             |  7,0 pecas (SEMPRE)  | 17,6 pecas
+
+⚠️ **O "sempre" e literal:** os 330 moldes de `damas_coroar` tem exatamente 3
+brancas e 3 pretas, e os 29 de `damas_capturar_multipla`, 3 e 4. Nao e tendencia
+estatistica — e parametro escrito a mao em `cacar_moldes_damas`.
+
+⛔ **E ha um defeito pior dentro dele.** `candidatas_para_coroar` sorteia a ponta
+de lanca em 5..12 e as pretas em **13..24**. As brancas coroam em 1..4 e andam
+para numeros menores; as pretas andam para numeros maiores. ⚠️ **As pretas
+nasciam ATRAS da peca que ia coroar, em todos os 330 moldes** — nao havia como
+interceptar. O comentario da funcao dizia *"tres pretas no miolo, que e onde elas
+atrapalham sem fechar o caminho"*; elas nao atrapalhavam nada.
+
+### ⚠️ A licao, que ja custou duas correcoes erradas
+
+Foram tres criterios tentados, e os dois primeiros mediam a coisa errada:
+
+  1. **distancia ate o objetivo** — mede COMPRIMENTO. Produziu desafios longos e
+     vazios, que foi o relato acima;
+  2. **material minimo** — mede POPULACAO. E so uma hipotese de que ha oposicao;
+  3. ✅ **a regua** (`job/regua.py`) — mede o que os mascotes conseguem, que e a
+     unica definicao operacional de dificuldade que o projeto tem. ⚠️ E ela ja
+     vinha avisando: os desafios de coroar saiam com *"banal por 0,07"* no log, e
+     a selecao de moldes nao a consultava.
+
+### A pesca em partidas reais (ideia do dono, medida no mesmo dia)
+
+`scripts/pescar_moldes_de_partidas.py` troca **so a fonte** das candidatas: em vez
+de sortear, le posicoes que aconteceram. ⚠️ **As damas ja gravam a posicao** —
+`jogo_damas.tb002_jogada.co_fen_antes` guarda a FEN antes de cada lance —, entao
+nao ha o que reconstruir. A peneira e a medicao sao as mesmas, importadas de
+`cacar_moldes_damas`, e nao copiadas.
+
+**O que a sondagem mediu** (37 partidas de damas no `des` → 1.777 posicoes unicas
+depois do espelho, 1.421 com 10+ pecas e uma pedra a ate 6 fileiras):
+
+  · **rendimento: 1 em 36** (~2,8%), a ~2,5 s de parede por posicao com 12 processos;
+  · a unica aprovada tem **14 pecas** e distancia **10 lances** — exatamente o
+    perfil que faltava;
+  · ⚠️ **o motivo das 34 reprovas foi `nao_cumpriu_no_teto`**: numa posicao real
+    com material, o Sagaz jogando os dois lados **nao consegue** coroar em doze
+    lances. Isso e a confirmacao de que a posicao tem oposicao — e ao mesmo tempo
+    o aviso de que *coroar* e um objetivo caro em meio de jogo.
+
+⛔ **Consequencia de volume:** ~1 molde por partida real. Um acervo de 300 moldes
+pede ~300 partidas de damas, e o `prd` e que as tem. A extracao e do dono (⛔ o
+assistente nao conecta no `prd`).
+
+### ⚠️ E o Pontinhos: a cadeia entregue NAO e anomalia do gerador
+
+O dono estranhou um lance do adversario que entregava 6 caixas. Medida das
+cadeias reais nas 167 partidas do `des` (ilhas de lances consecutivos do mesmo
+jogador):
+
+    1 caixa: 318 | 2: 258 | 3: 68 | 4: 92 | 5: 24 | 6: 38 | 7: 15 | 8: 7 | 9: 3 | 10: 4 | 11: 2
+
+**253 turnos fecharam 3 ou mais caixas; 69 fecharam 6 ou mais.** Entregar uma
+cadeia e como o Jogo dos Pontinhos termina — alguem e obrigado a abrir. ⚠️ O que
+resta de vies nao e a cadeia existir: e o gerador **selecionar** posicoes por
+"existe cadeia grande aqui", o que concentra a fila no instante imediatamente
+posterior a abertura. Pescar de partidas reais ataca justamente isso, porque a
+posicao entra por ter acontecido, e nao por ser conveniente.
+
+---
+
 ## 2026-09-11 — A varredura por funcoes sem teste, e o que ela achou
 
 **De onde veio.** No mesmo dia, `regua.tentativa_com_motor` revelou um defeito de
