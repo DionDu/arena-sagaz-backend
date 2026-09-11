@@ -582,13 +582,18 @@ def test_a_banda_REAL_recusa_o_desafio_banal() -> None:
 
 
 @pytest.mark.asyncio
-async def test_fora_da_banda_PUBLICA_o_menos_pior_e_sai_com_UM() -> None:
-    """⚠️ Deixar o dia vazio seria pior, e a razao e a curadoria.
+async def test_fora_da_banda_PUBLICA_o_menos_pior_e_REGISTRA_sem_falhar() -> None:
+    """🔒 ⛔ Calibracao fora do alvo NAO e quebra, e nao pode pintar o painel.
 
-    ⛔ Tudo o que o job grava nasce `candidato` (RF-DES-012a) — nada vai ao ar sem
-    o dono aprovar no painel. Entao publicar um desafio fora da banda **nao e
-    publicar**: e enfileirar para revisao. O que nao pode e a calibracao
-    escorregar em silencio, e por isso a execucao sai com **1**.
+    ⚠️ **Medido na primeira execucao completa (10/09/2026): seis dos sete dias
+    ficaram fora da banda.** Se isso saisse com 1, o Railway ficaria vermelho
+    todo dia — e sinal que dispara sempre e sinal que ninguem le. O dia em que
+    houvesse um buraco de verdade na fila, o vermelho nao significaria nada.
+
+    ⚠️ Deixar o dia vazio seria pior que publicar o menos pior: tudo nasce
+    `candidato` (RF-DES-012a), entao isto e **enfileirar para revisao**, e nao
+    publicar. O numero continua no log e no resumo — adiar a decisao de
+    calibracao e diferente de esconder o dado.
     """
     relatorio = await _rodar(
         _sessao_feliz(), alvo=Alvo(piso=PISO_FIXO, teto=TETO_FIXO, co_origem="fixo")
@@ -596,8 +601,25 @@ async def test_fora_da_banda_PUBLICA_o_menos_pior_e_sai_com_UM() -> None:
 
     assert relatorio.gerados == DIAS_MINIMOS, "o dia precisa ficar coberto"
     assert relatorio.fora_da_banda, "a divergencia de calibracao nao foi registrada"
+    assert "FORA DA BANDA" in relatorio.resumo(), "o numero sumiu do log"
+    assert relatorio.codigo_de_saida == principal_mod.CODIGO_FEZ
+
+
+@pytest.mark.asyncio
+async def test_dia_DESCOBERTO_continua_saindo_com_UM_mesmo_com_fora_da_banda() -> None:
+    """⚠️ O contraste que da sentido ao caso acima.
+
+    ⛔ Dia descoberto e o app mostrando dia vazio — quebra de produto, e ela
+    continua acendendo vermelho. Afrouxar os dois juntos teria trocado um sinal
+    ruidoso por sinal nenhum.
+    """
+    relatorio = await _rodar(
+        _sessao_feliz(),
+        gerar=_gerar_nenhum,
+        alvo=Alvo(piso=PISO_FIXO, teto=TETO_FIXO, co_origem="fixo"),
+    )
+    assert relatorio.nao_cobertos
     assert relatorio.codigo_de_saida == principal_mod.CODIGO_DIVERGIU
-    assert "FORA DA BANDA" in relatorio.resumo()
 
 
 @pytest.mark.asyncio

@@ -24,8 +24,13 @@ e um dia sem produto.
 ═══════════════════════════════════════════════════════════════════════════
 
     0  →  fez
-    1  →  fez, e algo divergiu (dia descoberto, resolucao divergente)
+    1  →  fez, e algo QUEBROU (dia descoberto, resolucao divergente)
     2  →  nem comecou (sem `DATABASE_URL`, banco fora, perfil nao gravou)
+
+⛔ **Calibracao fora da banda NAO e quebra**, e nao sai com 1 — ela e observacao
+para a curadoria, e nada vai ao ar sem o dono aprovar. Medido em 10/09/2026:
+seis dos sete dias de uma execucao saudavel ficavam fora da banda, e o painel
+ficaria vermelho todo dia. Sinal que dispara sempre e sinal que ninguem le.
 
 ⛔ **Um job que "termina bem" sem gerar nada e indistinguivel, no painel do
 Railway, de um job que funcionou** — e a fila de desafios secaria em silencio ate
@@ -159,12 +164,25 @@ class Relatorio:
         """
         if self.nao_cobertos:
             return CODIGO_DIVERGIU
-        # ⚠️ **Fora da banda tambem acende a luz.** Nada disto vai ao ar sozinho
-        # (tudo nasce `candidato`), mas a calibracao escorregando em silencio e
-        # como a fila vira uma sequencia de desafios banais sem ninguem decidir
-        # isso.
-        if self.fora_da_banda:
-            return CODIGO_DIVERGIU
+        # ⛔ **`fora_da_banda` NAO entra aqui, e isso foi medido.** Ate 10/09/2026
+        # ele saia com 1, e a primeira execucao completa mostrou o preco: **seis
+        # dos sete dias** ficaram fora da banda numa execucao perfeitamente
+        # saudavel. O painel do Railway ficaria vermelho todo dia.
+        #
+        # ⚠️ **Sinal que dispara sempre e sinal que ninguem le** — a mesma licao
+        # que o projeto ja registrou sobre o `--reporter compact`: um portao que
+        # acusa regressao inexistente e pior que nenhum, porque ensina a
+        # ignora-lo. E o dia em que houver um buraco de verdade na fila, o
+        # vermelho nao vai significar nada.
+        #
+        # ⚠️ **E os dois casos nao tem o mesmo peso:** dia descoberto e o app
+        # mostrando dia vazio — quebra de produto. Fora da banda e um candidato
+        # mais facil que o alvo entrando na fila de **curadoria**, e ⛔ nada vai
+        # ao ar sem o dono aprovar (RF-DES-012a). E observacao, nao quebra.
+        #
+        # ⚠️ Ele continua gritando no log e no resumo: adiar a decisao de
+        # calibracao (decisao do dono, 10/09/2026 — so da para julgar jogando) e
+        # diferente de esconder o numero.
         if self.auditoria.get("divergentes", 0) or self.auditoria.get("impossiveis", 0):
             return CODIGO_DIVERGIU
         return CODIGO_FEZ
