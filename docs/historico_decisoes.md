@@ -21,6 +21,83 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 — A cacada de 1.000, e o acervo de moldes refeito por DISTANCIA
+
+**1.000 candidatas por tipo, 14 processos, ~1 h de maquina.** E a primeira
+cacada grande do projeto, e ela so coube numa noite por causa da paralelizacao
+da mesma tarde.
+
+### `damas_coroar`: o problema do dono estava no acervo, e acabou
+
+> *"Todos sao resolviveis em 3 lances no total. O usuario entra pra resolver um
+> desafio e nao joga praticamente nada. Consegue resolve-los em uns 10 segundos
+> e sai do App?"*
+
+Ele tinha razao, e a causa nao era o gerador: **os moldes em uso tinham sido
+cacados com o alvo *"objetivo no lance 3"*** (`LANCE_MINIMO`), e a fila mostrava
+exatamente o que se pediu a cacada.
+
+Dos 999 candidatos: 549 passaram a peneira (335 s), 540 serviram a tres ou mais
+modalidades. A distribuicao da **distancia ate o objetivo**:
+
+    lance  3 ->  90     lance  7 ->  41
+    lance  4 -> 120     lance  8 ->  69
+    lance  5 ->  83     lance  9 ->   6
+    lance  6 -> 127     lance 10 ->   4
+
+✅ **Ficaram os 330 com objetivo no lance 5 ou depois** — o dobro do acervo
+anterior **inteiro** (161). ⛔ Os 210 mais curtos foram descartados **apesar de
+aprovados pela cacada**: eles publicariam o desafio de dez segundos de novo.
+
+⚠️ **E nao se recacou nada para isso.** A cacada ja anota a distancia molde a
+molde; quem corta e `scripts/selecionar_moldes_damas.py`, em segundos. ⚠️ **A
+separacao importa:** medir custa horas e o criterio pode mudar — misturar os dois
+faria toda mudanca de criterio custar outra noite.
+
+**Medido depois da troca**, gerando quatro dias reais: solucoes de **9, 3, 5 e 9**
+meios-lances, contra **3, 3, 3** antes. A media dobrou.
+
+### `damas_capturar_multipla`: agora esta medido que nao tem jeito
+
+O funil das 939 candidatas conta a historia inteira:
+
+    621  nunca cumpriram dentro do teto
+    200  ja nasciam com a cadeia armada (objetivo no lance 1)
+     51  partida acabada
+     67  passaram a peneira
+     29  serviram a tres ou mais modalidades
+
+⛔ **Dos 29, vinte e oito cumprem no lance 3 e um no lance 4. Zero com distancia
+5 ou mais** — contra 330 no `damas_coroar`, na mesma cacada e com o mesmo
+esforco.
+
+⚠️ **Nao e falta de cacada, e o jogo.** Capturar duas em sequencia ou esta
+disponivel de imediato, ou nao acontece: a captura obrigatoria das damas e
+justamente o que o adversario usa para nao conceder. As tres janelas medidas
+(`lances` 2, 3 e 4) deram **3,0 meios-lances** em todas, com ate o tempo
+identico.
+
+⏳ **Fica uma decisao para o dono, e ela nao e tecnica:** aceitar que este e o
+tipo rapido da fila, ou tira-lo do rodizio. Enquanto nao decidir, ele publica —
+com 29 moldes, tres vezes o acervo anterior.
+
+### ⛔ E o job nao pode morrer por causa de uma MENSAGEM
+
+Ao medir o acervo novo, um `print` de descarte derrubou o processo:
+
+    UnicodeEncodeError: 'charmap' codec can't encode characters
+
+⚠️ O console do Windows e cp1252, e o log deste job e cheio de `⚠️` e `⛔`. No
+Railway nao ha problema (stdout e UTF-8), mas **localmente o primeiro emoji mata
+o processo — no meio do trabalho**, depois de gerar e medir.
+
+`job/__init__.py` passou a reconfigurar `stdout`/`stderr` para UTF-8 com
+`errors="replace"`. ⚠️ **Ali, e nao em cada ponto de entrada**: o job e rodado de
+quatro lugares (o `-m job`, os dois scripts, os testes), e uma chamada em cada um
+envelheceria torto — bastaria um script novo esquecer.
+
+---
+
 ## 2026-09-11 — A cacada de moldes passa a usar todos os nucleos
 
 **A pergunta do dono:** *"Para recacar moldes com alvo de distancia maior essas
