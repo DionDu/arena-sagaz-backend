@@ -36,9 +36,12 @@ Conferencias, na ordem em que um defeito custa caro:
   2. **toda tabela e toda VIEW** das `0018`/`0019` existem, e nenhuma sobra;
   2b. **as colunas de cada tabela, NA ORDEM**, batem com o que a migracao
      declara — ver a armadilha logo abaixo;
-  3. **as dimensoes que a migracao popula tem linha** — e a
-     `desafio.tb903_perfil_dificuldade` esta VAZIA, de proposito: quem a
-     preenche e o job, e enche-la aqui seria dado inventado;
+  3. **as dimensoes que a migracao popula tem linha** — e as que o **job**
+     preenche (`tb903_perfil_dificuldade`, `tb904_motor`) nao foram enchidas
+     pela migracao. ⚠️ **A pergunta nao e "estao vazias?"**: depois da primeira
+     execucao do job elas tem linha, e isso e o certo. O que reprova e linha de
+     dimensao num banco **sem nenhum desafio** — ali o job nunca gravou, e a
+     unica outra mao possivel e a da migracao;
   4. **o `CHECK` de `partida.co_modo` aceita `'desafio'`** — e a unica coisa que
      a `0020` faz, e a unica que toca tabela com dado real;
   5. **coluna de tabela que nao aparece na VIEW irma** — sai como AVISO, e nao
@@ -352,21 +355,43 @@ async def _conferir(url: str) -> int:
                         "primeira gravacao"
                     )
 
+            # ⚠️ **A pergunta NAO e "esta vazia?" — e "quem pos isto aqui?"**
+            #
+            # ⛔ **Ate 11/09/2026 ela era a primeira, e virou alarme falso** no dia
+            # em que o job rodou no `des`: as 8 linhas de perfil sao o resultado
+            # CERTO de uma execucao, e o conferidor as reprovava em toda conferencia
+            # dali em diante. Um portao que acusa sempre ensina a ser ignorado — a
+            # mesma licao do `--reporter compact` e do `fora_da_banda`.
+            #
+            # ⚠️ **O que se quer impedir e a MIGRACAO publicar calibracao por
+            # `INSERT`**, e isso so pode ter acontecido se houver linha de dimensao
+            # num banco onde **nenhum desafio existe ainda**: sem desafio nenhum, o
+            # job nunca chegou a gravar coisa alguma, e a unica outra mao possivel e
+            # a da migracao.
+            #
+            # ⚠️ E o cadeado que le a MIGRACAO continua sendo o principal — ele nao
+            # depende de banco nem de ordem de execucao
+            # (`test_motor_decifravel.py::test_a_MIGRACAO_nao_escreve_na_dimensao`).
+            houve_desafio = (
+                await conexao.execute(
+                    text("SELECT COUNT(*) FROM desafio.tb001_desafio")
+                )
+            ).scalar()
+
             for dimensao in DIMENSOES_QUE_O_JOB_PREENCHE:
-                vazia = (
+                quantas = (
                     await conexao.execute(
                         text(f"SELECT COUNT(*) FROM {dimensao}")
                     )
                 ).scalar()
-                print(
-                    f"  {dimensao:<38} {vazia} linha(s)  "
-                    "(quem preenche e o job)"
-                )
-                if vazia:
+                quem = "o job ja rodou" if quantas else "quem preenche e o job"
+                print(f"  {dimensao:<38} {quantas} linha(s)  ({quem})")
+                if quantas and not houve_desafio:
                     reprovacoes.append(
-                        f"{dimensao} deveria nascer VAZIA — quem a preenche e o "
-                        "job, e dimensao inventada por migracao decide o que a "
-                        "pessoa joga ou de onde o carimbo saiu"
+                        f"{dimensao} tem {quantas} linha(s) num banco SEM nenhum "
+                        "desafio — o job nunca gravou aqui, entao so a migracao "
+                        "pode ter posto. ⛔ Dimensao inventada por migracao decide "
+                        "o que a pessoa joga ou de onde o carimbo saiu"
                     )
 
             # ── 4. o CHECK de `partida.co_modo` ─────────────────────────────

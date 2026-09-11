@@ -2405,12 +2405,27 @@ de cada execução, se há versão publicada fora da dimensão (`motores_orfaos`
   defeito no projeto: cadeado que sabe de antemão onde olhar fica cego
   exatamente quando algo novo chega.
 
-### ⏳ O que ficou pendente
+### ✅ Aplicada no `des` em 11/09/2026
 
-Rodar a `0022` no `des` é do dono (`scripts/identificar_banco.py` **antes** de
-qualquer `alembic upgrade`). ⚠️ **A migração vem antes do deploy do backend** — a
-lição da `0017` —, e enquanto ela não rodar o job falha no `INSERT` da dimensão,
-já no começo da execução.
+`alembic current` → `0022_motor_decifravel`, e o conferidor: **17 tabelas / 17
+VIEWs, 17/17 com as colunas na ordem**, `tb904_motor` com **0 linhas** (o estado
+certo — quem preenche é o job). ⛔ **No `prd` não**, e não vai antes do portão
+T050. ⚠️ A migração vem **antes** do deploy do backend, a lição da `0017`.
+
+### E o conferidor virou alarme falso no mesmo dia — consertado
+
+`scripts/conferir_migracao_desafio.py` reprovava
+`desafio.tb903_perfil_dificuldade` por **ter linha**. A regra estava escrita para
+um banco recém-migrado, e no `des` o job já havia rodado em 10/09: as 8 linhas
+são o resultado **certo** de uma execução. ⚠️ Ele reprovaria assim em toda
+conferência dali em diante — e um portão que acusa sempre ensina a ser ignorado,
+a mesma lição do `--reporter compact` e do `fora_da_banda`.
+
+⚠️ **A pergunta certa não é *"está vazia?"* — é *"quem pôs isto aqui?"***. Linha
+de dimensão só pode ter vindo da migração se o banco **não tiver desafio nenhum**:
+sem desafio, o job nunca gravou, e não há outra mão. É isso que ele pergunta
+agora. O cadeado principal continua sendo o que lê a **migração**, e esse não
+depende de banco nem de ordem de execução.
 
 ---
 

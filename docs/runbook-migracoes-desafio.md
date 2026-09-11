@@ -185,9 +185,12 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 **O que conferir depois**, na ordem:
 
 1. `.venv\Scripts\python scripts\conferir_migracao_desafio.py` - a
-   `desafio.tb904_motor` tem de aparecer com **0 linha(s)**, ao lado da
-   `tb903_perfil_dificuldade`. ⚠️ **Zero é o resultado correto**: quem preenche
-   é o job, e uma linha ali agora seria hash de manifesto que ninguém conferiu.
+   `desafio.tb904_motor` tem de aparecer com **0 linha(s)**. ⚠️ **Zero é o
+   resultado correto**: quem preenche é o job, e uma linha ali agora seria hash
+   de manifesto que ninguém conferiu. ⚠️ **Já a `tb903_perfil_dificuldade`
+   aparece com 8 linhas no `des`, e isso também é o certo** - o job rodou lá em
+   10/09. O conferidor só reprova dimensão com linha num banco **sem nenhum
+   desafio**, onde o job nunca gravou.
 2. A primeira execução do job depois disto grava **2 linhas** (uma por jogo) e
    imprime `[job] motor: 2 linha(s) nova(s)`.
 3. ⚠️ **Olhe o aviso `MOTOR FORA DA DIMENSÃO` no resumo.** Se ele listar alguma
