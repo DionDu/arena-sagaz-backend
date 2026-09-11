@@ -175,44 +175,195 @@ RECEITAS: dict[str, Receita] = {
         # Finais em que uma branca esta a poucos passos da oitava fileira, com
         # pretas suficientes para a partida nao acabar antes.
         #
-        # ⚠️ **Os quatro primeiros foram desenhados a mao; os vinte seguintes
-        # foram MEDIDOS** por `scripts/cacar_moldes_damas.py` em 11/09/2026 — o
-        # Sagaz jogou os dois lados a partir de cada um, nas quatro modalidades,
-        # com o mesmo orcamento do gerador. Cada comentario diz em que lance o
-        # objetivo caiu por regulamento.
+        # ⚠️ **Os tres primeiros foram desenhados a mao; os 158 seguintes foram
+        # MEDIDOS** por `scripts/cacar_moldes_damas.py` em 11/09/2026 (300
+        # candidatas) — o Sagaz jogou os dois lados a partir de cada um, nas
+        # quatro modalidades, com o mesmo orcamento do gerador. Cada comentario
+        # diz em que lance o objetivo caiu, na media dos regulamentos.
         #
-        # ⛔ **Nenhum entrou com alguma modalidade cumprindo abaixo do lance 3.**
-        # Dois candidatos passaram na peneira (que roda so na brasileira) com a
-        # portuguesa cumprindo no LANCE 1: publicariam um desafio de um lance em
-        # um dia de cada quatro, e nada no log acusaria. O corte agora olha as
-        # quatro, e o script foi corrigido junto.
+        # ⛔ **Dez moldes aprovados pelo script foram REMOVIDOS depois**, mais um
+        # dos quatro fundadores: eles entregavam o objetivo **no primeiro lance**.
+        # ⚠️ A medicao nao pegava porque **o Sagaz joga a PARTIDA, e nao o
+        # DESAFIO** — coroar de cara costuma ser mau lance, entao ele escolhia
+        # outra coisa e a medicao anotava "objetivo no lance 3"; so que quem joga
+        # o desafio nao esta jogando para vencer, esta cumprindo a tarefa.
+        #
+        # ⛔ Quem guarda isso agora e `job/moldes_de_damas.py`, na peneira do
+        # script **e** no cadeado `tests/unitarios/test_moldes_de_damas.py` — a
+        # pergunta e direta ("ha lance legal que cumpre o objetivo agora?") e nao
+        # custa um no de busca.
         moldes=(
-            # ── Os quatro fundadores, escritos a mao em 09/09/2026 ───────────
+            # ── Os fundadores que SOBRARAM, escritos a mao em 09/09/2026 ────
+            #
+            # ⚠️ Eram quatro; o segundo saiu em 11/09 por coroar no primeiro
+            # lance (`10x1` nas quatro modalidades).
             "W:W9,23,27:B5,12,20",
-            "W:W10,24,28:B6,14,21",
             "W:W13,25,30:B8,17,22",
             "W:W14,26,31:B7,18,24",
-            # ── Medidos em 11/09/2026, do mais demorado ao mais curto ────────
-            "W:W12,25,28:B13,15,17",  # 4/4 — bras 11, angl 9, port 3, casa 11
-            "W:W10,24,28:B18,20,21",  # 4/4 — bras 5, angl 9, port 9, casa 5
-            "W:W9,22,26:B13,14,18",  # 4/4 — bras 7, angl 5, port 7, casa 7
-            "W:W12,24,27:B13,15,19",  # 4/4 — bras 5, angl 11, port 5, casa 5
-            "W:W10,17,24:B14,15,20",  # 4/4 — bras 9, angl 5, port 3, casa 9
-            "W:W9,27,30:B14,18,20",  # 4/4 — bras 5, angl 3, port 11, casa 5
-            "W:W9,18,28:B16,20,22",  # 4/4 — bras 5, angl 7, port 7, casa 5
-            "W:W9,18,25:B15,16,23",  # 4/4 — bras 5, angl 5, port 7, casa 5
-            "W:W5,20,22:B14,16,18",  # 4/4 — bras 5, angl 3, port 3, casa 11
-            "W:W11,21,30:B13,19,23",  # 4/4 — bras 5, angl 9, port 3, casa 5
-            "W:W6,26,29:B19,23,24",  # 4/4 — bras 3, angl 11, port 3, casa 3
-            "W:W12,18,27:B20,22,24",  # 4/4 — bras 5, angl 5, port 5, casa 5
-            "W:W8,22,30:B18,20,21",  # 4/4 — bras 3, angl 5, port 3, casa 3
-            "W:W6,18,26:B15,20,22",  # 4/4 — bras 3, angl 5, port 3, casa 3
-            "W:W10,27,29:B13,18,21",  # 3/4 — bras 3, port 5, casa 3 (anglo nao)
-            "W:W7,26,32:B15,22,23",  # 4/4 — 3 nas quatro
-            "W:W7,25,31:B14,17,22",  # 4/4 — 3 nas quatro
-            "W:W7,21,27:B13,22,24",  # 4/4 — 3 nas quatro
-            "W:W7,20,27:B17,18,23",  # 4/4 — 3 nas quatro
-            "W:W7,17,29:B14,19,23",  # 4/4 — 3 nas quatro
+            # ── Medidos em 11/09/2026 pela caçada de 300 candidatas ─────────
+            #
+            # ⚠️ **Os 20 da primeira caçada estão AQUI DENTRO**, e não foram
+            # perdidos: aquela rodada mediu as 30 primeiras candidatas desta
+            # mesma sequência, então esta lista é superconjunto dela —
+            # conferido FEN a FEN antes da troca.
+            "W:W9,18,21:B14,19,24",  # 4/4 — objetivo no lance 9.0
+            "W:W10,17,19:B14,18,23",  # 4/4 — objetivo no lance 9.0
+            "W:W12,25,28:B13,15,17",  # 4/4 — objetivo no lance 8.5
+            "W:W10,27,28:B15,17,24",  # 4/4 — objetivo no lance 8.5
+            "W:W10,21,25:B16,17,22",  # 4/4 — objetivo no lance 8.5
+            "W:W9,23,29:B16,18,24",  # 4/4 — objetivo no lance 8.0
+            "W:W9,20,24:B13,17,23",  # 4/4 — objetivo no lance 8.0
+            "W:W9,17,23:B14,15,19",  # 4/4 — objetivo no lance 8.0
+            "W:W6,23,25:B13,14,19",  # 4/4 — objetivo no lance 8.0
+            "W:W12,23,32:B13,15,16",  # 4/4 — objetivo no lance 8.0
+            "W:W11,23,24:B18,19,20",  # 4/4 — objetivo no lance 8.0
+            "W:W11,18,30:B15,16,21",  # 4/4 — objetivo no lance 8.0
+            "W:W11,17,32:B14,15,18",  # 4/4 — objetivo no lance 8.0
+            "W:W10,26,27:B18,22,23",  # 4/4 — objetivo no lance 8.0
+            "W:W10,21,31:B17,19,24",  # 4/4 — objetivo no lance 8.0
+            "W:W11,21,22:B15,16,20",  # 4/4 — objetivo no lance 7.5
+            "W:W10,26,28:B16,19,20",  # 4/4 — objetivo no lance 7.5
+            "W:W10,23,26:B19,20,21",  # 4/4 — objetivo no lance 7.5
+            "W:W12,24,25:B14,20,22",  # 4/4 — objetivo no lance 7.0
+            "W:W12,22,27:B15,19,21",  # 4/4 — objetivo no lance 7.0
+            "W:W11,28,32:B15,17,19",  # 4/4 — objetivo no lance 7.0
+            "W:W11,26,29:B13,18,24",  # 4/4 — objetivo no lance 7.0
+            "W:W10,28,29:B15,20,22",  # 4/4 — objetivo no lance 7.0
+            "W:W10,26,30:B13,19,20",  # 4/4 — objetivo no lance 7.0
+            "W:W10,24,28:B18,20,21",  # 4/4 — objetivo no lance 7.0
+            "W:W9,22,26:B13,14,18",  # 4/4 — objetivo no lance 6.5
+            "W:W9,18,31:B13,15,19",  # 4/4 — objetivo no lance 6.5
+            "W:W7,17,23:B15,18,24",  # 4/4 — objetivo no lance 6.5
+            "W:W12,24,27:B13,15,19",  # 4/4 — objetivo no lance 6.5
+            "W:W12,20,29:B13,16,18",  # 4/4 — objetivo no lance 6.5
+            "W:W12,20,27:B13,15,19",  # 4/4 — objetivo no lance 6.5
+            "W:W12,20,24:B17,19,22",  # 4/4 — objetivo no lance 6.5
+            "W:W11,19,26:B16,20,22",  # 4/4 — objetivo no lance 6.5
+            "W:W11,18,27:B14,21,23",  # 4/4 — objetivo no lance 6.5
+            "W:W10,25,28:B16,21,22",  # 4/4 — objetivo no lance 6.5
+            "W:W10,17,24:B14,15,20",  # 4/4 — objetivo no lance 6.5
+            "W:W9,27,30:B14,18,20",  # 4/4 — objetivo no lance 6.0
+            "W:W9,23,28:B18,19,20",  # 4/4 — objetivo no lance 6.0
+            "W:W9,19,27:B16,18,22",  # 4/4 — objetivo no lance 6.0
+            "W:W9,18,28:B16,20,22",  # 4/4 — objetivo no lance 6.0
+            "W:W6,17,23:B14,19,22",  # 4/4 — objetivo no lance 6.0
+            "W:W5,22,29:B14,17,19",  # 4/4 — objetivo no lance 6.0
+            "W:W12,25,30:B14,22,23",  # 4/4 — objetivo no lance 6.0
+            "W:W11,24,29:B18,19,20",  # 4/4 — objetivo no lance 6.0
+            "W:W11,17,25:B18,19,20",  # 4/4 — objetivo no lance 6.0
+            "W:W10,17,27:B13,19,21",  # 4/4 — objetivo no lance 6.0
+            "W:W9,22,32:B15,19,24",  # 4/4 — objetivo no lance 5.5
+            "W:W9,22,24:B13,15,23",  # 4/4 — objetivo no lance 5.5
+            "W:W9,18,25:B15,16,23",  # 4/4 — objetivo no lance 5.5
+            "W:W9,17,28:B21,22,23",  # 4/4 — objetivo no lance 5.5
+            "W:W7,23,26:B15,16,22",  # 4/4 — objetivo no lance 5.5
+            "W:W6,22,31:B16,17,21",  # 4/4 — objetivo no lance 5.5
+            "W:W5,22,31:B14,17,18",  # 4/4 — objetivo no lance 5.5
+            "W:W5,20,22:B14,16,18",  # 4/4 — objetivo no lance 5.5
+            "W:W12,17,31:B13,15,21",  # 4/4 — objetivo no lance 5.5
+            "W:W11,26,32:B13,22,23",  # 4/4 — objetivo no lance 5.5
+            "W:W11,17,18:B14,19,24",  # 4/4 — objetivo no lance 5.5
+            "W:W10,18,20:B17,21,22",  # 4/4 — objetivo no lance 5.5
+            "W:W9,27,30:B18,20,22",  # 4/4 — objetivo no lance 5.0
+            "W:W9,25,28:B13,17,21",  # 4/4 — objetivo no lance 5.0
+            "W:W9,25,26:B14,20,22",  # 4/4 — objetivo no lance 5.0
+            "W:W9,21,31:B15,17,23",  # 4/4 — objetivo no lance 5.0
+            "W:W9,21,26:B15,16,22",  # 4/4 — objetivo no lance 5.0
+            "W:W9,19,32:B15,16,18",  # 4/4 — objetivo no lance 5.0
+            "W:W9,18,22:B13,17,21",  # 4/4 — objetivo no lance 5.0
+            "W:W9,17,19:B13,16,18",  # 4/4 — objetivo no lance 5.0
+            "W:W8,23,25:B13,14,19",  # 4/4 — objetivo no lance 5.0
+            "W:W7,20,21:B13,16,19",  # 4/4 — objetivo no lance 5.0
+            "W:W7,18,32:B14,15,22",  # 4/4 — objetivo no lance 5.0
+            "W:W6,21,22:B13,14,18",  # 4/4 — objetivo no lance 5.0
+            "W:W6,19,31:B16,21,22",  # 4/4 — objetivo no lance 5.0
+            "W:W5,21,24:B17,19,23",  # 4/4 — objetivo no lance 5.0
+            "W:W5,19,28:B13,16,17",  # 4/4 — objetivo no lance 5.0
+            "W:W5,18,31:B13,15,20",  # 4/4 — objetivo no lance 5.0
+            "W:W12,26,27:B17,20,22",  # 4/4 — objetivo no lance 5.0
+            "W:W12,21,24:B17,22,23",  # 4/4 — objetivo no lance 5.0
+            "W:W12,19,31:B15,18,22",  # 4/4 — objetivo no lance 5.0
+            "W:W12,18,28:B13,14,15",  # 4/4 — objetivo no lance 5.0
+            "W:W12,18,27:B20,22,24",  # 4/4 — objetivo no lance 5.0
+            "W:W12,18,23:B15,17,19",  # 4/4 — objetivo no lance 5.0
+            "W:W12,17,31:B14,18,22",  # 4/4 — objetivo no lance 5.0
+            "W:W12,17,18:B14,22,24",  # 4/4 — objetivo no lance 5.0
+            "W:W11,21,30:B13,19,23",  # 4/4 — objetivo no lance 5.0
+            "W:W11,19,29:B16,18,20",  # 4/4 — objetivo no lance 5.0
+            "W:W11,19,26:B20,22,24",  # 4/4 — objetivo no lance 5.0
+            "W:W11,19,22:B16,17,21",  # 4/4 — objetivo no lance 5.0
+            "W:W11,18,28:B13,14,17",  # 4/4 — objetivo no lance 5.0
+            "W:W11,17,24:B15,18,21",  # 4/4 — objetivo no lance 5.0
+            "W:W10,19,28:B14,16,17",  # 4/4 — objetivo no lance 5.0
+            "W:W10,19,26:B14,17,23",  # 4/4 — objetivo no lance 5.0
+            "W:W10,17,26:B15,20,23",  # 4/4 — objetivo no lance 5.0
+            "W:W9,17,20:B19,21,23",  # 4/4 — objetivo no lance 4.5
+            "W:W8,21,27:B15,19,23",  # 4/4 — objetivo no lance 4.5
+            "W:W8,18,31:B13,14,15",  # 4/4 — objetivo no lance 4.5
+            "W:W7,17,18:B15,19,23",  # 4/4 — objetivo no lance 4.5
+            "W:W6,20,27:B19,23,24",  # 4/4 — objetivo no lance 4.5
+            "W:W5,20,26:B14,16,19",  # 4/4 — objetivo no lance 4.5
+            "W:W5,19,27:B15,16,20",  # 4/4 — objetivo no lance 4.5
+            "W:W12,20,24:B14,17,22",  # 4/4 — objetivo no lance 4.5
+            "W:W12,18,31:B19,21,22",  # 4/4 — objetivo no lance 4.5
+            "W:W11,28,32:B15,18,21",  # 4/4 — objetivo no lance 4.5
+            "W:W10,24,27:B15,19,20",  # 4/4 — objetivo no lance 4.5
+            "W:W10,24,25:B18,21,22",  # 4/4 — objetivo no lance 4.5
+            "W:W10,23,26:B16,20,24",  # 4/4 — objetivo no lance 4.5
+            "W:W10,20,30:B18,19,22",  # 4/4 — objetivo no lance 4.5
+            "W:W10,17,25:B16,18,24",  # 4/4 — objetivo no lance 4.5
+            "W:W9,23,31:B13,15,17",  # 4/4 — objetivo no lance 4.0
+            "W:W9,22,30:B15,19,23",  # 4/4 — objetivo no lance 4.0
+            "W:W9,20,28:B15,18,19",  # 4/4 — objetivo no lance 4.0
+            "W:W8,28,31:B18,21,24",  # 4/4 — objetivo no lance 4.0
+            "W:W7,27,31:B18,21,24",  # 4/4 — objetivo no lance 4.0
+            "W:W6,19,27:B15,22,23",  # 4/4 — objetivo no lance 4.0
+            "W:W5,28,31:B16,17,24",  # 4/4 — objetivo no lance 4.0
+            "W:W5,17,22:B16,18,23",  # 4/4 — objetivo no lance 4.0
+            "W:W12,29,32:B14,17,22",  # 4/4 — objetivo no lance 4.0
+            "W:W12,19,28:B14,18,21",  # 4/4 — objetivo no lance 4.0
+            "W:W11,21,29:B18,20,24",  # 4/4 — objetivo no lance 4.0
+            "W:W9,22,28:B15,16,23",  # 4/4 — objetivo no lance 3.5
+            "W:W8,22,30:B18,20,21",  # 4/4 — objetivo no lance 3.5
+            "W:W8,18,29:B14,15,23",  # 4/4 — objetivo no lance 3.5
+            "W:W7,18,24:B13,15,21",  # 4/4 — objetivo no lance 3.5
+            "W:W7,18,21:B14,20,22",  # 4/4 — objetivo no lance 3.5
+            "W:W7,17,25:B14,18,24",  # 4/4 — objetivo no lance 3.5
+            "W:W6,18,26:B15,20,22",  # 4/4 — objetivo no lance 3.5
+            "W:W6,17,30:B13,14,15",  # 4/4 — objetivo no lance 3.5
+            "W:W5,23,31:B19,21,22",  # 4/4 — objetivo no lance 3.5
+            "W:W12,27,32:B13,16,19",  # 4/4 — objetivo no lance 3.5
+            "W:W12,23,24:B13,17,21",  # 4/4 — objetivo no lance 3.5
+            "W:W12,17,22:B13,15,19",  # 4/4 — objetivo no lance 3.5
+            "W:W11,30,31:B16,18,20",  # 4/4 — objetivo no lance 3.5
+            "W:W8,27,32:B19,21,24",  # 4/4 — objetivo no lance 3.0
+            "W:W8,26,32:B16,18,23",  # 4/4 — objetivo no lance 3.0
+            "W:W8,23,28:B16,18,20",  # 4/4 — objetivo no lance 3.0
+            "W:W8,19,24:B16,21,23",  # 4/4 — objetivo no lance 3.0
+            "W:W8,17,18:B14,19,21",  # 4/4 — objetivo no lance 3.0
+            "W:W7,26,32:B15,22,23",  # 4/4 — objetivo no lance 3.0
+            "W:W7,25,31:B14,17,22",  # 4/4 — objetivo no lance 3.0
+            "W:W7,22,29:B13,18,19",  # 4/4 — objetivo no lance 3.0
+            "W:W7,21,31:B16,17,19",  # 4/4 — objetivo no lance 3.0
+            "W:W7,21,27:B13,22,24",  # 4/4 — objetivo no lance 3.0
+            "W:W7,17,29:B14,19,23",  # 4/4 — objetivo no lance 3.0
+            "W:W12,29,31:B20,21,22",  # 4/4 — objetivo no lance 3.0
+            "W:W12,27,31:B18,20,24",  # 4/4 — objetivo no lance 3.0
+            "W:W12,20,24:B14,15,21",  # 4/4 — objetivo no lance 3.0
+            "W:W12,17,31:B19,20,21",  # 4/4 — objetivo no lance 3.0
+            "W:W11,19,29:B13,18,21",  # 4/4 — objetivo no lance 3.0
+            "W:W10,26,29:B16,18,20",  # 4/4 — objetivo no lance 3.0
+            "W:W9,17,18:B14,23,24",  # 3/4 — objetivo no lance 9.7
+            "W:W12,29,31:B13,17,22",  # 3/4 — objetivo no lance 7.7
+            "W:W12,25,31:B21,22,23",  # 3/4 — objetivo no lance 7.7
+            "W:W9,21,30:B17,19,23",  # 3/4 — objetivo no lance 6.3
+            "W:W9,19,26:B15,20,21",  # 3/4 — objetivo no lance 6.3
+            "W:W9,27,32:B17,20,24",  # 3/4 — objetivo no lance 5.0
+            "W:W9,31,32:B13,14,15",  # 3/4 — objetivo no lance 4.3
+            "W:W10,27,29:B13,18,21",  # 3/4 — objetivo no lance 3.7
+            "W:W5,27,30:B13,22,24",  # 3/4 — objetivo no lance 3.0
+            "W:W10,25,28:B16,19,24",  # 3/4 — objetivo no lance 3.0
+            "W:W10,21,30:B13,20,23",  # 3/4 — objetivo no lance 3.0
         ),
     ),
     "damas_capturar_multipla": Receita(
@@ -234,10 +385,13 @@ RECEITAS: dict[str, Receita] = {
         # depois de um ou dois lances.
         #
         # ⚠️ **Este tipo resiste a geracao automatica, e o motivo e o jogo, nao a
-        # ferramenta.** A caçada de 11/09/2026 mediu 30 posicoes sinteticas e
-        # aprovou **uma**: 18 nunca cumpriram dentro do teto e 8 ja nasciam com a
-        # captura dupla armada (trivial no lance 1). Coroar aprovou 22 das mesmas
-        # 30 tentativas.
+        # ferramenta.** A caçada de 11/09/2026 mediu **295** posicoes sinteticas e
+        # aprovou **oito** (2,7%): 185 nunca cumpriram dentro do teto e 73 ja
+        # nasciam com a captura dupla armada. Coroar aprovou 167 de 300.
+        #
+        # ⛔ **E TRES dos quatro fundadores sairam**, por medicao: eles ja tinham
+        # a cadeia armada no primeiro lance, nas quatro modalidades — o desafio
+        # duraria um toque. Ver `job/moldes_de_damas.py`.
         #
         # A razao e que **capturar duas em sequencia e um objetivo ADVERSARIAL**:
         # um Sagaz do outro lado nao concede captura encadeada, e a captura
@@ -246,13 +400,24 @@ RECEITAS: dict[str, Receita] = {
         # ela nunca se forma. Coroar nao tem esse problema: o adversario pode
         # atrapalhar, mas nao pode proibir que uma pedra avance.
         moldes=(
-            # ── Os quatro fundadores, escritos a mao em 09/09/2026 ───────────
-            "W:W27,28,31:B15,19,23,4",
-            "W:W26,30,32:B14,18,22,3",
+            # ── O fundador que SOBROU, escrito a mao em 09/09/2026 ──────────
+            #
+            # ⛔ Eram quatro: os outros tres ja tinham a captura dupla armada no
+            # primeiro lance, nas quatro modalidades.
             "W:W25,29,31:B13,17,21,2",
-            "W:W28,30,32:B16,20,24,1",
-            # ── Medido em 11/09/2026 ────────────────────────────────────────
-            "W:W26,27,30:B10,15,18,19",  # 4/4 — lance 3 nas quatro
+            # ── Medidos em 11/09/2026 pela caçada de 295 candidatas ─────────
+            #
+            # ⚠️ **Oito de 295, e os oito servem às QUATRO modalidades no lance 3.**
+            # A primeira caçada, de 30 candidatas, achara um — e este um está
+            # aqui dentro, medido de novo.
+            "W:W27,29,32:B18,19,22,26",  # 4/4 — objetivo no lance 3.0
+            "W:W26,29,31:B9,14,17,19",  # 4/4 — objetivo no lance 3.0
+            "W:W26,29,31:B14,17,18,19",  # 4/4 — objetivo no lance 3.0
+            "W:W26,27,30:B10,15,18,19",  # 4/4 — objetivo no lance 3.0
+            "W:W25,29,32:B17,18,21,26",  # 4/4 — objetivo no lance 3.0
+            "W:W25,29,31:B16,17,18,21",  # 4/4 — objetivo no lance 3.0
+            "W:W25,28,30:B9,13,17,18",  # 4/4 — objetivo no lance 3.0
+            "W:W25,26,29:B9,14,17,18",  # 4/4 — objetivo no lance 3.0
         ),
     ),
 }

@@ -2474,3 +2474,71 @@ Conferido que os três cadeados ficam **vermelhos** com o defeito reintroduzido.
 ⚠️ **O que continua valendo:** a pergunta *"já foi publicado?"* nunca foi atômica
 com o `INSERT` - entre as duas está a geração inteira -, e este job roda uma vez
 por dia, sozinho.
+
+---
+
+## 2026-09-11 — T049g: o Sagaz joga a PARTIDA, e o desafio é outra coisa
+
+A caçada de 300 candidatas terminou (2h15 de uma thread) e rendeu **161 moldes
+para `damas_coroar`** e **9 para `damas_capturar_multipla`**, contra os 4+4
+escritos à mão em 09/09.
+
+| tipo | candidatas | passaram na peneira | serviram a 3+ modalidades |
+|---|---:|---:|---:|
+| `damas_coroar` | 300 | 188 | **167** (156 nas quatro) |
+| `damas_capturar_multipla` | 295 | 17 | **8** (as oito nas quatro) |
+
+⚠️ **Os 2,7% do `capturar_multipla` confirmam o diagnóstico do jogo, e não da
+ferramenta**: 185 das 295 nunca cumpriram dentro do teto e 73 já nasciam com a
+cadeia armada. Capturar duas em sequência é objetivo **adversarial**.
+
+### ⛔ O achado que importa: 13 moldes aprovados publicavam desafio de um lance
+
+O cadeado novo (`tests/unitarios/test_moldes_de_damas.py`) reprovou **10 dos 171
+moldes de coroar** e **3 dos 12 de captura** — e os 10 tinham passado pela peneira
+com Sagaz deste mesmo script.
+
+⚠️ **A causa é sutil, e vale para qualquer medição futura: o Sagaz joga a
+PARTIDA, não o DESAFIO.** Ele escolhe o melhor lance para vencer, e coroar de cara
+costuma ser mau lance — a pedra avança sozinha e é capturada na resposta. Então a
+medição anotava *"objetivo no lance 3"* em posições onde **qualquer pessoa cumpre
+no lance 1**: quem joga o desafio não está jogando para vencer, está cumprindo a
+tarefa.
+
+⛔ **E o desafio sairia bem formado:** posição legal, solução achada, régua
+medida, XP calculado — e resolvido no primeiro toque, sem nada no log acusar.
+
+Os 3 de captura eram fundadores escritos à mão, o que responde **por medição** a
+pergunta que estava aberta sobre eles. ⚠️ E note a assimetria que justifica ter
+mantido os outros fundadores: um molde **trivial** publica um desafio ruim; um
+molde de que o objetivo é **inalcançável** só faz o gerador tentar outro.
+
+### A pergunta certa é direta, e não custa um nó de busca
+
+*"Existe um lance legal, agora, que cumpre o objetivo?"* — uma geração de lances
+por modalidade. Por isso ela cabe **na suíte** e **na peneira** do script, antes
+de gastar o Sagaz.
+
+⛔ **Um módulo só** (`job/moldes_de_damas.py`), usado pelos dois. Duas cópias do
+critério divergiriam, e no dia em que discordassem quem estivesse errado mandaria
+— a mesma lição que `leitura_de_migracao.py` já carrega.
+
+⚠️ **A pergunta é feita nas QUATRO modalidades**, porque a peneira com Sagaz roda
+só na brasileira — foi assim que dois moldes entraram com a portuguesa cumprindo
+no lance 1, publicando um desafio de um lance **num dia de cada quatro**.
+
+⚠️ **E o verificador olha a POSIÇÃO RESULTANTE, não a notação.** Contar casas de
+chegada em `{1,2,3,4}` erraria nas regras em que uma captura que *atravessa* a
+última fileira não coroa. (Escrevendo este módulo eu errei o parser da FEN uma
+vez: o primeiro campo de `B:W…:B…` é o **lado a jogar**, não uma cor de peça, e um
+`startswith("B")` ingênuo conta zero peça preta — o que transforma qualquer lance
+numa captura de quatro.)
+
+### A medição das variantes de damas ficou contaminada
+
+`scripts/medir_variantes_do_editorial.py damas` rodou **antes** desta limpeza:
+`damas_coroar` aprovou as quatro candidatas (pior 3), mas
+`damas_capturar_multipla` deu `[3, 2, 1]` nas três, com solução média de **2,0
+lances** — o sintoma de que 3 dos 5 moldes daquele tipo eram triviais. ⏳ Refazer
+depois da limpeza; ⛔ variante escolhida sobre medição contaminada é pior que
+nenhuma, porque parece fundamentada.

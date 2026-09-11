@@ -80,6 +80,10 @@ from typing import Any, Iterator, Mapping, Sequence
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from job import editorial as editorial_mod  # noqa: E402
+from job.moldes_de_damas import (  # noqa: E402
+    MODALIDADES,
+    objetivo_no_primeiro_lance,
+)
 from job import posicao_inicial as pos  # noqa: E402
 from job import semente as sem  # noqa: E402
 from job.tipos_de_desafio import receita_de  # noqa: E402
@@ -88,8 +92,10 @@ from motores.juiz import julgar_desafio  # noqa: E402
 from motores.nucleo.orcamento import Orcamento  # noqa: E402
 from motores.nucleo.papeis import NivelDeMotor  # noqa: E402
 
-#: As quatro modalidades do rodizio. Um molde precisa servir a **tres** delas.
-MODALIDADES = ("brasileira", "anglo", "portuguesa", "casa")
+#: ⚠️ `MODALIDADES` vem de `job/moldes_de_damas.py`, e nao e redeclarada aqui: o
+#: verificador de trivialidade usa a mesma lista, e duas copias divergiriam no dia
+#: em que a italiana entrasse — o script cacaria em quatro e o cadeado guardaria
+#: cinco, ou o contrario. Um molde precisa servir a **tres** delas.
 
 #: Quantas das quatro um molde precisa atender para ser proposto.
 MINIMO_DE_MODALIDADES = 3
@@ -321,6 +327,36 @@ def cacar(co_tipo: str, quantas_candidatas: int) -> list[tuple[int, float, str]]
     inicio = time.monotonic()
     peneiradas = []
     for indice, fen in enumerate(candidatas, start=1):
+        # ── ⛔ O OBJETIVO CAI NO LANCE 1 EM ALGUMA MODALIDADE? ───────────────
+        #
+        # ⚠️ **Esta pergunta vem antes de tudo, e nao custa um no de busca.**
+        # Ela foi acrescentada em 11/09/2026, depois que o cadeado
+        # `test_moldes_de_damas.py` reprovou **13 moldes ja aprovados por este
+        # script** — 10 de coroar e os 3 fundadores de captura.
+        #
+        # ⛔ **Por que a medicao com Sagaz nao pegava:** ele joga a **partida**, e
+        # nao o **desafio**. Coroar de cara costuma ser mau lance — a pedra
+        # avanca sozinha e e capturada na resposta —, entao ele escolhia outra
+        # coisa e a medicao anotava *"objetivo no lance 3"*. Só que quem joga o
+        # desafio nao esta jogando para vencer: esta cumprindo a tarefa, e
+        # cumpre no primeiro toque.
+        #
+        # ⚠️ **Nas QUATRO modalidades**, porque a peneira com Sagaz roda so na
+        # brasileira — e foi assim que dois moldes entraram com a portuguesa
+        # cumprindo no lance 1, publicando um desafio de um lance num dia de
+        # cada quatro.
+        de_cara = next(
+            (
+                f"{modalidade}:{lance}"
+                for modalidade in MODALIDADES
+                if (lance := objetivo_no_primeiro_lance(fen, co_tipo, modalidade))
+            ),
+            None,
+        )
+        if de_cara is not None:
+            motivos[f"objetivo_no_lance_1_em_{de_cara.split(':')[0]}"] += 1
+            continue
+
         lance = resolve(
             fen,
             co_tipo,
