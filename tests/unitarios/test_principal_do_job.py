@@ -269,6 +269,92 @@ async def test_o_MOTOR_ORFAO_vira_aviso_e_NAO_muda_o_codigo_de_saida() -> None:
 
 
 @pytest.mark.asyncio
+async def test_a_CONEXAO_e_SOLTA_antes_da_geracao() -> None:
+    """🔒 ⛔ Nenhuma transacao fica aberta durante a geracao (T049j).
+
+    ⚠️ **No Postgres a transacao comeca na primeira consulta e so termina no
+    `commit`/`rollback`.** As leituras do plano e do rodizio abrem uma; a geracao
+    que vem depois leva **segundos a minutos** e nao toca no banco.
+
+    ⛔ **O defeito nao da erro nenhum**, e e por isso que ele precisa de cadeado:
+
+      · `dh_geracao` tem `DEFAULT now()`, e `now()` e o instante em que a
+        **transacao** comecou — o painel mostraria "gerado em" minutos antes do
+        que foi;
+      · a sessao aberta segura o `xmin` e **impede o `VACUUM`** no banco inteiro;
+        e um `idle_in_transaction_session_timeout` do provedor derrubaria a
+        conexao **no meio**, jogando fora o trabalho caro ja feito.
+
+    O teste marca o instante da geracao na propria linha do tempo do duble, e
+    exige que o evento imediatamente anterior seja um fim de transacao.
+    """
+    sessao = _sessao_feliz()
+
+    def gerar_marcando(*a: Any, **k: Any) -> list[Candidato]:
+        sessao.linha_do_tempo.append("GERACAO")
+        return [_candidato()]
+
+    await _rodar(sessao, gerar=gerar_marcando)
+
+    linha = sessao.linha_do_tempo
+    assert "GERACAO" in linha, "o duble de geracao nao foi chamado"
+    anterior = linha[linha.index("GERACAO") - 1]
+    assert anterior in ("rollback", "commit"), (
+        f"a geracao comecou com transacao ABERTA — antes dela veio {anterior!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_CONEXAO_e_SOLTA_antes_de_provar_e_medir() -> None:
+    """🔒 O segundo trecho caro, e o maior: provar o termino e medir a regua.
+
+    ⚠️ A pergunta *"ja foi publicado?"* (T049i) e uma leitura, e **abre transacao
+    de novo**. Logo depois vem ate 200 lances de prova e `3 mascotes x 20
+    execucoes` de regua, sem uma unica consulta no meio — o trecho mais caro da
+    execucao inteira.
+
+    ⛔ Soltar a conexao so antes da geracao consertaria metade do defeito, e a
+    metade que sobrasse seria a maior.
+    """
+    sessao = _sessao_feliz()
+    await _rodar(sessao)
+
+    linha = sessao.linha_do_tempo
+    # A consulta de unicidade e a unica com `IS NOT DISTINCT FROM` no job.
+    #
+    # ⚠️ `next(..., None)` com assercao propria, e nao `next(...)` cru: dentro de
+    # uma corrotina o `StopIteration` vira `RuntimeError` e esconde a causa —
+    # a mensagem vira "coroutine raised StopIteration", que nao diz nada.
+    i = next(
+        (k for k, evento in enumerate(linha) if "IS NOT DISTINCT FROM" in evento),
+        None,
+    )
+    assert i is not None, "a consulta de unicidade nao apareceu na linha do tempo"
+    assert linha[i + 1] in ("rollback", "commit"), (
+        f"a medicao comecou com transacao ABERTA — depois da leitura veio "
+        f"{linha[i + 1]!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_soltar_a_conexao_NAO_grava_nada_pela_metade() -> None:
+    """⚠️ `rollback`, e nao `commit` — o verbo diz que nada foi escrito.
+
+    ⛔ Um `commit` no lugar gravaria, sem querer, qualquer escrita que alguem
+    viesse a acrescentar acima dele. E um `commit` silencioso e pior que um
+    `rollback` explicito: ele **funciona**, e so se descobre o que ele gravou
+    quando alguem for procurar outra coisa.
+    """
+    sessao = _sessao_feliz()
+    await _rodar(sessao)
+
+    assert "rollback" in sessao.linha_do_tempo
+    # ⚠️ O que se afirma e que os `commit` continuam sendo os das ESCRITAS — o
+    # perfil, o motor e a publicacao —, e nao que eles sumiram.
+    assert sessao.commits >= 3
+
+
+@pytest.mark.asyncio
 async def test_a_EXPIRACAO_roda_antes_de_gerar() -> None:
     """⚠️ Ela e barata e independente, e fecha partidas que ja deviam estar fechadas.
 

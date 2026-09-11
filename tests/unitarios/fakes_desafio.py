@@ -113,10 +113,27 @@ class FakeSessaoSQL:
     commits: int = 0
     erro_por_trecho: dict[str, Exception] = field(default_factory=dict)
 
+    #: A ordem em que TUDO aconteceu — consultas e fins de transacao juntos.
+    #:
+    #: ⚠️ **`executadas` sozinha nao responde a pergunta de T049j**: ela diz o que
+    #: foi consultado e em que ordem, mas nao **onde** a transacao terminou. E era
+    #: exatamente isso que faltava enxergar — uma sessao que fica aberta durante a
+    #: geracao nao muda consulta nenhuma, so segura a conexao.
+    #:
+    #: ⛔ Lista propria, e nao marcadores dentro de `executadas`: varios testes
+    #: leem `executadas` por indice, e intercalar entradas de outra especie ali
+    #: mudaria o que eles medem.
+    linha_do_tempo: list[str] = field(default_factory=list)
+
     async def execute(self, sql: Any, parametros: Any = None) -> FakeResultado:
         """Reconhece a consulta pelo texto e devolve o que foi preparado."""
         texto = str(sql)
         self.executadas.append((texto, parametros))
+        # ⚠️ O SQL vai INTEIRO (so com os espacos colapsados): cortar a
+        # string faria o teste procurar um trecho que ele mesmo jogou fora —
+        # foi o que aconteceu com `IS NOT DISTINCT FROM`, que mora depois do
+        # sexagesimo caractere da consulta de unicidade.
+        self.linha_do_tempo.append(f"execute: {' '.join(texto.split())}")
 
         for trecho, erro in self.erro_por_trecho.items():
             if trecho in texto:
@@ -132,9 +149,11 @@ class FakeSessaoSQL:
     async def commit(self) -> None:
         """Conta o `commit`. Nao ha transacao de verdade para fechar."""
         self.commits += 1
+        self.linha_do_tempo.append("commit")
 
     async def rollback(self) -> None:
-        """Existe para a interface; nao faz nada."""
+        """Marca o fim da transacao sem escrita — ver `linha_do_tempo`."""
+        self.linha_do_tempo.append("rollback")
 
     def sql_executado(self, trecho: str) -> bool:
         """Alguma consulta executada continha aquele trecho?"""

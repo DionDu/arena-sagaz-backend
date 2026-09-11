@@ -334,6 +334,35 @@ async def cobrir_um_dia(
             f"— {dict(publicacao.parametros)}"
         )
 
+    # ── ⛔ SOLTAR A CONEXAO ANTES DO TRECHO CARO (T049j) ────────────────────
+    #
+    # ⚠️ **No Postgres, a transacao comeca na PRIMEIRA consulta e so termina no
+    # `commit`/`rollback`.** As leituras acima (`tipos_recentes`, e antes delas o
+    # plano e a taxa) abriram uma; a geracao que vem a seguir leva **segundos a
+    # minutos** e nao toca no banco. Sem esta linha, a sessao fica
+    # `idle in transaction` esse tempo todo.
+    #
+    # ⛔ **Duas consequencias, e nenhuma delas da erro:**
+    #
+    #   · `dh_geracao` tem `DEFAULT now()`, e no Postgres `now()` e o instante em
+    #     que a **transacao** comecou — nao o do `INSERT`. O painel mostraria
+    #     "gerado em" minutos antes do que foi, e os sete dias de uma execucao
+    #     sairiam com carimbos quase iguais;
+    #   · uma sessao aberta segura o `xmin` e **impede o `VACUUM` de limpar**
+    #     linhas mortas em todo o banco, nao so nestas tabelas. E, se o provedor
+    #     tiver `idle_in_transaction_session_timeout`, ele **derruba a conexao no
+    #     meio** — e ai o trabalho caro ja feito se perde.
+    #
+    # ⚠️ **`rollback` e nao `commit`, de proposito:** nada foi escrito desde o
+    # ultimo `commit`, e o verbo diz isso. Um `commit` aqui gravaria, sem querer,
+    # qualquer escrita que alguem viesse a acrescentar acima — e um `commit`
+    # silencioso e pior que um `rollback` explicito.
+    #
+    # ⚠️ A pergunta "ja foi publicado?" continua **nao sendo atomica** com o
+    # `INSERT`, e nunca foi: entre as duas ha a geracao inteira. Este job roda uma
+    # vez por dia, sozinho.
+    await sessao.rollback()
+
     candidatos = gerar(
         dt_dia,
         parametros=publicacao.parametros,
@@ -395,6 +424,12 @@ async def cobrir_um_dia(
                 file=sys.stderr,
             )
             continue
+
+        # ⛔ **E de novo aqui** (T049j): a leitura acima abriu transacao, e o que
+        # vem a seguir — provar o termino (ate 200 lances) e medir a regua (3
+        # mascotes x 20 execucoes) — e o trecho mais caro da execucao inteira,
+        # sem uma unica consulta no meio.
+        await sessao.rollback()
 
         # ⚠️ **A posicao publicada e conferida antes de virar linha.** E este
         # passo que faz `vez_de` e `placar` valerem alguma coisa; sem ele seriam

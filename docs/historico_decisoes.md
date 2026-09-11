@@ -2411,3 +2411,51 @@ Rodar a `0022` no `des` é do dono (`scripts/identificar_banco.py` **antes** de
 qualquer `alembic upgrade`). ⚠️ **A migração vem antes do deploy do backend** — a
 lição da `0017` —, e enquanto ela não rodar o job falha no `INSERT` da dimensão,
 já no começo da execução.
+
+---
+
+## 2026-09-11 — T049j: o job parava de falar com o banco sem terminar a transação
+
+**O sintoma, visto na operação real:** a sessão do job aparecia
+`idle in transaction` por minutos, e o `dh_geracao` dos sete desafios de uma
+execução saía com carimbos quase iguais - todos anteriores ao instante em que as
+linhas de fato nasceram.
+
+**A causa.** No Postgres a transação começa na **primeira consulta** e só termina
+no `commit`/`rollback`. O job lê (plano, taxa observada, rodízio de tipos e, desde
+T049i, a pergunta de unicidade) e só depois faz o trabalho caro - gerar
+candidatos, provar o término, medir a régua -, que não toca no banco. A transação
+aberta atravessava tudo isso.
+
+⛔ **Três consequências, e nenhuma delas dá erro:**
+
+1. `dh_geracao` tem `DEFAULT now()`, e `now()` é o instante em que a **transação**
+   começou. O painel de curadoria ordena por `dh_geracao ASC` e mostra *"gerado
+   em"* - os dois passam a mentir por minutos.
+2. Uma sessão aberta segura o `xmin` e **impede o `VACUUM` de limpar linhas
+   mortas no banco inteiro**, não só nestas tabelas.
+3. Se o provedor tiver `idle_in_transaction_session_timeout`, ele derruba a
+   conexão **no meio** - e o trabalho caro já feito se perde, uma vez por dia,
+   sem nada no log explicando por quê.
+
+**A correção** são duas linhas: `await sessao.rollback()` antes da geração e
+outro depois da pergunta de unicidade, cada um com o motivo escrito ao lado.
+
+⚠️ **`rollback` e não `commit`, de propósito.** Nada foi escrito desde o último
+`commit`, e o verbo diz isso. Um `commit` ali gravaria, sem querer, qualquer
+escrita que alguém viesse a acrescentar acima dele - e um `commit` silencioso é
+pior que um `rollback` explícito, porque ele **funciona**, e só se descobre o que
+ele gravou quando alguém for procurar outra coisa.
+
+⚠️ **O dublê ganhou uma linha do tempo.** `executadas` diz o que foi consultado e
+em que ordem, mas **não onde a transação terminou** - e era exatamente isso que
+precisava ser visto: uma sessão aberta durante a geração não muda consulta
+nenhuma, só segura a conexão. `linha_do_tempo` guarda consultas e fins de
+transação na mesma lista, e é lista própria porque vários testes leem
+`executadas` por índice.
+
+Conferido que os três cadeados ficam **vermelhos** com o defeito reintroduzido.
+
+⚠️ **O que continua valendo:** a pergunta *"já foi publicado?"* nunca foi atômica
+com o `INSERT` - entre as duas está a geração inteira -, e este job roda uma vez
+por dia, sozinho.
