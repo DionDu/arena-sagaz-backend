@@ -315,7 +315,7 @@ def test_o_ADVERSARIO_DO_DIA_joga_o_outro_lado_na_medicao() -> None:
         estado_inicial=_EstadoFalso(vez_de=1),
         julgar=lambda fita: type("J", (), {"cumpriu": len(fita) >= 4})(),
         nu_semente=7,
-        maximo_de_lances=4,
+        maximo_de_meios_lances=4,
         co_personagem_do_dia="magno",
     )
     tentar("cacau", 1)

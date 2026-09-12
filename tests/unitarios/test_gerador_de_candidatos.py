@@ -202,7 +202,7 @@ def candidato_de_damas():
         == "damas_coroar"
     )
     # ⚠️ **Os numeros saem do EDITORIAL, e nao sao escritos aqui.** Ate 10/09/2026
-    # esta fixture fixava `parametros`, `lances_de_preparo` e `maximo_de_lances` a
+    # esta fixture fixava `parametros`, `lances_de_preparo` e `maximo_de_meios_lances` a
     # mao — e no dia em que o rodizio de tipo foi consertado ela passou a gerar
     # outro tipo com os botoes do anterior, e deu zero candidatos. ⛔ O teste
     # estava medindo uma configuracao que a producao nao usa.
@@ -224,7 +224,7 @@ def candidato_de_damas():
         quantos=1,
         tentativas_por_candidato=4,
         lances_de_preparo=publicacao.nu_lances_de_preparo,
-        maximo_de_lances=publicacao.nu_maximo_de_lances,
+        maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
     )
     assert candidatos, (
         "nenhum candidato de damas. ⚠️ Isto guarda a descoberta de 09/09/2026: o "
@@ -587,7 +587,7 @@ def test_o_gerador_RECUSA_toda_posicao_trivial_em_vez_de_publicar(monkeypatch) -
         quantos=1,
         tentativas_por_candidato=2,
         lances_de_preparo=8,
-        maximo_de_lances=8,
+        maximo_de_meios_lances=8,
     )
     assert candidatos == [], (
         "com todas as posicoes triviais o gerador tem de voltar de maos vazias — "

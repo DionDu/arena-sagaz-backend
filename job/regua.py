@@ -149,7 +149,7 @@ def tentativa_com_motor(
     estado_inicial,
     julgar,
     nu_semente: int,
-    maximo_de_lances: int,
+    maximo_de_meios_lances: int,
     co_personagem_do_dia: str,
 ) -> Callable[[str, int], bool]:
     """Monta a funcao `tentar` que a regua consome, usando um motor de verdade.
@@ -172,7 +172,7 @@ def tentativa_com_motor(
         atual = estado_inicial
         fita: list[dict[str, Any]] = []
 
-        for numero in range(1, maximo_de_lances + 1):
+        for numero in range(1, maximo_de_meios_lances + 1):
             orcamento = Orcamento(
                 nos_maximos=NOS_POR_LANCE_NA_MEDICAO,
                 segundos_maximos=SEGUNDOS_POR_LANCE_NA_MEDICAO,

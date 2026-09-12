@@ -84,10 +84,30 @@ TETO_DE_LOG_PADRAO = 120
 # 12 caixas"* tem a janela da **partida inteira**, e 12 lances nao chegam la de
 # jeito nenhum: a solucao medida usa 22.
 #
-# ⚠️ E o mesmo `nu_maximo_de_lances` vale para a REGUA. Medir com um teto maior
+# ⚠️ E o mesmo `nu_maximo_de_meios_lances` vale para a REGUA. Medir com um teto maior
 # que o da geracao faria os mascotes resolverem desafios que o gerador nao
 # conseguiu montar, e a taxa descreveria uma tarefa diferente da publicada.
-MAXIMO_DE_LANCES_PADRAO = 12
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ A PALAVRA "LANCE" VALE DUAS COISAS AQUI, E O NOME DIZ QUAL
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# **Meio-lance** e uma entrada da fita: o laco de `_resolver` anda uma volta por
+# lance, seja de quem for. **Lance do jogador** e so a vez de quem resolve.
+#
+#     nu_maximo_de_meios_lances  → MEIOS-lances (os dois lados)  ← este
+#     nu_meios_lances_solucao    → MEIOS-lances (o tamanho do gabarito)
+#     js_chegada["lances"]       → lances DO JOGADOR (o que a pessoa le)
+#
+# ⛔ **Nas damas a alternancia e estrita, entao 12 meios-lances sao ~6 lances de
+# quem joga.** No Pontinhos nem isso: quem fecha caixa joga de novo, e 12
+# meios-lances podem ser 9 de um lado e 3 do outro.
+#
+# ⚠️ **O nome era `nu_maximo_de_lances` ate 12/09/2026**, e a confusao era real:
+# o dono leu "teto de 12" como "doze lances do usuario" — o dobro do que e —, e
+# eu ja tinha caido na mesma armadilha em 11/09 lendo a solucao media. Renomear
+# custou um `sed`; a ambiguidade ja custou duas leituras erradas.
+MAXIMO_DE_MEIOS_LANCES_PADRAO = 12
 LANCES_DE_PREPARO_PADRAO = 8
 
 
@@ -109,7 +129,7 @@ class Publicacao:
     medidas: Callable[[Mapping[str, Any]], list[dict[str, Any]]]
     co_versao_minima: str = VERSAO_MINIMA_DOS_TIPOS_FUNDADORES
     nu_teto_log: int = TETO_DE_LOG_PADRAO
-    nu_maximo_de_lances: int = MAXIMO_DE_LANCES_PADRAO
+    nu_maximo_de_meios_lances: int = MAXIMO_DE_MEIOS_LANCES_PADRAO
     nu_lances_de_preparo: int = LANCES_DE_PREPARO_PADRAO
 
     #: A que adversarios este tipo se restringe. `None` = o rodizio dos quatro.
@@ -418,7 +438,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # desafio viraria "capture o que ja esta la".
             nu_lances_de_preparo=4,
             # A janela e a partida inteira, e construir leva tempo.
-            nu_maximo_de_lances=34,
+            nu_maximo_de_meios_lances=34,
             # ⛔ **NUNCA contra o Magno**: medido, 0 de 30 posicoes. Ele parte o
             # tabuleiro em cadeias curtas e controla a paridade — vencer, no
             # Pontinhos, e o oposto do que este desafio pede. Contra o Tex ja cai
@@ -439,7 +459,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             parametros={"caixas": 7},
             ic_chegada_encerra_partida=False,
             nu_lances_de_preparo=4,
-            nu_maximo_de_lances=34,
+            nu_maximo_de_meios_lances=34,
             co_personagens=("cacau", "pita"),
             medidas=_medidas_da_cadeia_longa,
         ),
@@ -456,7 +476,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             # ⚠️ **A janela e a PARTIDA INTEIRA**, e por isso o teto e outro: a
             # solucao medida usa 22 lances, e com 12 nunca se chega a sete caixas.
-            nu_maximo_de_lances=34,
+            nu_maximo_de_meios_lances=34,
             medidas=_medidas_do_pontinhos_placar,
         ),
         Publicacao(
@@ -465,7 +485,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # solucao 21,3 lances. (Era 3 antes da regra.)
             parametros={"caixas": 6},
             ic_chegada_encerra_partida=False,
-            nu_maximo_de_lances=34,
+            nu_maximo_de_meios_lances=34,
             medidas=_medidas_do_pontinhos_placar,
         ),
         Publicacao(
@@ -478,7 +498,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # solucao 19,8 lances. (Era 3 antes da regra.)
             parametros={"caixas": 5},
             ic_chegada_encerra_partida=False,
-            nu_maximo_de_lances=34,
+            nu_maximo_de_meios_lances=34,
             medidas=_medidas_do_pontinhos_placar,
         ),
         Publicacao(
@@ -514,7 +534,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             parametros={"acima_do_guloso": 1},
             # ⚠️ O alvo e um placar, e nao o fim do jogo — como nas irmas.
             ic_chegada_encerra_partida=False,
-            nu_maximo_de_lances=34,
+            nu_maximo_de_meios_lances=34,
             nu_lances_de_preparo=14,
             # ⚠️ As medidas leem `caixas`, e recebem os parametros do
             # **candidato** (`G + 1`), nao os daqui — ver `job/__main__.py`.
@@ -764,7 +784,7 @@ def publicacao_de(co_tipo_desafio: str, nu_variante: int) -> Publicacao:
 __all__ = [
     "EDITORIAL",
     "LANCES_DE_PREPARO_PADRAO",
-    "MAXIMO_DE_LANCES_PADRAO",
+    "MAXIMO_DE_MEIOS_LANCES_PADRAO",
     "TETO_DE_LOG_PADRAO",
     "VERSAO_MINIMA_DOS_TIPOS_FUNDADORES",
     "Publicacao",

@@ -96,7 +96,7 @@ class Candidata:
         parametros: os numeros que a receita consome (`{"caixas": 7}`).
         nu_lances_de_preparo: quantos lances a posicao de partida ja traz. `None`
             herda o da publicacao no ar.
-        nu_maximo_de_lances: o teto de meios-lances do gabarito. `None` herda.
+        nu_maximo_de_meios_lances: o teto de meios-lances do gabarito. `None` herda.
 
     ⛔ **Os dois botoes precisam ser POR CANDIDATA, e descobrir isso custou uma
     execucao.** Ate 12/09/2026 eles saiam sempre da publicacao no ar, o que estava
@@ -109,7 +109,7 @@ class Candidata:
 
     parametros: Mapping[str, Any]
     nu_lances_de_preparo: int | None = None
-    nu_maximo_de_lances: int | None = None
+    nu_maximo_de_meios_lances: int | None = None
 
 
 #: As variantes a medir, por tipo. ⚠️ **A primeira de cada lista e a que esta no
@@ -256,7 +256,7 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
     print(f"{co_tipo}  ({receita.co_jogo})")
     print(
         f"  preparo={publicacao.nu_lances_de_preparo}  "
-        f"teto_de_lances={publicacao.nu_maximo_de_lances}  "
+        f"teto_de_lances={publicacao.nu_maximo_de_meios_lances}  "
         f"(padrao do tipo; candidata com botao proprio aparece na linha dela)  "
         f"dias={[d.isoformat() for d in dias]}"
     )
@@ -267,7 +267,7 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
         # ⚠️ `None` herda o botao da publicacao no ar — que e o certo para toda
         # candidata que so troca um numero da mesma tarefa.
         preparo = candidata.nu_lances_de_preparo or publicacao.nu_lances_de_preparo
-        teto = candidata.nu_maximo_de_lances or publicacao.nu_maximo_de_lances
+        teto = candidata.nu_maximo_de_meios_lances or publicacao.nu_maximo_de_meios_lances
         # ⛔ **O tipo do dia tem de ser ESTE tipo.** `gerar_candidatos` reescolhe
         # o tipo pela data, e num dia em que ele escolher o outro tipo do jogo a
         # medicao estaria medindo o vizinho — com os parametros errados, e sem
@@ -284,7 +284,7 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
                 parametros=parametros,
                 quantos=QUANTOS_POR_DIA,
                 tipos_recentes=outros,
-                maximo_de_lances=teto,
+                maximo_de_meios_lances=teto,
                 lances_de_preparo=preparo,
                 # ⚠️ A mesma restricao da publicacao no ar: medir contra um
                 # adversario que o tipo nao publica descreveria outra execucao.
@@ -305,12 +305,12 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
         proprios = ""
         if preparo != publicacao.nu_lances_de_preparo:
             proprios += f" preparo={preparo}"
-        if teto != publicacao.nu_maximo_de_lances:
+        if teto != publicacao.nu_maximo_de_meios_lances:
             proprios += f" teto={teto}"
         print(
             f"  {selo} {str(dict(parametros)):<32} "
             f"candidatos por dia {por_dia} (pior {pior}) · "
-            f"solucao media {media_da_solucao:.1f} lances · "
+            f"solucao media {media_da_solucao:.1f} meios-lances · "
             f"{time.time() - inicio:.0f}s{proprios}"
         )
 

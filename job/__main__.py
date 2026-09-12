@@ -56,7 +56,9 @@ a API acontece pelo Postgres (RF-DES-011a).
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
+import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -88,8 +90,8 @@ CODIGO_NEM_COMECOU = 2
 #: ⚠️ **Desde 10/09/2026 ele e POR TIPO**, e mora no editorial: os dois tipos de
 #: Pontinhos falharam na primeira execucao real por motivos opostos, e um numero
 #: global nao servia para os dois. Ver o comentario de
-#: `editorial.MAXIMO_DE_LANCES_PADRAO`.
-MAXIMO_DE_LANCES = editorial_mod.MAXIMO_DE_LANCES_PADRAO
+#: `editorial.MAXIMO_DE_MEIOS_LANCES_PADRAO`.
+MAXIMO_DE_MEIOS_LANCES = editorial_mod.MAXIMO_DE_MEIOS_LANCES_PADRAO
 
 #: Quanto tempo se supoe que uma pessoa leva por lance, em milissegundos.
 #:
@@ -172,6 +174,18 @@ class Relatorio:
     #: acervo ter acabado, e nao o jogo ter ficado dificil.
     repetidos: list[str] = field(default_factory=list)
     nao_cobertos: list[str] = field(default_factory=list)
+
+    #: Quanto durou cada dia gerado, em segundos: `{"2026-09-18": 184.2}`.
+    #:
+    #: ⚠️ **O tempo e informacao de OPERACAO, e ate 12/09/2026 ele nao existia
+    #: em lugar nenhum.** O painel do Railway mostra quanto o *container* viveu,
+    #: que e outra coisa: em 12/09 o job fez o trabalho em 3 segundos e o
+    #: container so parou 10 h depois — e sem este numero nao ha como separar
+    #: "o job demorou" de "o processo nao morreu".
+    #:
+    #: ⚠️ E o custo do Railway e por tempo de execucao, entao esta e a linha que
+    #: diz quanto uma variante nova custa por dia — antes de ela estar no ar.
+    segundos_por_dia: dict[str, float] = field(default_factory=dict)
     auditoria: dict[str, int] = field(
         default_factory=lambda: {"conferem": 0, "divergentes": 0, "impossiveis": 0}
     )
@@ -224,6 +238,14 @@ class Relatorio:
             f"{self.reprisados} reprisado(s)",
             f"[job] auditoria: {self.auditoria}",
         ]
+        # ⚠️ **O total vem primeiro e o detalhe depois**: quem le o painel do
+        # Railway quer saber "demorou?" antes de "onde?".
+        if self.segundos_por_dia:
+            total = sum(self.segundos_por_dia.values())
+            detalhe = " · ".join(
+                f"{dia} {seg:.0f}s" for dia, seg in sorted(self.segundos_por_dia.items())
+            )
+            linhas.append(f"[job] tempo: {total:.0f}s em {len(self.segundos_por_dia)} dia(s) — {detalhe}")
         if self.descartados:
             linhas.append(f"[job] descartes: {self.descartados}")
         if self.motores_orfaos:
@@ -372,9 +394,9 @@ async def cobrir_um_dia(
         quantos=CANDIDATOS_POR_DIA,
         tipos_recentes=recentes,
         # ⚠️ **Os dois botoes vem do TIPO**, e nao de uma constante global — ver
-        # `editorial.MAXIMO_DE_LANCES_PADRAO`. Um numero so nao servia: um tipo
+        # `editorial.MAXIMO_DE_MEIOS_LANCES_PADRAO`. Um numero so nao servia: um tipo
         # falhava por falta de horizonte, o outro por falta de tabuleiro.
-        maximo_de_lances=publicacao.nu_maximo_de_lances,
+        maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
         lances_de_preparo=publicacao.nu_lances_de_preparo,
         # ⚠️ **Nem todo tipo cabe contra todo adversario** - ver o campo no
         # editorial. `None` mantem o rodizio dos quatro.
@@ -476,7 +498,7 @@ async def cobrir_um_dia(
                 # ⚠️ **O MESMO teto da geracao.** Medir com um teto maior faria
                 # os mascotes resolverem desafios que o gerador nao conseguiu
                 # montar, e a taxa descreveria outra tarefa.
-                maximo_de_lances=publicacao.nu_maximo_de_lances,
+                maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
                 # ⚠️ **Quem joga do outro lado e o adversario do DIA**, e nao o
                 # mascote que esta sendo medido. Sem isto a regua media 'Cacau
                 # contra Cacau', que e uma partida que ninguem joga.
@@ -717,6 +739,10 @@ async def executar(
             f"[job] dia {numero}/{len(plano)} — {passo.dt_dia}: gerando e medindo…"
         )
 
+        # ⚠️ **O relogio comeca aqui e para no `finally`**, para o dia que
+        # estourou tambem ser cronometrado: um dia que consome minutos e falha
+        # custa o mesmo que um que consome minutos e publica.
+        comecou_em = time.monotonic()
         try:
             motivo = await cobrir_um_dia(
                 sessao,
@@ -735,6 +761,10 @@ async def executar(
             # inteira por causa de um dia.
             motivo = f"{type(erro).__name__}: {erro}"
             traceback.print_exc()
+        finally:
+            relatorio.segundos_por_dia[passo.dt_dia.isoformat()] = (
+                time.monotonic() - comecou_em
+            )
 
         if motivo:
             relatorio.nao_cobertos.append(f"{passo.dt_dia}: {motivo}")
@@ -781,4 +811,31 @@ def principal(dt_hoje: Optional[date] = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(principal())
+    codigo = principal()
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⛔ POR QUE `os._exit` E NAO `sys.exit`, E POR QUE ISSO E DINHEIRO
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # `sys.exit` levanta `SystemExit`, e o interpretador so encerra de verdade
+    # **depois que toda thread nao-daemon terminar**. O `ai-edge-litert` deste
+    # job abre um threadpool de XNNPACK na primeira inferencia do Pontinhos (a
+    # linha `Created TensorFlow Lite XNNPACK delegate for CPU` no log), e esse
+    # pool nao e nosso para fechar.
+    #
+    # ⚠️ **Sintoma medido em 12/09/2026:** o job terminou o trabalho as 06:01:03
+    # e o container do Railway so parou as **16:28** — 10 h 27 min de pe para 3
+    # segundos de trabalho. ⛔ O Railway cobra por tempo de execucao, entao um
+    # container que nao morre e fatura que nao para.
+    #
+    # ⚠️ **E o engano e simetrico:** as execucoes que so tocam as damas nunca
+    # carregam o LiteRT e morrem sozinhas — o defeito aparece **so** nos dias de
+    # Pontinhos, que e o pior tipo de intermitencia para diagnosticar.
+    #
+    # ⛔ **`os._exit` pula os `atexit` e NAO descarrega os buffers**, e por isso
+    # os dois `flush` acima dele nao sao zelo: sem eles o resumo da execucao se
+    # perderia. Tudo o que precisava de rede ja aconteceu — a sessao fechou e a
+    # `engine` fez `dispose()` no `async with` de `_executar_com_banco`.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(codigo)

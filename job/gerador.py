@@ -581,11 +581,11 @@ def _resolver(
     nivel: NivelDeMotor,
     nivel_do_adversario: NivelDeMotor,
     nu_semente: int,
-    maximo_de_lances: int,
+    maximo_de_meios_lances: int,
     julgar,
     solucionador=None,
 ) -> tuple[list[dict[str, Any]], int] | None:
-    """Joga ate `maximo_de_lances` procurando cumprir a linha de chegada.
+    """Joga ate `maximo_de_meios_lances` procurando cumprir a linha de chegada.
 
     Devolve `(fita, lance_chave)` quando encontra, ou `None`.
 
@@ -615,7 +615,7 @@ def _resolver(
     # `julgar(..., jogador=js_posicao["vez_de"])` usa.
     vez_do_solucionador = estado.vez_de
 
-    for numero in range(1, maximo_de_lances + 1):
+    for numero in range(1, maximo_de_meios_lances + 1):
         # ⚠️ Um orcamento NOVO a cada lance. `para_o_proximo_lance()` existe para
         # isto: zerar o contador a mao e o que transformaria, em silencio, um
         # teto de partida num teto de lance — ou o contrario.
@@ -736,7 +736,7 @@ def gerar_candidatos(
     tipos_recentes: Sequence[str] = (),
     tentativas_por_candidato: int = 6,
     lances_de_preparo: int = 8,
-    maximo_de_lances: int = 12,
+    maximo_de_meios_lances: int = 12,
     personagens_possiveis: Sequence[str] | None = None,
 ) -> list[Candidato]:
     """Gera candidatos para um dia.
@@ -756,7 +756,7 @@ def gerar_candidatos(
             e quantos lances de variacao se joga a partir do molde. Os dois
             saem do mesmo `nu_lances_de_preparo` do editorial porque os tipos
             de um jogo nunca veem o do outro.
-        maximo_de_lances: o teto da busca por solucao.
+        maximo_de_meios_lances: o teto da busca por solucao.
         personagens_possiveis: a que adversarios este tipo se restringe.
             ⛔ **Existe porque nem todo desafio cabe contra todo mundo**: a cadeia
             longa contra o Magno e impossivel (medido, 0 de 30), porque ele parte
@@ -952,7 +952,7 @@ def gerar_candidatos(
             nivel=NivelDeMotor.SAGAZ,
             nivel_do_adversario=NIVEL_POR_PERSONAGEM[co_personagem],
             nu_semente=nu_semente,
-            maximo_de_lances=maximo_de_lances,
+            maximo_de_meios_lances=maximo_de_meios_lances,
             julgar=julgar,
             solucionador=solucionador,
         )

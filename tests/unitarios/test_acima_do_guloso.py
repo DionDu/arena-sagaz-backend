@@ -64,8 +64,8 @@ DIA_DE_PONTINHOS = _primeiro_dia_do_tipo()
 #: ⚠️ **Não é o padrão de 12.** A janela deste objetivo é a partida inteira, e a
 #: solução medida usa ~22 lances: com 12 nunca se chega a sete caixas, e o teste
 #: acusaria "não gerou nada" num código que está certo. O editorial já sabe disso
-#: (`nu_maximo_de_lances=34`), e lê-lo de lá evita que os dois números divirjam.
-TETO = editorial_mod.variantes_de(TIPO)[0].nu_maximo_de_lances
+#: (`nu_maximo_de_meios_lances=34`), e lê-lo de lá evita que os dois números divirjam.
+TETO = editorial_mod.variantes_de(TIPO)[0].nu_maximo_de_meios_lances
 
 #: Quantos traços a posição de partida já traz marcados.
 #:
@@ -93,7 +93,7 @@ def candidatos():
         parametros={"acima_do_guloso": 1},
         quantos=2,
         tentativas_por_candidato=12,
-        maximo_de_lances=TETO,
+        maximo_de_meios_lances=TETO,
         lances_de_preparo=PREPARO,
     )
 
@@ -179,7 +179,7 @@ def test_o_tipo_de_parametro_FIXO_continua_funcionando(candidatos) -> None:
         parametros={"caixas": 5},
         quantos=1,
         tentativas_por_candidato=12,
-        maximo_de_lances=TETO,
+        maximo_de_meios_lances=TETO,
         lances_de_preparo=PREPARO,
     )
     for candidato in fixos:
@@ -210,7 +210,7 @@ def test_a_regra_de_recusa_NAO_e_aplicada_a_este_tipo(monkeypatch) -> None:
         parametros={"acima_do_guloso": 1},
         quantos=1,
         tentativas_por_candidato=4,
-        maximo_de_lances=TETO,
+        maximo_de_meios_lances=TETO,
         lances_de_preparo=PREPARO,
     )
     assert not chamadas, "a recusa por erro do adversario foi consultada neste tipo"
@@ -222,7 +222,7 @@ def test_a_regra_de_recusa_NAO_e_aplicada_a_este_tipo(monkeypatch) -> None:
         parametros={"caixas": 5},
         quantos=1,
         tentativas_por_candidato=4,
-        maximo_de_lances=TETO,
+        maximo_de_meios_lances=TETO,
         lances_de_preparo=PREPARO,
     )
     assert chamadas, "a recusa deixou de ser consultada tambem no tipo de alvo fixo"

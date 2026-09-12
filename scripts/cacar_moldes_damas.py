@@ -33,7 +33,7 @@ nao era do jogo, era da ferramenta:
    `damas_coroar` e `lances_do_jogador: 6`, e a busca rodava com teto de **8
    lances totais** — como os dois lados alternam, isso da ~4 lances do jogador. A
    janela nunca podia fechar, e todo molde reprovava por aritmetica. Aqui o teto
-   vem de `editorial.MAXIMO_DE_LANCES_PADRAO`, que e o que o gerador usa de
+   vem de `editorial.MAXIMO_DE_MEIOS_LANCES_PADRAO`, que e o que o gerador usa de
    verdade.
 
 2. ⛔ **As posicoes nao tinham a FORMA do objetivo.** Ela sorteava posicoes de
@@ -112,7 +112,7 @@ LANCE_MINIMO = 3
 #: O teto de lances da busca. ⚠️ Vem do editorial de proposito: e o mesmo numero
 #: que o gerador usa em producao. Um teto diferente aqui aprovaria molde que la
 #: nao gera — foi exatamente o defeito da primeira versao.
-TETO_DE_LANCES = editorial_mod.MAXIMO_DE_LANCES_PADRAO
+TETO_DE_LANCES = editorial_mod.MAXIMO_DE_MEIOS_LANCES_PADRAO
 
 #: Orcamento da PENEIRA (fase 1): barato, so para separar o que merece a medicao
 #: cara. Um falso negativo aqui custa um molde perdido; um falso positivo custa

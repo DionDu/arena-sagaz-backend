@@ -20,6 +20,7 @@ T034, com geracao de verdade e `scope="module"`.
 from __future__ import annotations
 
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -1059,4 +1060,157 @@ async def test_os_PARAMETROS_mudam_ao_longo_da_fila() -> None:
     assert len(distintos) > 1, (
         "a fila inteira usou os MESMOS parametros: a variante nao esta chegando "
         f"na geracao. Vistos: {distintos}"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O RELOGIO DA EXECUCAO, E O ENCERRAMENTO QUE CUSTA DINHEIRO (12/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_cada_dia_gerado_e_CRONOMETRADO() -> None:
+    """🔒 O relatorio diz quanto cada dia custou, em segundos.
+
+    ⚠️ **Ate 12/09/2026 esse numero nao existia em lugar nenhum.** O painel do
+    Railway mostra quanto o *container* viveu, que e outra coisa — e foi por
+    isso que ninguem percebeu, naquele dia, que o job fez o trabalho em 3
+    segundos e o container ficou de pe por mais 10 horas.
+
+    ⚠️ **E e o numero que decide se uma variante nova cabe:** o custo do Railway
+    e por tempo de execucao, e uma variante que dobra a geracao dobra a conta.
+    """
+    relatorio = await _rodar(_sessao_feliz(), dt_hoje=date(2026, 9, 20))
+
+    assert relatorio.segundos_por_dia, (
+        "nenhum dia foi cronometrado. ⛔ Sem isto, 'o job demorou' e 'o processo "
+        "nao morreu' ficam indistinguiveis no painel do Railway."
+    )
+    # ⚠️ `reprisados` e um CONTADOR, e `nao_cobertos` uma lista de motivos —
+    # misturar `len()` nos dois estouraria no dia em que houvesse reprise, e o
+    # caso passaria despercebido enquanto o cenario feliz nao reprisasse nada.
+    assert len(relatorio.segundos_por_dia) == (
+        relatorio.gerados + relatorio.reprisados + len(relatorio.nao_cobertos)
+    ), (
+        "o relogio nao cobriu todos os dias em que houve trabalho: "
+        f"{relatorio.segundos_por_dia}"
+    )
+    for dia, segundos in relatorio.segundos_por_dia.items():
+        assert segundos >= 0.0, f"{dia} saiu com tempo negativo: {segundos}"
+    assert "[job] tempo:" in relatorio.resumo(), (
+        "o tempo foi medido e NAO foi para o resumo — medir sem publicar e o "
+        "mesmo que nao medir, para quem le o painel."
+    )
+
+
+@pytest.mark.asyncio
+async def test_o_dia_que_FALHOU_tambem_e_cronometrado() -> None:
+    """🔒 ⛔ Um dia que consome minutos e falha custa o mesmo que um que publica.
+
+    Sem isto, a execucao mais cara de todas — aquela em que tudo estourou depois
+    de minutos de busca — apareceria no relatorio como a mais barata.
+
+    ⚠️ **Quem garante isto HOJE e o `except Exception` do laco**, e nao o
+    `finally`: o fluxo cai no tratamento e segue para a linha seguinte. O caso
+    abaixo (`test_o_relogio_sobrevive_ao_que_o_except_NAO_pega`) e o que exige o
+    `finally` — e os dois juntos dizem por que ele fica.
+    """
+
+    def _explodir(*_a: Any, **_k: Any) -> list[Any]:
+        raise RuntimeError("o motor caiu no meio da busca")
+
+    relatorio = await _rodar(
+        _sessao_feliz(), gerar=_explodir, dt_hoje=date(2026, 9, 20)
+    )
+
+    assert relatorio.nao_cobertos, "o cenario deveria ter falhado"
+    assert relatorio.segundos_por_dia, (
+        "o dia falhou e NAO foi cronometrado — e justamente o dia caro que "
+        "sumiria do relatorio."
+    )
+
+
+@pytest.mark.asyncio
+async def test_o_relogio_sobrevive_ao_que_o_except_NAO_pega() -> None:
+    """🔒 ⛔ O `finally` do cronometro, e o unico caso que o exige.
+
+    ⚠️ **`except Exception` nao pega `BaseException`** — `KeyboardInterrupt` e
+    `SystemExit` passam direto. O Railway manda **SIGTERM** quando precisa
+    encerrar um container, e o Python o traduz assim; e e exatamente no dia em
+    que a execucao foi interrompida por demorar demais que se quer saber **onde**
+    ela estava gastando o tempo.
+
+    ⛔ Trocar o `finally` por uma linha depois do `except` deixa este caso
+    vermelho — foi a mutacao que provou que o teste anterior, sozinho, nao
+    mordia.
+    """
+
+    class _Sigterm(BaseException):
+        """Algo que o `except Exception` do laco NAO intercepta."""
+
+    def _interromper(*_a: Any, **_k: Any) -> list[Any]:
+        raise _Sigterm("o container foi encerrado no meio da busca")
+
+    # ⚠️ `executar` cria o proprio `Relatorio`, e uma execucao interrompida nao
+    # o devolve — entao capturamos a instancia no nascimento. E o unico jeito de
+    # inspecionar o relatorio de uma execucao que nunca chegou ao `return`.
+    nascidos: list[principal_mod.Relatorio] = []
+    original = principal_mod.Relatorio
+
+    def _capturar(*a: Any, **k: Any) -> principal_mod.Relatorio:
+        r = original(*a, **k)
+        nascidos.append(r)
+        return r
+
+    principal_mod.Relatorio = _capturar  # type: ignore[misc]
+    try:
+        with pytest.raises(_Sigterm):
+            await _rodar(
+                _sessao_feliz(), gerar=_interromper, dt_hoje=date(2026, 9, 20)
+            )
+    finally:
+        principal_mod.Relatorio = original  # type: ignore[misc]
+
+    assert nascidos, "nenhum relatorio foi criado"
+    relatorio = nascidos[0]
+
+    assert relatorio.segundos_por_dia, (
+        "a execucao foi interrompida e o relogio nao registrou nada. ⛔ Sem o "
+        "`finally`, o dia que consumiu o tempo todo desaparece do relatorio."
+    )
+
+
+def test_o_processo_encerra_com_os_exit_e_NAO_com_sys_exit() -> None:
+    """🔒 ⛔ Cadeado de fatura: `sys.exit` aqui deixa o container de pe.
+
+    ⚠️ **O que aconteceu em 12/09/2026:** o job terminou as 06:01:03 e o
+    container do Railway so parou as 16:28 — 10 h 27 min cobradas por 3 segundos
+    de trabalho. `sys.exit` levanta `SystemExit`, e o interpretador espera toda
+    thread **nao-daemon**; o threadpool de XNNPACK que o `ai-edge-litert` abre na
+    primeira inferencia do Pontinhos nao e nosso para fechar.
+
+    ⛔ **E o defeito e intermitente de propria natureza:** execucao que so toca
+    as damas nunca carrega o LiteRT e morre sozinha. Quem "consertar" isto de
+    volta para `sys.exit` vera a suite verde e a fatura subir em silencio — e e
+    por isso que o cadeado le o ARQUIVO, e nao o comportamento.
+    """
+    fonte = (Path(__file__).resolve().parents[2] / "job" / "__main__.py").read_text(
+        encoding="utf-8"
+    )
+    corpo = fonte.split('if __name__ == "__main__":')[-1]
+
+    assert "os._exit(" in corpo, (
+        "o bloco `__main__` do job nao encerra com `os._exit`. ⛔ Sem ele o "
+        "processo pode ficar de pe depois de terminar o trabalho, e o Railway "
+        "cobra por tempo de execucao."
+    )
+    assert "sys.exit(" not in corpo, (
+        "o bloco `__main__` voltou a usar `sys.exit`. ⛔ Ver o comentario em "
+        "`job/__main__.py`: em 12/09/2026 isso custou 10 h de container."
+    )
+    # ⛔ `os._exit` nao descarrega buffer nenhum: sem os dois `flush`, o resumo
+    # da execucao se perde — e o log fica mudo justamente na linha que conta o
+    # que o job fez.
+    assert "sys.stdout.flush()" in corpo and "sys.stderr.flush()" in corpo, (
+        "`os._exit` sem `flush` antes: o resumo da execucao nao chega ao log."
     )
