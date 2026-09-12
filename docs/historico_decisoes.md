@@ -21,6 +21,49 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-12 — A pescaria do COROAR: 185 moldes reais SOMAM, e não substituem
+
+A segunda pescaria na base de produção terminou (`pescar_moldes_de_partidas.py
+--tipo damas_coroar`), no mesmo CSV de 4.090 posições de partidas humanas que já
+tinha dado o acervo da captura múltipla.
+
+**Funil:** 2.842 nunca coroaram dentro do teto · 636 com a partida já acabada ·
+212 já nasciam coroando (166 na brasileira, 46 na anglo) · **400 passaram a
+peneira** · **295 serviram a três ou mais modalidades** (220 servem às quatro).
+
+Distância até o objetivo, nos 295: 3L:63 · 4L:38 · 5L:40 · 6L:43 · 7L:32 ·
+8L:40 · 9L:18 · 10L:16 · 11L:5.
+
+### A decisão: somar, não trocar
+
+⛔ **O acervo sintético do coroar NÃO saiu**, e é aqui que este caso se separa
+do da captura múltipla, medido três horas antes. Lá a troca foi obrigatória
+porque a premissa do acervo estava errada — tabuleiros quase vazios (material
+~7) nunca concedem cadeia, e por isso os 29 moldes cabiam **todos** em 3 lances.
+⚠️ O coroar nunca teve esse defeito: os 330 moldes publicados foram medidos,
+cobrem de 5 a 10 lances e estão no ar desde 11/09. Não havia o que corrigir.
+
+**Entraram os 194 de lance 5 ou depois** — o mesmo corte da T049s, que é do dono
+(*"o usuário entra pra resolver um desafio e não joga praticamente nada"*). Os
+101 mais curtos ficaram de fora apesar de aprovados, e nada foi recaçado: a
+medição já anota a distância, então o corte é uma leitura do diário.
+
+⚠️ **Nove dos 194 já estavam no acervo**, achados pela caçada sintética meses
+antes. Não é problema — é o sinal de que as duas fontes olham para o mesmo tipo
+de final. Sobraram **185**, e o acervo do coroar foi de 330 para **515**.
+
+### O número que explica os dois casos
+
+| | material dos moldes reais | o que se fez |
+|---|---|---|
+| captura múltipla | **17,3** (sintéticos: ~7) | trocou o acervo inteiro |
+| coroar | **9,7** (sintéticos: equivalente) | somou ao acervo |
+
+A diferença de material era a **causa** do problema na captura múltipla. No
+coroar não há diferença — porque não havia problema.
+
+---
+
 ## 2026-09-12 — A CADEIA LONGA entra no ar: o primeiro tipo com adversario fixo
 
 **A ideia e do dono**, no mesmo dia: *"deixa o usuario conectar tracos de tal

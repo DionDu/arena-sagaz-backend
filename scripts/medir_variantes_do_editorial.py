@@ -167,6 +167,10 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
     # ⛔ **Candidata que so afrouxa a janela nao e variante** — e a mesma tarefa
     # com outro numero na frase, que e a "pura repeticao" que T049f existe para
     # acabar. As de baixo mexem no que **muda a tarefa**.
+    # ⚠️ **E o ACERVO MUDOU em 12/09**: 185 moldes reais entraram, e o do coroar
+    # foi de 330 para 515, agora com solucoes de ate 11 lances. ⛔ Os numeros
+    # abaixo, medidos em 11/09, descrevem o acervo ANTERIOR — medicao nao e selo
+    # vitalicio, e esta rodada vale justamente por isso.
     "damas_coroar": (
         Candidata({"damas": 1, "lances": 6}),
         Candidata({"damas": 1, "lances": 4}),
@@ -180,11 +184,23 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         Candidata({"pecas": 2, "lances": 4}),
         # ⏳ NAO MEDIDA: a captura encadeada cai em ~1,4 lances do jogador, entao
         # 4 ja e folga. ⚠️ `lances: 2` e a unica janela que pode apertar aqui.
-        # ⛔ E `pecas: 3` esbarra no que T049g mediu: capturar tres em sequencia
-        # contra um Sagaz quase nao acontece — 185 de 295 candidatas nem as duas
-        # conseguiram.
         Candidata({"pecas": 2, "lances": 2}),
         Candidata({"pecas": 2, "lances": 3}),
+        # ── ⚠️ `pecas: 3` VOLTOU A MESA em 12/09/2026 ────────────────────────
+        #
+        # Ate hoje este comentario dizia que tres em sequencia *"contra um Sagaz
+        # quase nao acontece — 185 de 295 candidatas nem as duas conseguiram"*.
+        # ⛔ **Esse numero e da T049g, e foi medido no acervo SINTETICO** — o
+        # mesmo cuja premissa caiu nesta manha: as candidatas nasciam de
+        # tabuleiros quase vazios (material ~7), onde nao ha pecas para uma
+        # cadeia de tres existir. O acervo de hoje tem material **17,3**.
+        #
+        # ⚠️ A pergunta e do dono: *"o capture 2 pecas num so lance, este 2 e
+        # fixo ou varia?"*. Hoje e fixo, e e uma variante so. Estas duas linhas
+        # respondem se pode deixar de ser. ⛔ Se derem `pior 0`, a conclusao
+        # passa a ser sobre o JOGO, e ai sim com a fonte certa embaixo.
+        Candidata({"pecas": 3, "lances": 4}),
+        Candidata({"pecas": 3, "lances": 6}),
     ),
 }
 
