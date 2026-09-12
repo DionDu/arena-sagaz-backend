@@ -93,6 +93,32 @@ guloso → `G`; com controle de paridade → `D`; publica-se *"capture `D` ou ma
 ⛔ **E isso torna o desafio auto-verificavel**: um desafio em que `D == G` nao tem
 graça e nao e publicado, sem ninguem precisar opinar sobre dificuldade.
 
+### ✅ MEDIDO em 60 posicoes reais (o dono decidiu: `D` sai do Magno)
+
+O guloso e o **proprio Magno com uma unica diferenca**: quando ha caixa
+disponivel, ele a pega. ⚠️ Assim a comparacao isola exatamente a decisao de
+**recusar**, em vez de misturar "jogou pior em tudo" com "nao sabe fazer double
+dealing". E o adversario e o Magno nos dois casos — se ele mudasse junto, a
+diferenca nao seria atribuivel a nada.
+
+    com D > G (viram desafio): 16 de 60  (27%)
+
+    D - G:  +0: 44 | +1: 5 | +2: 6 | +3: 4 | +5: 1
+
+⚠️ **Um dos exemplos saiu `(guloso 5, magno 7)`** — exatamente o numero que o dono
+usou ao descrever a ideia, sem ter visto o dado. Projetado nas 87.945 posicoes do
+acervo real: **~23 mil** posicoes candidatas.
+
+⛔ **Duas correcoes de desenho que a medicao revelou:**
+
+  1. **`D` e `G` tem de ser calculados contra o PERSONAGEM DO DIA**, e nao contra
+     o Magno. O adversario publicado pode ser a Cacau (epsilon 0,80); um `D`
+     medido contra o Magno descreveria outra partida, e o numero publicado nao
+     valeria para o desafio que foi ao ar.
+  2. **`D` ser alcancavel pelo Magno nao quer dizer alcancavel por gente.** Quem
+     responde isso e a regua (`job/regua.py`), medindo os mascotes — e aqui ela
+     finalmente tem um trabalho de verdade, em vez de confirmar o obvio.
+
 ---
 
 ## 2026-09-11 — A pesca medida no acervo do `prd`, e o pescador do Pontinhos
