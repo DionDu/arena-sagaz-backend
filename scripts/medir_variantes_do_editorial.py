@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import sys
 import time
+from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -87,22 +88,64 @@ DIAS_MEDIDOS = 3
 #: repetivel.
 DIA_BASE = date(2026, 10, 1)
 
+@dataclass(frozen=True, slots=True)
+class Candidata:
+    """Uma variante a medir, com os botoes de geracao que ela precisa.
+
+    Atributos:
+        parametros: os numeros que a receita consome (`{"caixas": 7}`).
+        nu_lances_de_preparo: quantos lances a posicao de partida ja traz. `None`
+            herda o da publicacao no ar.
+        nu_maximo_de_lances: o teto de meios-lances do gabarito. `None` herda.
+
+    ⛔ **Os dois botoes precisam ser POR CANDIDATA, e descobrir isso custou uma
+    execucao.** Ate 12/09/2026 eles saiam sempre da publicacao no ar, o que estava
+    certo enquanto toda candidata era a mesma tarefa com outro numero. Deixou de
+    estar no dia em que `acima_do_guloso` apareceu: ele exige **preparo 14** (com
+    8 tracos nao ha cadeia formada, e nao ha double dealing sem cadeia), e medi-lo
+    com o preparo 8 da publicacao no ar devolveria `pior 0` — um ⛔ merecido pela
+    medicao errada, e nao pela variante.
+    """
+
+    parametros: Mapping[str, Any]
+    nu_lances_de_preparo: int | None = None
+    nu_maximo_de_lances: int | None = None
+
+
 #: As variantes a medir, por tipo. ⚠️ **A primeira de cada lista e a que esta no
 #: ar hoje** — ela entra na medicao de proposito, como linha de comparacao: sem
 #: ela nao ha como saber se um numero baixo e da variante ou do tipo.
-A_MEDIR: dict[str, tuple[Mapping[str, Any], ...]] = {
+A_MEDIR: dict[str, tuple[Candidata, ...]] = {
     "pontinhos_fechar_caixas": (
-        {"caixas": 4, "turnos": 2},
-        {"caixas": 3, "turnos": 2},
-        {"caixas": 5, "turnos": 2},
-        {"caixas": 4, "turnos": 3},
-        {"caixas": 6, "turnos": 3},
+        Candidata({"caixas": 4, "turnos": 2}),
+        Candidata({"caixas": 3, "turnos": 2}),
+        Candidata({"caixas": 5, "turnos": 2}),
+        Candidata({"caixas": 4, "turnos": 3}),
+        Candidata({"caixas": 6, "turnos": 3}),
     ),
     "pontinhos_chegar_ao_placar": (
-        {"caixas": 7},
-        {"caixas": 6},
-        {"caixas": 8},
-        {"caixas": 9},
+        Candidata({"caixas": 7}),
+        Candidata({"caixas": 6}),
+        # ⚠️ **Tambem esta no ar** (entrou em 11/09) e faltava aqui — uma variante
+        # publicada fora da lista deixa de ser remedida quando o gerador muda, que
+        # e exatamente quando o numero dela pode ter mudado.
+        Candidata({"caixas": 5}),
+        Candidata({"caixas": 8}),
+        Candidata({"caixas": 9}),
+        # ── A variante em que o ALVO SAI DA POSICAO, e nao daqui (11/09/2026) ──
+        #
+        # O editorial publica *"supere o guloso em N"*; o gerador calcula quantas
+        # caixas um jogador que nunca recusa uma caixa faria naquela posicao, soma
+        # N, e e esse numero absoluto que vai na frase. ⚠️ **Quem so captura nao
+        # resolve** — a solucao ingenua fica excluida por construcao, e nao por
+        # alguem ter julgado que era facil demais.
+        #
+        # ⛔ **Preparo 14, e nao o 8 da publicacao no ar.** Com 8 tracos o
+        # tabuleiro e comeco de jogo, sem cadeia formada — e sem cadeia nao ha
+        # double dealing a cobrar. Medido em 60 posicoes reais do `prd` com 14
+        # tracos: 27% delas rendem `D > G`, com diferencas de +1 a +5.
+        Candidata({"acima_do_guloso": 1}, nu_lances_de_preparo=14),
+        Candidata({"acima_do_guloso": 2}, nu_lances_de_preparo=14),
     ),
     # ⚠️ **O QUE A RODADA DE 11/09/2026 ENSINOU, e vale para escrever candidata
     # nova:** `lances` e a janela em **lances do jogador**, e a solucao media que
@@ -116,23 +159,23 @@ A_MEDIR: dict[str, tuple[Mapping[str, Any], ...]] = {
     # com outro numero na frase, que e a "pura repeticao" que T049f existe para
     # acabar. As de baixo mexem no que **muda a tarefa**.
     "damas_coroar": (
-        {"damas": 1, "lances": 6},
-        {"damas": 1, "lances": 4},
+        Candidata({"damas": 1, "lances": 6}),
+        Candidata({"damas": 1, "lances": 4}),
         # ⏳ NAO MEDIDA: duas damas muda o objetivo, e nao a folga. ⚠️ Pode nao
         # ser alcancavel a partir dos moldes, que foram escritos para UMA — se
         # der `pior 0`, a resposta e cacar moldes proprios, nao afrouxar a janela.
-        {"damas": 2, "lances": 8},
-        {"damas": 2, "lances": 10},
+        Candidata({"damas": 2, "lances": 8}),
+        Candidata({"damas": 2, "lances": 10}),
     ),
     "damas_capturar_multipla": (
-        {"pecas": 2, "lances": 4},
+        Candidata({"pecas": 2, "lances": 4}),
         # ⏳ NAO MEDIDA: a captura encadeada cai em ~1,4 lances do jogador, entao
         # 4 ja e folga. ⚠️ `lances: 2` e a unica janela que pode apertar aqui.
         # ⛔ E `pecas: 3` esbarra no que T049g mediu: capturar tres em sequencia
         # contra um Sagaz quase nao acontece — 185 de 295 candidatas nem as duas
         # conseguiram.
-        {"pecas": 2, "lances": 2},
-        {"pecas": 2, "lances": 3},
+        Candidata({"pecas": 2, "lances": 2}),
+        Candidata({"pecas": 2, "lances": 3}),
     ),
 }
 
@@ -169,11 +212,17 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
     print(
         f"  preparo={publicacao.nu_lances_de_preparo}  "
         f"teto_de_lances={publicacao.nu_maximo_de_lances}  "
+        f"(padrao do tipo; candidata com botao proprio aparece na linha dela)  "
         f"dias={[d.isoformat() for d in dias]}"
     )
     print("═" * 75)
 
-    for parametros in variantes:
+    for candidata in variantes:
+        parametros = candidata.parametros
+        # ⚠️ `None` herda o botao da publicacao no ar — que e o certo para toda
+        # candidata que so troca um numero da mesma tarefa.
+        preparo = candidata.nu_lances_de_preparo or publicacao.nu_lances_de_preparo
+        teto = candidata.nu_maximo_de_lances or publicacao.nu_maximo_de_lances
         # ⛔ **O tipo do dia tem de ser ESTE tipo.** `gerar_candidatos` reescolhe
         # o tipo pela data, e num dia em que ele escolher o outro tipo do jogo a
         # medicao estaria medindo o vizinho — com os parametros errados, e sem
@@ -190,8 +239,8 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
                 parametros=parametros,
                 quantos=QUANTOS_POR_DIA,
                 tipos_recentes=outros,
-                maximo_de_lances=publicacao.nu_maximo_de_lances,
-                lances_de_preparo=publicacao.nu_lances_de_preparo,
+                maximo_de_lances=teto,
+                lances_de_preparo=preparo,
             )
             por_dia.append(len(candidatos))
             lances_da_solucao.extend(c.nu_lances_solucao for c in candidatos)
@@ -203,11 +252,18 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
         # ⚠️ O PIOR dia manda: uma variante com 3 num dia e 0 no outro publica dia
         # descoberto a cada duas aparicoes, e a media de 1,5 esconderia isso.
         selo = "✅" if pior >= 1 else "⛔"
+        # ⚠️ Os botoes entram na linha **so quando diferem** da publicacao no
+        # ar: repeti-los em toda linha esconderia justamente a que e diferente.
+        proprios = ""
+        if preparo != publicacao.nu_lances_de_preparo:
+            proprios += f" preparo={preparo}"
+        if teto != publicacao.nu_maximo_de_lances:
+            proprios += f" teto={teto}"
         print(
             f"  {selo} {str(dict(parametros)):<32} "
             f"candidatos por dia {por_dia} (pior {pior}) · "
             f"solucao media {media_da_solucao:.1f} lances · "
-            f"{time.time() - inicio:.0f}s"
+            f"{time.time() - inicio:.0f}s{proprios}"
         )
 
 

@@ -21,6 +21,62 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-12 — A regra de recusa derruba TODAS as variantes do Pontinhos
+
+**Contexto.** Com a regra de recusa por erro do adversario ja no gerador (a que o
+dono escreveu: *"se ele entregou caixas e existia um traco livre que entregaria
+zero, recusa o desafio"*), o medidor de variantes foi rodado duas vezes sobre as
+mesmas onze candidatas — uma com a regra ligada, outra com ela desligada e nada
+mais mudado. ⚠️ **Foi a primeira medicao pareada**: ate aqui os numeros do
+editorial eram todos anteriores a regra.
+
+    variante                        SEM a regra      COM a regra
+    ------------------------------  ---------------  ---------------
+    fechar_caixas  {4 caixas, 2 t}  pior 2  ← no ar  pior 0   ⛔
+    fechar_caixas  {3 caixas, 2 t}  pior 3  ← no ar  pior 1
+    fechar_caixas  {5 caixas, 2 t}  pior 2           pior 0   ⛔
+    fechar_caixas  {4 caixas, 3 t}  pior 3  ← no ar  pior 3
+    fechar_caixas  {6 caixas, 3 t}  pior 1           pior 0   ⛔
+    chegar_placar  {7 caixas}       pior 3  ← no ar  pior 1
+    chegar_placar  {6 caixas}       pior 3  ← no ar  pior 1
+    chegar_placar  {5 caixas}       pior 3  ← no ar  pior 1
+    chegar_placar  {8 caixas}       pior 2           pior 0   ⛔
+    chegar_placar  {9 caixas}       pior 2           pior 0   ⛔
+    chegar_placar  {acima_do_guloso 1, preparo 14}  pior 3 → pior 0   ⛔
+    chegar_placar  {acima_do_guloso 2, preparo 14}  pior 3 → pior 0   ⛔
+
+⛔ **Onze de onze caem, e seis vao a zero** — incluindo `{4 caixas, 2 turnos}`,
+que **esta publicada**. Uma variante com pior 0 nao e "mais dificil": e dia
+descoberto na fila, e o log so dira *"sem candidato"*.
+
+**Por que.** Ja estava medido em 11/09 e agora tem consequencia: nas partidas
+reais, **71%** dos lances que entregam 1 caixa tinham um traco seguro
+disponivel. Entregar caixa e comum, e o adversario do desafio nao e o Sagaz — e o
+personagem do dia, que pode ser a Cacau, que erra de proposito em 80% dos lances.
+A regra, aplicada a **toda** a fita do gabarito, exige do personagem uma
+perfeicao que o proprio produto decidiu que ele nao tem.
+
+⚠️ **E no tipo `acima_do_guloso` a regra e redundante, nao so cara.** O alvo
+publicado e `G + k`, e `G` e calculado **na mesma posicao, contra o mesmo
+adversario**: um erro do personagem levanta os dois lados da conta e se cancela.
+E por isso que `guloso.py` ja dizia, desde o primeiro dia, que este desenho
+*"dispensa o filtro de erro do adversario"* — a dificuldade deixou de vir do erro
+dele e passou a vir da escolha de quem resolve.
+
+**Decisao: nenhuma, ainda.** ⛔ Desligar a regra e reabrir o defeito que o dono
+relatou (*"os desafios dos pontinhos sao quase sempre baseados numa jogada errada
+do personagem"*), e a escolha entre desligar por tipo, afrouxar ou aceitar um
+editorial mais magro e dele. O que entrou no codigo hoje foi so o **instrumento**:
+o medidor passa a aceitar botoes de geracao por candidata (`Candidata`), sem o
+que a variante `acima_do_guloso` seria medida com preparo 8 e levaria um ⛔ pela
+medicao errada, e nao pela variante.
+
+⚠️ **E a variante `{caixas: 5}` faltava na lista do medidor** apesar de estar no
+ar desde 11/09. Variante publicada fora da lista deixa de ser remedida quando o
+gerador muda — que e exatamente quando o numero dela pode ter mudado. Entrou.
+
+---
+
 ## 2026-09-12 — A pescaria terminou: 184 moldes REAIS, e a premissa que caiu
 
 **Contexto.** A pescaria de `damas_capturar_multipla` nas partidas humanas do
