@@ -321,6 +321,25 @@ class JogadorPontinhos:
     def __init__(self, motor: MotorPontinhos | None = None) -> None:
         self._motor = motor or MotorPontinhos()
 
+    @property
+    def arbitro(self) -> MotorPontinhos:
+        """O motor por baixo, para quem precisa só das REGRAS.
+
+        ⚠️ **Existe porque jogador e árbitro não são a mesma coisa**, e quem
+        precisa de um não pode receber o outro por acidente: este objeto sabe
+        *escolher* lance (`decidir`), e o árbitro sabe *aplicar* (`aplicar`,
+        `lances_legais`). Em 11/09/2026 a recusa por erro do adversário
+        (`abertura_forcada`) recebeu o jogador onde queria o árbitro, e quebrou
+        com `'JogadorPontinhos' object has no attribute 'aplicar'`.
+
+        ⛔ **Devolver o motor não abre a porta da busca**: `MotorPontinhos` é a
+        CNN vestida de papéis, e quem consome esta propriedade usa só o papel de
+        árbitro. A alternativa — cada chamador construir o seu `MotorPontinhos()`
+        — criaria um segundo intérprete TFLite por candidato, para responder a
+        mesma coisa.
+        """
+        return self._motor
+
     def escolher_lance(
         self,
         estado: EstadoPontinhos,

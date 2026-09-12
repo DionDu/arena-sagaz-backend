@@ -48,6 +48,7 @@ from typing import Any, Mapping, Sequence
 from motores.damas.motor_damas import EstadoDamas, MotorDamas, estado_inicial
 from motores.nucleo.orcamento import Orcamento
 from motores.nucleo.papeis import NivelDeMotor
+from motores.pontinhos import abertura_forcada
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos
 from motores.pontinhos.politica import JogadorPontinhos
 
@@ -441,6 +442,56 @@ def _preparar_pontinhos(sorteio: random.Random, lances_de_preparo: int) -> Estad
     )
 
 
+#: Quem sabe recusar um desafio por erro do adversario, **por jogo**.
+#:
+#: ⚠️ **E um registro, e nao um `if co_jogo == ...` no meio do laco**, por dois
+#: motivos. O primeiro e que a pergunta nao e a mesma em todo jogo: nos Pontinhos
+#: "entregar" tem significado exato (a cadeia que o outro leva de graca); nas
+#: damas, nao ha equivalente — um lance ruim ali e uma **avaliacao**, e avaliar
+#: exige busca e vira opiniao. O segundo e que um jogo que nao esta aqui **nao e
+#: recusado**, e isso fica visivel: a ausencia da chave e a declaracao de que
+#: aquele jogo ainda nao tem a regra, em vez de um `else` silencioso.
+RECUSA_POR_JOGO = {"pontinhos": abertura_forcada.dependeu_de_erro}
+
+
+def motivo_de_erro_do_adversario(
+    co_jogo: str,
+    arbitro,
+    inicial,
+    fita: list[dict[str, Any]],
+    jogador: int,
+) -> str | None:
+    """Este desafio so existe porque o adversario jogou mal? Diz por que.
+
+    Args:
+        co_jogo: qual jogo — decide se ha regra para aplicar.
+        arbitro: o motor daquele jogo (aqui so as regras sao usadas).
+        inicial: a posicao de partida do desafio.
+        fita: os passos do gabarito.
+        jogador: quem resolve o desafio.
+
+    Returns:
+        A frase do motivo, ou `None` quando o desafio esta de pe — inclusive
+        quando o jogo ainda nao tem regra.
+
+    ⚠️ **Nao levanta excecao quando o jogo nao esta no registro**, de proposito: a
+    regra e um filtro de qualidade, e um jogo novo entrando na Arena nao pode
+    deixar de gerar desafio por falta dela. ⛔ Mas tambem nao finge que filtrou —
+    e por isso que o registro fica logo acima, visivel, com o comentario dizendo
+    quem esta de fora.
+    """
+    regra = RECUSA_POR_JOGO.get(co_jogo)
+    if regra is None:
+        return None
+    # ⚠️ **Jogador e arbitro nao sao a mesma coisa.** Nas damas o `MotorDamas` e
+    # os dois; no Pontinhos quem joga e a POLITICA (`JogadorPontinhos`), que sabe
+    # `decidir` e nao sabe `aplicar`. ⛔ Passar o jogador aqui quebrou com
+    # `'JogadorPontinhos' object has no attribute 'aplicar'` em 11/09/2026 — e
+    # quebrou **calado**, porque a excecao subia dentro do laco de tentativas e
+    # o dia simplesmente saia sem candidato.
+    return regra(getattr(arbitro, "arbitro", arbitro), inicial, fita, jogador)
+
+
 def _resolver(
     jogador,
     estado,
@@ -741,6 +792,34 @@ def gerar_candidatos(
             continue
 
         fita, lance_chave = achado
+
+        # ── ⛔ O DESAFIO NAO PODE DEPENDER DE O ADVERSARIO JOGAR MAL ──────────
+        #
+        # Regra do dono, 11/09/2026: *"o problema nao e o adversario abrir a
+        # cadeia, o problema e quando ele abre a cadeia sendo que ha diversos
+        # outros tracos que nem entregariam caixa de graca"*.
+        #
+        # ⚠️ **Isto e diferente do `co_acao = cnn_epsilon_aleatorio`**, que marca
+        # o erro **declarado** (o sorteio do nivel). Aqui o adversario jogou o que
+        # considerou o melhor lance e ainda assim entregou a cadeia tendo saida —
+        # foi o caso do `V_1_4` do desafio `d5af2ae1`, em que `V_7_0` e `H_8_1`
+        # entregavam zero e a rede escolheu um que entregava seis.
+        #
+        # ⛔ **Um desafio assim some no dia em que o motor melhorar**, e ate la
+        # ensina a esperar um erro que nao vem.
+        # ⛔ **Descartar aqui nao deixa o dia descoberto**: o laco continua, e ha
+        # `tentativas_por_candidato * quantos` posicoes para tentar — o mesmo
+        # raciocinio da recusa por objetivo no lance 1, logo acima.
+        recusa = motivo_de_erro_do_adversario(
+            co_jogo, jogador, base, fita, js_posicao["vez_de"]
+        )
+        if recusa is not None:
+            print(
+                f"⚠️ [job] {dt_dia}: candidato descartado — o desafio depende de "
+                f"um erro do adversario: {recusa}"
+            )
+            continue
+
         js_solucao = gabarito_mod.montar(fita, lance_chave=lance_chave)
 
         encontrados.append(
