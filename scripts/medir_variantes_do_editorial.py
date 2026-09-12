@@ -116,6 +116,13 @@ class Candidata:
 #: ar hoje** — ela entra na medicao de proposito, como linha de comparacao: sem
 #: ela nao ha como saber se um numero baixo e da variante ou do tipo.
 A_MEDIR: dict[str, tuple[Candidata, ...]] = {
+    "pontinhos_cadeia_longa": (
+        # ⚠️ Preparo 4: cadeia longa se CONSTROI, e com o tabuleiro cheio nao ha
+        # o que moldar. E o unico tipo de Pontinhos que nao usa 14.
+        Candidata({"caixas": 6}),
+        Candidata({"caixas": 5}),
+        Candidata({"caixas": 7}),
+    ),
     "pontinhos_fechar_caixas": (
         Candidata({"caixas": 4, "turnos": 2}),
         Candidata({"caixas": 3, "turnos": 2}),
@@ -243,6 +250,9 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
                 tipos_recentes=outros,
                 maximo_de_lances=teto,
                 lances_de_preparo=preparo,
+                # ⚠️ A mesma restricao da publicacao no ar: medir contra um
+                # adversario que o tipo nao publica descreveria outra execucao.
+                personagens_possiveis=publicacao.co_personagens,
             )
             por_dia.append(len(candidatos))
             lances_da_solucao.extend(c.nu_lances_solucao for c in candidatos)

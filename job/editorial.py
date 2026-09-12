@@ -101,6 +101,7 @@ class Publicacao:
         co_versao_minima: a versao de aplicativo que sabe desenhar este tipo.
         nu_teto_log: o teto de meios-lances do log.
         medidas: `(parametros) -> linhas de tb003_feito_desafio`.
+        co_personagens: a que adversarios o tipo se restringe.
     """
 
     parametros: Mapping[str, Any]
@@ -110,6 +111,18 @@ class Publicacao:
     nu_teto_log: int = TETO_DE_LOG_PADRAO
     nu_maximo_de_lances: int = MAXIMO_DE_LANCES_PADRAO
     nu_lances_de_preparo: int = LANCES_DE_PREPARO_PADRAO
+
+    #: A que adversarios este tipo se restringe. `None` = o rodizio dos quatro.
+    #:
+    #: ⛔ **Existe porque nem todo desafio cabe contra todo mundo**, e isso so
+    #: apareceu com a cadeia longa (12/09/2026): contra o Magno ela e
+    #: **impossivel** — medido, 0 de 30 posicoes —, porque vencer no Pontinhos e
+    #: partir o tabuleiro em cadeias curtas, o oposto do que o desafio pede.
+    #:
+    #: ⚠️ **Restringir nao e enfraquecer o adversario**: o personagem publicado
+    #: continua jogando no nivel dele, com a semente publicada. O que muda e de
+    #: qual lista o rodizio do dia sorteia.
+    co_personagens: tuple[str, ...] | None = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -224,6 +237,36 @@ def _medidas_do_pontinhos_placar(p: Mapping[str, Any]) -> list[dict[str, Any]]:
             co_sobre="lances_da_solucao",
         ),
         linha_so_medida("caixas_do_adversario", nu_ordem=3),
+    ]
+
+
+def _medidas_da_cadeia_longa(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Cadeia longa: o merito e a MAIOR cadeia, e o placar aparece sem pontuar.
+
+    ⚠️ **`vr_max` e o proprio alvo**, como nos outros tipos: capturar seis quando
+    se pediam seis e nota cheia. ⛔ Normalizar sobre as doze caixas do tabuleiro
+    pagaria metade a quem cumpriu o objetivo inteiro.
+
+    ⚠️ **`caixas_fechadas` entra sem peso**, de proposito. Ela e o placar da
+    partida, e este desafio **nao e sobre o placar** — quem faz nove caixas em
+    cadeias de duas nao cumpriu nada. Ela fica no extrato porque o Raio-X a
+    mostra, e porque e ela que explica a diferenca entre as duas coisas.
+    """
+    return [
+        linha_de_faixa(
+            "maior_cadeia_capturada",
+            nu_ordem=1,
+            vr_peso="0.700",
+            vr_min=0,
+            vr_max=p["caixas"],
+        ),
+        linha_de_fracao(
+            "lances_do_jogador",
+            nu_ordem=2,
+            vr_peso="0.300",
+            co_sobre="lances_da_solucao",
+        ),
+        linha_so_medida("caixas_fechadas", nu_ordem=3),
     ]
 
 
@@ -346,6 +389,59 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             nu_lances_de_preparo=14,
             medidas=_medidas_do_pontinhos_fechar_caixas,
+        ),
+    ),
+    "pontinhos_cadeia_longa": (
+        Publicacao(
+            # ── ⚠️ A IDEIA E DO DONO, 12/09/2026 ─────────────────────────────
+            #
+            # > *"Deixa o usuario conectar tracos de tal forma que consiga montar
+            # > uma cadeia extremamente longa, e depois captura-la, ao inves do
+            # > adversario."*
+            #
+            # A frase: *"Capture 6 ou mais caixas em sequencia"*.
+            #
+            # ⛔ **SEIS, e nao quatro nem cinco.** Medido em 30 posicoes, as
+            # mesmas para os dois lados: quem joga para **vencer** (a CNN no
+            # nivel Magno) chega a seis caixas seguidas em **7%** delas; quem
+            # joga para a **cadeia**, em 43%. Com quatro, o desafio sairia
+            # cumprido por acidente por quem nao fez nada de diferente.
+            #
+            # Medido 12/09/2026: pior dia **3** · solucao 20,6 lances (~10 lances
+            # do jogador). ⚠️ E a tarefa mais longa do Pontinhos hoje.
+            parametros={"caixas": 6},
+            # ⚠️ Seis de doze nao encerra a partida — sobram caixas.
+            ic_chegada_encerra_partida=False,
+            # ⛔ **O TABULEIRO COMECA QUASE VAZIO**, e isto e o contrario dos
+            # outros tipos de Pontinhos (que usam 14). Cadeia longa se
+            # **constroi**: com o tabuleiro ja cheio nao ha o que moldar, e o
+            # desafio viraria "capture o que ja esta la".
+            nu_lances_de_preparo=4,
+            # A janela e a partida inteira, e construir leva tempo.
+            nu_maximo_de_lances=34,
+            # ⛔ **NUNCA contra o Magno**: medido, 0 de 30 posicoes. Ele parte o
+            # tabuleiro em cadeias curtas e controla a paridade — vencer, no
+            # Pontinhos, e o oposto do que este desafio pede. Contra o Tex ja cai
+            # para 20%; a Cacau (57%) e a Pita (67%) sao onde o tipo vive.
+            co_personagens=("cacau", "pita"),
+            medidas=_medidas_da_cadeia_longa,
+        ),
+        Publicacao(
+            # A versao dura: sete caixas numa corrida so.
+            # Medido 12/09/2026: pior dia **3** · solucao 21,4 lances.
+            #
+            # ⛔ **E `{caixas: 5}` ficou de FORA, apesar de tambem medir pior 3.**
+            # O criterio nao e gerar, e **separar**: quem joga para vencer chega a
+            # cinco caixas seguidas em 33% das posicoes, contra 7% em seis. Com
+            # cinco, um terco dos dias seria cumprido por quem nao fez nada de
+            # diferente — e o desafio deixaria de ensinar o que existe para
+            # ensinar.
+            parametros={"caixas": 7},
+            ic_chegada_encerra_partida=False,
+            nu_lances_de_preparo=4,
+            nu_maximo_de_lances=34,
+            co_personagens=("cacau", "pita"),
+            medidas=_medidas_da_cadeia_longa,
         ),
     ),
     "pontinhos_chegar_ao_placar": (

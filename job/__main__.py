@@ -376,6 +376,9 @@ async def cobrir_um_dia(
         # falhava por falta de horizonte, o outro por falta de tabuleiro.
         maximo_de_lances=publicacao.nu_maximo_de_lances,
         lances_de_preparo=publicacao.nu_lances_de_preparo,
+        # ⚠️ **Nem todo tipo cabe contra todo adversario** - ver o campo no
+        # editorial. `None` mantem o rodizio dos quatro.
+        personagens_possiveis=publicacao.co_personagens,
     )
     if not candidatos:
         return await _tentar_reprisar(

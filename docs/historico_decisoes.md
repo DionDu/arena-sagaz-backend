@@ -21,6 +21,79 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-12 — A CADEIA LONGA entra no ar: o primeiro tipo com adversario fixo
+
+**A ideia e do dono**, no mesmo dia: *"deixa o usuario conectar tracos de tal
+forma que consiga montar uma cadeia extremamente longa, e depois captura-la, ao
+inves do adversario"*. E a medida veio com ela: *"talvez voce possa avaliar o
+cumprimento pela quantidade de lances seguidos, ja que ao capturar caixa o
+humano/CPU continuam jogando"*.
+
+⚠️ **Essa observacao dispensa geometria.** Quem fecha caixa joga de novo, entao
+uma **corrida de lances consecutivos e, literalmente, uma cadeia sendo
+capturada** — basta ler a fita. ⛔ Mas a medida conta **caixas**, e nao lances: um
+unico traco pode fechar duas.
+
+### O que o tipo obrigou a inventar
+
+1. **Uma medida que le o CAMINHO** (`maior_cadeia_capturada`, feito 12). Todas as
+   anteriores se leem no estado final; *"em sequencia"* e uma pergunta sobre a
+   ordem dos lances, e duas partidas que terminam na mesma posicao podem ter uma
+   cadeia de sete e outra de duas.
+2. **Um solucionador que NAO e o Sagaz** (`SOLUCIONADOR_POR_TIPO`). ⛔ O Sagaz e o
+   pior gabarito possivel aqui: vencer no Pontinhos e partir o tabuleiro em
+   cadeias curtas e controlar a paridade — o oposto do que o desafio pede. O
+   **arquiteto** joga com tres regras: fecha se ha caixa; senao marca o traco
+   seguro que deixa a maior cadeia; em zugzwang entrega a menor.
+3. **Um adversario restrito** (`Publicacao.co_personagens`). ⛔ Contra o Magno o
+   desafio e **impossivel**: 0 de 30 posicoes. Ele fica com a Cacau e a Pita.
+
+### As medidas que sustentam cada escolha
+
+    quem resolve        >= 5 caixas   >= 6   >= 7
+    Magno (para vencer)     33%         7%     0%
+    arquiteto               57%        43%    30%
+
+⚠️ **O placar final e o MESMO nos dois** (9,1 e 9,3 de 12): o desafio nao e ganhar
+mais, e jogar diferente — exatamente como o dono o descreveu.
+
+    adversario   >= 5   >= 6
+    Cacau         57%    43%
+    Pita          67%    57%
+    Tex           20%    20%
+    Magno          0%     0%
+
+**Publicadas:** `{caixas: 6}` (pior dia 3, solucao 20,6 meios-lances) e
+`{caixas: 7}` (pior 3, 21,4). ⛔ **`{caixas: 5}` ficou de fora** apesar de medir
+pior 3: o criterio nao e gerar, e **separar** — com cinco, um terco dos dias
+seria cumprido por quem jogou normal.
+
+⚠️ **Preparo 4, contra os 14 dos outros tipos de Pontinhos.** Cadeia longa se
+**constroi**; com o tabuleiro cheio nao ha o que moldar, e o desafio viraria
+*"capture o que ja esta la"*.
+
+### ⛔ E a regra de recusa NAO se aplica aqui — pelo segundo motivo
+
+Com ela ligada, as tres variantes deram **pior dia 0**; sem ela, **pior 3**. A
+causa e estrutural: no Pontinhos **alguem tem de abrir** uma cadeia — e o
+zugzwang, a regra central do jogo —, e a pergunta *"havia um traco seguro?"*
+acusa como erro algo inevitavel. Num tabuleiro de quatro tracos ela acusa
+**todo** lance que entrega.
+
+⚠️ **Honestamente: aqui o desafio DEPENDE de um adversario que nao joga
+perfeito** — e isso e diferente do caso `acima_do_guloso`, em que o erro entra
+nos dois lados da conta e se cancela. Nao esta disfarcado: esta **declarado** em
+`co_personagens`, e a frase diz contra quem se joga. O que a regra protege e
+outra coisa — o desafio que parece dificil por causa de um erro **pontual e
+improvavel**.
+
+**E um defeito que a primeira execucao achou:** o arquiteto estourava com
+`min() iterable argument is empty` quando a partida acabava antes do teto de
+lances. Ele passou a levantar `ValueError`, o mesmo vocabulario da politica, para
+quem chama tratar o fim da partida num lugar so.
+
+---
+
 ## 2026-09-12 — A regra de recusa derruba TODAS as variantes do Pontinhos
 
 **Contexto.** Com a regra de recusa por erro do adversario ja no gerador (a que o

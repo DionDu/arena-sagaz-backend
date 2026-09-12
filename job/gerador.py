@@ -49,6 +49,7 @@ from motores.damas.motor_damas import EstadoDamas, MotorDamas, estado_inicial
 from motores.nucleo.orcamento import Orcamento
 from motores.nucleo.papeis import NivelDeMotor
 from motores.pontinhos import abertura_forcada
+from motores.pontinhos import cadeia_longa
 from motores.pontinhos import guloso as guloso_mod
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos
 from motores.pontinhos.politica import JogadorPontinhos
@@ -363,15 +364,32 @@ def escolher_variante(co_jogo: str, dt_dia: date, *, quantas_variantes: int) -> 
     return (vez_do_jogo // (quantos_tipos * quantas_modalidades)) % quantas_variantes
 
 
-def escolher_personagem(dt_dia: date) -> str:
+def escolher_personagem(
+    dt_dia: date, *, possiveis: Sequence[str] | None = None
+) -> str:
     """O adversario do dia, por rodizio.
+
+    Args:
+        dt_dia: o dia.
+        possiveis: a lista a que este tipo se restringe. `None` = todos.
 
     ⚠️ **O personagem e o nivel**, e por isso ele entra na frase: *"contra a
     Cacau"* e *"contra o Magno"* sao tarefas de tamanhos diferentes, mesmo com o
     objetivo identico.
+
+    ⛔ **E ha tipo que NAO cabe contra qualquer um** (12/09/2026). A cadeia longa
+    e o primeiro: contra o Magno ela e **impossivel** — medido, 0 de 30 posicoes
+    —, porque ele parte o tabuleiro em cadeias curtas e controla a paridade, que
+    e exatamente o contrario do que o desafio pede. Publicar um dia de cadeia
+    longa contra o Magno seria publicar um desafio sem solucao.
+
+    ⚠️ **O rodizio continua sendo pelo dia**, so que dentro da lista permitida:
+    trocar por sorteio faria duas execucoes do job para o mesmo dia escolherem
+    adversarios diferentes, e a idempotencia depende de isso nao acontecer.
     """
+    escala = list(possiveis) if possiveis else PERSONAGENS
     dias = (dt_dia - EPOCA_DO_RODIZIO).days
-    return PERSONAGENS[dias % len(PERSONAGENS)]
+    return escala[dias % len(escala)]
 
 
 def nivel_do_personagem(co_personagem: str) -> NivelDeMotor:
@@ -475,6 +493,48 @@ def _preparar_pontinhos(sorteio: random.Random, lances_de_preparo: int) -> Estad
 #: aquele jogo ainda nao tem a regra, em vez de um `else` silencioso.
 RECUSA_POR_JOGO = {"pontinhos": abertura_forcada.dependeu_de_erro}
 
+#: Quem procura a solucao, quando o SAGAZ nao serve.
+#:
+#: ⛔ **O Sagaz busca a vitoria, e nem todo desafio pede vitoria.** Na cadeia
+#: longa ele e o pior solucionador possivel: vencer no Pontinhos e partir o
+#: tabuleiro em cadeias curtas e controlar a paridade — o oposto de construir uma
+#: cadeia grande e ficar com ela. Medido em 30 posicoes: o Sagaz chega a seis
+#: caixas seguidas em 7% delas; o arquiteto, em 43%.
+#:
+#: ⚠️ **Registro, e nao um `if co_tipo == ...` no meio do laco**, pelo mesmo
+#: motivo de `RECUSA_POR_JOGO`: tipo que nao esta aqui usa o Sagaz, e a ausencia
+#: da chave e a declaracao disso — em vez de um `else` silencioso.
+#:
+#: ⚠️ A funcao recebe `(arbitro, estado)` e devolve o rotulo do lance.
+SOLUCIONADOR_POR_TIPO = {
+    "pontinhos_cadeia_longa": cadeia_longa.lance_do_arquiteto,
+}
+
+#: Tipos em que a recusa por erro do adversario NAO se aplica.
+#:
+#: ⚠️ **Sao dois motivos diferentes, e vale distingui-los** — este registro
+#: cobre o segundo:
+#:
+#:   1. **o erro se cancela** (`acima_do_guloso`): o alvo e `G + k`, e `G` e
+#:      medido na mesma posicao contra o mesmo personagem, entao um erro dele
+#:      levanta os dois lados da conta. Esse caso nao esta aqui: ele e detectado
+#:      pelos proprios parametros.
+#:
+#:   2. **abrir cadeia nao e erro, e o jogo** (`pontinhos_cadeia_longa`): no
+#:      Pontinhos **alguem tem de abrir** — e o zugzwang, a regra central do
+#:      jogo. A pergunta *"havia um traco seguro?"* acusa como erro uma coisa que
+#:      e inevitavel mais cedo ou mais tarde, e num tabuleiro de quatro tracos
+#:      ela acusa **todo** lance que entrega. ⛔ Medido em 12/09/2026: com a
+#:      regra ligada, este tipo da **pior dia 0** nas tres variantes; sem ela,
+#:      **pior dia 3** nas duas medidas.
+#:
+#: ⚠️ **E honestamente: aqui o desafio DEPENDE de um adversario que nao joga
+#: perfeito.** Contra o Magno ele e impossivel (0 de 30 posicoes). Isso nao e
+#: disfarcado — e declarado em `co_personagens` no editorial, e a frase diz
+#: contra quem se joga. O que a regra de recusa protege e outra coisa: o desafio
+#: que parece dificil por causa de um erro **pontual e improvavel**.
+TIPOS_SEM_RECUSA = {"pontinhos_cadeia_longa"}
+
 
 def motivo_de_erro_do_adversario(
     co_jogo: str,
@@ -523,6 +583,7 @@ def _resolver(
     nu_semente: int,
     maximo_de_lances: int,
     julgar,
+    solucionador=None,
 ) -> tuple[list[dict[str, Any]], int] | None:
     """Joga ate `maximo_de_lances` procurando cumprir a linha de chegada.
 
@@ -566,31 +627,49 @@ def _resolver(
             nivel if atual.vez_de == vez_do_solucionador else nivel_do_adversario
         )
         co_acao: str | None = None
-        try:
-            # ⚠️ **`decidir` devolve o lance E o motivo**; nem todo motor o tem
-            # (o das damas nao), e por isso a escolha e por capacidade, e nao
-            # por nome de jogo — um `if co_jogo == "pontinhos"` aqui teria de ser
-            # lembrado no dia em que o motor das damas ganhasse o mesmo metodo.
-            if hasattr(jogador, "decidir"):
-                # ⚠️ **`decidir` nao recebe orcamento, e nao e esquecimento:**
-                # no Pontinhos a escolha e uma inferencia da CNN, que nao tem no
-                # para contar. O orcamento acima serve a busca das damas.
-                decisao = jogador.decidir(
-                    atual,
-                    nivel_do_lance,
-                    semente=semente_mod.semente_do_lance(nu_semente, numero),
-                )
-                lance, co_acao = decisao.lance, decisao.co_acao
-            else:
-                lance = jogador.escolher_lance(
-                    atual,
-                    nivel_do_lance,
-                    limite=orcamento,
-                    semente=semente_mod.semente_do_lance(nu_semente, numero),
-                )
-        except ValueError:
-            # A partida acabou antes de o objetivo cair.
-            return None
+
+        # ── ⚠️ UM SOLUCIONADOR PROPRIO, quando o tipo pede ──────────────────
+        #
+        # ⛔ **So a vez de quem resolve.** O adversario continua sendo o
+        # personagem do dia, com a semente publicada — se o outro lado mudasse
+        # junto, o gabarito deixaria de se reproduzir no aparelho, que e o
+        # defeito corrigido em 11/09.
+        #
+        # ⚠️ **E ele nao tem `co_acao`**: `cnn_epsilon_aleatorio` marca o erro de
+        # proposito de um mascote, e quem resolve nao erra de proposito.
+        if solucionador is not None and atual.vez_de == vez_do_solucionador:
+            try:
+                lance = solucionador(getattr(jogador, "arbitro", jogador), atual)
+            except ValueError:
+                # A partida acabou antes de o objetivo cair — o mesmo tratamento
+                # do caminho da politica, logo abaixo.
+                return None
+        else:
+            try:
+                # ⚠️ **`decidir` devolve o lance E o motivo**; nem todo motor o tem
+                # (o das damas nao), e por isso a escolha e por capacidade, e nao
+                # por nome de jogo — um `if co_jogo == "pontinhos"` aqui teria de ser
+                # lembrado no dia em que o motor das damas ganhasse o mesmo metodo.
+                if hasattr(jogador, "decidir"):
+                    # ⚠️ **`decidir` nao recebe orcamento, e nao e esquecimento:**
+                    # no Pontinhos a escolha e uma inferencia da CNN, que nao tem no
+                    # para contar. O orcamento acima serve a busca das damas.
+                    decisao = jogador.decidir(
+                        atual,
+                        nivel_do_lance,
+                        semente=semente_mod.semente_do_lance(nu_semente, numero),
+                    )
+                    lance, co_acao = decisao.lance, decisao.co_acao
+                else:
+                    lance = jogador.escolher_lance(
+                        atual,
+                        nivel_do_lance,
+                        limite=orcamento,
+                        semente=semente_mod.semente_do_lance(nu_semente, numero),
+                    )
+            except ValueError:
+                # A partida acabou antes de o objetivo cair.
+                return None
 
         passo: dict[str, Any] = {
             "n": numero,
@@ -658,6 +737,7 @@ def gerar_candidatos(
     tentativas_por_candidato: int = 6,
     lances_de_preparo: int = 8,
     maximo_de_lances: int = 12,
+    personagens_possiveis: Sequence[str] | None = None,
 ) -> list[Candidato]:
     """Gera candidatos para um dia.
 
@@ -677,6 +757,10 @@ def gerar_candidatos(
             saem do mesmo `nu_lances_de_preparo` do editorial porque os tipos
             de um jogo nunca veem o do outro.
         maximo_de_lances: o teto da busca por solucao.
+        personagens_possiveis: a que adversarios este tipo se restringe.
+            ⛔ **Existe porque nem todo desafio cabe contra todo mundo**: a cadeia
+            longa contra o Magno e impossivel (medido, 0 de 30), porque ele parte
+            o tabuleiro em cadeias curtas. `None` = o rodizio normal dos quatro.
 
     Returns:
         Os candidatos encontrados. Pode vir menos que `quantos` — e pode vir
@@ -694,7 +778,10 @@ def gerar_candidatos(
     receita = receita_de(co_tipo)
     exigir_vetor(co_tipo)
 
-    co_personagem = escolher_personagem(dt_dia)
+    co_personagem = escolher_personagem(dt_dia, possiveis=personagens_possiveis)
+
+    # ⚠️ **Quem procura a solucao pode nao ser o Sagaz** — ver `SOLUCIONADOR_POR_TIPO`.
+    solucionador = SOLUCIONADOR_POR_TIPO.get(co_tipo)
 
     # ── ⚠️ O PARAMETRO PODE DEPENDER DA POSICAO (`acima_do_guloso`) ──────────
     #
@@ -727,7 +814,7 @@ def gerar_candidatos(
     # fila); desligada, **pior dia 3**, o maximo. A regra continua valendo para os
     # tipos de alvo fixo (*"feche 4 caixas"*), onde o erro do personagem entrega
     # o desafio de graca e nao ha nada do outro lado da conta para compensar.
-    objetivo_cancela_o_erro = depende_da_posicao
+    objetivo_cancela_o_erro = depende_da_posicao or co_tipo in TIPOS_SEM_RECUSA
 
     encontrados: list[Candidato] = []
 
@@ -867,6 +954,7 @@ def gerar_candidatos(
             nu_semente=nu_semente,
             maximo_de_lances=maximo_de_lances,
             julgar=julgar,
+            solucionador=solucionador,
         )
         if achado is None:
             continue

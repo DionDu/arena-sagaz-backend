@@ -218,8 +218,17 @@ def _menor_sacrificio(arbitro: Arbitro, estado: Any) -> str:
     deixa de ser *"como nao dar?"* e passa a ser *"qual dar?"*. Entregar a menor
     e o que guarda a maior para a vez seguinte, que e o proprio enredo do desafio:
     o adversario leva duas caixas e fica obrigado a abrir a cadeia grande.
+
+    Raises:
+        ValueError: quando **nao ha lance nenhum** — a partida acabou. ⚠️ E o
+            mesmo vocabulario da politica (`escolher_lance`), de proposito: quem
+            chama trata o fim da partida num lugar so, sem precisar saber qual
+            solucionador esta em uso. ⛔ Sem isto o `min()` estourava com
+            *"iterable argument is empty"*, que nao diz nada a quem le o log.
     """
     legais = arbitro.lances_legais(estado)
+    if not legais:
+        raise ValueError("a partida acabou: nao ha traco livre para jogar")
     return min(
         legais, key=lambda lance: abertura_forcada.caixas_entregues(arbitro, estado, lance)
     )
