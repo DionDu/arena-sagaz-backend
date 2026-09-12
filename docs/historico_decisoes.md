@@ -21,6 +21,80 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-11 — A PARIDADE DE CADEIAS LONGAS e o eixo certo do Pontinhos
+
+⛔ **Duas recomendacoes minhas foram derrubadas pelo dono no mesmo dia, e as duas
+pelo mesmo motivo: eu estava contando caixas onde o jogo conta CONTROLE.**
+
+**A primeira.** Propus subir o limiar da recusa de 1 para 3 caixas, com o
+argumento de que ceder 2 caixas e o proprio double-cross e seria punido. O dono:
+*"pra mim isso nao faz sentido"*. **A segunda**, logo depois: afirmei que o
+double-cross acontece sempre em zugzwang, e portanto a regra nunca dispararia
+sobre ele. ⚠️ **Medido nas partidas reais do `prd` (80 partidas), e falso:**
+
+    entregou | zugzwang (forcado) | tinha saida | % com saida
+    ---------+--------------------+-------------+------------
+       1     |         44         |     106     |     71%
+       2     |         69         |      53     |     43%
+       3     |         17         |      10     |     37%
+       6+    |         35         |       4     |     10%
+
+⚠️ **Ceder 1 ou 2 caixas COM alternativa segura acontece 159 vezes** — e a
+contagem de caixas nao diz se aquilo foi sacrificio de proposito ou burrice. ⛔
+**Nenhum limiar separa as duas coisas**, porque a diferenca nao esta no tamanho
+do presente: esta em quem fica no controle depois dele.
+
+### O que o dono disse, e que e a teoria do jogo
+
+> *"O jogador que controla a paridade das cadeias longas e quem vence o jogo. (…)
+> O jogador inexperiente vai capturar as cadeias longas ate o final e sera
+> obrigado a abrir a proxima cadeia longa para a CPU. Ja o jogador experiente vai
+> fazer o double dealing (…) ou capturar a cadeia longa ate faltarem somente 2
+> caixas (…) e deixa estas 2 ultimas para o adversario, que sera obrigado a
+> captura-las e abrir a cadeia longa."*
+
+✅ **E a medida ja existe, e ja esta no backend.**
+`analisador_estrutural_pontinhos.extrair_stats_cadeias(M)` devolve
+`(qtd_cadeias_longas, total_de_caixas, maior_cadeia)`, e chega aqui pelo
+**espelho do laboratorio** que `motores/pontinhos/motor_pontinhos.py` ja poe no
+`sys.path` — nao ha nada para portar.
+
+⛔ **A armadilha, custou uma medicao inteira:** `extrair_stats_cadeias` espera a
+matriz no formato do **dataset** (`{0,1,8,9}`), e nao a matriz crua da partida
+(que tem `-1`). Passando a crua ela devolve **zero cadeias em toda posicao**, sem
+erro nenhum — a primeira medicao "provou" que nao havia cadeia longa em lugar
+algum. A conversao e `motor_pontinhos.partida_para_dataset(matriz)`.
+
+### Ha material de sobra (80 partidas reais do `prd`)
+
+    posicoes de zugzwang, por cadeias longas no tabuleiro:
+        0 cadeias:  30
+        1 cadeia : 135
+        2 cadeias:  49      <- e aqui que a paridade decide
+
+    **30 das 80 partidas (38%)** chegam a um zugzwang com 2+ cadeias longas.
+    A maior cadeia dessas posicoes chega a **10 caixas**.
+
+Projetado nas 4.316 partidas do acervo: ~1.600 partidas com o momento de
+paridade.
+
+### ⚠️ E a forma de desafio que o dono desenhou dispensa o filtro
+
+> *"1. Entregamos um estado com caixas a capturar. Se ele capturar de forma
+> gulosa ele fecha o jogo com 5 caixas. 2. Se capturar usando double dealing ele
+> fecha com 7. 3. O desafio seria: capture 7 ou mais caixas."*
+
+⚠️ **O objetivo passa a excluir a solucao ingenua por construcao.** Nao se
+pergunta mais "o adversario errou?", porque a dificuldade deixa de depender do
+adversario: ela vem da escolha de **quem resolve**. Duas simulacoes dao o numero:
+guloso → `G`; com controle de paridade → `D`; publica-se *"capture `D` ou mais"*
+**se, e somente se, `D > G`**.
+
+⛔ **E isso torna o desafio auto-verificavel**: um desafio em que `D == G` nao tem
+graça e nao e publicado, sem ninguem precisar opinar sobre dificuldade.
+
+---
+
 ## 2026-09-11 — A pesca medida no acervo do `prd`, e o pescador do Pontinhos
 
 O dono exportou do `prd` os lances de damas (4.519 posicoes, contra 2.034 do
