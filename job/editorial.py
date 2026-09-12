@@ -112,6 +112,57 @@ class Publicacao:
     nu_lances_de_preparo: int = LANCES_DE_PREPARO_PADRAO
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O alvo que NAO vem daqui: `acima_do_guloso`
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: A chave cujo numero e **relativo a posicao**, e nao absoluto.
+#:
+#: ⚠️ **Vocabulario interno.** O que vai na frase e sempre o numero absoluto
+#: (*"capture 7 ou mais"*); quem joga nunca ve a palavra "guloso", que seria
+#: ininteligivel — ele nao sabe o que um jogador guloso faria naquela posicao.
+CHAVE_RELATIVA_AO_GULOSO = "acima_do_guloso"
+
+#: Um `G` plausivel, para as conferencias que rodam SEM uma posicao.
+#:
+#: ⚠️ **Nao e um padrao de producao.** Ele existe so para que um teste consiga
+#: perguntar *"as medidas desta variante fecham em 1000?"* sem ter de gerar um
+#: candidato de verdade. ⛔ O valor publicado nunca passa por aqui: ele sai do
+#: guloso medido na propria posicao.
+GULOSO_DE_EXEMPLO = 5
+
+
+def alvo_sai_da_posicao(parametros: Mapping[str, Any]) -> bool:
+    """Esta variante calcula o alvo a partir da posicao?"""
+    return CHAVE_RELATIVA_AO_GULOSO in parametros
+
+
+def parametros_efetivos(
+    parametros: Mapping[str, Any], *, guloso: int
+) -> dict[str, Any]:
+    """Os numeros que a **receita** consome, com o alvo ja resolvido.
+
+    Args:
+        parametros: os do editorial.
+        guloso: quantas caixas um jogador que nunca recusa uma caixa faz nesta
+            posicao (`G`). Ignorado nas variantes de alvo fixo.
+
+    ⛔ **A traducao mora aqui, e num lugar so.** Ela era uma linha solta no laco
+    do gerador; quando as medidas de saida passaram a precisar do mesmo numero,
+    havia duas contas para manter iguais — e uma discordancia entre elas
+    publicaria uma frase pedindo 7 com a nota calibrada para outro alvo, sem erro
+    nenhum.
+    """
+    if not alvo_sai_da_posicao(parametros):
+        return dict(parametros)
+    return {"caixas": guloso + parametros[CHAVE_RELATIVA_AO_GULOSO]}
+
+
+def parametros_para_conferencia(parametros: Mapping[str, Any]) -> dict[str, Any]:
+    """Os parametros de uma variante quando nao ha posicao — so para conferir."""
+    return parametros_efetivos(parametros, guloso=GULOSO_DE_EXEMPLO)
+
+
 class TipoSemEditorial(ValueError):
     """O tipo tem receita e vetor, mas ninguem disse com que numeros publica-lo.
 
@@ -247,26 +298,28 @@ def _medidas_do_damas_captura(p: Mapping[str, Any]) -> list[dict[str, Any]]:
 #: Pontinhos nenhum.
 EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     "pontinhos_fechar_caixas": (
+        # ⛔ **`{caixas: 4, turnos: 2}` SAIU em 12/09/2026, e a licao e sobre
+        # REMEDIR.** Ela entrou em 11/09 com pior dia **2**, medido antes de a
+        # regra de recusa por erro do adversario existir. Remedida com a regra
+        # ligada: **0** (2, 0, 0) — dia descoberto na fila a cada aparicao.
+        #
+        # ⚠️ **Medicao nao e selo vitalicio.** O numero descreve a variante *com
+        # o gerador daquele dia*; mudou o gerador, o numero venceu. Quem nao
+        # remede publica um ⛔ achando que publica um ✅, e o log so dira "sem
+        # candidato" duas semanas depois.
         Publicacao(
-            # Os numeros do exemplo do `data-model.md`: quatro caixas em dois
-            # turnos, num tabuleiro de doze. ⚠️ Dois turnos e apertado de
-            # proposito — quem fecha caixa joga de novo, entao quatro caixas
-            # cabem num turno so quando a cadeia esta armada.
+            # A mais facil da familia: tres caixas na janela apertada de dois
+            # turnos. ⚠️ Dois turnos e apertado de proposito — quem fecha caixa
+            # joga de novo, entao as caixas so cabem num turno so quando a cadeia
+            # esta armada.
             #
-            # Medido 11/09/2026: pior dia **2** candidatos · solucao 6,6 lances.
-            parametros={"caixas": 4, "turnos": 2},
-            # Quatro de doze deixam o jogo em aberto.
+            # Medido 12/09/2026, **com a regra de recusa**: pior dia **1** ·
+            # solucao 6,0 lances. (Era 3 antes da regra.)
+            parametros={"caixas": 3, "turnos": 2},
+            # Tres de doze deixam o jogo em aberto.
             ic_chegada_encerra_partida=False,
             # ⚠️ **Preparo 14, e nao 8** — medido: com 8 tracos o tabuleiro nao
-            # tem cadeia de 4 caixas, e procurar por mais tempo nao inventa uma.
-            nu_lances_de_preparo=14,
-            medidas=_medidas_do_pontinhos_fechar_caixas,
-        ),
-        Publicacao(
-            # A mais facil da familia: tres caixas na mesma janela apertada.
-            # Medido: pior dia **3** · solucao 5,7 lances.
-            parametros={"caixas": 3, "turnos": 2},
-            ic_chegada_encerra_partida=False,
+            # tem cadeia formada, e procurar por mais tempo nao inventa uma.
             nu_lances_de_preparo=14,
             medidas=_medidas_do_pontinhos_fechar_caixas,
         ),
@@ -274,7 +327,9 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # ⚠️ **O mesmo alvo, com um turno a mais** — e a variante que muda a
             # *forma* da tarefa sem mudar o numero: da para chegar la sem a
             # cadeia armada, montando-a.
-            # Medido: pior dia **3** · solucao 8,6 lances.
+            # Medido 12/09/2026, com a regra de recusa: pior dia **3** ·
+            # solucao 9,9 lances. ⚠️ **A unica da familia que a regra nao derruba**
+            # — o turno a mais da folga para o gabarito contornar um lance recusado.
             parametros={"caixas": 4, "turnos": 3},
             ic_chegada_encerra_partida=False,
             nu_lances_de_preparo=14,
@@ -285,7 +340,8 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # ⛔ Medidas e **recusadas**: `{"caixas": 5, "turnos": 2}` deu pior dia
             # **0** (2, 0, 2) e `{"caixas": 6, "turnos": 3}` deu pior dia **1**
             # em oito — nenhuma das duas entra.
-            # Medido: pior dia **3** · solucao 9,8 lances.
+            # Medido 12/09/2026, com a regra de recusa: pior dia **1** ·
+            # solucao 10,3 lances. (Era 3 antes da regra.)
             parametros={"caixas": 5, "turnos": 3},
             ic_chegada_encerra_partida=False,
             nu_lances_de_preparo=14,
@@ -295,7 +351,8 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     "pontinhos_chegar_ao_placar": (
         Publicacao(
             # Sete de doze e a maioria: quem chega la **ja venceu**.
-            # Medido: pior dia **2** · solucao 21,5 lances.
+            # Medido 12/09/2026, com a regra de recusa: pior dia **1** ·
+            # solucao 22,0 lances. (Era 3 antes da regra.)
             parametros={"caixas": 7},
             # ⚠️ E ainda assim `False`: a partida esta DECIDIDA, e nao terminada
             # — sobram tracos no tabuleiro, e ⛔ o aplicativo nao interrompe quem
@@ -308,7 +365,8 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         ),
         Publicacao(
             # Seis de doze e o empate: quem chega la **nao perdeu**.
-            # Medido: pior dia **3** · solucao 20,2 lances.
+            # Medido 12/09/2026, com a regra de recusa: pior dia **1** ·
+            # solucao 21,3 lances. (Era 3 antes da regra.)
             parametros={"caixas": 6},
             ic_chegada_encerra_partida=False,
             nu_maximo_de_lances=34,
@@ -320,10 +378,50 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # do proprio parametro, entao a nota continua cheia em cinco de cinco.
             # ⛔ Medidas e **recusadas**: `{"caixas": 8}` deu pior dia **0** (0, 0,
             # 1) e `{"caixas": 9}` nao gerou **nada** em tres dias.
-            # Medido: pior dia **3** · solucao 18,9 lances.
+            # Medido 12/09/2026, com a regra de recusa: pior dia **1** ·
+            # solucao 19,8 lances. (Era 3 antes da regra.)
             parametros={"caixas": 5},
             ic_chegada_encerra_partida=False,
             nu_maximo_de_lances=34,
+            medidas=_medidas_do_pontinhos_placar,
+        ),
+        Publicacao(
+            # ── O ALVO SAI DA POSICAO, E NAO DAQUI (desenho do dono, 11/09) ──
+            #
+            # > *"Se ele capturar de forma gulosa ele fecha o jogo com 5 caixas.
+            # > Se capturar usando double dealing ele fecha o jogo com 7. Neste
+            # > exemplo o desafio seria: capture 7 ou mais caixas."*
+            #
+            # ⚠️ **`acima_do_guloso` e vocabulario INTERNO.** O gerador mede
+            # quantas caixas um jogador que nunca recusa uma caixa faria naquela
+            # posicao (`G`), soma este `1`, e e o numero **absoluto** que vai na
+            # frase — quem joga nunca ve a palavra "guloso".
+            #
+            # ⛔ **Quem so captura nao resolve**, e essa e a diferenca de fundo
+            # para as tres publicacoes acima: a solucao ingenua fica excluida
+            # **por construcao**, e nao porque alguem julgou que era facil demais.
+            # A habilidade cobrada e o *double dealing* — recusar as duas ultimas
+            # caixas da cadeia para manter a vez.
+            #
+            # ⛔ **Preparo 14, e nao o 8 padrao**: com 8 tracos o tabuleiro e
+            # comeco de jogo, sem cadeia formada, e sem cadeia nao ha o que
+            # recusar. Medido em 60 posicoes reais do `prd` com 14 tracos: 27%
+            # rendem um alvo acima do guloso, com diferencas de +1 a +5.
+            #
+            # ⚠️ **E aqui a regra de recusa por erro do adversario NAO se
+            # aplica** (decisao do dono, 12/09/2026): `G` e medido na mesma
+            # posicao e contra o mesmo personagem, entao um erro dele levanta os
+            # dois lados da conta e se cancela. Com a regra ligada esta variante
+            # dava pior dia **0**; sem ela, **3**.
+            #
+            # Medido 12/09/2026: pior dia **3** · solucao 15,6 lances.
+            parametros={"acima_do_guloso": 1},
+            # ⚠️ O alvo e um placar, e nao o fim do jogo — como nas irmas.
+            ic_chegada_encerra_partida=False,
+            nu_maximo_de_lances=34,
+            nu_lances_de_preparo=14,
+            # ⚠️ As medidas leem `caixas`, e recebem os parametros do
+            # **candidato** (`G + 1`), nao os daqui — ver `job/__main__.py`.
             medidas=_medidas_do_pontinhos_placar,
         ),
     ),

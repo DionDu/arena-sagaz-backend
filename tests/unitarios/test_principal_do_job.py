@@ -29,6 +29,7 @@ from job.alvo_observado import PISO_FIXO, TETO_FIXO, Alvo
 from job.editorial import (
     EDITORIAL,
     TipoSemEditorial,
+    parametros_para_conferencia,
     publicacao_de,
     variantes_de,
 )
@@ -113,14 +114,33 @@ class _Bancada:
         return _Julgamento(self._cumpre)
 
 
-def _candidato(co_tipo: str = "pontinhos_fechar_caixas") -> Candidato:
-    """Um candidato pronto, sem ter passado por motor nenhum."""
+def _candidato(
+    co_tipo: str = "pontinhos_fechar_caixas",
+    parametros_pedidos: Any = None,
+) -> Candidato:
+    """Um candidato pronto, sem ter passado por motor nenhum.
+
+    Args:
+        parametros_pedidos: os parametros que o job pediu. ⚠️ **Quando vierem, sao
+            eles que valem** — o `principal()` monta as medidas de saida com os
+            parametros do CANDIDATO, entao um duble que devolvesse sempre os da
+            primeira variante publicaria medidas de um tipo no dia de outro.
+    """
     receita = receita_de(co_tipo)
     # ⚠️ **A primeira variante basta AQUI**, e so aqui: este e um candidato de
     # laboratorio, e o que se exercita e o encadeamento. Quem prova que a
     # variante do dia e escolhida direito sao os casos da secao 8.
     publicacao = variantes_de(co_tipo)[0]
-    parametros = dict(publicacao.parametros)
+    if parametros_pedidos is not None:
+        publicacao = type(publicacao)(
+            parametros=parametros_pedidos,
+            ic_chegada_encerra_partida=publicacao.ic_chegada_encerra_partida,
+            medidas=publicacao.medidas,
+        )
+    # ⚠️ **Passa pela traducao do editorial**, e nao usa os parametros crus: numa
+    # variante cujo alvo sai da posicao (`acima_do_guloso`) os numeros do
+    # editorial nem tem a chave que a receita le.
+    parametros = parametros_para_conferencia(publicacao.parametros)
     return Candidato(
         co_jogo=receita.co_jogo,
         co_variante="pequeno",
@@ -139,6 +159,7 @@ def _candidato(co_tipo: str = "pontinhos_fechar_caixas") -> Candidato:
         nu_semente=2087461933,
         js_solucao={"versao": 1, "origem": "busca_sagaz", "lances": [], "lance_chave": 1},
         nu_lances_solucao=5,
+        parametros=parametros,
         estado_inicial=_EstadoFalso(),
     )
 
@@ -157,9 +178,16 @@ def _sessao_feliz() -> FakeSessaoSQL:
     )
 
 
-def _gerar_um(*_a: Any, **_k: Any) -> list[Candidato]:
-    """Uma geracao que sempre acha candidato."""
-    return [_candidato()]
+def _gerar_um(dt_dia: date, *_a: Any, **kwargs: Any) -> list[Candidato]:
+    """Uma geracao que sempre acha candidato — do TIPO daquele dia.
+
+    ⚠️ **O tipo sai do dia, e os parametros do que o job pediu.** Um duble que
+    devolvesse sempre o mesmo candidato faria o job publicar as medidas de
+    `fechar_caixas` no dia das damas — e desde 12/09/2026 isso estoura com
+    `KeyError`, porque as medidas passaram a ler os parametros do candidato.
+    """
+    co_tipo = escolher_tipo(escolher_jogo(dt_dia), dt_dia)
+    return [_candidato(co_tipo, kwargs.get("parametros"))]
 
 
 def _gerar_nenhum(*_a: Any, **_k: Any) -> list[Candidato]:
@@ -292,7 +320,7 @@ async def test_a_CONEXAO_e_SOLTA_antes_da_geracao() -> None:
 
     def gerar_marcando(*a: Any, **k: Any) -> list[Candidato]:
         sessao.linha_do_tempo.append("GERACAO")
-        return [_candidato()]
+        return _gerar_um(*a, **k)
 
     await _rodar(sessao, gerar=gerar_marcando)
 
@@ -483,7 +511,7 @@ async def test_um_dia_que_ESTOURA_nao_derruba_a_execucao() -> None:
         chamadas["n"] += 1
         if chamadas["n"] == 3:
             raise RuntimeError("o motor engasgou neste dia")
-        return [_candidato()]
+        return _gerar_um(*_a, **_k)
 
     relatorio = await _rodar(_sessao_feliz(), gerar=gerar_com_um_defeito)
 
@@ -529,7 +557,7 @@ async def test_a_lista_de_RECENTES_e_lida_uma_vez_e_usada_nas_DUAS_escolhas() ->
 
     def gerar_espiao(dt_dia: date, **kwargs: Any) -> list[Candidato]:
         vistos.append(tuple(kwargs["tipos_recentes"]))
-        return [_candidato()]
+        return _gerar_um(dt_dia, **kwargs)
 
     sessao = FakeSessaoSQL(
         respostas={
@@ -572,7 +600,9 @@ def test_as_medidas_de_cada_tipo_FECHAM_em_1000(co_tipo: str) -> None:
     # uma lista, e uma variante com peso quebrado so apareceria no dia em que o
     # odometro chegasse nela — semanas depois de entrar.
     for publicacao in variantes_de(co_tipo):
-        conferir(publicacao.medidas(publicacao.parametros))
+        conferir(
+            publicacao.medidas(parametros_para_conferencia(publicacao.parametros))
+        )
 
 
 @pytest.mark.parametrize("co_tipo", sorted(EDITORIAL))
@@ -586,7 +616,7 @@ def test_os_parametros_de_cada_tipo_MONTAM_a_chegada(co_tipo: str) -> None:
     # ⚠️ **Uma variante por vez, todas elas.** Um `{"caixas": 4}` numa variante
     # de uma receita que le `p["turnos"]` estouraria so na vez daquela variante.
     for publicacao in variantes_de(co_tipo):
-        receita_de(co_tipo).montar(publicacao.parametros)
+        receita_de(co_tipo).montar(parametros_para_conferencia(publicacao.parametros))
 
 
 def test_tipo_SEM_editorial_falha_alto() -> None:
@@ -793,7 +823,7 @@ async def test_o_job_gera_MAIS_DE_UM_candidato_por_dia() -> None:
 
     def gerar_espiao(dt_dia: date, **kwargs: Any) -> list[Candidato]:
         pedidos.append(kwargs["quantos"])
-        return [_candidato()]
+        return _gerar_um(dt_dia, **kwargs)
 
     await _rodar(_sessao_feliz(), gerar=gerar_espiao)
 
@@ -820,7 +850,9 @@ async def test_a_medicao_PARA_no_primeiro_candidato_que_encaixa() -> None:
             return _Julgamento(True)
 
     def gerar_tres(*_a: Any, **_k: Any) -> list[Candidato]:
-        return [_candidato(), _candidato(), _candidato()]
+        # ⚠️ Tres candidatos do MESMO dia — e o tipo do dia que manda, como no
+        # gerador de verdade.
+        return [_gerar_um(*_a, **_k)[0] for _ in range(3)]
 
     relatorio = await _rodar(
         _sessao_feliz(), gerar=gerar_tres, bancada=_BancadaContada(), alvo=BANDA_LARGA
@@ -999,7 +1031,7 @@ def _gerar_espiao(registro: list[dict[str, Any]]) -> Any:
 
     def gerar(*_a: Any, **kwargs: Any) -> list[Candidato]:
         registro.append(dict(kwargs["parametros"]))
-        return [_candidato()]
+        return _gerar_um(*_a, **kwargs)
 
     return gerar
 

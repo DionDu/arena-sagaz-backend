@@ -542,7 +542,12 @@ async def cobrir_um_dia(
     candidato, medicoes = escolhido
 
     # ── As medidas de saida e a regua de tempo ──────────────────────────────
-    medidas = publicacao.medidas(publicacao.parametros)
+    # ⚠️ **Os parametros do CANDIDATO, e nao os do editorial.** Nos tipos de alvo
+    # fixo os dois sao iguais; em `acima_do_guloso` o alvo e calculado a partir da
+    # posicao (`G + k`), e o editorial nem tem a chave que as medidas leem — ⛔
+    # `publicacao.parametros` daria `KeyError: 'caixas'` na hora de publicar, e um
+    # `vr_max` do editorial pagaria nota cheia por um alvo que a frase nao pediu.
+    medidas = publicacao.medidas(candidato.parametros)
     medidas_mod.conferir(medidas)
 
     piso, teto = medidas_mod.regua_de_tempo(

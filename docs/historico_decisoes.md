@@ -63,13 +63,38 @@ E por isso que `guloso.py` ja dizia, desde o primeiro dia, que este desenho
 *"dispensa o filtro de erro do adversario"* — a dificuldade deixou de vir do erro
 dele e passou a vir da escolha de quem resolve.
 
-**Decisao: nenhuma, ainda.** ⛔ Desligar a regra e reabrir o defeito que o dono
-relatou (*"os desafios dos pontinhos sao quase sempre baseados numa jogada errada
-do personagem"*), e a escolha entre desligar por tipo, afrouxar ou aceitar um
-editorial mais magro e dele. O que entrou no codigo hoje foi so o **instrumento**:
-o medidor passa a aceitar botoes de geracao por candidata (`Candidata`), sem o
-que a variante `acima_do_guloso` seria medida com preparo 8 e levaria um ⛔ pela
-medicao errada, e nao pela variante.
+**Decisao do dono, 12/09/2026: a regra sai SO no tipo em que o alvo vem da
+posicao.** Ela continua valendo em *"feche N caixas"*, onde o erro do personagem
+entrega o desafio de graca e nao ha nada do outro lado da conta para compensar.
+Sai em `acima_do_guloso`, onde ha. No codigo e uma linha nomeada no gerador
+(`objetivo_cancela_o_erro`), e nao um `if` no meio do laco; travada por
+`test_acima_do_guloso.py`, **com controle** — o mesmo caso confere que a regra
+**continua** sendo consultada no tipo de alvo fixo, senao ele passaria igual se
+alguem a tivesse desligado para todo mundo.
+
+**Consequencias, no mesmo dia:**
+
+- ⛔ **`{caixas: 4, turnos: 2}` saiu do editorial.** Entrou em 11/09 com pior dia
+  2, medido antes de a regra existir; remedida com ela, deu **0**. ⚠️ **Medicao
+  nao e selo vitalicio** — o numero descreve a variante *com o gerador daquele
+  dia*, e quem nao remede publica um ⛔ achando que publica um ✅.
+- ✅ **`{acima_do_guloso: 1}` entrou**, com pior dia **3**, preparo 14 e teto 34.
+- ⚠️ **`{caixas: 5}` e `{caixas: 5, turnos: 3}` estavam no ar e nao estavam na
+  lista do medidor.** Entraram: variante publicada fora da lista deixa de ser
+  remedida justamente quando o gerador muda.
+- ⛔ **E um defeito que so apareceu ao publicar a variante:** `job/__main__.py`
+  montava as medidas de saida com `publicacao.parametros`, que nesta variante nem
+  tem a chave `caixas` (`KeyError` **depois** de gerar, medir e aprovar o
+  candidato). O `Candidato` passa a carregar os `parametros` com que foi montado —
+  **sem valor padrao**, para quem esquecer descobrir na construcao — e a traducao
+  `acima_do_guloso → caixas` virou funcao unica em `editorial.parametros_efetivos`,
+  com uma irma (`parametros_para_conferencia`) para os testes que rodam sem
+  posicao nenhuma. ⚠️ Havia duas contas para manter iguais; uma discordancia entre
+  elas publicaria a frase pedindo 7 com a nota calibrada para outro alvo.
+
+O medidor tambem passou a aceitar botoes de geracao **por candidata**
+(`Candidata`): sem isso a variante seria medida com o preparo 8 da publicacao no
+ar e levaria um ⛔ pela medicao errada, e nao pela variante.
 
 ⚠️ **E a variante `{caixas: 5}` faltava na lista do medidor** apesar de estar no
 ar desde 11/09. Variante publicada fora da lista deixa de ser remedida quando o
@@ -107,16 +132,15 @@ pelos 184 pescados. ⚠️ **Substituido, e nao somado:** o gerador sorteia entr
 moldes, entao manter os 29 antigos reintroduziria, em ~14% das publicacoes,
 exatamente o desafio banal que a pescaria existe para acabar.
 
-⚠️ **Isso poe de volta na mesa a §8j do `DECISOES-do-dono.md`.** A decisao *"eu
-aceito que ela pode ser o tipo rapido"* foi tomada sob a premissa de que todo
-molde cumpria no lance 3 — premissa que nao vale mais. ⛔ **A escolha e do dono**,
-e nada aqui a antecipa: o acervo comporta as duas leituras (97 moldes curtos e 87
-longos), e o rodizio continua como esta ate ele dizer.
+⚠️ **E isso reabriu a §8j do `DECISOES-do-dono.md`**, decidida quando todo molde
+cumpria no lance 3 e nao havia escolha a fazer. **O dono decidiu em 12/09/2026:
+so os 87 moldes de 4 lances ou mais entram.** A captura multipla deixa de ser *"o
+tipo rapido"* da fila e passa a durar como o coroar.
 
-**Alternativa considerada e recusada:** cortar o acervo nos 87 moldes de 4+
-lances, para forcar o tipo a deixar de ser curto. Recusada porque decidiria pelo
-dono uma questao que e dele, e porque jogaria fora 97 moldes reais que continuam
-validos para a variante curta.
+⚠️ **Os 97 curtos nao foram apagados** — saem do diario da pescaria com um
+comando, e o comentario do acervo diz qual. ⛔ Mas nao voltam por descuido: um
+molde curto no meio do acervo publicaria, de vez em quando, exatamente o desafio
+de um toque que a decisao acabou de recusar.
 
 ⚠️ **A pescaria de `damas_coroar` ainda nao rodou** (~4,5 h estimadas). Ate la,
 aquele acervo continua sintetico — e e o unico dos dois que ainda esta.

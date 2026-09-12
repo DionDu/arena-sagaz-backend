@@ -184,3 +184,60 @@ def test_o_tipo_de_parametro_FIXO_continua_funcionando(candidatos) -> None:
     )
     for candidato in fixos:
         assert candidato.js_chegada["clausulas"][0]["valor"] == 5
+
+
+def test_a_regra_de_recusa_NAO_e_aplicada_a_este_tipo(monkeypatch) -> None:
+    """🔒 ⛔ A decisão do dono de 12/09/2026, travada.
+
+    A regra *"se o adversário entregou caixas e existia um traço que entregava
+    zero, recusa"* continua valendo nos tipos de alvo fixo. Aqui, **não**: o alvo
+    é `G + k`, e `G` é medido na mesma posição contra o mesmo personagem — um erro
+    dele levanta os dois lados da conta e se cancela.
+
+    ⚠️ **Medido, e é por isso que o teste existe:** com a regra ligada esta
+    variante deu **pior dia 0** (dia descoberto na fila); sem ela, **3**.
+    """
+    chamadas: list[str] = []
+
+    def espiao(*a, **k):
+        chamadas.append("perguntou")
+        return None
+
+    monkeypatch.setattr(gerador, "motivo_de_erro_do_adversario", espiao)
+
+    gerador.gerar_candidatos(
+        DIA_DE_PONTINHOS,
+        parametros={"acima_do_guloso": 1},
+        quantos=1,
+        tentativas_por_candidato=4,
+        maximo_de_lances=TETO,
+        lances_de_preparo=PREPARO,
+    )
+    assert not chamadas, "a recusa por erro do adversario foi consultada neste tipo"
+
+    # ⚠️ **O controle.** Sem ele, o caso passaria igual se a regra tivesse sido
+    # desligada para todo mundo — que é exatamente o que a decisão NÃO foi.
+    gerador.gerar_candidatos(
+        DIA_DE_PONTINHOS,
+        parametros={"caixas": 5},
+        quantos=1,
+        tentativas_por_candidato=4,
+        maximo_de_lances=TETO,
+        lances_de_preparo=PREPARO,
+    )
+    assert chamadas, "a recusa deixou de ser consultada tambem no tipo de alvo fixo"
+
+
+def test_o_candidato_CARREGA_os_parametros_com_que_foi_montado(candidatos) -> None:
+    """🔒 ⛔ Quem publica as medidas de saída lê daqui, e não do editorial.
+
+    O editorial desta variante nem tem a chave `caixas` — ele traz
+    `acima_do_guloso`. ⚠️ Sem este campo, `publicacao.medidas(...)` estouraria com
+    `KeyError: 'caixas'` **depois** de o candidato ter sido gerado, medido e
+    aprovado; e um `vr_max` do editorial pagaria nota cheia por um alvo diferente
+    do que a frase pediu.
+    """
+    for candidato in candidatos:
+        alvo = candidato.js_chegada["clausulas"][0]["valor"]
+        assert candidato.parametros["caixas"] == alvo
+        assert "acima_do_guloso" not in candidato.parametros

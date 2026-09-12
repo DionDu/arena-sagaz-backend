@@ -53,6 +53,7 @@ from motores.pontinhos import guloso as guloso_mod
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos
 from motores.pontinhos.politica import JogadorPontinhos
 
+from . import editorial as editorial_mod
 from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicao_inicial as posicao_mod
@@ -152,6 +153,7 @@ class Candidato:
         nu_semente: a semente publicada.
         js_solucao: o gabarito.
         nu_lances_solucao: o tamanho dele, que vira coluna.
+        parametros: os numeros **efetivamente usados** para montar a chegada.
     """
 
     co_jogo: str
@@ -166,6 +168,25 @@ class Candidato:
     nu_semente: int
     js_solucao: dict[str, Any]
     nu_lances_solucao: int
+
+    #: Os parametros **desta** posicao, e nao os do editorial.
+    #:
+    #: ⛔ **Existe porque nem todo alvo vem do editorial.** Em `acima_do_guloso`
+    #: o numero e calculado a partir da posicao (`G + k`), e quem publica as
+    #: medidas de saida precisa do numero **publicado** para montar o `vr_max`:
+    #: usar os parametros do editorial daria `KeyError: 'caixas'`, e um `vr_max`
+    #: fixo pagaria nota cheia por um alvo diferente do que a frase pediu.
+    #:
+    #: ⚠️ Para os tipos de alvo fixo e simplesmente uma copia do que veio do
+    #: editorial — de proposito: assim quem consome nao precisa saber de qual
+    #: familia o tipo e.
+    #:
+    #: ⛔ **Sem valor padrao**, de proposito. Um `{}` aqui faria um candidato
+    #: construido sem parametros chegar intacto ate a hora de publicar e estourar
+    #: la com `KeyError: 'caixas'` — depois de gerado, medido e aprovado. Sem
+    #: padrao, quem esquecer descobre na construcao.
+    parametros: Mapping[str, Any]
+
     de_diagnostico: list[str] = field(default_factory=list, compare=False)
 
     #: A posicao de partida **como objeto do motor**, e nao como JSON.
@@ -689,7 +710,24 @@ def gerar_candidatos(
     # proposito: mexer no contrato da receita obrigaria a refazer os vetores de
     # verificacao e a cópia do app. Quem traduz `acima_do_guloso` em `caixas` e o
     # gerador, que e quem tem a posicao.
-    depende_da_posicao = "acima_do_guloso" in parametros
+    depende_da_posicao = editorial_mod.alvo_sai_da_posicao(parametros)
+
+    # ⛔ **E quando o alvo sai da posicao, a recusa por erro do adversario SAI DE
+    # CENA** (decisao do dono, 12/09/2026).
+    #
+    # ⚠️ **Nao e um afrouxamento: e que a conta ja cancela o erro.** O numero
+    # publicado e `G + k`, e `G` — o que um jogador que nunca recusa uma caixa
+    # faria — e medido **na mesma posicao, contra o mesmo personagem**. Se ele
+    # entrega uma cadeia de graca, ela entra nos dois lados: o guloso tambem a
+    # pega, `G` sobe junto, e o alvo sobe com ele. O desafio continua cobrando a
+    # mesma habilidade que cobraria contra um adversario perfeito.
+    #
+    # ⛔ **E sem isto a variante nao existe.** Medido em 12/09/2026, lado a lado:
+    # com a regra ligada, `acima_do_guloso` deu **pior dia 0** (dia descoberto na
+    # fila); desligada, **pior dia 3**, o maximo. A regra continua valendo para os
+    # tipos de alvo fixo (*"feche 4 caixas"*), onde o erro do personagem entrega
+    # o desafio de graca e nao ha nada do outro lado da conta para compensar.
+    objetivo_cancela_o_erro = depende_da_posicao
 
     encontrados: list[Candidato] = []
 
@@ -797,7 +835,9 @@ def gerar_candidatos(
                 semente_do_lance=semente_mod.semente_do_lance,
                 nu_semente=nu_semente,
             )
-            parametros_daqui = {"caixas": guloso + parametros["acima_do_guloso"]}
+            parametros_daqui = editorial_mod.parametros_efetivos(
+                parametros, guloso=guloso
+            )
         else:
             parametros_daqui = dict(parametros)
 
@@ -850,8 +890,12 @@ def gerar_candidatos(
         # ⛔ **Descartar aqui nao deixa o dia descoberto**: o laco continua, e ha
         # `tentativas_por_candidato * quantos` posicoes para tentar — o mesmo
         # raciocinio da recusa por objetivo no lance 1, logo acima.
-        recusa = motivo_de_erro_do_adversario(
-            co_jogo, jogador, base, fita, js_posicao["vez_de"]
+        recusa = (
+            None
+            if objetivo_cancela_o_erro
+            else motivo_de_erro_do_adversario(
+                co_jogo, jogador, base, fita, js_posicao["vez_de"]
+            )
         )
         if recusa is not None:
             print(
@@ -872,6 +916,7 @@ def gerar_candidatos(
                 receita=receita,
                 js_chegada=js_chegada,
                 js_objetivo=js_objetivo,
+                parametros=parametros_daqui,
                 co_personagem=co_personagem,
                 nu_semente=nu_semente,
                 js_solucao=js_solucao,

@@ -121,6 +121,8 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         Candidata({"caixas": 3, "turnos": 2}),
         Candidata({"caixas": 5, "turnos": 2}),
         Candidata({"caixas": 4, "turnos": 3}),
+        # ⚠️ Tambem esta no ar e faltava aqui, como a `{caixas: 5}` do outro tipo.
+        Candidata({"caixas": 5, "turnos": 3}),
         Candidata({"caixas": 6, "turnos": 3}),
     ),
     "pontinhos_chegar_ao_placar": (
