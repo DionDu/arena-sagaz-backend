@@ -21,6 +21,95 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-12 (tarde) — O dia descoberto, o container de 10 horas, e a régua de qualidade
+
+A primeira execução automática do job no Railway depois da remedição trouxe três
+coisas, e nenhuma delas era o que se estava olhando.
+
+### ⛔ 1. Um dia sem desafio, e ele ensina o que `NO LIMITE` significa
+
+Em **2026-09-18** o job tentou `6 × 3 = 18` posições para
+`pontinhos_chegar_ao_placar` com `{caixas: 5}`, **recusou as 18** por erro do
+adversário, e não houve reprise elegível. A fila ficou com um buraco.
+
+⚠️ **E a variante estava aprovada.** Ela fora medida no mesmo dia, com a regra de
+recusa ligada, e deu `1 de 3 no dia mais fraco` — ✅ pelo critério do script. A
+lição é sobre o que a medição **é**: uma amostra de **3 dias**. O ano tem 365, e
+a quarta amostra deu zero.
+
+⚠️ **O detalhe que apontou a saída: as 18 tentativas custaram 2 segundos.** O
+gerador não desistiu por falta de tempo — desistiu porque `tentativas_por_candidato`
+valia **6**, global, e o orçamento acabou.
+
+✅ **Decisão do dono:** o número passa a ser **por jogo** — `TENTATIVAS_POR_JOGO`
+em `job/gerador.py`, com **Pontinhos 20** e **damas 6**. ⛔ Não pode ser global:
+nas damas cada tentativa custa ~30 s de busca, e 20 seriam dez minutos por dia.
+
+⛔ **E a ordem de ataque ficou escrita** (`DECISOES-do-dono.md` §8k-3): mais
+tentativas → mais moldes → trocar a variante. **Afrouxar a recusa por erro do
+adversário é o último recurso**, e só com decisão dele.
+
+⚠️ **A reprise não é rede, e não vai ser por meses.** Os filtros são ≥20
+tentativas, taxa ≥70% e publicação até 2026-07-20 — no `des` não há tentativa
+nenhuma, e no `prd` não haverá até existir gente jogando.
+
+### ⛔ 2. O container ficou 10 h 27 min de pé para 3 segundos de trabalho
+
+    06:01:00  Starting Container
+    06:01:03  último log do job      ← o trabalho acabou aqui
+    16:28:11  Stopping Container
+
+`sys.exit` levanta `SystemExit`, e o interpretador só encerra **depois que toda
+thread não-daemon termina**. O `ai-edge-litert` abre um threadpool de XNNPACK na
+primeira inferência do Pontinhos (a linha `Created TensorFlow Lite XNNPACK
+delegate for CPU` está no log), e esse pool não é nosso para fechar.
+
+⚠️ **Por isso o defeito nunca apareceu antes:** execução que só toca as damas não
+carrega o LiteRT e morre sozinha. O dono relatava *"a mais longa foi 12 minutos"*
+— eram as execuções sem Pontinhos.
+
+✅ **`os._exit(codigo)`** depois de `flush` nos dois descritores, com a sessão
+fechada e a `engine` já descartada. Cadeado que lê o arquivo: quem voltar a
+`sys.exit` vê a suíte vermelha, e não a fatura subir em silêncio.
+
+✅ **E o job passou a se cronometrar** (`Relatorio.segundos_por_dia`), com
+`finally` para o dia que **estourou** entrar também — é justamente o dia caro.
+⛔ Sem esse número, *"o job demorou"* e *"o processo não morreu"* são
+indistinguíveis no painel do Railway.
+
+### ✅ 3. A régua de qualidade, dita pelo dono
+
+> *"É resolvível, o usuário vai gastar um tempinho resolvendo ela. O desafio não
+> já aparece praticamente resolvido na cara do usuário. Isso é realmente um
+> desafio de qualidade."* · *"Se precisarmos subir o teto de lances para
+> comportar desafios mais interessantes e de maior qualidade, eu não vejo
+> problema algum."*
+
+⛔ **Qualidade do desafio ganha de custo de geração**, e isso agora é regra
+escrita (`DECISOES-do-dono.md` §8k). ⚠️ Ela nasceu de um erro meu: apresentei
+duas vezes no mesmo dia um custo operacional como se fosse impedimento de
+produto — uma variante **aprovada** descrita como pendente por causa da margem, e
+um teto descrito como trava.
+
+### O vocabulário, e a unidade que valia duas coisas
+
+⚠️ **`pior 1` / `pior 3` saíram**, a pedido dele: *"tem hora que eu acho que
+entendi, mas depois de um tempo não lembro mais o que isso significa"*. ⛔ E o
+incômodo era justo — `pior 3` era **bom** e `pior 1` era **ruim**. Viraram
+`FOLGA (3 de 3)` · `APERTADO (2 de 3)` · `NO LIMITE (1 de 3)` ·
+`SEM DESAFIO (0 de 3)`, com a consequência dita em termos de fila.
+
+⚠️ **E `nu_maximo_de_lances` contava MEIOS-lances.** O dono leu *"teto de 12"*
+como doze lances dele — são **seis**, nas damas. Renomeado para
+`nu_maximo_de_meios_lances`. ⛔ **Consequência que mudou uma recomendação:** para
+`{pecas: 3, lances: 6}` a janela de 6 lances do jogador e o teto de 12
+meios-lances são **o mesmo limite**; subir só um não traz candidato de volta.
+
+⏳ **`nu_lances_solucao` ficou com o nome antigo** — é coluna de banco (0018) e
+atravessa a API e o contrato do app. Renomeá-la é migração nova.
+
+---
+
 ## 2026-09-12 — A remedição das damas: o acervo real ALONGA e ENCARECE, e o "2" pode virar 3
 
 `scripts/medir_variantes_do_editorial.py damas` rodou de novo (77 min, 4.599 s),
