@@ -553,6 +553,31 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     #
     # ⏳ **A variacao que falta medir e a do OUTRO parametro** (`damas: 2`), que
     # muda a tarefa em vez da folga — esta escrita em `A_MEDIR` do script.
+    #
+    # ═══════════════════════════════════════════════════════════════════════
+    # ✅ REMEDIDO EM 12/09/2026, DEPOIS DE O ACERVO IR DE 330 PARA 515 MOLDES
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    #     {damas:1, lances: 6}   pior 3   solucao media 6.8 meios-lances   103s
+    #     {damas:1, lances: 4}   pior 3   solucao media 6.1 meios-lances   176s
+    #     {damas:2, lances: 8}   pior 1   solucao media 9.6 meios-lances   525s
+    #     {damas:2, lances:10}   pior 1   solucao media 9.6 meios-lances   532s
+    #
+    # ✅ **A variante de controle nao se moveu** — pior 3, 6,8, e ate um pouco
+    # mais rapida. O acervo cresceu 56% e a tarefa que esta no ar continua do
+    # mesmo tamanho: era exatamente o que se queria da SOMA (185 moldes reais
+    # entraram sem deslocar os 330 que ja funcionavam).
+    #
+    # ✅ **`lances:10` continua sendo `lances:8` com outro numero na frase** —
+    # 9,6 contra 9,6, `[1,3,3]` contra `[1,3,3]`. A decisao de 11/09 se confirma
+    # no acervo novo, e nao por inercia.
+    #
+    # ⚠️ **Mas a de 4 deixou de apertar tanto, e isso enfraquece a justificativa
+    # dela.** Ela entrou porque apertava: a solucao caia de 6,8 para 4,3. Hoje
+    # cai para **6,1** — sete decimos de meio-lance. O custo ainda sinaliza
+    # aperto (176 s contra 103 s: o gerador segue recusando candidato), mas o que
+    # a pessoa **joga** quase nao difere. ⏳ Nao e motivo para tira-la agora; e
+    # motivo para olha-la de novo na proxima mudanca de acervo.
     "damas_coroar": (
         Publicacao(
             # Uma dama em seis lances — o alvo com que os moldes foram escritos.
@@ -597,6 +622,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         # de tempo do gerador (2 s por lance) pode ter mordido. ⛔ Isso torna o
         # **veredito** conservador (passou apesar da disputa, entao passa sozinho)
         # mas deixa a media de lances com incerteza para cima.
+        #
+        # ⚠️ **12/09/2026: a ressalva acima virou pendencia de verdade.** Na
+        # remedicao com o acervo de 515 moldes, esta variante caiu de `pior 3`
+        # para **`pior 1`** (9,6 meios-lances, 525 s) — e a rodada de novo
+        # dividiu a maquina, agora com a suite do aplicativo. ⛔ `pior 1` ainda
+        # publica, mas e folga ZERO: o proximo degrau e o dia descoberto.
+        # ⏳ Remedir com a maquina livre antes de mexer em qualquer botao daqui.
         Publicacao(
             parametros={"damas": 2, "lances": 8},
             ic_chegada_encerra_partida=False,
@@ -637,6 +669,38 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # Moldes mais distantes do alvo dariam capturas que exigem preparo — e e a
     # cacada de 1.000 candidatas que pode revela-los, escolhendo pelo topo da
     # ordenacao (ela ja ordena pelo objetivo que demora mais a cair).
+    #
+    # ═══════════════════════════════════════════════════════════════════════
+    # ✅ REMEDIDO EM 12/09/2026, COM O ACERVO REAL — E O PARAGRAFO ACIMA CAIU
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⚠️ Tudo o que esta escrito acima descreve os **9 moldes sinteticos**. Eles
+    # sairam: o acervo foi TROCADO por 295 moldes pescados de partidas humanas
+    # do `prd` (material 17,3 contra ~7). Os mesmos parametros, acervo novo:
+    #
+    #     {pecas:2, lances:4}   pior 1   solucao media  3.7 meios-lances   603s
+    #     {pecas:2, lances:3}   pior 1   solucao media  3.7 meios-lances   602s
+    #     {pecas:2, lances:2}   pior 1   solucao media  3.0 meios-lances   671s
+    #     {pecas:3, lances:4}   pior 0   ⛔ NAO ENTRA                      696s
+    #     {pecas:3, lances:6}   pior 1   solucao media 10.3 meios-lances   691s
+    #
+    # ⚠️ **A janela de 2 virou variante de verdade.** Em 11/09 as tres davam o
+    # mesmo numero **e o mesmo tempo** — assinatura de janela que nao descarta
+    # nada. Hoje `lances:2` se separa (3,0 contra 3,7, com 70 s a mais): ela
+    # passou a recusar candidato, que e o unico criterio para merecer linha
+    # propria aqui.
+    #
+    # ⚠️ **E o "2 pecas" pode virar 3 — mas so com janela 6.** Era pergunta do
+    # dono (*"este 2 e fixo ou varia?"*). Com `lances:4` da **zero nos tres
+    # dias**; com `lances:6` da pior 1, e a solucao sobe para 10,3 meios-lances
+    # (~5,2 lances do jogador) — a tarefa **mais longa** que as damas tem, mais
+    # longa ate que o coroar de duas damas. ⛔ **O aperto tem nome:** 10,3 contra
+    # um teto de geracao de **12**, margem de menos de dois meios-lances.
+    #
+    # ⏳ **Nenhuma das duas entrou ainda** — a decisao e de quem le o numero, e o
+    # `pior 1` pede uma remedicao com a maquina livre (esta rodada dividiu o
+    # computador com a suite do aplicativo, e o gerador tem teto de 2 s por
+    # lance). Detalhe em `docs/historico_decisoes.md`, 12/09/2026.
     "damas_capturar_multipla": (
         Publicacao(
             # Uma captura de duas pecas em quatro lances.

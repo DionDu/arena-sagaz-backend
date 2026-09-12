@@ -169,21 +169,33 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
     # acabar. As de baixo mexem no que **muda a tarefa**.
     # ⚠️ **E o ACERVO MUDOU em 12/09**: 185 moldes reais entraram, e o do coroar
     # foi de 330 para 515, agora com solucoes de ate 11 lances. ⛔ Os numeros
-    # abaixo, medidos em 11/09, descrevem o acervo ANTERIOR — medicao nao e selo
-    # vitalicio, e esta rodada vale justamente por isso.
+    # acima, medidos em 11/09, descrevem o acervo ANTERIOR — medicao nao e selo
+    # vitalicio.
+    #
+    # ✅ **REMEDIDO em 12/09**, com o acervo novo (77 min a rodada inteira):
+    #
+    #     {damas:1, lances: 6}   pior 3   6.8   103s   ← no ar, e a linha de controle
+    #     {damas:1, lances: 4}   pior 3   6.1   176s   ← no ar
+    #     {damas:2, lances: 8}   pior 1   9.6   525s   ← no ar
+    #     {damas:2, lances:10}   pior 1   9.6   532s
+    #
+    # ⚠️ O controle nao se moveu; `{damas:2}` caiu de `pior 3` para `pior 1`. Ver
+    # `docs/historico_decisoes.md` de 12/09 para a leitura das duas hipoteses
+    # (acervo mais dificil × maquina dividida com a suite do aplicativo).
     "damas_coroar": (
         Candidata({"damas": 1, "lances": 6}),
         Candidata({"damas": 1, "lances": 4}),
-        # ⏳ NAO MEDIDA: duas damas muda o objetivo, e nao a folga. ⚠️ Pode nao
-        # ser alcancavel a partir dos moldes, que foram escritos para UMA — se
-        # der `pior 0`, a resposta e cacar moldes proprios, nao afrouxar a janela.
+        # ✅ MEDIDA em 12/09: duas damas muda o objetivo, e nao a folga — e E
+        # alcancavel a partir dos moldes escritos para UMA (`pior 1`). ⚠️ As duas
+        # janelas dao o mesmo numero, entao so a de 8 esta publicada.
         Candidata({"damas": 2, "lances": 8}),
         Candidata({"damas": 2, "lances": 10}),
     ),
     "damas_capturar_multipla": (
         Candidata({"pecas": 2, "lances": 4}),
-        # ⏳ NAO MEDIDA: a captura encadeada cai em ~1,4 lances do jogador, entao
-        # 4 ja e folga. ⚠️ `lances: 2` e a unica janela que pode apertar aqui.
+        # ✅ MEDIDA em 12/09, e a resposta MUDOU com o acervo real: `lances: 2`
+        # agora aperta de verdade (3,0 contra 3,7, com 70 s a mais de geracao).
+        # Nos 9 moldes sinteticos as tres janelas eram indistinguiveis.
         Candidata({"pecas": 2, "lances": 2}),
         Candidata({"pecas": 2, "lances": 3}),
         # ── ⚠️ `pecas: 3` VOLTOU A MESA em 12/09/2026 ────────────────────────
@@ -197,8 +209,16 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         #
         # ⚠️ A pergunta e do dono: *"o capture 2 pecas num so lance, este 2 e
         # fixo ou varia?"*. Hoje e fixo, e e uma variante so. Estas duas linhas
-        # respondem se pode deixar de ser. ⛔ Se derem `pior 0`, a conclusao
-        # passa a ser sobre o JOGO, e ai sim com a fonte certa embaixo.
+        # respondem se pode deixar de ser.
+        #
+        # ✅ **RESPONDIDO no mesmo dia: varia, e a JANELA decide.**
+        #
+        #     {pecas:3, lances:4}   pior 0   ⛔ NAO ENTRA            696s
+        #     {pecas:3, lances:6}   pior 1   solucao media 10.3     691s
+        #
+        # ⚠️ 10,3 meios-lances sao ~5,2 lances do jogador — a tarefa mais longa
+        # que as damas tem, mais longa ate que o coroar de duas damas (9,6).
+        # ⛔ E ela encosta no teto: 10,3 contra um `teto_de_lances` de **12**.
         Candidata({"pecas": 3, "lances": 4}),
         Candidata({"pecas": 3, "lances": 6}),
     ),

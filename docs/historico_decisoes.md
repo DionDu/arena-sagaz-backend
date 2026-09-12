@@ -21,6 +21,121 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-12 — A remedição das damas: o acervo real ALONGA e ENCARECE, e o "2" pode virar 3
+
+`scripts/medir_variantes_do_editorial.py damas` rodou de novo (77 min, 4.599 s),
+e esta é a **primeira medição em que os dois acervos são outros**: o do coroar
+somou 185 moldes reais (330 → 515) e o da captura múltipla foi **trocado** por
+295 moldes reais. ⚠️ **Medição não é selo vitalício** — o número descreve a
+variante *com o acervo daquele dia*, e é exatamente por isso que esta rodada
+existe.
+
+Três dias medidos (2026-10-01 / 03 / 05), 3 candidatos pedidos por dia.
+
+### `damas_coroar` — a linha de controle não se moveu
+
+| variante | 11/09 (330 sintéticos) | 12/09 (515, com 185 reais) |
+|---|---|---|
+| `{damas:1, lances:6}` ← no ar | pior 3 · 7,4 · 88 s | pior **3** · 6,8 · 103 s |
+| `{damas:1, lances:4}` ← no ar | pior 3 · 5,2 · 132 s | pior **3** · 6,1 · 176 s |
+| `{damas:2, lances:8}` ← no ar | pior 3 · 9,7 · 314 s | pior **1** · 9,6 · 525 s |
+| `{damas:2, lances:10}` | pior 3 · 9,4 · 265 s | pior **1** · 9,6 · 532 s |
+
+✅ **A variante de controle saiu idêntica** — pior 3, solução 6,8, e até um pouco
+mais rápida. O acervo cresceu 56% e a tarefa que está no ar não mudou de tamanho
+nem de disponibilidade. Era o que se queria da soma: acrescentar sem deslocar.
+
+⚠️ **`{lances:10}` continua sendo a mesma tarefa que `{lances:8}`** — 9,6 contra
+9,6, `[1,3,3]` contra `[1,3,3]`, 525 s contra 532 s. A decisão de 11/09 (publicar
+só a de 8) se confirma no acervo novo, e não por inércia.
+
+⚠️ **A `{damas:1, lances:4}` deixou de apertar tanto, e isso enfraquece a
+justificativa dela.** Ela entrou no editorial porque *apertava*: a solução caía
+de 6,8 para 4,3 e a geração custava o dobro. Agora a solução cai de 6,8 para
+**6,1** — sete décimos de meio-lance. O custo ainda sinaliza aperto (176 s contra
+103 s, +71%: o gerador segue recusando candidato), mas o que a pessoa **joga**
+quase não difere. ⏳ Não é motivo para tirá-la hoje; é motivo para olhá-la de
+novo na próxima mudança de acervo.
+
+### `damas_capturar_multipla` — o acervo consertou o que parâmetro nenhum consertava
+
+| variante | 11/09 (9 sintéticos limpos) | 12/09 (295 reais) |
+|---|---|---|
+| `{pecas:2, lances:4}` ← no ar | pior 3 · 3,0 · 69 s | pior **1** · 3,7 · 603 s |
+| `{pecas:2, lances:3}` | pior 3 · 3,0 · 70 s | pior **1** · 3,7 · 602 s |
+| `{pecas:2, lances:2}` | pior 3 · 3,0 · 70 s | pior **1** · **3,0** · 671 s |
+| `{pecas:3, lances:4}` | — | ⛔ **0** · 696 s |
+| `{pecas:3, lances:6}` | — | pior **1** · **10,3** · 691 s |
+
+✅ **A conclusão de 11/09 caiu, e caiu do jeito que ela própria previu.** Aquela
+entrada dizia: *"o tipo é estruturalmente curto, e ⛔ isso não se conserta com
+parâmetro: é o que a posição pede"*, e apontava a saída nos **moldes**. Os moldes
+mudaram, e o número mudou com eles.
+
+⚠️ **A janela de 2 virou variante de verdade.** Em 11/09 as três janelas davam o
+mesmo número **e o mesmo tempo** (3,0 · 70 s), o que é a assinatura de uma janela
+que não descarta nada. Hoje `lances:2` se separa das outras duas: 3,0 contra 3,7,
+com 70 s a mais de geração. Ela passou a recusar candidato — que é o único
+critério pelo qual uma janela merece linha própria no editorial.
+
+### ⚠️ A pergunta do dono, respondida: o "2" pode variar, mas só com janela 6
+
+> *"o capture 2 peças num só lance, este 2 é fixo ou varia?"*
+
+**Varia — e a janela decide se é possível.**
+
+- ⛔ `{pecas:3, lances:4}` dá **zero nos três dias**. Não entra: publicaria dia
+  descoberto, e o log diria "sem candidato", que é sintoma e não causa.
+- ✅ `{pecas:3, lances:6}` dá pior 1, com solução média **10,3 meios-lances ≈ 5,2
+  lances do jogador**.
+
+⚠️ **É a tarefa mais longa que as damas têm** — mais longa até que o coroar de
+duas damas (9,6). E é a resposta direta à outra reclamação dele, de 11/09:
+*"o usuário entra pra resolver um desafio e não joga praticamente nada"*.
+Capturar três de uma vez não é *ver* a cadeia: é **armá-la** durante cinco
+lances.
+
+⚠️ **E o aperto tem nome:** 10,3 meios-lances contra um teto de geração de **12**.
+A margem é de menos de dois meios-lances. Um molde um pouco mais distante do
+objetivo estoura o teto e vira candidato recusado — é isso, e não o acervo, que
+explica o `pior 1` dessa linha.
+
+### ⚠️ O preço do acervo real: o pior dia caiu de 3 para 1 em SETE linhas
+
+Sete das oito linhas remedidas saíram com `pior 1` onde antes havia `pior 3`, e o
+tempo de geração da captura subiu **9×** (69 s → 603 s). Duas leituras concorrem,
+e vale dizer as duas:
+
+1. **É o acervo** — moldes reais, com material 17,3 contra ~7 dos sintéticos,
+   exigem busca de verdade, e o gerador recusa muito mais candidato. Um fator 9
+   no tempo não se explica por outra coisa.
+2. ⚠️ **Pode haver disputa de máquina** — a rodada dividiu o computador com a
+   suíte do aplicativo (`flutter test`, 2.715 casos, e `flutter analyze`), e o
+   gerador tem teto de **2 s por lance**: sob disputa ele desiste de candidatos
+   que teria achado sozinho.
+
+O que separa as duas: ✅ **a linha de controle saiu limpa** (pior 3, 103 s, mais
+rápida que em 11/09). Se a máquina estivesse estrangulada, ela cairia junto.
+⏳ Ainda assim, `pior 1` é folga zero — uma remedição com a máquina livre é o
+único jeito de saber se o número é 1 ou se é 1 **porque eu estava rodando teste
+ao lado**. ⛔ E a diferença importa: `pior 1` publica, `pior 0` deixa o dia
+descoberto.
+
+### O que fica pendente de decisão
+
+⛔ **Este script não escreve no editorial** — quem lê o número decide. Sobre a
+mesa, para o dono:
+
+1. **Entra `{pecas:3, lances:6}`?** Ela dobra a variedade do tipo mais reclamado
+   (hoje ele tem **uma** variante só) e é a tarefa mais longa do jogo. O preço é
+   `pior 1` com margem de teto apertada.
+2. **Entra `{pecas:2, lances:2}`?** Agora que ela se separou, é variante legítima
+   pelo critério do projeto — e é barata: mesma tarefa, um terço mais curta.
+3. **Remedir com a máquina livre**, antes de qualquer uma das duas, para saber se
+   o `pior 1` é do acervo ou da disputa.
+
+---
+
 ## 2026-09-12 — A pescaria do COROAR: 185 moldes reais SOMAM, e não substituem
 
 A segunda pescaria na base de produção terminou (`pescar_moldes_de_partidas.py
