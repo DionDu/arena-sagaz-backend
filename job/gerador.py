@@ -49,6 +49,7 @@ from motores.damas.motor_damas import EstadoDamas, MotorDamas, estado_inicial
 from motores.nucleo.orcamento import Orcamento
 from motores.nucleo.papeis import NivelDeMotor
 from motores.pontinhos import abertura_forcada
+from motores.pontinhos import guloso as guloso_mod
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos
 from motores.pontinhos.politica import JogadorPontinhos
 
@@ -673,8 +674,22 @@ def gerar_candidatos(
     exigir_vetor(co_tipo)
 
     co_personagem = escolher_personagem(dt_dia)
-    js_chegada = receita.montar(parametros)
-    js_objetivo_base = receita.valores_da_frase(parametros, co_personagem)
+
+    # ── ⚠️ O PARAMETRO PODE DEPENDER DA POSICAO (`acima_do_guloso`) ──────────
+    #
+    # Decisao do dono, 11/09/2026 (forma "a"): o editorial publica *"supere o
+    # guloso em N"*, e o numero absoluto do enunciado sai **de cada posicao**.
+    #
+    # ⚠️ Por isso a chegada e o enunciado **nao podem mais ser montados uma vez
+    # so, aqui fora**: eles passam a ser montados dentro do laco, depois de a
+    # posicao existir. Para os tipos de parametro fixo nada muda — a conta e a
+    # mesma em toda tentativa.
+    #
+    # ⛔ **O `montar()` da receita continua recebendo `caixas`**, e isso e de
+    # proposito: mexer no contrato da receita obrigaria a refazer os vetores de
+    # verificacao e a cópia do app. Quem traduz `acima_do_guloso` em `caixas` e o
+    # gerador, que e quem tem a posicao.
+    depende_da_posicao = "acima_do_guloso" in parametros
 
     encontrados: list[Candidato] = []
 
@@ -765,7 +780,32 @@ def gerar_candidatos(
         #
         # `modalidade` so entra quando existe: o Pontinhos nao tem uma, e uma
         # chave nula num espaco de frase renderiza "null" na tela de alguem.
-        js_objetivo = {**js_objetivo_base, "variante": co_variante}
+        # ── A chegada e o enunciado, agora por POSICAO ───────────────────────
+        #
+        # ⚠️ **`G` e medido contra o PERSONAGEM DO DIA**, e nao contra o Magno: o
+        # adversario publicado pode ser a Cacau, que erra de proposito em 80% dos
+        # lances, e um numero medido contra outro adversario descreveria uma
+        # partida diferente da que vai ao ar.
+        if depende_da_posicao:
+            guloso = guloso_mod.caixas_do_guloso(
+                jogador,
+                getattr(jogador, "arbitro", jogador),
+                base,
+                js_posicao["vez_de"],
+                nivel=NivelDeMotor.SAGAZ,
+                nivel_do_adversario=NIVEL_POR_PERSONAGEM[co_personagem],
+                semente_do_lance=semente_mod.semente_do_lance,
+                nu_semente=nu_semente,
+            )
+            parametros_daqui = {"caixas": guloso + parametros["acima_do_guloso"]}
+        else:
+            parametros_daqui = dict(parametros)
+
+        js_chegada = receita.montar(parametros_daqui)
+        js_objetivo = {
+            **receita.valores_da_frase(parametros_daqui, co_personagem),
+            "variante": co_variante,
+        }
         if co_modalidade:
             js_objetivo["modalidade"] = co_modalidade
 
