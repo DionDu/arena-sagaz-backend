@@ -21,6 +21,52 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-12 — A pescaria terminou: 184 moldes REAIS, e a premissa que caiu
+
+**Contexto.** A pescaria de `damas_capturar_multipla` nas partidas humanas do
+`prd` rodou ate o fim (interrompida uma vez com Ctrl+C e retomada pelo diario,
+como previsto). 4.090 posicoes reais peneiradas, 408 aprovadas, **184 moldes**
+com tres ou mais modalidades — 128 deles servem as quatro.
+
+⛔ **E ela derrubou o que este documento afirmava em 11/09.** O comentario do
+acervo dizia, com medicao por tras, que *"este tipo resiste a geracao automatica,
+e o motivo e o jogo, nao a ferramenta"*: capturar duas em sequencia ou estaria
+armado de imediato, ou nunca aconteceria, porque a captura obrigatoria e
+justamente o que um Sagaz usa para nao conceder cadeia. **Era a FONTE, e nao o
+jogo.**
+
+    sinteticas (11/09)    939 candidatas →  29 moldes, TODOS cumprindo em 3 lances
+    reais      (12/09)  4.090 candidatas → 184 moldes,  87 deles em 4 lances ou mais
+
+⚠️ **O que separava os dois acervos era o material**, o mesmo diagnostico que ja
+tinha explicado os desafios faceis de coroar: as candidatas sinteticas nasciam de
+tabuleiros quase vazios (material ~7), onde o adversario tem espaco de sobra para
+recusar; as posicoes reais tem material **17,3**, e ai a cadeia se forma. A
+distancia ate o objetivo deixou de ser uma coluna so:
+
+    3 lances: 97 · 4: 35 · 5: 30 · 6: 9 · 7: 13
+
+**Decisao.** O acervo sintetico de 29 moldes **saiu inteiro** e foi substituido
+pelos 184 pescados. ⚠️ **Substituido, e nao somado:** o gerador sorteia entre os
+moldes, entao manter os 29 antigos reintroduziria, em ~14% das publicacoes,
+exatamente o desafio banal que a pescaria existe para acabar.
+
+⚠️ **Isso poe de volta na mesa a §8j do `DECISOES-do-dono.md`.** A decisao *"eu
+aceito que ela pode ser o tipo rapido"* foi tomada sob a premissa de que todo
+molde cumpria no lance 3 — premissa que nao vale mais. ⛔ **A escolha e do dono**,
+e nada aqui a antecipa: o acervo comporta as duas leituras (97 moldes curtos e 87
+longos), e o rodizio continua como esta ate ele dizer.
+
+**Alternativa considerada e recusada:** cortar o acervo nos 87 moldes de 4+
+lances, para forcar o tipo a deixar de ser curto. Recusada porque decidiria pelo
+dono uma questao que e dele, e porque jogaria fora 97 moldes reais que continuam
+validos para a variante curta.
+
+⚠️ **A pescaria de `damas_coroar` ainda nao rodou** (~4,5 h estimadas). Ate la,
+aquele acervo continua sintetico — e e o unico dos dois que ainda esta.
+
+---
+
 ## 2026-09-11 — A PARIDADE DE CADEIAS LONGAS e o eixo certo do Pontinhos
 
 ⛔ **Duas recomendacoes minhas foram derrubadas pelo dono no mesmo dia, e as duas
