@@ -62,6 +62,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 
 from motores.damas.motor_damas import EstadoDamas, MotorDamas  # noqa: E402
+from motores.pontinhos import feitos_pontinhos  # noqa: E402
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos  # noqa: E402
 
 VERSAO = 1
@@ -112,6 +113,46 @@ PREPARACAO_ESCADA = [
 
 # Os quatro lances que descem a escada, cada um fechando exatamente uma caixa.
 DESCER_A_ESCADA = ["H_2_1", "H_4_1", "H_6_1", "H_8_1"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A CADEIA LONGA (tipo 22) — o tabuleiro cheio, com uma cadeia aberta
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Esta preparacao NAO e conferivel de cabeca, e isso e assumido.** As outras
+# posicoes deste arquivo sao pequenas de proposito; esta precisa de um tabuleiro
+# quase cheio, porque **cadeia longa so existe com o tabuleiro cheio** — e o
+# proprio enredo do tipo: primeiro se constroi, depois se captura.
+#
+# Como ela foi obtida, para quem precisar refaze-la: marcam-se **so tracos
+# seguros** (os que nao entregam caixa, `abertura_forcada.caixas_entregues == 0`)
+# ate o zugzwang — a posicao em que todo traco entrega alguma coisa —, e ai o
+# adversario abre a maior cadeia. O resultado e uma cadeia de **dez** caixas
+# esperando o jogador 1.
+#
+# ⚠️ Os dezessete primeiros sao a construcao; `H_0_1`, o ultimo, e a **abertura do
+# adversario** — e e ele que poe a cadeia na mesa.
+PREPARACAO_CADEIA = [
+    "V_3_0", "V_1_2", "H_4_1", "V_7_2", "H_0_3", "V_1_0",
+    "H_8_1", "V_3_4", "H_6_5", "V_5_6", "H_0_5", "V_7_6",
+    "H_4_3", "V_1_6", "V_3_6", "H_8_3", "V_5_2",
+    "H_0_1",   # a abertura: o adversario entrega a cadeia inteira
+]
+
+#: A cadeia inteira, capturada de uma vez: dez caixas, dez lances seguidos.
+CAPTURAR_A_CADEIA = [
+    "H_2_1", "V_3_2", "H_2_3", "V_1_4", "H_2_5",
+    "H_4_5", "V_5_4", "H_6_3", "V_7_4", "H_8_5",
+]
+
+#: ⚠️ **O traco que QUEBRA a corrida** — ele nao fecha caixa, entao a vez passa.
+#:
+#: E o que permite escrever os casos de fronteira: parar em seis (cumpre, no
+#: limite) e parar em cinco (nao cumpre por pouco). ⛔ Sem ele nao daria para
+#: parar: quem fecha caixa joga de novo, e a corrida so termina quando alguem
+#: **deixa** de fechar. E, de quebra, e o proprio *double dealing* — a jogada que
+#: o tipo existe para ensinar.
+QUEBRA_A_CORRIDA = "V_5_0"
 
 
 def _posicao_do_pontinhos() -> tuple[dict[str, Any], EstadoPontinhos]:
@@ -542,13 +583,160 @@ def provar_que_o_invalido_e_mesmo_invalido(vetores: list[dict[str, Any]]) -> Non
         print(f"  invalido confirmado: {vetor['id']} ({motivo})")
 
 
+def _feitos_com_a_fita(base: EstadoPontinhos, lances: list[str]) -> dict[str, int]:
+    """Os feitos medidos pelo **medidor de verdade**, com o caminho.
+
+    ⚠️ **Diferente de `_feitos_do_pontinhos`, que e anterior a isto**, e a
+    diferenca nao e estilo: `maior_cadeia_capturada` nao se le no estado final, e
+    so o medidor sabe calcula-la. Reimplementar a corrida aqui criaria uma segunda
+    fonte da verdade sobre a regra que os vetores existem para travar.
+
+    ⛔ **E por que a funcao antiga nao foi trocada por esta?** Porque isso
+    acrescentaria a medida nova ao `esperado` dos vetores ja publicados, e ⚠️
+    **vetor nao se edita** (regra 4 do contrato). Os antigos continuam declarando
+    o que declaravam; a chave nova aparece nos vetores que nascem com ela.
+    """
+    estado = base
+    for lance in lances:
+        estado = estado.com_lance(lance)
+    medidas = feitos_pontinhos.medir(
+        base,
+        estado,
+        jogador=1,
+        lances_do_jogador=len(lances),
+        fita=_fita_pela_vez(base, lances),
+    )
+    return {chave: int(valor) for chave, valor in medidas.items()}
+
+
+def _fita_pela_vez(base: EstadoPontinhos, lances: list[str]) -> list[dict[str, Any]]:
+    """A fita com o `jogador` de cada passo lido do MOTOR.
+
+    ⛔ **Nao da para escrever a vez a mao aqui.** Na cadeia longa a corrida quebra
+    no meio — e justamente disso que tratam os casos de fronteira —, e uma
+    alternancia inventada faria o vetor descrever uma partida que o motor nao
+    reconhece.
+    """
+    passos: list[dict[str, Any]] = []
+    atual = base
+    for numero, lance in enumerate(lances, start=1):
+        passos.append({"n": numero, "jogador": atual.vez_de, "lance": lance})
+        atual = atual.com_lance(lance)
+    return passos
+
+
+def vetores_da_cadeia_longa() -> list[dict[str, Any]]:
+    """Os quatro vetores do tipo 22 — a medida que le o CAMINHO, e nao o fim."""
+    base = EstadoPontinhos(lances=tuple(PREPARACAO_CADEIA))
+    assert base.vez_de == 1, f"a cadeia nao e do jogador 1: vez de {base.vez_de}"
+    assert base.placar == {1: 0, -1: 0}, (
+        f"a preparacao ja fechou caixa: {base.placar}"
+    )
+
+    posicao = {
+        "versao": 1,
+        "lances": _fita_pela_vez(EstadoPontinhos(lances=()), PREPARACAO_CADEIA),
+        "vez_de": base.vez_de,
+        "placar": {"j1": base.placar[1], "j2": base.placar[-1]},
+    }
+    comum = {
+        "co_jogo": "pontinhos",
+        "co_variante": "pequeno",
+        "co_formato_posicao": "sequencia_lances",
+        "js_posicao_inicial": posicao,
+        "nu_tipo_desafio": 22,
+        "co_tipo_desafio": "pontinhos_cadeia_longa",
+    }
+    def chegada(alvo: int) -> dict[str, Any]:
+        return {
+            "versao": 1,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                {
+                    "tipo": "medida",
+                    "chave": "maior_cadeia_capturada",
+                    "comparador": "maior_ou_igual",
+                    "valor": alvo,
+                }
+            ],
+        }
+
+    chegada_6_em_sequencia = chegada(6)
+
+    # ⚠️ **A fita de um vetor que CUMPRE termina no lance em que o objetivo cai.**
+    # O julgamento mede lance a lance e para no primeiro em que a chegada passa a
+    # valer — e os feitos que ele devolve sao os **daquele instante**, nao os do
+    # fim da fita. Uma fita que continuasse depois declararia medidas que o juiz
+    # nunca veria, e o vetor reprovaria uma implementacao correta.
+    seis = CAPTURAR_A_CADEIA[:6]
+    # ⚠️ No caso que NAO cumpre nao ha instante nenhum, entao o juiz mede a fita
+    # inteira — e ai o traco que quebra a corrida pode (e precisa) entrar.
+    cinco = CAPTURAR_A_CADEIA[:5] + [QUEBRA_A_CORRIDA]
+    # `V_3_0` ja esta na preparacao — traco repetido e DADO INVALIDO.
+    invalido = [CAPTURAR_A_CADEIA[0], "V_3_0"]
+
+    return [
+        {
+            "id": "P22-cadeia-inteira-dez-caixas-cumpre",
+            **comum,
+            "de_vetor": "Captura a cadeia inteira: dez caixas em dez lances "
+            "seguidos, porque quem fecha caixa joga de novo. ⚠️ O alvo aqui e DEZ "
+            "de proposito — com alvo seis o objetivo cairia no sexto lance, e o "
+            "vetor declararia medidas que o juiz nunca chega a ver.",
+            "lances": _fita_pela_vez(base, CAPTURAR_A_CADEIA),
+            "js_chegada": chegada(10),
+            "esperado": {
+                "veredito": "cumpriu",
+                "feitos": _feitos_com_a_fita(base, CAPTURAR_A_CADEIA),
+            },
+        },
+        {
+            "id": "P22-seis-no-limite-cumpre",
+            **comum,
+            "de_vetor": "Seis caixas seguidas, e o objetivo e seis: 6 >= 6 "
+            "cumpre. E a fronteira de cima — um comparador trocado para `maior` "
+            "reprovaria este vetor, e so este.",
+            "lances": _fita_pela_vez(base, seis),
+            "js_chegada": chegada_6_em_sequencia,
+            "esperado": {
+                "veredito": "cumpriu",
+                "feitos": _feitos_com_a_fita(base, seis),
+            },
+        },
+        {
+            "id": "P22-cinco-nao-cumpre-por-pouco",
+            **comum,
+            "de_vetor": "Para em CINCO: 5 >= 6 e falso. E o caso que separa esta "
+            "medida de `caixas_fechadas` — o jogador continua fechando caixas "
+            "depois, mas a CORRIDA ja quebrou.",
+            "lances": _fita_pela_vez(base, cinco),
+            "js_chegada": chegada_6_em_sequencia,
+            "esperado": {
+                "veredito": "nao_cumpriu",
+                "feitos": _feitos_com_a_fita(base, cinco),
+            },
+        },
+        {
+            "id": "P22-traco-repetido-e-dado-invalido",
+            **comum,
+            "de_vetor": "O segundo lance marca `V_3_0`, que a posicao inicial ja "
+            "tinha. Dado invalido, nunca 'nao cumpriu'.",
+            "lances": _fita_pela_vez(base, invalido),
+            "js_chegada": chegada_6_em_sequencia,
+            "esperado": {"veredito": "dado_invalido", "feitos": {}},
+        },
+    ]
+
+
 def montar() -> dict[str, Any]:
     """O documento inteiro, com os vetores em ordem estavel.
 
     ⚠️ **Ordem estavel importa**: as duas copias sao comparadas byte a byte, e uma
     reordenacao inocente faria o cadeado acusar divergencia onde nao ha.
     """
-    vetores = vetores_do_pontinhos() + vetores_das_damas()
+    vetores = (
+        vetores_do_pontinhos() + vetores_da_cadeia_longa() + vetores_das_damas()
+    )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 
     identificadores = [v["id"] for v in vetores]
