@@ -493,6 +493,33 @@ def _preparar_pontinhos(sorteio: random.Random, lances_de_preparo: int) -> Estad
 #: aquele jogo ainda nao tem a regra, em vez de um `else` silencioso.
 RECUSA_POR_JOGO = {"pontinhos": abertura_forcada.dependeu_de_erro}
 
+#: Quantas posicoes de partida tentar por candidato, **por jogo**.
+#:
+#: ═══════════════════════════════════════════════════════════════════════════
+#: ⛔ POR QUE ISTO DEIXOU DE SER UM NUMERO SO (12/09/2026)
+#: ═══════════════════════════════════════════════════════════════════════════
+#:
+#: Era `6`, global. Em 2026-09-18 o job tentou `6 x 3 = 18` posicoes para
+#: `pontinhos_chegar_ao_placar` e **recusou as 18** por erro do adversario — a
+#: fila ficou com um dia sem desafio, que e o unico defeito deste job que a
+#: pessoa ve na tela.
+#:
+#: ⚠️ **E as 18 custaram 2 SEGUNDOS.** O gerador nao desistiu por falta de
+#: tempo: desistiu porque o orcamento de tentativas acabou. Vinte custam ~7 s.
+#:
+#: ⛔ **Mas o numero nao pode ser global, e e por isso que ele mora aqui.** Nas
+#: damas cada tentativa custa ~30 s (busca de verdade, nao inferencia), entao 20
+#: tentativas seriam dez minutos por dia — e o Railway cobra por tempo de
+#: execucao. O que e barato num jogo e caro no outro.
+#:
+#: ⚠️ **Jogo ausente usa [TENTATIVAS_PADRAO]**, como em `RECUSA_POR_JOGO`: a
+#: ausencia da chave e a declaracao de que aquele jogo ainda nao foi calibrado,
+#: em vez de um `else` silencioso.
+TENTATIVAS_POR_JOGO = {"pontinhos": 20, "damas": 6}
+
+#: Quantas tentativas para um jogo que nao esta em [TENTATIVAS_POR_JOGO].
+TENTATIVAS_PADRAO = 6
+
 #: Quem procura a solucao, quando o SAGAZ nao serve.
 #:
 #: ⛔ **O Sagaz busca a vitoria, e nem todo desafio pede vitoria.** Na cadeia
@@ -734,7 +761,7 @@ def gerar_candidatos(
     parametros: Mapping[str, Any],
     quantos: int = 3,
     tipos_recentes: Sequence[str] = (),
-    tentativas_por_candidato: int = 6,
+    tentativas_por_candidato: int | None = None,
     lances_de_preparo: int = 8,
     maximo_de_meios_lances: int = 12,
     personagens_possiveis: Sequence[str] | None = None,
@@ -749,7 +776,9 @@ def gerar_candidatos(
         quantos: quantos candidatos devolver, no maximo.
         tipos_recentes: para o rodizio nao repetir.
         tentativas_por_candidato: quantas posicoes de partida tentar por
-            candidato antes de desistir.
+            candidato antes de desistir. ⚠️ **`None` le o numero do JOGO**
+            (ver [TENTATIVAS_POR_JOGO]) — e esse e o caminho normal; o valor
+            explicito existe para o teste poder apertar ou afrouxar o laco.
         lances_de_preparo: o tamanho da posicao de partida. ⚠️ **Ele quer
             dizer coisas diferentes nos dois jogos**: no Pontinhos e quantos
             **tracos** a posicao de autoplay tem marcados (T049h); nas damas
@@ -815,6 +844,11 @@ def gerar_candidatos(
     # tipos de alvo fixo (*"feche 4 caixas"*), onde o erro do personagem entrega
     # o desafio de graca e nao ha nada do outro lado da conta para compensar.
     objetivo_cancela_o_erro = depende_da_posicao or co_tipo in TIPOS_SEM_RECUSA
+
+    # ⚠️ **Depois de `co_jogo`, e nao no valor padrao da assinatura**: um
+    # padrao de assinatura e avaliado antes de existir jogo nenhum.
+    if tentativas_por_candidato is None:
+        tentativas_por_candidato = TENTATIVAS_POR_JOGO.get(co_jogo, TENTATIVAS_PADRAO)
 
     encontrados: list[Candidato] = []
 

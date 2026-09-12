@@ -103,7 +103,7 @@ class Candidata:
     certo enquanto toda candidata era a mesma tarefa com outro numero. Deixou de
     estar no dia em que `acima_do_guloso` apareceu: ele exige **preparo 14** (com
     8 tracos nao ha cadeia formada, e nao ha double dealing sem cadeia), e medi-lo
-    com o preparo 8 da publicacao no ar devolveria `pior 0` — um ⛔ merecido pela
+    com o preparo 8 da publicacao no ar devolveria **0 de 3 no dia mais fraco** — um ⛔ merecido pela
     medicao errada, e nao pela variante.
     """
 
@@ -174,19 +174,19 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
     #
     # ✅ **REMEDIDO em 12/09**, com o acervo novo (77 min a rodada inteira):
     #
-    #     {damas:1, lances: 6}   pior 3   6.8   103s   ← no ar, e a linha de controle
-    #     {damas:1, lances: 4}   pior 3   6.1   176s   ← no ar
-    #     {damas:2, lances: 8}   pior 1   9.6   525s   ← no ar
-    #     {damas:2, lances:10}   pior 1   9.6   532s
+    #     {damas:1, lances: 6}   FOLGA       (3 de 3)     6.8   103s   ← no ar, e a linha de controle
+    #     {damas:1, lances: 4}   FOLGA       (3 de 3)     6.1   176s   ← no ar
+    #     {damas:2, lances: 8}   NO LIMITE   (1 de 3)     9.6   525s   ← no ar
+    #     {damas:2, lances:10}   NO LIMITE   (1 de 3)     9.6   532s
     #
-    # ⚠️ O controle nao se moveu; `{damas:2}` caiu de `pior 3` para `pior 1`. Ver
+    # ⚠️ O controle nao se moveu; `{damas:2}` caiu de **3 de 3 no dia mais fraco** para **1 de 3 no dia mais fraco**. Ver
     # `docs/historico_decisoes.md` de 12/09 para a leitura das duas hipoteses
     # (acervo mais dificil × maquina dividida com a suite do aplicativo).
     "damas_coroar": (
         Candidata({"damas": 1, "lances": 6}),
         Candidata({"damas": 1, "lances": 4}),
         # ✅ MEDIDA em 12/09: duas damas muda o objetivo, e nao a folga — e E
-        # alcancavel a partir dos moldes escritos para UMA (`pior 1`). ⚠️ As duas
+        # alcancavel a partir dos moldes escritos para UMA (**1 de 3 no dia mais fraco**). ⚠️ As duas
         # janelas dao o mesmo numero, entao so a de 8 esta publicada.
         Candidata({"damas": 2, "lances": 8}),
         Candidata({"damas": 2, "lances": 10}),
@@ -213,8 +213,8 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         #
         # ✅ **RESPONDIDO no mesmo dia: varia, e a JANELA decide.**
         #
-        #     {pecas:3, lances:4}   pior 0   ⛔ NAO ENTRA            696s
-        #     {pecas:3, lances:6}   pior 1   solucao media 10.3     691s
+        #     {pecas:3, lances:4}   SEM DESAFIO (0 de 3)     ⛔ NAO ENTRA            696s
+        #     {pecas:3, lances:6}   NO LIMITE   (1 de 3)     solucao media 10.3     691s
         #
         # ⚠️ 10,3 meios-lances sao ~5,2 lances do jogador — a tarefa mais longa
         # que as damas tem, mais longa ate que o coroar de duas damas (9,6).
@@ -240,6 +240,33 @@ def _dias_do_jogo(co_jogo: str, quantos: int) -> list[date]:
             dias.append(dia)
         passo += 1
     return dias
+
+
+def _como_ler(dia_mais_fraco: int) -> tuple[str, str]:
+    """Traduz o numero do dia mais fraco em algo que se le sem decorar.
+
+    ⚠️ **A pedido do dono, 12/09/2026:** *"consegue mudar essas expressoes 'pior
+    1', '3 de 3 no dia mais fraco'? Isso e confuso demais. Tem hora que eu acho que entendi, mas
+    depois de um tempo nao lembro mais o que isso significa"*.
+
+    ⛔ E ele tem razao: **3 de 3 no dia mais fraco** era **bom** e **1 de 3 no dia mais fraco** era **ruim**, o oposto do
+    que a palavra "pior" sugere a quem le de passagem. O numero sozinho tambem
+    nao dizia de quantos era — 1 de 3 e 1 de 10 sao situacoes diferentes.
+
+    O que cada faixa quer dizer, em termos do que acontece na fila:
+
+      FOLGA       sobra candidato, e o job escolhe o mais bem calibrado
+      APERTADO    ja publica, com menos escolha
+      NO LIMITE   publica o unico que houver, calibrado ou nao
+      SEM DESAFIO a fila fica com um dia vazio — e a pessoa ve isso na tela
+    """
+    if dia_mais_fraco <= 0:
+        return "⛔", "SEM DESAFIO"
+    if dia_mais_fraco == 1:
+        return "⚠️", "NO LIMITE"
+    if dia_mais_fraco < QUANTOS_POR_DIA:
+        return "⚠️", "APERTADO"
+    return "✅", "FOLGA"
 
 
 def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
@@ -293,13 +320,14 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
             por_dia.append(len(candidatos))
             lances_da_solucao.extend(c.nu_lances_solucao for c in candidatos)
 
-        pior = min(por_dia)
+        dia_mais_fraco = min(por_dia)
         media_da_solucao = (
             sum(lances_da_solucao) / len(lances_da_solucao) if lances_da_solucao else 0.0
         )
-        # ⚠️ O PIOR dia manda: uma variante com 3 num dia e 0 no outro publica dia
-        # descoberto a cada duas aparicoes, e a media de 1,5 esconderia isso.
-        selo = "✅" if pior >= 1 else "⛔"
+        # ⚠️ **O DIA MAIS FRACO manda, e nao a media.** Uma variante com 3 num dia
+        # e 0 no outro publica dia descoberto a cada duas aparicoes, e a media de
+        # 1,5 esconderia isso.
+        selo, rotulo = _como_ler(dia_mais_fraco)
         # ⚠️ Os botoes entram na linha **so quando diferem** da publicacao no
         # ar: repeti-los em toda linha esconderia justamente a que e diferente.
         proprios = ""
@@ -308,9 +336,10 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
         if teto != publicacao.nu_maximo_de_meios_lances:
             proprios += f" teto={teto}"
         print(
-            f"  {selo} {str(dict(parametros)):<32} "
-            f"candidatos por dia {por_dia} (pior {pior}) · "
-            f"solucao media {media_da_solucao:.1f} meios-lances · "
+            f"  {selo} {rotulo:<12} {str(dict(parametros)):<32} "
+            f"no dia mais fraco: {dia_mais_fraco} de {QUANTOS_POR_DIA} · "
+            f"dias {por_dia} · "
+            f"solucao {media_da_solucao:.1f} meios-lances · "
             f"{time.time() - inicio:.0f}s{proprios}"
         )
 
@@ -335,9 +364,19 @@ def principal(argumentos: Sequence[str]) -> int:
     print()
     print(f"total: {time.time() - inicio:.0f}s")
     print()
-    print("⚠️ O numero que decide e o PIOR dia. Variante com ⛔ nao entra no")
-    print("   editorial — ela publicaria dia descoberto, e o log so diria")
-    print("   'sem candidato', que e sintoma e nao causa.")
+    print("COMO LER ESTE RELATORIO")
+    print("  O job pede 3 candidatos por dia e publica UM: o primeiro que cai na")
+    print("  banda de dificuldade. O numero que decide e o do DIA MAIS FRACO —")
+    print("  nao a media, que esconderia um dia zerado atras de dois bons.")
+    print()
+    print("  ✅ FOLGA         3 de 3  sobra candidato; o job escolhe o mais bem calibrado")
+    print("  ⚠️ APERTADO      2 de 3  ja publica, com menos escolha")
+    print("  ⚠️ NO LIMITE     1 de 3  publica o unico que houver, calibrado ou nao")
+    print("  ⛔ SEM DESAFIO   0 de 3  a fila fica com um dia vazio, e a pessoa ve na tela")
+    print()
+    print("  ⚠️ E A AMOSTRA E DE 3 DIAS, NAO DO ANO. Em 2026-09-18 uma variante")
+    print("     medida NO LIMITE deu ZERO na execucao real: 18 posicoes tentadas,")
+    print("     18 recusadas, e a fila ficou com um dia descoberto.")
     return 0
 
 

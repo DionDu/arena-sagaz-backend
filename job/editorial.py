@@ -348,12 +348,31 @@ def _medidas_do_damas_captura(p: Mapping[str, Any]) -> list[dict[str, Any]]:
 #: Sortear faria a idempotencia de T038 depender de sorte: duas execucoes do job
 #: para o mesmo dia gerariam desafios diferentes.
 #:
-#: ⛔ **NENHUMA VARIANTE ENTRA SEM SER MEDIDA**, e o numero anotado ao lado de
-#: cada uma e o **pior dia** de oito medidos por
+#: ⛔ **NENHUMA VARIANTE ENTRA SEM SER MEDIDA**, e o rotulo anotado ao lado de
+#: cada uma diz como ela se saiu no **dia mais fraco** da amostra, medido por
 #: `scripts/medir_variantes_do_editorial.py` — quantos candidatos sairam no dia
 #: em que sairam menos. ⚠️ **A media esconderia o que importa:** uma variante com
 #: 3 candidatos num dia e 0 no outro publica **dia descoberto** a cada duas
 #: aparicoes, e a media de 1,5 pareceria saudavel.
+#:
+#: ⚠️ **Os rotulos, e o que cada um quer dizer na fila** (o job pede 3 candidatos
+#: por dia e publica UM: o primeiro que cai na banda de dificuldade):
+#:
+#:     FOLGA        3 de 3  sobra candidato; o job escolhe o mais bem calibrado
+#:     APERTADO     2 de 3  ja publica, com menos escolha
+#:     NO LIMITE    1 de 3  publica o unico que houver, calibrado ou nao
+#:     SEM DESAFIO  0 de 3  a fila fica com um dia vazio, e a pessoa ve na tela
+#:
+#: ⚠️ **A palavra era `pior N` ate 12/09/2026**, e saiu a pedido do dono: *"tem
+#: hora que eu acho que entendi, mas depois de um tempo nao lembro mais o que
+#: isso significa"*. ⛔ E o incomodo era justo — `pior 3` era **bom** e `pior 1`
+#: era **ruim**, o contrario do que a palavra sugere a quem le de passagem.
+#:
+#: ⛔ **E NENHUM rotulo e garantia.** A amostra e de 3 dias; o ano tem 365. Em
+#: 2026-09-18 a `{caixas: 5}` do `chegar_ao_placar`, medida **NO LIMITE**, deu
+#: **zero** na execucao real: 18 posicoes tentadas, 18 recusadas por erro do
+#: adversario, e a fila ficou com um dia descoberto. E o que `TENTATIVAS_POR_JOGO`
+#: (em `job/gerador.py`) passou a atacar.
 #:
 #: ⚠️ E o erro nao aparece cedo: uma variante ruim vira dia descoberto **duas
 #: semanas depois** de entrar, e o log diz so *"sem candidato"* — sintoma, e nao
@@ -362,7 +381,7 @@ def _medidas_do_damas_captura(p: Mapping[str, Any]) -> list[dict[str, Any]]:
 EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     "pontinhos_fechar_caixas": (
         # ⛔ **`{caixas: 4, turnos: 2}` SAIU em 12/09/2026, e a licao e sobre
-        # REMEDIR.** Ela entrou em 11/09 com pior dia **2**, medido antes de a
+        # REMEDIR.** Ela entrou em 11/09 com **APERTADO** (2 de 3), medido antes de a
         # regra de recusa por erro do adversario existir. Remedida com a regra
         # ligada: **0** (2, 0, 0) — dia descoberto na fila a cada aparicao.
         #
@@ -376,7 +395,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # joga de novo, entao as caixas so cabem num turno so quando a cadeia
             # esta armada.
             #
-            # Medido 12/09/2026, **com a regra de recusa**: pior dia **1** ·
+            # Medido 12/09/2026, **com a regra de recusa**: **NO LIMITE** (1 de 3) ·
             # solucao 6,0 lances. (Era 3 antes da regra.)
             parametros={"caixas": 3, "turnos": 2},
             # Tres de doze deixam o jogo em aberto.
@@ -390,7 +409,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # ⚠️ **O mesmo alvo, com um turno a mais** — e a variante que muda a
             # *forma* da tarefa sem mudar o numero: da para chegar la sem a
             # cadeia armada, montando-a.
-            # Medido 12/09/2026, com a regra de recusa: pior dia **3** ·
+            # Medido 12/09/2026, com a regra de recusa: **FOLGA** (3 de 3) ·
             # solucao 9,9 lances. ⚠️ **A unica da familia que a regra nao derruba**
             # — o turno a mais da folga para o gabarito contornar um lance recusado.
             parametros={"caixas": 4, "turnos": 3},
@@ -400,10 +419,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         ),
         Publicacao(
             # A mais dura que gera com folga.
-            # ⛔ Medidas e **recusadas**: `{"caixas": 5, "turnos": 2}` deu pior dia
-            # **0** (2, 0, 2) e `{"caixas": 6, "turnos": 3}` deu pior dia **1**
-            # em oito — nenhuma das duas entra.
-            # Medido 12/09/2026, com a regra de recusa: pior dia **1** ·
+            # ⛔ Medidas e **recusadas**: `{"caixas": 5, "turnos": 2}` deu
+            # **SEM DESAFIO** (0 de 3, nos dias 2/0/2) e `{"caixas": 6, "turnos": 3}`
+            # deu **NO LIMITE** (1 de 3) — nenhuma das duas entra.
+            # Medido 12/09/2026, com a regra de recusa: **NO LIMITE** (1 de 3) ·
             # solucao 10,3 lances. (Era 3 antes da regra.)
             parametros={"caixas": 5, "turnos": 3},
             ic_chegada_encerra_partida=False,
@@ -427,7 +446,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # joga para a **cadeia**, em 43%. Com quatro, o desafio sairia
             # cumprido por acidente por quem nao fez nada de diferente.
             #
-            # Medido 12/09/2026: pior dia **3** · solucao 20,6 lances (~10 lances
+            # Medido 12/09/2026: **FOLGA** (3 de 3) · solucao 20,6 lances (~10 lances
             # do jogador). ⚠️ E a tarefa mais longa do Pontinhos hoje.
             parametros={"caixas": 6},
             # ⚠️ Seis de doze nao encerra a partida — sobram caixas.
@@ -448,9 +467,9 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         ),
         Publicacao(
             # A versao dura: sete caixas numa corrida so.
-            # Medido 12/09/2026: pior dia **3** · solucao 21,4 lances.
+            # Medido 12/09/2026: **FOLGA** (3 de 3) · solucao 21,4 lances.
             #
-            # ⛔ **E `{caixas: 5}` ficou de FORA, apesar de tambem medir pior 3.**
+            # ⛔ **E `{caixas: 5}` ficou de FORA, apesar de tambem medir FOLGA.**
             # O criterio nao e gerar, e **separar**: quem joga para vencer chega a
             # cinco caixas seguidas em 33% das posicoes, contra 7% em seis. Com
             # cinco, um terco dos dias seria cumprido por quem nao fez nada de
@@ -467,7 +486,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     "pontinhos_chegar_ao_placar": (
         Publicacao(
             # Sete de doze e a maioria: quem chega la **ja venceu**.
-            # Medido 12/09/2026, com a regra de recusa: pior dia **1** ·
+            # Medido 12/09/2026, com a regra de recusa: **NO LIMITE** (1 de 3) ·
             # solucao 22,0 lances. (Era 3 antes da regra.)
             parametros={"caixas": 7},
             # ⚠️ E ainda assim `False`: a partida esta DECIDIDA, e nao terminada
@@ -481,7 +500,7 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         ),
         Publicacao(
             # Seis de doze e o empate: quem chega la **nao perdeu**.
-            # Medido 12/09/2026, com a regra de recusa: pior dia **1** ·
+            # Medido 12/09/2026, com a regra de recusa: **NO LIMITE** (1 de 3) ·
             # solucao 21,3 lances. (Era 3 antes da regra.)
             parametros={"caixas": 6},
             ic_chegada_encerra_partida=False,
@@ -492,9 +511,9 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # ⚠️ **Cinco nao e maioria**, e a frase nao promete que seja: o
             # objetivo e um placar, e nao a vitoria. A `vr_max` das medidas sai
             # do proprio parametro, entao a nota continua cheia em cinco de cinco.
-            # ⛔ Medidas e **recusadas**: `{"caixas": 8}` deu pior dia **0** (0, 0,
-            # 1) e `{"caixas": 9}` nao gerou **nada** em tres dias.
-            # Medido 12/09/2026, com a regra de recusa: pior dia **1** ·
+            # ⛔ Medidas e **recusadas**: `{"caixas": 8}` deu **SEM DESAFIO**
+            # (0 de 3, nos dias 0/0/1) e `{"caixas": 9}` nao gerou **nada**.
+            # Medido 12/09/2026, com a regra de recusa: **NO LIMITE** (1 de 3) ·
             # solucao 19,8 lances. (Era 3 antes da regra.)
             parametros={"caixas": 5},
             ic_chegada_encerra_partida=False,
@@ -528,9 +547,9 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # aplica** (decisao do dono, 12/09/2026): `G` e medido na mesma
             # posicao e contra o mesmo personagem, entao um erro dele levanta os
             # dois lados da conta e se cancela. Com a regra ligada esta variante
-            # dava pior dia **0**; sem ela, **3**.
+            # dava **SEM DESAFIO** (0 de 3); sem ela, **FOLGA** (3 de 3).
             #
-            # Medido 12/09/2026: pior dia **3** · solucao 15,6 lances.
+            # Medido 12/09/2026: **FOLGA** (3 de 3) · solucao 15,6 lances.
             parametros={"acima_do_guloso": 1},
             # ⚠️ O alvo e um placar, e nao o fim do jogo — como nas irmas.
             ic_chegada_encerra_partida=False,
@@ -554,10 +573,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # ⚠️ **MEDIDO em 11/09/2026**, depois da limpeza dos moldes triviais
     # (`scripts/medir_variantes_do_editorial.py damas`, tres dias por candidata):
     #
-    #     {damas:1, lances: 4}   pior 3   solucao media 4.3 meios-lances   210s
-    #     {damas:1, lances: 6}   pior 3   solucao media 6.8 meios-lances   117s
-    #     {damas:1, lances: 8}   pior 3   solucao media 6.8 meios-lances   117s
-    #     {damas:1, lances:10}   pior 3   solucao media 6.8 meios-lances   117s
+    #     {damas:1, lances: 4}   FOLGA       (3 de 3)     solucao media 4.3 meios-lances   210s
+    #     {damas:1, lances: 6}   FOLGA       (3 de 3)     solucao media 6.8 meios-lances   117s
+    #     {damas:1, lances: 8}   FOLGA       (3 de 3)     solucao media 6.8 meios-lances   117s
+    #     {damas:1, lances:10}   FOLGA       (3 de 3)     solucao media 6.8 meios-lances   117s
     #
     # ⛔ **So as duas primeiras entraram, e o motivo esta nos numeros iguais.**
     # `lances` e a janela em **lances do jogador**; `nu_lances_solucao` conta
@@ -578,12 +597,12 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # ✅ REMEDIDO EM 12/09/2026, DEPOIS DE O ACERVO IR DE 330 PARA 515 MOLDES
     # ═══════════════════════════════════════════════════════════════════════
     #
-    #     {damas:1, lances: 6}   pior 3   solucao media 6.8 meios-lances   103s
-    #     {damas:1, lances: 4}   pior 3   solucao media 6.1 meios-lances   176s
-    #     {damas:2, lances: 8}   pior 1   solucao media 9.6 meios-lances   525s
-    #     {damas:2, lances:10}   pior 1   solucao media 9.6 meios-lances   532s
+    #     {damas:1, lances: 6}   FOLGA       (3 de 3)     solucao media 6.8 meios-lances   103s
+    #     {damas:1, lances: 4}   FOLGA       (3 de 3)     solucao media 6.1 meios-lances   176s
+    #     {damas:2, lances: 8}   NO LIMITE   (1 de 3)     solucao media 9.6 meios-lances   525s
+    #     {damas:2, lances:10}   NO LIMITE   (1 de 3)     solucao media 9.6 meios-lances   532s
     #
-    # ✅ **A variante de controle nao se moveu** — pior 3, 6,8, e ate um pouco
+    # ✅ **A variante de controle nao se moveu** — FOLGA, solucao 6,8, e ate um pouco
     # mais rapida. O acervo cresceu 56% e a tarefa que esta no ar continua do
     # mesmo tamanho: era exatamente o que se queria da SOMA (185 moldes reais
     # entraram sem deslocar os 330 que ja funcionavam).
@@ -620,10 +639,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         #
         # ✅ **MEDIDO no mesmo dia**, e o resultado da razao a ele:
         #
-        #     {damas:1, lances: 6}   pior 3   solucao media 7.4 meios-lances    88s
-        #     {damas:1, lances: 4}   pior 3   solucao media 5.2 meios-lances   132s
-        #     {damas:2, lances: 8}   pior 3   solucao media 9.7 meios-lances   314s
-        #     {damas:2, lances:10}   pior 3   solucao media 9.4 meios-lances   265s
+        #     {damas:1, lances: 6}   FOLGA       (3 de 3)     solucao media 7.4 meios-lances    88s
+        #     {damas:1, lances: 4}   FOLGA       (3 de 3)     solucao media 5.2 meios-lances   132s
+        #     {damas:2, lances: 8}   FOLGA       (3 de 3)     solucao media 9.7 meios-lances   314s
+        #     {damas:2, lances:10}   FOLGA       (3 de 3)     solucao media 9.4 meios-lances   265s
         #
         # ⚠️ **9,7 meios-lances sao ~5 lances do jogador**, contra ~3,7 da melhor
         # variante de uma dama so. E a tarefa mais longa que as damas tem hoje.
@@ -644,9 +663,9 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         # mas deixa a media de lances com incerteza para cima.
         #
         # ⚠️ **12/09/2026: a ressalva acima virou pendencia de verdade.** Na
-        # remedicao com o acervo de 515 moldes, esta variante caiu de `pior 3`
-        # para **`pior 1`** (9,6 meios-lances, 525 s) — e a rodada de novo
-        # dividiu a maquina, agora com a suite do aplicativo. ⛔ `pior 1` ainda
+        # remedicao com o acervo de 515 moldes, esta variante caiu de **FOLGA**
+        # para **NO LIMITE** (1 candidato dos 3 pedidos, 9,6 meios-lances, 525 s) — e a rodada de novo
+        # dividiu a maquina, agora com a suite do aplicativo. ⛔ **NO LIMITE** ainda
         # publica, mas e folga ZERO: o proximo degrau e o dia descoberto.
         # ⏳ Remedir com a maquina livre antes de mexer em qualquer botao daqui.
         Publicacao(
@@ -657,9 +676,9 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     ),
     # ⚠️ **MEDIDO no mesmo dia, e o resultado foi UMA variante so:**
     #
-    #     {pecas:2, lances:4}   pior 3   solucao media 2.8 meios-lances   116s
-    #     {pecas:2, lances:6}   pior 3   solucao media 2.8 meios-lances   116s
-    #     {pecas:2, lances:8}   pior 3   solucao media 2.8 meios-lances   116s
+    #     {pecas:2, lances:4}   FOLGA       (3 de 3)     solucao media 2.8 meios-lances   116s
+    #     {pecas:2, lances:6}   FOLGA       (3 de 3)     solucao media 2.8 meios-lances   116s
+    #     {pecas:2, lances:8}   FOLGA       (3 de 3)     solucao media 2.8 meios-lances   116s
     #
     # ⛔ **Os tres numeros sao o mesmo numero.** A captura encadeada cai em ~1,4
     # lances do jogador; qualquer janela de 4 para cima e folga pura, e as tres
@@ -673,9 +692,9 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     #
     # ✅ **A janela APERTADA foi medida em 11/09/2026, e nao muda nada:**
     #
-    #     {pecas:2, lances:4}   pior 3   solucao media 3.0 meios-lances   69s
-    #     {pecas:2, lances:3}   pior 3   solucao media 3.0 meios-lances   70s
-    #     {pecas:2, lances:2}   pior 3   solucao media 3.0 meios-lances   70s
+    #     {pecas:2, lances:4}   FOLGA       (3 de 3)     solucao media 3.0 meios-lances   69s
+    #     {pecas:2, lances:3}   FOLGA       (3 de 3)     solucao media 3.0 meios-lances   70s
+    #     {pecas:2, lances:2}   FOLGA       (3 de 3)     solucao media 3.0 meios-lances   70s
     #
     # ⛔ **Tres numeros iguais, e desta vez ate o tempo e igual.** A captura
     # encadeada cai **sempre** em 3 meios-lances — dois lances do jogador —, e
@@ -698,11 +717,11 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # sairam: o acervo foi TROCADO por 295 moldes pescados de partidas humanas
     # do `prd` (material 17,3 contra ~7). Os mesmos parametros, acervo novo:
     #
-    #     {pecas:2, lances:4}   pior 1   solucao media  3.7 meios-lances   603s
-    #     {pecas:2, lances:3}   pior 1   solucao media  3.7 meios-lances   602s
-    #     {pecas:2, lances:2}   pior 1   solucao media  3.0 meios-lances   671s
-    #     {pecas:3, lances:4}   pior 0   ⛔ NAO ENTRA                      696s
-    #     {pecas:3, lances:6}   pior 1   solucao media 10.3 meios-lances   691s
+    #     {pecas:2, lances:4}   NO LIMITE   (1 de 3)     solucao media  3.7 meios-lances   603s
+    #     {pecas:2, lances:3}   NO LIMITE   (1 de 3)     solucao media  3.7 meios-lances   602s
+    #     {pecas:2, lances:2}   NO LIMITE   (1 de 3)     solucao media  3.0 meios-lances   671s
+    #     {pecas:3, lances:4}   SEM DESAFIO (0 de 3)     ⛔ NAO ENTRA                      696s
+    #     {pecas:3, lances:6}   NO LIMITE   (1 de 3)     solucao media 10.3 meios-lances   691s
     #
     # ⚠️ **A janela de 2 virou variante de verdade.** Em 11/09 as tres davam o
     # mesmo numero **e o mesmo tempo** — assinatura de janela que nao descarta
@@ -712,13 +731,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     #
     # ⚠️ **E o "2 pecas" pode virar 3 — mas so com janela 6.** Era pergunta do
     # dono (*"este 2 e fixo ou varia?"*). Com `lances:4` da **zero nos tres
-    # dias**; com `lances:6` da pior 1, e a solucao sobe para 10,3 meios-lances
+    # dias**; com `lances:6` da **NO LIMITE**, e a solucao sobe para 10,3 meios-lances
     # (~5,2 lances do jogador) — a tarefa **mais longa** que as damas tem, mais
     # longa ate que o coroar de duas damas. ⛔ **O aperto tem nome:** 10,3 contra
     # um teto de geracao de **12**, margem de menos de dois meios-lances.
     #
     # ⏳ **Nenhuma das duas entrou ainda** — a decisao e de quem le o numero, e o
-    # `pior 1` pede uma remedicao com a maquina livre (esta rodada dividiu o
+    # **NO LIMITE** pede uma remedicao com a maquina livre (esta rodada dividiu o
     # computador com a suite do aplicativo, e o gerador tem teto de 2 s por
     # lance). Detalhe em `docs/historico_decisoes.md`, 12/09/2026.
     "damas_capturar_multipla": (

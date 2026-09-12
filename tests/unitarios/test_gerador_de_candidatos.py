@@ -17,6 +17,7 @@ import pytest
 
 from job.gerador import (
     EPOCA_DO_RODIZIO,
+    TENTATIVAS_POR_JOGO,
     JOGOS_DO_RODIZIO,
     MODALIDADES_POR_JOGO,
     PERSONAGENS,
@@ -638,3 +639,108 @@ def test_o_PONTINHOS_tambem_publica_com_o_jogador_1() -> None:
 
     js = do_pontinhos(["H_0_1", "V_1_0"])
     assert js["vez_de"] == 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QUANTAS POSICOES O GERADOR TENTA, E POR QUE O NUMERO E POR JOGO (12/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _primeiro_dia_de(co_jogo: str, a_partir_de: date) -> date:
+    """O primeiro dia, de `a_partir_de` em diante, em que o rodizio da `co_jogo`."""
+    dia = a_partir_de
+    while escolher_jogo(dia) != co_jogo:
+        dia += timedelta(days=1)
+    return dia
+
+
+def _parametros_impossiveis_de(co_tipo: str) -> dict[str, int]:
+    """Os parametros do tipo, com um alvo que NENHUMA posicao alcanca.
+
+    ⚠️ **Nao e um numero magico**: cada chave numerica da receita vai a 99, que
+    e mais caixas do que o tabuleiro `pequeno` tem (4x3 = 6). O laco entao roda
+    ate o fim do orcamento de tentativas, que e o que este caso quer medir.
+    """
+    from job import editorial as editorial_mod
+
+    publicacao = editorial_mod.publicacao_de(co_tipo, 0)
+    return {chave: 99 for chave in publicacao.parametros}
+
+
+def test_TODO_jogo_com_receita_tem_seu_numero_de_tentativas() -> None:
+    """🔒 Jogo novo entra em `TENTATIVAS_POR_JOGO`, ou herda um numero errado.
+
+    ⚠️ **O padrao de 6 existe para nao estourar, e nao para servir.** Um jogo
+    novo que caisse nele herdaria a calibragem das damas — que e cara por
+    tentativa — mesmo sendo barato, e o sintoma seria dia descoberto semanas
+    depois, sem nada apontando para cá.
+    """
+    jogos_com_receita = {receita.co_jogo for receita in RECEITAS.values()}
+    faltando = jogos_com_receita - set(TENTATIVAS_POR_JOGO)
+    assert not faltando, (
+        f"estes jogos tem receita e nao tem numero de tentativas: {faltando}. "
+        "⛔ Eles vao cair no padrao em silencio — escolha o numero olhando "
+        "quanto custa UMA tentativa naquele jogo."
+    )
+
+
+def test_o_numero_de_tentativas_SAI_DO_JOGO_quando_ninguem_o_passa() -> None:
+    """🔒 ⛔ O cadeado do dia descoberto de 2026-09-18.
+
+    Naquele dia o job tentou `6 x 3 = 18` posicoes para
+    `pontinhos_chegar_ao_placar`, recusou as 18 por erro do adversario, e a fila
+    ficou com um dia vazio — o unico defeito deste job que a pessoa ve na tela.
+    As 18 custaram **2 segundos**: o gerador nao desistiu por tempo, desistiu
+    porque o orcamento acabou.
+
+    ⚠️ **Este caso conta as tentativas de verdade**, espionando a semente (uma
+    por tentativa). Um `assert TENTATIVAS_POR_JOGO["pontinhos"] == 20` seria
+    decorativo: passaria igual se ninguem lesse o registro.
+    """
+    import job.gerador as gerador_mod
+
+    dia = _primeiro_dia_de("pontinhos", date(2026, 10, 1))
+    co_tipo = gerador_mod.escolher_tipo("pontinhos", dia, tipos_recentes=())
+
+    tentadas: list[int] = []
+    original = gerador_mod.semente_mod.sortear
+
+    def _espiar(*a: object, **k: object) -> int:
+        tentadas.append(1)
+        return original(*a, **k)
+
+    gerador_mod.semente_mod.sortear = _espiar  # type: ignore[assignment]
+    try:
+        # ⚠️ **Um objetivo impossivel**, para o laco ir ate o fim do orcamento:
+        # com um alvo alcancavel ele pararia no primeiro candidato bom, e o
+        # numero medido seria "quantas deu sorte", nao "quantas ele tenta".
+        gerador_mod.gerar_candidatos(
+            dia,
+            parametros=_parametros_impossiveis_de(co_tipo),
+            quantos=1,
+            tipos_recentes=[t for t in tipos_do_jogo("pontinhos") if t != co_tipo],
+        )
+    finally:
+        gerador_mod.semente_mod.sortear = original  # type: ignore[assignment]
+
+    esperado = TENTATIVAS_POR_JOGO["pontinhos"] * 1
+    assert len(tentadas) == esperado, (
+        f"o gerador tentou {len(tentadas)} posicoes, e o registro do jogo diz "
+        f"{esperado}. ⛔ Se este numero voltou a 6, o dia descoberto de "
+        "2026-09-18 volta com ele."
+    )
+
+
+def test_as_damas_continuam_com_o_numero_BAIXO() -> None:
+    """🔒 ⛔ O contrapeso: nas damas cada tentativa custa ~30 s.
+
+    ⚠️ Vinte tentativas aqui seriam ~10 minutos por dia de damas, e o Railway
+    cobra por tempo de execucao — o mesmo botao que e barato num jogo e caro no
+    outro. Este caso existe para alguem nao "uniformizar" os dois numeros
+    achando que uniformidade e limpeza.
+    """
+    assert TENTATIVAS_POR_JOGO["damas"] < TENTATIVAS_POR_JOGO["pontinhos"], (
+        "as damas ficaram com tantas tentativas quanto o Pontinhos. ⛔ Uma "
+        "tentativa de damas custa ~30 s (busca) e uma de Pontinhos ~0,1 s "
+        "(inferencia): o mesmo numero nos dois e uma escolha que ninguem fez."
+    )
