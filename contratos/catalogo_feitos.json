@@ -58,6 +58,15 @@
       "co_jogo": "pontinhos"
     },
     {
+      "nu_feito": 12,
+      "co_feito": "maior_cadeia_capturada",
+      "no_feito": "Maior cadeia capturada",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "pontinhos"
+    },
+    {
       "nu_feito": 20,
       "co_feito": "lances_otimos",
       "no_feito": "Lances otimos",

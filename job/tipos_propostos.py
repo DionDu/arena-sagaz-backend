@@ -164,6 +164,44 @@ PROPOSTAS_PONTINHOS: dict[str, Receita] = {
         },
     ),
     # ─────────────────────────────────────────────────────────────────────────
+    "pontinhos_cadeia_longa": Receita(
+        nu_tipo_desafio=22,
+        co_tipo_desafio="pontinhos_cadeia_longa",
+        co_jogo="pontinhos",
+        co_chave_objetivo="desafioObjetivoCadeiaLonga",
+        # ── ⚠️ A IDEIA E DO DONO, 12/09/2026 ────────────────────────────────
+        #
+        # > *"Deixa o usuario conectar tracos de tal forma que consiga montar uma
+        # > cadeia extremamente longa, e depois captura-la, ao inves do
+        # > adversario. Ao inves de quebrar o tabuleiro em varias cadeias
+        # > pequenas, formar cadeias longas."*
+        #
+        # A frase: *"Capture N ou mais caixas em sequencia"*, com N grande.
+        #
+        # ── ⛔ POR QUE NAO E O TIPO 13, QUE PARECE O MESMO ──────────────────
+        #
+        # `pontinhos_escada_em_um_turno` usa `turnos_do_jogador n=1` com
+        # `caixas_fechadas`, e um turno **e** uma corrida de lances seguidos —
+        # entao ele parece medir a mesma coisa. ⚠️ **Mas a janela e o PRIMEIRO
+        # turno**, e este desafio precisa dos turnos anteriores: e neles que a
+        # pessoa constroi a cadeia. Com `n=1` o desafio seria *"ja chegue
+        # capturando"*, que e o oposto do que o dono descreveu.
+        #
+        # Por isso a janela aqui e a **partida** e a medida e outra: a pergunta
+        # e *"em ALGUM momento voce capturou N seguidas?"*.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("maior_cadeia_capturada", "maior_ou_igual", p["caixas"])
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "caixas": p["caixas"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
     "pontinhos_paciencia": Receita(
         nu_tipo_desafio=15,
         co_tipo_desafio="pontinhos_paciencia",
@@ -364,6 +402,11 @@ PARAMETROS_DE_EXEMPLO: Mapping[str, dict[str, Any]] = {
     "pontinhos_escada_em_um_turno": {"caixas": 4},
     "pontinhos_economia_de_lances": {"caixas": 3, "lances": 5},
     "pontinhos_paciencia": {"turnos": 2},
+    # ⚠️ **Seis, e nao quatro.** Medido em 12/09/2026: contra a Cacau, quem joga
+    # para vencer (a CNN no nivel Magno) chega a seis caixas seguidas em **7%**
+    # das posicoes; quem joga para a cadeia, em 43%. Com quatro o desafio sairia
+    # cumprido por acidente.
+    "pontinhos_cadeia_longa": {"caixas": 6},
     "damas_armadilha": {"turnos": 2, "pecas": 3},
     "damas_dupla_coroacao": {"lances": 8},
     "damas_limpeza": {"lances": 5, "restam": 1},

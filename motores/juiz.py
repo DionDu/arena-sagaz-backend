@@ -81,8 +81,15 @@ def _medidor_do_pontinhos(
         )
         # Quantos desses lances foram do jogador do desafio.
         meus = sum(1 for l in fita[:quantos] if l["jogador"] == jogador)
+        # ⚠️ **A fita do PREFIXO, e nao a inteira.** A janela decide ate onde se
+        # mede; passar a fita completa deixaria uma cadeia capturada depois do
+        # fim da janela contar para o objetivo.
         return feitos_pontinhos.medir(
-            base, estado, jogador=jogador, lances_do_jogador=meus
+            base,
+            estado,
+            jogador=jogador,
+            lances_do_jogador=meus,
+            fita=fita[:quantos],
         )
 
     return medir_ate

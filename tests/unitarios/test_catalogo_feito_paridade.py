@@ -44,7 +44,15 @@ import pytest
 
 RAIZ = Path(__file__).resolve().parents[2]
 MANIFESTO = RAIZ / "contratos" / "catalogo_feitos.json"
-MIGRACAO = RAIZ / "migrations" / "versions" / "0018_schema_desafio.py"
+#: Onde as migracoes vivem.
+#:
+#: ⛔ **Todas elas, e nao so a `0018`.** Ate 12/09/2026 este cadeado olhava so a
+#: migracao que semeou a dimensao — o que estava certo enquanto ela era a unica a
+#: mexer no catalogo. Deixou de estar quando `maior_cadeia_capturada` entrou pela
+#: `0023`: ⚠️ **migracao aplicada nao se edita**, entao chave nova sempre chega
+#: por arquivo novo, e um cadeado presa a um arquivo so acusaria divergencia em
+#: toda chave futura — e ensinaria a ignora-lo.
+MIGRACOES = RAIZ / "migrations" / "versions"
 
 # As colunas da dimensao, na ordem em que a migracao as insere.
 COLUNAS = (
@@ -74,23 +82,34 @@ def _do_manifesto() -> dict[int, dict[str, object]]:
 
 
 def _da_migracao() -> dict[int, dict[str, object]]:
-    """As linhas que a migracao `0018` semeia em `tb902_catalogo_feito`.
+    """As linhas que as migracoes semeiam em `tb902_catalogo_feito`.
 
-    Le o `INSERT` do arquivo. Nao ha banco nesta suite, e nao precisa haver: o que
-    se quer guardar e o que a migracao **diz**, que e o que o banco vai ter.
+    Le os `INSERT` dos arquivos. Nao ha banco nesta suite, e nao precisa haver: o
+    que se quer guardar e o que as migracoes **dizem**, que e o que o banco vai
+    ter.
+
+    ⚠️ **Le INSERT, e so INSERT.** Um `DELETE` ou um `UPDATE` numa migracao
+    futura passaria despercebido aqui. E aceitavel porque a dimensao e semeada,
+    nunca remendada — e porque o `downgrade` da `0023` explica por que apagar uma
+    linha ja apontada por um desafio publicado nao e uma operacao normal.
     """
-    assert MIGRACAO.is_file(), f"a migracao 0018 nao esta em {MIGRACAO}"
-    fonte = MIGRACAO.read_text(encoding="utf-8")
+    assert MIGRACOES.is_dir(), f"as migracoes nao estao em {MIGRACOES}"
 
-    casa = re.search(
-        r"INSERT INTO desafio\.tb902_catalogo_feito(.*?);", fonte, re.S
-    )
-    assert casa, (
-        "o INSERT de tb902_catalogo_feito nao foi encontrado na 0018. "
+    corpo = ""
+    encontrou = False
+    for arquivo in sorted(MIGRACOES.glob("*.py")):
+        fonte = arquivo.read_text(encoding="utf-8")
+        for casa in re.finditer(
+            r"INSERT INTO desafio\.tb902_catalogo_feito(.*?)\"\"\"", fonte, re.S
+        ):
+            corpo += casa.group(1)
+            encontrou = True
+
+    assert encontrou, (
+        "nenhum INSERT de tb902_catalogo_feito foi encontrado nas migracoes. "
         "Ou ele sumiu, ou o formato mudou a ponto de este cadeado ter deixado "
         "de olhar — as duas coisas sao problema."
     )
-    corpo = casa.group(1)
 
     linhas: dict[int, dict[str, object]] = {}
     # Cada tupla e `( numero, 'co', 'no', 'unidade', 'direcao', 'proc', jogo)`,

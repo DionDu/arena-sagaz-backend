@@ -10,13 +10,23 @@ laboratório. Este arquivo so **le** o placar que o motor calculou e o traduz pa
 as chaves do catálogo do hub.
 
 ⚠️ **As chaves sao as do catálogo, e nao inventadas aqui**: `caixas_fechadas`,
-`caixas_do_adversario`, `lances_do_jogador`. Uma chave a mais que o catálogo nao
-conheça viraria uma medida que ninguém pontua e ninguém mostra — e o cadeado 4
-existe para que isso nao aconteça em silêncio.
+`caixas_do_adversario`, `lances_do_jogador`, `maior_cadeia_capturada`. Uma chave
+a mais que o catálogo nao conheça viraria uma medida que ninguém pontua e ninguém
+mostra — e o cadeado 4 existe para que isso nao aconteça em silêncio.
+
+⛔ **E uma delas NAO se le no estado final.** `maior_cadeia_capturada` pergunta
+quantas caixas a pessoa fechou **sem perder a vez**, e isso e uma propriedade do
+CAMINHO: duas partidas que terminam na mesma posicao podem ter uma cadeia de sete
+e outra de duas. Por isso `medir` recebe a fita — ⚠️ e por isso ela tem valor
+padrao vazio: quem so quer o placar (a tela de vitoria) continua chamando como
+antes, e a medida sai `0`, que e o que se sabe sem o caminho.
 """
 
 from __future__ import annotations
 
+from typing import Any, Mapping, Sequence
+
+from .cadeia_longa import maior_captura_em_sequencia
 from .motor_pontinhos import EstadoPontinhos
 
 #: Quantas caixas o tabuleiro `pequeno` tem, no total.
@@ -33,6 +43,7 @@ def medir(
     *,
     jogador: int,
     lances_do_jogador: int,
+    fita: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, float]:
     """As medidas do trecho entre `antes` e `depois`, do ponto de vista de `jogador`.
 
@@ -42,6 +53,8 @@ def medir(
         depois: o estado no fim da janela.
         jogador: `+1` ou `-1`, na convenção do log de partidas.
         lances_do_jogador: quantos lances daquele jogador entraram na janela.
+            fita: os lances da janela, `{"n", "jogador", "lance"}`. ⚠️ Sem ela
+            `maior_cadeia_capturada` sai `0` — ver o cabeçalho.
 
     Returns:
         Um dicionário de chave do catálogo para número.
@@ -61,4 +74,5 @@ def medir(
             placar_depois[adversario] - placar_antes[adversario]
         ),
         "lances_do_jogador": lances_do_jogador,
+        "maior_cadeia_capturada": maior_captura_em_sequencia(antes, fita, jogador),
     }

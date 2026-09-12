@@ -26,6 +26,10 @@ from job.tipos_propostos import (
     PROPOSTAS_DAMAS,
     PROPOSTAS_PONTINHOS,
 )
+from motores.damas import feitos_damas
+from motores.damas.motor_damas import MotorDamas, estado_inicial
+from motores.pontinhos import feitos_pontinhos
+from motores.pontinhos.motor_pontinhos import EstadoPontinhos
 from motores.nucleo.chegada import (
     COMPARADORES,
     JANELAS,
@@ -37,25 +41,32 @@ IDS = sorted(PROPOSTAS)
 
 #: As chaves que os medidores dos dois jogos ja produzem hoje.
 #:
-#: ⚠️ Lidas **do codigo dos medidores**, e nao escritas a mao: uma lista aqui
-#: envelheceria e o cadeado passaria a aprovar uma chave que nenhum medidor sabe
-#: calcular — o desafio iria ao ar e o julgamento estouraria `ChegadaInvalida`
-#: para todo mundo.
-MEDIDAS_DO_PONTINHOS = {
-    "caixas_fechadas",
-    "caixas_do_adversario",
-    "lances_do_jogador",
-}
-MEDIDAS_DAS_DAMAS = {
-    "damas_coroadas",
-    "capturas_extras",
-    "maior_captura",
-    "material_restante",
-    "material_do_adversario",
-    "lances_do_jogador",
-    "vitoria",
-    "empate",
-}
+#: ⚠️ Lidas **do codigo dos medidores**, e nao escritas a mao.
+#:
+#: ⛔ **Ate 12/09/2026 este comentario mentia**: ele prometia derivacao e logo
+#: abaixo havia duas listas literais. Elas estavam certas por acaso — e pararam
+#: de estar no dia em que `maior_cadeia_capturada` entrou no medidor do
+#: Pontinhos: o cadeado reprovou uma chave que o medidor produz, apontando para
+#: a proposta em vez de para a lista velha.
+#:
+#: ⚠️ O risco que ele descreve continua real, e agora esta coberto de verdade:
+#: uma lista escrita a mao envelhece, e o cadeado passa a aprovar chave que
+#: medidor nenhum calcula — o desafio vai ao ar e o julgamento estoura
+#: `ChegadaInvalida` para todo mundo.
+def _medidas_que_o_pontinhos_produz() -> set[str]:
+    """As chaves que o medidor do Pontinhos devolve — perguntadas a ele."""
+    vazio = EstadoPontinhos(lances=())
+    return set(feitos_pontinhos.medir(vazio, vazio, jogador=1, lances_do_jogador=0))
+
+
+def _medidas_que_as_damas_produzem() -> set[str]:
+    """As chaves que o medidor das damas devolve — perguntadas a ele."""
+    motor = MotorDamas(co_modalidade="brasileira")
+    return set(feitos_damas.medir(motor, estado_inicial("brasileira"), [], jogador=1))
+
+
+MEDIDAS_DO_PONTINHOS = _medidas_que_o_pontinhos_produz()
+MEDIDAS_DAS_DAMAS = _medidas_que_as_damas_produzem()
 
 
 def _chegada(co_tipo: str) -> dict:
