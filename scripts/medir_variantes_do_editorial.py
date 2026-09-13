@@ -31,6 +31,15 @@ COMO RODAR
 existe porque a rodada `damas` inteira custa **80 minutos** (medido em
 12/09/2026): investigar um botao de um tipo nao deve pagar a medicao dos outros.
 
+⚠️ **E `--com-botao-proprio` mede so as candidatas que mexem em PREPARO ou
+TETO** - as que estao sob investigacao:
+
+    .venv\Scripts\python -u scripts\medir_variantes_do_editorial.py damas --com-botao-proprio
+
+⛔ **Ele dispensa a REIMPRESSAO, nunca a primeira medida.** Uma variante nova sem
+botao proprio continua precisando da rodada cheia; o que este atalho evita e
+pagar ~55 minutos para reimprimir linhas que ja sairam identicas duas vezes.
+
 ⚠️ **E a medicao e REPRODUTIVEL, o que da peso ao numero.** As damas foram
 medidas duas vezes em 12/09/2026, com ~2 h entre as rodadas: **sete das nove**
 linhas sairam identicas digito a digito, e as duas que variaram (`{damas: 2}`)
@@ -340,8 +349,33 @@ def _como_ler(dia_mais_fraco: int) -> tuple[str, str]:
     return "✅", "FOLGA"
 
 
-def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
+def so_as_de_botao_proprio(candidatas: Sequence["Candidata"]) -> list["Candidata"]:
+    """As candidatas que mexem num BOTAO DE GERACAO, e nao so num numero da frase.
+
+    ⚠️ **Botao de geracao** e `nu_lances_de_preparo` ou `nu_maximo_de_meios_lances`:
+    os dois que mudam **o que o gerador procura**. Os `parametros` mudam o que a
+    **frase pede**, e toda candidata tem os seus.
+
+    ⛔ **Este filtro existe por aritmetica de relogio.** Medir
+    `damas_capturar_multipla` inteiro custa ~100 minutos, e cinco das oito linhas
+    ja foram medidas DUAS vezes com resultado identico ao digito (12/09/2026).
+    Reimprimi-las cobra ~55 minutos por nada.
+
+    ⚠️ **E o filtro NAO serve para publicar.** Uma variante sem botao proprio que
+    nunca foi medida continua precisando da rodada cheia - o que este atalho
+    dispensa e a **reimpressao**, nunca a primeira medida.
+    """
+    return [
+        c
+        for c in candidatas
+        if c.nu_lances_de_preparo is not None or c.nu_maximo_de_meios_lances is not None
+    ]
+
+
+def medir(co_tipo: str, variantes: Sequence["Candidata"]) -> None:
     """Mede cada variante de um tipo e imprime o resultado, linha a linha."""
+    if not variantes:
+        return
     receita = gerador_mod.receita_de(co_tipo)
     # ⚠️ Os dois botoes da geracao (preparo e teto) saem da variante **que esta
     # no ar hoje**, e nao de numeros escritos aqui: medir com outros botoes
@@ -445,9 +479,14 @@ def tipos_do_alvo(alvo: str) -> list[str]:
     ]
 
 
+BANDEIRA_BOTAO_PROPRIO = "--com-botao-proprio"
+
+
 def principal(argumentos: Sequence[str]) -> int:
     """Mede os tipos de um jogo, de um tipo so, ou todos. Devolve o codigo de saida."""
-    alvo = argumentos[0] if argumentos else "todos"
+    so_botao_proprio = BANDEIRA_BOTAO_PROPRIO in argumentos
+    posicionais = [a for a in argumentos if not a.startswith("-")]
+    alvo = posicionais[0] if posicionais else "todos"
 
     tipos = tipos_do_alvo(alvo)
     if not tipos:
@@ -457,9 +496,31 @@ def principal(argumentos: Sequence[str]) -> int:
             print(f"     {co_tipo}")
         return 2
 
+    if so_botao_proprio:
+        print(
+            f"⚠️ {BANDEIRA_BOTAO_PROPRIO}: medindo so as candidatas que mexem num "
+            "botao de geracao (preparo ou teto). As demais ficam de fora."
+        )
+
     inicio = time.time()
+    medidas = 0
     for co_tipo in tipos:
-        medir(co_tipo, A_MEDIR[co_tipo])
+        candidatas = A_MEDIR[co_tipo]
+        if so_botao_proprio:
+            candidatas = tuple(so_as_de_botao_proprio(candidatas))
+        medidas += len(candidatas)
+        medir(co_tipo, candidatas)
+
+    # ⛔ Zero linhas com a bandeira ligada nao e "tudo certo": e a bandeira
+    # aplicada a um alvo que nao tem nenhuma candidata de botao proprio, e sem
+    # este aviso o relatorio sairia vazio e silencioso.
+    if not medidas:
+        print()
+        print(
+            f"⛔ nenhuma candidata de {alvo!r} mexe num botao de geracao. "
+            f"Rode sem {BANDEIRA_BOTAO_PROPRIO}."
+        )
+        return 2
 
     print()
     print(f"total: {time.time() - inicio:.0f}s")

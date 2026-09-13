@@ -167,3 +167,53 @@ def test_alvo_desconhecido_nao_mede_nada():
     e uma hora de maquina que ninguem autorizou."""
     assert MEDIDOR.tipos_do_alvo("damas_coroar_errado") == []
     assert MEDIDOR.principal(["damas_coroar_errado"]) == 2
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 3. O filtro que dispensa a REIMPRESSAO (e so ela)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_filtro_pega_SO_quem_mexe_num_botao_de_geracao():
+    """⚠️ Botao de geracao e preparo ou teto - o que muda o que o gerador PROCURA.
+
+    Os `parametros` mudam o que a **frase pede**, e toda candidata tem os seus;
+    filtrar por eles nao separaria nada.
+    """
+    escolhidas = MEDIDOR.so_as_de_botao_proprio(
+        MEDIDOR.A_MEDIR["damas_capturar_multipla"]
+    )
+
+    assert escolhidas, "nenhuma candidata de teto proprio sobrou"
+    assert all(
+        c.nu_lances_de_preparo is not None or c.nu_maximo_de_meios_lances is not None
+        for c in escolhidas
+    )
+    # ⛔ E as ja medidas duas vezes ficam de fora - e o motivo do filtro existir.
+    assert {"pecas": 3, "lances": 6} not in [dict(c.parametros) for c in escolhidas]
+
+
+def test_o_filtro_NAO_e_atalho_para_publicar():
+    """⛔ Ele dispensa a REIMPRESSAO, nunca a primeira medida.
+
+    ⚠️ O cadeado e sobre a tabela, e nao sobre o codigo: toda candidata **sem**
+    botao proprio tem de continuar na rodada cheia. Se um dia alguem "limpar" as
+    candidatas antigas para a rodada filtrada ficar curta, a rodada cheia deixa
+    de medir o que sustenta o que esta no ar.
+    """
+    for co_tipo, candidatas in MEDIDOR.A_MEDIR.items():
+        cheia = list(candidatas)
+        filtrada = MEDIDOR.so_as_de_botao_proprio(candidatas)
+        assert len(filtrada) <= len(cheia)
+        for c in filtrada:
+            assert c in cheia, "o filtro inventou candidata que a tabela nao tem"
+
+
+def test_a_bandeira_com_alvo_sem_botao_proprio_AVISA_em_vez_de_sair_calada():
+    """⛔ Relatorio vazio e silencioso e pior que erro: parece que nada apertou.
+
+    Nenhuma candidata do Pontinhos tem teto proprio hoje, e `acima_do_guloso` tem
+    preparo proprio - entao o alvo usado aqui e um tipo cujas candidatas nao
+    mexem em botao nenhum.
+    """
+    assert MEDIDOR.principal(["pontinhos_cadeia_longa", "--com-botao-proprio"]) == 2
