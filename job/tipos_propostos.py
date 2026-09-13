@@ -80,15 +80,27 @@ PROPOSTAS_PONTINHOS: dict[str, Receita] = {
         co_tipo_desafio="pontinhos_nao_entregar_nada",
         co_jogo="pontinhos",
         co_chave_objetivo="desafioObjetivoNaoEntregarNada",
-        # ⚠️ **A janela e do ADVERSARIO**, e e essa a ideia do tipo: o objetivo
-        # nao e o que voce faz, e o que voce **impede**. E o unico dos dez tipos
-        # atuais que usaria `turnos_do_adversario` — a janela existe no
-        # vocabulario desde o inicio e nunca foi usada.
+        # ⚠️ **A ideia do tipo: o objetivo nao e o que voce faz, e o que voce
+        # IMPEDE.** Nenhum tipo no ar cobra isso.
+        #
+        # ⛔ **E ele estava escrito ERRADO ate 12/09/2026** — ver o bloco
+        # "A JANELA E UM TETO" no topo deste arquivo. A versao anterior era
+        # `janela: turnos_do_adversario` com a clausula sozinha, e ⚠️ **media
+        # solucao de UM meio-lance**: `caixas_do_adversario <= 0` ja e verdade
+        # antes de o adversario jogar, entao o juiz declarava cumprido no
+        # primeiro lance. Medido: `[1, 1, 1]` com turnos 2, 4, 6 e 8 — o numero
+        # do enunciado nao mudava nada.
+        #
+        # ✅ **A cura nao custa vocabulario novo:** `lances_do_jogador` e uma
+        # MEDIDA que os dois medidores ja produzem, e exigi-la em conjuncao faz o
+        # juiz so poder fechar a conta no n-esimo lance. Medido depois da
+        # correcao: solucao de **7** meios-lances com 4, e **11** com 6.
         montar=lambda p: {
             "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "turnos_do_adversario", "n": p["turnos"]},
+            "janela": {"tipo": "partida"},
             "clausulas": [
-                _medida("caixas_do_adversario", "menor_ou_igual", 0)
+                _medida("lances_do_jogador", "maior_ou_igual", p["turnos"]),
+                _medida("caixas_do_adversario", "menor_ou_igual", 0),
             ],
         },
         valores_da_frase=lambda p, personagem: {
@@ -126,6 +138,32 @@ PROPOSTAS_PONTINHOS: dict[str, Receita] = {
         co_tipo_desafio="pontinhos_escada_em_um_turno",
         co_jogo="pontinhos",
         co_chave_objetivo="desafioObjetivoEscadaEmUmTurno",
+        # ⛔ **ESTE TIPO E DUPLICATA, POR DOIS CAMINHOS — 12/09/2026.**
+        #
+        # ⚠️ **Pela FORMA, ele e `pontinhos_fechar_caixas` com `turnos: 1`**:
+        # mesma janela (`turnos_do_jogador`), mesma clausula
+        # (`caixas_fechadas >= N`). E isso e parametro, nao tipo novo.
+        #
+        # ⚠️ **Pela INTENCAO, ele e `pontinhos_cadeia_longa`**, que ja publica
+        # *"feche N caixas de uma vez"* com a forma certa:
+        #
+        #     janela: partida   clausula: maior_cadeia_capturada >= N
+        #
+        # ⛔ **E a forma daqui, alem de duplicada, nao funciona.** `turnos_do_jogador
+        # n=1` limita a fita ao PRIMEIRO turno do jogador, e nele as caixas ainda
+        # nao existem: medido, **zero candidatos** em 24 tentativas, com preparo 8
+        # e 14, com o Sagaz e com o solucionador do arquiteto. Nenhum descarte por
+        # recusa - simplesmente nao ha solucao dentro de um turno.
+        #
+        # ⚠️ **A licao nao e sobre este tipo:** `maior_cadeia_capturada` e uma
+        # MEDIDA que ja diz "de uma vez so", e por isso o `cadeia_longa` nao
+        # precisa de janela apertada nenhuma. Quando a medida certa existe, a
+        # janela nao e o lugar de exprimir a tarefa.
+        #
+        # ⛔ **Nao e apagado** (nada e apagado neste projeto), mas nao entra em
+        # `EM_AVALIACAO`: medi-lo seria pagar horas de maquina por uma linha que
+        # ja se sabe como sai.
+        #
         # ⚠️ `n = 1` e o caso extremo da janela de turnos, e ele **so faz sentido
         # no Pontinhos**: quem fecha caixa joga de novo, entao um turno pode ter
         # muitos lances. Nas damas, `turnos_do_jogador n=1` seria um lance so.
@@ -173,10 +211,15 @@ PROPOSTAS_PONTINHOS: dict[str, Receita] = {
         # mais contraintuitivo do catalogo, e ensina a regra central do Pontinhos:
         # quem e forcado a abrir uma cadeia perde. ⛔ Ele **precisa** das duas
         # clausulas: so "nao entregue" seria cumprido por quem fechasse tudo.
+        # ⛔ **Mesma correcao de 12/09/2026 do tipo 11**: as DUAS clausulas eram
+        # verdadeiras antes do primeiro lance (ninguem fechou nada ainda), entao
+        # o juiz cumpria o desafio imediatamente. O que faltava era dizer
+        # **quando** medir, e `lances_do_jogador` diz.
         montar=lambda p: {
             "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "turnos_do_jogador", "n": p["turnos"]},
+            "janela": {"tipo": "partida"},
             "clausulas": [
+                _medida("lances_do_jogador", "maior_ou_igual", p["turnos"]),
                 _medida("caixas_do_adversario", "menor_ou_igual", 0),
                 _medida("caixas_fechadas", "igual", 0),
             ],
@@ -210,9 +253,13 @@ PROPOSTAS_DAMAS: dict[str, Receita] = {
         # peca" quer dizer "nao deixar captura disponivel".
         montar=lambda p: {
             "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "turnos_do_adversario", "n": p["turnos"]},
+            # ⛔ Mesma correcao de 12/09/2026 dos tipos 11 e 15: `material_restante
+            # >= pecas` ja e verdade na posicao inicial, e sem a clausula de
+            # `lances_do_jogador` o juiz cumpria o desafio no primeiro lance.
+            "janela": {"tipo": "partida"},
             "clausulas": [
-                _medida("material_restante", "maior_ou_igual", p["pecas"])
+                _medida("lances_do_jogador", "maior_ou_igual", p["turnos"]),
+                _medida("material_restante", "maior_ou_igual", p["pecas"]),
             ],
         },
         valores_da_frase=lambda p, personagem: {

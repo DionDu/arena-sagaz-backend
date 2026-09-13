@@ -238,3 +238,172 @@ def test_a_frase_recebe_o_PERSONAGEM(co_tipo: str):
     receita = PROPOSTAS[co_tipo]
     valores = receita.valores_da_frase(PARAMETROS_DE_EXEMPLO[co_tipo], "pita")
     assert valores.get("personagem") == "pita"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O TIPO E CUMPRIDO POR QUEM NAO FEZ NADA?
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Este bloco nasceu de um defeito real, achado em 12/09/2026 medindo.** Tres
+# dos onze tipos propostos - `pontinhos_nao_entregar_nada`, `pontinhos_paciencia`
+# e `damas_armadilha` - davam solucao de **UM meio-lance**, com qualquer numero
+# no enunciado. Os testes deste arquivo estavam todos verdes: eles provam que a
+# chegada e **bem formada**, e uma chegada bem formada pode ser trivial.
+#
+# ⛔ **A causa e estrutural, e vale para toda a familia "impeca" / "aguente":** a
+# janela e um TETO ("dentro de ate n"), e o juiz para no PRIMEIRO lance em que as
+# clausulas valem. Uma clausula que diz *"o adversario nao fechou caixa"* ja e
+# verdadeira antes de o adversario jogar.
+#
+# ✅ **A cura nao custa vocabulario novo:** juntar `lances_do_jogador >= n`. A
+# conjuncao so pode ficar verdadeira no n-esimo lance, e `lances_do_jogador` e
+# uma MEDIDA que os dois medidores ja produzem.
+
+#: As medidas de quem ainda nao jogou: tudo o que se ACUMULA esta em zero, e o
+#: material esta cheio.
+#:
+#: ⚠️ **Zerar tudo nao serviria**, e e o detalhe que faz este cadeado funcionar:
+#: com `material_restante = 0` a clausula *"ainda tenho pecas"* daria falsa, e o
+#: tipo passaria escondendo o defeito. O estado inicial de verdade tem material
+#: ALTO e deltas em zero.
+MEDIDAS_DE_QUEM_NAO_JOGOU: dict[str, float] = {
+    # deltas, que comecam em zero
+    "caixas_fechadas": 0,
+    "caixas_do_adversario": 0,
+    "lances_do_jogador": 0,
+    "maior_cadeia_capturada": 0,
+    "damas_coroadas": 0,
+    "capturas_extras": 0,
+    "maior_captura": 0,
+    # o tabuleiro cheio das damas
+    "material_restante": 12,
+    "material_do_adversario": 12,
+    # marcos
+    "vitoria": 0,
+    "empate": 0,
+}
+
+
+@pytest.mark.parametrize(
+    "co_tipo, receita",
+    [
+        pytest.param(k, r, id=k)
+        for k, r in PROPOSTAS.items()
+    ],
+)
+def test_NENHUM_tipo_proposto_e_cumprido_por_quem_nao_fez_NADA(co_tipo, receita):
+    """⛔ Se a chegada vale no estado inicial, o desafio ja nasce resolvido.
+
+    ⚠️ E o pior tipo de defeito para quem joga: o enunciado promete uma tarefa, a
+    pessoa faz um lance qualquer, e a tela diz que ela cumpriu. Nada acusa - o
+    desafio e valido, gera gabarito e passa por toda a pipeline.
+    """
+    parametros = PARAMETROS_DE_EXEMPLO[co_tipo]
+    chegada = LinhaDeChegada.de_dado(receita.montar(parametros))
+
+    assert not avaliar(chegada, MEDIDAS_DE_QUEM_NAO_JOGOU), (
+        f"⛔ {co_tipo} e cumprido por quem nao fez nada. Junte uma clausula de "
+        "`lances_do_jogador >= n` a conjuncao: ela e a unica coisa que impede o "
+        "juiz de fechar a conta no primeiro lance."
+    )
+
+
+@pytest.mark.parametrize("co_tipo", sorted(RECEITAS))
+def test_e_nenhum_tipo_NO_AR_tambem_e_cumprido_por_quem_nao_fez_nada(co_tipo):
+    """⚠️ O mesmo cadeado, aplicado ao que ja esta publicado.
+
+    ⛔ Hoje **nenhum** dos cinco tem o defeito, e isso nao e sorte: os cinco pedem
+    que algo ACONTECA (feche caixas, coroe, capture), e uma clausula assim e
+    falsa antes do primeiro lance. ⚠️ Mas a familia que falta no catalogo e
+    justamente a do *"impeca"* / *"aguente"*, e quando o primeiro tipo dessa
+    familia for publicado este caso e o que o segura.
+
+    ⚠️ Os parametros saem do EDITORIAL, e nao de numeros escritos aqui: e com
+    eles que o tipo vai ao ar.
+    """
+    from job import editorial as editorial_mod
+
+    for variante in editorial_mod.variantes_de(co_tipo):
+        parametros = dict(variante.parametros)
+        # ⚠️ `acima_do_guloso` so vira numero depois de o gerador medir o guloso
+        # na posicao; aqui um valor qualquer basta, porque o que se testa e a
+        # FORMA da conjuncao.
+        if editorial_mod.alvo_sai_da_posicao(parametros):
+            parametros = editorial_mod.parametros_efetivos(parametros, guloso=3)
+
+        chegada = LinhaDeChegada.de_dado(RECEITAS[co_tipo].montar(parametros))
+        assert not avaliar(chegada, MEDIDAS_DE_QUEM_NAO_JOGOU), (
+            f"⛔ {co_tipo} {dict(variante.parametros)} esta NO AR e e cumprido "
+            "por quem nao fez nada."
+        )
+
+
+#: As propostas que julgam igual a um tipo publicado, e o aviso ja escrito na
+#: receita de cada uma.
+#:
+#: ⛔ **Elas nao sao apagadas** (nada e apagado neste projeto), mas tambem nao
+#: entram em `EM_AVALIACAO`: medi-las seria pagar horas de maquina por uma linha
+#: cujo resultado ja se conhece.
+#:
+#: ⚠️ **As duas foram achadas pelo proprio cadeado, em 12/09/2026** - nenhuma
+#: tinha sido notada em revisao de codigo, e as duas estavam ha dias no arquivo.
+DUPLICATAS_CONHECIDAS = [
+    # A forma e `pontinhos_fechar_caixas` com `turnos: 1`.
+    "pontinhos_escada_em_um_turno julga igual a pontinhos_fechar_caixas",
+    # ⛔ E literalmente `damas_coroar` com `damas: 2` - que o dono pediu em
+    # 11/09/2026 e JA ESTA PUBLICADO como `{damas: 2, lances: 8}`.
+    "damas_dupla_coroacao julga igual a damas_coroar",
+]
+
+
+def test_nenhuma_proposta_repete_a_CHEGADA_de_um_tipo_que_ja_esta_no_ar():
+    """⛔ Um tipo proposto que julga igual a um publicado e trabalho repetido.
+
+    ⚠️ **Isto ja aconteceu**, e so a medicao pegou: `pontinhos_escada_em_um_turno`
+    queria dizer *"feche N caixas de uma vez"*, que e literalmente o que
+    `pontinhos_cadeia_longa` publica - `maior_cadeia_capturada >= N`.
+
+    ⚠️ **A comparacao e pela FORMA, e nao pelos numeros:** o que identifica um
+    tipo e o par (janela, chaves+comparadores das clausulas). Dois tipos que
+    diferem so no valor sao o mesmo tipo com parametros diferentes, e parametro
+    e dado.
+
+    ⛔ Este caso e sobre o CATALOGO, e nao sobre codigo: ele falha quando alguem
+    propuser um tipo que ja existe, que e exatamente quando se quer saber.
+    """
+    from job import editorial as editorial_mod
+
+    def forma(js_chegada):
+        janela = js_chegada["janela"]
+        return (
+            janela["tipo"],
+            tuple(
+                sorted(
+                    (c.get("chave"), c["comparador"])
+                    for c in js_chegada["clausulas"]
+                )
+            ),
+        )
+
+    no_ar: dict[tuple, str] = {}
+    for co_tipo, receita in RECEITAS.items():
+        for variante in editorial_mod.variantes_de(co_tipo):
+            parametros = dict(variante.parametros)
+            if editorial_mod.alvo_sai_da_posicao(parametros):
+                parametros = editorial_mod.parametros_efetivos(parametros, guloso=3)
+            no_ar[forma(receita.montar(parametros))] = co_tipo
+
+    repetidos = []
+    for co_tipo, receita in PROPOSTAS.items():
+        f = forma(receita.montar(PARAMETROS_DE_EXEMPLO[co_tipo]))
+        if f in no_ar:
+            repetidos.append(f"{co_tipo} julga igual a {no_ar[f]}")
+
+    assert sorted(repetidos) == sorted(DUPLICATAS_CONHECIDAS), (
+        "⛔ mudou a lista de propostas que julgam igual a um tipo no ar.\n"
+        f"   agora: {sorted(repetidos)}\n"
+        f"   registradas: {sorted(DUPLICATAS_CONHECIDAS)}\n"
+        "⚠️ Se apareceu uma NOVA, ela e parametro de um tipo existente, e nao "
+        "tipo novo - escreva o aviso na receita dela e registre aqui. Se uma "
+        "SUMIU, alguem mudou a forma de um tipo no ar, e isso merece olhada."
+    )

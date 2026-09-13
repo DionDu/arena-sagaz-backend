@@ -34,7 +34,7 @@ existe porque a rodada `damas` inteira custa **80 minutos** (medido em
 ⚠️ **E `--com-botao-proprio` mede so as candidatas que mexem em PREPARO ou
 TETO** - as que estao sob investigacao:
 
-    .venv\Scripts\python -u scripts\medir_variantes_do_editorial.py damas --com-botao-proprio
+    .venv\\Scripts\\python -u scripts\\medir_variantes_do_editorial.py damas --com-botao-proprio
 
 ⛔ **Ele dispensa a REIMPRESSAO, nunca a primeira medida.** Uma variante nova sem
 botao proprio continua precisando da rodada cheia; o que este atalho evita e
@@ -305,6 +305,134 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# OS TIPOS EM AVALIACAO — os que ainda NAO estao no ar
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Medir vem antes de publicar, e esta tabela e essa ordem.** Um tipo de
+# `job/tipos_propostos.py` precisa de tres coisas para ir ao ar, e nenhuma e
+# barata: linha na `tb901` (migracao), chave nos tres `.arb` (versao nova do
+# aplicativo) e vetor de verificacao (prova de que Dart e Python leem a mesma
+# regra). ⛔ **Gastar isso num tipo que talvez nao gere candidato nenhum e a
+# ordem errada** — a pergunta barata vem primeiro, e ela e uma medicao.
+#
+# ⛔ **O que sai daqui NAO e publicavel**, e o gerador diz isso em toda linha do
+# log. O que se obtem e o numero que permite ao dono escolher **quais** tipos
+# merecem a migracao, a release e o vetor.
+#
+# ⚠️ **So o Pontinhos esta aqui, e o motivo e estrutural:** as propostas de damas
+# precisam de MOLDES proprios (posicoes de onde aquele objetivo e alcancavel), e
+# moldes sao pescaria — trabalho de codigo, nao de relogio. As do Pontinhos
+# nascem do autoplay que ja esta no disco, entao elas so precisam de maquina.
+#
+# ⚠️ **Os parametros sao o primeiro palpite, e sao TRES por tipo**, do mais
+# frouxo ao mais apertado. O objetivo desta primeira rodada nao e escolher o
+# numero final: e descobrir se o tipo **existe** — se ha alguma faixa em que ele
+# de FOLGA. Um tipo que der SEM DESAFIO nas tres esta morto ate alguem mudar a
+# geracao, e isso e resposta tao util quanto a outra.
+EM_AVALIACAO: dict[str, tuple[Candidata, ...]] = {
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⚠️ OS PARAMETROS ABAIXO FORAM SONDADOS A MAO EM 12/09/2026
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⛔ **Sonda nao e medicao**: 1 dia e 8 tentativas, contra os 3 dias e 20
+    # tentativas da rodada de verdade. O que a sonda faz e impedir que horas de
+    # maquina sejam gastas na faixa errada - e nesta rodada ela ja economizou
+    # duas vezes, achando um defeito e uma duplicata.
+    #
+    # ⚠️ **E ela mostrou que o botao certo costuma ser o PREPARO, e nao o numero
+    # do enunciado.** Com 8 tracos o tabuleiro 4x3 esta quase vazio, e nao ha o
+    # que fechar; com 14 os mesmos parametros passam de 0 para 3 de 3. E a mesma
+    # licao que o editorial ja tinha escrito para `pontinhos_fechar_caixas`.
+    #
+    # ─────────────────────────────────────────────────────────────────────────
+    # ⚠️ *"Impeca {personagem} de fechar qualquer caixa por {turnos} lances."*
+    #
+    # ⛔ **Este tipo estava QUEBRADO, e so a medicao mostrou.** Ele dava solucao
+    # de **1 meio-lance** com qualquer numero no enunciado, porque *"o adversario
+    # nao fechou caixa"* ja e verdade antes de ele jogar. A correcao esta em
+    # `job/tipos_propostos.py`, com cadeado em `test_tipos_propostos.py`.
+    #
+    # ✅ **Sondado depois da correcao:**
+    #
+    #     turnos 4  →  1 candidato,  solucao  7 meios-lances
+    #     turnos 6  →  1 candidato,  solucao 11 meios-lances
+    #     turnos 8  →  0 candidatos
+    #
+    # ⚠️ **Os 11 de `turnos: 6` seriam o segundo maior do catalogo**, atras so do
+    # `chegar_ao_placar` - o criterio 6 do dono em cheio.
+    "pontinhos_nao_entregar_nada": (
+        Candidata({"turnos": 4}),
+        Candidata({"turnos": 6}),
+        Candidata({"turnos": 8}),
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    # ⚠️ *"Feche {ganhar} caixas cedendo no maximo {ceder} a {personagem}."*
+    # ⛔ **A primeira com DUAS clausulas**, e e ela que transforma "feche caixas"
+    # na decisao real do Pontinhos: fechar sem entregar a cadeia seguinte.
+    #
+    # ✅ **Sondado, e o preparo decidiu:**
+    #
+    #     {ganhar:4, ceder:2}  preparo  8  →  0 candidatos (4 recusas por erro)
+    #     {ganhar:4, ceder:2}  preparo 14  →  3 de 3, solucoes  6, 10, 10
+    #     {ganhar:5, ceder:2}  preparo 14  →  3 de 3, solucoes 10, 11, 11
+    "pontinhos_troca_favoravel": (
+        Candidata({"ganhar": 4, "ceder": 2}, nu_lances_de_preparo=14),
+        Candidata({"ganhar": 5, "ceder": 2}, nu_lances_de_preparo=14),
+        Candidata({"ganhar": 5, "ceder": 1}, nu_lances_de_preparo=14),
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    # ⚠️ *"Feche {caixas} caixas em ate {lances} lances."* O contraste com o
+    # `fechar_caixas` (que conta TURNOS) e o que ensina a diferenca entre lance e
+    # turno a quem joga - e no Pontinhos ela e grande, porque quem fecha caixa
+    # joga de novo.
+    #
+    # ✅ **Sondado, e de novo o preparo:**
+    #
+    #     {caixas:3, lances:4}  preparo  8  →  0 candidatos
+    #     {caixas:4, lances:6}  preparo 14  →  3 de 3, solucoes 11, 10,  9
+    #     {caixas:5, lances:8}  preparo 14  →  3 de 3, solucoes 11, 10, 11
+    "pontinhos_economia_de_lances": (
+        Candidata({"caixas": 4, "lances": 6}, nu_lances_de_preparo=14),
+        Candidata({"caixas": 5, "lances": 8}, nu_lances_de_preparo=14),
+        Candidata({"caixas": 5, "lances": 7}, nu_lances_de_preparo=14),
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    # ⚠️ *"Passe {turnos} lances sem fechar nem ceder nenhuma caixa."*
+    # ⛔ **O objetivo e nao fazer nada**, e e o tipo mais contraintuitivo do
+    # catalogo: ensina a regra central do Pontinhos, que e que quem for forcado a
+    # abrir a cadeia perde. Tinha o **mesmo defeito** do tipo 11, e era mais
+    # visivel nele: as DUAS clausulas valiam antes do primeiro lance.
+    #
+    # ✅ **Sondado depois da correcao:**
+    #
+    #     turnos 3  →  3 de 3, solucoes 5, 5, 5
+    #     turnos 4  →  1 candidato, solucao 7
+    #
+    # ⚠️ **E o mais curto dos quatro** (5 meios-lances contra 10 e 11), o que ja
+    # o poe atras dos outros pelo criterio do dono. A candidata de 6 esta aqui
+    # para ver se ele estica sem morrer.
+    "pontinhos_paciencia": (
+        Candidata({"turnos": 3}),
+        Candidata({"turnos": 4}),
+        Candidata({"turnos": 6}),
+    ),
+    # ⛔ **`pontinhos_escada_em_um_turno` NAO esta aqui, e nao e esquecimento:**
+    # a sonda mostrou que ele e **duplicata do `pontinhos_cadeia_longa`**, que ja
+    # esta no ar. Ver o aviso na receita dele, em `job/tipos_propostos.py`.
+}
+
+def receita_em_avaliacao_de(co_tipo: str):
+    """A receita proposta daquele tipo, ou `None` se ele ja estiver no ar.
+
+    ⚠️ **`None` e o sinal de "siga pelo caminho normal"**, com vetor e editorial.
+    """
+    from job import tipos_propostos
+
+    propostas = {**tipos_propostos.PROPOSTAS_PONTINHOS, **tipos_propostos.PROPOSTAS_DAMAS}
+    return propostas.get(co_tipo)
+
+
 def _dias_do_jogo(co_jogo: str, quantos: int) -> list[date]:
     """Os primeiros `quantos` dias em que aquele jogo e o jogo do rodizio.
 
@@ -376,16 +504,32 @@ def medir(co_tipo: str, variantes: Sequence["Candidata"]) -> None:
     """Mede cada variante de um tipo e imprime o resultado, linha a linha."""
     if not variantes:
         return
-    receita = gerador_mod.receita_de(co_tipo)
-    # ⚠️ Os dois botoes da geracao (preparo e teto) saem da variante **que esta
-    # no ar hoje**, e nao de numeros escritos aqui: medir com outros botoes
-    # daria uma taxa que descreve uma execucao que nao existe.
-    publicacao = editorial_mod.publicacao_de(co_tipo, 0)
+
+    # ⚠️ **Tipo em avaliacao nao tem editorial, e nao poderia ter:** o editorial
+    # diz com que numeros o tipo VAI AO AR, e este ainda nao vai. Os botoes dele
+    # sao os padroes, que e exatamente a pergunta que a medicao responde -
+    # *"com a geracao de sempre, este tipo da desafio?"*.
+    em_avaliacao = receita_em_avaliacao_de(co_tipo)
+    if em_avaliacao is not None:
+        receita = em_avaliacao
+        publicacao = editorial_mod.Publicacao(
+            parametros={},
+            ic_chegada_encerra_partida=False,
+            medidas=lambda p: [],
+        )
+    else:
+        receita = gerador_mod.receita_de(co_tipo)
+        # ⚠️ Os dois botoes da geracao (preparo e teto) saem da variante **que
+        # esta no ar hoje**, e nao de numeros escritos aqui: medir com outros
+        # botoes daria uma taxa que descreve uma execucao que nao existe.
+        publicacao = editorial_mod.publicacao_de(co_tipo, 0)
+
     dias = _dias_do_jogo(receita.co_jogo, DIAS_MEDIDOS)
 
     print()
     print("═" * 75)
-    print(f"{co_tipo}  ({receita.co_jogo})")
+    selo_do_tipo = " ⚠️ EM AVALIACAO, NAO PUBLICAVEL" if em_avaliacao else ""
+    print(f"{co_tipo}  ({receita.co_jogo}){selo_do_tipo}")
     print(
         f"  preparo={publicacao.nu_lances_de_preparo}  "
         f"teto_de_lances={publicacao.nu_maximo_de_meios_lances}  "
@@ -421,6 +565,9 @@ def medir(co_tipo: str, variantes: Sequence["Candidata"]) -> None:
                 # ⚠️ A mesma restricao da publicacao no ar: medir contra um
                 # adversario que o tipo nao publica descreveria outra execucao.
                 personagens_possiveis=publicacao.co_personagens,
+                # ⚠️ `None` para tudo o que ja esta no ar - e ai o gerador
+                # escolhe o tipo pelo dia e **exige o vetor**, como sempre.
+                receita_em_avaliacao=em_avaliacao,
             )
             por_dia.append(len(candidatos))
             lances_da_solucao.extend(c.nu_lances_solucao for c in candidatos)
@@ -470,12 +617,20 @@ def tipos_do_alvo(alvo: str) -> list[str]:
       `damas_capturar_multipla`  → so aquele tipo
       qualquer outra coisa       → lista vazia (quem chama avisa e sai com 2)
     """
+    # ⛔ **`todos` NAO inclui os tipos em avaliacao, e isso e deliberado.** Eles
+    # custam horas e respondem outra pergunta; quem quer medi-los pede por nome
+    # ou por `em-avaliacao`. Um `todos` que crescesse sozinho faria a rodada de
+    # rotina dobrar de tamanho sem ninguem ter pedido.
+    if alvo == "em-avaliacao":
+        return list(EM_AVALIACAO)
+
+    tabela = {**A_MEDIR, **EM_AVALIACAO}
     return [
         co_tipo
-        for co_tipo in A_MEDIR
-        if alvo == "todos"
+        for co_tipo in tabela
+        if (alvo == "todos" and co_tipo in A_MEDIR)
         or alvo == co_tipo
-        or gerador_mod.receita_de(co_tipo).co_jogo == alvo
+        or (co_tipo in A_MEDIR and gerador_mod.receita_de(co_tipo).co_jogo == alvo)
     ]
 
 
@@ -504,8 +659,9 @@ def principal(argumentos: Sequence[str]) -> int:
 
     inicio = time.time()
     medidas = 0
+    tabela = {**A_MEDIR, **EM_AVALIACAO}
     for co_tipo in tipos:
-        candidatas = A_MEDIR[co_tipo]
+        candidatas = tabela[co_tipo]
         if so_botao_proprio:
             candidatas = tuple(so_as_de_botao_proprio(candidatas))
         medidas += len(candidatas)

@@ -21,6 +21,116 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-12 (noite, 2) — Medir os tipos PROPOSTOS: um defeito, duas duplicatas e três tipos vivos
+
+**Contexto:** o dono tem dois dias de máquina e nenhum dia de assistente. A
+pergunta passou a ser *"o que dá para deixar rodando?"*, e a resposta mais valiosa
+não era espremer as variantes dos cinco tipos no ar: era **medir os onze tipos
+propostos** (`job/tipos_propostos.py`), que nunca tinham sido medidos.
+
+### Decisão 1 — o gerador aceita uma receita EM AVALIAÇÃO
+
+`gerar_candidatos` ganhou `receita_em_avaliacao`. Quando ela vem, o gerador usa
+aquela receita em vez de escolher o tipo pelo dia, e ⛔ **não chama
+`exigir_vetor`**.
+
+**Por quê:** o vetor de verificação é pré-requisito de **publicar**, não de medir.
+Um tipo proposto não tem vetor, não tem linha na `tb901` e não tem chave de i18n
+- as três custam migração, release e trabalho dos dois lados. ⚠️ Gastar isso num
+tipo que talvez não gere candidato nenhum é a ordem errada: a pergunta barata
+vem primeiro.
+
+**Três coisas impedem que isso vire porta dos fundos:** o job nunca passa o
+argumento (há cadeado), um tipo que já está em `RECEITAS` é recusado no ramo, e
+toda linha do log sai marcada como não publicável.
+
+### ⛔ Decisão 2 — A JANELA É UM TETO, e três tipos dependiam dela ser um piso
+
+**O achado, e ele é o mais importante desta sessão.** Medidos pela primeira vez,
+`pontinhos_nao_entregar_nada` e `pontinhos_paciencia` deram solução de **1
+meio-lance** com *qualquer* número no enunciado - `[1,1,1]` com turnos 2, 4, 6 e 8.
+
+**A causa é estrutural:** `julgar` varre a fita e para **no primeiro** lance em
+que as cláusulas valem. Uma cláusula que diz *"o adversário não fechou caixa"* já
+é verdadeira **antes de o adversário jogar**. A janela é um teto (*"dentro de até
+n"*), e toda a família *"impeça"* / *"aguente"* precisa de um **piso**.
+
+⚠️ **E isso atinge `damas_sobreviver`, um dos quatro tipos que o dono aprovou
+nesta mesma tarde.** A proposta de texto dizia que *"uma cláusula só cobre as duas
+derrotas"* - ⛔ errado: `material_restante >= 1` é verdade no lance 1, e o desafio
+seria cumprido antes de a pessoa resistir a coisa alguma.
+
+**A cura não custa vocabulário novo**, e é por isso que ela é a decisão certa:
+`lances_do_jogador` é uma **medida** que os dois medidores já produzem. Juntando
+`lances_do_jogador >= n` à conjunção, o juiz só pode fechar a conta no n-ésimo
+lance. Medido, o mesmo tipo, antes e depois:
+
+| | solução |
+|---|---|
+| `turnos_do_adversario: 4` + cláusula sozinha | **1** meio-lance |
+| `partida` + `lances_do_jogador >= 4` + a cláusula | **7** meios-lances |
+| `partida` + `lances_do_jogador >= 6` + a cláusula | **11** meios-lances |
+
+⛔ **Alternativa descartada: janela nova no vocabulário** (`apos_turnos_do_jogador`).
+Ela exigiria código nos dois lados, vetor novo e versão nova do aplicativo - e é
+exatamente a fronteira que o Bloco Y protege. A conjunção resolve com dado.
+
+**Cadeado:** `test_NENHUM_tipo_proposto_e_cumprido_por_quem_nao_fez_NADA` avalia
+cada chegada contra as medidas de quem ainda não jogou (deltas em zero, material
+cheio). ⚠️ O detalhe que faz o cadeado funcionar é **não** zerar tudo: com
+`material_restante = 0` a cláusula *"ainda tenho peças"* daria falsa e o tipo
+passaria escondendo o defeito. O mesmo caso roda sobre os cinco tipos **no ar**.
+
+### Decisão 3 — duas propostas são parâmetro de tipos que já existem
+
+Um segundo cadeado compara a **forma** de cada chegada (janela + chaves e
+comparadores) com as dos tipos publicados. Ele achou duas, nenhuma notada em
+revisão de código:
+
+- ⛔ `pontinhos_escada_em_um_turno` **é** `pontinhos_fechar_caixas` com `turnos: 1`.
+  E medido, ele dá **zero** em 24 tentativas, com preparo 8 e 14, com o Sagaz e
+  com o solucionador do arquiteto: `turnos_do_jogador n=1` limita a fita ao
+  primeiro turno, e nele as caixas ainda não existem. ⚠️ A intenção dele
+  (*"feche N de uma vez"*) já está publicada como `pontinhos_cadeia_longa`, com a
+  forma certa - `maior_cadeia_capturada >= N`, janela de partida inteira.
+- ⛔ `damas_dupla_coroacao` **é** `damas_coroar` com `damas: 2`, que o dono pediu
+  em 11/09 e que **já está no ar**.
+
+Nenhuma é apagada; as duas ganharam o aviso na receita e ficam fora de
+`EM_AVALIACAO`. O cadeado passa com a lista registrada e falha para qualquer
+duplicata nova.
+
+### ✅ Decisão 4 — três tipos vivem, e o botão certo é o PREPARO
+
+Sondagem à mão (1 dia, 8 tentativas - a rodada real tem 3 dias e 20):
+
+| tipo | melhor faixa | candidatos | solução |
+|---|---|---|---|
+| `pontinhos_nao_entregar_nada` | `turnos: 6`, preparo 8 | 1 de 3 | **11** meios-lances |
+| `pontinhos_troca_favoravel` | `{ganhar:5, ceder:2}`, **preparo 14** | 3 de 3 | **10-11** |
+| `pontinhos_economia_de_lances` | `{caixas:5, lances:8}`, **preparo 14** | 3 de 3 | **10-11** |
+| `pontinhos_paciencia` | `turnos: 3`, preparo 8 | 3 de 3 | 5,0 |
+
+⚠️ **O botão que decide é o preparo, e não o número do enunciado.** Com 8 traços o
+tabuleiro 4×3 está quase vazio e não há o que fechar; com 14 os mesmos parâmetros
+vão de **0** para **3 de 3**. É a mesma lição que o editorial já registrava para
+`pontinhos_fechar_caixas`, e ela custou uma sondagem para ser reaprendida.
+
+⚠️ **E as soluções de 10-11 meios-lances são as segundas mais longas do
+catálogo**, atrás só do `chegar_ao_placar` - o critério 6 do dono (*"de
+preferência muitos lances"*) em cheio. Três tipos novos de Pontinhos valem mais,
+pelo critério 1 dele, do que qualquer variante a mais dos tipos existentes.
+
+**Rodada completa já feita de `pontinhos_paciencia`** (3 dias, 20 tentativas,
+56 s): FOLGA com `turnos: 3`, NO LIMITE com 4, SEM DESAFIO com 6.
+
+⚠️ **As propostas de damas não entram nesta rodada**, e o motivo é estrutural:
+elas precisam de **moldes** próprios (posições de onde aquele objetivo é
+alcançável), e moldes são pescaria - trabalho de código, não de relógio. As do
+Pontinhos nascem do autoplay que já está no disco.
+
+---
+
 ## 2026-09-12 (noite) — A medição das damas REPETIDA: reprodutível, e o aperto tem nome
 
 O dono rodou `medir_variantes_do_editorial.py damas` uma segunda vez, com a

@@ -62,7 +62,7 @@ from . import semente as semente_mod
 from .espelho_de_damas import com_as_brancas_a_jogar
 from .moldes_de_damas import objetivo_no_primeiro_lance
 from .perfil import NIVEL_POR_PERSONAGEM
-from .tipos_de_desafio import Receita, receita_de, tipos_do_jogo
+from .tipos_de_desafio import RECEITAS, Receita, receita_de, tipos_do_jogo
 
 RAIZ = Path(__file__).resolve().parents[1]
 VETORES = RAIZ / "contratos" / "vetores-verificacao-desafio.json"
@@ -765,6 +765,7 @@ def gerar_candidatos(
     lances_de_preparo: int = 8,
     maximo_de_meios_lances: int = 12,
     personagens_possiveis: Sequence[str] | None = None,
+    receita_em_avaliacao: Receita | None = None,
 ) -> list[Candidato]:
     """Gera candidatos para um dia.
 
@@ -790,6 +791,10 @@ def gerar_candidatos(
             ⛔ **Existe porque nem todo desafio cabe contra todo mundo**: a cadeia
             longa contra o Magno e impossivel (medido, 0 de 30), porque ele parte
             o tabuleiro em cadeias curtas. `None` = o rodizio normal dos quatro.
+        receita_em_avaliacao: uma receita que **ainda nao esta em `RECEITAS`**,
+            para o script de medicao poder perguntar *"este tipo daria desafio?"*
+            antes de o dono aprova-lo. ⛔ **Nao serve para publicar** — ver o
+            bloco abaixo. `None` e o caminho normal, e e o unico que o job usa.
 
     Returns:
         Os candidatos encontrados. Pode vir menos que `quantos` — e pode vir
@@ -802,10 +807,41 @@ def gerar_candidatos(
     # superficie deste modulo: quem le o gerador nao precisa saber julgar.
     from motores.juiz import julgar_desafio
 
-    co_jogo = escolher_jogo(dt_dia)
-    co_tipo = escolher_tipo(co_jogo, dt_dia, tipos_recentes=tipos_recentes)
-    receita = receita_de(co_tipo)
-    exigir_vetor(co_tipo)
+    # ── ⚠️ MEDIR VEM ANTES DE PUBLICAR, E POR ISSO ESTE RAMO EXISTE ─────────
+    #
+    # ⛔ **O vetor de verificacao e pre-requisito de PUBLICAR**, e nao de medir.
+    # Um tipo proposto (`job/tipos_propostos.py`) nao tem vetor, nao tem linha na
+    # `tb901`, nao tem chave de i18n — as tres coisas custam migracao, release e
+    # trabalho de dois lados. ⚠️ **Gastar isso tudo num tipo que talvez nao gere
+    # candidato nenhum e a ordem errada**: a pergunta barata ("ele da desafio?")
+    # tem de vir primeiro, e ela e uma medicao.
+    #
+    # ⛔ **E este ramo NAO e uma porta dos fundos para a fila.** Tres coisas o
+    # impedem:
+    #
+    #   1. o job **nunca** passa este argumento (ha cadeado afirmando isso);
+    #   2. um tipo que JA esta em `RECEITAS` e recusado aqui — quem esta no
+    #      caminho normal segue pelo caminho normal, com vetor;
+    #   3. quem chama assume o `co_tipo` da receita, e nao o do rodizio do dia.
+    if receita_em_avaliacao is not None:
+        co_tipo = receita_em_avaliacao.co_tipo_desafio
+        if co_tipo in RECEITAS:
+            raise SemCandidato(
+                f"o tipo {co_tipo!r} JA esta em RECEITAS. ⛔ `receita_em_avaliacao` "
+                "existe para o que ainda nao foi publicado; para o que ja foi, o "
+                "caminho normal vale — e ele exige o vetor de verificacao."
+            )
+        receita = receita_em_avaliacao
+        co_jogo = receita.co_jogo
+        print(
+            f"⚠️ [medicao] {co_tipo}: tipo EM AVALIACAO, sem vetor de verificacao. "
+            "⛔ Este candidato NAO e publicavel."
+        )
+    else:
+        co_jogo = escolher_jogo(dt_dia)
+        co_tipo = escolher_tipo(co_jogo, dt_dia, tipos_recentes=tipos_recentes)
+        receita = receita_de(co_tipo)
+        exigir_vetor(co_tipo)
 
     co_personagem = escolher_personagem(dt_dia, possiveis=personagens_possiveis)
 
