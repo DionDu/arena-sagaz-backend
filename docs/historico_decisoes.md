@@ -21,6 +21,108 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-12 (noite) — A medição das damas REPETIDA: reprodutível, e o aperto tem nome
+
+O dono rodou `medir_variantes_do_editorial.py damas` uma segunda vez, com a
+máquina livre, ~2 h depois da primeira. A rodada custou **80 minutos** (4.809 s
+contra 4.599 s).
+
+### O que saiu, lado a lado
+
+| variante | 1ª rodada | 2ª rodada |
+|---|---|---|
+| `{damas:1, lances: 6}` | FOLGA `[3,3,3]` · 6,8 · 103s | **idêntica** |
+| `{damas:1, lances: 4}` | FOLGA `[3,3,3]` · 6,1 · 176s | FOLGA · 6,1 · 177s |
+| `{damas:2, lances: 8}` | NO LIMITE `[1,3,3]` · 9,6 · 525s | NO LIMITE `[1,2,3]` · 9,3 · 636s |
+| `{damas:2, lances:10}` | NO LIMITE `[1,3,3]` · 9,6 · 532s | NO LIMITE `[1,2,3]` · 9,3 · 636s |
+| `{pecas:2, lances: 4}` | NO LIMITE `[3,1,2]` · 3,7 · 603s | **idêntica** (602s) |
+| `{pecas:2, lances: 2}` | NO LIMITE `[1,1,2]` · 3,0 · 671s | **idêntica** (669s) |
+| `{pecas:2, lances: 3}` | NO LIMITE `[3,1,2]` · 3,7 · 602s | **idêntica** (600s) |
+| `{pecas:3, lances: 4}` | ⛔ SEM DESAFIO `[0,0,0]` · 696s | **idêntica** (694s) |
+| `{pecas:3, lances: 6}` | NO LIMITE `[1,1,1]` · **10,3** · 691s | **idêntica** (692s) |
+
+### Decisão 1 — a ressalva da "máquina dividida" CAI
+
+**Contexto:** as duas linhas de `{damas: 2}` tinham sido medidas com o computador
+dividido com a suíte do aplicativo, e a queda de FOLGA para NO LIMITE ficou com
+duas hipóteses abertas: acervo mais difícil ou relógio disputado.
+
+**Decisão:** era o **acervo**. Sete das nove linhas saíram idênticas dígito a
+dígito, o rótulo não mudou em nenhuma, e a rodada "livre" foi até **mais lenta**
+(636 s contra 525 s), o que derruba a hipótese do relógio pelo avesso.
+
+**O que isso ensina sobre o método:** o que varia entre rodadas é a **régua**
+(3 mascotes × 20 execuções sorteadas), e não a posição — as posições saem da
+semente do dia e são sempre as mesmas. Uma variante que muda de rótulo entre duas
+rodadas está na fronteira da banda de dificuldade, não sofrendo de ruído de
+máquina.
+
+### Decisão 2 — o que segura `{pecas: 3}` é o TETO, e o log prova
+
+**O achado:** das 18 posições tentadas por dia, só **três** aparecem no log
+descartadas por *"o objetivo cai no lance 1"*. As outras ~14 morrem em
+`_resolver`, que é o Sagaz **não achando a captura de três dentro dos 12
+meios-lances de teto**. E as que passam vêm com solução **10,3**, colada nele.
+
+⛔ Para `{pecas: 3, lances: 6}` **a janela e o teto são o mesmo limite**: 6 lances
+do jogador são 12 meios-lances, exatamente o teto. Subir só um não traz candidato
+de volta — e a janela de 4 prova a direção contrária, com **0 de 3** no mesmo
+acervo e nas mesmas posições.
+
+**Decisão:** medir com o teto maior, que é o que o dono já autorizou em
+`DECISOES-do-dono.md` §8k-5 (*"se precisarmos subir o teto de lances para
+comportar desafios mais interessantes e de maior qualidade, eu não vejo problema
+algum"*), com **janela e teto subindo juntos**. Quatro candidatas novas no
+script: `{pecas:3, lances:8, teto:16}`, `{pecas:3, lances:10, teto:20}`,
+`{damas:2, lances:8, teto:16}` e o controle `{pecas:2, lances:8, teto:16}`.
+
+**Por que vale a pena:** `{pecas: 3}` tem a solução **mais longa das damas** -
+10,3 meios-lances contra 3,0 a 9,6 de todas as outras -, e é a única que
+ampliaria `damas_capturar_multipla`, que hoje publica uma variante só. Os dois
+critérios do dono (§8k-0) apontam para ela: *"de preferência muitos lances"* e
+*"entre duas aprovadas, entra a mais longa"*.
+
+**Alternativa descartada:** subir `TENTATIVAS_POR_JOGO["damas"]` de 6 para 10.
+Mais tentativas dariam mais posições, mas todas cairiam no mesmo teto - o
+orçamento não é o que falta aqui, diferente do caso do Pontinhos em 18/09.
+
+### Decisão 3 — o alvo da medição passa a aceitar UM TIPO
+
+**Contexto:** medir um botão de `damas_capturar_multipla` custava os 80 minutos
+da rodada inteira, reimprimindo quatro linhas já decididas.
+
+**Decisão:** `principal` aceita `todos`, um **jogo** ou um **tipo**:
+
+```
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py damas_capturar_multipla
+```
+
+A seleção saiu de dentro de `principal` para a função pura `tipos_do_alvo`, e o
+motivo é testabilidade: testá-la de dentro de `principal` obrigaria a **rodar a
+medição**, e um cadeado que ninguém aguenta rodar não é cadeado.
+
+### O cadeado novo, e o erro que ele pegou no dia em que nasceu
+
+`tests/unitarios/test_medidor_de_variantes.py`, 34 casos, dois provados por
+mutação. O que ele guarda:
+
+1. **Toda candidata monta chegada e frase.** Um parâmetro mal escrito
+   (`{'peca': 3}`) hoje só estoura depois que o gerador encontra uma posição, no
+   meio de um relatório de uma hora.
+2. **A janela cabe no teto com que ela será medida.** ⚠️ Este pegou um defeito
+   meu na mesma resposta: a primeira versão de `{damas:2, lances:10, teto:16}`
+   pedia 20 meios-lances de janela com 16 de teto. A medição teria rodado, saído
+   bonita, e descrito uma execução que o gerador não faz.
+3. **A seleção pelo alvo**, nas três granularidades.
+
+⚠️ O caso 2 só cobra de quem escreve **teto próprio**, e isso é deliberado: as
+variantes que herdam o teto do tipo podem prometer janela maior do que o gerador
+alcança - `{damas:2, lances:8}` está no ar assim - e **é por isso que as janelas
+de 8 e de 10 medem idêntico**: nenhuma das duas chega a ser exercida, a folga só
+está escrita na frase.
+
+---
+
 ## 2026-09-12 (tarde) — O dia descoberto, o container de 10 horas, e a régua de qualidade
 
 A primeira execução automática do job no Railway depois da remedição trouxe três

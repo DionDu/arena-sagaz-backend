@@ -656,18 +656,24 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         # variante de uma dama. O job acorda uma vez por dia, entao cabe — mas e
         # o numero a olhar se a execucao no Railway comecar a se arrastar.
         #
-        # ⚠️ **Ressalva honesta sobre a medida:** as duas linhas de `damas: 2`
-        # foram medidas com a maquina dividida com a cacada de moldes, e o teto
-        # de tempo do gerador (2 s por lance) pode ter mordido. ⛔ Isso torna o
-        # **veredito** conservador (passou apesar da disputa, entao passa sozinho)
-        # mas deixa a media de lances com incerteza para cima.
+        # ⚠️ **12/09/2026: esta variante caiu de FOLGA para NO LIMITE.** Na
+        # remedicao com o acervo de 515 moldes ela deu **1 candidato dos 3
+        # pedidos** (9,6 meios-lances, 525 s), e a suspeita na hora foi a maquina
+        # dividida com a suite do aplicativo.
         #
-        # ⚠️ **12/09/2026: a ressalva acima virou pendencia de verdade.** Na
-        # remedicao com o acervo de 515 moldes, esta variante caiu de **FOLGA**
-        # para **NO LIMITE** (1 candidato dos 3 pedidos, 9,6 meios-lances, 525 s) — e a rodada de novo
-        # dividiu a maquina, agora com a suite do aplicativo. ⛔ **NO LIMITE** ainda
-        # publica, mas e folga ZERO: o proximo degrau e o dia descoberto.
-        # ⏳ Remedir com a maquina livre antes de mexer em qualquer botao daqui.
+        # ✅ **MEDIDA DE NOVO no mesmo dia, ~2 h depois, e a suspeita caiu:**
+        # `[1, 3, 3]` virou `[1, 2, 3]`, **sem trocar de rotulo**, e a rodada
+        # "livre" foi ate mais LENTA (636 s contra 525 s). As duas linhas de uma
+        # dama sairam identicas ao digito nas duas rodadas.
+        #
+        # ⛔ **Entao e o acervo, e nao o relogio.** NO LIMITE ainda publica, mas e
+        # folga ZERO: o proximo degrau e o dia descoberto.
+        #
+        # ⏳ **E a alavanca provavel e o TETO, nao a janela.** A solucao media
+        # (9,3) esta colada nos 12 meios-lances, e as janelas de 8 e de 10 medem
+        # identico justamente porque nenhuma das duas chega a ser exercida — o
+        # gerador para antes. Ha candidata escrita em
+        # `scripts/medir_variantes_do_editorial.py` para medir isso com teto 16.
         Publicacao(
             parametros={"damas": 2, "lances": 8},
             ic_chegada_encerra_partida=False,
@@ -736,10 +742,34 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # longa ate que o coroar de duas damas. ⛔ **O aperto tem nome:** 10,3 contra
     # um teto de geracao de **12**, margem de menos de dois meios-lances.
     #
-    # ⏳ **Nenhuma das duas entrou ainda** — a decisao e de quem le o numero, e o
-    # **NO LIMITE** pede uma remedicao com a maquina livre (esta rodada dividiu o
-    # computador com a suite do aplicativo, e o gerador tem teto de 2 s por
-    # lance). Detalhe em `docs/historico_decisoes.md`, 12/09/2026.
+    # ═══════════════════════════════════════════════════════════════════════
+    # ✅ MEDIDO DE NOVO NO MESMO DIA — AS CINCO LINHAS SAIRAM IGUAIS
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⚠️ A rodada acima dividiu o computador com a suite do aplicativo, e isso
+    # punha em duvida o **10,3** e o **0 de 3**. A segunda rodada, ~2 h depois,
+    # devolveu as cinco linhas **identicas digito a digito** — inclusive os
+    # tempos, dentro de 3 s. ⛔ A leitura e do acervo, e nao do relogio.
+    #
+    # ⚠️ **E o log diz ONDE esta o aperto.** Das 18 posicoes tentadas por dia, so
+    # **tres** aparecem descartadas por *"o objetivo cai no lance 1"*. As outras
+    # ~14 morrem em `_resolver`: e o Sagaz **nao achando a captura de tres dentro
+    # dos 12 meios-lances de teto**. As que passam vem com solucao 10,3, colada
+    # nele.
+    #
+    # ⛔ **Para `{pecas: 3, lances: 6}` a janela e o teto sao o MESMO limite** —
+    # 6 lances do jogador sao 12 meios-lances, exatamente o teto —, entao subir
+    # so um nao traz candidato nenhum de volta. A janela de 4 prova a direcao
+    # contraria: mesmo acervo, mesma posicao, **0 de 3**.
+    #
+    # ⏳ **Nenhuma das duas entrou ainda, e a proxima medicao e a que decide.**
+    # O dono autorizou subir o teto por qualidade (12/09/2026,
+    # `DECISOES-do-dono.md` §8k-5); ha candidatas escritas em
+    # `scripts/medir_variantes_do_editorial.py` com teto 16 e 20, mais o controle
+    # de duas pecas no mesmo teto. ⚠️ **Se `{pecas: 3}` subir para FOLGA, ela e a
+    # melhor variante que as damas tem**: a mais longa de todas (10,3 contra 3,0
+    # a 9,6) e a unica que ampliaria este tipo, que hoje tem uma variante so.
+    # Detalhe em `docs/historico_decisoes.md`, 12/09/2026.
     "damas_capturar_multipla": (
         Publicacao(
             # Uma captura de duas pecas em quatro lances.

@@ -25,6 +25,18 @@ COMO RODAR
     cd D:\\Desenvolvimento\\arena-sagaz\\arena-sagaz-backend
     .venv\\Scripts\\python -u scripts\\medir_variantes_do_editorial.py pontinhos
     .venv\\Scripts\\python -u scripts\\medir_variantes_do_editorial.py damas
+    .venv\\Scripts\\python -u scripts\\medir_variantes_do_editorial.py damas_capturar_multipla
+
+⚠️ **O alvo pode ser um JOGO, `todos`, ou UM TIPO** (a terceira linha). O tipo
+existe porque a rodada `damas` inteira custa **80 minutos** (medido em
+12/09/2026): investigar um botao de um tipo nao deve pagar a medicao dos outros.
+
+⚠️ **E a medicao e REPRODUTIVEL, o que da peso ao numero.** As damas foram
+medidas duas vezes em 12/09/2026, com ~2 h entre as rodadas: **sete das nove**
+linhas sairam identicas digito a digito, e as duas que variaram (`{damas: 2}`)
+mudaram de `[1, 3, 3]` para `[1, 2, 3]` sem trocar de rotulo. ⛔ O que varia e a
+**regua** (3 mascotes x 20 execucoes, com sorteio); as **posicoes** nao variam,
+porque a semente sai do dia.
 
 ⚠️ **O Pontinhos leva segundos; as damas, minutos.** Uma geracao de damas custa
 ~26 s (medido em 11/09/2026), e a medicao roda cada variante em varios dias
@@ -179,9 +191,24 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
     #     {damas:2, lances: 8}   NO LIMITE   (1 de 3)     9.6   525s   ← no ar
     #     {damas:2, lances:10}   NO LIMITE   (1 de 3)     9.6   532s
     #
-    # ⚠️ O controle nao se moveu; `{damas:2}` caiu de **3 de 3 no dia mais fraco** para **1 de 3 no dia mais fraco**. Ver
-    # `docs/historico_decisoes.md` de 12/09 para a leitura das duas hipoteses
-    # (acervo mais dificil × maquina dividida com a suite do aplicativo).
+    # ⚠️ O controle nao se moveu; `{damas:2}` caiu de **3 de 3 no dia mais fraco** para **1 de 3 no dia mais fraco**.
+    #
+    # ✅ **E a SEGUNDA RODADA, ~2 h depois, desempatou as duas hipoteses:**
+    #
+    #     {damas:1, lances: 6}   FOLGA       (3 de 3)     6.8   103s   identica
+    #     {damas:1, lances: 4}   FOLGA       (3 de 3)     6.1   177s   identica
+    #     {damas:2, lances: 8}   NO LIMITE   (1 de 3)     9.3   636s   [1,3,3] → [1,2,3]
+    #     {damas:2, lances:10}   NO LIMITE   (1 de 3)     9.3   636s   [1,3,3] → [1,2,3]
+    #
+    # ⛔ **Nao era a maquina dividida: e o acervo.** O rotulo nao mudou em
+    # nenhuma das quatro, e as duas de uma dama sairam identicas ao digito. ⚠️ A
+    # rodada "livre" foi ate **mais lenta** (636s contra 525s), o que derruba de
+    # vez a hipotese do relogio.
+    #
+    # ⚠️ **O que varia entre rodadas e a REGUA, e nao a posicao.** As posicoes
+    # saem da semente do dia e sao as mesmas sempre; a banda de dificuldade e
+    # medida com 3 mascotes x 20 execucoes sorteadas, e e dai que vem a diferenca
+    # de um candidato num dia.
     "damas_coroar": (
         Candidata({"damas": 1, "lances": 6}),
         Candidata({"damas": 1, "lances": 4}),
@@ -190,6 +217,15 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         # janelas dao o mesmo numero, entao so a de 8 esta publicada.
         Candidata({"damas": 2, "lances": 8}),
         Candidata({"damas": 2, "lances": 10}),
+        # ⚠️ **Duas damas tambem estao coladas no teto**: 9,3 meios-lances contra
+        # um teto de 12. Pela mesma leitura de `damas_capturar_multipla`, e o
+        # teto — e nao a janela — que decide quantos candidatos sobram, e esta
+        # linha diz se e ele que segura `{damas: 2}` em 1 de 3.
+        #
+        # ⛔ **A janela e a MESMA que esta no ar (8), de proposito.** Subir as
+        # duas de uma vez daria uma linha melhor sem dizer qual dos dois botoes a
+        # melhorou. Aqui o unico que se move e o teto.
+        Candidata({"damas": 2, "lances": 8}, nu_maximo_de_meios_lances=16),
     ),
     "damas_capturar_multipla": (
         Candidata({"pecas": 2, "lances": 4}),
@@ -221,6 +257,41 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         # ⛔ E ela encosta no teto: 10,3 contra um `teto_de_lances` de **12**.
         Candidata({"pecas": 3, "lances": 4}),
         Candidata({"pecas": 3, "lances": 6}),
+        # ── ⛔ E A SEGUNDA RODADA DISSE ONDE ESTA O APERTO: NO TETO ──────────
+        #
+        # ✅ **Medida de novo em 12/09/2026, com ~2 h de intervalo**, e as cinco
+        # linhas deste tipo sairam **identicas digito a digito** — inclusive o
+        # `0 de 3` da janela de 4 e o `10.3` da janela de 6. ⛔ Isso encerra a
+        # duvida da "maquina dividida": a leitura e do acervo, e nao do relogio.
+        #
+        # ⚠️ **E o log mostra POR QUE `{pecas: 3}` fica em 1 de 3.** Das 18
+        # posicoes tentadas por dia, so **tres** aparecem descartadas por
+        # "objetivo no lance 1". As outras ~14 morrem em `_resolver`, que e o
+        # Sagaz **nao achando a captura de tres dentro do teto de 12
+        # meios-lances** — e as que passam vem com solucao media **10,3**,
+        # colada no teto.
+        #
+        # ⛔ **Entao subir a janela sozinha nao traz candidato de volta**, e a
+        # janela de 4 contra a de 6 ja provou isso na direcao contraria: 0 de 3
+        # contra 1 de 3, mesma posicao, mesmo acervo.
+        #
+        # ✅ **O dono autorizou subir o teto por qualidade** (12/09/2026, §8k-5
+        # de `DECISOES-do-dono.md`): *"se precisarmos subir o teto de lances para
+        # comportar desafios mais interessantes e de maior qualidade, eu nao vejo
+        # problema algum"*. ⚠️ **Janela e teto sobem JUNTOS** — a janela e o que a
+        # pessoa le, o teto e o que o gerador procura, e subir so um deixa o
+        # gerador achando solucao que a frase nao aceita.
+        #
+        # ⏳ **Estas quatro linhas respondem se o teto e mesmo o que aperta.**
+        # Se `{pecas:3, lances:8, teto:16}` subir para FOLGA, esta e a melhor
+        # variante que as damas tem: a mais longa (10,3 contra 3,0 a 9,6 de todas
+        # as outras) e a unica que ampliaria o tipo, que hoje e uma so.
+        Candidata({"pecas": 3, "lances": 8}, nu_maximo_de_meios_lances=16),
+        Candidata({"pecas": 3, "lances": 10}, nu_maximo_de_meios_lances=20),
+        # ⚠️ **O controle**: a variante de DUAS pecas com o mesmo teto maior. Sem
+        # ela, uma melhora em `{pecas: 3}` poderia ser do teto beneficiando tudo,
+        # e nao da tarefa de tres pecas passando a caber.
+        Candidata({"pecas": 2, "lances": 8}, nu_maximo_de_meios_lances=16),
     ),
 }
 
@@ -344,17 +415,46 @@ def medir(co_tipo: str, variantes: Sequence[Mapping[str, Any]]) -> None:
         )
 
 
-def principal(argumentos: Sequence[str]) -> int:
-    """Mede os tipos de um jogo, ou todos. Devolve o codigo de saida."""
-    alvo = argumentos[0] if argumentos else "todos"
+def tipos_do_alvo(alvo: str) -> list[str]:
+    """Quais tipos de `A_MEDIR` o argumento da linha de comando seleciona.
 
-    tipos = [
+    ⚠️ **O alvo aceita TRES granularidades**, e a do meio foi acrescentada em
+    12/09/2026 por um motivo medido: a rodada `damas` inteira custa **80
+    minutos**, e uma investigacao que so mexe num botao de `capturar_multipla`
+    pagava os 80 para reimprimir cinco linhas ja decididas.
+
+    ⛔ E o desperdicio nao e so de relogio: enquanto a medicao roda, a maquina
+    fica ocupada, e foi exatamente a **maquina dividida** que pos em duvida a
+    leitura de `{damas: 2}` na primeira rodada (ver o comentario de `A_MEDIR`).
+
+    ⚠️ **Esta funcao existe separada de `principal` para poder ser testada.**
+    Testar a selecao de dentro de `principal` obrigaria a **rodar a medicao**, que
+    leva minutos — e um cadeado que ninguem aguenta rodar nao e cadeado.
+
+      `todos`                    → todos os tipos
+      `damas`                    → os tipos daquele JOGO
+      `damas_capturar_multipla`  → so aquele tipo
+      qualquer outra coisa       → lista vazia (quem chama avisa e sai com 2)
+    """
+    return [
         co_tipo
         for co_tipo in A_MEDIR
-        if alvo == "todos" or gerador_mod.receita_de(co_tipo).co_jogo == alvo
+        if alvo == "todos"
+        or alvo == co_tipo
+        or gerador_mod.receita_de(co_tipo).co_jogo == alvo
     ]
+
+
+def principal(argumentos: Sequence[str]) -> int:
+    """Mede os tipos de um jogo, de um tipo so, ou todos. Devolve o codigo de saida."""
+    alvo = argumentos[0] if argumentos else "todos"
+
+    tipos = tipos_do_alvo(alvo)
     if not tipos:
-        print(f"⛔ nada a medir para {alvo!r}. Use: pontinhos · damas · todos")
+        print(f"⛔ nada a medir para {alvo!r}.")
+        print("   Use um JOGO (pontinhos · damas), `todos`, ou um TIPO:")
+        for co_tipo in A_MEDIR:
+            print(f"     {co_tipo}")
         return 2
 
     inicio = time.time()
