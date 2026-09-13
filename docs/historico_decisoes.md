@@ -70,12 +70,45 @@ carrega o LiteRT e morre sozinha. O dono relatava *"a mais longa foi 12 minutos"
 
 ✅ **`os._exit(codigo)`** depois de `flush` nos dois descritores, com a sessão
 fechada e a `engine` já descartada. Cadeado que lê o arquivo: quem voltar a
-`sys.exit` vê a suíte vermelha, e não a fatura subir em silêncio.
+`sys.exit` vê a suíte vermelha.
+
+⛔ **CORREÇÃO, no mesmo dia:** o dono trouxe a fatura (14/08 a 14/09) e ela
+desmente a conta acima. O `job-desafio` acumulou **6,86 GB-min de RAM** e custou
+**$0,0196** no mês — se o container tivesse ficado 10 h por dia de pé, seriam
+~9.405 GB-min e ~$2,18. ⚠️ **Eu li um evento de plataforma (`Stopping Container`)
+como tempo cobrado.** O processo já morria. O conserto fica, porque um processo
+que não termina é defeito; **mas ele não era o custo**, e afirmar que era mandaria
+olhar o lugar errado. ⛔ A medida certa estava a um clique, no painel de uso, e eu
+não a pedi antes de afirmar.
 
 ✅ **E o job passou a se cronometrar** (`Relatorio.segundos_por_dia`), com
 `finally` para o dia que **estourou** entrar também — é justamente o dia caro.
 ⛔ Sem esse número, *"o job demorou"* e *"o processo não morreu"* são
 indistinguíveis no painel do Railway.
+
+### ✅ A FATURA REAL, e o teto de tempo do job
+
+| serviço | RAM média | custo/mês |
+|---|---|---|
+| `postgres-prd` | 118 MB | $1,20 |
+| API prd | 102 MB | $1,11 |
+| API des | 89 MB | $0,90 |
+| `postgres-des` | 62 MB | $0,63 |
+| `job-desafio` | — | **$0,0196** |
+| | | **$3,86** |
+
+✅ Dentro dos US$ 5, com **$1,14** de folga. ⛔ **Os quatro serviços de pé 24/7
+são 99,5% da conta** — eles vivem 43.200 min/mês; o job viveu ~14.
+
+⚠️ **No job quem custa é CPU, não RAM** ($0,0180 contra $0,0016): o perfil medido
+é ~2,8 vCPU durante a execução, que é a busca das damas usando os núcleos que
+encontra.
+
+⛔ **O teto é ~27 min/dia** antes de estourar os $5 — e o regime normal fica muito
+abaixo, porque o job gera **um** dia por execução (o pico é a recuperação depois
+de a fila ser limpa). ⚠️ **Consequência:** o critério *"sem tempos exagerados no
+Railway"* não deve ser usado para recusar qualidade; ele existe para pegar
+execução fora de controle.
 
 ### ✅ 3. A régua de qualidade, dita pelo dono
 
