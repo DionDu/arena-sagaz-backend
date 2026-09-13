@@ -744,3 +744,58 @@ def test_as_damas_continuam_com_o_numero_BAIXO() -> None:
         "tentativa de damas custa ~30 s (busca) e uma de Pontinhos ~0,1 s "
         "(inferencia): o mesmo numero nos dois e uma escolha que ninguem fez."
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O CAMINHO DE MEDICAO NAO CHEGA NA FILA
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_JOB_nunca_pede_uma_receita_em_avaliacao():
+    """⛔ `receita_em_avaliacao` pula o vetor de verificacao, e so a medicao pode.
+
+    ⚠️ **Este caso le o codigo do job**, e nao o comportamento dele - de
+    proposito. Um teste de comportamento provaria que **naquela** chamada o
+    argumento nao foi passado; o que precisa ser verdade e mais forte: que ele
+    nao aparece em lugar nenhum do caminho que publica.
+
+    ⚠️ O que o argumento dispensa e o vetor, que e a prova de que o aplicativo e
+    o servidor leem a mesma regra. Um desafio publicado sem ele traria uma
+    divergencia de julgamento **calada**: o servidor diz que cumpriu, o aparelho
+    diz que nao, e nada no log explica.
+    """
+    from pathlib import Path
+
+    raiz = Path(__file__).parents[2] / "job"
+    for arquivo in sorted(raiz.glob("*.py")):
+        # ⚠️ O gerador e quem DEFINE o parametro; a proibicao e sobre quem o usa.
+        if arquivo.name == "gerador.py":
+            continue
+        texto = arquivo.read_text(encoding="utf-8")
+        assert "receita_em_avaliacao" not in texto, (
+            f"⛔ {arquivo.name} menciona `receita_em_avaliacao`. Esse caminho "
+            "pula `exigir_vetor`, e so `scripts/medir_variantes_do_editorial.py` "
+            "pode usa-lo - o que sai dele nao e publicavel."
+        )
+
+
+def test_a_receita_em_avaliacao_RECUSA_um_tipo_que_ja_esta_no_ar():
+    """⚠️ Quem esta no caminho normal segue pelo caminho normal, com vetor.
+
+    ⛔ Sem esta recusa, `receita_em_avaliacao` viraria uma forma de gerar um tipo
+    publicado **sem** conferir o vetor dele - e ai o atalho da medicao teria
+    aberto um buraco no que ele nem precisava tocar.
+    """
+    from datetime import date
+
+    from job.tipos_de_desafio import RECEITAS
+
+    co_tipo = "pontinhos_fechar_caixas"
+    with pytest.raises(SemCandidato, match="JA esta em RECEITAS"):
+        gerar_candidatos(
+            date(2026, 10, 2),
+            parametros={"caixas": 4, "turnos": 2},
+            quantos=1,
+            tentativas_por_candidato=1,
+            receita_em_avaliacao=RECEITAS[co_tipo],
+        )
