@@ -86,6 +86,29 @@ não a pedi antes de afirmar.
 ⛔ Sem esse número, *"o job demorou"* e *"o processo não morreu"* são
 indistinguíveis no painel do Railway.
 
+### ⛔ 4. Desafio NÃO gera conquista - decisão do dono, e lacuna da spec
+
+> *"Tem que lembrar que estes desafios não podem gerar conquistas. Vencer o Magno
+> em qualquer jogo é quase impossível. (...) **Conquista só vale começando jogo do
+> zero.**"*
+
+⚠️ **A spec não trata disso** (conferido: `spec.md` só menciona conquista de
+passagem, ao citar uma linha antecipada do PRD). É lacuna real, e o
+`damas_final_da_base` a tornou urgente: ele entrega uma posição **quase ganha**
+contra o Magno, e converter dali não é o que a conquista promete.
+
+⛔ **Não há guarda hoje.** `ProgressaoProvider.registrarPartida` (no app) não
+distingue desafio de partida comum. Nada está quebrado porque a tela de desafio
+não existe - mas a guarda entra **junto** dela, com parâmetro **obrigatório, sem
+valor padrão**, pelo mesmo motivo já escrito no código sobre o `usouPoder`.
+
+⚠️ **Não confundir com XP:** o desafio paga XP (é o laço diário inteiro, com
+`tb004_xp_desafio` e teto de 30/dia). O que não vale é **conquista**. E o
+`ic_pontua = FALSE` do log é o anti-farm do XP de **partida**, outro caminho e
+outro código.
+
+Registro completo em `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8k-9.
+
 ### ✅ A FATURA REAL, e o teto de tempo do job
 
 | serviço | RAM média | custo/mês |
