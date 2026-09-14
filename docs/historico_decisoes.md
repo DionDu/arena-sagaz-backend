@@ -21,6 +21,99 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-14 — As medições chegaram: o TETO era o gargalo, e três tipos novos vivem
+
+O dono rodou as rodadas do `ROTEIRO-medicoes-13-e-14-09.md`. As duas primeiras
+responderam tudo o que precisava ser respondido.
+
+### ⛔ Decisão 1 — a variante de captura no ar era a mais curta do catálogo por causa do TETO
+
+A rodada com teto maior foi desenhada para responder sobre **três** peças. Quem
+deu a melhor resposta foi o **controle** de duas:
+
+| variante | teto | rótulo | dias | solução |
+|---|---|---|---|---|
+| `{pecas:2, lances:4}` (no ar) | 12 | NO LIMITE | `[3,1,2]` | 3,7 |
+| `{pecas:2, lances:8}` | **16** | ✅ **FOLGA** | `[3,3,3]` | **9,0** |
+| `{pecas:3, lances:8}` | 16 | NO LIMITE | `[1,1,1]` | 10,3 |
+| `{pecas:3, lances:10}` | **20** | NO LIMITE | `[3,1,1]` | **13,8** |
+
+⛔ **Com 12 meios-lances o gerador só achava as capturas que caem em 3,7.** Com
+16 ele acha as de 9,0: a **mesma tarefa**, duas vezes e meia mais longa, e com
+folga de candidato em vez de nenhuma.
+
+**Decisão:** `{pecas: 2, lances: 8}` com teto 16 substitui a `{pecas: 2,
+lances: 4}`, e `{pecas: 3, lances: 10}` com teto 20 entra como segunda variante -
+13,8 meios-lances, **a tarefa mais longa de todo o catálogo**.
+
+⚠️ **A de três peças entra em NO LIMITE, e é decisão consciente.** Os dias são
+`[3, 1, 1]`, melhores que os `[1, 1, 1]` da versão de teto 16; NO LIMITE publica,
+e o contrapeso é que o tipo agora tem **duas** variantes, então o odômetro não
+depende só dela.
+
+⚠️ **Custou zero em vocabulário**: sem tipo novo, sem migração, sem chave de
+i18n. Dois números. E o preço de máquina está medido: 923 s para 3 dias, ~5 min
+por dia de damas, contra o teto de ~27 min/dia da §8k-8.
+
+**Alternativa descartada:** manter a variante curta e esperar a de três peças
+amadurecer. ⛔ O critério 6 do dono (*"de preferência muitos lances"*) já
+decidia isso, e a medição mostrou que não havia troca a fazer - a variante longa
+é também a que tem mais folga.
+
+### Decisão 2 — `damas_coroar {damas:2}` sobe para teto 16
+
+⚠️ **O teto padrão estrangulava a própria janela da variante.** Ela promete 8
+lances do jogador, que são 16 meios-lances; com o gerador parando em 12, a
+promessa nunca era exercida. ⛔ **Era essa a causa** de `lances: 8` e `lances: 10`
+medirem idêntico - este arquivo já registrava o sintoma sem saber o motivo.
+
+| teto | rótulo | dias | solução |
+|---|---|---|---|
+| 12 | NO LIMITE | `[1,2,3]` | 9,3 |
+| **16** | NO LIMITE | `[1,3,3]` | **11,3** |
+
+O rótulo não mudou e a tarefa ficou **21% mais longa**. ⚠️ E não custou Railway:
+525 s contra 630 s - o gerador acha solução mais cedo quando pode aceitar as
+longas, em vez de esgotar as tentativas.
+
+### ✅ Decisão 3 — três tipos novos do Pontinhos vivem, e um morreu
+
+Rodada de 254 segundos (quatro minutos), medindo tipos que **nunca estiveram no
+ar**:
+
+| tipo | melhor variante | rótulo | solução |
+|---|---|---|---|
+| `pontinhos_economia_de_lances` | `{caixas:5, lances:8}` prep 14 | ✅ **FOLGA nas três** | **10,1** |
+| `pontinhos_troca_favoravel` | `{ganhar:5, ceder:2}` prep 14 | ⚠️ APERTADO | **10,0** |
+| `pontinhos_nao_entregar_nada` | `{turnos: 4}` | ✅ FOLGA | 6,6 |
+| `pontinhos_paciencia` | `{turnos: 3}` | ✅ FOLGA | 5,0 |
+
+⚠️ **`economia_de_lances` é o melhor resultado possível**: FOLGA em `3 de 3` nas
+três variantes medidas, com soluções de 9,0 a 10,1. Não há variante ruim para
+escolher.
+
+⛔ **E `nao_entregar_nada` só vive na faixa baixa:** `turnos: 4` dá FOLGA, mas 6 e
+8 dão **zero nos três dias**. ⚠️ A sondagem de **um** dia tinha sugerido
+`turnos: 6` (11 meios-lances) - é a mesma lição do dia 2026-09-18, e o motivo de
+a rodada de verdade ter três dias.
+
+⏳ **Os três não entram ainda**, e não é hesitação: tipo novo precisa de linha na
+`tb901` (migração), chave nos três `.arb` (versão nova do aplicativo) e vetor de
+verificação. As três são decisão do dono, e agora ele tem o número para decidir.
+
+### ⚠️ E um erro meu no roteiro
+
+A RODADA 4 (a rodada cheia das damas) está escrita lá como **~80 minutos**. ⛔ O
+número está errado: quando o escrevi, eu já tinha acrescentado quatro candidatas
+de teto próprio ao mesmo tipo, e não refiz a conta. São **~135 minutos**.
+
+⚠️ **E ela ficou redundante**, o que é pior que lenta: as linhas de teto próprio
+dela são exatamente as da RODADA 2, e as outras nove já foram medidas duas vezes
+em 12/09 com resultado idêntico ao dígito. ⛔ Rodar a 2 dispensa a 4, e isso
+tinha de estar escrito no roteiro.
+
+---
+
 ## 2026-09-12 (noite, 2) — Medir os tipos PROPOSTOS: um defeito, duas duplicatas e três tipos vivos
 
 **Contexto:** o dono tem dois dias de máquina e nenhum dia de assistente. A

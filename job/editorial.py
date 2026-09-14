@@ -678,6 +678,28 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             parametros={"damas": 2, "lances": 8},
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_coroar,
+            # ── ✅ TETO 16, MEDIDO EM 14/09/2026 ─────────────────────────────
+            #
+            # ⚠️ **O teto padrao de 12 estrangulava a propria janela desta
+            # variante.** Ela promete 8 lances do jogador, que sao 16
+            # meios-lances; com o gerador parando de procurar em 12, a promessa
+            # nunca era exercida — e era por isso que `lances: 8` e `lances: 10`
+            # mediam identico, o que este arquivo ja registrava sem saber a
+            # causa.
+            #
+            # ✅ **Medido, a mesma variante com os dois tetos:**
+            #
+            #     teto 12   NO LIMITE (1 de 3)   dias [1, 2, 3]    9,3 meios-lances
+            #     teto 16   NO LIMITE (1 de 3)   dias [1, 3, 3]   11,3 meios-lances
+            #
+            # ⚠️ **O rotulo nao mudou, e a tarefa ficou 21% mais longa.** Os dias
+            # melhoraram de `[1,2,3]` para `[1,3,3]` — ainda NO LIMITE, porque o
+            # dia mais fraco manda, mas com mais candidato nos outros dois.
+            #
+            # ⛔ **Nao custa Railway a mais**: 525 s contra 630 s na mesma
+            # medicao, porque o gerador acha solucao mais cedo quando pode
+            # aceitar as longas, em vez de esgotar as tentativas.
+            nu_maximo_de_meios_lances=16,
         ),
     ),
     # ⚠️ **MEDIDO no mesmo dia, e o resultado foi UMA variante so:**
@@ -770,12 +792,55 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # melhor variante que as damas tem**: a mais longa de todas (10,3 contra 3,0
     # a 9,6) e a unica que ampliaria este tipo, que hoje tem uma variante so.
     # Detalhe em `docs/historico_decisoes.md`, 12/09/2026.
+    # ═══════════════════════════════════════════════════════════════════════
+    # ✅ 14/09/2026: O TETO ERA O QUE APERTAVA, E O CONTROLE PROVOU
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⚠️ **A medicao com teto maior foi desenhada para responder sobre TRES
+    # pecas, e quem deu a melhor resposta foi o CONTROLE de duas:**
+    #
+    #     {pecas:2, lances:4}  teto 12   NO LIMITE (1 de 3)   [3,1,2]   3,7 meios-lances
+    #     {pecas:2, lances:8}  teto 16   ✅ FOLGA  (3 de 3)   [3,3,3]   9,0 meios-lances
+    #     {pecas:3, lances:8}  teto 16   NO LIMITE (1 de 3)   [1,1,1]  10,3 meios-lances
+    #     {pecas:3, lances:10} teto 20   NO LIMITE (1 de 3)   [3,1,1]  13,8 meios-lances
+    #
+    # ⛔ **A variante que estava no ar era a mais curta do catalogo por causa do
+    # TETO, e nao do tipo.** Com 12 meios-lances o gerador so achava as capturas
+    # que caem em 3,7; com 16 ele acha as de 9,0 — a **mesma tarefa**, duas
+    # vezes e meia mais longa, e com folga de candidato em vez de nenhuma.
+    #
+    # ⚠️ **Isso e o criterio 6 do dono em cheio** (§8k-0: *"de preferencia muitos
+    # lances ate chegar a conclusao do desafio"*), e ele custou zero: nao ha tipo
+    # novo, nem migracao, nem chave de i18n. So dois numeros.
     "damas_capturar_multipla": (
         Publicacao(
-            # Uma captura de duas pecas em quatro lances.
-            parametros={"pecas": 2, "lances": 4},
+            # ⛔ **APOSENTOU a `{pecas: 2, lances: 4}`**, que estava aqui desde a
+            # primeira safra e media 3,7 meios-lances em NO LIMITE. A decisao de
+            # aposentar esta na §8k-7 (*"quando a de 3 pecas entrar"*); o que
+            # mudou e que quem a substitui e a **mesma tarefa com teto maior**, e
+            # nao a de tres pecas.
+            parametros={"pecas": 2, "lances": 8},
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_captura,
+            nu_maximo_de_meios_lances=16,
+        ),
+        Publicacao(
+            # ⚠️ **TRES pecas, a tarefa mais longa de todo o catalogo** — 13,8
+            # meios-lances, contra os 6,0 a 22,0 do Pontinhos e os 3,0 a 11,3 das
+            # outras variantes de damas.
+            #
+            # ⛔ **Entra em NO LIMITE, e isso e decisao consciente.** O dia mais
+            # fraco da 1 de 3, mas os dias sao `[3, 1, 1]` — melhores que os
+            # `[1, 1, 1]` da versao de teto 16. ⚠️ **NO LIMITE publica**; o risco
+            # e o dia descoberto, e o contrapeso e que este tipo agora tem DUAS
+            # variantes, entao o odometro nao depende so dela.
+            #
+            # ⚠️ **E o preco esta medido:** 923 s para 3 dias, ou ~5 min por dia
+            # de damas — contra o teto de ~27 min/dia da §8k-8.
+            parametros={"pecas": 3, "lances": 10},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_captura,
+            nu_maximo_de_meios_lances=20,
         ),
     ),
 }
