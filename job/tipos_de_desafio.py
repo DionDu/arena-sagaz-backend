@@ -985,6 +985,129 @@ RECEITAS: dict[str, Receita] = {
             "W:W18,20,21,22,25,26,27,28,29,30,31,32:B1,2,3,4,5,6,7,8,10,11,13,19",   # 3/4 · lance 3.7
         ),
     ),
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⚠️ OS QUATRO TIPOS DE PONTINHOS QUE ENTRARAM EM 14/09/2026
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⛔ **Nenhum deles entrou por parecer boa ideia: os quatro foram MEDIDOS**
+    # antes, como tipos em avaliacao (`scripts/medir_variantes_do_editorial.py
+    # em-avaliacao`), e os numeros estao no editorial de cada um.
+    #
+    # ⚠️ **Eles nao exigiram codigo Dart nenhum**, e e isso que os tornou os
+    # primeiros da fila: as quatro medidas que consultam — `caixas_fechadas`,
+    # `caixas_do_adversario`, `lances_do_jogador` e `maior_cadeia_capturada` — ja
+    # sao produzidas pelos DOIS medidores. O que eles custaram foi migracao
+    # (`0024`), chave de i18n e vetor.
+    #
+    # ─────────────────────────────────────────────────────────────────────────
+    # ⛔ A FAMILIA "IMPECA" / "AGUENTE", E A ARMADILHA QUE ELA TEM
+    # ─────────────────────────────────────────────────────────────────────────
+    #
+    # Dois dos quatro (`nao_entregar` e `paciencia`) pedem que algo **nao
+    # aconteca**. ⚠️ **A clausula sozinha nao basta**, e o motivo e do juiz: ele
+    # varre a fita e para no **primeiro** lance em que as clausulas valem — e
+    # *"o adversario nao fechou caixa"* ja e verdade **antes de ele jogar**.
+    #
+    # ⛔ Medido em 12/09/2026, antes da correcao: solucao de **1 meio-lance** com
+    # qualquer numero no enunciado. Depois: **7** com `turnos: 4`.
+    #
+    # ✅ **A cura e `lances_do_jogador >= n` na conjuncao**, e ela nao custa
+    # vocabulario novo: a conjuncao so pode ficar verdadeira no n-esimo lance.
+    # Cadeado em `tests/unitarios/test_tipos_propostos.py`, e ele roda sobre os
+    # tipos publicados tambem.
+    "pontinhos_nao_entregar": Receita(
+        # ⚠️ **O numero 2 e da migracao `0018`** — este tipo ja existia na
+        # dimensao desde o inicio, sem receita. Nao houve tipo novo aqui: houve
+        # uma receita escrita para uma linha que esperava por ela.
+        nu_tipo_desafio=2,
+        co_tipo_desafio="pontinhos_nao_entregar",
+        co_jogo="pontinhos",
+        co_chave_objetivo="desafioObjetivoNaoEntregar",
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("lances_do_jogador", "maior_ou_igual", p["lances"]),
+                _medida("caixas_do_adversario", "menor_ou_igual", 0),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    "pontinhos_economia_de_lances": Receita(
+        # ⚠️ **14, e nao o proximo numero livre.** A `0023` deixou escrito que
+        # os numeros 11 a 21 ja estavam tomados pelas propostas de
+        # `job/tipos_propostos.py` - reaproveitar um deles faria duas coisas
+        # diferentes responderem pelo mesmo `nu_tipo_desafio` no dia em que a
+        # outra proposta fosse aprovada. Este tipo E a proposta 14.
+        nu_tipo_desafio=14,
+        co_tipo_desafio="pontinhos_economia_de_lances",
+        co_jogo="pontinhos",
+        co_chave_objetivo="desafioObjetivoEconomiaDeLances",
+        # ⚠️ **A janela conta LANCES, e o `fechar_caixas` conta TURNOS** — e no
+        # Pontinhos a diferenca e grande, porque quem fecha caixa joga de novo.
+        # ⛔ E por isso os dois nao sao o mesmo tipo com outro nome: um turno
+        # generoso cabe muitos lances, e este aqui cobra cada um deles.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "lances_do_jogador", "n": p["lances"]},
+            "clausulas": [_medida("caixas_fechadas", "maior_ou_igual", p["caixas"])],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "caixas": p["caixas"],
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    "pontinhos_troca_favoravel": Receita(
+        nu_tipo_desafio=12,
+        co_tipo_desafio="pontinhos_troca_favoravel",
+        co_jogo="pontinhos",
+        co_chave_objetivo="desafioObjetivoTrocaFavoravel",
+        # ⚠️ **DUAS clausulas, e e a conjuncao que faz o tipo.** *"Feche caixas"*
+        # sozinho e o `chegar_ao_placar`; o que transforma isso na decisao real
+        # do Pontinhos e o teto do que se cede — porque toda caixa fechada abre
+        # a proxima cadeia para o adversario.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("caixas_fechadas", "maior_ou_igual", p["ganhar"]),
+                _medida("caixas_do_adversario", "menor_ou_igual", p["ceder"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "ganhar": p["ganhar"],
+            "ceder": p["ceder"],
+            "personagem": personagem,
+        },
+    ),
+    "pontinhos_paciencia": Receita(
+        nu_tipo_desafio=15,
+        co_tipo_desafio="pontinhos_paciencia",
+        co_jogo="pontinhos",
+        co_chave_objetivo="desafioObjetivoPaciencia",
+        # ⛔ **O objetivo e nao fazer NADA** — nem fechar, nem ceder —, e ele
+        # ensina a regra central do Pontinhos: quem for forcado a abrir a cadeia
+        # perde. ⚠️ **Precisa das tres clausulas**: sem `caixas_fechadas == 0`,
+        # quem fechasse tudo cumpriria; sem `lances_do_jogador`, cumpriria quem
+        # nao fizesse lance nenhum.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("lances_do_jogador", "maior_ou_igual", p["lances"]),
+                _medida("caixas_do_adversario", "menor_ou_igual", 0),
+                _medida("caixas_fechadas", "igual", 0),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
 }
 
 

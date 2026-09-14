@@ -150,7 +150,19 @@ def test_a_receita_monta_uma_chegada_VALIDA() -> None:
     """O que a receita emite tem de passar pelo avaliador — senao ela e decoracao."""
     from motores.nucleo.chegada import LinhaDeChegada
 
-    parametros = {"caixas": 4, "turnos": 2, "damas": 1, "lances": 3, "pecas": 2}
+    # ⚠️ **Um dicionario com TODAS as chaves de todos os tipos**, e nao um por
+    # tipo: o que se testa aqui e a forma da chegada, e nao os numeros. ⛔ Chave
+    # que falte aqui derruba o teste com `KeyError` no dia em que um tipo novo a
+    # usar — que e exatamente quando alguem precisa ser avisado.
+    parametros = {
+        "caixas": 4,
+        "turnos": 2,
+        "damas": 1,
+        "lances": 3,
+        "pecas": 2,
+        "ganhar": 4,   # pontinhos_troca_favoravel
+        "ceder": 2,    # pontinhos_troca_favoravel
+    }
     for codigo, receita in RECEITAS.items():
         chegada = LinhaDeChegada.de_dado(receita.montar(parametros))
         assert chegada.clausulas, codigo

@@ -290,6 +290,135 @@ def _medidas_da_cadeia_longa(p: Mapping[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ OS QUATRO TIPOS DE PONTINHOS DE 14/09, E A ARMADILHA DA DIRECAO
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⛔ **A direcao de cada feito e GLOBAL, e vem do catalogo** — `lances_do_jogador`
+# e `menor_melhor` para o app inteiro, porque em quase todo desafio economizar
+# lance e merito.
+#
+# ⚠️ **Nos dois tipos de "aguente" isso se INVERTE**, e a inversao nao tem como
+# ser escrita: em `nao_entregar` e `paciencia`, quem resiste **mais** lances joga
+# **melhor**. Pontuar `lances_do_jogador` ali pagaria mais a quem aguentou menos.
+#
+# ✅ **A saida e nao pontua-la nesses dois** (`linha_so_medida`, peso zero): ela
+# continua no extrato e no Raio-X, que e onde ela explica o que aconteceu, e o
+# peso inteiro vai para a medida que **e** o objetivo.
+#
+# ⛔ **A alternativa — mudar `co_direcao` no catalogo — esta descartada**, e o
+# motivo e que ela quebraria os cinco tipos em que economizar lance e merito de
+# verdade. A direcao e do FEITO, nao do desafio.
+
+
+def _medidas_do_pontinhos_nao_entregar(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Nao entregar: o merito e o zero do adversario, e so ele pontua.
+
+    ⚠️ **A faixa vai de 0 ate o numero de lances pedidos**, e nao ate as doze
+    caixas do tabuleiro: em `lances` lances o adversario nao teria como fechar
+    doze, e normalizar por um maximo inalcancavel faria quase todo mundo tirar
+    nota quase cheia — inclusive quem entregou tudo o que dava.
+    """
+    return [
+        linha_de_faixa(
+            "caixas_do_adversario",
+            nu_ordem=1,
+            vr_peso="1.000",
+            vr_min=0,
+            vr_max=p["lances"],
+        ),
+        # ⛔ Peso zero, e nao esquecimento — ver o bloco acima sobre a direcao.
+        linha_so_medida("lances_do_jogador", nu_ordem=2),
+        linha_so_medida("caixas_fechadas", nu_ordem=3),
+    ]
+
+
+def _medidas_do_pontinhos_economia(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Economia de lances: aqui `lances_do_jogador` pontua, e pesado.
+
+    ⚠️ **E o unico tipo em que a economia E o objetivo**, entao ela leva mais
+    peso que nos outros (0,500 contra os 0,300/0,400 habituais). ⛔ O alvo de
+    caixas continua pontuando: sem ele, quem nao fechasse nada tiraria nota
+    cheia por ter gasto zero lance.
+    """
+    return [
+        linha_de_faixa(
+            "caixas_fechadas",
+            nu_ordem=1,
+            vr_peso="0.500",
+            vr_min=0,
+            vr_max=p["caixas"],
+        ),
+        linha_de_fracao(
+            "lances_do_jogador",
+            nu_ordem=2,
+            vr_peso="0.500",
+            co_sobre="lances_da_solucao",
+        ),
+        linha_so_medida("caixas_do_adversario", nu_ordem=3),
+    ]
+
+
+def _medidas_do_pontinhos_troca(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Troca favoravel: as DUAS metades do objetivo pontuam, e em partes iguais.
+
+    ⚠️ **E o unico tipo em que `caixas_do_adversario` tem peso ao lado de outra
+    medida**, e e isso que descreve a tarefa: fechar muito cedendo pouco. ⛔ Dar
+    o peso so ao que se fecha faria o tipo virar `chegar_ao_placar`.
+
+    ⚠️ **O teto da faixa do que se cede e `ceder + 1`**, e nao `ceder`: com o
+    teto no proprio alvo, quem cedesse exatamente o permitido tiraria **zero**
+    naquela parcela, e ele **cumpriu** o desafio. O `+1` poe o zero da nota uma
+    caixa depois do limite, que e onde o desafio de fato falha.
+    """
+    return [
+        linha_de_faixa(
+            "caixas_fechadas",
+            nu_ordem=1,
+            vr_peso="0.500",
+            vr_min=0,
+            vr_max=p["ganhar"],
+        ),
+        linha_de_faixa(
+            "caixas_do_adversario",
+            nu_ordem=2,
+            vr_peso="0.500",
+            vr_min=0,
+            vr_max=p["ceder"] + 1,
+        ),
+        linha_so_medida("lances_do_jogador", nu_ordem=3),
+    ]
+
+
+def _medidas_do_pontinhos_paciencia(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Paciencia: as duas medidas do objetivo tem direcao INVERTIDA aqui.
+
+    ⛔ **Nenhuma das duas pode pontuar, e por motivos opostos:**
+
+      · `caixas_fechadas` e `maior_melhor` no catalogo, e aqui fechar caixa
+        **quebra** o desafio — pontua-la pagaria exatamente o erro;
+      · `lances_do_jogador` e `menor_melhor`, e aqui aguentar mais e melhor.
+
+    ✅ Sobra `caixas_do_adversario`, que e a unica cuja direcao do catalogo
+    coincide com a do desafio: nao ceder e melhor, aqui e em toda parte.
+
+    ⚠️ **Peso 1,000 numa medida so nao e preguica**: este desafio e binario por
+    natureza — ou voce atravessou os lances sem mexer no placar, ou nao. A
+    gradacao que existe e *quanto* se cedeu ao falhar, e e ela que a faixa mede.
+    """
+    return [
+        linha_de_faixa(
+            "caixas_do_adversario",
+            nu_ordem=1,
+            vr_peso="1.000",
+            vr_min=0,
+            vr_max=p["lances"],
+        ),
+        linha_so_medida("caixas_fechadas", nu_ordem=2),
+        linha_so_medida("lances_do_jogador", nu_ordem=3),
+    ]
+
+
 def _medidas_do_damas_coroar(p: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Coroar: o merito e a dama, e o material que sobrou aparece sem pontuar."""
     return [
@@ -843,7 +972,109 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             nu_maximo_de_meios_lances=20,
         ),
     ),
+    # ═══════════════════════════════════════════════════════════════════════
+    # OS QUATRO TIPOS NOVOS DE PONTINHOS — MEDIDOS EM 14/09/2026
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⚠️ **A rodada inteira custou 254 segundos** (`em-avaliacao`, 3 dias, 20
+    # tentativas por candidato). Os numeros de cada variante estao na linha dela.
+    #
+    # ⛔ **O que NAO entrou, e por que:**
+    #
+    #   · `{turnos: 6}` e `{turnos: 8}` do `nao_entregar` — **SEM DESAFIO nos
+    #     tres dias**. ⚠️ A sondagem de UM dia tinha apontado o 6 (11 meios-lances
+    #     numa amostra), e a rodada de tres dias desmentiu. Mesma licao do dia
+    #     2026-09-18, e o motivo de a medicao ter tres dias.
+    #   · `{turnos: 6}` do `paciencia` — idem, zero nos tres.
+    #   · `{ganhar: 5, ceder: 1}` do `troca_favoravel` — NO LIMITE, e ha duas
+    #     variantes melhores do mesmo tipo.
+    "pontinhos_nao_entregar": (
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · dias [3,3,3] · 6,6 meios-lances · 7s
+            #
+            # ⚠️ **Uma variante so, e e o que a medicao permite.** Este tipo vive
+            # numa faixa estreita: 4 da folga cheia, 6 e 8 dao zero. ⛔ Nao ha
+            # segunda variante para publicar, e inventar uma sem medida e o que
+            # este editorial existe para impedir.
+            parametros={"lances": 4},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_pontinhos_nao_entregar,
+        ),
+    ),
+    "pontinhos_economia_de_lances": (
+        # ⚠️ **O tipo mais generoso do catalogo**: FOLGA (3 de 3) nas TRES
+        # variantes medidas, com solucoes de 9,0 a 10,1 meios-lances. Nao houve
+        # variante ruim para descartar.
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · dias [3,3,3] · 10,1 meios-lances · 20s
+            parametros={"caixas": 5, "lances": 8},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_pontinhos_economia,
+            nu_lances_de_preparo=14,
+        ),
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · dias [3,3,3] · 10,1 meios-lances · 20s
+            #
+            # ⚠️ **Mesma solucao media da de cima, e mesmo assim ela entra:** o
+            # que muda e a promessa na tela — sete lances contra oito para as
+            # mesmas cinco caixas —, e e a promessa que a pessoa le. ⛔ Os dois
+            # numeros iguais aqui querem dizer *"o gerador acha as mesmas
+            # solucoes"*, e nao *"a tarefa e a mesma"*.
+            parametros={"caixas": 5, "lances": 7},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_pontinhos_economia,
+            nu_lances_de_preparo=14,
+        ),
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · dias [3,3,3] · 9,0 meios-lances · 12s
+            # A mais facil das tres, e a que abre o tipo para quem nunca o viu.
+            parametros={"caixas": 4, "lances": 6},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_pontinhos_economia,
+            nu_lances_de_preparo=14,
+        ),
+    ),
+    "pontinhos_troca_favoravel": (
+        Publicacao(
+            # ⚠️ APERTADO (2 de 3) · dias [3,3,2] · 10,0 meios-lances · 20s
+            #
+            # ⛔ **Entra APERTADO de proposito, e a conta e explicita:** 10,0
+            # meios-lances contra os 7,6 da variante folgada. ⚠️ APERTADO ainda
+            # publica com escolha (dois candidatos no pior dia), e o criterio 6
+            # do dono (*"de preferencia muitos lances"*) decide o empate.
+            parametros={"ganhar": 5, "ceder": 2},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_pontinhos_troca,
+            nu_lances_de_preparo=14,
+        ),
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · dias [3,3,3] · 7,6 meios-lances · 18s
+            # ⚠️ **E a rede da de cima:** com duas variantes, um dia fraco da
+            # apertada nao deixa o tipo sem candidato.
+            parametros={"ganhar": 4, "ceder": 2},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_pontinhos_troca,
+            nu_lances_de_preparo=14,
+        ),
+    ),
+    "pontinhos_paciencia": (
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · dias [3,3,3] · 5,0 meios-lances · 6s
+            #
+            # ⚠️ **E o mais curto dos quatro** (5,0 contra 10,1), e isso e
+            # sabido. ⛔ Ele entra assim mesmo porque a tarefa dele **nao existe
+            # em nenhum outro tipo**: e o unico em que o acerto e nao jogar o
+            # lance obvio, e variedade de TAREFA e o criterio 1 do dono.
+            #
+            # ⏳ `{lances: 4}` mediu NO LIMITE (1 de 3, 7,0 meios-lances) e ficou
+            # de fora: um tipo de variante unica nao sobrevive a um dia fraco.
+            parametros={"lances": 3},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_pontinhos_paciencia,
+        ),
+    ),
 }
+
 
 
 def variantes_de(co_tipo_desafio: str) -> tuple[Publicacao, ...]:

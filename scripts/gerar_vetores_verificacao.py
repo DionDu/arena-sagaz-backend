@@ -61,6 +61,10 @@ from typing import Any
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 
+# ⚠️ As chegadas dos vetores de 14/09 saem das RECEITAS, e nao de JSON escrito a
+# mao: um vetor que julgasse por uma chegada propria provaria que os dois lados
+# concordam sobre algo que ninguem publica.
+from job.tipos_de_desafio import RECEITAS  # noqa: E402
 from motores.damas.motor_damas import EstadoDamas, MotorDamas  # noqa: E402
 from motores.pontinhos import feitos_pontinhos  # noqa: E402
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos  # noqa: E402
@@ -728,6 +732,327 @@ def vetores_da_cadeia_longa() -> list[dict[str, Any]]:
     ]
 
 
+#: ⚠️ **Traços das BORDAS OPOSTAS, e nenhum fecha caixa.** É a posição de que os
+#: dois tipos de *"aguente"* precisam: no tabuleiro cheio da cadeia não existe
+#: lance que não entregue nada, e é justamente isso que aqueles vetores medem.
+SEM_FECHAR_NADA = [
+    "V_1_0", "V_5_0", "V_1_6", "V_5_6",
+    "V_3_0", "V_7_6", "H_0_1", "H_8_5",
+]
+
+
+def _feitos_alternando(base: EstadoPontinhos, lances: list[str]) -> dict[str, int]:
+    """Os feitos de uma fita em que a vez ALTERNA, e não é sempre do jogador 1.
+
+    ⛔ **`_feitos_com_a_fita` não serve aqui**, e a diferença é uma linha: ela
+    passa `lances_do_jogador=len(lances)`, o que só vale na cadeia longa, onde
+    quem captura nunca perde a vez. ⚠️ Nos quatro tipos de 14/09 a vez passa o
+    tempo todo, e contar os lances do adversário como meus faria a cláusula de
+    `lances_do_jogador` fechar cedo demais — exatamente o defeito que ela existe
+    para impedir.
+    """
+    fita = _fita_pela_vez(base, lances)
+    estado = base
+    for lance in lances:
+        estado = estado.com_lance(lance)
+    meus = sum(1 for passo in fita if passo["jogador"] == base.vez_de)
+    medidas = feitos_pontinhos.medir(
+        base,
+        estado,
+        jogador=base.vez_de,
+        lances_do_jogador=meus,
+        fita=fita,
+    )
+    return {chave: int(valor) for chave, valor in medidas.items()}
+
+
+def _posicao_de(base: EstadoPontinhos, preparacao: list[str]) -> dict[str, Any]:
+    """`js_posicao_inicial` no formato do contrato, com `vez_de` e placar do motor."""
+    return {
+        "versao": 1,
+        "lances": _fita_pela_vez(EstadoPontinhos(lances=()), preparacao),
+        "vez_de": base.vez_de,
+        "placar": {"j1": base.placar[1], "j2": base.placar[-1]},
+    }
+
+
+def vetores_dos_tipos_de_14_09() -> list[dict[str, Any]]:
+    """Os nove vetores dos quatro tipos de Pontinhos que entraram em 14/09/2026.
+
+    ⚠️ **Dois deles guardam uma regra que nenhum vetor anterior guardava:** a
+    cláusula `lances_do_jogador >= n` que faz a família *"impeça"* / *"aguente"*
+    funcionar. ⛔ Sem ela os tipos 2 e 15 são cumpridos no primeiro lance, porque
+    *"o adversário não fechou caixa"* já é verdade antes de ele jogar — medido, e
+    é o motivo de os dois terem nascido quebrados.
+
+    ⚠️ **Os casos de "não cumpre por pouco" atacam a cláusula certa em cada um:**
+    no tipo 2, falta **um lance**; no 15, fechou **uma caixa**; no 14, faltou
+    **uma caixa**; no 12, cedeu **uma a mais**. É onde duas implementações
+    divergem de verdade.
+    """
+    # ── A posição em que NINGUÉM fecha nada: os dois tipos de "aguente" ──────
+    vazio = EstadoPontinhos(lances=())
+    assert vazio.vez_de == 1, "a partida não começa com o jogador 1"
+    posicao_limpa = _posicao_de(vazio, [])
+
+    # ── A cadeia armada: os dois tipos de "fechar" ───────────────────────────
+    cadeia = EstadoPontinhos(lances=tuple(PREPARACAO_CADEIA))
+    posicao_cadeia = _posicao_de(cadeia, PREPARACAO_CADEIA)
+
+    limpa = {
+        "co_jogo": "pontinhos",
+        "co_variante": "pequeno",
+        "co_formato_posicao": "sequencia_lances",
+        "js_posicao_inicial": posicao_limpa,
+    }
+    armada = {
+        "co_jogo": "pontinhos",
+        "co_variante": "pequeno",
+        "co_formato_posicao": "sequencia_lances",
+        "js_posicao_inicial": posicao_cadeia,
+    }
+
+    # ⚠️ As chegadas saem das MESMAS receitas que o job publica, e não de JSON
+    # escrito aqui: um vetor que julgasse por uma chegada própria provaria que o
+    # Dart e o Python concordam sobre algo que ninguém publica.
+    chegada_nao_entregar = RECEITAS["pontinhos_nao_entregar"].montar({"lances": 4})
+    chegada_paciencia = RECEITAS["pontinhos_paciencia"].montar({"lances": 3})
+    chegada_economia = RECEITAS["pontinhos_economia_de_lances"].montar(
+        {"caixas": 5, "lances": 8}
+    )
+    chegada_troca = RECEITAS["pontinhos_troca_favoravel"].montar(
+        {"ganhar": 4, "ceder": 2}
+    )
+
+    # ⚠️ **A fita de quem CUMPRE termina no lance em que o objetivo cai** — o
+    # juiz para ali, e os feitos que ele devolve são os daquele instante.
+    quatro_lances_meus = SEM_FECHAR_NADA[:7]   # meus=4, fechei=0, cedi=0
+    tres_lances_meus = SEM_FECHAR_NADA[:5]     # meus=3, fechei=0, cedi=0
+    cinco_capturas = CAPTURAR_A_CADEIA[:5]     # meus=5, fechei=5, cedi=0
+    quatro_capturas = CAPTURAR_A_CADEIA[:4]    # meus=4, fechei=4, cedi=0
+    tres_capturas = CAPTURAR_A_CADEIA[:3]      # meus=3, fechei=3, cedi=0
+    # ⛔ **Eu recuso a cadeia e ele a leva**: meus=1, fechei=0, cedi=3.
+    #
+    # ⚠️ **A tentativa ÓBVIA de escrever este caso não funciona, e o motivo vale
+    # mais que o vetor:** a primeira versão fechava quatro caixas e SÓ DEPOIS
+    # cedia três. O juiz disse *"cumpriu"*, e com razão — no quarto lance já
+    # valiam `4 >= 4` e `0 <= 2`, e ele para no primeiro instante em que a
+    # conjunção vale. ✅ **Ceder depois não desfaz o que já foi cumprido**, e essa
+    # é a semântica certa deste tipo.
+    recusou_a_cadeia = [QUEBRA_A_CORRIDA] + CAPTURAR_A_CADEIA[:3]
+
+    return [
+        # ── tipo 2 · pontinhos_nao_entregar ─────────────────────────────────
+        {
+            "id": "P2-quatro-lances-sem-ceder-cumpre",
+            **limpa,
+            "nu_tipo_desafio": 2,
+            "co_tipo_desafio": "pontinhos_nao_entregar",
+            "de_vetor": "Quatro lances meus, e o adversário não fechou caixa "
+            "nenhuma. ⚠️ Cumpre NO QUARTO, e não antes: `caixas_do_adversario "
+            "<= 0` já valia no primeiro, e é a cláusula de `lances_do_jogador` "
+            "que segura o julgamento até aqui.",
+            "lances": _fita_pela_vez(vazio, quatro_lances_meus),
+            "js_chegada": chegada_nao_entregar,
+            "esperado": {
+                "veredito": "cumpriu",
+                "feitos": _feitos_alternando(vazio, quatro_lances_meus),
+            },
+        },
+        {
+            "id": "P2-tres-lances-nao-cumpre-por-pouco",
+            **limpa,
+            "nu_tipo_desafio": 2,
+            "co_tipo_desafio": "pontinhos_nao_entregar",
+            "de_vetor": "A MESMA partida, um lance mais curta: três lances meus, "
+            "nada cedido, e `3 >= 4` é falso. ⛔ É o caso que uma implementação "
+            "sem a cláusula de lances declararia CUMPRIDO — e por isso ele é o "
+            "vetor mais importante dos nove.",
+            "lances": _fita_pela_vez(vazio, tres_lances_meus),
+            "js_chegada": chegada_nao_entregar,
+            "esperado": {
+                "veredito": "nao_cumpriu",
+                "feitos": _feitos_alternando(vazio, tres_lances_meus),
+            },
+        },
+        # ── tipo 15 · pontinhos_paciencia ───────────────────────────────────
+        {
+            "id": "P15-tres-lances-sem-mexer-no-placar-cumpre",
+            **limpa,
+            "nu_tipo_desafio": 15,
+            "co_tipo_desafio": "pontinhos_paciencia",
+            "de_vetor": "Três lances meus sem fechar nada e sem ceder nada. As "
+            "três cláusulas valem no terceiro, e é ali que o juiz para.",
+            "lances": _fita_pela_vez(vazio, tres_lances_meus),
+            "js_chegada": chegada_paciencia,
+            "esperado": {
+                "veredito": "cumpriu",
+                "feitos": _feitos_alternando(vazio, tres_lances_meus),
+            },
+        },
+        {
+            "id": "P15-fechou-uma-caixa-nao-cumpre",
+            **armada,
+            "nu_tipo_desafio": 15,
+            "co_tipo_desafio": "pontinhos_paciencia",
+            "de_vetor": "Três lances meus, nada cedido — e TRÊS caixas fechadas. "
+            "⚠️ É o caso que separa a paciência do `nao_entregar`: para aquele "
+            "isto cumpriria; aqui `caixas_fechadas == 0` é falso.",
+            "lances": _fita_pela_vez(cadeia, CAPTURAR_A_CADEIA[:3]),
+            "js_chegada": chegada_paciencia,
+            "esperado": {
+                "veredito": "nao_cumpriu",
+                "feitos": _feitos_alternando(cadeia, CAPTURAR_A_CADEIA[:3]),
+            },
+        },
+        # ── tipo 14 · pontinhos_economia_de_lances ──────────────────────────
+        {
+            "id": "P14-cinco-caixas-em-cinco-lances-cumpre",
+            **armada,
+            "nu_tipo_desafio": 14,
+            "co_tipo_desafio": "pontinhos_economia_de_lances",
+            "de_vetor": "Cinco caixas em cinco lances, e a janela permitia oito. "
+            "⚠️ Os cinco lances são todos MEUS porque quem fecha caixa joga de "
+            "novo — e é essa a diferença entre este tipo e o que conta turnos.",
+            "lances": _fita_pela_vez(cadeia, cinco_capturas),
+            "js_chegada": chegada_economia,
+            "esperado": {
+                "veredito": "cumpriu",
+                "feitos": _feitos_alternando(cadeia, cinco_capturas),
+            },
+        },
+        {
+            "id": "P14-quatro-caixas-nao-cumpre-por-pouco",
+            **armada,
+            "nu_tipo_desafio": 14,
+            "co_tipo_desafio": "pontinhos_economia_de_lances",
+            "de_vetor": "Uma caixa a menos: `4 >= 5` é falso. A fronteira de "
+            "baixo da cláusula de caixas.",
+            "lances": _fita_pela_vez(cadeia, quatro_capturas),
+            "js_chegada": chegada_economia,
+            "esperado": {
+                "veredito": "nao_cumpriu",
+                "feitos": _feitos_alternando(cadeia, quatro_capturas),
+            },
+        },
+        # ── tipo 12 · pontinhos_troca_favoravel ─────────────────────────────
+        {
+            "id": "P12-quatro-fechadas-nada-cedido-cumpre",
+            **armada,
+            "nu_tipo_desafio": 12,
+            "co_tipo_desafio": "pontinhos_troca_favoravel",
+            "de_vetor": "Quatro caixas fechadas sem ceder nenhuma: `4 >= 4` e "
+            "`0 <= 2`. As duas cláusulas valem no quarto lance.",
+            "lances": _fita_pela_vez(cadeia, quatro_capturas),
+            "js_chegada": chegada_troca,
+            "esperado": {
+                "veredito": "cumpriu",
+                "feitos": _feitos_alternando(cadeia, quatro_capturas),
+            },
+        },
+        {
+            "id": "P12-tres-fechadas-nao-cumpre-por-pouco",
+            **armada,
+            "nu_tipo_desafio": 12,
+            "co_tipo_desafio": "pontinhos_troca_favoravel",
+            "de_vetor": "Uma caixa a menos na PRIMEIRA cláusula: `3 >= 4` é "
+            "falso, e a segunda (`0 <= 2`) valia o tempo todo. É a fronteira de "
+            "quem julga a conjunção como se fosse só a metade fácil.",
+            "lances": _fita_pela_vez(cadeia, tres_capturas),
+            "js_chegada": chegada_troca,
+            "esperado": {
+                "veredito": "nao_cumpriu",
+                "feitos": _feitos_alternando(cadeia, tres_capturas),
+            },
+        },
+        {
+            "id": "P12-cedeu-a-cadeia-inteira-nao-cumpre",
+            **armada,
+            "nu_tipo_desafio": 12,
+            "co_tipo_desafio": "pontinhos_troca_favoravel",
+            "de_vetor": "O outro lado da conjunção: recuso a cadeia, o adversário "
+            "leva três, e `3 <= 2` é falso — com `0 >= 4` também falso. ⚠️ Os dois "
+            "vetores de falha deste tipo atacam cláusulas diferentes, e é por isso "
+            "que são dois.",
+            "lances": _fita_pela_vez(cadeia, recusou_a_cadeia),
+            "js_chegada": chegada_troca,
+            "esperado": {
+                "veredito": "nao_cumpriu",
+                "feitos": _feitos_alternando(cadeia, recusou_a_cadeia),
+            },
+        },
+        # ── um dado inválido POR TIPO ───────────────────────────────────────
+        #
+        # ⚠️ **Os três vereditos por tipo são regra do contrato** (regra 3), e não
+        # zelo: sem o caso inválido, uma implementação que tratasse lance
+        # impossível como *"não cumpriu"* passaria em tudo. ⛔ E a diferença é
+        # material: *"não cumpriu"* é um resultado da partida; *"dado inválido"*
+        # é um registro corrompido, que não sustenta resolução nem a favor nem
+        # contra.
+        #
+        # ⚠️ Os três repetem `V_3_0`, que a preparação da cadeia já marcou.
+        {
+            "id": "P15-traco-repetido-e-dado-invalido",
+            **armada,
+            "nu_tipo_desafio": 15,
+            "co_tipo_desafio": "pontinhos_paciencia",
+            "de_vetor": "O segundo lance marca `V_3_0`, que a posição inicial já "
+            "tinha. Dado inválido, nunca 'não cumpriu'.",
+            "lances": [
+                {"n": 1, "jogador": 1, "lance": QUEBRA_A_CORRIDA},
+                {"n": 2, "jogador": 1, "lance": "V_3_0"},
+            ],
+            "js_chegada": chegada_paciencia,
+            "esperado": {"veredito": "dado_invalido", "feitos": {}},
+        },
+        {
+            "id": "P14-traco-repetido-e-dado-invalido",
+            **armada,
+            "nu_tipo_desafio": 14,
+            "co_tipo_desafio": "pontinhos_economia_de_lances",
+            "de_vetor": "O segundo lance marca `V_3_0`, que a posição inicial já "
+            "tinha. Dado inválido, nunca 'não cumpriu'.",
+            "lances": [
+                {"n": 1, "jogador": 1, "lance": CAPTURAR_A_CADEIA[0]},
+                {"n": 2, "jogador": 1, "lance": "V_3_0"},
+            ],
+            "js_chegada": chegada_economia,
+            "esperado": {"veredito": "dado_invalido", "feitos": {}},
+        },
+        {
+            "id": "P12-traco-repetido-e-dado-invalido",
+            **armada,
+            "nu_tipo_desafio": 12,
+            "co_tipo_desafio": "pontinhos_troca_favoravel",
+            "de_vetor": "O segundo lance marca `V_3_0`, que a posição inicial já "
+            "tinha. Dado inválido, nunca 'não cumpriu'.",
+            "lances": [
+                {"n": 1, "jogador": 1, "lance": CAPTURAR_A_CADEIA[0]},
+                {"n": 2, "jogador": 1, "lance": "V_3_0"},
+            ],
+            "js_chegada": chegada_troca,
+            "esperado": {"veredito": "dado_invalido", "feitos": {}},
+        },
+        {
+            "id": "P2-traco-repetido-e-dado-invalido",
+            **limpa,
+            "nu_tipo_desafio": 2,
+            "co_tipo_desafio": "pontinhos_nao_entregar",
+            "de_vetor": "O terceiro lance repete `V_1_0`, que o primeiro já havia "
+            "marcado. Dado inválido, nunca 'não cumpriu' — a diferença importa "
+            "porque um registro corrompido não sustenta resolução nem a favor "
+            "nem contra.",
+            "lances": [
+                {"n": 1, "jogador": 1, "lance": "V_1_0"},
+                {"n": 2, "jogador": -1, "lance": "V_5_0"},
+                {"n": 3, "jogador": 1, "lance": "V_1_0"},
+            ],
+            "js_chegada": chegada_nao_entregar,
+            "esperado": {"veredito": "dado_invalido", "feitos": {}},
+        },
+    ]
+
+
 def montar() -> dict[str, Any]:
     """O documento inteiro, com os vetores em ordem estavel.
 
@@ -735,7 +1060,10 @@ def montar() -> dict[str, Any]:
     reordenacao inocente faria o cadeado acusar divergencia onde nao ha.
     """
     vetores = (
-        vetores_do_pontinhos() + vetores_da_cadeia_longa() + vetores_das_damas()
+        vetores_do_pontinhos()
+        + vetores_da_cadeia_longa()
+        + vetores_dos_tipos_de_14_09()
+        + vetores_das_damas()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

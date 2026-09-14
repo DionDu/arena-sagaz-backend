@@ -21,6 +21,101 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-14 (noite) — O catálogo dobrou: 9 tipos publicáveis, 21 variantes
+
+> **O dono:** *"implemente quaisquer desafios novos que ainda não estejam
+> implementados, consolide todos os tipos de desafios que planejamos,
+> disponibilize os mesmos no 'catálogo' de desafios que o JOB-DESAFIO possa
+> gerar, a gente limpa o banco DES dos desafios antigos e rodamos tudo
+> novamente."*
+
+### O que o catálogo era, e o que passou a ser
+
+| | antes | depois |
+|---|---|---|
+| tipos publicáveis | 5 | **9** |
+| variantes no editorial | 13 | **21** |
+| vetores de verificação | 16 | **29** |
+| tipos na `tb901` sem receita | 6 | **2** |
+
+### Decisão 1 — os quatro tipos que entraram, e por que só estes
+
+| tipo | nº | rótulo medido | solução |
+|---|---|---|---|
+| `pontinhos_nao_entregar` | 2 | ✅ FOLGA | 6,6 |
+| `pontinhos_economia_de_lances` | 14 | ✅ FOLGA nas 3 variantes | 10,1 |
+| `pontinhos_troca_favoravel` | 12 | ⚠️ APERTADO / ✅ FOLGA | 10,0 / 7,6 |
+| `pontinhos_paciencia` | 15 | ✅ FOLGA | 5,0 |
+
+⚠️ **O critério de corte não foi a qualidade da ideia: foi o custo de código.**
+Os quatro consultam só medidas que **os dois medidores já produzem**
+(`caixas_fechadas`, `caixas_do_adversario`, `lances_do_jogador`,
+`maior_cadeia_capturada`), então não exigiram uma linha de Dart. O que custaram
+foi migração, chave de i18n e vetor.
+
+⛔ **Os tipos de damas ficaram de fora, e por dois motivos diferentes:**
+
+- `damas_sacrificio` (5) e `damas_sobreviver` (9) precisam de **moldes próprios**
+  - posições de onde aquele objetivo é alcançável -, e moldes são pescaria:
+  trabalho de código sobre o acervo, não de relógio;
+- `damas_final_da_base` (7) e `damas_vencer` (10) consultam `vitoria`, que ⛔ **o
+  medidor Dart não produz** (`medidor_desafio_damas.dart` declara isso no
+  cabeçalho). Publicá-los hoje faria o app levantar `ChegadaInvalida` na cara de
+  quem jogasse.
+
+### Decisão 2 — `pontinhos_nao_entregar` não custou migração
+
+O tipo **2** já estava na `tb901` desde a `0018`, e passou quatro dias na
+dimensão **sem receita**. O que faltava não era linha de banco: era a receita.
+
+⚠️ **E ela subiu corrigida.** A proposta original (`pontinhos_nao_entregar_nada`)
+tinha o defeito da família *"impeça"/"aguente"*: a cláusula *"o adversário não
+fechou caixa"* já é verdade antes de ele jogar, e o juiz para no primeiro lance
+em que as cláusulas valem. Medido, antes: **1 meio-lance** com qualquer número no
+enunciado.
+
+### Decisão 3 — promover é MOVER, não copiar
+
+As quatro propostas saíram de `job/tipos_propostos.py` ao subir para `RECEITAS`.
+⛔ Uma receita escrita em dois lugares seria duas fontes da verdade para a mesma
+regra, e há três cadeados que falham se uma proposta aparecer também em
+`RECEITAS`.
+
+⚠️ **E isso quebrou um cadeado por SUCESSO**, o que mereceu conserto próprio:
+`test_ha_propostas_para_os_dois_jogos` exige ≥4 propostas de Pontinhos, e com as
+promoções sobrou **uma**. ⛔ Quanto mais propostas fossem aprovadas, mais perto
+do vermelho ele ficaria, e a leitura óbvia (*"faltam propostas de Pontinhos"*)
+seria o contrário da verdade. Agora há `PROMOVIDAS`, que soma as que subiram e
+confere que cada uma está mesmo em `RECEITAS`.
+
+### Decisão 4 — a direção do feito é GLOBAL, e dois tipos a invertem
+
+⛔ `lances_do_jogador` é `menor_melhor` no catálogo, porque em quase todo desafio
+economizar lance é mérito. ⚠️ **Em `nao_entregar` e `paciencia` isso se inverte**:
+quem resiste mais joga melhor. Pontuá-la ali pagaria mais a quem aguentou menos.
+
+**Decisão:** nos dois tipos ela entra com **peso zero** (`linha_so_medida`) - fica
+no extrato e no Raio-X, e o peso inteiro vai para `caixas_do_adversario`, a única
+cuja direção do catálogo coincide com a do desafio.
+
+⛔ **Alternativa descartada: mudar `co_direcao` no catálogo.** Ela quebraria os
+cinco tipos em que economizar lance é mérito de verdade. A direção é do **feito**,
+não do desafio.
+
+### O que os vetores novos guardam, e o erro que um deles pegou
+
+Treze vetores novos (29 no total), e dois deles travam a cláusula de
+`lances_do_jogador` que faz a família *"aguente"* funcionar.
+
+⚠️ **E o P12 pegou um erro meu antes de ser publicado.** A primeira versão do
+caso *"não cumpre"* fechava quatro caixas e **só depois** cedia três. O juiz disse
+*"cumpriu"*, e com razão: no quarto lance já valiam `4 >= 4` e `0 <= 2`. ✅ **Ceder
+depois não desfaz o que já foi cumprido**, e essa é a semântica certa - o vetor é
+que estava errado. Ele virou dois: um ataca a cláusula de fechar, o outro a de
+ceder.
+
+---
+
 ## 2026-09-14 — As medições chegaram: o TETO era o gargalo, e três tipos novos vivem
 
 O dono rodou as rodadas do `ROTEIRO-medicoes-13-e-14-09.md`. As duas primeiras

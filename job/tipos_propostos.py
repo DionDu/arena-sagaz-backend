@@ -16,7 +16,34 @@ que ela e valida e que ⛔ **nao exige vocabulario novo**. E essa a diferenca
 entre *"acho que da"* e *"esta pronto para o dono aprovar"*.
 
 ═══════════════════════════════════════════════════════════════════════════
-⛔ ELAS NAO ESTAO EM `RECEITAS`, E ISSO E DE PROPOSITO
+✅ QUATRO JA SAIRAM DAQUI — PROMOVIDAS EM 14/09/2026
+═══════════════════════════════════════════════════════════════════════════
+
+| proposta                       | virou                          | onde esta |
+|--------------------------------|--------------------------------|-----------|
+| `pontinhos_nao_entregar_nada`  | `pontinhos_nao_entregar` (2)   | `tipos_de_desafio.py` |
+| `pontinhos_troca_favoravel`    | o mesmo, numero 12             | idem |
+| `pontinhos_economia_de_lances` | o mesmo, numero 14             | idem |
+| `pontinhos_paciencia`          | o mesmo, numero 15             | idem |
+
+⛔ **Promover e MOVER, e nao copiar.** Uma receita escrita em dois lugares seria
+duas fontes da verdade para a mesma regra — o defeito que este projeto mais
+persegue —, e ha tres cadeados em `test_tipos_propostos.py` que falham se uma
+proposta aparecer tambem em `RECEITAS`. ⚠️ O codigo delas continua no Git: o que
+esta tabela registra e **para onde** foram, que e a informacao que se perde.
+
+⚠️ **As quatro foram MEDIDAS antes de subir** (3 dias x 20 tentativas): tres
+deram FOLGA e uma APERTADO, com solucoes de 5,0 a 10,1 meios-lances. E duas delas
+subiram **corrigidas**: a clausula de `lances_do_jogador` que a familia
+*"impeca"/"aguente"* precisa foi descoberta medindo, e sem ela as duas eram
+cumpridas no primeiro lance.
+
+⛔ **`pontinhos_nao_entregar_nada` mudou de NOME ao subir** (`_nada` saiu): o tipo
+2 ja existia na `tb901` desde a `0018` como `pontinhos_nao_entregar`, e era ele
+que esperava por uma receita. ⚠️ Ele nao custou migracao nenhuma.
+
+═══════════════════════════════════════════════════════════════════════════
+⛔ AS QUE FICARAM NAO ESTAO EM `RECEITAS`, E ISSO E DE PROPOSITO
 ═══════════════════════════════════════════════════════════════════════════
 
 Um tipo so vai ao ar quando tiver **as tres** coisas, e nenhuma delas e minha:
@@ -75,64 +102,6 @@ PRIMEIRO_NUMERO_LIVRE = 11
 
 PROPOSTAS_PONTINHOS: dict[str, Receita] = {
     # ─────────────────────────────────────────────────────────────────────────
-    "pontinhos_nao_entregar_nada": Receita(
-        nu_tipo_desafio=11,
-        co_tipo_desafio="pontinhos_nao_entregar_nada",
-        co_jogo="pontinhos",
-        co_chave_objetivo="desafioObjetivoNaoEntregarNada",
-        # ⚠️ **A ideia do tipo: o objetivo nao e o que voce faz, e o que voce
-        # IMPEDE.** Nenhum tipo no ar cobra isso.
-        #
-        # ⛔ **E ele estava escrito ERRADO ate 12/09/2026** — ver o bloco
-        # "A JANELA E UM TETO" no topo deste arquivo. A versao anterior era
-        # `janela: turnos_do_adversario` com a clausula sozinha, e ⚠️ **media
-        # solucao de UM meio-lance**: `caixas_do_adversario <= 0` ja e verdade
-        # antes de o adversario jogar, entao o juiz declarava cumprido no
-        # primeiro lance. Medido: `[1, 1, 1]` com turnos 2, 4, 6 e 8 — o numero
-        # do enunciado nao mudava nada.
-        #
-        # ✅ **A cura nao custa vocabulario novo:** `lances_do_jogador` e uma
-        # MEDIDA que os dois medidores ja produzem, e exigi-la em conjuncao faz o
-        # juiz so poder fechar a conta no n-esimo lance. Medido depois da
-        # correcao: solucao de **7** meios-lances com 4, e **11** com 6.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("lances_do_jogador", "maior_ou_igual", p["turnos"]),
-                _medida("caixas_do_adversario", "menor_ou_igual", 0),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "turnos": p["turnos"],
-            "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "pontinhos_troca_favoravel": Receita(
-        nu_tipo_desafio=12,
-        co_tipo_desafio="pontinhos_troca_favoravel",
-        co_jogo="pontinhos",
-        co_chave_objetivo="desafioObjetivoTrocaFavoravel",
-        # ⚠️ **DUAS clausulas**, e e a primeira proposta a usar isso. A conjuncao
-        # ja existe no formato desde T028 e nenhum tipo atual a exercita — e ela
-        # e o que transforma "feche caixas" em "feche caixas **sem** entregar",
-        # que e a decisao real do Pontinhos.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("caixas_fechadas", "maior_ou_igual", p["ganhar"]),
-                _medida("caixas_do_adversario", "menor_ou_igual", p["ceder"]),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "ganhar": p["ganhar"],
-            "ceder": p["ceder"],
-            "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
     "pontinhos_escada_em_um_turno": Receita(
         nu_tipo_desafio=13,
         co_tipo_desafio="pontinhos_escada_em_um_turno",
@@ -176,56 +145,6 @@ PROPOSTAS_PONTINHOS: dict[str, Receita] = {
         },
         valores_da_frase=lambda p, personagem: {
             "caixas": p["caixas"],
-            "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "pontinhos_economia_de_lances": Receita(
-        nu_tipo_desafio=14,
-        co_tipo_desafio="pontinhos_economia_de_lances",
-        co_jogo="pontinhos",
-        co_chave_objetivo="desafioObjetivoEconomiaDeLances",
-        # ⚠️ Janela de **lances**, e nao de turnos: aqui o aperto e justamente
-        # nao poder gastar lance nenhum a toa. O contraste com o tipo 13 e o que
-        # ensina a diferenca entre lance e turno a quem joga.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "lances_do_jogador", "n": p["lances"]},
-            "clausulas": [
-                _medida("caixas_fechadas", "maior_ou_igual", p["caixas"])
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "caixas": p["caixas"],
-            "lances": p["lances"],
-            "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "pontinhos_paciencia": Receita(
-        nu_tipo_desafio=15,
-        co_tipo_desafio="pontinhos_paciencia",
-        co_jogo="pontinhos",
-        co_chave_objetivo="desafioObjetivoPaciencia",
-        # ⚠️ **O objetivo e nao fazer nada** — nem fechar, nem entregar. E o tipo
-        # mais contraintuitivo do catalogo, e ensina a regra central do Pontinhos:
-        # quem e forcado a abrir uma cadeia perde. ⛔ Ele **precisa** das duas
-        # clausulas: so "nao entregue" seria cumprido por quem fechasse tudo.
-        # ⛔ **Mesma correcao de 12/09/2026 do tipo 11**: as DUAS clausulas eram
-        # verdadeiras antes do primeiro lance (ninguem fechou nada ainda), entao
-        # o juiz cumpria o desafio imediatamente. O que faltava era dizer
-        # **quando** medir, e `lances_do_jogador` diz.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("lances_do_jogador", "maior_ou_igual", p["turnos"]),
-                _medida("caixas_do_adversario", "menor_ou_igual", 0),
-                _medida("caixas_fechadas", "igual", 0),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "turnos": p["turnos"],
             "personagem": personagem,
         },
     ),
@@ -397,6 +316,19 @@ PROPOSTAS_DAMAS: dict[str, Receita] = {
 
 
 #: Todas as propostas, num lugar so.
+#: As propostas que ja SUBIRAM para `RECEITAS`, e o nome com que subiram.
+#:
+#: ⚠️ **Elas saem de `PROPOSTAS` ao subir** (promover e mover, nao copiar), e
+#: e por isso que esta lista existe: sem ela, o cadeado do RF-DES-128 — *"ha
+#: propostas para os DOIS jogos"* — contaria menos propostas a cada promocao e
+#: acabaria falhando **por sucesso**, que e o pior jeito de um teste falhar.
+PROMOVIDAS: dict[str, str] = {
+    "pontinhos_nao_entregar_nada": "pontinhos_nao_entregar",
+    "pontinhos_troca_favoravel": "pontinhos_troca_favoravel",
+    "pontinhos_economia_de_lances": "pontinhos_economia_de_lances",
+    "pontinhos_paciencia": "pontinhos_paciencia",
+}
+
 PROPOSTAS: dict[str, Receita] = {**PROPOSTAS_PONTINHOS, **PROPOSTAS_DAMAS}
 
 
@@ -406,11 +338,7 @@ PROPOSTAS: dict[str, Receita] = {**PROPOSTAS_PONTINHOS, **PROPOSTAS_DAMAS}
 #: documento mostrar a linha como ela ficaria gravada. ⛔ Nao sao a calibracao:
 #: quem escolhe os numeros do dia e o gerador, contra a regua dos mascotes.
 PARAMETROS_DE_EXEMPLO: Mapping[str, dict[str, Any]] = {
-    "pontinhos_nao_entregar_nada": {"turnos": 3},
-    "pontinhos_troca_favoravel": {"ganhar": 4, "ceder": 1},
     "pontinhos_escada_em_um_turno": {"caixas": 4},
-    "pontinhos_economia_de_lances": {"caixas": 3, "lances": 5},
-    "pontinhos_paciencia": {"turnos": 2},
     "damas_armadilha": {"turnos": 2, "pecas": 3},
     "damas_dupla_coroacao": {"lances": 8},
     "damas_limpeza": {"lances": 5, "restam": 1},

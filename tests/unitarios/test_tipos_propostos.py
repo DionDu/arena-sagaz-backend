@@ -22,6 +22,7 @@ import pytest
 from job.tipos_de_desafio import RECEITAS
 from job.tipos_propostos import (
     PARAMETROS_DE_EXEMPLO,
+    PROMOVIDAS,
     PROPOSTAS,
     PROPOSTAS_DAMAS,
     PROPOSTAS_PONTINHOS,
@@ -86,9 +87,28 @@ def test_ha_propostas_para_os_dois_jogos():
     O dono pediu *"diversos outros tipos criativos de desafios para os 2 jogos"* —
     propor so para as damas cumpriria metade e pareceria completo.
     """
-    assert len(PROPOSTAS_PONTINHOS) >= 4
+    # ⚠️ **As PROMOVIDAS contam**, e e a correcao de 14/09/2026: quatro propostas
+    # de Pontinhos viraram tipos publicados e sairam desta tabela. ⛔ Sem soma-las,
+    # este cadeado falharia **por sucesso** — quanto mais propostas fossem
+    # aprovadas, mais perto de vermelho ele ficaria, e a leitura obvia ("faltam
+    # propostas de Pontinhos") seria o contrario da verdade.
+    de_pontinhos = len(PROPOSTAS_PONTINHOS) + len(PROMOVIDAS)
+    assert de_pontinhos >= 4, (
+        f"so {de_pontinhos} tipos de Pontinhos propostos ou promovidos"
+    )
     assert len(PROPOSTAS_DAMAS) >= 5
     assert len(PROPOSTAS) == len(PROPOSTAS_PONTINHOS) + len(PROPOSTAS_DAMAS)
+
+    # ⛔ E toda promovida tem de estar mesmo em `RECEITAS`: uma linha aqui que
+    # nao correspondesse a um tipo publicado inflaria a contagem com nada.
+    for proposta, publicada in PROMOVIDAS.items():
+        assert publicada in RECEITAS, (
+            f"{proposta} esta marcada como promovida, mas {publicada!r} nao esta "
+            "em RECEITAS"
+        )
+        assert proposta not in PROPOSTAS, (
+            f"{proposta} foi promovida e continua em PROPOSTAS - promover e MOVER"
+        )
 
 
 def test_toda_proposta_tem_parametros_de_exemplo():

@@ -1292,6 +1292,1690 @@
       }
     },
     {
+      "id": "P2-quatro-lances-sem-ceder-cumpre",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 2,
+      "co_tipo_desafio": "pontinhos_nao_entregar",
+      "de_vetor": "Quatro lances meus, e o adversário não fechou caixa nenhuma. ⚠️ Cumpre NO QUARTO, e não antes: `caixas_do_adversario <= 0` já valia no primeiro, e é a cláusula de `lances_do_jogador` que segura o julgamento até aqui.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "V_1_0"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "V_5_0"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "V_1_6"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "V_5_6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "V_3_0"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "V_7_6"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "H_0_1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "caixas_fechadas": 0,
+          "caixas_do_adversario": 0,
+          "lances_do_jogador": 4,
+          "maior_cadeia_capturada": 0
+        }
+      }
+    },
+    {
+      "id": "P2-tres-lances-nao-cumpre-por-pouco",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 2,
+      "co_tipo_desafio": "pontinhos_nao_entregar",
+      "de_vetor": "A MESMA partida, um lance mais curta: três lances meus, nada cedido, e `3 >= 4` é falso. ⛔ É o caso que uma implementação sem a cláusula de lances declararia CUMPRIDO — e por isso ele é o vetor mais importante dos nove.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "V_1_0"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "V_5_0"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "V_1_6"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "V_5_6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "V_3_0"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "caixas_fechadas": 0,
+          "caixas_do_adversario": 0,
+          "lances_do_jogador": 3,
+          "maior_cadeia_capturada": 0
+        }
+      }
+    },
+    {
+      "id": "P15-tres-lances-sem-mexer-no-placar-cumpre",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 15,
+      "co_tipo_desafio": "pontinhos_paciencia",
+      "de_vetor": "Três lances meus sem fechar nada e sem ceder nada. As três cláusulas valem no terceiro, e é ali que o juiz para.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "V_1_0"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "V_5_0"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "V_1_6"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "V_5_6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "V_3_0"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "caixas_fechadas": 0,
+          "caixas_do_adversario": 0,
+          "lances_do_jogador": 3,
+          "maior_cadeia_capturada": 0
+        }
+      }
+    },
+    {
+      "id": "P15-fechou-uma-caixa-nao-cumpre",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 15,
+      "co_tipo_desafio": "pontinhos_paciencia",
+      "de_vetor": "Três lances meus, nada cedido — e TRÊS caixas fechadas. ⚠️ É o caso que separa a paciência do `nao_entregar`: para aquele isto cumpriria; aqui `caixas_fechadas == 0` é falso.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "H_2_1"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "V_3_2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "H_2_3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "caixas_fechadas": 3,
+          "caixas_do_adversario": 0,
+          "lances_do_jogador": 3,
+          "maior_cadeia_capturada": 3
+        }
+      }
+    },
+    {
+      "id": "P14-cinco-caixas-em-cinco-lances-cumpre",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 14,
+      "co_tipo_desafio": "pontinhos_economia_de_lances",
+      "de_vetor": "Cinco caixas em cinco lances, e a janela permitia oito. ⚠️ Os cinco lances são todos MEUS porque quem fecha caixa joga de novo — e é essa a diferença entre este tipo e o que conta turnos.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "H_2_1"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "V_3_2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "H_2_3"
+        },
+        {
+          "n": 4,
+          "jogador": 1,
+          "lance": "V_1_4"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "H_2_5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 8
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "caixas_fechadas": 5,
+          "caixas_do_adversario": 0,
+          "lances_do_jogador": 5,
+          "maior_cadeia_capturada": 5
+        }
+      }
+    },
+    {
+      "id": "P14-quatro-caixas-nao-cumpre-por-pouco",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 14,
+      "co_tipo_desafio": "pontinhos_economia_de_lances",
+      "de_vetor": "Uma caixa a menos: `4 >= 5` é falso. A fronteira de baixo da cláusula de caixas.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "H_2_1"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "V_3_2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "H_2_3"
+        },
+        {
+          "n": 4,
+          "jogador": 1,
+          "lance": "V_1_4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 8
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "caixas_fechadas": 4,
+          "caixas_do_adversario": 0,
+          "lances_do_jogador": 4,
+          "maior_cadeia_capturada": 4
+        }
+      }
+    },
+    {
+      "id": "P12-quatro-fechadas-nada-cedido-cumpre",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 12,
+      "co_tipo_desafio": "pontinhos_troca_favoravel",
+      "de_vetor": "Quatro caixas fechadas sem ceder nenhuma: `4 >= 4` e `0 <= 2`. As duas cláusulas valem no quarto lance.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "H_2_1"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "V_3_2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "H_2_3"
+        },
+        {
+          "n": 4,
+          "jogador": 1,
+          "lance": "V_1_4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "caixas_fechadas": 4,
+          "caixas_do_adversario": 0,
+          "lances_do_jogador": 4,
+          "maior_cadeia_capturada": 4
+        }
+      }
+    },
+    {
+      "id": "P12-tres-fechadas-nao-cumpre-por-pouco",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 12,
+      "co_tipo_desafio": "pontinhos_troca_favoravel",
+      "de_vetor": "Uma caixa a menos na PRIMEIRA cláusula: `3 >= 4` é falso, e a segunda (`0 <= 2`) valia o tempo todo. É a fronteira de quem julga a conjunção como se fosse só a metade fácil.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "H_2_1"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "V_3_2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "H_2_3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "caixas_fechadas": 3,
+          "caixas_do_adversario": 0,
+          "lances_do_jogador": 3,
+          "maior_cadeia_capturada": 3
+        }
+      }
+    },
+    {
+      "id": "P12-cedeu-a-cadeia-inteira-nao-cumpre",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 12,
+      "co_tipo_desafio": "pontinhos_troca_favoravel",
+      "de_vetor": "O outro lado da conjunção: recuso a cadeia, o adversário leva três, e `3 <= 2` é falso — com `0 >= 4` também falso. ⚠️ Os dois vetores de falha deste tipo atacam cláusulas diferentes, e é por isso que são dois.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "V_5_0"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "H_2_1"
+        },
+        {
+          "n": 3,
+          "jogador": -1,
+          "lance": "V_3_2"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "H_2_3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "caixas_fechadas": 0,
+          "caixas_do_adversario": 3,
+          "lances_do_jogador": 1,
+          "maior_cadeia_capturada": 0
+        }
+      }
+    },
+    {
+      "id": "P15-traco-repetido-e-dado-invalido",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 15,
+      "co_tipo_desafio": "pontinhos_paciencia",
+      "de_vetor": "O segundo lance marca `V_3_0`, que a posição inicial já tinha. Dado inválido, nunca 'não cumpriu'.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "V_5_0"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "V_3_0"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "P14-traco-repetido-e-dado-invalido",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 14,
+      "co_tipo_desafio": "pontinhos_economia_de_lances",
+      "de_vetor": "O segundo lance marca `V_3_0`, que a posição inicial já tinha. Dado inválido, nunca 'não cumpriu'.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "H_2_1"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "V_3_0"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 8
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "P12-traco-repetido-e-dado-invalido",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [
+          {
+            "n": 1,
+            "jogador": 1,
+            "lance": "V_3_0"
+          },
+          {
+            "n": 2,
+            "jogador": -1,
+            "lance": "V_1_2"
+          },
+          {
+            "n": 3,
+            "jogador": 1,
+            "lance": "H_4_1"
+          },
+          {
+            "n": 4,
+            "jogador": -1,
+            "lance": "V_7_2"
+          },
+          {
+            "n": 5,
+            "jogador": 1,
+            "lance": "H_0_3"
+          },
+          {
+            "n": 6,
+            "jogador": -1,
+            "lance": "V_1_0"
+          },
+          {
+            "n": 7,
+            "jogador": 1,
+            "lance": "H_8_1"
+          },
+          {
+            "n": 8,
+            "jogador": -1,
+            "lance": "V_3_4"
+          },
+          {
+            "n": 9,
+            "jogador": 1,
+            "lance": "H_6_5"
+          },
+          {
+            "n": 10,
+            "jogador": -1,
+            "lance": "V_5_6"
+          },
+          {
+            "n": 11,
+            "jogador": 1,
+            "lance": "H_0_5"
+          },
+          {
+            "n": 12,
+            "jogador": -1,
+            "lance": "V_7_6"
+          },
+          {
+            "n": 13,
+            "jogador": 1,
+            "lance": "H_4_3"
+          },
+          {
+            "n": 14,
+            "jogador": -1,
+            "lance": "V_1_6"
+          },
+          {
+            "n": 15,
+            "jogador": 1,
+            "lance": "V_3_6"
+          },
+          {
+            "n": 16,
+            "jogador": -1,
+            "lance": "H_8_3"
+          },
+          {
+            "n": 17,
+            "jogador": 1,
+            "lance": "V_5_2"
+          },
+          {
+            "n": 18,
+            "jogador": -1,
+            "lance": "H_0_1"
+          }
+        ],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 12,
+      "co_tipo_desafio": "pontinhos_troca_favoravel",
+      "de_vetor": "O segundo lance marca `V_3_0`, que a posição inicial já tinha. Dado inválido, nunca 'não cumpriu'.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "H_2_1"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "V_3_0"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "caixas_fechadas",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "P2-traco-repetido-e-dado-invalido",
+      "co_jogo": "pontinhos",
+      "co_variante": "pequeno",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "lances": [],
+        "vez_de": 1,
+        "placar": {
+          "j1": 0,
+          "j2": 0
+        }
+      },
+      "nu_tipo_desafio": 2,
+      "co_tipo_desafio": "pontinhos_nao_entregar",
+      "de_vetor": "O terceiro lance repete `V_1_0`, que o primeiro já havia marcado. Dado inválido, nunca 'não cumpriu' — a diferença importa porque um registro corrompido não sustenta resolução nem a favor nem contra.",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "V_1_0"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "V_5_0"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "V_1_0"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          },
+          {
+            "tipo": "medida",
+            "chave": "caixas_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
       "id": "D6-coroa-no-primeiro-lance-cumpre",
       "de_vetor": "A branca em 5 tem um passo ate a oitava fileira. `5-1` coroa.",
       "co_jogo": "damas",
