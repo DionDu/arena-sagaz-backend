@@ -688,6 +688,28 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # **candidato** (`G + 1`), nao os daqui — ver `job/__main__.py`.
             medidas=_medidas_do_pontinhos_placar,
         ),
+        Publicacao(
+            # ── ✅ MEDIDA COM AS 20 TENTATIVAS, EM 14/09/2026 ────────────────
+            #
+            #     {acima_do_guloso: 1}   FOLGA (3 de 3)   15,6 meios-lances   12s
+            #     {acima_do_guloso: 2}   FOLGA (3 de 3)   16,1 meios-lances   16s
+            #
+            # ⚠️ **As duas dao folga cheia, e a de 2 e mais longa.** Ela entra
+            # porque o tipo precisava de uma segunda variante de alvo variavel:
+            # as quatro de caixas fixas ficaram todas em **NO LIMITE** na mesma
+            # rodada (`[3,1,3]`), e um tipo cujo odometro so passa por variantes
+            # apertadas publica dia descoberto mais cedo ou mais tarde.
+            #
+            # ⛔ **E `acima_do_guloso: 3` NAO foi medida**, entao nao entra. O
+            # salto de 1 para 2 custou 0,5 meio-lance; supor que o de 2 para 3
+            # custe o mesmo e a extrapolacao que este editorial existe para
+            # impedir.
+            parametros={"acima_do_guloso": 2},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_pontinhos_placar,
+            nu_maximo_de_meios_lances=34,
+            nu_lances_de_preparo=14,
+        ),
     ),
     # ⚠️ **AS DAMAS AINDA TEM UMA VARIANTE SO, e isso e pendencia declarada.**
     # Uma geracao de damas custa ~26 s (medido em 11/09/2026), entao medir as

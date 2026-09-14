@@ -21,6 +21,55 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-14 (noite, 2) — A rodada do Pontinhos, e a variante que veio de graça
+
+O dono rodou a RODADA 3 (`pontinhos`, 725 s) e aplicou a migração `0024` no `des`
+(revisão `0023` → `0024_tres_tipos_de_pontinhos`, veredito `DES` conferido antes).
+
+### O que as 20 tentativas resolveram, e o que não resolveram
+
+| variante | antes (6 tentativas) | agora (20) |
+|---|---|---|
+| `fechar_caixas {3, t2}` | ⚠️ NO LIMITE | ✅ **FOLGA** |
+| `fechar_caixas {4, t3}` | ⚠️ NO LIMITE | ✅ **FOLGA** |
+| `fechar_caixas {5, t3}` | ⚠️ NO LIMITE | ✅ **FOLGA** |
+| `chegar_ao_placar {7}` | ⚠️ NO LIMITE | ⚠️ NO LIMITE `[3,1,3]` |
+| `chegar_ao_placar {6}` | ⚠️ NO LIMITE | ⚠️ NO LIMITE `[3,1,3]` |
+| `chegar_ao_placar {5}` | ⚠️ NO LIMITE | ⚠️ NO LIMITE `[3,1,3]` |
+
+✅ **As três variantes publicadas de `fechar_caixas` subiram para FOLGA** - o
+aumento de `TENTATIVAS_POR_JOGO` de 6 para 20 fez o que se esperava dele, e o dia
+descoberto de 2026-09-18 tinha mesmo causa de orçamento.
+
+⛔ **Mas as de `chegar_ao_placar` com caixas fixas NÃO subiram.** Todas em
+`[3, 1, 3]`: dois dias com folga cheia e um com um candidato só. ⚠️ **Mais
+tentativas não ajudam ali** - o dia do meio é duro por outro motivo, e a
+assinatura idêntica nas quatro variantes (`{5}`, `{6}`, `{7}`, `{8}`) diz que o
+que aperta é o **dia**, não o alvo.
+
+### Decisão — `acima_do_guloso: 2` entra, e é ganho puro
+
+    {acima_do_guloso: 1}   ✅ FOLGA (3 de 3)   15,6 meios-lances   12s   ← ja no ar
+    {acima_do_guloso: 2}   ✅ FOLGA (3 de 3)   16,1 meios-lances   16s   ← entra
+
+⚠️ **As duas dão folga cheia, e a de 2 é mais longa.** Ela entra porque o tipo
+precisava de uma **segunda** variante de alvo variável: as quatro de caixas fixas
+ficaram todas em NO LIMITE, e um tipo cujo odômetro só passa por variantes
+apertadas publica dia descoberto mais cedo ou mais tarde.
+
+⛔ **`acima_do_guloso: 3` não foi medida, e por isso não entra.** O salto de 1
+para 2 custou 0,5 meio-lance; supor que o de 2 para 3 custe o mesmo é a
+extrapolação que o editorial existe para impedir.
+
+### ⚠️ E as soluções mais longas do catálogo estão aqui
+
+`cadeia_longa` mede **20,6 a 21,4** meios-lances, e `chegar_ao_placar` com caixas
+fixas, **20,1 a 22,8** - contra os 5,0 a 11,3 de todo o resto. ⛔ Vale lembrar
+disso quando se discutir aposentar alguma delas: são as tarefas mais longas que o
+app tem.
+
+---
+
 ## 2026-09-14 (noite) — O catálogo dobrou: 9 tipos publicáveis, 21 variantes
 
 > **O dono:** *"implemente quaisquer desafios novos que ainda não estejam
