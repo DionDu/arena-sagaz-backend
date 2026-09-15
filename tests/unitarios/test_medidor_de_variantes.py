@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 from job import editorial as editorial_mod
-from job.tipos_de_desafio import receita_de
+from job.tipos_de_desafio import RECEITAS, receita_de
 
 
 def _carregar_o_script():
@@ -217,3 +217,62 @@ def test_a_bandeira_com_alvo_sem_botao_proprio_AVISA_em_vez_de_sair_calada():
     mexem em botao nenhum.
     """
     assert MEDIDOR.principal(["pontinhos_cadeia_longa", "--com-botao-proprio"]) == 2
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ PROMOVER E MOVER — as duas tabelas nao podem discordar
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_toda_variante_EM_AVALIACAO_tem_uma_proposta_de_verdade():
+    """⛔ **O defeito que este caso pega quebrava a rodada no meio.**
+
+    Em 14/09/2026 quatro propostas de Pontinhos subiram para `RECEITAS` e
+    **continuaram** em `EM_AVALIACAO`. Uma delas mudou de nome ao subir
+    (`pontinhos_nao_entregar_nada` virou `pontinhos_nao_entregar`, o tipo 2 que ja
+    existia na `0018`), e o nome velho deixou de existir nos dois lados.
+
+    ⚠️ **O sintoma so aparecia RODANDO**, e tarde: `medir_variantes_do_editorial.py
+    em-avaliacao` seguia ate aquele tipo e levantava `TipoSemReceita` — depois de
+    ja ter gasto minutos medindo os anteriores.
+    """
+    for co_tipo in MEDIDOR.EM_AVALIACAO:
+        assert MEDIDOR.receita_em_avaliacao_de(co_tipo) is not None, (
+            f"⛔ {co_tipo} esta em EM_AVALIACAO e nao tem proposta em "
+            "`job/tipos_propostos.py`. Se ele subiu, mova a entrada para A_MEDIR "
+            "com o nome e os parametros publicados - promover e MOVER."
+        )
+
+
+def test_nenhuma_variante_EM_AVALIACAO_ja_esta_NO_AR():
+    """⛔ O outro lado do mesmo defeito, e este mentia em vez de quebrar.
+
+    ⚠️ As outras tres promovidas continuavam medindo — **com o selo
+    `⚠️ EM AVALIACAO, NAO PUBLICAVEL` na tela**, que era falso: elas estavam no ar.
+    E pior, com a `Publicacao` vazia dos tipos em avaliacao, e nao com o **preparo
+    14** que tres delas exigem: a taxa impressa descreveria uma execucao que nao
+    existe, e um numero baixo pareceria defeito do tipo.
+    """
+    no_ar = set(RECEITAS) & set(MEDIDOR.EM_AVALIACAO)
+    assert not no_ar, (
+        f"⛔ {sorted(no_ar)} esta(o) em RECEITAS e ainda em EM_AVALIACAO. "
+        "Mova para A_MEDIR: um tipo publicado se mede como publicado."
+    )
+
+
+def test_todo_tipo_de_A_MEDIR_esta_MESMO_no_ar():
+    """⚠️ O caminho inverso: `A_MEDIR` mede o que esta publicado.
+
+    ⛔ Uma entrada aqui para um tipo que nao subiu buscaria `publicacao_de`, que
+    falha alto — mas so na hora de rodar, que e sempre o pior momento para
+    descobrir uma tabela desarrumada.
+    """
+    for co_tipo in MEDIDOR.A_MEDIR:
+        assert co_tipo in RECEITAS, (
+            f"⛔ {co_tipo} esta em A_MEDIR e nao esta em RECEITAS"
+        )
+
+
+def test_as_duas_tabelas_nao_se_cruzam():
+    """⛔ Um tipo nos dois lados seria medido duas vezes, com regras diferentes."""
+    assert not set(MEDIDOR.A_MEDIR) & set(MEDIDOR.EM_AVALIACAO)

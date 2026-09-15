@@ -177,6 +177,26 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         Candidata({"acima_do_guloso": 1}, nu_lances_de_preparo=14),
         Candidata({"acima_do_guloso": 2}, nu_lances_de_preparo=14),
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    # ⚠️ **AS TRES QUE SUBIRAM EM 14/09**, agora medidas como o que sao: tipos no
+    # ar. ⛔ **O preparo 14 nao e detalhe**: com 8 tracos o tabuleiro 4x3 esta
+    # quase vazio, e os mesmos parametros passam de 0 para 3 de 3. Ele sai do
+    # editorial, como manda a regra desta tabela.
+    #
+    # ⚠️ **`pontinhos_nao_entregar` fica de fora, e nao por esquecimento:** ele tem
+    # **uma** variante publicada (`lances: 4`), e as de 6 e 8 que a sonda tentou
+    # deram **SEM DESAFIO** — medi-las de novo gastaria maquina para reconfirmar
+    # um zero. `pontinhos_paciencia` esta no mesmo caso (`lances: 3` sozinha, com
+    # a de 4 em NO LIMITE e a de 6 em SEM DESAFIO).
+    "pontinhos_troca_favoravel": (
+        Candidata({"ganhar": 5, "ceder": 2}, nu_lances_de_preparo=14),
+        Candidata({"ganhar": 4, "ceder": 2}, nu_lances_de_preparo=14),
+    ),
+    "pontinhos_economia_de_lances": (
+        Candidata({"caixas": 5, "lances": 8}, nu_lances_de_preparo=14),
+        Candidata({"caixas": 5, "lances": 7}, nu_lances_de_preparo=14),
+        Candidata({"caixas": 4, "lances": 6}, nu_lances_de_preparo=14),
+    ),
     # ⚠️ **O QUE A RODADA DE 11/09/2026 ENSINOU, e vale para escrever candidata
     # nova:** `lances` e a janela em **lances do jogador**, e a solucao media que
     # este script imprime conta **meios-lances** (a fita do gabarito inclui o
@@ -331,92 +351,27 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
 # de FOLGA. Um tipo que der SEM DESAFIO nas tres esta morto ate alguem mudar a
 # geracao, e isso e resposta tao util quanto a outra.
 EM_AVALIACAO: dict[str, tuple[Candidata, ...]] = {
-    # ═══════════════════════════════════════════════════════════════════════
-    # ⚠️ OS PARAMETROS ABAIXO FORAM SONDADOS A MAO EM 12/09/2026
-    # ═══════════════════════════════════════════════════════════════════════
+    # ⛔ **AS QUATRO PROPOSTAS DE PONTINHOS SAIRAM DAQUI EM 15/09/2026**, e a
+    # razao e a mesma que rege `tipos_propostos.PROMOVIDAS`: **promover e MOVER**.
     #
-    # ⛔ **Sonda nao e medicao**: 1 dia e 8 tentativas, contra os 3 dias e 20
-    # tentativas da rodada de verdade. O que a sonda faz e impedir que horas de
-    # maquina sejam gastas na faixa errada - e nesta rodada ela ja economizou
-    # duas vezes, achando um defeito e uma duplicata.
+    # ⚠️ Elas subiram para `RECEITAS` em 14/09 e continuaram nesta tabela, e isso
+    # nao era so desarrumacao — era um defeito com tres sintomas:
     #
-    # ⚠️ **E ela mostrou que o botao certo costuma ser o PREPARO, e nao o numero
-    # do enunciado.** Com 8 tracos o tabuleiro 4x3 esta quase vazio, e nao ha o
-    # que fechar; com 14 os mesmos parametros passam de 0 para 3 de 3. E a mesma
-    # licao que o editorial ja tinha escrito para `pontinhos_fechar_caixas`.
+    #   1. `pontinhos_nao_entregar_nada` **mudou de nome ao subir** (virou
+    #      `pontinhos_nao_entregar`, o tipo 2 que ja existia na `0018`). O nome
+    #      velho nao esta em `PROPOSTAS` nem em `RECEITAS`, entao
+    #      `medir_variantes_do_editorial.py em-avaliacao` **quebrava** com
+    #      `TipoSemReceita` no meio da rodada;
+    #   2. as outras tres ainda seriam medidas — mas com o selo
+    #      *"⚠️ EM AVALIACAO, NAO PUBLICAVEL"* na tela, que ⛔ **e mentira**: elas
+    #      estao no ar desde 14/09;
+    #   3. e com a `Publicacao` vazia dos tipos em avaliacao, e nao com o preparo
+    #      **14** que tres delas exigem — devolvendo uma taxa que descreve uma
+    #      execucao que nao existe.
     #
-    # ─────────────────────────────────────────────────────────────────────────
-    # ⚠️ *"Impeca {personagem} de fechar qualquer caixa por {turnos} lances."*
-    #
-    # ⛔ **Este tipo estava QUEBRADO, e so a medicao mostrou.** Ele dava solucao
-    # de **1 meio-lance** com qualquer numero no enunciado, porque *"o adversario
-    # nao fechou caixa"* ja e verdade antes de ele jogar. A correcao esta em
-    # `job/tipos_propostos.py`, com cadeado em `test_tipos_propostos.py`.
-    #
-    # ✅ **Sondado depois da correcao:**
-    #
-    #     turnos 4  →  1 candidato,  solucao  7 meios-lances
-    #     turnos 6  →  1 candidato,  solucao 11 meios-lances
-    #     turnos 8  →  0 candidatos
-    #
-    # ⚠️ **Os 11 de `turnos: 6` seriam o segundo maior do catalogo**, atras so do
-    # `chegar_ao_placar` - o criterio 6 do dono em cheio.
-    "pontinhos_nao_entregar_nada": (
-        Candidata({"turnos": 4}),
-        Candidata({"turnos": 6}),
-        Candidata({"turnos": 8}),
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    # ⚠️ *"Feche {ganhar} caixas cedendo no maximo {ceder} a {personagem}."*
-    # ⛔ **A primeira com DUAS clausulas**, e e ela que transforma "feche caixas"
-    # na decisao real do Pontinhos: fechar sem entregar a cadeia seguinte.
-    #
-    # ✅ **Sondado, e o preparo decidiu:**
-    #
-    #     {ganhar:4, ceder:2}  preparo  8  →  0 candidatos (4 recusas por erro)
-    #     {ganhar:4, ceder:2}  preparo 14  →  3 de 3, solucoes  6, 10, 10
-    #     {ganhar:5, ceder:2}  preparo 14  →  3 de 3, solucoes 10, 11, 11
-    "pontinhos_troca_favoravel": (
-        Candidata({"ganhar": 4, "ceder": 2}, nu_lances_de_preparo=14),
-        Candidata({"ganhar": 5, "ceder": 2}, nu_lances_de_preparo=14),
-        Candidata({"ganhar": 5, "ceder": 1}, nu_lances_de_preparo=14),
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    # ⚠️ *"Feche {caixas} caixas em ate {lances} lances."* O contraste com o
-    # `fechar_caixas` (que conta TURNOS) e o que ensina a diferenca entre lance e
-    # turno a quem joga - e no Pontinhos ela e grande, porque quem fecha caixa
-    # joga de novo.
-    #
-    # ✅ **Sondado, e de novo o preparo:**
-    #
-    #     {caixas:3, lances:4}  preparo  8  →  0 candidatos
-    #     {caixas:4, lances:6}  preparo 14  →  3 de 3, solucoes 11, 10,  9
-    #     {caixas:5, lances:8}  preparo 14  →  3 de 3, solucoes 11, 10, 11
-    "pontinhos_economia_de_lances": (
-        Candidata({"caixas": 4, "lances": 6}, nu_lances_de_preparo=14),
-        Candidata({"caixas": 5, "lances": 8}, nu_lances_de_preparo=14),
-        Candidata({"caixas": 5, "lances": 7}, nu_lances_de_preparo=14),
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    # ⚠️ *"Passe {turnos} lances sem fechar nem ceder nenhuma caixa."*
-    # ⛔ **O objetivo e nao fazer nada**, e e o tipo mais contraintuitivo do
-    # catalogo: ensina a regra central do Pontinhos, que e que quem for forcado a
-    # abrir a cadeia perde. Tinha o **mesmo defeito** do tipo 11, e era mais
-    # visivel nele: as DUAS clausulas valiam antes do primeiro lance.
-    #
-    # ✅ **Sondado depois da correcao:**
-    #
-    #     turnos 3  →  3 de 3, solucoes 5, 5, 5
-    #     turnos 4  →  1 candidato, solucao 7
-    #
-    # ⚠️ **E o mais curto dos quatro** (5 meios-lances contra 10 e 11), o que ja
-    # o poe atras dos outros pelo criterio do dono. A candidata de 6 esta aqui
-    # para ver se ele estica sem morrer.
-    "pontinhos_paciencia": (
-        Candidata({"turnos": 3}),
-        Candidata({"turnos": 4}),
-        Candidata({"turnos": 6}),
-    ),
+    # ✅ As tres publicaveis foram para `A_MEDIR`, com os parametros do editorial;
+    # o historico das sondagens de 12/09 foi junto. Cadeado novo em
+    # `test_medidor_de_variantes.py`.
     # ⛔ **`pontinhos_escada_em_um_turno` NAO esta aqui, e nao e esquecimento:**
     # a sonda mostrou que ele e **duplicata do `pontinhos_cadeia_longa`**, que ja
     # esta no ar. Ver o aviso na receita dele, em `job/tipos_propostos.py`.
