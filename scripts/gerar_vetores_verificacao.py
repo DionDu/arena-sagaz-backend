@@ -66,6 +66,7 @@ sys.path.insert(0, str(RAIZ))
 # concordam sobre algo que ninguem publica.
 from job.tipos_de_desafio import RECEITAS  # noqa: E402
 from motores.damas.motor_damas import EstadoDamas, MotorDamas  # noqa: E402
+from motores.damas import feitos_damas  # noqa: E402
 from motores.pontinhos import feitos_pontinhos  # noqa: E402
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos  # noqa: E402
 
@@ -1053,6 +1054,347 @@ def vetores_dos_tipos_de_14_09() -> list[dict[str, Any]]:
     ]
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# OS DOIS TIPOS DE DAMAS DE 16/09/2026 — sacrificio e sobreviver
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+#: As medidas que o medidor Python das damas produz e o do aplicativo **nao**.
+#:
+#: ⚠️ Declarado no topo de `medidor_desafio_damas.dart`: elas exigem o veredito
+#: completo da partida — empate por repeticao, lances sem captura —, que no
+#: aplicativo vive fora do medidor.
+#:
+#: ⛔ **E e esta lacuna que bloqueia `damas_final_da_base` (7) e `damas_vencer`
+#: (10)**: os dois consultam `vitoria`, e publicá-los hoje faria o aplicativo
+#: levantar `ChegadaInvalida` na cara de quem jogasse.
+MEDIDAS_QUE_O_APLICATIVO_NAO_PRODUZ = ("vitoria", "empate")
+
+
+def _feitos_das_damas_alternando(fen: str, fita: list[str]) -> dict[str, float]:
+    """Os feitos das brancas numa fita em que **os dois lados jogam**.
+
+    ⛔ **`_feitos_das_damas` nao serve para estes dois tipos, e nao e defeito
+    dele.** Aquele helper trata a fita inteira como sendo do jogador, o que vale
+    para `damas_coroar` e `damas_capturar_multipla`: os vetores deles sao de **um
+    lance**, e `lances_do_jogador = len(fita)` esta certo ali.
+
+    ⚠️ **Aqui nao vale.** O sacrificio exige que o jogador **perca** uma peca, e
+    quem a captura e o adversario, no lance dele; o sobreviver conta lances do
+    jogador ao longo de uma resistencia. Nos dois a fita alterna, e `len(fita)`
+    contaria o dobro.
+
+    ✅ **Por isso este helper chama o MEDIDOR DE PRODUCAO** (`feitos_damas.medir`)
+    em vez de recontar. ⛔ Recontar seria a segunda fonte da verdade da regra que
+    o vetor existe para provar — o vetor passaria a comparar o Dart com uma
+    terceira implementacao, e nao com o Python que roda no job.
+
+    ⚠️ **E os vetores antigos continuam com o helper antigo, de proposito:** vetor
+    nunca e editado, e trocar o calculo deles mudaria numeros ja publicados.
+    """
+    medidas = feitos_damas.medir(
+        MOTOR_DAMAS,
+        _estado_damas(fen),
+        list(fita),
+        jogador=1,
+    )
+    # ⛔ **AS DUAS QUE O APLICATIVO NAO PRODUZ SAEM DAQUI — e isto foi ACHADO
+    # pelos proprios vetores** (16/09/2026): os seis novos reprovaram do lado
+    # Dart com `vitoria: esperado 0, medido null`.
+    #
+    # ⚠️ **Nao e defeito de nenhum dos dois lados**, e ja estava declarado:
+    # `lib/modulos/jogos/damas/logica/medidor_desafio_damas.dart` diz, no topo,
+    # que `vitoria` e `empate` **nao existem la** — elas exigem o veredito
+    # completo da partida (empate por repeticao, lances sem captura), que no
+    # aplicativo mora em outro lugar. ⛔ E e exatamente essa lacuna que bloqueia
+    # `damas_final_da_base` (7) e `damas_vencer` (10).
+    #
+    # ⛔ **Filtrar aqui NAO esconde a divergencia:** o vetor e um contrato entre
+    # as duas implementacoes, e um contrato so pode exigir o que as duas cumprem.
+    # Quem guarda a lacuna e `test_vetores_nao_exigem_o_que_o_dart_nao_produz`,
+    # que LE o arquivo Dart — no dia em que ele passar a produzir `vitoria`, o
+    # cadeado falha e manda revisar estes vetores.
+    return {
+        chave: valor
+        for chave, valor in medidas.items()
+        if chave not in MEDIDAS_QUE_O_APLICATIVO_NAO_PRODUZ
+    }
+
+
+#: A posicao dos vetores do sacrificio: **6 pecas de cada lado**, de onde uma
+#: partida real do Sagaz (semente 777) produziu a troca que o tipo pede.
+#:
+#: ⚠️ Ela sai do acervo pescado em partidas reais do `des`, e nao foi desenhada
+#: para o teste — por isso os numeros abaixo sao os de uma partida que aconteceu.
+FEN_DO_SACRIFICIO = "W:W21,22,24,25,27,29:B5,9,11,13,14,20"
+
+#: A fita dessa partida, meio-lance a meio-lance:
+#:
+#:     1. 27-23      brancas avancam
+#:     2. 20x27x18   ⚠️ **as pretas capturam DUAS** — e a entrega
+#:     3. 22x15x8    as brancas retomam duas
+#:     4. 14-18
+#:     5. 25-22
+#:     6. 18x25      as pretas capturam mais uma
+#:     7. 29x22      ✅ as brancas retomam: 3 pretas a menos, 3 brancas a menos
+FITA_DO_SACRIFICIO = [
+    "27-23",
+    "20x27x18",
+    "22x15x8",
+    "14-18",
+    "25-22",
+    "18x25",
+    "29x22",
+]
+
+#: A posicao que **captura tres SEM entregar nada** — a que separa o sacrificio do
+#: `damas_capturar_multipla`, no ar desde 12/09/2026.
+#:
+#: ⛔ Sem este vetor, uma implementacao que esquecesse a clausula de material
+#: proprio passaria em todos os outros casos: ela julga igual em tudo **menos**
+#: aqui.
+FEN_DA_CADEIA_TRIPLA = "W:W25,31,32:B18,19,23,26"
+LANCE_DA_CADEIA_TRIPLA = "31x22x15x24"
+
+#: A posicao dos vetores do sobreviver: quem joga esta **duas pecas atras**.
+FEN_DO_SOBREVIVER = "W:W24,26,29,32:B5,9,10,11,14,17"
+
+#: A fita dos tres vetores do sobreviver, com os numeros que cada corte produz:
+#:
+#:     4 meios-lances  →  lances_do_jogador 2, material proprio 3
+#:     5 meios-lances  →  lances_do_jogador 3, material proprio 3   ✅ cumpre
+#:     9 meios-lances  →  lances_do_jogador 5, material proprio 2
+#:
+#: ⛔ **Os tres saem da MESMA fita, de proposito.** E o unico jeito de provar que
+#: o que separa "cumpriu" de "nao cumpriu" e a **clausula**, e nao a posicao:
+#: fitas diferentes deixariam a duvida de a divergencia vir de outro lugar.
+#:
+#: ⚠️ **Sao lances LEGAIS quaisquer** — o primeiro que o motor oferece a cada
+#: passo —, e nao a escolha do Sagaz. O que o vetor prova e a CONTA dos feitos,
+#: e nao a qualidade do jogo; gastar busca aqui nao tornaria a prova mais forte.
+#: ⛔ E eles vem do motor: a primeira versao desta fita foi escrita a mao e era
+#: ilegal (`29x22` numa posicao em que aquele lance nao existe).
+FITA_DO_SOBREVIVER = [
+    "24-19",
+    "9-13",
+    "19-15",
+    "10x19",
+    "26-22",
+    "17x26",
+    "29-25",
+    "5-9",
+    "25-21",
+]
+
+#: ⛔ **UM LANCE ILEGAL, E O MESMO PARA OS DOIS TIPOS.** O terceiro caso de todo
+#: vetor e `dado_invalido`, e ele nao e burocracia: ⚠️ **um julgador que
+#: engolisse lance ilegal aceitaria uma fita forjada** — e o desafio e resolvido
+#: no aparelho da pessoa, que e o lugar de onde a fita vem.
+#:
+#: `9-13` e um lance das PRETAS, e na posicao inicial quem joga e o branco.
+LANCE_ILEGAL = "9-13"
+
+
+def vetores_das_damas_de_16_09() -> list[dict[str, Any]]:
+    """Os seis vetores de `damas_sacrificio` e `damas_sobreviver`.
+
+    ⚠️ **Os dois tipos usam numeros RELATIVOS a posicao** (`capturar`/`entregar`),
+    e o que vai no vetor e sempre o **absoluto ja resolvido** — porque e ele que o
+    aplicativo recebe. ⛔ Publicar o relativo obrigaria o Dart a refazer a conta do
+    gerador, que e exatamente a fronteira que RF-DES-192 protege.
+    """
+
+    def chegada(clausulas: list[tuple[str, str, int]]) -> dict[str, Any]:
+        return {
+            "versao": 1,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                {"tipo": "medida", "chave": chave, "comparador": comparador, "valor": valor}
+                for chave, comparador, valor in clausulas
+            ],
+        }
+
+    def vetor(
+        identificador: str,
+        descricao: str,
+        nu_tipo: int,
+        co_tipo: str,
+        fen: str,
+        fita: list[str],
+        js_chegada: dict[str, Any],
+        veredito: str,
+    ) -> dict[str, Any]:
+        esperado: dict[str, Any] = {"veredito": veredito}
+        esperado["feitos"] = (
+            {}
+            if veredito == "dado_invalido"
+            else _feitos_das_damas_alternando(fen, fita)
+        )
+        return {
+            "id": identificador,
+            "de_vetor": descricao,
+            "co_jogo": "damas",
+            "co_variante": "brasileiras",
+            "co_modalidade": "brasileira",
+            "co_formato_posicao": "fen",
+            "js_posicao_inicial": {"versao": 1, "fen": fen, "vez_de": 1},
+            "nu_tipo_desafio": nu_tipo,
+            "co_tipo_desafio": co_tipo,
+            # ⚠️ **O dono de cada lance ALTERNA**, e e isso que distingue estes
+            # vetores dos de damas anteriores: la a fita era de um lance so.
+            "lances": [
+                {"n": n, "jogador": 1 if n % 2 else -1, "lance": lance}
+                for n, lance in enumerate(fita, start=1)
+            ],
+            "js_chegada": js_chegada,
+            "esperado": esperado,
+        }
+
+    # ⚠️ Na posicao do sacrificio ha 6 de cada lado, entao `{capturar: 3,
+    # entregar: 1}` vira `material_do_adversario <= 3` e `material_restante <= 5`.
+    chegada_sacrificio = chegada(
+        [
+            ("material_do_adversario", "menor_ou_igual", 3),
+            ("material_restante", "menor_ou_igual", 5),
+        ]
+    )
+    # ⚠️ E na da cadeia tripla ha 3 brancas contra 4 pretas: capturar 3 leva o
+    # adversario a 1, e o jogador continua com as 3 dele (o teto de 2 nao cai).
+    chegada_na_cadeia = chegada(
+        [
+            ("material_do_adversario", "menor_ou_igual", 1),
+            ("material_restante", "menor_ou_igual", 2),
+        ]
+    )
+    # ⚠️ No sobreviver, 4 brancas contra 6 pretas. ⛔ Os numeros do VETOR sao
+    # menores que os da publicacao (3 lances, piso 3) de proposito: um vetor de 8
+    # lances precisaria de uma fita de 16 meios-lances escrita a mao, e o que ele
+    # prova — a conjuncao de tempo e material — cabe em tres.
+    chegada_sobreviver = chegada(
+        [
+            ("lances_do_jogador", "maior_ou_igual", 3),
+            ("material_restante", "maior_ou_igual", 3),
+        ]
+    )
+    # ⛔ **A chegada do terceiro caso pede MAIS TEMPO, e isso nao e capricho.**
+    #
+    # ⚠️ Com `lances >= 3` a conjuncao fecha no 5o meio-lance — e o material so
+    # cai no 6o. O juiz dizia **cumpriu**, e estava certo: ele para no primeiro
+    # instante em que as clausulas valem, e **perder depois nao desfaz**. E a
+    # mesma licao do vetor P12 do Pontinhos, agora nas damas.
+    #
+    # ✅ Pedindo 5 lances do jogador, os dois nunca valem juntos nesta fita: o
+    # material ja caiu para 2 quando o 5o lance chega. ⛔ Ai o que reprova e o
+    # material, que e o que este vetor existe para provar.
+    chegada_sobreviver_longa = chegada(
+        [
+            ("lances_do_jogador", "maior_ou_igual", 5),
+            ("material_restante", "maior_ou_igual", 3),
+        ]
+    )
+
+    return [
+        vetor(
+            "damas-sacrificio-cumpriu",
+            "A troca completa: as pretas comem 3 ao longo da partida e as brancas "
+            "retomam 3. No 7o meio-lance as duas clausulas valem ao mesmo tempo.",
+            5,
+            "damas_sacrificio",
+            FEN_DO_SACRIFICIO,
+            FITA_DO_SACRIFICIO,
+            chegada_sacrificio,
+            "cumpriu",
+        ),
+        vetor(
+            "damas-sacrificio-faltou-capturar",
+            "A MESMA partida, parada no 3o meio-lance: as brancas ja entregaram "
+            "duas pecas (dentro do teto de material proprio), mas o adversario "
+            "ainda tem 4 - falta comer uma. Ataca a clausula de captura.",
+            5,
+            "damas_sacrificio",
+            FEN_DO_SACRIFICIO,
+            FITA_DO_SACRIFICIO[:3],
+            chegada_sacrificio,
+            "nao_cumpriu",
+        ),
+        vetor(
+            "damas-sacrificio-capturou-sem-entregar",
+            "O VETOR QUE SEPARA ESTE TIPO DO `damas_capturar_multipla`: um unico "
+            "lance come TRES pecas e o jogador nao perde nenhuma. A clausula de "
+            "captura vale; a de material proprio, nao. Uma implementacao que "
+            "esquecesse a segunda passaria em todos os outros casos e falharia so "
+            "aqui.",
+            5,
+            "damas_sacrificio",
+            FEN_DA_CADEIA_TRIPLA,
+            [LANCE_DA_CADEIA_TRIPLA],
+            chegada_na_cadeia,
+            "nao_cumpriu",
+        ),
+        vetor(
+            "damas-sobreviver-cumpriu",
+            "Tres lances do jogador a partir de uma posicao em desvantagem, "
+            "perdendo so uma peca. A janela e `partida`, e quem faz o piso de "
+            "tempo e a clausula de `lances_do_jogador`.",
+            9,
+            "damas_sobreviver",
+            FEN_DO_SOBREVIVER,
+            FITA_DO_SOBREVIVER[:5],
+            chegada_sobreviver,
+            "cumpriu",
+        ),
+        vetor(
+            "damas-sobreviver-faltou-um-lance",
+            "A MESMA fita com meios-lances a menos: o material esta de pe e faltam "
+            "lances do jogador. E o cadeado da familia 'aguente' - sem a clausula "
+            "de `lances_do_jogador` este caso sairia CUMPRIDO.",
+            9,
+            "damas_sobreviver",
+            FEN_DO_SOBREVIVER,
+            FITA_DO_SOBREVIVER[:4],
+            chegada_sobreviver,
+            "nao_cumpriu",
+        ),
+        vetor(
+            "damas-sobreviver-perdeu-material-demais",
+            "O outro lado: lances do jogador suficientes, material abaixo do piso. "
+            "A pessoa resistiu o tempo pedido e chegou la com pecas de menos - e o "
+            "teto de perdas e o que diz que isso nao conta.",
+            9,
+            "damas_sobreviver",
+            FEN_DO_SOBREVIVER,
+            FITA_DO_SOBREVIVER[:9],
+            chegada_sobreviver_longa,
+            "nao_cumpriu",
+        ),
+        vetor(
+            "damas-sacrificio-lance-ilegal-e-dado-invalido",
+            "Um lance das PRETAS na vez das brancas. O julgador tem de recusar a "
+            "fita inteira, e nao medir o que der: a fita chega do aparelho de "
+            "quem jogou, e um julgador que engolisse lance ilegal aceitaria uma "
+            "fita forjada.",
+            5,
+            "damas_sacrificio",
+            FEN_DO_SACRIFICIO,
+            [LANCE_ILEGAL],
+            chegada_sacrificio,
+            "dado_invalido",
+        ),
+        vetor(
+            "damas-sobreviver-lance-ilegal-e-dado-invalido",
+            "O mesmo no outro tipo. Repetir o caso por tipo nao e redundancia: o "
+            "julgamento passa pela chegada de cada um, e um tipo pode recusar "
+            "onde o outro aceita.",
+            9,
+            "damas_sobreviver",
+            FEN_DO_SOBREVIVER,
+            [LANCE_ILEGAL],
+            chegada_sobreviver,
+            "dado_invalido",
+        ),
+    ]
+
+
 def montar() -> dict[str, Any]:
     """O documento inteiro, com os vetores em ordem estavel.
 
@@ -1064,6 +1406,7 @@ def montar() -> dict[str, Any]:
         + vetores_da_cadeia_longa()
         + vetores_dos_tipos_de_14_09()
         + vetores_das_damas()
+        + vetores_das_damas_de_16_09()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

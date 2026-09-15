@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -284,3 +285,82 @@ def test_o_arquivo_diz_que_e_gerado(documento: dict) -> None:
     """Um JSON sem procedencia vira "arquivo que alguem editou a mao um dia"."""
     assert "gerar_vetores_verificacao.py" in documento["de_documento"]
     assert "nao edite a mao" in documento["de_documento"]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ A LACUNA DO MEDIDOR DART — e o dia em que ela fechar
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+#: Onde mora o medidor de feitos das damas do aplicativo.
+#:
+#: ⚠️ `parents[3]` sobe de `tests/unitarios/` ate a pasta que guarda os TRES
+#: repositorios, e de la entra no do aplicativo.
+MEDIDOR_DART = (
+    RAIZ.parent
+    / "arena-sagaz-frontend"
+    / "lib"
+    / "modulos"
+    / "jogos"
+    / "damas"
+    / "logica"
+    / "medidor_desafio_damas.dart"
+)
+
+
+@pytest.mark.skipif(
+    not MEDIDOR_DART.exists(),
+    reason="o repositorio do aplicativo nao esta ao lado deste",
+)
+def test_os_vetores_nao_exigem_o_que_o_medidor_DART_nao_produz():
+    """⛔ **Um vetor so pode exigir o que as DUAS implementacoes cumprem.**
+
+    ⚠️ **Achado pelos proprios vetores, em 16/09/2026:** os seis de
+    `damas_sacrificio` e `damas_sobreviver` reprovaram do lado Dart com
+    `vitoria: esperado 0, medido null`. O medidor Python devolve `vitoria` e
+    `empate`; o do aplicativo **declara nao produzi-las** - elas exigem o
+    veredito completo da partida, que la vive fora do medidor.
+
+    ⛔ **Nao e defeito de nenhum dos dois lados, e e a MESMA lacuna que bloqueia
+    `damas_final_da_base` (7) e `damas_vencer` (10)**: os dois consultam
+    `vitoria`, e publica-los hoje faria o aplicativo levantar `ChegadaInvalida`
+    na cara de quem jogasse.
+
+    ⚠️ **Este caso le o ARQUIVO DART**, e nao uma lista escrita aqui. E o que faz
+    dele um cadeado com prazo: no dia em que o aplicativo passar a produzir
+    `vitoria`, ele **falha** - e a falha e a ordem de revisar estes vetores e de
+    reabrir os tipos 7 e 10.
+    """
+    fonte = MEDIDOR_DART.read_text(encoding="utf-8")
+
+    # O mapa de retorno do medidor: `'chave': valor,`.
+    produzidas = set(re.findall(r"'([a-z_]+)':", fonte))
+    assert "material_restante" in produzidas, (
+        "a leitura do medidor Dart nao achou nem as medidas conhecidas - o "
+        "formato do arquivo mudou, e este cadeado precisa ser reescrito"
+    )
+
+    documento = json.loads(COPIA_DAQUI.read_text(encoding="utf-8"))
+    das_damas = [v for v in documento["vetores"] if v["co_jogo"] == "damas"]
+    assert das_damas, "nenhum vetor de damas - a leitura esta errada"
+
+    exigidas: set[str] = set()
+    for vetor in das_damas:
+        exigidas.update(vetor["esperado"].get("feitos", {}))
+
+    faltando = exigidas - produzidas
+    assert not faltando, (
+        f"⛔ os vetores de damas exigem {sorted(faltando)}, que o medidor do "
+        "aplicativo nao produz. O vetor e um contrato entre as duas "
+        "implementacoes, e um contrato so pode exigir o que as duas cumprem."
+    )
+
+    # ⛔ **E a lacuna conhecida continua sendo uma lacuna.** Se ela fechar, este
+    # caso falha de proposito: os vetores das damas passam a poder exigir
+    # `vitoria`, e os tipos 7 e 10 deixam de estar bloqueados. ⚠️ Nada mais no
+    # projeto avisaria - a mudanca estaria num repositorio diferente.
+    assert "vitoria" not in produzidas, (
+        "✅ o medidor Dart passou a produzir `vitoria`. Isto NAO e um defeito: e "
+        "a hora de (1) revisar `MEDIDAS_QUE_O_APLICATIVO_NAO_PRODUZ` em "
+        "`scripts/gerar_vetores_verificacao.py`, (2) reabrir `damas_final_da_base` "
+        "e `damas_vencer`, e (3) apagar esta asserção."
+    )

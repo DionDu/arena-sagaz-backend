@@ -3248,6 +3248,531 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "damas-sacrificio-cumpriu",
+      "de_vetor": "A troca completa: as pretas comem 3 ao longo da partida e as brancas retomam 3. No 7o meio-lance as duas clausulas valem ao mesmo tempo.",
+      "co_jogo": "damas",
+      "co_variante": "brasileiras",
+      "co_modalidade": "brasileira",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W21,22,24,25,27,29:B5,9,11,13,14,20",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 5,
+      "co_tipo_desafio": "damas_sacrificio",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "27-23"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "20x27x18"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "22x15x8"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "14-18"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "25-22"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "18x25"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "29x22"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "material_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "material_restante",
+            "comparador": "menor_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "damas_coroadas": 0,
+          "capturas_extras": 1,
+          "maior_captura": 2,
+          "material_restante": 3,
+          "material_do_adversario": 3,
+          "lances_do_jogador": 4
+        }
+      }
+    },
+    {
+      "id": "damas-sacrificio-faltou-capturar",
+      "de_vetor": "A MESMA partida, parada no 3o meio-lance: as brancas ja entregaram duas pecas (dentro do teto de material proprio), mas o adversario ainda tem 4 - falta comer uma. Ataca a clausula de captura.",
+      "co_jogo": "damas",
+      "co_variante": "brasileiras",
+      "co_modalidade": "brasileira",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W21,22,24,25,27,29:B5,9,11,13,14,20",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 5,
+      "co_tipo_desafio": "damas_sacrificio",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "27-23"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "20x27x18"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "22x15x8"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "material_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "material_restante",
+            "comparador": "menor_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "damas_coroadas": 0,
+          "capturas_extras": 1,
+          "maior_captura": 2,
+          "material_restante": 4,
+          "material_do_adversario": 4,
+          "lances_do_jogador": 2
+        }
+      }
+    },
+    {
+      "id": "damas-sacrificio-capturou-sem-entregar",
+      "de_vetor": "O VETOR QUE SEPARA ESTE TIPO DO `damas_capturar_multipla`: um unico lance come TRES pecas e o jogador nao perde nenhuma. A clausula de captura vale; a de material proprio, nao. Uma implementacao que esquecesse a segunda passaria em todos os outros casos e falharia so aqui.",
+      "co_jogo": "damas",
+      "co_variante": "brasileiras",
+      "co_modalidade": "brasileira",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W25,31,32:B18,19,23,26",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 5,
+      "co_tipo_desafio": "damas_sacrificio",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "31x22x15x24"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "material_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "material_restante",
+            "comparador": "menor_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "damas_coroadas": 0,
+          "capturas_extras": 2,
+          "maior_captura": 3,
+          "material_restante": 3,
+          "material_do_adversario": 1,
+          "lances_do_jogador": 1
+        }
+      }
+    },
+    {
+      "id": "damas-sobreviver-cumpriu",
+      "de_vetor": "Tres lances do jogador a partir de uma posicao em desvantagem, perdendo so uma peca. A janela e `partida`, e quem faz o piso de tempo e a clausula de `lances_do_jogador`.",
+      "co_jogo": "damas",
+      "co_variante": "brasileiras",
+      "co_modalidade": "brasileira",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W24,26,29,32:B5,9,10,11,14,17",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 9,
+      "co_tipo_desafio": "damas_sobreviver",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "24-19"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "9-13"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "19-15"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "10x19"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "26-22"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "material_restante",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "damas_coroadas": 0,
+          "capturas_extras": 0,
+          "maior_captura": 0,
+          "material_restante": 3,
+          "material_do_adversario": 6,
+          "lances_do_jogador": 3
+        }
+      }
+    },
+    {
+      "id": "damas-sobreviver-faltou-um-lance",
+      "de_vetor": "A MESMA fita com meios-lances a menos: o material esta de pe e faltam lances do jogador. E o cadeado da familia 'aguente' - sem a clausula de `lances_do_jogador` este caso sairia CUMPRIDO.",
+      "co_jogo": "damas",
+      "co_variante": "brasileiras",
+      "co_modalidade": "brasileira",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W24,26,29,32:B5,9,10,11,14,17",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 9,
+      "co_tipo_desafio": "damas_sobreviver",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "24-19"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "9-13"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "19-15"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "10x19"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "material_restante",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "damas_coroadas": 0,
+          "capturas_extras": 0,
+          "maior_captura": 0,
+          "material_restante": 3,
+          "material_do_adversario": 6,
+          "lances_do_jogador": 2
+        }
+      }
+    },
+    {
+      "id": "damas-sobreviver-perdeu-material-demais",
+      "de_vetor": "O outro lado: lances do jogador suficientes, material abaixo do piso. A pessoa resistiu o tempo pedido e chegou la com pecas de menos - e o teto de perdas e o que diz que isso nao conta.",
+      "co_jogo": "damas",
+      "co_variante": "brasileiras",
+      "co_modalidade": "brasileira",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W24,26,29,32:B5,9,10,11,14,17",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 9,
+      "co_tipo_desafio": "damas_sobreviver",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "24-19"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "9-13"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "19-15"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "10x19"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "26-22"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "17x26"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "29-25"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "5-9"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "25-21"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          },
+          {
+            "tipo": "medida",
+            "chave": "material_restante",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "damas_coroadas": 0,
+          "capturas_extras": 0,
+          "maior_captura": 0,
+          "material_restante": 2,
+          "material_do_adversario": 6,
+          "lances_do_jogador": 5
+        }
+      }
+    },
+    {
+      "id": "damas-sacrificio-lance-ilegal-e-dado-invalido",
+      "de_vetor": "Um lance das PRETAS na vez das brancas. O julgador tem de recusar a fita inteira, e nao medir o que der: a fita chega do aparelho de quem jogou, e um julgador que engolisse lance ilegal aceitaria uma fita forjada.",
+      "co_jogo": "damas",
+      "co_variante": "brasileiras",
+      "co_modalidade": "brasileira",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W21,22,24,25,27,29:B5,9,11,13,14,20",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 5,
+      "co_tipo_desafio": "damas_sacrificio",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "9-13"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "material_do_adversario",
+            "comparador": "menor_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "material_restante",
+            "comparador": "menor_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "damas-sobreviver-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O mesmo no outro tipo. Repetir o caso por tipo nao e redundancia: o julgamento passa pela chegada de cada um, e um tipo pode recusar onde o outro aceita.",
+      "co_jogo": "damas",
+      "co_variante": "brasileiras",
+      "co_modalidade": "brasileira",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "fen": "W:W24,26,29,32:B5,9,10,11,14,17",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 9,
+      "co_tipo_desafio": "damas_sobreviver",
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "9-13"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "material_restante",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ]
 }
