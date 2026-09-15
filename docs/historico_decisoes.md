@@ -21,6 +21,66 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-16 — ⛔ A régua media o candidato errado, e o relatório saiu pessimista
+
+**Contexto.** A rodada com régua (2.754 s) trouxe os números das seis variantes. Ao
+lê-los, um padrão não fechava: no `damas_sacrificio`, o dia **03/10 deu taxa 1,00
+nas três variantes**, com `cacau 10/10 · pita 10/10 · tex 10/10` idêntico - e
+mudar o alvo de `capturar: 2` para `3`, ou `entregar: 1` para `2`, não movia nada.
+
+⚠️ **Alvo que muda e taxa que não muda quer dizer que a chegada está sendo
+cumprida por outra coisa** - e nas damas essa outra coisa tem nome: **a captura é
+obrigatória**. Se a posição oferece uma cadeia forçada, qualquer um a executa,
+inclusive a Cacau.
+
+### ⛔ E aí apareceu o defeito da ferramenta, que é meu e é de ontem
+
+`_linha_da_regua` media **só o primeiro candidato de cada dia**. ⚠️ O job pede 3 e
+**escolhe**: percorre na ordem e publica **o primeiro que cai na banda**
+(`job/__main__.py`). Uma variante cujo segundo candidato encaixaria aparecia como
+reprovada, e nada no relatório dizia que a leitura era pessimista.
+
+✅ **Corrigido para imitar o job:** a régua percorre os candidatos e **para** no
+primeiro que encaixa. ⚠️ **O custo não triplica**, pela mesma razão que o job não
+paga triplo - quando o primeiro cai na banda, os outros nem são medidos. O preço
+sobe só nos dias ruins, que são exatamente os que precisam ser investigados.
+
+⚠️ E a linha passou a dizer **qual** candidato encaixou (`✅ candidato 2 de 3`) ou,
+quando nenhum encaixa, as três taxas e **o erro do menos pior** - que é o que o
+job publicaria. ⛔ Dizer só *"nenhum na banda"* esconderia a diferença entre errar
+por 0,03, que é afinar um número, e errar por 0,40, que é repensar o tipo.
+
+### ⚠️ O que os números de 15/09 dizem, com a ressalva do defeito
+
+⛔ **São o primeiro candidato de cada dia, e não a decisão do job** - a rodada tem
+de ser refeita. O que dá para ler mesmo assim:
+
+| variante | 01/10 | 03/10 | 05/10 |
+|---|---|---|---|
+| `sacrificio {3,1}` | 0,37 duro | 1,00 banal | **0,73 ✅** |
+| `sacrificio {2,1}` | 0,57 duro | 1,00 banal | 0,83 banal |
+| `sacrificio {3,2}` | 0,27 duro | 1,00 banal | **0,73 ✅** |
+| `sobreviver {8,2}` | **0,80 ✅** | **0,73 ✅** | 0,57 duro |
+| `sobreviver {8,1}` | 0,67 duro | 0,57 duro | **0,77 ✅** |
+| `sobreviver {10,2}` | 0,37 duro | 0,63 duro | 0,60 duro |
+
+✅ **`sobreviver {lances: 8, entregar: 2}` é a melhor de todas** - 2 dos 3 dias na
+banda, com escada monótona nos dois. O piso relativo funcionou.
+
+⛔ **`{lances: 10}` é duro demais nos três dias**, e isso é informação boa: prova
+que esticar o tempo endurece de verdade, ou seja, **o botão funciona**.
+
+⚠️ **E o `sacrificio` tem variância altíssima entre dias** (0,27 a 1,00 na mesma
+variante), o que aponta para a posição, e não para o número. É o que a régua
+escolhendo entre os três candidatos vai responder.
+
+### Também nesta rodada
+
+Um `SyntaxWarning` que eu introduzi ontem na docstring (`\S` em vez de `\S`) e
+que aparecia em toda execução do script.
+
+---
+
 ## 2026-09-15 (noite) — ⛔ FOLGA não é aprovação: a régua desmentiu as seis variantes
 
 **Contexto.** A medição de variantes dos dois tipos novos de damas saiu **`✅ FOLGA

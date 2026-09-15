@@ -44,7 +44,7 @@ pagar ~55 minutos para reimprimir linhas que ja sairam identicas duas vezes.
 ⛔ E `--com-regua` RESPONDE A OUTRA PERGUNTA — a que decide
 ═══════════════════════════════════════════════════════════════════════════
 
-    .venv\Scripts\python -u scripts\medir_variantes_do_editorial.py em-avaliacao --com-regua
+    .venv\\Scripts\\python -u scripts\\medir_variantes_do_editorial.py em-avaliacao --com-regua
 
 ⚠️ **Sem ela, este script mede se a variante GERA — e nao se ela e para alguem.**
 O job pede 3 candidatos e publica **o primeiro que cai na banda de dificuldade**;
@@ -634,7 +634,9 @@ def medir(
             # primeiro. Medir os tres triplicaria o custo para responder a mesma
             # pergunta: *"esta variante, nesta posicao, cai perto da banda?"*.
             if com_regua and candidatos:
-                linhas_da_regua.append(_linha_da_regua(candidatos[0], teto=teto))
+                linhas_da_regua.append(
+                    _linha_da_regua(candidatos, teto=teto, dia=dia.isoformat())
+                )
 
         dia_mais_fraco = min(por_dia)
         media_da_solucao = (
@@ -738,16 +740,28 @@ BANDEIRA_COM_REGUA = "--com-regua"
 EXECUCOES_DA_SONDA_DE_REGUA = 10
 
 
-def _linha_da_regua(candidato, *, teto: int) -> str:
-    """Mede os tres mascotes num candidato e devolve a linha do relatorio.
+def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
+    """Mede os candidatos do dia **como o job faz** e devolve a linha do relatorio.
+
+    ⛔ **ATE 16/09/2026 ESTA FUNCAO MEDIA SO O PRIMEIRO CANDIDATO, e isso
+    respondia a pergunta errada.** O job pede 3 e **escolhe**: percorre os
+    candidatos na ordem e publica **o primeiro que cai na banda**
+    (`job/__main__.py`). Medir so o primeiro trata como reprovada uma variante
+    cujo segundo candidato encaixaria — e o relatorio da rodada de 15/09 ficou
+    pessimista sem que nada o dissesse.
+
+    ⚠️ **E o custo NAO triplica**, pela mesma razao que o job nao paga triplo:
+    quando o primeiro cai na banda, os outros nem sao medidos. O preco sobe so
+    nos dias ruins — que sao exatamente os que precisam ser investigados.
 
     Args:
-        candidato: o que `gerar_candidatos` devolveu.
-        teto: o teto de meios-lances **com que ele foi gerado**. ⛔ Ele entra por
+        candidatos: os do dia, na ordem em que o job os veria.
+        teto: o teto de meios-lances **com que foram gerados**. ⛔ Ele entra por
             parametro porque o `Candidato` nao o carrega, e adivinha-lo aqui —
             pelo padrao, digamos — mediria os mascotes numa tarefa diferente da
             que o gerador montou: com teto maior eles resolveriam o que o gerador
             nao conseguiu, e a taxa descreveria outro desafio.
+        dia: so para a linha do relatorio.
 
     ⚠️ **Monta a bancada pelo mesmo caminho do job** (`gerador.bancada`), e nao
     por um motor montado aqui: uma segunda forma de montar seria uma segunda
@@ -755,41 +769,62 @@ def _linha_da_regua(candidato, *, teto: int) -> str:
     joga.
 
     Returns:
-        Algo como `regua: cacau 6/10 · tex 8/10 · magno 10/10 → 0.80 ✅ na banda`.
+        Uma linha por dia, dizendo **qual** candidato encaixou — ou, quando
+        nenhum encaixou, as taxas dos tres, que e o que aponta a causa.
     """
     from job import alvo_observado as alvo_mod
     from job import regua as regua_mod
 
     alvo = alvo_mod.alvo_para_a_regua()
-    bancada = gerador_mod.bancada(candidato)
-    medicoes = regua_mod.medir_candidato(
-        co_personagem_do_dia=candidato.co_personagem,
-        tentar=regua_mod.tentativa_com_motor(
-            jogador=bancada.jogador,
-            estado_inicial=bancada.estado_inicial,
-            julgar=bancada.julgar,
-            nu_semente=candidato.nu_semente,
-            # ⚠️ **O MESMO teto da geracao**, como no job: medir com um teto maior
-            # faria os mascotes resolverem uma tarefa que o gerador nao montou.
-            maximo_de_meios_lances=teto,
+    tentados: list[tuple[float, str]] = []
+
+    for ordem, candidato in enumerate(candidatos, start=1):
+        bancada = gerador_mod.bancada(candidato)
+        medicoes = regua_mod.medir_candidato(
             co_personagem_do_dia=candidato.co_personagem,
-        ),
-        co_versao_perfil="sonda",
-        co_versao_motor="sonda",
-        nu_execucoes=EXECUCOES_DA_SONDA_DE_REGUA,
+            tentar=regua_mod.tentativa_com_motor(
+                jogador=bancada.jogador,
+                estado_inicial=bancada.estado_inicial,
+                julgar=bancada.julgar,
+                nu_semente=candidato.nu_semente,
+                # ⚠️ **O MESMO teto da geracao**, como no job: medir com um teto
+                # maior faria os mascotes resolverem uma tarefa que o gerador nao
+                # montou.
+                maximo_de_meios_lances=teto,
+                co_personagem_do_dia=candidato.co_personagem,
+            ),
+            co_versao_perfil="sonda",
+            co_versao_motor="sonda",
+            nu_execucoes=EXECUCOES_DA_SONDA_DE_REGUA,
+        )
+        taxa = regua_mod.taxa_media(medicoes)
+        distancia = regua_mod.distancia_da_banda(
+            medicoes, piso=alvo.piso, teto=alvo.teto
+        )
+        detalhe = " · ".join(
+            f"{m.co_personagem} {m.nu_resolveu}/{m.nu_execucoes}" for m in medicoes
+        )
+        if distancia == 0.0:
+            # ⚠️ **Para aqui, como o job para.** Os candidatos seguintes nem sao
+            # gerados na producao — medi-los daria um numero que nenhuma execucao
+            # real produz.
+            return (
+                f"      {dia}: ✅ candidato {ordem} de {len(candidatos)} "
+                f"na banda — {detalhe} → {taxa:.2f}"
+            )
+        lado = "duro" if taxa < alvo.piso else "banal"
+        tentados.append((distancia, f"{taxa:.2f} {lado}"))
+
+    # ⛔ **Nenhum encaixou: e aqui que o dia sai fora da banda na producao.** O job
+    # publica o **menos pior** — entao o relatorio diz de quanto foi o erro DELE,
+    # e nao so que houve erro. ⚠️ `distancia_da_banda` ja e essa conta, e reusa-la
+    # e o que garante que o numero impresso aqui e o mesmo que o job registraria.
+    menor_erro = min(distancia for distancia, _ in tentados)
+    resumo = " · ".join(texto for _, texto in tentados)
+    return (
+        f"      {dia}: ⛔ NENHUM dos {len(tentados)} na banda "
+        f"({resumo}) — o job publicaria errando por {menor_erro:.2f}"
     )
-    taxa = regua_mod.taxa_media(medicoes)
-    distancia = regua_mod.distancia_da_banda(medicoes, piso=alvo.piso, teto=alvo.teto)
-    detalhe = " · ".join(
-        f"{m.co_personagem} {m.nu_resolveu}/{m.nu_execucoes}" for m in medicoes
-    )
-    if distancia == 0.0:
-        veredito = "✅ na banda"
-    elif taxa < alvo.piso:
-        veredito = f"⛔ DURO DEMAIS (falta {distancia:.2f} para a banda)"
-    else:
-        veredito = f"⛔ BANAL (passa {distancia:.2f} da banda)"
-    return f"      regua: {detalhe} → {taxa:.2f}  {veredito}"
 
 
 def principal(argumentos: Sequence[str]) -> int:

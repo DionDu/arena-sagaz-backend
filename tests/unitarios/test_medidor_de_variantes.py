@@ -340,3 +340,118 @@ def test_a_linha_da_regua_NOMEIA_de_que_lado_da_banda_a_variante_caiu():
             assert distancia > 0.0
             lado = "DURO DEMAIS" if taxa < alvo.piso else "BANAL"
             assert lado == esperado, f"taxa {taxa} foi classificada como {lado}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ A REGUA ESCOLHE ENTRE OS CANDIDATOS DO DIA — como o job faz
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **A rodada de 15/09/2026 mediu so o PRIMEIRO candidato de cada dia**, e isso
+# respondia a pergunta errada: o job pede 3 e publica **o primeiro que cai na
+# banda**. Uma variante cujo segundo candidato encaixaria aparecia como reprovada,
+# e nada no relatorio dizia que a leitura era pessimista.
+
+
+class _CandidatoFalso:
+    """O minimo que `_linha_da_regua` toca num candidato."""
+
+    def __init__(self, nome: str) -> None:
+        self.co_personagem = "pita"
+        self.nu_semente = 1
+        self.nome = nome
+
+
+def _regua_falsa(monkeypatch, taxas_por_candidato):
+    """Faz a regua devolver taxas escolhidas, sem rodar motor nenhum.
+
+    ⚠️ **Sem isto o teste custaria minutos** — e o que se prova aqui e a REGRA de
+    escolha, que e o que estava errado, e nao a contagem dos mascotes (essa ja
+    tem os seus casos em `test_regua_e_alvo.py`).
+    """
+    from job import regua as regua_mod
+
+    chamadas = {"quantas": 0}
+
+    def medir_falso(**kwargs):
+        taxa = taxas_por_candidato[chamadas["quantas"]]
+        chamadas["quantas"] += 1
+        resolveu = round(taxa * 10)
+        return [
+            regua_mod.Medicao(
+                co_personagem=nome,
+                nu_execucoes=10,
+                nu_resolveu=resolveu,
+                co_versao_perfil="t",
+                co_versao_motor="t",
+            )
+            for nome in ("cacau", "tex", "magno")
+        ]
+
+    # ⚠️ A bancada falsa precisa dos tres campos que `tentativa_com_motor` le -
+    # ela e construida antes de a regua ser chamada, e um `object()` pelado
+    # quebraria antes de chegar na regra que este teste prova.
+    class _BancadaFalsa:
+        jogador = None
+        estado_inicial = None
+        julgar = None
+
+    monkeypatch.setattr(MEDIDOR.gerador_mod, "bancada", lambda c: _BancadaFalsa())
+    monkeypatch.setattr(regua_mod, "medir_candidato", medir_falso)
+    monkeypatch.setattr(regua_mod, "tentativa_com_motor", lambda **k: None)
+    return chamadas
+
+
+def test_a_regua_PARA_no_primeiro_candidato_que_cai_na_banda(monkeypatch):
+    """⚠️ Como o job: os seguintes nem sao medidos.
+
+    ⛔ E nao e so economia — medir os tres sempre daria um numero que **nenhuma
+    execucao real produz**, porque na producao os outros dois nao chegam a ser
+    avaliados.
+    """
+    chamadas = _regua_falsa(monkeypatch, [0.75, 0.30, 0.30])
+    linha = MEDIDOR._linha_da_regua(
+        [_CandidatoFalso("a"), _CandidatoFalso("b"), _CandidatoFalso("c")],
+        teto=12,
+        dia="2026-10-01",
+    )
+    assert chamadas["quantas"] == 1, "mediu candidato que o job nao veria"
+    assert "✅" in linha and "candidato 1 de 3" in linha
+
+
+def test_a_regua_SEGUE_para_o_segundo_quando_o_primeiro_erra(monkeypatch):
+    """⛔ **O caso que a rodada de 15/09 nao enxergava.**
+
+    Uma variante cujo primeiro candidato sai banal e o segundo encaixa e uma
+    variante **que funciona** — o job publicaria o segundo. Medir so o primeiro a
+    reprovaria, e o relatorio pareceria conclusivo.
+    """
+    chamadas = _regua_falsa(monkeypatch, [1.00, 0.75, 0.30])
+    linha = MEDIDOR._linha_da_regua(
+        [_CandidatoFalso("a"), _CandidatoFalso("b"), _CandidatoFalso("c")],
+        teto=12,
+        dia="2026-10-01",
+    )
+    assert chamadas["quantas"] == 2
+    assert "✅" in linha and "candidato 2 de 3" in linha
+
+
+def test_quando_NENHUM_encaixa_a_linha_diz_de_quanto_foi_o_erro(monkeypatch):
+    """⚠️ **E o erro do MENOS PIOR**, que e o que o job publicaria.
+
+    ⛔ Dizer so *"nenhum na banda"* esconderia a diferenca entre errar por 0,03 —
+    que e afinar um numero — e errar por 0,40, que e repensar o tipo.
+    """
+    # ⚠️ **Taxas da GRADE de 10 execucoes** (multiplos de 0,1): a regua falsa
+    # converte a taxa em `nu_resolveu` arredondado, entao pedir 0,95 devolveria
+    # 1,00 e o teste estaria provando outra coisa - foi o que aconteceu ao
+    # escreve-lo.
+    _regua_falsa(monkeypatch, [1.00, 0.90, 0.30])
+    linha = MEDIDOR._linha_da_regua(
+        [_CandidatoFalso("a"), _CandidatoFalso("b"), _CandidatoFalso("c")],
+        teto=12,
+        dia="2026-10-03",
+    )
+    assert "NENHUM dos 3" in linha
+    assert "banal" in linha and "duro" in linha
+    # 0.90 passa 0.10 do teto 0.80, e e o menor erro dos tres.
+    assert "0.10" in linha, linha
