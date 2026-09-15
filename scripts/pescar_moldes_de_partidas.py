@@ -69,6 +69,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import os
 import random
@@ -144,6 +145,56 @@ def fileiras_ate_coroar(fen: str) -> int:
     return min(distancias) if distancias else 99
 
 
+#: Os comecos de arquivo que denunciam a codificacao, do mais longo para o mais
+#: curto. ⚠️ **A ordem importa:** o BOM de UTF-8 (`EF BB BF`) e de UTF-32LE
+#: (`FF FE 00 00`) comecam com bytes que tambem abrem BOMs mais curtos, e testar
+#: o curto primeiro casaria com o arquivo errado.
+BOMS: tuple[tuple[bytes, str], ...] = (
+    (b"\xff\xfe\x00\x00", "utf-32-le"),
+    (b"\x00\x00\xfe\xff", "utf-32-be"),
+    (b"\xef\xbb\xbf", "utf-8-sig"),
+    (b"\xff\xfe", "utf-16-le"),
+    (b"\xfe\xff", "utf-16-be"),
+)
+
+
+def _texto_do_arquivo(caminho: Path) -> str:
+    """Le o arquivo seja qual for a codificacao com que o Windows o escreveu.
+
+    ⛔ **ESTE SCRIPT JA TROPECOU NISTO DUAS VEZES, e a segunda custou uma
+    pescaria** (14/09/2026). O redirecionamento do PowerShell (`>`) nao escreve
+    UTF-8: dependendo da versao ele escreve **UTF-16LE com BOM**, e o
+    `read_text(encoding="utf-8")` morre no primeiro byte com
+    `'utf-8' codec can't decode byte 0xff in position 0`.
+
+    ⚠️ **E o erro chega tarde e longe da causa.** Quem o le pensa em dado
+    corrompido ou em FEN malformada; o arquivo esta perfeito, e o que esta errado
+    e a suposicao de quem o abriu. A primeira vez foi no CSV, com o BOM de UTF-8:
+    a primeira coluna passava a se chamar `﻿fen`, o cabecalho parecia certo na
+    tela, e o `linha["fen"]` falhava.
+
+    ✅ **A cura e ler os primeiros bytes e perguntar ao arquivo**, em vez de
+    exigir que quem o gerou tenha acertado a codificacao — sao duas linhas, e
+    valem para os dois formatos e para qualquer jeito de gerar o arquivo.
+
+    Args:
+        caminho: o JSON ou CSV com as FENs.
+
+    Returns:
+        O conteudo em texto, **sem o BOM**: ele nao e caractere, e um rotulo de
+        codificacao. Deixa-lo passar poria um `﻿` invisivel na primeira chave
+        do JSON ou no primeiro cabecalho do CSV.
+    """
+    bruto = caminho.read_bytes()
+    for marca, codificacao in BOMS:
+        if bruto.startswith(marca):
+            # ⚠️ `utf-8-sig`, `utf-16-le` e companhia ja descartam o BOM sozinhos
+            # quando ele casa com a codificacao nomeada.
+            return bruto.decode(codificacao).lstrip("﻿")
+    # Sem BOM: UTF-8 e a aposta certa (e o que o `consultar_des.py` escreve).
+    return bruto.decode("utf-8")
+
+
 def carregar(caminho: Path) -> list[str]:
     """Le o JSON do `consultar_des.py` e devolve as FENs, normalizadas e sem repeticao.
 
@@ -157,14 +208,11 @@ def carregar(caminho: Path) -> list[str]:
     so diferem pelo lado da vez viram a mesma candidata, e medir as duas seria
     pagar o dobro pela mesma resposta.
     """
+    texto = _texto_do_arquivo(caminho)
     if caminho.suffix.lower() == ".csv":
-        # ⚠️ `utf-8-sig` e nao `utf-8`: o Excel e o export do Postgres no Windows
-        # escrevem um BOM no comeco, e sem isto a PRIMEIRA coluna se chamaria
-        # `﻿fen` — o cabecalho parece certo na tela e o `linha["fen"]` falha.
-        with caminho.open(encoding="utf-8-sig", newline="") as arquivo:
-            dados: list = list(csv.DictReader(arquivo))
+        dados: list = list(csv.DictReader(io.StringIO(texto, newline="")))
     else:
-        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        dados = json.loads(texto)
 
     vistas: dict[str, None] = {}  # dict e nao set: preserva a ordem de chegada
     for linha in dados:

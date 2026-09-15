@@ -67,3 +67,12 @@ Thumbs.db
 # (Os poucos arquivos de `.claude/` que ja estavam rastreados antes desta regra
 # continuam rastreados — o .gitignore nao desfaz rastreamento existente.)
 .claude/
+
+# Insumo e diario das pescarias de moldes de damas.
+#
+# ⚠️ Os dois sao DERIVADOS, e por isso ficam de fora: o arquivo de FENs se
+# regenera com um `consultar_des.py`, e o diario e o andamento de uma execucao
+# nesta maquina. ⛔ O que entra no Git e o RESULTADO — os moldes aprovados, que
+# viram acervo em `job/tipos_de_desafio.py` ou `job/tipos_propostos.py`.
+fens_*.json
+pescaria_*.jsonl
