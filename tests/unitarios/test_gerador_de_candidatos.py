@@ -162,6 +162,18 @@ def test_a_receita_monta_uma_chegada_VALIDA() -> None:
         "pecas": 2,
         "ganhar": 4,   # pontinhos_troca_favoravel
         "ceder": 2,    # pontinhos_troca_favoravel
+        # ⚠️ **Estas duas nao sao escritas pelo editorial: sao CALCULADAS na
+        # posicao** (`editorial.parametros_efetivos`), a partir de `capturar` e
+        # `entregar`. Elas entram aqui porque `damas_sacrificio` e
+        # `damas_sobreviver` leem o resultado da conta, e nao o relativo.
+        "resta_ao_adversario": 5,   # damas_sacrificio
+        "resta_a_voce": 7,          # damas_sacrificio e damas_sobreviver
+        # ⚠️ **E os RELATIVOS continuam aqui ao lado dos absolutos**, porque os
+        # dois convivem no mesmo dicionario de proposito: a clausula le o
+        # absoluto (`resta_ao_adversario`), e a FRASE le o relativo (*"troque 1
+        # peca por 3"*). ⛔ Apagar um dos dois quebraria metade do tipo.
+        "capturar": 3,   # damas_sacrificio
+        "entregar": 1,   # damas_sacrificio e damas_sobreviver
     }
     for codigo, receita in RECEITAS.items():
         chegada = LinhaDeChegada.de_dado(receita.montar(parametros))

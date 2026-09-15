@@ -344,6 +344,40 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         # e nao da tarefa de tres pecas passando a caber.
         Candidata({"pecas": 2, "lances": 8}, nu_maximo_de_meios_lances=16),
     ),
+    # ═══════════════════════════════════════════════════════════════════════
+    # OS DOIS QUE SUBIRAM EM 16/09/2026 — e o que a regua disse de cada um
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⚠️ **As que estao NO AR entram aqui pela regra desta tabela**: variante
+    # publicada fora da lista deixa de ser remedida quando o gerador muda — que e
+    # exatamente quando o numero dela pode ter mudado.
+    #
+    # ⛔ **E remedir estes dois importa mais que os outros**, porque o alvo deles
+    # sai da POSICAO e nao do editorial: `{capturar: 3}` vira
+    # `material_do_adversario <= A - 3`, com `A` contado na posicao do dia. Mudou
+    # o acervo, mudou o `A`, e o numero envelheceu sem ninguem tocar no editorial.
+    "damas_sacrificio": (
+        # ✅ Banda em 2 de 3 dias, erro 0,03 no dia que escapa — a melhor das tres.
+        Candidata({"capturar": 2, "entregar": 1}),
+        # ✅ Banda em 2 de 3 dias; o dia que escapa escapa para o lado BANAL
+        # (1,00 · 0,90 · 0,97), que e o pior lado para o produto.
+        Candidata({"capturar": 3, "entregar": 1}),
+        # ✅ Banda em 2 de 3 dias · a mais longa (7,7 meios-lances) e a mais cara.
+        Candidata({"capturar": 3, "entregar": 2}),
+    ),
+    "damas_sobreviver": (
+        # ✅ **A unica do catalogo que caiu na banda nos TRES dias** (0,80 · 0,73 ·
+        # 0,70). ⛔ O teto de 18 nao e enfeite: `lances: 8` sao 16 meios-lances no
+        # minimo, e com o teto padrao de 12 ela devolve zero por aritmetica.
+        Candidata({"lances": 8, "entregar": 2}, nu_maximo_de_meios_lances=18),
+        # ✅ Banda em 2 de 3 dias; o dia que escapa escapa para o lado DURO.
+        Candidata({"lances": 8, "entregar": 1}, nu_maximo_de_meios_lances=18),
+        # ⛔ **RECUSADA em 16/09/2026** — banda em 1 de 3 dias (erros 0,23 e 0,07),
+        # 19,0 meios-lances e 1.407s de geracao. ⚠️ Fica na lista de proposito: se
+        # um dia o acervo do sobreviver crescer, e ela que diz se dois lances a
+        # mais voltaram a caber.
+        Candidata({"lances": 10, "entregar": 2}, nu_maximo_de_meios_lances=22),
+    ),
 }
 
 
@@ -398,76 +432,21 @@ EM_AVALIACAO: dict[str, tuple[Candidata, ...]] = {
     # a sonda mostrou que ele e **duplicata do `pontinhos_cadeia_longa`**, que ja
     # esta no ar. Ver o aviso na receita dele, em `job/tipos_propostos.py`.
     #
-    # ═══════════════════════════════════════════════════════════════════════
-    # DAMAS — os dois que o dono mandou trazer de volta (14/09/2026, §8k-12)
-    # ═══════════════════════════════════════════════════════════════════════
+    # ⛔ **OS DOIS DE DAMAS SAIRAM DAQUI EM 16/09/2026** — `damas_sacrificio` (5)
+    # e `damas_sobreviver` (9) foram para `RECEITAS` e para o editorial, e por
+    # isso as candidatas deles estao em `A_MEDIR`, com os botoes de la.
     #
-    # ⛔ **ESTES DOIS AINDA NAO TEM ACERVO, e isso muda como se le o resultado.**
-    # Os outros tipos de damas medem contra centenas de moldes pescados de
-    # partidas reais; estes dois medem contra **duas sementes escritas a mao**.
+    # ⚠️ **Deixa-los aqui seria repetir o defeito de 15/09**, quando as quatro
+    # propostas de Pontinhos subiram e a tabela nao acompanhou: o script media com
+    # o selo *"⚠️ EM AVALIACAO, NAO PUBLICAVEL"* — que ja era mentira — e com a
+    # `Publicacao` vazia, devolvendo uma taxa que descreve uma execucao que nao
+    # existe. ⛔ Cadeados em `test_medidor_de_variantes.py`.
     #
-    # ⚠️ Entao um numero baixo aqui pode ser da variante **ou** do acervo, e nao
-    # ha como saber qual — exatamente o que aconteceu com o `capturar_multipla`
-    # em 11/09, quando 29 moldes sinteticos deram todos a mesma solucao de 3
-    # lances e a conclusao *"o jogo nao permite"* estava errada: era a fonte.
-    #
-    # ✅ **O que esta medicao serve para responder, e ja e muito:** a variante
-    # gera? a solucao tem o comprimento que a frase promete? o rotulo e plausivel?
-    # ⛔ **O que ela NAO responde:** se a variante aguenta o rodizio — isso so
-    # depois da pescaria.
-    # ─────────────────────────────────────────────────────────────────────────
-    # ⚠️ *"Troque {entregar} peca por {capturar} de {personagem}."*
-    #
-    # ⛔ **A primeira variante de damas com numero RELATIVO A POSICAO.** O
-    # editorial publica `{capturar: 3, entregar: 1}`, e o gerador conta as pecas
-    # da posicao para chegar aos tetos absolutos — como `acima_do_guloso` faz com
-    # o guloso no Pontinhos. Ver `tests/unitarios/test_alvo_pelo_material.py`.
-    #
-    # ⚠️ **A de `capturar: 2` e a linha de comparacao**: se ela tambem sair fraca,
-    # o problema e o acervo; se so a de 3 cair, o problema e o numero.
-    "damas_sacrificio": (
-        Candidata({"capturar": 3, "entregar": 1}),
-        Candidata({"capturar": 2, "entregar": 1}),
-        Candidata({"capturar": 3, "entregar": 2}),
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    # ⚠️ *"Resista {lances} lances sem perder contra {personagem}."*
-    #
-    # ⛔ **O TETO DE MEIOS-LANCES E O BOTAO DESTE TIPO, e nao o enunciado.**
-    # `lances: 8` sao 16 meios-lances no melhor dos casos, e o teto padrao e
-    # **12** — medir sem mexer nele devolveria zero candidato por aritmetica, que
-    # e o defeito nº 1 da cacada de moldes se repetindo num tipo novo.
-    #
-    # ⚠️ **E a janela deste tipo nao e folga, ao contrario das outras.** Em
-    # `damas_coroar`, esticar `lances` de 6 para 10 nao muda nada (o objetivo cai
-    # em ~3,4 lances do jogador de qualquer jeito). Aqui `lances` **e** a tarefa:
-    # cada unidade a mais e um lance a mais de resistencia, e o objetivo cai
-    # sempre exatamente no ultimo — ⛔ por isso o "comprimento da solucao" que
-    # este script imprime nao diz nada sobre este tipo, e quem o julga e o rotulo.
-    #
-    # ⚠️ Medido em 14/09/2026, com o Sagaz jogando os dois lados: a desvantagem
-    # nao pode ser grande. 2-3 pecas contra 5-6 **perdem antes do oitavo lance**;
-    # 5 contra 7 resistiram em 6 de 6 sondagens.
-    # ⛔ **AS TRES MUDARAM EM 15/09/2026, E A REGUA E QUEM MANDOU.** A primeira
-    # rodada mediu `{lances: 8}` com o piso de material em `>= 1`, e as tres
-    # sairam `✅ FOLGA 3 de 3` — ⚠️ **e as tres eram banais**: a Cacau resolveu
-    # **30 de 30**, com a escada do produto invertida. Ver o comentario da receita
-    # em `job/tipos_propostos.py`.
-    #
-    # ✅ Com o piso relativo (`entregar: 2` → `material_restante >= M - 2`) a
-    # escada voltou monotona e a taxa entrou na banda: **0,80 e 0,73** em duas
-    # amostras.
-    #
-    # ⚠️ **`{lances: 8, entregar: 2}` e a linha de comparacao** (e a medida); a de
-    # `entregar: 1` aperta o material sem mexer no tempo, e a de `lances: 10`
-    # estica o tempo sem mexer no material. ⛔ Dois botoes, um de cada vez — medir
-    # os dois juntos nao diria qual deles moveu a taxa.
-    "damas_sobreviver": (
-        Candidata({"lances": 8, "entregar": 2}, nu_maximo_de_meios_lances=18),
-        Candidata({"lances": 8, "entregar": 1}, nu_maximo_de_meios_lances=18),
-        Candidata({"lances": 10, "entregar": 2}, nu_maximo_de_meios_lances=22),
-    ),
+    # ⚠️ **E a tabela ficou VAZIA, o que e um estado legitimo:** quer dizer que
+    # nao ha proposta aguardando medicao — as que sobram em `tipos_propostos.py`
+    # esperam por **acervo**, e acervo e pescaria, nao relogio.
 }
+
 
 def receita_em_avaliacao_de(co_tipo: str):
     """A receita proposta daquele tipo, ou `None` se ele ja estiver no ar.

@@ -436,6 +436,18 @@ DUPLICATAS_CONHECIDAS = [
     # ⛔ E literalmente `damas_coroar` com `damas: 2` - que o dono pediu em
     # 11/09/2026 e JA ESTA PUBLICADO como `{damas: 2, lances: 8}`.
     "damas_dupla_coroacao julga igual a damas_coroar",
+    # ⛔ **A TERCEIRA APARECEU EM 16/09/2026, E NINGUEM A ESCREVEU: ela NASCEU
+    # duplicata quando `damas_sobreviver` subiu.** A proposta `damas_armadilha` e
+    # de 13/09 e era original naquele dia - a forma dela
+    # (`lances_do_jogador >= n` + `material_restante >= p`, janela `partida`) so
+    # passou a existir no ar quando o sobreviver foi publicado.
+    #
+    # ⚠️ **E este e o unico caminho pelo qual uma duplicata entra sem que alguem
+    # a proponha**: nao ha revisao de codigo que pegue, porque o arquivo que
+    # mudou nao foi o da proposta. ⛔ Sem este cadeado o catalogo teria dois tipos
+    # com a MESMA regra e frases diferentes, e o rodizio publicaria o "mesmo"
+    # desafio duas vezes por semana.
+    "damas_armadilha julga igual a damas_sobreviver",
 ]
 
 

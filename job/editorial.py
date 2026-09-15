@@ -575,6 +575,87 @@ def _medidas_do_damas_captura(p: Mapping[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _medidas_do_damas_sacrificio(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Sacrificio: o merito e o que sumiu do adversario.
+
+    ⛔ **`material_restante` NAO PODE PONTUAR AQUI, e a razao e a mesma da
+    `pontinhos_paciencia`: a direcao do catalogo esta VIRADA em relacao a do
+    desafio.** No catalogo ela e `maior_melhor` — em quase todo desafio de damas
+    conservar peca e bom. ⚠️ **Neste tipo perder peca e EXIGIDO**: e ela que faz o
+    sacrificio ser sacrificio, e pontua-la pagaria exatamente a quem nao
+    sacrificou nada.
+
+    ⚠️ **A faixa vai do estado de PARTIDA ao ALVO, e nao de zero ao alvo.** As
+    outras faixas do editorial comecam em zero porque medem coisa que so cresce
+    (caixas fechadas, damas coroadas); esta mede o que **sobrou** do adversario,
+    que comeca cheio e diminui:
+
+        vr_min = resta_ao_adversario   →  cumpriu o pedido       nota 1,0
+        vr_max = resta + capturar = A  →  nao comeu nada         nota 0,0
+
+    ⚠️ `menor_melhor` inverte a conta em `extrato_xp`, e comer **mais** do que o
+    pedido cai fora da faixa pelo lado bom — o `_clamp` segura em 1,0.
+
+    ⛔ **E `A` sai dos parametros, nunca de um numero escrito aqui:** quem publica
+    e o gerador, com `resta_ao_adversario` ja calculado na posicao do dia.
+    """
+    return [
+        linha_de_faixa(
+            "material_do_adversario",
+            nu_ordem=1,
+            vr_peso="0.700",
+            vr_min=p["resta_ao_adversario"],
+            vr_max=p["resta_ao_adversario"] + p["capturar"],
+        ),
+        linha_de_fracao(
+            "lances_do_jogador",
+            nu_ordem=2,
+            vr_peso="0.300",
+            co_sobre="lances_da_solucao",
+        ),
+        linha_so_medida("material_restante", nu_ordem=3),
+    ]
+
+
+def _medidas_do_damas_sobreviver(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Sobreviver: o merito e o material que ficou de pe.
+
+    ⛔ **AS OUTRAS DUAS MEDIDAS FICAM COM PESO ZERO, e cada uma por um motivo
+    diferente — nenhum deles e falta de ideia:**
+
+      · `lances_do_jogador` e `menor_melhor` no catalogo, e aqui **aguentar mais
+        e melhor**. E a direcao virada da `pontinhos_paciencia`, no outro jogo;
+
+      · `material_do_adversario` e `menor_melhor`, e a direcao ate **coincide** —
+        comer peca nao quebra este desafio. ⛔ **Mas pontua-la pagaria pelo
+        comportamento que faz falhar.** Foi o que a regua mostrou em 15/09/2026:
+        quem joga para vencer troca pecas, e trocar pecas estando atras e como se
+        perde. ⚠️ *"Resistir nao e vencer"* — e o XP nao pode dizer o contrario
+        do enunciado.
+
+    ✅ Sobra `material_restante`, que e `maior_melhor` no catalogo e aqui tambem.
+    Peso 1,000 numa medida so nao e preguica: como a paciencia, este desafio e
+    **binario por natureza** — ou voce aguentou os lances dentro do teto de
+    perdas, ou nao. A gradacao que existe e *quanto* material sobrou.
+
+    ⚠️ **E o topo da faixa e o PISO do desafio** (`resta_a_voce = M - entregar`),
+    como o alvo e o topo em `damas_coroar`: quem cumpre leva a parcela cheia, e
+    quem fica abaixo gradua entre 0 e 1. ⛔ Nao adianta pedir mais que o piso —
+    o `_clamp` segura em 1,0, e o desafio ja estaria cumprido de qualquer jeito.
+    """
+    return [
+        linha_de_faixa(
+            "material_restante",
+            nu_ordem=1,
+            vr_peso="1.000",
+            vr_min=0,
+            vr_max=p["resta_a_voce"],
+        ),
+        linha_so_medida("lances_do_jogador", nu_ordem=2),
+        linha_so_medida("material_do_adversario", nu_ordem=3),
+    ]
+
+
 #: ⚠️ **CADA TIPO TEM UMA LISTA DE VARIANTES, e nao um dicionario so** (T049f).
 #:
 #: > *"E muito importante que estes parametros variem, senao os desafios viram
@@ -1104,6 +1185,118 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_damas_captura,
             nu_maximo_de_meios_lances=20,
         ),
+    ),
+    # ═══════════════════════════════════════════════════════════════════════
+    # OS DOIS TIPOS NOVOS DE DAMAS — MEDIDOS COM REGUA EM 16/09/2026
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⚠️ **ESTA FOI A PRIMEIRA MEDICAO QUE OLHOU A REGUA, E ELA RESPONDE OUTRA
+    # PERGUNTA.** Ate 15/09/2026 o script dizia *"a variante gera?"* — quantos
+    # candidatos saem no dia mais fraco. ⛔ **O job nao publica qualquer
+    # candidato:** ele percorre os tres e publica o **primeiro que cai na banda**
+    # de dificuldade `[0,70; 0,80]`. Sao perguntas diferentes, e as seis variantes
+    # abaixo deram `✅ FOLGA 3 de 3` na primeira **e** tiveram dia fora da banda
+    # na segunda.
+    #
+    # ⚠️ **Entao cada linha daqui leva DOIS numeros**, e o segundo e novo:
+    #
+    #     FOLGA 3 de 3          → sempre houve candidato (a pergunta antiga)
+    #     banda 2 de 3 dias     → em 2 dos 3 dias algum deles estava calibrado
+    #
+    # ⛔ **Um dia fora da banda NAO deixa a fila vazia** — o job publica o
+    # candidato mais proximo, e o relatorio diz por quanto ele erra. Dia
+    # descoberto continua sendo `0 de 3` na primeira pergunta, e nenhuma destas
+    # seis chegou perto disso.
+    #
+    # ⚠️ **A rodada inteira custou 5.005 segundos**, e e o preco de medir os dois
+    # eixos: por variante, 3 dias x 3 candidatos x 3 mascotes x 10 execucoes.
+    "damas_sacrificio": (
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · banda em 2 de 3 dias · solucao 6,1 meios-lances · 498s
+            #     01/10 ✅ candidato 2 → 0,77   ·   03/10 ✅ candidato 3 → 0,73
+            #     05/10 ⛔ nenhum dos 3 (0,83 · 1,00 · 0,57) — erra por **0,03**
+            #
+            # ⚠️ **E a mais bem calibrada das tres, e por isso abre a lista:** o
+            # unico dia em que ela escapa da banda escapa por 0,03 — menos que um
+            # passo da grade de 10 execucoes, que e 0,10.
+            parametros={"capturar": 2, "entregar": 1},
+            # ⚠️ Sobram pecas dos dois lados: a partida continua depois da troca.
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_sacrificio,
+        ),
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · banda em 2 de 3 dias · solucao 6,3 meios-lances · 602s
+            #     01/10 ✅ candidato 2 → 0,77   ·   05/10 ✅ candidato 1 → 0,73
+            #     03/10 ⛔ nenhum dos 3 (1,00 · 0,90 · 0,97) — erra por 0,10
+            #
+            # ⚠️ **E a frase que da nome ao tipo** — *"troque 1 peca por 3"* —, e o
+            # dia em que ela escapa escapa **para o lado facil**: os tres
+            # candidatos daquele dia eram banais. ⛔ Banal e pior para o produto do
+            # que duro, e e o que esta linha registra para quem remedir.
+            parametros={"capturar": 3, "entregar": 1},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_sacrificio,
+        ),
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · banda em 2 de 3 dias · solucao 7,7 meios-lances · 805s
+            #     01/10 ✅ candidato 2 → 0,77   ·   05/10 ✅ candidato 1 → 0,73
+            #     03/10 ⛔ nenhum dos 3 (1,00 · 0,87 · 0,13) — erra por 0,07
+            #
+            # ⚠️ **A mais longa das tres** (7,7 contra 6,1), e o criterio 6 do dono
+            # — *"de preferencia muitos lances"* — e o que a mantem aqui apesar de
+            # ela ser tambem a mais cara de gerar.
+            parametros={"capturar": 3, "entregar": 2},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_sacrificio,
+        ),
+    ),
+    "damas_sobreviver": (
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · **banda nos 3 de 3 dias** · solucao 15,0 · 557s
+            #     01/10 ✅ candidato 1 → 0,80   ·   03/10 ✅ candidato 1 → 0,73
+            #     05/10 ✅ candidato 2 → 0,70
+            #
+            # ✅ **A UNICA VARIANTE DO CATALOGO QUE ACERTOU A BANDA NOS TRES DIAS**,
+            # e ela chegou aqui por correcao: a primeira versao pedia
+            # `material_restante >= 1` — *"voce ainda esta de pe"* —, e a Cacau
+            # resolvia **30 de 30**, com a escada do produto invertida. ⚠️ O piso
+            # relativo (`M - 2`) e o que cobra habilidade.
+            parametros={"lances": 8, "entregar": 2},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_sobreviver,
+            # ⛔ **O TETO E O BOTAO DESTE TIPO, e nao o enunciado.** `lances: 8`
+            # sao 16 meios-lances no minimo aritmetico (os dois lados alternam), e
+            # o teto padrao e **12** — publicar com ele devolveria zero candidato
+            # por aritmetica, sem erro nenhum no log.
+            nu_maximo_de_meios_lances=18,
+        ),
+        Publicacao(
+            # ✅ FOLGA (3 de 3) · banda em 2 de 3 dias · solucao 15,0 · 1.136s
+            #     01/10 ✅ candidato 3 → 0,70   ·   05/10 ✅ candidato 1 → 0,77
+            #     03/10 ⛔ nenhum dos 3 (0,57 · 0,37 · 0,40) — erra por 0,13
+            #
+            # ⚠️ **Aperta o MATERIAL sem mexer no tempo**, e o dia que ela perde
+            # perde para o lado **duro** — o oposto do dia ruim do sacrificio.
+            # ✅ E e a rede da de cima: com duas variantes, um dia fraco de uma nao
+            # deixa o tipo sem candidato.
+            parametros={"lances": 8, "entregar": 1},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_sobreviver,
+            nu_maximo_de_meios_lances=18,
+        ),
+        # ⛔ **`{lances: 10, entregar: 2}` NAO ENTRA, e foi a REGUA que a barrou.**
+        #
+        # ✅ FOLGA (3 de 3) na pergunta antiga — ela gera candidato todo dia —, e
+        # ⛔ **banda em 1 de 3 dias**: 01/10 (0,37 · 0,47 · 0,23, erro 0,23) e
+        # 03/10 (0,63 · 0,47 · 0,17, erro 0,07) sairiam **duros**, e cinco dos seis
+        # candidatos desses dois dias ficaram abaixo da banda.
+        #
+        # ⚠️ **Dois lances a mais de resistencia mudam o degrau, e nao so o
+        # numero**: 19,0 meios-lances contra 15,0, com teto 22 e 1.407s de geracao
+        # — a mais cara de todas as variantes do catalogo.
+        #
+        # ⛔ **Ela e o unico ⛔ desta rodada, e e o que prova que a regua serve
+        # para alguma coisa:** pela pergunta antiga as seis eram iguais.
     ),
     # ═══════════════════════════════════════════════════════════════════════
     # OS QUATRO TIPOS NOVOS DE PONTINHOS — MEDIDOS EM 14/09/2026

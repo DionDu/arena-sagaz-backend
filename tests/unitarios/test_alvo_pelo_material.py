@@ -32,7 +32,8 @@ from job.moldes_de_damas import (
     material_de_quem_joga,
     objetivo_no_primeiro_lance,
 )
-from job.tipos_propostos import PARAMETROS_DE_EXEMPLO, PROPOSTAS
+from job.editorial import EDITORIAL
+from job.tipos_de_desafio import RECEITAS
 from motores.nucleo.chegada import LinhaDeChegada, avaliar
 
 
@@ -149,6 +150,37 @@ def test_a_conferencia_sem_posicao_resolve_os_DOIS_mecanismos():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ DE ONDE SAEM OS NUMEROS DESTE ARQUIVO — e por que nao estao escritos aqui
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⛔ **Ate 16/09/2026 eles vinham de `tipos_propostos.PARAMETROS_DE_EXEMPLO`**, e
+# com a promocao dos dois tipos aquela tabela deixou de te-los: os numeros de quem
+# publica moram no EDITORIAL, que e onde estao as variantes medidas.
+#
+# ⚠️ **Entao este arquivo PROCURA a variante, e nao a reescreve.** Os numeros
+# esperados mais abaixo (`<= 5`, `<= 7`, piso 10) sao *derivados* dela — copia-los
+# para ca faria o teste continuar verde no dia em que a variante saisse do ar,
+# provando uma regra que ninguem mais publica.
+
+
+def _variante_publicada(co_tipo: str, **parametros) -> dict:
+    """Os parametros de uma variante que esta NO AR, procurada pelos numeros.
+
+    Raises:
+        AssertionError: quando aquela variante nao esta mais no editorial — que e
+            exatamente a hora de revisar os numeros esperados deste arquivo.
+    """
+    for publicacao in EDITORIAL[co_tipo]:
+        if dict(publicacao.parametros) == parametros:
+            return dict(publicacao.parametros)
+    raise AssertionError(
+        f"⛔ {co_tipo} nao publica mais {parametros}. As variantes no ar hoje sao "
+        f"{[dict(p.parametros) for p in EDITORIAL[co_tipo]]}. ⚠️ Os numeros "
+        "esperados neste arquivo derivam dela: reveja-os antes de trocar a busca."
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # 4. ⛔ A chegada do sacrificio julga o que promete
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -156,9 +188,9 @@ def test_a_conferencia_sem_posicao_resolve_os_DOIS_mecanismos():
 def _chegada_do_sacrificio(material: tuple[int, int]) -> LinhaDeChegada:
     """A linha de chegada do sacrificio para uma posicao de dado material."""
     efetivos = editorial_mod.parametros_efetivos(
-        PARAMETROS_DE_EXEMPLO["damas_sacrificio"], material=material
+        _variante_publicada("damas_sacrificio", capturar=3, entregar=1), material=material
     )
-    return LinhaDeChegada.de_dado(PROPOSTAS["damas_sacrificio"].montar(efetivos))
+    return LinhaDeChegada.de_dado(RECEITAS["damas_sacrificio"].montar(efetivos))
 
 
 #: Uma posicao de 8 contra 8, que e o que os moldes reais costumam ter.
@@ -260,9 +292,9 @@ def test_o_piso_do_sobreviver_NAO_e_uma_peca_solta():
     testes de forma passam nos dois.
     """
     efetivos = editorial_mod.parametros_para_conferencia(
-        PARAMETROS_DE_EXEMPLO["damas_sobreviver"]
+        _variante_publicada("damas_sobreviver", lances=8, entregar=2)
     )
-    chegada = PROPOSTAS["damas_sobreviver"].montar(efetivos)
+    chegada = RECEITAS["damas_sobreviver"].montar(efetivos)
     material = [c for c in chegada["clausulas"] if c["chave"] == "material_restante"]
     assert len(material) == 1, "o sobreviver tem de cobrar material"
     assert material[0]["valor"] > 1, (
@@ -280,9 +312,9 @@ def test_o_sobreviver_cobra_material_RELATIVO_a_posicao():
     """
     def piso(material: tuple[int, int]) -> int:
         efetivos = editorial_mod.parametros_efetivos(
-            PARAMETROS_DE_EXEMPLO["damas_sobreviver"], material=material
+            _variante_publicada("damas_sobreviver", lances=8, entregar=2), material=material
         )
-        chegada = PROPOSTAS["damas_sobreviver"].montar(efetivos)
+        chegada = RECEITAS["damas_sobreviver"].montar(efetivos)
         return next(
             c["valor"] for c in chegada["clausulas"] if c["chave"] == "material_restante"
         )
@@ -299,14 +331,65 @@ def test_os_dois_tipos_usam_o_MESMO_mecanismo_com_o_comparador_VIRADO():
     a **limita** (`>= M - entregar`). Trocar um comparador pelo outro nao daria
     erro nenhum: daria o outro tipo, com a frase errada.
     """
+    # ⚠️ Uma variante no ar de cada tipo — a que o outro caso deste arquivo usa.
+    PARAMETROS_NO_AR = {
+        "damas_sacrificio": _variante_publicada(
+            "damas_sacrificio", capturar=3, entregar=1
+        ),
+        "damas_sobreviver": _variante_publicada(
+            "damas_sobreviver", lances=8, entregar=2
+        ),
+    }
+
     def clausula_de_material(co_tipo: str) -> dict:
         efetivos = editorial_mod.parametros_para_conferencia(
-            PARAMETROS_DE_EXEMPLO[co_tipo]
+            PARAMETROS_NO_AR[co_tipo]
         )
-        chegada = PROPOSTAS[co_tipo].montar(efetivos)
+        chegada = RECEITAS[co_tipo].montar(efetivos)
         return next(
             c for c in chegada["clausulas"] if c["chave"] == "material_restante"
         )
 
     assert clausula_de_material("damas_sacrificio")["comparador"] == "menor_ou_igual"
     assert clausula_de_material("damas_sobreviver")["comparador"] == "maior_ou_igual"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ AS MEDIDAS DE SAIDA TAMBEM DEPENDEM DA POSICAO, E ISSO SO QUEBRA LA
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_as_medidas_de_saida_sao_GRAVAVEIS_em_qualquer_material_do_acervo():
+    """⛔ A faixa do XP destes dois tipos sai da POSICAO, como a chegada.
+
+    ⚠️ **E e por isso que este caso varre materiais em vez de conferir um.** No
+    sacrificio a faixa de `material_do_adversario` vai de `resta_ao_adversario`
+    ate `A`; no sobreviver, de 0 ate `resta_a_voce`. ⛔ `medidas_de_saida`
+    recusa `vr_max <= vr_min` — dividir por zero na hora de pontuar —, e um
+    material em que isso acontecesse **nao daria erro na geracao**: daria erro
+    ao gravar, no meio de uma rodada de horas, ou pior, no calculo do XP de
+    alguem.
+
+    ⚠️ **A varredura vai de 5 a 12 pecas por lado**, que e a faixa dos moldes
+    pescados de partidas reais (`job/tipos_de_desafio.py`). ⛔ Escrever um so
+    material aqui repetiria o defeito que `parametros_efetivos` existe para
+    curar: um numero que vale para um molde e mente nos outros.
+    """
+    from job.medidas_de_saida import conferir
+
+    for co_tipo in ("damas_sacrificio", "damas_sobreviver"):
+        for publicacao in EDITORIAL[co_tipo]:
+            for meu in range(5, 13):
+                for do_adversario in range(5, 13):
+                    try:
+                        efetivos = editorial_mod.parametros_efetivos(
+                            publicacao.parametros, material=(meu, do_adversario)
+                        )
+                    except editorial_mod.MaterialInsuficiente:
+                        # ✅ Posicao que o gerador DESCARTA — ela nunca chega as
+                        # medidas de saida, e recusa-la e o comportamento certo.
+                        continue
+
+                    # ⛔ Nao basta montar: tem de passar pelo mesmo `conferir`
+                    # que o job chama antes de gravar.
+                    conferir(publicacao.medidas(efetivos))

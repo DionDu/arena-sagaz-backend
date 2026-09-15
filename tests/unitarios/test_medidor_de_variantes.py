@@ -78,8 +78,10 @@ def test_TODA_candidata_monta_chegada_e_frase(co_tipo, candidata):
     # da POSICAO (decisao do dono, 11/09/2026), e so vira numero depois que o
     # gerador mede o guloso naquele tabuleiro. Aqui basta um valor qualquer - o
     # que se testa e se as chaves casam, nao quanto vale o alvo.
-    if editorial_mod.alvo_sai_da_posicao(parametros):
-        parametros = editorial_mod.parametros_efetivos(parametros, guloso=3)
+    # ⚠️ E o mesmo vale para os dois tipos de damas cujo alvo sai do MATERIAL
+    # (`capturar`/`entregar`, 16/09/2026): `parametros_para_conferencia` resolve
+    # os dois mecanismos com valores de exemplo, que e tudo o que este caso pede.
+    parametros = editorial_mod.parametros_para_conferencia(parametros)
 
     js_chegada = receita.montar(parametros)
     assert js_chegada["janela"], "a chegada saiu sem janela"

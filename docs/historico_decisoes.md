@@ -4486,3 +4486,92 @@ variem"*) mandou acabar.
 ⚠️ `{damas: 2}` pode não ser alcançável a partir de moldes escritos para uma dama;
 se der `pior 0`, a resposta é caçar moldes próprios, ⛔ nunca afrouxar a janela
 para o número passar.
+
+---
+
+## 2026-09-16 — `damas_sacrificio` e `damas_sobreviver` vão ao ar, e a régua escolhe quais variantes
+
+**Contexto.** Os dois tipos voltaram à mesa por correção do dono (§8k-12,
+14/09/2026): *"Por que estamos deixando o sacrificio e sobreviver de fora? Eu não
+decidi isso. Minha decisão é que deveríamos ter a maior variedade possível de
+desafios, que eles sejam resolvíveis, não se repitam."* Desde então eles ganharam
+receita, i18n nos três idiomas, dois acervos pescados de partidas reais do `des`
+(188 e 112 moldes) e seis vetores de verificação. Faltava a medição.
+
+### A decisão: cinco variantes sobem, uma não
+
+A medição com régua (5.005 s) mediu os dois eixos pela primeira vez:
+
+| variante | candidatos | dias na banda `[0,70; 0,80]` | solução |
+|---|---|---|---|
+| `sacrificio {capturar 2, entregar 1}` | ✅ 3 de 3 | ✅ 2 de 3, erra por **0,03** | 6,1 |
+| `sacrificio {3, 1}` | ✅ 3 de 3 | ✅ 2 de 3, erra por 0,10 (**banal**) | 6,3 |
+| `sacrificio {3, 2}` | ✅ 3 de 3 | ✅ 2 de 3, erra por 0,07 | 7,7 |
+| `sobreviver {lances 8, entregar 2}` | ✅ 3 de 3 | ✅ **3 de 3** | 15,0 |
+| `sobreviver {8, 1}` | ✅ 3 de 3 | ✅ 2 de 3, erra por 0,13 (**duro**) | 15,0 |
+| `sobreviver {10, 2}` | ✅ 3 de 3 | ⛔ **1 de 3**, erra por 0,23 | 19,0 |
+
+⛔ **`{lances: 10, entregar: 2}` é a primeira variante recusada pela RÉGUA, e não
+por falta de candidato.** Pela pergunta antiga — *"gera candidato?"* — as seis
+eram idênticas. Ela custava ainda 1.407 s, a mais cara do catálogo.
+
+**Alternativas consideradas.** (a) Subir as seis: rejeitada, porque a régua
+existe para decidir e recusar nada a tornaria decoração. (b) Subir só a melhor de
+cada tipo: rejeitada, porque uma variante só por tipo é o que o dono mandou
+acabar em 10/09 (*"é muito importante que estes parâmetros variem"*), e porque
+duas variantes são a rede de um dia fraco da outra.
+
+### ⚠️ O relatório de 15/09 era PESSIMISTA, e o defeito era da ferramenta
+
+A primeira rodada com régua mediu só o **primeiro** dos três candidatos. ⛔ O job
+percorre os três e publica o primeiro que cai na banda. Corrigido para imitar o
+job, `{capturar: 3, entregar: 1}` foi de 1 dia bom para 2, e `{2, 1}` também.
+
+⚠️ **Duas perguntas diferentes, e é a segunda que decide o que a pessoa vê:**
+
+    "a variante gera candidato?"   → FOLGA 3 de 3 nas seis
+    "o candidato está calibrado?"  → de 1 a 3 dias de 3, conforme a variante
+
+### As medidas de saída: nos dois tipos, a medida óbvia NÃO pontua
+
+⛔ **Sacrifício:** `material_restante` é `maior_melhor` no catálogo, e aqui perder
+peça é **exigido** — pontuá-la pagaria exatamente a quem não sacrificou nada. É a
+mesma direção virada da `pontinhos_paciencia`, no outro jogo. Pontua
+`material_do_adversario` (0,700, faixa do estado de partida ao alvo) e
+`lances_do_jogador` (0,300).
+
+⛔ **Sobreviver:** `lances_do_jogador` tem direção virada (aguentar mais é
+melhor), e `material_do_adversario` *poderia* pontuar — a direção coincide —,
+mas ⚠️ **ela pagaria por trocar peças, que estando atrás é como se perde**.
+*Resistir não é vencer*, e o XP não pode dizer o contrário do enunciado. Sobra
+`material_restante`, com peso 1,000: como a paciência, o tipo é binário por
+natureza.
+
+### ⛔ E a promoção criou uma duplicata que ninguém escreveu
+
+`damas_armadilha` (proposta de 13/09) **virou** duplicata de `damas_sobreviver`
+no instante em que este subiu: a forma dos dois é a mesma conjunção
+(`lances_do_jogador >= n` + `material_restante >= p`, janela `partida`).
+
+⚠️ **Ela nasceu original** — aquela forma não existia no ar quando foi escrita. E
+é por isso que nenhuma revisão de código pegaria: **o arquivo que mudou não foi o
+dela**. Quem pegou foi `test_nenhuma_proposta_repete_a_CHEGADA_de_um_tipo_que_ja_esta_no_ar`.
+
+⚠️ **O que separaria a armadilha de verdade é vocabulário que não existe:** uma
+janela `turnos_do_adversario` com medida própria, ou um predicado *"nenhuma
+captura disponível"*. ⛔ Predicado é código compilado no aparelho — release, e não
+dado (RF-DES-192). A proposta ficou onde estava, com o aviso na receita.
+
+### Onde isso está
+
+| arquivo | o quê |
+|---|---|
+| `job/tipos_de_desafio.py` | as duas receitas, **movidas** (e os 300 moldes junto) |
+| `job/tipos_propostos.py` | `PROMOVIDAS` +2; aviso de duplicata na `damas_armadilha` |
+| `job/editorial.py` | as duas funções de medidas e as cinco variantes |
+| `scripts/medir_variantes_do_editorial.py` | os dois de `EM_AVALIACAO` para `A_MEDIR` |
+
+⚠️ **`EM_AVALIACAO` ficou vazia**, e é estado legítimo: nenhuma proposta espera
+medição — as que sobram esperam por **acervo**, que é pescaria, não relógio.
+
+⛔ **Nenhuma migração.** Os números 5 e 9 estão na `tb901` desde a `0018`.
