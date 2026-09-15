@@ -91,6 +91,7 @@ from job.espelho_de_damas import com_as_brancas_a_jogar  # noqa: E402
 # orcamentos e o teto de lances tem de ser os MESMOS — um molde pescado com
 # criterio diferente do sorteado produziria uma fila com duas qualidades, e
 # ninguem saberia qual desafio veio de onde.
+from job.moldes_de_damas import MODALIDADES  # noqa: E402
 from scripts.cacar_moldes_damas import (  # noqa: E402
     MINIMO_DE_MODALIDADES,
     TIPOS,
@@ -411,6 +412,25 @@ def _andamento(
     return f"  {nome} {feitas}/{total} ({100 * feitas // total}%) {extra}{previsao}"
 
 
+#: Quantas posicoes sao anunciadas uma a uma no comeco de cada fase.
+#:
+#: ⛔ **ISTO EXISTE PORQUE A FASE 2 PARECEU TRAVADA — e a suspeita era razoavel**
+#: (14/09/2026, o dono: *"o passo 2 esta com este output ja faz um tempo. Sera
+#: que travou?"*).
+#:
+#: ⚠️ **O passo de 25 foi calibrado na fase BARATA e nao serve para a cara.** A
+#: peneira gasta ~1,7 s por posicao, entao 25 delas sao ~45 s de silencio; a
+#: medicao roda **quatro** modalidades com **tres vezes** os nos, e as mesmas 25
+#: viram ~8 minutos. ⛔ E esse silencio comeca logo depois do bloco de resumo da
+#: peneira, que na tela **parece um encerramento** — o script parecia ter
+#: terminado com um relatorio e travado no fim.
+#:
+#: ✅ A cura e dar sinal de vida cedo: as primeiras posicoes saem uma a uma, e so
+#: depois o passo de 25 assume. O log nao cresce (sao cinco linhas), e a duvida
+#: *"esta andando?"* morre no primeiro minuto.
+PRIMEIRAS_ANUNCIADAS = 5
+
+
 def _rodar_fase(
     nome: str,
     funcao,
@@ -435,9 +455,11 @@ def _rodar_fase(
     ):
         anotar(resultado)
         feitas += 1
-        # A cada 25 posicoes, e sempre na ultima: sete horas caladas parecem
-        # travamento, e foi isso que o dono pediu para nao acontecer.
-        if feitas % 25 == 0 or feitas == total:
+        # As primeiras uma a uma (sinal de vida), depois a cada 25, e sempre na
+        # ultima: horas caladas parecem travamento, e foi isso que o dono pediu
+        # para nao acontecer — duas vezes.
+        nesta_vez = feitas - ja_feitas
+        if nesta_vez <= PRIMEIRAS_ANUNCIADAS or feitas % 25 == 0 or feitas == total:
             print(_andamento(nome, feitas, total, ja_feitas, relogio, resumo()), flush=True)
 
 
@@ -612,6 +634,22 @@ def main() -> int:
         # ── Fase 2: a medicao nas quatro modalidades ─────────────────────────
         pendentes = [f for f in aprovadas if f not in diario.medicao]
         if pendentes:
+            # ⛔ **O aviso de entrada nao e enfeite.** Sem ele a tela mostra o
+            # resumo da peneira — que **parece um relatorio final** — e depois
+            # emudece por minutos, enquanto a fase mais cara comeca sem se
+            # anunciar. Foi exatamente assim que a pescaria do sacrificio pareceu
+            # travada em 14/09/2026.
+            #
+            # ⚠️ **E o custo por posicao sobe ~12x aqui**, o que precisa estar na
+            # tela: quatro modalidades em vez de uma, com o triplo dos nos. Quem
+            # acompanha nao tem como saber disso lendo o progresso da peneira.
+            print(
+                f"\n── medicao: {len(pendentes)} posicao(oes) nas "
+                f"{len(MODALIDADES)} modalidades ──\n"
+                "⚠️ Esta fase custa ~12x a peneira por posicao (4 modalidades, "
+                "3x os nos).",
+                flush=True,
+            )
             _rodar_fase(
                 "medicao",
                 _medir_uma,
