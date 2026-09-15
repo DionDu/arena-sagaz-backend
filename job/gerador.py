@@ -60,7 +60,7 @@ from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicao_inicial as posicao_mod
 from . import semente as semente_mod
 from .espelho_de_damas import com_as_brancas_a_jogar
-from .moldes_de_damas import objetivo_no_primeiro_lance
+from .moldes_de_damas import material_de_quem_joga, objetivo_no_primeiro_lance
 from .perfil import NIVEL_POR_PERSONAGEM
 from .tipos_de_desafio import RECEITAS, Receita, receita_de, tipos_do_jogo
 
@@ -864,6 +864,13 @@ def gerar_candidatos(
     # gerador, que e quem tem a posicao.
     depende_da_posicao = editorial_mod.alvo_sai_da_posicao(parametros)
 
+    # ⚠️ **O segundo caminho de parametro relativo, e ele e MUITO mais barato**
+    # (14/09/2026, `damas_sacrificio`). Medir o guloso custa uma partida inteira
+    # contra o personagem do dia; contar as pecas de uma FEN custa um `split`.
+    # ⛔ Por isso os dois sao bandeiras separadas, e nao uma so: juntar faria toda
+    # posicao de damas pagar o preco de uma medicao que ela nao usa.
+    depende_do_material = editorial_mod.alvo_sai_do_material(parametros)
+
     # ⛔ **E quando o alvo sai da posicao, a recusa por erro do adversario SAI DE
     # CENA** (decisao do dono, 12/09/2026).
     #
@@ -995,6 +1002,25 @@ def gerar_candidatos(
             parametros_daqui = editorial_mod.parametros_efetivos(
                 parametros, guloso=guloso
             )
+        elif depende_do_material:
+            # ⚠️ **Conta-se a posicao PUBLICADA, e nao o molde.** `base.fen` ja
+            # traz os lances de variacao, e uma captura durante a variacao muda o
+            # material dos dois lados — pedir *"troque 1 por 3"* com o numero do
+            # molde publicaria uma clausula que nao corresponde ao tabuleiro que
+            # a pessoa ve.
+            try:
+                parametros_daqui = editorial_mod.parametros_efetivos(
+                    parametros, material=material_de_quem_joga(base.fen)
+                )
+            except editorial_mod.MaterialInsuficiente as erro:
+                # ⛔ **Descartar aqui nao deixa o dia descoberto**: o laco segue, e
+                # ha centenas de moldes. ⚠️ Mas a linha sai no log, porque um tipo
+                # cujas posicoes sao quase todas pequenas demais precisa aparecer
+                # como **motivo**, e nao como silencio.
+                print(
+                    f"⚠️ [job] {dt_dia}: posicao descartada — {erro}. FEN {base.fen}"
+                )
+                continue
         else:
             parametros_daqui = dict(parametros)
 

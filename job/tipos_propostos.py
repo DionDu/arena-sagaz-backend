@@ -161,6 +161,128 @@ PROPOSTAS_PONTINHOS: dict[str, Receita] = {
 
 PROPOSTAS_DAMAS: dict[str, Receita] = {
     # ─────────────────────────────────────────────────────────────────────────
+    # ⚠️ **OS DOIS PRIMEIROS NAO PRECISAM DE MIGRACAO** — e isso os separa dos
+    # outros seis. Os numeros 5 e 9 ja estao em `desafio.tb901_tipo_desafio`
+    # desde a `0018`; como o tipo 2 do Pontinhos, eles esperam por uma receita.
+    #
+    # ⛔ **E eles entraram aqui por correcao do dono** (14/09/2026, §8k-12):
+    # *"Por que estamos deixando o sacrificio e sobreviver de fora? Eu nao decidi
+    # isso. Minha decisao e que deveriamos ter a maior variedade possivel de
+    # desafios, que eles sejam resolviveis, nao se repitam."*
+    # ─────────────────────────────────────────────────────────────────────────
+    "damas_sacrificio": Receita(
+        nu_tipo_desafio=5,
+        co_tipo_desafio="damas_sacrificio",
+        co_jogo="damas",
+        co_chave_objetivo="desafioObjetivoSacrificio",
+        # ⚠️ **AS DUAS CLAUSULAS SAO O TIPO, E NENHUMA DELAS SOZINHA E.**
+        #
+        #   `material_do_adversario <= A - capturar`  →  voce comeu N dele
+        #   `material_restante      <= M - entregar`  →  e deu pelo menos uma
+        #
+        # ⛔ A primeira sozinha e `damas_capturar_multipla`, que esta no ar desde
+        # 12/09/2026. E a segunda que diz *"e voce chegou la com menos pecas do
+        # que comecou"* — e e ela que faz o sacrificio ser sacrificio.
+        #
+        # ⚠️ **Por que nao `capturas_extras`,** que era o desenho da primeira
+        # versao deste plano: `capturas_extras` conta `capturas - 1` **por lance**,
+        # entao `>= 2` tanto casa com uma cadeia tripla quanto com duas cadeias
+        # duplas — que somam **quatro** pecas, e nao tres. A frase diria 3 e o
+        # juiz aceitaria 4. ⛔ `material_do_adversario` conta o que sumiu do
+        # tabuleiro, que e exatamente o que a frase promete.
+        #
+        # ⚠️ **A conjuncao nao tem ORDEM, e a frase respeita isso.** O juiz para
+        # no primeiro lance em que as duas valem, sem perguntar qual veio antes;
+        # entao o enunciado fala de **saldo** (*"troque 1 por 3"*) e nao de
+        # sequencia (*"entregue e depois capture"*), que seria uma promessa que o
+        # vocabulario fechado nao sabe cobrar.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("material_do_adversario", "menor_ou_igual", p["resta_ao_adversario"]),
+                _medida("material_restante", "menor_ou_igual", p["resta_a_voce"]),
+            ],
+        },
+        # ⚠️ A frase le os numeros **relativos** (`capturar`/`entregar`), e a
+        # clausula le os absolutos. Os dois convivem no mesmo dicionario porque
+        # `editorial.parametros_efetivos` acrescenta sem apagar.
+        valores_da_frase=lambda p, personagem: {
+            "capturar": p["capturar"],
+            "entregar": p["entregar"],
+            "personagem": personagem,
+        },
+        # ⛔ **Sementes MEDIDAS, e nao acervo.** Sao duas posicoes que a cacada
+        # sintetica aprovou em 14/09/2026 — ⚠️ nenhuma FEN aqui foi escrita a
+        # mao, pela regra de sempre: molde nao se inventa, molde se mede.
+        #
+        # ⚠️ **Duas nao fazem um rodizio.** O acervo de verdade sai da pescaria em
+        # partidas reais, que e o que deu 515 moldes ao `coroar` e 184 a captura:
+        #
+        #     .venv\\Scripts\\python -u scripts\\pescar_moldes_de_partidas.py ^
+        #         fens_reais.json --tipo damas_sacrificio --minimo-pecas 12 ^
+        #         --processos 14 --bloco
+        #
+        # O comentario de cada linha e `modalidades validas/4 · lance medio`.
+        moldes=(
+            "W:W11,22,28,30,31:B2,6,17,20,23,25",   # 3/4 · lance 7.0
+            "W:W10,21,23,29,30:B3,6,19,22,26,27",   # 3/4 · lance 5.0
+        ),
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "damas_sobreviver": Receita(
+        nu_tipo_desafio=9,
+        co_tipo_desafio="damas_sobreviver",
+        co_jogo="damas",
+        co_chave_objetivo="desafioObjetivoSobreviver",
+        # ⛔ **A CLAUSULA DE `lances_do_jogador` E OBRIGATORIA, E FOI DESCOBERTA
+        # MEDINDO** (§8k-10, 13/09/2026). A janela e um **teto**, nunca um piso:
+        # o juiz varre a fita e para no primeiro lance em que a conjuncao vale, e
+        # `material_restante >= 1` ja e verdade antes de a pessoa jogar. Sem o
+        # piso, *"resista 8 lances"* sairia cumprido em **um meio-lance**.
+        #
+        # ⚠️ **E `material_restante >= 1` nao e enfeite**: e ele que diz *"sem
+        # perder"*. Nas damas ficar sem pecas e derrota, entao a clausula e a
+        # traducao literal de "voce ainda esta de pe".
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("lances_do_jogador", "maior_ou_igual", p["lances"]),
+                _medida("material_restante", "maior_ou_igual", 1),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+        # ⚠️ **A pescaria deste procura o CONTRARIO das outras**: posicoes em que
+        # quem joga esta em desvantagem material e ainda assim segura. Todas as
+        # pescarias ate hoje procuraram vantagem, e o filtro e escrito do zero.
+        #
+        # ⛔ **E ha um segundo risco ja identificado**: o solucionador e o Sagaz, e
+        # ele busca **vencer**, nao resistir. Numa posicao perdida os dois
+        # costumam coincidir, mas isso e hipotese, nao medida.
+        #
+        # ⛔ **A DESVANTAGEM NAO PODE SER GRANDE — e as duas primeiras sementes
+        # escritas a mao estavam erradas por isso.** Duas brancas contra quatro
+        # pretas nao resistem: perdem antes do oitavo lance, e o gerador devolve
+        # **zero candidato** (medido em 14/09/2026, com o teto ja corrigido para
+        # 18 meios-lances). As quatro abaixo sairam da cacada, com 5 ou 6 pecas
+        # contra 6 a 8.
+        #
+        # ⚠️ **Todas caem no lance 15**, e isso nao e coincidencia: e o piso
+        # aritmetico de `lances_do_jogador >= 8` quando os dois lados alternam.
+        # ⛔ Neste tipo o "comprimento da solucao" nao mede dificuldade nenhuma —
+        # quem mede e a regua dos mascotes.
+        moldes=(
+            "W:W21,26,30,31,32:B5,7,10,11,14,16,22,24",   # 4/4 · lance 15.0
+            "W:W24,26,29,32:B5,9,10,11,14,17",   # 4/4 · lance 15.0
+            "W:W22,24,28,29,30,32:B6,9,10,12,13,14,15,19",   # 4/4 · lance 15.0
+            "W:W21,22,27,29:B5,9,10,13,14,20",   # 4/4 · lance 15.0
+        ),
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
     "damas_armadilha": Receita(
         nu_tipo_desafio=16,
         co_tipo_desafio="damas_armadilha",
@@ -339,6 +461,11 @@ PROPOSTAS: dict[str, Receita] = {**PROPOSTAS_PONTINHOS, **PROPOSTAS_DAMAS}
 #: quem escolhe os numeros do dia e o gerador, contra a regua dos mascotes.
 PARAMETROS_DE_EXEMPLO: Mapping[str, dict[str, Any]] = {
     "pontinhos_escada_em_um_turno": {"caixas": 4},
+    # ⚠️ **Estes dois sao RELATIVOS**, e por isso passam por
+    # `editorial.parametros_efetivos` antes de chegar a receita: o que `montar`
+    # recebe e `resta_ao_adversario`/`resta_a_voce`, calculados na posicao.
+    "damas_sacrificio": {"capturar": 3, "entregar": 1},
+    "damas_sobreviver": {"lances": 8},
     "damas_armadilha": {"turnos": 2, "pecas": 3},
     "damas_dupla_coroacao": {"lances": 8},
     "damas_limpeza": {"lances": 5, "restam": 1},

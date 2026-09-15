@@ -21,6 +21,66 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-14 (noite, 3) — O sacrifício e o sobreviver saem do papel, e nasce o alvo que vem do material
+
+**Contexto.** O dono corrigiu o agrupamento que eu tinha feito: *"Por que estamos
+deixando o sacrificio e sobreviver de fora? Eu não decidi isso. Minha decisão é
+que deveríamos ter a maior variedade possível de desafios, que eles sejam
+resolvíveis, não se repitam."* Os dois tipos (5 e 9) já tinham linha na `tb901`
+desde a `0018` e esperavam apenas por uma receita.
+
+### Decisão 1 — o alvo que sai do MATERIAL, irmão do `acima_do_guloso`
+
+`damas_sacrificio` pede *"troque 1 peça por 3"*, e isso é uma afirmação sobre
+**quanto sobrou dos dois lados**. O editorial publica `{capturar: 3, entregar: 1}`
+e o gerador, que tem a posição, traduz em tetos absolutos
+(`material_do_adversario <= A - 3`, `material_restante <= M - 1`).
+
+**Alternativa considerada e recusada:** escrever `material_restante <= 4` à mão no
+editorial. ⛔ Os moldes reais têm de 5 a 12 peças por lado, então um teto fixo
+publicaria ora um desafio que já nasce cumprido, ora um impossível - e **nenhum
+dos dois dá erro**: o primeiro vira desafio de um toque, o segundo vira dia
+descoberto semanas depois.
+
+⚠️ E `MaterialInsuficiente` sobe em vez de produzir uma cláusula impossível: o
+gerador descarta a tentativa **com uma linha no log**, e a pescaria conta o
+descarte como motivo próprio, em vez de o confundir com *"o Sagaz não resolveu"*.
+
+### Decisão 2 — a chegada do sacrifício conta MATERIAL, e não `capturas_extras`
+
+O primeiro desenho usava `capturas_extras >= 2`. ⛔ Ela conta `capturas - 1` **por
+lance**, então `>= 2` casa tanto com uma cadeia tripla quanto com duas cadeias
+duplas - que somam **quatro** peças. A frase diria 3 e o juiz aceitaria 4.
+
+⚠️ **E o enunciado mudou junto:** *"Entregue uma peça e capture 3"* promete uma
+**ordem**, e a conjunção de chegada não sabe cobrar ordem - o juiz para no
+primeiro lance em que as duas cláusulas valem. O texto publicado é *"Troque 1 peça
+por 3 de Pita"*, que fala do saldo, que é o que se mede.
+
+### Três coisas que só apareceram medindo
+
+1. ⛔ **O teto de meios-lances é o botão do `sobreviver`.** `lances: 8` são 16
+   meios-lances, e o padrão é 12: medir sem mexer nele devolve zero candidato por
+   aritmética. É o defeito nº 1 da caçada de moldes se repetindo cinco dias
+   depois, num tipo novo - por isso agora há `TETO_POR_TIPO`.
+2. ⛔ **A desvantagem do `sobreviver` não pode ser grande.** As duas primeiras
+   sementes (2 brancas contra 4 pretas) davam **zero candidato**: não resistem,
+   perdem antes do oitavo lance. Medido: 5 contra 7 resistiu em 6 de 6.
+3. ⛔ **Neste tipo, "em que lance o objetivo cai" não mede nada** - ele cai sempre
+   em 15 meios-lances, o piso aritmético da janela. Quem julga é a régua.
+
+### O estado
+
+✅ Os dois geram **3 candidatos de 3**: `sobreviver` em 15 meios-lances (a tarefa
+mais longa das damas) e `sacrificio` em 9 a 11. As chaves de i18n entraram nos
+três `.arb` - é o item de caminho mais longo, porque viaja numa release.
+
+⏳ **O que falta é acervo**, e nada de código: são 2 e 4 moldes-semente, todos
+medidos, nenhum escrito à mão. O plano e os comandos estão em
+`../arena-sagaz-frontend/specs/009-desafio-do-dia/PLANO-sacrificio-e-sobreviver.md`.
+
+---
+
 ## 2026-09-14 (noite, 2) — A rodada do Pontinhos, e a variante que veio de graça
 
 O dono rodou a RODADA 3 (`pontinhos`, 725 s) e aplicou a migração `0024` no `des`

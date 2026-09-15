@@ -420,6 +420,62 @@ EM_AVALIACAO: dict[str, tuple[Candidata, ...]] = {
     # ⛔ **`pontinhos_escada_em_um_turno` NAO esta aqui, e nao e esquecimento:**
     # a sonda mostrou que ele e **duplicata do `pontinhos_cadeia_longa`**, que ja
     # esta no ar. Ver o aviso na receita dele, em `job/tipos_propostos.py`.
+    #
+    # ═══════════════════════════════════════════════════════════════════════
+    # DAMAS — os dois que o dono mandou trazer de volta (14/09/2026, §8k-12)
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⛔ **ESTES DOIS AINDA NAO TEM ACERVO, e isso muda como se le o resultado.**
+    # Os outros tipos de damas medem contra centenas de moldes pescados de
+    # partidas reais; estes dois medem contra **duas sementes escritas a mao**.
+    #
+    # ⚠️ Entao um numero baixo aqui pode ser da variante **ou** do acervo, e nao
+    # ha como saber qual — exatamente o que aconteceu com o `capturar_multipla`
+    # em 11/09, quando 29 moldes sinteticos deram todos a mesma solucao de 3
+    # lances e a conclusao *"o jogo nao permite"* estava errada: era a fonte.
+    #
+    # ✅ **O que esta medicao serve para responder, e ja e muito:** a variante
+    # gera? a solucao tem o comprimento que a frase promete? o rotulo e plausivel?
+    # ⛔ **O que ela NAO responde:** se a variante aguenta o rodizio — isso so
+    # depois da pescaria.
+    # ─────────────────────────────────────────────────────────────────────────
+    # ⚠️ *"Troque {entregar} peca por {capturar} de {personagem}."*
+    #
+    # ⛔ **A primeira variante de damas com numero RELATIVO A POSICAO.** O
+    # editorial publica `{capturar: 3, entregar: 1}`, e o gerador conta as pecas
+    # da posicao para chegar aos tetos absolutos — como `acima_do_guloso` faz com
+    # o guloso no Pontinhos. Ver `tests/unitarios/test_alvo_pelo_material.py`.
+    #
+    # ⚠️ **A de `capturar: 2` e a linha de comparacao**: se ela tambem sair fraca,
+    # o problema e o acervo; se so a de 3 cair, o problema e o numero.
+    "damas_sacrificio": (
+        Candidata({"capturar": 3, "entregar": 1}),
+        Candidata({"capturar": 2, "entregar": 1}),
+        Candidata({"capturar": 3, "entregar": 2}),
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    # ⚠️ *"Resista {lances} lances sem perder contra {personagem}."*
+    #
+    # ⛔ **O TETO DE MEIOS-LANCES E O BOTAO DESTE TIPO, e nao o enunciado.**
+    # `lances: 8` sao 16 meios-lances no melhor dos casos, e o teto padrao e
+    # **12** — medir sem mexer nele devolveria zero candidato por aritmetica, que
+    # e o defeito nº 1 da cacada de moldes se repetindo num tipo novo.
+    #
+    # ⚠️ **E a janela deste tipo nao e folga, ao contrario das outras.** Em
+    # `damas_coroar`, esticar `lances` de 6 para 10 nao muda nada (o objetivo cai
+    # em ~3,4 lances do jogador de qualquer jeito). Aqui `lances` **e** a tarefa:
+    # cada unidade a mais e um lance a mais de resistencia, e o objetivo cai
+    # sempre exatamente no ultimo — ⛔ por isso o "comprimento da solucao" que
+    # este script imprime nao diz nada sobre este tipo, e quem o julga e o rotulo.
+    #
+    # ⚠️ Medido em 14/09/2026, com o Sagaz jogando os dois lados: a desvantagem
+    # nao pode ser grande. 2-3 pecas contra 5-6 **perdem antes do oitavo lance**;
+    # 5 contra 7 resistiram em 6 de 6 sondagens.
+    "damas_sobreviver": (
+        Candidata({"lances": 8}, nu_maximo_de_meios_lances=18),
+        Candidata({"lances": 6}, nu_maximo_de_meios_lances=14),
+        Candidata({"lances": 10}, nu_maximo_de_meios_lances=22),
+    ),
 }
 
 def receita_em_avaliacao_de(co_tipo: str):

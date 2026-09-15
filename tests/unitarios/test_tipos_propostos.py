@@ -71,9 +71,21 @@ MEDIDAS_DAS_DAMAS = _medidas_que_as_damas_produzem()
 
 
 def _chegada(co_tipo: str) -> dict:
-    """Monta o `js_chegada` de uma proposta com os parametros de exemplo."""
+    """Monta o `js_chegada` de uma proposta com os parametros de exemplo.
+
+    ⚠️ **Passa por `parametros_para_conferencia`**, e nao direto pela receita:
+    ha propostas cujos numeros sao **relativos a posicao** (`acima_do_guloso`) ou
+    ao **material** (`capturar`/`entregar`, do `damas_sacrificio`), e elas nao
+    sabem montar nada sem que alguem resolva a conta. ⛔ Chamar `montar` cru
+    levantaria `KeyError` numa proposta bem formada — o teste reprovaria a
+    ferramenta, e nao a proposta.
+    """
+    from job import editorial as editorial_mod
+
     receita = PROPOSTAS[co_tipo]
-    return receita.montar(PARAMETROS_DE_EXEMPLO[co_tipo])
+    return receita.montar(
+        editorial_mod.parametros_para_conferencia(PARAMETROS_DE_EXEMPLO[co_tipo])
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -122,15 +134,64 @@ def test_nenhuma_proposta_repete_tipo_existente():
     assert not set(PROPOSTAS) & set(RECEITAS)
 
 
-def test_os_numeros_sugeridos_nao_colidem():
-    """⚠️ Os 10 primeiros ja existem na `0018`.
+def _dimensao_da_migracao() -> dict[int, str]:
+    """Os pares `numero -> codigo` semeados em `desafio.tb901_tipo_desafio`.
 
-    ⛔ Estes numeros sao **sugestao**: quem os fixa e a migracao que o dono
-    aprovar. O que este caso garante e que a sugestao nao nasce quebrada.
+    ⚠️ **Lidos da migracao, e nao escritos aqui.** Uma copia a mao envelheceria
+    calada, e o cadeado abaixo passaria a comparar a proposta com uma dimensao
+    que nao existe mais — o defeito que `leitura_de_migracao.py` documenta.
+    """
+    import re
+    from pathlib import Path
+
+    from tests.unitarios.leitura_de_migracao import sql_da_migracao
+
+    # `parents[2]` sobe de `tests/unitarios/` para a raiz do backend.
+    raiz = Path(__file__).resolve().parents[2]
+    sql = sql_da_migracao(
+        raiz / "migrations" / "versions" / "0018_schema_desafio.py"
+    )
+    # As linhas semeadas tem a forma `( 5, 'damas_sacrificio', 'Sacrificio', 'damas')`.
+    return {
+        int(numero): codigo
+        for numero, codigo in re.findall(
+            r"\(\s*(\d+),\s*'([a-z_]+)',\s*'[^']*',\s*'(?:pontinhos|damas)'\)", sql
+        )
+    }
+
+
+def test_os_numeros_sugeridos_nao_colidem():
+    """⚠️ Os 10 primeiros ja existem na `0018` — e DOIS deles sao propostas daqui.
+
+    ⛔ **Nem toda proposta precisa de migracao, e ate 14/09/2026 este caso dizia
+    que sim** (`min(numeros) >= 11`). `damas_sacrificio` (5) e `damas_sobreviver`
+    (9) ja tem linha na dimensao desde a `0018`: como o tipo 2 do Pontinhos, eles
+    esperavam por uma **receita**, e nao por uma migracao.
+
+    ⚠️ Entao a regra passou a ser mais forte, e nao mais fraca: um numero abaixo
+    de 11 so vale se o **codigo tambem bater** com o que a migracao semeou. Um
+    `nu_tipo_desafio=5` com outro `co_tipo_desafio` publicaria um desafio cujo
+    numero diz uma coisa e cujo codigo diz outra — ⛔ e o `JOIN` com a dimensao
+    devolveria a linha errada, sem erro nenhum.
     """
     numeros = [r.nu_tipo_desafio for r in PROPOSTAS.values()]
     assert len(numeros) == len(set(numeros)), "numero repetido entre propostas"
-    assert min(numeros) >= 11, "numero abaixo de 11 colide com a dimensao atual"
+
+    dimensao = _dimensao_da_migracao()
+    assert dimensao, "a leitura da `0018` nao achou as linhas semeadas"
+
+    for co_tipo, receita in PROPOSTAS.items():
+        numero = receita.nu_tipo_desafio
+        if numero in dimensao:
+            assert dimensao[numero] == co_tipo, (
+                f"⛔ {co_tipo} pede o numero {numero}, que a `0018` ja deu a "
+                f"{dimensao[numero]!r}"
+            )
+        else:
+            assert numero >= 11, (
+                f"⛔ {co_tipo} usa o numero {numero}, abaixo de 11 e sem linha "
+                "correspondente na dimensao"
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -318,8 +379,11 @@ def test_NENHUM_tipo_proposto_e_cumprido_por_quem_nao_fez_NADA(co_tipo, receita)
     pessoa faz um lance qualquer, e a tela diz que ela cumpriu. Nada acusa - o
     desafio e valido, gera gabarito e passa por toda a pipeline.
     """
-    parametros = PARAMETROS_DE_EXEMPLO[co_tipo]
-    chegada = LinhaDeChegada.de_dado(receita.montar(parametros))
+    # ⚠️ Pelo `_chegada`, e nao por `receita.montar` cru: ha propostas de numero
+    # relativo (`damas_sacrificio`), e o material de exemplo que ele usa e o mesmo
+    # tabuleiro cheio de `MEDIDAS_DE_QUEM_NAO_JOGOU` — as duas metades do cadeado
+    # descrevem a MESMA posicao inicial, que e o que lhe da sentido.
+    chegada = LinhaDeChegada.de_dado(_chegada(co_tipo))
 
     assert not avaliar(chegada, MEDIDAS_DE_QUEM_NAO_JOGOU), (
         f"⛔ {co_tipo} e cumprido por quem nao fez nada. Junte uma clausula de "
@@ -348,8 +412,7 @@ def test_e_nenhum_tipo_NO_AR_tambem_e_cumprido_por_quem_nao_fez_nada(co_tipo):
         # ⚠️ `acima_do_guloso` so vira numero depois de o gerador medir o guloso
         # na posicao; aqui um valor qualquer basta, porque o que se testa e a
         # FORMA da conjuncao.
-        if editorial_mod.alvo_sai_da_posicao(parametros):
-            parametros = editorial_mod.parametros_efetivos(parametros, guloso=3)
+        parametros = editorial_mod.parametros_para_conferencia(parametros)
 
         chegada = LinhaDeChegada.de_dado(RECEITAS[co_tipo].montar(parametros))
         assert not avaliar(chegada, MEDIDAS_DE_QUEM_NAO_JOGOU), (
@@ -409,13 +472,12 @@ def test_nenhuma_proposta_repete_a_CHEGADA_de_um_tipo_que_ja_esta_no_ar():
     for co_tipo, receita in RECEITAS.items():
         for variante in editorial_mod.variantes_de(co_tipo):
             parametros = dict(variante.parametros)
-            if editorial_mod.alvo_sai_da_posicao(parametros):
-                parametros = editorial_mod.parametros_efetivos(parametros, guloso=3)
+            parametros = editorial_mod.parametros_para_conferencia(parametros)
             no_ar[forma(receita.montar(parametros))] = co_tipo
 
     repetidos = []
     for co_tipo, receita in PROPOSTAS.items():
-        f = forma(receita.montar(PARAMETROS_DE_EXEMPLO[co_tipo]))
+        f = forma(_chegada(co_tipo))
         if f in no_ar:
             repetidos.append(f"{co_tipo} julga igual a {no_ar[f]}")
 

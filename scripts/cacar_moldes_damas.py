@@ -84,11 +84,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from job import editorial as editorial_mod  # noqa: E402
 from job.moldes_de_damas import (  # noqa: E402
     MODALIDADES,
+    material_de_quem_joga,
     objetivo_no_primeiro_lance,
 )
 from job import posicao_inicial as pos  # noqa: E402
 from job import semente as sem  # noqa: E402
-from job.tipos_de_desafio import receita_de  # noqa: E402
+from job.tipos_de_desafio import RECEITAS, Receita, receita_de  # noqa: E402
+from job.tipos_propostos import PROPOSTAS  # noqa: E402
 from motores.damas.motor_damas import EstadoDamas, MotorDamas  # noqa: E402
 from motores.juiz import julgar_desafio  # noqa: E402
 from motores.nucleo.orcamento import Orcamento  # noqa: E402
@@ -113,6 +115,29 @@ LANCE_MINIMO = 3
 #: que o gerador usa em producao. Um teto diferente aqui aprovaria molde que la
 #: nao gera — foi exatamente o defeito da primeira versao.
 TETO_DE_LANCES = editorial_mod.MAXIMO_DE_MEIOS_LANCES_PADRAO
+
+#: Os tipos cuja janela NAO cabe no teto padrao, e o teto que eles exigem.
+#:
+#: ⛔ **E o defeito nº 1 desta ferramenta, de volta num tipo novo.** A primeira
+#: cacada (10/09/2026) aprovou zero moldes porque o teto de 12 meios-lances
+#: ficava **abaixo** da janela do tipo: os dois lados alternam, entao 12
+#: meios-lances sao ~6 lances do jogador, e a janela nunca podia fechar.
+#:
+#: ⚠️ `damas_sobreviver` pede `lances_do_jogador >= 8`, que sao **16
+#: meios-lances** no melhor dos casos. Com o teto padrao ele reprovaria por
+#: aritmetica — ⛔ e o log diria *"nao cumpriu no teto"*, que e indistinguivel
+#: de *"o jogo nao permite"*.
+#:
+#: ⚠️ **O numero tem de bater com o do editorial** quando a variante subir: e o
+#: mesmo par que `damas_coroar {damas:2, lances:8}` usa (teto 16).
+TETO_POR_TIPO: Mapping[str, int] = {
+    "damas_sobreviver": 18,
+}
+
+
+def teto_do_tipo(co_tipo: str) -> int:
+    """Quantos meios-lances a busca pode gastar neste tipo."""
+    return TETO_POR_TIPO.get(co_tipo, TETO_DE_LANCES)
 
 #: Orcamento da PENEIRA (fase 1): barato, so para separar o que merece a medicao
 #: cara. Um falso negativo aqui custa um molde perdido; um falso positivo custa
@@ -149,10 +174,59 @@ SEGUNDOS_DA_MEDICAO = 60.0
 SEMENTE_DA_BUSCA = 777
 
 #: Os tipos cacados, com os parametros com que o editorial os publica hoje.
+#:
+#: ⚠️ **Os dois ultimos ainda NAO estao no ar** (14/09/2026): sao propostas em
+#: `job/tipos_propostos.py`, e e justamente por isso que aparecem aqui — sem
+#: acervo nao ha o que medir, e sem medicao eles nao sobem. ⛔ A ordem e sempre
+#: essa: **moldes, depois medicao de variantes, depois promocao**.
 TIPOS: dict[str, Mapping[str, Any]] = {
     "damas_coroar": {"damas": 1, "lances": 6},
     "damas_capturar_multipla": {"pecas": 2, "lances": 4},
+    "damas_sacrificio": {"capturar": 3, "entregar": 1},
+    "damas_sobreviver": {"lances": 8},
 }
+
+
+def receita_do_tipo(co_tipo: str) -> Receita:
+    """A receita do tipo, esteja ela **no ar** ou ainda **em proposta**.
+
+    ⚠️ **A cacada precisa dos dois mundos, e isso e proprio dela.** O gerador so
+    conhece `RECEITAS`, e isso e um cadeado (`test_gerador_de_candidatos.py`
+    prova que o job nunca pede uma receita em avaliacao). Aqui e o contrario: um
+    tipo so chega a `RECEITAS` **depois** de ter moldes, e moldes so existem
+    depois desta cacada. ⛔ Exigir a promocao antes da medicao seria exigir que o
+    tipo subisse sem prova — a regra que este projeto mais protege.
+    """
+    if co_tipo in RECEITAS:
+        return receita_de(co_tipo)
+    return PROPOSTAS[co_tipo]
+
+
+def chegada_da_posicao(
+    co_tipo: str, parametros: Mapping[str, Any], fen: str
+) -> dict[str, Any]:
+    """A `js_chegada` desta posicao, com os parametros relativos ja resolvidos.
+
+    Args:
+        co_tipo: o tipo cacado.
+        parametros: os do editorial — podem ser relativos (`capturar`/`entregar`).
+        fen: a posicao, de onde sai o material dos dois lados.
+
+    Raises:
+        editorial.MaterialInsuficiente: a posicao nao comporta o pedido.
+
+    ⛔ **A chegada e por POSICAO, e nao por tipo**, desde que `damas_sacrificio`
+    entrou. Montar uma vez so, fora do laco, publicaria o mesmo teto de material
+    em moldes de 5 e de 12 pecas — ⚠️ e o de 12 sairia trivial enquanto o de 5
+    sairia impossivel, os dois sem erro nenhum.
+    """
+    if editorial_mod.alvo_sai_do_material(parametros):
+        efetivos = editorial_mod.parametros_efetivos(
+            parametros, material=material_de_quem_joga(fen)
+        )
+    else:
+        efetivos = dict(parametros)
+    return receita_do_tipo(co_tipo).montar(efetivos)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -220,9 +294,110 @@ def candidatas_para_capturar(sorteio: random.Random, quantas: int) -> Iterator[s
         yield _fen(brancas, sorted(pretas))
 
 
+def candidatas_para_sacrificio(sorteio: random.Random, quantas: int) -> Iterator[str]:
+    """Posicoes com pretas agrupadas E uma branca exposta — a isca.
+
+    ⚠️ **Um sacrificio precisa das DUAS metades no tabuleiro**, e e isso que
+    separa esta forma da do `capturar_multipla`:
+
+      1. **o grupo de pretas**, sem o qual nao ha o que capturar em cadeia;
+      2. **uma branca adiantada e sozinha**, que a preta e obrigada a comer — e
+         ao comer ela se muda para a casa que fecha a cadeia.
+
+    ⛔ **E o material dos dois lados precisa ser FOLGADO**, o que nao vale para
+    os outros tipos: a chegada pede `capturar: 3` e `entregar: 1`, entao um molde
+    com tres pretas publicaria *"capture 3"* com o tabuleiro inteiro do
+    adversario em jogo — e `editorial.MaterialInsuficiente` recusaria qualquer
+    coisa abaixo disso. Aqui nascem cinco de cada lado.
+
+    ⚠️ **A sintese vale POUCO aqui, e isso esta medido em outro tipo.** Em
+    11/09/2026 o `capturar_multipla` sintetico deu 29 moldes, todos de 3 lances;
+    as posicoes reais do `prd` deram 184, com 87 de 4 lances ou mais — a diferenca
+    era a **fonte**, e nao o jogo. ⛔ Esta funcao existe para a cacada nao ficar
+    sem candidata nenhuma; o acervo do sacrificio sai da pescaria.
+    """
+    for _ in range(quantas):
+        # O nucleo do agrupamento das pretas, e duas vizinhas de salto.
+        nucleo = sorteio.randint(13, 22)
+        pretas = {nucleo}
+        for salto in sorteio.sample([-5, -4, -3, 3, 4, 5], 3):
+            alvo = nucleo + salto
+            if 1 <= alvo <= 32:
+                pretas.add(alvo)
+        # Duas pretas de retaguarda, para o adversario ter as 3 que o desafio
+        # manda capturar e ainda sobrar tabuleiro.
+        for casa in sorteio.sample(range(1, 10), 2):
+            pretas.add(casa)
+        if len(pretas) < 5:
+            continue  # agrupamento ralo: a cadeia nao se forma
+
+        # ⚠️ **A isca vai a FRENTE do grupo**, e nao atras: uma branca em 9..12
+        # esta ao alcance de uma preta do miolo, que e obrigada a captura-la.
+        iscas = [c for c in range(9, 13) if c not in pretas]
+        if not iscas:
+            continue
+        isca = sorteio.choice(iscas)
+        # E a retaguarda branca, de onde o contra-ataque parte depois da isca.
+        livres = [c for c in range(21, 33) if c not in pretas and c != isca]
+        if len(livres) < 4:
+            continue
+        brancas = [isca, *sorteio.sample(livres, 4)]
+        if set(brancas) & set(pretas):
+            continue
+        yield _fen(brancas, sorted(pretas))
+
+
+def candidatas_para_sobreviver(sorteio: random.Random, quantas: int) -> Iterator[str]:
+    """Posicoes em DESVANTAGEM — as unicas da cacada que procuram o contrario.
+
+    ⛔ **Todas as pescarias ate hoje procuraram vantagem**, e esta e a primeira
+    que procura estar pior: o tipo pede *"resista 8 lances sem perder"*, e resistir
+    de uma posicao confortavel nao e resistir — e esperar.
+
+    ⚠️ **A desvantagem e de MATERIAL, e nao de posicao**, porque e a unica que se
+    escreve sem opinar. Julgar "posicao ruim" exigiria um avaliador, e ai a cacada
+    estaria medindo o gosto de quem a escreveu.
+
+    ⛔ **E A DESVANTAGEM NAO PODE SER GRANDE — isto foi medido, e a primeira
+    forma estava errada** (14/09/2026). Duas ou tres brancas contra cinco ou seis
+    pretas nao produzem resistencia: produzem **derrota antes do oitavo lance**,
+    e a cacada anota `partida_acabou`, que e o motivo certo pela razao errada.
+    Com o Sagaz jogando os dois lados e 8 lances de janela:
+
+        2-3 minhas x +2/+3     1 de 3 sobreviveu
+        4 x 6                  5 de 6
+        5 x 7                  6 de 6
+        6 x 8                  5 de 6
+        5 x 6                  5 de 6
+
+    ⚠️ **E "sobreviveu" AQUI nao quer dizer "e um bom desafio".** Este tipo cai
+    sempre no lance 8 — e o minimo aritmetico da janela —, entao ⛔ **o criterio
+    de trivialidade dos outros tipos (`LANCE_MINIMO`) nao diz nada sobre ele**.
+    O que separa o dificil do banal e **quantos mascotes conseguem**, e isso quem
+    mede e a regua, em `scripts/medir_variantes_do_editorial.py`. A cacada aqui
+    responde a uma pergunta so, e mais modesta: *"desta posicao, da para
+    resistir?"* — porque um molde de onde **nao** da produz desafio impossivel.
+    """
+    for _ in range(quantas):
+        quantas_minhas = sorteio.randint(4, 6)
+        quantas_dele = quantas_minhas + sorteio.randint(2, 3)
+        # As brancas ficam atras, encolhidas: e de la que se resiste.
+        brancas = sorteio.sample(range(21, 33), quantas_minhas)
+        # As pretas vem a frente, ja adiantadas — perto de coroar, que e o que
+        # torna a resistencia urgente.
+        pretas = sorteio.sample(
+            [c for c in range(5, 25) if c not in brancas], quantas_dele
+        )
+        if set(brancas) & set(pretas):
+            continue
+        yield _fen(brancas, sorted(pretas))
+
+
 CANDIDATAS = {
     "damas_coroar": candidatas_para_coroar,
     "damas_capturar_multipla": candidatas_para_capturar,
+    "damas_sacrificio": candidatas_para_sacrificio,
+    "damas_sobreviver": candidatas_para_sobreviver,
 }
 
 
@@ -285,11 +460,21 @@ def resolve(
         motivos[f"montagem:{type(erro).__name__}"] += 1
         return None
 
-    js_chegada = receita_de(co_tipo).montar(parametros)
+    # ⚠️ Depois da montagem da posicao, e nao antes: a chegada dos tipos de
+    # material depende das pecas que estao no tabuleiro.
+    try:
+        js_chegada = chegada_da_posicao(co_tipo, parametros, fen)
+    except editorial_mod.MaterialInsuficiente:
+        # ⛔ Motivo proprio, e nao "nao cumpriu": a posicao nunca teve chance, e
+        # confundir as duas coisas faria a distribuicao final mentir sobre o jogo.
+        motivos["material_insuficiente"] += 1
+        return None
+
     fita: list[dict[str, Any]] = []
     atual = estado
 
-    for numero in range(1, TETO_DE_LANCES + 1):
+    # ⚠️ O teto e POR TIPO: `damas_sobreviver` nao cabe nos 12 do padrao.
+    for numero in range(1, teto_do_tipo(co_tipo) + 1):
         try:
             lance = motor.escolher_lance(
                 atual,
@@ -554,15 +739,20 @@ def cacar(
 
 
 def main() -> int:
-    """Caca moldes para os dois tipos e imprime o que passou, pronto para colar.
+    """Caca moldes e imprime o que passou, pronto para colar.
 
     Uso:
 
-        python scripts/cacar_moldes_damas.py [quantas] [--processos N]
+        python scripts/cacar_moldes_damas.py [quantas] [--processos N] [--tipo T]
 
     ⚠️ **Sem `--processos`, usa todos os nucleos menos dois** — ver
     `processos_padrao()`. `--processos 1` roda em sequencia, que e o modo de
     depurar: o rastro de uma excecao aparece inteiro.
+
+    ⚠️ **`--tipo` passou a existir em 14/09/2026**, quando a cacada deixou de
+    ter dois tipos e passou a ter quatro. ⛔ Sem ele, pedir moldes do sacrificio
+    obrigaria a recacar os dois tipos que ja tem acervo — quase uma hora de CPU
+    para reconfirmar o que ja esta em `tipos_de_desafio.py`.
     """
     argumentos = sys.argv[1:]
     processos = processos_padrao()
@@ -571,10 +761,22 @@ def main() -> int:
         processos = max(1, int(argumentos[onde + 1]))
         del argumentos[onde : onde + 2]
 
+    escolhidos = list(TIPOS)
+    if "--tipo" in argumentos:
+        onde = argumentos.index("--tipo")
+        pedido = argumentos[onde + 1]
+        # ⛔ Falha alto, e com a lista: um nome errado silenciosamente ignorado
+        # faria a cacada terminar em zero segundos parecendo que nada serve.
+        if pedido not in TIPOS:
+            print(f"⛔ tipo desconhecido: {pedido!r}. Ha: {', '.join(TIPOS)}")
+            return 2
+        escolhidos = [pedido]
+        del argumentos[onde : onde + 2]
+
     quantas = int(argumentos[0]) if argumentos else 150
 
     aprovados: dict[str, list[tuple[int, float, str]]] = {}
-    for co_tipo in TIPOS:
+    for co_tipo in escolhidos:
         print(f"\n{'=' * 70}\n{co_tipo}\n{'=' * 70}")
         aprovados[co_tipo] = cacar(co_tipo, quantas, processos=processos)
 

@@ -146,8 +146,25 @@ class Publicacao:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# O alvo que NAO vem daqui: `acima_do_guloso`
+# OS ALVOS QUE NAO VEM DAQUI: `acima_do_guloso` e o material das damas
 # ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Sao dois mecanismos com a mesma forma, e um deles e novo (14/09/2026).**
+# O editorial publica uma variante escrita em vocabulario **relativo**, e quem a
+# traduz para numero absoluto e quem tem a posicao na mao — o gerador.
+#
+#     acima_do_guloso: 2   →   caixas: G + 2          (mede-se o guloso)
+#     capturar: 3          →   resta_ao_adversario: A - 3   (contam-se as pecas)
+#     entregar: 1          →   resta_a_voce:        M - 1   (idem)
+#
+# ⛔ **Por que o segundo precisou existir.** O `damas_sacrificio` pede *"troque
+# uma peca por tres"*, e isso e uma afirmacao sobre **quanto sobrou dos dois
+# lados**. Escrever `material_restante <= 4` a mao no editorial valeria para um
+# molde e mentiria em todos os outros: os moldes pescados de partidas reais tem
+# material de 5 a 12 pecas por lado, entao um teto fixo publicaria ora um desafio
+# impossivel, ora um que ja nasce cumprido. ⚠️ **E nenhum dos dois daria erro** —
+# o impossivel vira dia descoberto semanas depois, e o cumprido vira desafio de
+# um toque.
 
 #: A chave cujo numero e **relativo a posicao**, e nao absoluto.
 #:
@@ -155,6 +172,20 @@ class Publicacao:
 #: (*"capture 7 ou mais"*); quem joga nunca ve a palavra "guloso", que seria
 #: ininteligivel — ele nao sabe o que um jogador guloso faria naquela posicao.
 CHAVE_RELATIVA_AO_GULOSO = "acima_do_guloso"
+
+#: Quantas pecas do adversario o desafio pede que se tire do tabuleiro.
+#:
+#: ⚠️ **Tambem e vocabulario interno**, e pela mesma razao: a frase diz *"capture
+#: 3 de Pita"*, e a clausula diz `material_do_adversario <= A - 3`. Quem joga ve
+#: o que fez; o juiz conta o que sobrou.
+CHAVE_CAPTURAR = "capturar"
+
+#: Quantas pecas **proprias** o desafio admite perder — e, no sacrificio, EXIGE.
+#:
+#: ⛔ **E ela que faz o sacrificio ser sacrificio.** Sem esta clausula o tipo e
+#: `damas_capturar_multipla` com outro nome: capturar tres sem dar nada e o
+#: desafio que ja esta no ar desde 12/09/2026.
+CHAVE_ENTREGAR = "entregar"
 
 #: Um `G` plausivel, para as conferencias que rodam SEM uma posicao.
 #:
@@ -164,21 +195,63 @@ CHAVE_RELATIVA_AO_GULOSO = "acima_do_guloso"
 #: guloso medido na propria posicao.
 GULOSO_DE_EXEMPLO = 5
 
+#: Um material plausivel, pelo mesmo motivo e com a mesma ressalva.
+#:
+#: ⚠️ **E o tabuleiro CHEIO (12 x 12), de proposito**, e nao a media dos moldes.
+#: O cadeado que mais depende deste numero e o de *"ninguem cumpre sem jogar"*
+#: (`test_tipos_propostos.py`), e ele avalia a chegada contra as medidas de quem
+#: ainda nao fez um lance — onde o material tambem esta cheio. ⛔ Com dois numeros
+#: diferentes o teste continuaria verde, mas por comparar duas posicoes que nao
+#: existem juntas: passaria a provar menos do que o nome dele promete.
+MATERIAL_DE_EXEMPLO = (12, 12)
+
 
 def alvo_sai_da_posicao(parametros: Mapping[str, Any]) -> bool:
     """Esta variante calcula o alvo a partir da posicao?"""
     return CHAVE_RELATIVA_AO_GULOSO in parametros
 
 
+def alvo_sai_do_material(parametros: Mapping[str, Any]) -> bool:
+    """Esta variante calcula o alvo contando as pecas do tabuleiro?"""
+    return CHAVE_CAPTURAR in parametros or CHAVE_ENTREGAR in parametros
+
+
+class MaterialInsuficiente(ValueError):
+    """A posicao nao tem pecas suficientes para o que a variante pede.
+
+    ⚠️ **Nao e defeito: e uma posicao que nao serve.** Pedir *"capture 3"* num
+    molde onde o adversario tem duas pecas produziria a clausula
+    `material_do_adversario <= -1`, que nenhuma partida cumpre — e o sintoma
+    chegaria como **dia descoberto**, semanas depois, sem uma linha de log
+    apontando para a causa.
+
+    ⛔ Por isso ela sobe, e quem chama decide: o gerador **descarta a tentativa**
+    e tenta outro molde (ha centenas), e o script de pescaria conta o descarte
+    como motivo, em vez de o confundir com *"o Sagaz nao resolveu"*.
+    """
+
+
 def parametros_efetivos(
-    parametros: Mapping[str, Any], *, guloso: int
+    parametros: Mapping[str, Any],
+    *,
+    guloso: int | None = None,
+    material: tuple[int, int] | None = None,
 ) -> dict[str, Any]:
     """Os numeros que a **receita** consome, com o alvo ja resolvido.
 
     Args:
         parametros: os do editorial.
         guloso: quantas caixas um jogador que nunca recusa uma caixa faz nesta
-            posicao (`G`). Ignorado nas variantes de alvo fixo.
+            posicao (`G`). So e lido nas variantes de `acima_do_guloso`.
+        material: `(minhas_pecas, pecas_do_adversario)` na posicao publicada. So
+            e lido nas variantes de `capturar`/`entregar`.
+
+    Returns:
+        Um dicionario com os numeros **absolutos** que `Receita.montar` espera.
+
+    Raises:
+        MaterialInsuficiente: a posicao nao comporta o que a variante pede.
+        TypeError: a variante e relativa e o valor de referencia nao veio.
 
     ⛔ **A traducao mora aqui, e num lugar so.** Ela era uma linha solta no laco
     do gerador; quando as medidas de saida passaram a precisar do mesmo numero,
@@ -186,14 +259,52 @@ def parametros_efetivos(
     publicaria uma frase pedindo 7 com a nota calibrada para outro alvo, sem erro
     nenhum.
     """
-    if not alvo_sai_da_posicao(parametros):
-        return dict(parametros)
-    return {"caixas": guloso + parametros[CHAVE_RELATIVA_AO_GULOSO]}
+    if alvo_sai_da_posicao(parametros):
+        if guloso is None:
+            raise TypeError(
+                "esta variante e relativa ao guloso e nenhum `guloso=` foi dado"
+            )
+        return {"caixas": guloso + parametros[CHAVE_RELATIVA_AO_GULOSO]}
+
+    if alvo_sai_do_material(parametros):
+        if material is None:
+            raise TypeError(
+                "esta variante e relativa ao material e nenhum `material=` foi dado"
+            )
+        meu, do_adversario = material
+        # ⚠️ Os relativos ficam no dicionario **junto** com os absolutos: e deles
+        # que a frase se serve (*"troque 1 por 3"*), enquanto a clausula consome
+        # os absolutos. Apagar os relativos aqui deixaria o enunciado sem numero.
+        saida = dict(parametros)
+        if CHAVE_CAPTURAR in parametros:
+            quantas = parametros[CHAVE_CAPTURAR]
+            if do_adversario < quantas:
+                raise MaterialInsuficiente(
+                    f"a variante pede capturar {quantas}, e o adversario tem "
+                    f"{do_adversario} peca(s)"
+                )
+            saida["resta_ao_adversario"] = do_adversario - quantas
+        if CHAVE_ENTREGAR in parametros:
+            quantas = parametros[CHAVE_ENTREGAR]
+            # ⛔ **O piso e 1, e nao 0.** Com `resta_a_voce: 0` a clausula seria
+            # cumprida por quem ficou sem pecas — ou seja, por quem **perdeu a
+            # partida**. Um desafio nao se cumpre perdendo.
+            if meu - quantas < 1:
+                raise MaterialInsuficiente(
+                    f"a variante pede entregar {quantas}, e voce tem {meu} peca(s): "
+                    "sobraria menos de uma"
+                )
+            saida["resta_a_voce"] = meu - quantas
+        return saida
+
+    return dict(parametros)
 
 
 def parametros_para_conferencia(parametros: Mapping[str, Any]) -> dict[str, Any]:
     """Os parametros de uma variante quando nao ha posicao — so para conferir."""
-    return parametros_efetivos(parametros, guloso=GULOSO_DE_EXEMPLO)
+    return parametros_efetivos(
+        parametros, guloso=GULOSO_DE_EXEMPLO, material=MATERIAL_DE_EXEMPLO
+    )
 
 
 class TipoSemEditorial(ValueError):

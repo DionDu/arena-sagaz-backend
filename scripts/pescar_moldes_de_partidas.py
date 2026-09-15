@@ -425,6 +425,20 @@ def main() -> int:
         ),
     )
     ap.add_argument(
+        "--desvantagem",
+        type=int,
+        default=0,
+        help=(
+            "so posicoes em que QUEM JOGA tem N pecas a menos que o adversario. "
+            "⛔ E o filtro do `damas_sobreviver`, e ele procura o CONTRARIO de "
+            "todos os outros: resistir de uma posicao confortavel nao e resistir, "
+            "e uma pescaria sem isto devolveria o acervo do `coroar` com outro "
+            "nome. ⚠️ Mantenha o numero baixo (1 a 3): medido em 14/09/2026, "
+            "desvantagem grande nao produz resistencia, produz derrota antes do "
+            "oitavo lance."
+        ),
+    )
+    ap.add_argument(
         "--embaralhar",
         action="store_true",
         help=(
@@ -472,6 +486,20 @@ def main() -> int:
             f"{len(candidatas)} (de {antes})"
         )
 
+    if args.desvantagem:
+        antes = len(candidatas)
+        # ⚠️ **Todas as FENs ja chegam com as brancas a jogar** (`carregar` as
+        # normaliza), entao "quem joga" e sempre o primeiro numero do par.
+        candidatas = [
+            f
+            for f in candidatas
+            if (lambda b, pr: pr - b >= args.desvantagem)(*pecas_da_fen(f))
+        ]
+        print(
+            f"com quem joga {args.desvantagem}+ peca(s) atras: "
+            f"{len(candidatas)} (de {antes})"
+        )
+
     if args.embaralhar:
         # ⚠️ Semente fixa: a sondagem de amanha tem de olhar a MESMA amostra da de
         # hoje, senao um rendimento que mudou pode ser o criterio ou pode ser o
@@ -496,6 +524,7 @@ def main() -> int:
             "arquivo": args.arquivo.name,
             "minimo_pecas": args.minimo_pecas,
             "alcancavel": args.alcancavel,
+            "desvantagem": args.desvantagem,
             "embaralhar": args.embaralhar,
             "amostra": args.amostra,
             "posicoes": len(candidatas),

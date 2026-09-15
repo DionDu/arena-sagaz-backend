@@ -109,6 +109,30 @@ def _lado_e_adversario(antes: str) -> tuple[int, int]:
     return (1, 2) if lado.upper().startswith("W") else (2, 1)
 
 
+def material_de_quem_joga(fen: str) -> tuple[int, int]:
+    """Quantas pecas tem **quem esta a jogar**, e quantas tem o adversario.
+
+    Args:
+        fen: a posicao, no formato do motor (`W:W...:B...`).
+
+    Returns:
+        `(minhas, do_adversario)` — pecas, e nao pontos: uma dama vale uma.
+
+    ⚠️ **E "quem joga", e nao "as brancas"**, pela mesma razao de
+    `_lado_e_adversario`: a posicao publicada de um desafio de damas sai com as
+    **pretas** a jogar, e e delas que o desafio fala. Contar as brancas daria o
+    numero do lado errado — ⛔ e daria **um numero**, que parece certo.
+
+    ⚠️ **Existe aqui, e nao no gerador nem no script de pescaria**, porque os
+    tres precisam do mesmo numero: o gerador para montar a clausula, a pescaria
+    para medir o molde, e o teste para conferir os dois. Tres copias divergiriam
+    no dia em que a italiana (com 40 casas) entrasse.
+    """
+    _, brancas, pretas = _campos(fen)
+    meu, _ = _lado_e_adversario(fen)
+    return (len(brancas), len(pretas)) if meu == 1 else (len(pretas), len(brancas))
+
+
 def _coroou(antes: str, depois: str) -> bool:
     """Quem jogou ganhou uma dama neste lance?
 
@@ -144,6 +168,29 @@ CUMPRIU_O_OBJETIVO: Mapping[str, Callable[[str, str], bool]] = {
     "damas_capturar_multipla": _capturou_duas,
 }
 
+#: Os tipos que **nenhum lance unico pode cumprir**, e a razao de cada um.
+#:
+#: ⛔ **Isto nao e uma isencao: e uma prova de estrutura**, e por isso esta
+#: escrita em vez de ser um `lambda: False` escondido no dicionario acima.
+#:
+#: ⚠️ A chegada dos dois tem uma clausula que **exige tempo ou perda**, e nenhuma
+#: das duas coisas cabe num meio-lance:
+#:
+#:   `damas_sacrificio`  pede `material_restante <= M - 1`, e ⛔ **um lance seu
+#:                       nunca tira uma peca sua do tabuleiro** — quem captura e
+#:                       o outro, no lance dele.
+#:   `damas_sobreviver`  pede `lances_do_jogador >= n`, com `n` sempre maior que
+#:                       1. A conta e aritmetica, e nao depende da posicao.
+#:
+#: ⚠️ **E eles continuam precisando de peneira** — so que de outra: quem os
+#: protege de moldes banais e o `LANCE_MINIMO` da medicao com o Sagaz, que
+#: recusa o que cai antes do terceiro lance. ⛔ Confundir "nao cai no lance 1"
+#: com "nao e trivial" seria trocar um cadeado por outro e achar que se tem dois.
+SEM_SOLUCAO_DE_UM_LANCE: Mapping[str, str] = {
+    "damas_sacrificio": "a clausula de material proprio exige um lance do adversario",
+    "damas_sobreviver": "a clausula de lances_do_jogador exige mais de um lance",
+}
+
 
 def objetivo_no_primeiro_lance(
     fen: str, co_tipo: str, co_modalidade: str
@@ -154,16 +201,21 @@ def objetivo_no_primeiro_lance(
         fen: a posicao a examinar. ⚠️ **Serve para o molde E para a posicao
             publicada** — a pergunta e sempre sobre quem esta a jogar naquela
             FEN, e nao sobre uma cor fixa.
-        co_tipo: `damas_coroar` ou `damas_capturar_multipla`.
+        co_tipo: um dos tipos de damas com molde.
         co_modalidade: o regulamento.
 
     Returns:
         A notacao do primeiro lance que cumpre o objetivo sozinho — `None` quando
-        a posicao esta saudavel.
+        a posicao esta saudavel **ou** quando o tipo nao admite solucao de um
+        lance (ver `SEM_SOLUCAO_DE_UM_LANCE`).
 
     Raises:
-        KeyError: tipo sem verificador declarado.
+        KeyError: tipo sem verificador declarado **e** sem razao declarada para
+            nao ter um. ⛔ O silencio nao e opcao: os dois caminhos exigem que
+            alguem tenha pensado no tipo.
     """
+    if co_tipo in SEM_SOLUCAO_DE_UM_LANCE:
+        return None
     cumpriu = CUMPRIU_O_OBJETIVO[co_tipo]
     estado = EstadoDamas(co_modalidade=co_modalidade, fen_inicial=fen)
     motor = MotorDamas(co_modalidade)
