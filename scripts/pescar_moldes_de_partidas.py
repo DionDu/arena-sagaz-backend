@@ -698,8 +698,14 @@ def main() -> int:
 
     if args.bloco:
         print("\n# ── colar em job/tipos_de_desafio.py ──")
-        for _quantas, _media, fen in bons:
-            print(f'    "{fen}",')
+        for quantas, media, fen in bons:
+            # ⛔ **O comentario nao e enfeite: e o que permite DECIDIR depois.**
+            # Ate 15/09/2026 este bloco saia so com a FEN, e o acervo do
+            # `capturar_multipla` — colado a mao em 12/09 — tinha
+            # `# 4/4 · lance 7.0` em cada linha. ⚠️ Foi por essa informacao que o
+            # dono pode escolher cortar os moldes curtos; sem ela, a unica saida
+            # e reler o diario ou repescar.
+            print(f'    "{fen}",   # {quantas}/4 · lance {media:.1f}')
     return 0
 
 

@@ -21,6 +21,57 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-15 — As duas pescarias, e o acervo que saiu melhor que o da captura
+
+**Contexto.** O dono rodou as duas pescarias no `des` (1.777 posições únicas de
+damas). A do sacrifício foi interrompida e retomada no dia seguinte - o diário
+fez o trabalho para que foi escrito.
+
+### Os dois funis
+
+| | `damas_sacrificio` | `damas_sobreviver` |
+|---|---|---|
+| filtro | `--minimo-pecas 12` | `--desvantagem 2 --minimo-pecas 10` |
+| passaram o filtro | 1.205 | 207 |
+| passaram a peneira | **415** (34%) | **118** (57%) |
+| serviram a 3+ modalidades | **203** | **112** |
+| servem as quatro | 124 | 107 |
+| material médio | 18,9 | 15,2 |
+
+### ✅ A distribuição do sacrifício saiu invertida, e a favor
+
+Onde a captura múltipla tinha **97 dos 184** moldes caindo em 3 lances, aqui o
+grupo maior é o de **8 lances**:
+
+    3 lances: 12 · 4: 9 · 5: 26 · 6: 29 · 7: 32 · 8: 46 · 9: 21 · 10: 19 · 11: 9
+
+⛔ **E só os 188 de 4 lances ou mais entraram**, pelo mesmo critério que o dono
+fixou em 12/09 para a captura múltipla. Os 12 curtos ficam no diário.
+
+### ⚠️ O que o `sobreviver` ensinou sobre o próprio teto
+
+Os **89 descartes da peneira são todos `partida_acabou`** - nenhum é
+`nao_cumpriu_no_teto`. ✅ Isso prova que o teto de 18 meios-lances está certo:
+quando este tipo falha, é porque a pessoa foi liquidada antes do oitavo lance,
+nunca por falta de tempo de busca.
+
+⚠️ **E o aproveitamento de 57% não quer dizer que o tipo é fácil** - quer dizer
+que *"dá para resistir daqui?"* é mais frequentemente sim do que *"dá para coroar
+daqui?"*. ⛔ Quem diz se é difícil continua sendo a régua.
+
+### Duas correções de ferramenta, das que o próprio log pediu
+
+1. ⛔ **A fase 2 não se anunciava.** O dono perguntou se a pescaria tinha travado,
+   e a suspeita era razoável: o passo de 25 posições foi calibrado na fase barata
+   (~45 s de silêncio) e na medição as mesmas 25 viram ~8 minutos - começando
+   logo depois do resumo da peneira, que na tela **parece um encerramento**.
+2. ⛔ **O `--bloco` imprimia só a FEN.** O acervo da captura múltipla, colado à
+   mão em 12/09, tinha `# 4/4 · lance 7.0` em cada linha - e foi por essa
+   informação que o dono pôde decidir cortar os curtos. Sem ela a única saída
+   seria reler o diário ou repescar.
+
+---
+
 ## 2026-09-14 (noite, 3) — O sacrifício e o sobreviver saem do papel, e nasce o alvo que vem do material
 
 **Contexto.** O dono corrigiu o agrupamento que eu tinha feito: *"Por que estamos
