@@ -21,6 +21,72 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-15 (noite) — ⛔ FOLGA não é aprovação: a régua desmentiu as seis variantes
+
+**Contexto.** A medição de variantes dos dois tipos novos de damas saiu **`✅ FOLGA
+3 de 3` nas seis**. Parecia aprovação unânime. Não era.
+
+### ⛔ O que a régua mostrou, e o script não podia mostrar
+
+`medir_variantes_do_editorial.py` responde *"a variante gera candidato?"*. ⚠️ **Quem
+decide o que vai ao ar é outra pergunta**: o job pede 3 candidatos e publica **o
+primeiro que cai na banda de dificuldade**. Uma variante pode dar FOLGA nos três
+dias e publicar **sempre fora da banda**.
+
+| tipo | medição de variantes | régua (banda `[0,70; 0,80]`) |
+|---|---|---|
+| `damas_sacrificio` | ✅ FOLGA 3 de 3 | **0,37** - ⛔ duro demais |
+| `damas_sobreviver` | ✅ FOLGA 3 de 3 | **0,93 · 1,00 · 0,80** - ⛔ banal |
+
+### ⛔ E no `sobreviver` a escada do produto estava INVERTIDA
+
+    piso `>= 1`   cacau 10/10 · tex  8/10 · magno 10/10   taxa 0,93
+                  cacau 10/10 · pita 10/10 · tex 10/10    taxa 1,00
+                  cacau 10/10 · tex  7/10 · magno  7/10   taxa 0,80
+
+A Cacau resolveu **30 de 30**; o Magno ficou em 7 de 10. ⚠️ **A razão é
+estrutural: resistir não é vencer.** Quem joga para vencer troca peças e às vezes
+se liquida; quem anda ao acaso só empurra pedra, e a partida arrasta até o oitavo
+lance sozinha. *"Ter pelo menos uma peça depois de 8 lances"* não cobra habilidade
+nenhuma num tabuleiro com 15 peças.
+
+### ✅ Decisão 1 — o piso de material do `sobreviver` passa a ser RELATIVO
+
+`material_restante >= M - 2` no lugar de `>= 1`, pelo mesmo mecanismo do
+`damas_sacrificio` com o comparador virado: lá a perda é **exigida**, aqui é
+**limitada**. Medido:
+
+    piso `>= M-2`  cacau  6/10 · tex  8/10 · magno 10/10   taxa 0,80
+                   cacau  4/10 · pita 8/10 · tex   10/10   taxa 0,73
+
+✅ Escada monótona nas duas amostras, e taxa dentro da banda. A frase passa a ser
+*"Resista 8 lances a Tex perdendo no máximo 2 peças"*.
+
+### ✅ Decisão 2 — `--com-regua` no medidor de variantes
+
+⛔ **O buraco era da ferramenta, e não desta rodada.** Nada no fluxo de medição
+podia avisar que uma variante publicaria fora da banda - e é a explicação mais
+provável para o job de 13/09, em que **6 dos 7 dias** saíram fora, com taxas de
+0,02 a 1,00.
+
+⚠️ **Bandeira e não padrão, por preço:** a régua roda 3 mascotes × 10 execuções
+por candidato por dia. A regra prática passa a ser: rodada padrão para escolher a
+faixa de números; **rodada com régua antes de promover**.
+
+### ⛔ Decisão 3 — a borda da banda tinha um defeito de ponto flutuante
+
+Achado escrevendo o teste da bandeira: três mascotes resolvendo 8 de 10 dão
+`0.8000000000000002`, que é **maior** que o teto `0,80`. O candidato
+perfeitamente calibrado era recusado, guardado como "menos pior", e o job seguia
+procurando.
+
+⚠️ **E nada no log acusaria** - ele imprime a taxa arredondada, então a linha
+diria *"taxa 0.80, fora da banda [0.70, 0.80]"*. `TOLERANCIA_DA_BANDA = 1e-9`,
+dez milhões de vezes menor que o menor passo que a régua consegue produzir
+(1/60 ≈ 0,017), com quatro cadeados incluindo a varredura da grade inteira.
+
+---
+
 ## 2026-09-15 — As duas pescarias, e o acervo que saiu melhor que o da captura
 
 **Contexto.** O dono rodou as duas pescarias no `des` (1.777 posições únicas de

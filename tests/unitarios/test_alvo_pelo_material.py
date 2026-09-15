@@ -234,3 +234,79 @@ def test_os_tipos_sem_solucao_de_um_lance_nao_gastam_busca(co_tipo: str):
     assert objetivo_no_primeiro_lance(
         "W:W18,22,26,27,31:B10,11,14,15,19", co_tipo, "brasileira"
     ) is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. ⛔ O PISO DO `damas_sobreviver` E RELATIVO — a regua obrigou
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **O desenho de 14/09 premiava jogar MAL, e nenhum teste de forma via isso.**
+# A chegada era `lances_do_jogador >= 8` e `material_restante >= 1`, e ela e
+# impecavel pelos criterios deste arquivo: valida, sem vocabulario novo, falsa na
+# posicao de partida. ⛔ So a regua mostrou o defeito — a Cacau resolveu **30 de
+# 30** em tres dias, enquanto o Tex e o Magno ficavam em 7 e 8 de 10.
+#
+# A razao e estrutural: **resistir nao e vencer**. Quem joga para vencer troca
+# pecas e as vezes se liquida; quem anda ao acaso so empurra pedra, e a partida
+# arrasta ate o oitavo lance sozinha.
+
+
+def test_o_piso_do_sobreviver_NAO_e_uma_peca_solta():
+    """⛔ `material_restante >= 1` e a forma que invertia a escada do produto.
+
+    ⚠️ **O cadeado olha o VALOR, e nao so a chave**, porque a chave continua a
+    mesma: o que mudou foi o numero passar a sair da posicao. Um `1` literal aqui
+    seria a volta do desenho antigo, e ⛔ nada mais no projeto o acusaria — os
+    testes de forma passam nos dois.
+    """
+    efetivos = editorial_mod.parametros_para_conferencia(
+        PARAMETROS_DE_EXEMPLO["damas_sobreviver"]
+    )
+    chegada = PROPOSTAS["damas_sobreviver"].montar(efetivos)
+    material = [c for c in chegada["clausulas"] if c["chave"] == "material_restante"]
+    assert len(material) == 1, "o sobreviver tem de cobrar material"
+    assert material[0]["valor"] > 1, (
+        "⛔ o piso de material voltou a ser absoluto. Com `>= 1` a Cacau resolve "
+        "30 de 30 e o Magno 7 de 10: a escada do produto sai INVERTIDA, e nenhum "
+        "teste de forma acusa. O piso sai da posicao (`resta_a_voce`)."
+    )
+
+
+def test_o_sobreviver_cobra_material_RELATIVO_a_posicao():
+    """⚠️ Duas posicoes diferentes tem de produzir dois pisos diferentes.
+
+    ⛔ E o que separa este tipo do desenho antigo: um piso fixo vale para um molde
+    e mente em todos os outros, e o acervo vai de 10 a 22 pecas.
+    """
+    def piso(material: tuple[int, int]) -> int:
+        efetivos = editorial_mod.parametros_efetivos(
+            PARAMETROS_DE_EXEMPLO["damas_sobreviver"], material=material
+        )
+        chegada = PROPOSTAS["damas_sobreviver"].montar(efetivos)
+        return next(
+            c["valor"] for c in chegada["clausulas"] if c["chave"] == "material_restante"
+        )
+
+    assert piso((12, 12)) == 10
+    assert piso((6, 9)) == 4
+    assert piso((12, 12)) != piso((6, 9))
+
+
+def test_os_dois_tipos_usam_o_MESMO_mecanismo_com_o_comparador_VIRADO():
+    """⚠️ Um numero relativo, dois tipos opostos - e e isso que os torna irmaos.
+
+    ⛔ `damas_sacrificio` **exige** a perda (`<= M - entregar`); `damas_sobreviver`
+    a **limita** (`>= M - entregar`). Trocar um comparador pelo outro nao daria
+    erro nenhum: daria o outro tipo, com a frase errada.
+    """
+    def clausula_de_material(co_tipo: str) -> dict:
+        efetivos = editorial_mod.parametros_para_conferencia(
+            PARAMETROS_DE_EXEMPLO[co_tipo]
+        )
+        chegada = PROPOSTAS[co_tipo].montar(efetivos)
+        return next(
+            c for c in chegada["clausulas"] if c["chave"] == "material_restante"
+        )
+
+    assert clausula_de_material("damas_sacrificio")["comparador"] == "menor_ou_igual"
+    assert clausula_de_material("damas_sobreviver")["comparador"] == "maior_ou_igual"

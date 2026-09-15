@@ -20,7 +20,14 @@ from job.alvo_observado import (
     alvo_para_a_regua,
 )
 from job.perfil import NIVEL_POR_PERSONAGEM, linhas_da_dimensao, versao_vigente
-from job.regua import EXECUCOES_PADRAO, Medicao, dentro_da_banda, medir_candidato
+from job.regua import (
+    EXECUCOES_PADRAO,
+    Medicao,
+    dentro_da_banda,
+    distancia_da_banda,
+    medir_candidato,
+    taxa_media,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -331,3 +338,64 @@ def test_o_ADVERSARIO_DO_DIA_joga_o_outro_lado_na_medicao() -> None:
         "o outro lado tem de jogar no nivel do adversario do DIA; se vier o "
         "nivel do mascote medido, a regua voltou a medir 'Cacau contra Cacau'"
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ A BORDA DA BANDA — o defeito da decima sexta casa decimal
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_taxa_EXATAMENTE_no_teto_esta_dentro_da_banda():
+    """⛔ **Sem tolerancia, o candidato perfeitamente calibrado era RECUSADO.**
+
+    Tres mascotes resolvendo 8 de 10 dao `(0.8 + 0.8 + 0.8) / 3`, que em ponto
+    flutuante e `0.8000000000000002` — **maior** que o teto `0.80`. O job
+    guardava esse candidato como "menos pior" e seguia procurando, podendo
+    publicar outro, pior.
+
+    ⚠️ **E nada no log acusaria**, porque o log imprime a taxa arredondada: a
+    linha diria *"taxa 0.80, fora da banda [0.70, 0.80]"*, e quem lesse
+    procuraria o defeito em qualquer lugar menos na decima sexta casa decimal.
+    """
+    medicoes = [_medicao(nome, 8, execucoes=10) for nome in ("cacau", "tex", "magno")]
+    # ⚠️ A prova de que o caso e real, e nao hipotetico: a media NAO e 0.8.
+    assert taxa_media(medicoes) != 0.80
+    assert dentro_da_banda(medicoes, piso=PISO_FIXO, teto=TETO_FIXO)
+    assert distancia_da_banda(medicoes, piso=PISO_FIXO, teto=TETO_FIXO) == 0.0
+
+
+def test_taxa_EXATAMENTE_no_piso_tambem_esta_dentro():
+    """⚠️ O mesmo na outra ponta - 7 de 10 nos tres da `0.7000000000000001`."""
+    medicoes = [_medicao(nome, 7, execucoes=10) for nome in ("cacau", "tex", "magno")]
+    assert dentro_da_banda(medicoes, piso=PISO_FIXO, teto=TETO_FIXO)
+    assert distancia_da_banda(medicoes, piso=PISO_FIXO, teto=TETO_FIXO) == 0.0
+
+
+def test_a_tolerancia_NAO_aceita_quem_erra_a_banda_de_verdade():
+    """⛔ A folga e para o arredondamento, e nunca para afrouxar o criterio.
+
+    ⚠️ O menor passo que a regua consegue produzir com 20 execucoes e 3 mascotes
+    e `1/60 ≈ 0,017` — dez milhoes de vezes maior que a tolerancia. Entao nenhum
+    candidato que erre a banda por um passo real passa por aqui.
+    """
+    quase = [_medicao(nome, 17, execucoes=20) for nome in ("cacau", "tex", "magno")]
+    assert taxa_media(quase) == pytest.approx(0.85)
+    assert not dentro_da_banda(quase, piso=PISO_FIXO, teto=TETO_FIXO)
+    assert distancia_da_banda(quase, piso=PISO_FIXO, teto=TETO_FIXO) > 0.0
+
+
+def test_as_duas_funcoes_da_banda_NUNCA_se_contradizem():
+    """⛔ `dentro_da_banda` dizendo sim e `distancia_da_banda` devolvendo positivo
+    seria uma contradicao que o job carregaria em silencio.
+
+    ⚠️ Varre toda a grade que 10 execucoes x 3 mascotes consegue produzir.
+    """
+    for resolveu in range(11):
+        medicoes = [
+            _medicao(nome, resolveu, execucoes=10) for nome in ("cacau", "tex", "magno")
+        ]
+        dentro = dentro_da_banda(medicoes, piso=PISO_FIXO, teto=TETO_FIXO)
+        distancia = distancia_da_banda(medicoes, piso=PISO_FIXO, teto=TETO_FIXO)
+        assert dentro == (distancia == 0.0), (
+            f"⛔ {resolveu}/10 nos tres: dentro={dentro} e distancia={distancia}"
+        )

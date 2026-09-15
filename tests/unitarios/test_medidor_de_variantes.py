@@ -276,3 +276,67 @@ def test_todo_tipo_de_A_MEDIR_esta_MESMO_no_ar():
 def test_as_duas_tabelas_nao_se_cruzam():
     """⛔ Um tipo nos dois lados seria medido duas vezes, com regras diferentes."""
     assert not set(MEDIDOR.A_MEDIR) & set(MEDIDOR.EM_AVALIACAO)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ A REGUA — a pergunta que o resto deste script NAO responde
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_bandeira_da_regua_existe_e_e_OPCIONAL():
+    """⚠️ Bandeira, e nao padrao, por preco: ela multiplica a rodada.
+
+    ⛔ Mas a existencia dela e o que impede o `✅ FOLGA` de ser lido como
+    aprovacao. `FOLGA 3 de 3` quer dizer *"gerou tres candidatos"*, e o job
+    publica **o primeiro que cai na banda de dificuldade** — sao perguntas
+    diferentes, e a segunda e a que decide.
+    """
+    assert MEDIDOR.BANDEIRA_COM_REGUA == "--com-regua"
+    assert MEDIDOR.EXECUCOES_DA_SONDA_DE_REGUA >= 1
+
+
+def test_a_linha_da_regua_NOMEIA_de_que_lado_da_banda_a_variante_caiu():
+    """⛔ *"Fora da banda"* sozinho nao diz o que fazer com a variante.
+
+    ⚠️ Duro demais e banal pedem correcoes **opostas** — afrouxar o alvo ou
+    aperta-lo —, e um relatorio que so dissesse "fora" obrigaria quem le a abrir
+    a taxa e comparar com o piso de cabeca. Foi assim que a escada invertida do
+    `damas_sobreviver` passou despercebida por um dia inteiro.
+    """
+    from job import alvo_observado as alvo_mod
+    from job.regua import Medicao
+
+    alvo = alvo_mod.alvo_para_a_regua()
+
+    def medicoes_falsas(resolveu: int) -> list[Medicao]:
+        """Tres mascotes com a mesma taxa - so para exercitar o veredito.
+
+        ⚠️ **Com a `Medicao` de verdade, e nao um dublê**: ela tem a propriedade
+        `taxa` que o `taxa_media` consome, e um objeto improvisado passaria a
+        depender de eu ter adivinhado a forma dela certo.
+        """
+        return [
+            Medicao(
+                co_personagem=nome,
+                nu_execucoes=10,
+                nu_resolveu=resolveu,
+                co_versao_perfil="teste",
+                co_versao_motor="teste",
+            )
+            for nome in ("cacau", "tex", "magno")
+        ]
+
+    # ⚠️ O texto sai de `_linha_da_regua`, mas medir de verdade custaria minutos;
+    # o que se prova aqui e a REGRA do veredito, que e o que engana quem le.
+    from job import regua as regua_mod
+
+    for resolveu, esperado in ((3, "DURO DEMAIS"), (10, "BANAL"), (8, None)):
+        med = medicoes_falsas(resolveu)
+        taxa = regua_mod.taxa_media(med)
+        distancia = regua_mod.distancia_da_banda(med, piso=alvo.piso, teto=alvo.teto)
+        if esperado is None:
+            assert distancia == 0.0, f"taxa {taxa} devia estar na banda"
+        else:
+            assert distancia > 0.0
+            lado = "DURO DEMAIS" if taxa < alvo.piso else "BANAL"
+            assert lado == esperado, f"taxa {taxa} foi classificada como {lado}"

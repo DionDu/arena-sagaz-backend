@@ -40,6 +40,28 @@ TETO** - as que estao sob investigacao:
 botao proprio continua precisando da rodada cheia; o que este atalho evita e
 pagar ~55 minutos para reimprimir linhas que ja sairam identicas duas vezes.
 
+═══════════════════════════════════════════════════════════════════════════
+⛔ E `--com-regua` RESPONDE A OUTRA PERGUNTA — a que decide
+═══════════════════════════════════════════════════════════════════════════
+
+    .venv\Scripts\python -u scripts\medir_variantes_do_editorial.py em-avaliacao --com-regua
+
+⚠️ **Sem ela, este script mede se a variante GERA — e nao se ela e para alguem.**
+O job pede 3 candidatos e publica **o primeiro que cai na banda de dificuldade**;
+uma variante pode dar `✅ FOLGA` nos tres dias e publicar **sempre fora da banda**.
+
+⛔ **Isso ja aconteceu duas vezes, e a segunda foi cara.** Em 15/09/2026 os dois
+tipos novos de damas sairam `FOLGA 3 de 3` nas **seis** variantes; a regua mostrou
+que um era **duro demais** (taxa 0,37 contra a banda [0,70; 0,80]) e o outro
+**banal, com a escada do produto INVERTIDA** — a Cacau resolvendo 30 de 30 onde o
+Magno fazia 7 de 10, porque *"resistir"* nao e *"vencer"* e quem joga ao acaso so
+empurra pedra. ⚠️ E no job de 13/09/2026, **6 dos 7 dias** foram publicados fora
+da banda: nada no fluxo de medicao podia ter avisado.
+
+⚠️ **Ela custa caro** (3 mascotes x 10 execucoes por candidato, por dia), e por
+isso e bandeira e nao padrao. A regra pratica: a rodada padrao para escolher a
+FAIXA de numeros; a com regua antes de promover.
+
 ⚠️ **E a medicao e REPRODUTIVEL, o que da peso ao numero.** As damas foram
 medidas duas vezes em 12/09/2026, com ~2 h entre as rodadas: **sete das nove**
 linhas sairam identicas digito a digito, e as duas que variaram (`{damas: 2}`)
@@ -426,10 +448,24 @@ EM_AVALIACAO: dict[str, tuple[Candidata, ...]] = {
     # ⚠️ Medido em 14/09/2026, com o Sagaz jogando os dois lados: a desvantagem
     # nao pode ser grande. 2-3 pecas contra 5-6 **perdem antes do oitavo lance**;
     # 5 contra 7 resistiram em 6 de 6 sondagens.
+    # ⛔ **AS TRES MUDARAM EM 15/09/2026, E A REGUA E QUEM MANDOU.** A primeira
+    # rodada mediu `{lances: 8}` com o piso de material em `>= 1`, e as tres
+    # sairam `✅ FOLGA 3 de 3` — ⚠️ **e as tres eram banais**: a Cacau resolveu
+    # **30 de 30**, com a escada do produto invertida. Ver o comentario da receita
+    # em `job/tipos_propostos.py`.
+    #
+    # ✅ Com o piso relativo (`entregar: 2` → `material_restante >= M - 2`) a
+    # escada voltou monotona e a taxa entrou na banda: **0,80 e 0,73** em duas
+    # amostras.
+    #
+    # ⚠️ **`{lances: 8, entregar: 2}` e a linha de comparacao** (e a medida); a de
+    # `entregar: 1` aperta o material sem mexer no tempo, e a de `lances: 10`
+    # estica o tempo sem mexer no material. ⛔ Dois botoes, um de cada vez — medir
+    # os dois juntos nao diria qual deles moveu a taxa.
     "damas_sobreviver": (
-        Candidata({"lances": 8}, nu_maximo_de_meios_lances=18),
-        Candidata({"lances": 6}, nu_maximo_de_meios_lances=14),
-        Candidata({"lances": 10}, nu_maximo_de_meios_lances=22),
+        Candidata({"lances": 8, "entregar": 2}, nu_maximo_de_meios_lances=18),
+        Candidata({"lances": 8, "entregar": 1}, nu_maximo_de_meios_lances=18),
+        Candidata({"lances": 10, "entregar": 2}, nu_maximo_de_meios_lances=22),
     ),
 }
 
@@ -511,8 +547,18 @@ def so_as_de_botao_proprio(candidatas: Sequence["Candidata"]) -> list["Candidata
     ]
 
 
-def medir(co_tipo: str, variantes: Sequence["Candidata"]) -> None:
-    """Mede cada variante de um tipo e imprime o resultado, linha a linha."""
+def medir(
+    co_tipo: str, variantes: Sequence["Candidata"], *, com_regua: bool = False
+) -> None:
+    """Mede cada variante de um tipo e imprime o resultado, linha a linha.
+
+    Args:
+        co_tipo: o tipo a medir.
+        variantes: as candidatas da tabela.
+        com_regua: tambem roda os tres mascotes no primeiro candidato de cada
+            dia. ⛔ **E a unica pergunta que decide o que vai ao ar** — ver
+            `BANDEIRA_COM_REGUA`.
+    """
     if not variantes:
         return
 
@@ -564,6 +610,7 @@ def medir(co_tipo: str, variantes: Sequence["Candidata"]) -> None:
 
         por_dia: list[int] = []
         lances_da_solucao: list[int] = []
+        linhas_da_regua: list[str] = []
         inicio = time.time()
         for dia in dias:
             candidatos = gerador_mod.gerar_candidatos(
@@ -582,6 +629,12 @@ def medir(co_tipo: str, variantes: Sequence["Candidata"]) -> None:
             )
             por_dia.append(len(candidatos))
             lances_da_solucao.extend(c.nu_lances_solucao for c in candidatos)
+
+            # ⚠️ **So o PRIMEIRO candidato do dia**, que e o que o job olha
+            # primeiro. Medir os tres triplicaria o custo para responder a mesma
+            # pergunta: *"esta variante, nesta posicao, cai perto da banda?"*.
+            if com_regua and candidatos:
+                linhas_da_regua.append(_linha_da_regua(candidatos[0], teto=teto))
 
         dia_mais_fraco = min(por_dia)
         media_da_solucao = (
@@ -605,6 +658,12 @@ def medir(co_tipo: str, variantes: Sequence["Candidata"]) -> None:
             f"solucao {media_da_solucao:.1f} meios-lances · "
             f"{time.time() - inicio:.0f}s{proprios}"
         )
+        # ⚠️ **Depois da linha da variante, e uma por dia.** Elas nao entram na
+        # linha principal de proposito: a taxa de um dia nao resume os tres, e
+        # uma media esconderia justamente o dia que sai fora da banda — o mesmo
+        # motivo pelo qual o dia mais fraco manda sobre a media de candidatos.
+        for linha in linhas_da_regua:
+            print(linha)
 
 
 def tipos_do_alvo(alvo: str) -> list[str]:
@@ -647,10 +706,96 @@ def tipos_do_alvo(alvo: str) -> list[str]:
 
 BANDEIRA_BOTAO_PROPRIO = "--com-botao-proprio"
 
+#: Mede tambem a REGUA DOS MASCOTES, e nao so se a variante gera.
+#:
+#: ⛔ **ESTE SCRIPT RESPONDE A PERGUNTA ERRADA SOZINHO, e isso custou caro.** Ele
+#: mede *"a variante gera candidato?"*; ⚠️ **quem decide o que vai ao ar e outra
+#: coisa**: o job pede 3 candidatos e publica **o primeiro que cai na banda de
+#: dificuldade** (`job/__main__.py`). Uma variante pode dar `✅ FOLGA` nos tres
+#: dias e publicar **sempre fora da banda** — e o relatorio diria que ela esta
+#: otima.
+#:
+#: ⛔ **Nao e hipotese: aconteceu duas vezes.** Em 15/09/2026 os dois tipos novos
+#: de damas saíram `FOLGA 3 de 3` nas seis variantes, e a regua mostrou que um
+#: era **duro demais** (taxa 0,37, banda [0,70; 0,80]) e o outro **banal, com a
+#: escada do produto INVERTIDA** — a Cacau resolvendo 30 de 30 onde o Magno fazia
+#: 7 de 10. ⚠️ E no job de 13/09/2026, **6 dos 7 dias** foram publicados fora da
+#: banda, com taxas de 0,02 a 1,00: nada no fluxo de medicao podia ter avisado.
+#:
+#: ⚠️ **Fica como bandeira, e nao como padrao, por PRECO**: a regua roda 3
+#: mascotes x N execucoes por candidato, e isso multiplica a rodada. O padrao
+#: responde *"gera?"* em minutos; esta bandeira responde *"e para quem?"* em
+#: dezenas de minutos.
+BANDEIRA_COM_REGUA = "--com-regua"
+
+#: Quantas vezes cada mascote tenta, na medicao com regua.
+#:
+#: ⚠️ **Menos que as 20 do job**, de proposito: aqui a pergunta e *"a taxa esta
+#: perto da banda?"*, e nao *"qual e a taxa exata deste candidato?"*. Dez
+#: execucoes x 3 mascetes x 3 dias ja separam 0,37 de 0,93 com folga — e dobrar
+#: isso dobraria a rodada para afinar um numero que o job vai remedir de qualquer
+#: jeito.
+EXECUCOES_DA_SONDA_DE_REGUA = 10
+
+
+def _linha_da_regua(candidato, *, teto: int) -> str:
+    """Mede os tres mascotes num candidato e devolve a linha do relatorio.
+
+    Args:
+        candidato: o que `gerar_candidatos` devolveu.
+        teto: o teto de meios-lances **com que ele foi gerado**. ⛔ Ele entra por
+            parametro porque o `Candidato` nao o carrega, e adivinha-lo aqui —
+            pelo padrao, digamos — mediria os mascotes numa tarefa diferente da
+            que o gerador montou: com teto maior eles resolveriam o que o gerador
+            nao conseguiu, e a taxa descreveria outro desafio.
+
+    ⚠️ **Monta a bancada pelo mesmo caminho do job** (`gerador.bancada`), e nao
+    por um motor montado aqui: uma segunda forma de montar seria uma segunda
+    fonte da verdade, e a taxa passaria a descrever uma partida que o job nao
+    joga.
+
+    Returns:
+        Algo como `regua: cacau 6/10 · tex 8/10 · magno 10/10 → 0.80 ✅ na banda`.
+    """
+    from job import alvo_observado as alvo_mod
+    from job import regua as regua_mod
+
+    alvo = alvo_mod.alvo_para_a_regua()
+    bancada = gerador_mod.bancada(candidato)
+    medicoes = regua_mod.medir_candidato(
+        co_personagem_do_dia=candidato.co_personagem,
+        tentar=regua_mod.tentativa_com_motor(
+            jogador=bancada.jogador,
+            estado_inicial=bancada.estado_inicial,
+            julgar=bancada.julgar,
+            nu_semente=candidato.nu_semente,
+            # ⚠️ **O MESMO teto da geracao**, como no job: medir com um teto maior
+            # faria os mascotes resolverem uma tarefa que o gerador nao montou.
+            maximo_de_meios_lances=teto,
+            co_personagem_do_dia=candidato.co_personagem,
+        ),
+        co_versao_perfil="sonda",
+        co_versao_motor="sonda",
+        nu_execucoes=EXECUCOES_DA_SONDA_DE_REGUA,
+    )
+    taxa = regua_mod.taxa_media(medicoes)
+    distancia = regua_mod.distancia_da_banda(medicoes, piso=alvo.piso, teto=alvo.teto)
+    detalhe = " · ".join(
+        f"{m.co_personagem} {m.nu_resolveu}/{m.nu_execucoes}" for m in medicoes
+    )
+    if distancia == 0.0:
+        veredito = "✅ na banda"
+    elif taxa < alvo.piso:
+        veredito = f"⛔ DURO DEMAIS (falta {distancia:.2f} para a banda)"
+    else:
+        veredito = f"⛔ BANAL (passa {distancia:.2f} da banda)"
+    return f"      regua: {detalhe} → {taxa:.2f}  {veredito}"
+
 
 def principal(argumentos: Sequence[str]) -> int:
     """Mede os tipos de um jogo, de um tipo so, ou todos. Devolve o codigo de saida."""
     so_botao_proprio = BANDEIRA_BOTAO_PROPRIO in argumentos
+    com_regua = BANDEIRA_COM_REGUA in argumentos
     posicionais = [a for a in argumentos if not a.startswith("-")]
     alvo = posicionais[0] if posicionais else "todos"
 
@@ -676,7 +821,7 @@ def principal(argumentos: Sequence[str]) -> int:
         if so_botao_proprio:
             candidatas = tuple(so_as_de_botao_proprio(candidatas))
         medidas += len(candidatas)
-        medir(co_tipo, candidatas)
+        medir(co_tipo, candidatas, com_regua=com_regua)
 
     # ⛔ Zero linhas com a bandeira ligada nao e "tudo certo": e a bandeira
     # aplicada a um alvo que nao tem nenhuma candidata de botao proprio, e sem

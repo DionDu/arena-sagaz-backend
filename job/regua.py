@@ -228,6 +228,23 @@ def taxa_media(medicoes: Sequence[Medicao]) -> float:
     return sum(m.taxa for m in medicoes) / len(medicoes)
 
 
+#: A folga que absorve o erro de ponto flutuante na comparacao com a banda.
+#:
+#: ⛔ **SEM ELA, UMA TAXA EXATAMENTE IGUAL AO TETO FICA DE FORA DA BANDA.** Tres
+#: mascotes resolvendo 8 de 10 dao `0.8 + 0.8 + 0.8 / 3 = 0.8000000000000002`, que
+#: e **maior** que o teto `0.80` — e o candidato perfeitamente calibrado seria
+#: recusado, guardado como "menos pior" e provavelmente trocado por outro.
+#:
+#: ⚠️ **Nada no log acusaria**, porque o log imprime `0.80` arredondado: a linha
+#: diria *"taxa 0.80, fora da banda [0.70, 0.80]"*, e quem lesse procuraria o
+#: defeito em qualquer lugar menos na decima sexta casa decimal.
+#:
+#: ⚠️ O valor e menor que qualquer taxa que a regua consegue produzir: com 20
+#: execucoes e 3 mascetes, o menor passo e 1/60 ≈ 0,017. ⛔ Entao esta folga nunca
+#: aceita um candidato que erraria a banda **de verdade**.
+TOLERANCIA_DA_BANDA = 1e-9
+
+
 def dentro_da_banda(
     medicoes: Sequence[Medicao],
     *,
@@ -243,7 +260,9 @@ def dentro_da_banda(
     """
     if not medicoes:
         return False
-    return piso <= taxa_media(medicoes) <= teto
+    media = taxa_media(medicoes)
+    # ⚠️ Com a folga nas duas pontas — ver `TOLERANCIA_DA_BANDA`.
+    return piso - TOLERANCIA_DA_BANDA <= media <= teto + TOLERANCIA_DA_BANDA
 
 
 def distancia_da_banda(
@@ -270,8 +289,11 @@ def distancia_da_banda(
     if not medicoes:
         return float("inf")
     media = taxa_media(medicoes)
-    if media < piso:
+    # ⛔ **As duas funcoes usam a MESMA folga**, e isso nao e simetria decorativa:
+    # `dentro_da_banda` dizendo "sim" enquanto `distancia_da_banda` devolve um
+    # numero positivo seria uma contradicao que o job carregaria em silencio.
+    if media < piso - TOLERANCIA_DA_BANDA:
         return piso - media
-    if media > teto:
+    if media > teto + TOLERANCIA_DA_BANDA:
         return media - teto
     return 0.0

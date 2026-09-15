@@ -452,19 +452,47 @@ PROPOSTAS_DAMAS: dict[str, Receita] = {
         # `material_restante >= 1` ja e verdade antes de a pessoa jogar. Sem o
         # piso, *"resista 8 lances"* sairia cumprido em **um meio-lance**.
         #
-        # ⚠️ **E `material_restante >= 1` nao e enfeite**: e ele que diz *"sem
-        # perder"*. Nas damas ficar sem pecas e derrota, entao a clausula e a
-        # traducao literal de "voce ainda esta de pe".
+        # ⛔ **E O PISO DE MATERIAL E RELATIVO, E NAO `>= 1`. A REGUA OBRIGOU.**
+        #
+        # ⚠️ **O desenho de 14/09 premiava jogar MAL**, e foi preciso medir os
+        # mascotes para ver. Com `material_restante >= 1` — *"voce ainda esta de
+        # pe"* — a Cacau resolveu **30 de 30** em tres dias diferentes, enquanto o
+        # Tex e o Magno ficavam em 7 e 8 de 10:
+        #
+        #     piso `>= 1`      cacau 10/10 · tex  8/10 · magno 10/10   taxa 0.93
+        #                      cacau 10/10 · pita 10/10 · tex 10/10    taxa 1.00
+        #                      cacau 10/10 · tex  7/10 · magno  7/10   taxa 0.80
+        #
+        # ⛔ **A escada do produto saiu INVERTIDA**, e a razao e estrutural:
+        # **resistir nao e vencer**. Quem joga para vencer troca pecas e as vezes
+        # se liquida; a Cacau, que anda quase ao acaso, so empurra pedra — e a
+        # partida arrasta ate o oitavo lance sozinha. ⚠️ *"Ter pelo menos uma
+        # peca depois de 8 lances"* nao cobra habilidade nenhuma num tabuleiro
+        # com 15 pecas.
+        #
+        # ✅ **Apertar o piso restaurou a escada, e poe a taxa na banda:**
+        #
+        #     piso `>= M-2`    cacau  6/10 · tex  8/10 · magno 10/10   taxa 0.80
+        #                      cacau  4/10 · pita 8/10 · tex   10/10   taxa 0.73
+        #
+        # ⚠️ Monotona nas duas amostras, e na ordem certa. ⛔ **Sao DUAS amostras**,
+        # e nao a rodada cheia — o rotulo definitivo sai da medicao com regua.
+        #
+        # ⚠️ **E `entregar` aqui e o MESMO mecanismo do `damas_sacrificio`**, com o
+        # comparador virado: la `material_restante <= M - entregar` **exige** a
+        # perda; aqui `>= M - entregar` a **limita**. Um numero relativo, dois
+        # tipos opostos.
         montar=lambda p: {
             "versao": VERSAO_CHEGADA,
             "janela": {"tipo": "partida"},
             "clausulas": [
                 _medida("lances_do_jogador", "maior_ou_igual", p["lances"]),
-                _medida("material_restante", "maior_ou_igual", 1),
+                _medida("material_restante", "maior_ou_igual", p["resta_a_voce"]),
             ],
         },
         valores_da_frase=lambda p, personagem: {
             "lances": p["lances"],
+            "perder": p["entregar"],
             "personagem": personagem,
         },
         # ⚠️ **A pescaria deste procura o CONTRARIO das outras**: posicoes em que
@@ -803,7 +831,9 @@ PARAMETROS_DE_EXEMPLO: Mapping[str, dict[str, Any]] = {
     # `editorial.parametros_efetivos` antes de chegar a receita: o que `montar`
     # recebe e `resta_ao_adversario`/`resta_a_voce`, calculados na posicao.
     "damas_sacrificio": {"capturar": 3, "entregar": 1},
-    "damas_sobreviver": {"lances": 8},
+    # ⚠️ `entregar` aqui LIMITA a perda (`material_restante >= M - 2`), enquanto
+    # no sacrificio a EXIGE. Mesmo mecanismo, comparador virado.
+    "damas_sobreviver": {"lances": 8, "entregar": 2},
     "damas_armadilha": {"turnos": 2, "pecas": 3},
     "damas_dupla_coroacao": {"lances": 8},
     "damas_limpeza": {"lances": 5, "restam": 1},
