@@ -5034,3 +5034,105 @@ diário do `des` recusaria a retomada — que é o cadeado funcionando.
 ⚠️ **Sem `--amostra`, e com `--embaralhar`:** como o diário grava por FEN e
 retoma, embaralhar faz de **qualquer parada** uma amostra não-viesada. Amostrar
 de antemão só jogaria trabalho fora.
+
+## 2026-09-16 (tarde) — ⛔ O ESPELHO INVERTE O LADO DO JOGADOR: o `sobreviver` é publicado ao avesso
+
+**Contexto.** O dono avaliou a fila no painel de curadoria e reprovou os de damas:
+
+> *"Já os de Dama, no geral são muito fáceis. Mesmo os desafios de sobreviver
+> contra o Magno, começam com estados de tabuleiro onde o Magno está totalmente
+> fragilizado. É extremamente fácil vencer a partida a partir dali. Ainda mais
+> fácil é sobreviver por N jogadas. (...) Eu não sei se você está focando demais
+> em deixar o desafio resolvível para Cacau e/ou Pita."*
+
+⚠️ **A hipótese dele (a banda) é real e está descrita na seção seguinte. Mas a
+causa do que ele viu é outra, e é pior: um defeito.**
+
+### ⛔ O que a curadoria dele mostrou, antes de qualquer medição
+
+| tipo | veredito | jogador | adversário |
+|---|---|---|---|
+| `damas_sacrificio` | ✅ aprovado | 12 | 12 |
+| `damas_capturar_multipla` | ✅ aprovado | 11 | 12 |
+| `damas_sobreviver` | ⛔ descartado | 7 | **6** |
+| `damas_sobreviver` | ⛔ descartado | 10 **+ dama** | **7** |
+| `damas_coroar` | ⛔ descartado | 1 | 3 |
+
+⛔ **Nos dois `sobreviver` o jogador tem MAIS peças que o adversário** — e o
+acervo de moldes tem **0%** desses (jogador 6,2 × adversário 9,0, pescado com
+`--desvantagem`). Nenhuma das duas posições publicadas está no acervo.
+
+### ⛔ A causa: `_preparar_damas` troca o lado, e o comentário dele não sabia
+
+O preparo faz **um** lance de variação (ímpar, de propósito: dois consomem a
+distância até o objetivo, e isso já deixou 11/09/2026 sem desafio) e depois
+normaliza com `com_as_brancas_a_jogar`, porque o humano é sempre o Jogador 1.
+
+⚠️ **Um número ímpar de lances troca a vez, e a normalização troca o LADO.** O
+comentário do código diz que espelhar é *"a mesma tarefa vista do outro lado"* —
+verdade para a **geometria** (há cadeado comparando os lances legais), ⛔ **e
+falso para quem é quem**: depois do espelho, o jogador do desafio é o lado que,
+no molde, era o adversário.
+
+Medido em 300 gerações por tipo:
+
+| tipo | no molde | **publicado** | jogador com mais peças |
+|---|---|---|---|
+| `damas_sobreviver` | **-2,8** | **+2,3** | **89%** |
+| `damas_sacrificio` | +0,2 | -1,1 | 6% |
+| `damas_coroar` | +0,5 | -1,1 | 4% |
+| `damas_capturar_multipla` | -0,2 | -0,0 | 24% |
+
+⛔ **O `sobreviver` é o caso agudo porque é o único tipo cujo OBJETIVO depende de
+quem está atrás.** Nos outros três o objetivo é simétrico (coroar, capturar e
+sacrificar servem a qualquer lado), então a troca só desloca material. No
+`sobreviver`, ela publica o avesso do desafio: *"resista 8 lances perdendo no
+máximo 2"* com dez peças e uma dama contra sete.
+
+⚠️ **E é por isso que nenhuma revisão de código pegaria.** O acervo está certo, o
+espelho está certo, a régua está certa — cada peça faz o que promete. O defeito
+mora na **composição**, e só aparece no tipo cuja semântica é assimétrica.
+
+### ✅ A correção medida: o lance de variação é do ADVERSÁRIO
+
+Espelhar o molde **antes** não resolve (a normalização final desfaz, medido). As
+duas saídas reais, em 400 sorteios:
+
+| | saldo publicado | jogador com mais | posições distintas |
+|---|---|---|---|
+| hoje | **+2,3** ⛔ | 89% ⛔ | 283 |
+| A) variação zero | -2,8 ✅ | 0% ✅ | **110** ⚠️ |
+| **B) variação do adversário** | **-3,1** ✅ | **0%** ✅ | **283** ✅ |
+
+⚠️ **A (B) inverte a vez na FEN do molde**, joga um lance legal das pretas e chega
+naturalmente com as brancas a jogar — **sem espelho nenhum**. Ela preserva as
+três coisas ao mesmo tempo: o lado do jogador, a distância até o objetivo (o
+lance gasto é do adversário) e a variedade (283 posições, contra 110 da (A)).
+
+⚠️ E ela é mais fiel ao que o molde representa: numa partida, quem responde
+primeiro é o adversário.
+
+⛔ **A mudança invalida todas as medições de damas** — 4 tipos, 9 variantes —
+pela regra *"nenhuma variante entra sem ser medida"*. Não foi implementada nesta
+resposta: o dono pediu avaliação, e a decisão de insistir ou seguir para o
+frontend é dele.
+
+### ⚠️ A segunda metade, que é a hipótese do dono, e é real
+
+`regua.dentro_da_banda` compara a **média** das taxas dos três mascotes contra
+[0,70 - 0,80]. ⛔ Junte isso com o achado de ontem — **a régua mede cumprimento
+ACIDENTAL**, porque o mascote não lê o enunciado — e sai o viés que ele intuiu:
+
+> para a média dos três chegar a 0,75 **com a Cacau dentro**, o objetivo tem de
+> acontecer sozinho em ~70% das partidas de um jogador fraco. Um objetivo que
+> acontece sozinho nessa frequência é, por definição, quase inevitável.
+
+⚠️ **A banda está selecionando os desafios cujo objetivo mais se confunde com
+"jogar normalmente"** — é viés de seleção, não erro de calibração. E explica por
+que o `sobreviver` batia a banda com folga (0,80 em 3 de 3): resistir **é** jogar
+bem, então a régua o aprova justamente por ele ser o menos exigente.
+
+⚠️ **RF-DES-016 nasceu como ESCADA** (*"a PITA precisa resolver, e a CACAU
+não"*); RF-DES-204 reescreveu para *"a taxa dos três"* e **não diz média** — a
+média foi escolha do código. Voltar à escada é mudança pequena no mesmo lugar, e
+é decisão do dono, não minha.
