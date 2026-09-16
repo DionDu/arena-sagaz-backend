@@ -200,15 +200,34 @@ def _gerar_nenhum(*_a: Any, **_k: Any) -> list[Candidato]:
     return []
 
 
+#: A escada que aceita qualquer taxa de qualquer mascote.
+#:
+#: ⚠️ **Existe para os testes de ENCADEAMENTO, e e deliberada.** O duble resolve
+#: sempre, entao a regua mede 100% — que esta legitimamente fora do alvo real. Sem
+#: ela, todo teste de encadeamento passaria a medir a decisao de calibracao, e a
+#: falha diria "fora da escada" em vez de dizer o que quebrou.
+ESCADA_LARGA = {
+    co_personagem: (0.0, 1.0)
+    for co_personagem in ("cacau", "pita", "tex", "magno")
+}
+
 #: A banda que os testes de ENCADEAMENTO usam.
 #:
-#: ⚠️ **Aceita qualquer taxa, e e deliberado.** O duble resolve sempre, entao a
-#: regua mede 100% — que esta legitimamente **fora** da banda real de 70-80%. Sem
-#: esta banda larga, todo teste de encadeamento passaria a medir a decisao de
-#: calibracao, e a falha diria "fora da banda" em vez de dizer o que quebrou.
+#: ⛔ **Desde 16/09/2026 quem decide e a ESCADA**, e nao mais `piso`/`teto` — ver
+#: `regua.ESCADA_ALVO`. Os dois numeros continuam aqui porque o `Alvo` ainda os
+#: carrega (eles descrevem a taxa real observada em campo), mas e a `escada` deste
+#: objeto que faz o job aceitar o candidato do duble.
 #:
-#: ⛔ A banda de verdade tem casos proprios, mais abaixo.
-BANDA_LARGA = Alvo(piso=0.0, teto=1.0, co_origem="teste-encadeamento")
+#: ⚠️ **E foi esta constante que mostrou o defeito de desenho da escada**, no dia
+#: em que ela nasceu: a escada tinha ficado fixa no modulo da regua, sem como ser
+#: injetada, e dois testes de encadeamento quebraram sem ter nada a ver com
+#: calibracao. ⛔ Criterio que nao se consegue injetar e criterio que nao se
+#: consegue testar.
+#:
+#: ⛔ A escada de verdade tem casos proprios, mais abaixo.
+BANDA_LARGA = Alvo(
+    piso=0.0, teto=1.0, co_origem="teste-encadeamento", escada=ESCADA_LARGA
+)
 
 
 async def _rodar(

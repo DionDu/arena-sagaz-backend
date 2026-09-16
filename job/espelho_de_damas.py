@@ -135,3 +135,58 @@ def com_as_brancas_a_jogar(fen: str) -> str:
     ela viraria um `if` esquecido no dia em que um tipo novo de damas entrar.
     """
     return fen if fen.strip().upper().startswith("W") else espelhar_fen(fen)
+
+
+def com_o_adversario_a_jogar(fen: str) -> str:
+    """A mesma posicao, com a vez passada ao outro lado. ⛔ **NAO espelha.**
+
+    ═══════════════════════════════════════════════════════════════════════
+    ⛔ POR QUE ELA EXISTE, E POR QUE ELA E O OPOSTO DO ESPELHO
+    ═══════════════════════════════════════════════════════════════════════
+
+    `espelhar_fen` **gira o tabuleiro e troca as cores**: o conjunto de pecas que
+    era preto passa a ser branco. Esta funcao nao move nada — ela so diz *"agora
+    e a vez do outro"*.
+
+    ⚠️ **As duas parecem fazer a mesma coisa e fazem o contrario.** O espelho
+    preserva **quem esta a jogar** (quem ia jogar continua jogando, do outro lado
+    do tabuleiro) e troca **quem e o jogador 1**. Esta preserva **quem e o
+    jogador 1** e troca quem joga agora.
+
+    ⛔ **E foi a falta dela que publicou o `damas_sobreviver` ao avesso**, em
+    16/09/2026. O preparo jogava **um** lance de variacao — impar de proposito,
+    porque dois consomem a distancia ate o objetivo — e depois chamava
+    `com_as_brancas_a_jogar`. Numero impar troca a vez; o espelho troca o lado.
+    Resultado: o jogador do desafio publicado era o lado que, no molde, era o
+    **adversario**.
+
+    ⚠️ **So o `damas_sobreviver` sofria de forma aguda**, e por isso ninguem viu:
+    coroar, capturar e sacrificar sao objetivos simetricos (servem a qualquer
+    lado), entao a troca so deslocava material. O `sobreviver` e o unico tipo cujo
+    objetivo **depende de quem esta atras** — e o acervo dele foi pescado com
+    `--desvantagem`. Medido em 300 geracoes: o molde tinha o jogador 2,8 pecas
+    atras, e o publicado tinha ele 2,3 a frente, em **89%** das vezes.
+
+    ⛔ O dono leu a fila no painel antes de qualquer medicao: *"Mesmo os desafios
+    de sobreviver contra o Magno, comecam com estados de tabuleiro onde o Magno
+    esta totalmente fragilizado"*.
+
+    ⚠️ **Em damas qualquer posicao aceita qualquer lado a jogar** — nao existe
+    xeque, entao passar a vez nunca produz posicao ilegal. Medido: zero falhas em
+    400 sorteios sobre o acervo do `damas_sobreviver`.
+
+    Args:
+        fen: a posicao, no formato `W:W1,2:B31,32`.
+
+    Returns:
+        A mesma posicao com a letra do lado trocada.
+
+    Raises:
+        ValueError: FEN malformada.
+    """
+    partes = fen.split(":")
+    if len(partes) != 3:
+        raise ValueError(f"FEN malformada: {fen!r}")
+    lado, brancas, pretas = partes
+    novo_lado = "B" if lado.strip().upper().startswith("W") else "W"
+    return f"{novo_lado}:{brancas}:{pretas}"

@@ -21,10 +21,14 @@ from job.alvo_observado import (
 )
 from job.perfil import NIVEL_POR_PERSONAGEM, linhas_da_dimensao, versao_vigente
 from job.regua import (
+    ESCADA_ALVO,
     EXECUCOES_PADRAO,
     Medicao,
     dentro_da_banda,
+    dentro_da_escada,
+    descrever_escada,
     distancia_da_banda,
+    distancia_da_escada,
     medir_candidato,
     taxa_media,
 )
@@ -500,3 +504,124 @@ def test_a_BANCADA_carrega_o_solucionador_do_tipo_do_candidato() -> None:
     )
     for co_tipo, esperado in gerador_mod.SOLUCIONADOR_POR_TIPO.items():
         assert esperado is not None, co_tipo
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔒 ⛔ A ESCADA — o criterio que o dono trocou em 16/09/2026
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# > *"Pouquissimos ou quase nenhum dos desafios serem resolviveis pela Cacau,
+# > poucos pela Pita, uma quantidade maior pelo Tex (talvez mais da metade) e
+# > quase sempre o Magno resolve os desafios."*
+#
+# ⛔ **A media dos tres produzia desafios faceis, e isto e demonstravel.** Junte
+# duas coisas medidas: a banda exigia media 0,70-0,80 **com a Cacau dentro**, e a
+# regua mede cumprimento **acidental** (o mascote nao le o enunciado). Logo, o
+# objetivo tinha de acontecer sozinho em ~70% das partidas de um jogador fraco —
+# ou seja, ser quase inevitavel.
+
+
+def _m(co_personagem: str, taxa: float) -> Medicao:
+    """Uma medicao com a taxa pedida, em 20 execucoes."""
+    return Medicao(
+        co_personagem=co_personagem,
+        nu_execucoes=20,
+        nu_resolveu=round(taxa * 20),
+        co_versao_perfil="perfil-teste",
+        co_versao_motor="motor-teste",
+    )
+
+
+def test_a_ESCADA_e_a_MEDIA_discordam_no_caso_que_causou_a_troca() -> None:
+    """🔒 ⛔ O `damas_sobreviver` de 21/09: o unico que a banda aprovou.
+
+    ⚠️ **Este e o caso que prova que a troca nao foi estetica.** Na execucao real
+    de 15/09 esse foi o **unico** dos sete dias que caiu na banda (media 0,80) — e
+    foi justamente o que o dono mais reprovou no painel, escrevendo que era
+    *"extremamente facil"*.
+
+    ⛔ Se um dia alguem voltar a media para decidir, este caso cai.
+    """
+    medicoes = [_m("cacau", 0.50), _m("pita", 0.90), _m("tex", 1.00)]
+    assert dentro_da_banda(medicoes, piso=0.70, teto=0.80) is True
+    assert dentro_da_escada(medicoes) is False
+
+
+def test_a_ESCADA_aprova_o_perfil_que_o_dono_descreveu() -> None:
+    """🔒 Cacau quase nada, Pita pouco, Tex mais da metade.
+
+    ⚠️ **E a media deste caso e 0,37** — que a banda antiga recusaria como
+    "durissimo", trinta e tres pontos abaixo do piso. As duas reguas nao
+    discordam na margem: elas discordam no meio.
+    """
+    medicoes = [_m("cacau", 0.10), _m("pita", 0.35), _m("tex", 0.65)]
+    assert dentro_da_escada(medicoes) is True
+    assert dentro_da_banda(medicoes, piso=0.70, teto=0.80) is False
+
+
+def test_a_ESCADA_recusa_o_que_NINGUEM_resolve() -> None:
+    """🔒 O `damas_coroar` de 17/09: 0,05 nos tres.
+
+    ⚠️ A banda tambem recusava este — mas pelo motivo **agregado**. A escada diz
+    qual degrau errou: a Cacau e a Pita estao no lugar, e quem falha e o **Tex**,
+    que precisa chegar a mais da metade. ⛔ Sem isso, "fora por 0,65" mandaria
+    procurar o defeito na escada inteira.
+    """
+    medicoes = [_m("cacau", 0.05), _m("pita", 0.05), _m("tex", 0.05)]
+    assert dentro_da_escada(medicoes) is False
+    assert "tex" in descrever_escada(medicoes)
+    assert "cacau 0.05 ✅" in descrever_escada(medicoes)
+
+
+def test_a_distancia_e_a_MEDIA_DAS_FALTAS_e_nao_a_falta_da_media() -> None:
+    """🔒 ⛔ A diferenca que a media esconde.
+
+    `0,00 / 0,50 / 1,00` tem media 0,50 e **parece** calibrado. A escada ve que a
+    Cacau esta no lugar, a Pita tambem, e quem esta fora e o Tex — que resolve
+    tudo.
+    """
+    medicoes = [_m("cacau", 0.00), _m("pita", 0.50), _m("tex", 1.00)]
+    assert taxa_media(medicoes) == 0.50
+    # Cacau 0,00 em [0,00-0,20] → 0 · Pita 0,50 em [0,05-0,45] → 0,05 ·
+    # Tex 1,00 em [0,45-0,85] → 0,15. Media das faltas: 0,0667.
+    assert distancia_da_escada(medicoes) == pytest.approx(0.20 / 3)
+
+
+def test_a_escada_e_INJETAVEL() -> None:
+    """🔒 ⛔ Criterio que nao se consegue injetar e criterio que nao se testa.
+
+    ⚠️ **Nasceu de um defeito de desenho meu, no dia da troca.** A escada tinha
+    ficado fixa no modulo, e dois testes de encadeamento do job quebraram sem ter
+    nada a ver com calibracao: eles injetavam uma banda `[0,00 - 1,00]` para dizer
+    *"aceite qualquer coisa"*, e a alavanca tinha sumido.
+    """
+    larga = {p: (0.0, 1.0) for p in ("cacau", "pita", "tex", "magno")}
+    medicoes = [_m("cacau", 1.00), _m("pita", 1.00), _m("tex", 1.00)]
+    assert dentro_da_escada(medicoes) is False
+    assert dentro_da_escada(medicoes, escada=larga) is True
+
+
+def test_sem_medicao_a_escada_nao_APROVA_por_acidente() -> None:
+    """🔒 Nada medido devolve infinito, e nao zero.
+
+    ⚠️ O mesmo principio de `distancia_da_banda`: "nada a medir" nao pode virar
+    "encaixou perfeitamente".
+    """
+    assert distancia_da_escada([]) == float("inf")
+    assert dentro_da_escada([]) is False
+
+
+def test_a_escada_do_dono_e_CRESCENTE() -> None:
+    """🔒 A forma da frase dele, travada: cada degrau pede mais que o anterior.
+
+    ⚠️ Cadeado sobre a **constante**, e nao sobre um caso — um ajuste futuro dos
+    numeros continua passando, mas inverter dois mascotes por descuido nao.
+    """
+    ordem = ["cacau", "pita", "tex", "magno"]
+    pisos = [ESCADA_ALVO[p][0] for p in ordem]
+    tetos = [ESCADA_ALVO[p][1] for p in ordem]
+    assert pisos == sorted(pisos), f"os pisos nao sobem: {pisos}"
+    assert tetos == sorted(tetos), f"os tetos nao sobem: {tetos}"
+    # ⛔ O Magno e o degrau da RESOLUBILIDADE: sem um piso alto nele, a escada
+    # aprovaria um desafio que ninguem resolve.
+    assert ESCADA_ALVO["magno"][0] >= 0.70

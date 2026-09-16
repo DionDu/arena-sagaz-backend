@@ -29,6 +29,7 @@ desafio e duro demais; acima, e banal.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping, Optional
 
 #: A banda fixa, usada enquanto nao houver volume real.
 PISO_FIXO = 0.70
@@ -57,6 +58,23 @@ class Alvo:
     teto: float
     co_origem: str
     nu_amostras: int = 0
+
+    #: A ESCADA que decide a aprovacao, por mascote — `None` usa a do modulo da
+    #: regua (`regua.ESCADA_ALVO`).
+    #:
+    #: ⛔ **Desde 16/09/2026 e a escada que decide, e nao mais `piso`/`teto`.** Os
+    #: dois continuam aqui porque descrevem a taxa REAL observada em campo, que e
+    #: outra grandeza e vai voltar a importar quando houver volume — ⚠️ mas hoje
+    #: nenhum deles aprova ou recusa candidato.
+    #:
+    #: ⚠️ **E ela entra por AQUI, e nao como constante lida direto**, por uma
+    #: razao que dois testes ensinaram no mesmo dia: a banda antiga era
+    #: injetavel (bastava um alvo `[0,00 - 1,00]` para dizer *"aceite qualquer
+    #: coisa"*), e uma escada fixa no modulo tirava essa alavanca — os testes de
+    #: encadeamento do job passaram a nao ter como simular *"o candidato
+    #: encaixa"*. ⛔ Criterio que nao se consegue injetar e criterio que nao se
+    #: consegue testar.
+    escada: Optional[Mapping[str, tuple[float, float]]] = None
 
 
 #: A consulta que le a taxa de resolucao real dos ultimos desafios.

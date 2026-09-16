@@ -520,9 +520,17 @@ async def cobrir_um_dia(
         # **ignorada**. `dentro_da_banda` e `alvo_para_a_regua` eram chamadas so
         # pelos proprios testes — codigo morto —, e a primeira execucao real
         # publicou um desafio que os tres mascotes resolveram **20 de 20**.
-        distancia = regua_mod.distancia_da_banda(
-            medicoes, piso=alvo.piso, teto=alvo.teto
-        )
+        #
+        # ⛔ **E EM 16/09/2026 QUEM DECIDE PASSOU A SER A ESCADA**, por decisao do
+        # dono: a media dos tres exigia que a **Cacau** cumprisse ~70% por
+        # acidente, e so um objetivo quase inevitavel faz isso. Ver o bloco
+        # `ESCADA_ALVO` em `job/regua.py`.
+        #
+        # ⚠️ **A prova de que as duas discordam no caso que importa:** o
+        # `damas_sobreviver` de 21/09 foi o **unico** dia que a banda aprovou
+        # (media 0,80) — e foi o que o dono mais reprovou no painel. Pela escada
+        # ele erra os tres degraus de uma vez.
+        distancia = regua_mod.distancia_da_escada(medicoes, escada=alvo.escada)
         if distancia == 0.0:
             escolhido = (candidato, medicoes)
             break
@@ -553,19 +561,22 @@ async def cobrir_um_dia(
         # se le como um desafio duríssimo — quando o caso era o oposto: taxa 0.90,
         # dez pontos ACIMA do teto. ⛔ Um relatorio que troca o sinal do problema
         # e pior que um relatorio ausente: manda investigar o lado errado.
+        # ⚠️ **A media continua no log, e nao decide mais nada.** Ela e a forma
+        # mais curta de dizer a um humano quao dificil o dia ficou; ⛔ quem
+        # explica o descarte e a escada, degrau a degrau — uma distancia media de
+        # 0,15 pode ser um mascote muito fora ou tres pouco fora, e as duas pedem
+        # reacoes opostas (tipo mal escolhido × calibracao).
         taxa_media = regua_mod.taxa_media(medicoes)
+        escada = regua_mod.descrever_escada(medicoes, escada=alvo.escada)
         relatorio.fora_da_banda.append(
-            f"{dt_dia}: taxa media {taxa_media:.2f} "
-            f"({'acima' if taxa_media > alvo.teto else 'abaixo'} por "
-            f"{distancia:.2f}) fora da banda "
-            f"[{alvo.piso:.2f}, {alvo.teto:.2f}] (alvo {alvo.co_origem})"
+            f"{dt_dia}: fora da escada por {distancia:.2f} "
+            f"(taxa media {taxa_media:.2f}) — {escada}"
         )
         print(
-            f"⚠️ [job] {dt_dia}: nenhum dos {len(candidatos)} candidatos caiu na "
-            f"banda [{alvo.piso:.2f}, {alvo.teto:.2f}]. Publicando o mais "
-            f"proximo (taxa media {taxa_media:.2f}, "
-            f"{'banal' if taxa_media > alvo.teto else 'duro'} por "
-            f"{distancia:.2f}) como CANDIDATO, para a curadoria decidir.",
+            f"⚠️ [job] {dt_dia}: nenhum dos {len(candidatos)} candidatos coube na "
+            f"ESCADA (erro medio {distancia:.2f}). Publicando o mais proximo como "
+            f"CANDIDATO, para a curadoria decidir.\n"
+            f"           {escada}",
             file=sys.stderr,
         )
 

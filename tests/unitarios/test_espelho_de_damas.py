@@ -22,6 +22,7 @@ import pytest
 
 from job.espelho_de_damas import (
     com_as_brancas_a_jogar,
+    com_o_adversario_a_jogar,
     espelhar_casa,
     espelhar_fen,
 )
@@ -165,3 +166,124 @@ def test_com_as_brancas_a_jogar_VIRA_o_que_esta_invertido() -> None:
     joga com as pecas iniciando na parte de baixo do tabuleiro, nao no topo."*
     """
     assert com_as_brancas_a_jogar("B:W25,26,29:B16,17,18,21").startswith("W:")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔒 ⛔ O LADO DO JOGADOR — o defeito de 16/09/2026
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⛔ **O `damas_sobreviver` foi publicado ao avesso por dias.** O acervo dele e
+# pescado com `--desvantagem` (o jogador atras), e o que chegava ao painel tinha
+# o jogador **a frente em 89%** das vezes. O dono leu a fila antes de qualquer
+# medicao: *"Mesmo os desafios de sobreviver contra o Magno, comecam com estados
+# de tabuleiro onde o Magno esta totalmente fragilizado"*.
+#
+# ⚠️ **Nenhuma revisao de codigo pegaria**, e e isso que estes cadeados guardam: o
+# acervo, o espelho e a regua faziam cada um o que prometiam. O defeito morava na
+# COMPOSICAO — um lance impar troca a vez, e o espelho troca o lado — e so
+# aparecia no unico tipo cuja semantica e assimetrica.
+
+
+def test_com_o_adversario_a_jogar_TROCA_a_vez() -> None:
+    """🔒 A vez passa ao outro lado, nos dois sentidos."""
+    assert com_o_adversario_a_jogar("W:W25,26:B7,8").startswith("B:")
+    assert com_o_adversario_a_jogar("B:W25,26:B7,8").startswith("W:")
+
+
+def test_com_o_adversario_a_jogar_NAO_MEXE_nas_pecas() -> None:
+    """🔒 ⛔ E o que a separa do espelho: nenhuma peca sai do lugar.
+
+    ⚠️ Se um dia alguem "unificar" esta funcao com `espelhar_fen` por elas
+    parecerem a mesma coisa, este caso cai — e as duas fazem o **contrario** uma
+    da outra (ver a docstring de `com_o_adversario_a_jogar`).
+    """
+    fen = "W:WK2,12,19:B1,3,4,5"
+    virada = com_o_adversario_a_jogar(fen)
+    assert virada.split(":")[1:] == fen.split(":")[1:]
+
+
+def test_o_espelho_e_a_troca_de_vez_sao_OPOSTOS() -> None:
+    """🔒 ⛔ A confusao que causou o defeito, travada num caso.
+
+    Partindo da mesma posicao, as duas devolvem as **brancas** com conjuntos de
+    pecas diferentes: o espelho entrega ao jogador 1 as pecas do adversario; a
+    troca de vez mantem cada um com as suas.
+    """
+    fen = "B:W25,26,29:B16,17,18,21"
+    assert espelhar_fen(fen).startswith("W:")
+    assert com_o_adversario_a_jogar(fen).startswith("W:")
+    # ⚠️ As brancas do espelho sao as antigas PRETAS (quatro pecas); as da troca
+    # de vez continuam sendo as antigas brancas (tres).
+    assert len(espelhar_fen(fen).split(":")[1].lstrip("W").split(",")) == 4
+    assert len(com_o_adversario_a_jogar(fen).split(":")[1].lstrip("W").split(",")) == 3
+
+
+def _pecas_por_lado(fen: str) -> tuple[int, int]:
+    """(pecas das brancas, pecas das pretas) — as brancas sao sempre o jogador."""
+    _, brancas, pretas = fen.split(":")
+    return (
+        len([c for c in brancas[1:].split(",") if c]),
+        len([c for c in pretas[1:].split(",") if c]),
+    )
+
+
+def test_o_PREPARO_preserva_o_lado_do_jogador_no_sobreviver() -> None:
+    """🔒 ⛔ O cadeado que vale por todos: o `sobreviver` sai em DESVANTAGEM.
+
+    ⚠️ **O numero nao e arbitrario nem generoso.** O acervo tem o jogador 2,8
+    pecas atras; antes da correcao o publicado tinha **+2,3**, e em 89% das
+    posicoes o jogador tinha mais pecas. Exigir apenas *"saldo negativo"* ja
+    separa o certo do errado por 5 pecas de folga.
+
+    ⚠️ E a pergunta *"o jogador tem mais pecas?"* e a que o dono fez olhando a
+    tela, sem medir nada — por isso ela e o cadeado, e nao a media.
+    """
+    import random
+
+    from job.gerador import _preparar_damas
+
+    moldes = receita_de("damas_sobreviver").moldes
+    assert moldes, "o acervo do sobreviver nao pode estar vazio"
+
+    com_mais_pecas = 0
+    saldo = 0
+    quantas = 120
+    for semente in range(quantas):
+        sorteio = random.Random(semente)
+        publicada = _preparar_damas(sorteio, 8, moldes=moldes).fen
+        # ⛔ Quem resolve e sempre o jogador 1 — se isto quebrar, o resto do
+        # teste estaria medindo o lado errado e passaria por acidente.
+        assert publicada.upper().startswith("W:")
+        jogador, adversario = _pecas_por_lado(publicada)
+        saldo += jogador - adversario
+        if jogador > adversario:
+            com_mais_pecas += 1
+
+    assert saldo / quantas < 0, "o jogador do `sobreviver` tem de ficar ATRAS"
+    assert com_mais_pecas == 0, (
+        f"{com_mais_pecas} de {quantas} posicoes publicadas dao VANTAGEM ao "
+        "jogador — o espelho voltou a trocar o lado"
+    )
+
+
+@pytest.mark.parametrize(
+    "co_tipo",
+    ["damas_coroar", "damas_capturar_multipla", "damas_sacrificio", "damas_sobreviver"],
+)
+def test_o_PREPARO_entrega_sempre_as_brancas_a_jogar(co_tipo: str) -> None:
+    """🔒 A regra canonica do app, nos quatro tipos: o humano e o Jogador 1.
+
+    ⚠️ Vale a pena repetir por tipo mesmo com o teste acima: o caminho novo
+    (passar a vez) so roda quando a variacao e impar, e um tipo que amanha peca
+    preparo diferente cairia no outro ramo sem ninguem perceber.
+    """
+    import random
+
+    from job.gerador import _preparar_damas
+
+    moldes = receita_de(co_tipo).moldes
+    if not moldes:
+        pytest.skip(f"{co_tipo} nao usa molde")
+    for semente in range(30):
+        publicada = _preparar_damas(random.Random(semente), 8, moldes=moldes).fen
+        assert publicada.upper().startswith("W:")

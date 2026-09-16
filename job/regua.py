@@ -44,7 +44,7 @@ ou quando a busca e corrigida.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from motores.nucleo.orcamento import Orcamento
 from motores.nucleo.papeis import NivelDeMotor
@@ -317,3 +317,142 @@ def distancia_da_banda(
     if media > teto + TOLERANCIA_DA_BANDA:
         return media - teto
     return 0.0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ A ESCADA — o criterio que o dono trocou em 16/09/2026
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# > *"Com relacao a regua, se ela esta impactando na dificuldade, mesmo tendo
+# > sido uma decisao minha no passado, precisamos ajusta-la. Pouquissimos ou
+# > quase nenhum dos desafios serem resolviveis pela Cacau, poucos pela Pita, uma
+# > quantidade maior pelo Tex (talvez mais da metade) e quase sempre o Magno
+# > resolve os desafios."*
+#
+# ⛔ **POR QUE A MEDIA PRODUZIA DESAFIOS FACEIS, e isto nao e opiniao.** Junte
+# duas coisas que ja estavam medidas:
+#
+#   1. a banda exigia **media 0,70-0,80 dos tres**, e um dos tres e sempre o mais
+#      fraco disponivel;
+#   2. ⛔ a regua mede **cumprimento ACIDENTAL** (15/09/2026): o mascote nao le o
+#      enunciado, ele joga a partida.
+#
+# Logo, para a media chegar a 0,75 **com a Cacau dentro**, o objetivo tinha de
+# acontecer sozinho em ~70% das partidas de um jogador fraco. ⚠️ Um objetivo que
+# acontece sozinho nessa frequencia e, por definicao, quase inevitavel — e a
+# banda estava **selecionando os desafios cujo objetivo mais se confunde com
+# jogar normalmente**. Viés de selecao, e nao erro de calibracao.
+#
+# ⚠️ **E RF-DES-016 NASCEU ASSIM** — *"a PITA precisa resolver, e a CACAU nao"*.
+# RF-DES-204 reescreveu para *"a taxa dos tres"* e **nao diz media**: a media foi
+# escolha do codigo, e este bloco a desfaz.
+#
+# ⚠️ **A media nao foi apagada.** Ela continua sendo calculada, gravada e
+# impressa no log — e o que mudou e **quem decide**. As duas respondem perguntas
+# diferentes, e a media continua sendo a forma mais curta de dizer a um humano
+# quao dificil o dia ficou.
+
+#: A faixa de taxa esperada de cada mascote, do mais fraco ao mais forte.
+#:
+#: ⚠️ **As faixas se SOBREPOEM de proposito.** Um perfil de pontos exatos
+#: ("Cacau 0,10") seria inalcancavel com 20 execucoes, onde o passo e 0,05; e um
+#: perfil sem sobreposicao obrigaria a escada a ser ingreme em todos os tipos,
+#: quando ela so precisa ser **crescente**.
+#:
+#: ⛔ **Estes numeros sao a primeira leitura da frase do dono, e vao ser
+#: corrigidos pela medicao** — e essa e a ordem certa: o criterio muda primeiro,
+#: os numeros se ajustam ao que o acervo consegue entregar. O que nao se faz e o
+#: contrario.
+ESCADA_ALVO: dict[str, tuple[float, float]] = {
+    # *"quase nenhum"* — a Cacau resolvendo muito e o sinal de desafio banal.
+    "cacau": (0.00, 0.20),
+    # *"poucos"*
+    "pita": (0.05, 0.45),
+    # *"uma quantidade maior (talvez mais da metade)"*
+    "tex": (0.45, 0.85),
+    # *"quase sempre o Magno resolve"* — e este e o piso de RESOLUBILIDADE.
+    "magno": (0.75, 1.00),
+}
+
+
+def _distancia_da_faixa(taxa: float, faixa: tuple[float, float]) -> float:
+    """Quanto a taxa ficou fora da faixa daquele mascote. Zero quando dentro."""
+    piso, teto = faixa
+    if taxa < piso - TOLERANCIA_DA_BANDA:
+        return piso - taxa
+    if taxa > teto + TOLERANCIA_DA_BANDA:
+        return taxa - teto
+    return 0.0
+
+
+def distancia_da_escada(
+    medicoes: Sequence[Medicao],
+    *,
+    escada: "Mapping[str, tuple[float, float]] | None" = None,
+) -> float:
+    """Quao longe do perfil do dono a escada deste candidato ficou.
+
+    ⚠️ **E a media das distancias, uma por mascote medido** — e nao a distancia da
+    media, que e o criterio antigo. A diferenca importa: `0,00 / 0,50 / 1,00` tem
+    media 0,50 e parece calibrado, enquanto a escada ve que a Cacau esta no lugar,
+    o Tex tambem e o Magno **falhou o piso de resolubilidade**.
+    """
+    if not medicoes:
+        # ⚠️ Nada medido nao pode virar "encaixou perfeitamente" — o mesmo
+        # principio de `distancia_da_banda`.
+        return float("inf")
+    alvo = ESCADA_ALVO if escada is None else escada
+    faltas = [
+        _distancia_da_faixa(m.taxa, alvo[m.co_personagem])
+        for m in medicoes
+        if m.co_personagem in alvo
+    ]
+    if not faltas:
+        return float("inf")
+    return sum(faltas) / len(faltas)
+
+
+def dentro_da_escada(
+    medicoes: Sequence[Medicao],
+    *,
+    escada: "Mapping[str, tuple[float, float]] | None" = None,
+) -> bool:
+    """Todos os mascotes medidos caem na faixa deles?
+
+    ⚠️ **O adversario do dia nao entra**, porque nao e medido (ver o cabecalho do
+    modulo) — entao a escada e julgada sobre tres degraus, e quais tres depende de
+    quem foi sorteado. ⛔ Isso e uma assimetria conhecida e nao resolvida: no dia
+    do Magno, o degrau que garante a **resolubilidade** e justamente o que falta.
+    """
+    return bool(medicoes) and distancia_da_escada(medicoes, escada=escada) == 0.0
+
+
+def descrever_escada(
+    medicoes: Sequence[Medicao],
+    *,
+    escada: "Mapping[str, tuple[float, float]] | None" = None,
+) -> str:
+    """A escada em uma linha, para o log: `cacau 0.05 ✅ · pita 0.60 ⛔(+0.15)`.
+
+    ⚠️ **O que o dono precisa ler nao e a distancia, e sim QUAL degrau errou.** Uma
+    distancia media de 0,15 pode ser um mascote muito fora ou tres pouco fora, e as
+    duas pedem reacoes opostas: a primeira e um tipo mal escolhido, a segunda e
+    calibracao.
+    """
+    alvo = ESCADA_ALVO if escada is None else escada
+    partes = []
+    for medicao in medicoes:
+        faixa = alvo.get(medicao.co_personagem)
+        if faixa is None:
+            partes.append(f"{medicao.co_personagem} {medicao.taxa:.2f} (sem alvo)")
+            continue
+        falta = _distancia_da_faixa(medicao.taxa, faixa)
+        if falta == 0.0:
+            partes.append(f"{medicao.co_personagem} {medicao.taxa:.2f} ✅")
+        else:
+            sinal = "+" if medicao.taxa > faixa[1] else "-"
+            partes.append(
+                f"{medicao.co_personagem} {medicao.taxa:.2f} ⛔({sinal}{falta:.2f} "
+                f"de [{faixa[0]:.2f},{faixa[1]:.2f}])"
+            )
+    return " · ".join(partes)

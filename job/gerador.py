@@ -59,7 +59,7 @@ from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicao_inicial as posicao_mod
 from . import semente as semente_mod
-from .espelho_de_damas import com_as_brancas_a_jogar
+from .espelho_de_damas import com_as_brancas_a_jogar, com_o_adversario_a_jogar
 from .moldes_de_damas import material_de_quem_joga, objetivo_no_primeiro_lance
 from .perfil import NIVEL_POR_PERSONAGEM
 from .tipos_de_desafio import RECEITAS, Receita, receita_de, tipos_do_jogo
@@ -1137,9 +1137,7 @@ def _preparar_damas(
     motor = MotorDamas(co_modalidade)
 
     if moldes:
-        estado = EstadoDamas(
-            co_modalidade=co_modalidade, fen_inicial=sorteio.choice(list(moldes))
-        )
+        molde = sorteio.choice(list(moldes))
         # ── ⚠️ UM LANCE DE VARIACAO, E O ESPELHO CUIDA DO LADO ───────────
         #
         # ⛔ **Esta linha ja foi `2`, por algumas horas de 11/09/2026, e foi um
@@ -1157,11 +1155,37 @@ def _preparar_damas(
         # quais o dono escreveu *"o usuario entra pra resolver um desafio e nao
         # joga praticamente nada"*.
         #
-        # ✅ **O espelho resolve as duas coisas de uma vez** (ver
-        # `job/espelho_de_damas.py`): varia-se **um** lance — que preserva a
-        # distancia — e gira-se o tabuleiro 180 graus trocando as cores, o que
-        # devolve a mesma tarefa com as **brancas** a jogar.
+        # ⛔ **E O ESPELHO ERA A METADE ERRADA DA SOLUCAO — corrigido em
+        # 16/09/2026.** Ele devolvia as brancas a jogar, sim, mas trocando
+        # **quem e o jogador 1**: depois de um lance impar do jogador, a vez e do
+        # adversario, e espelhar fazia do adversario o solucionador. O
+        # `damas_sobreviver` saía ao avesso — o unico tipo cujo objetivo depende
+        # de quem esta atras, publicado com o jogador **a frente em 89%** das
+        # vezes, sobre um acervo pescado com `--desvantagem`.
+        #
+        # ✅ **A correcao: o lance de variacao e do ADVERSARIO.** Passa-se a vez
+        # sem mexer no tabuleiro (`com_o_adversario_a_jogar`), joga-se um lance
+        # das pretas, e chega-se naturalmente com as **brancas** a jogar — sem
+        # espelho nenhum. Isso preserva as tres coisas ao mesmo tempo:
+        #
+        #     o LADO do jogador   o molde diz quem esta atras, e continua dizendo
+        #     a DISTANCIA         o lance gasto e do adversario, nao do jogador
+        #     a VARIEDADE         283 posicoes distintas em 400 sorteios
+        #
+        # ⚠️ **E e mais fiel ao que o molde representa:** numa partida, quem
+        # responde primeiro e o adversario.
+        #
+        # ⚠️ Medido, no acervo do `damas_sobreviver` (400 sorteios): saldo do
+        # jogador **-3,1** (era +2,3), e **zero** posicoes com o jogador tendo
+        # mais pecas (eram 89%). Variar zero lances tambem corrigiria o lado, mas
+        # derrubaria a variedade de 283 para 110 posicoes.
         variacao = min(1, max(0, lances_de_preparo // 8))
+        # ⛔ **So quando a variacao e IMPAR.** Com um numero par de lances a vez
+        # volta sozinha ao jogador, e inverter aqui publicaria o avesso do avesso.
+        estado = EstadoDamas(
+            co_modalidade=co_modalidade,
+            fen_inicial=com_o_adversario_a_jogar(molde) if variacao % 2 else molde,
+        )
     else:
         estado = estado_inicial(co_modalidade)
         variacao = lances_de_preparo
@@ -1174,15 +1198,23 @@ def _preparar_damas(
 
     # ── ⚠️ O ESPELHO: quem resolve o desafio e sempre o JOGADOR 1 ───────────
     #
-    # Depois de um numero impar de lances, quem joga sao as pretas — e a pessoa
-    # nao pode ser o jogador 2 (`CLAUDE.md`: *"o humano e o Jogador 1, azul"*).
-    # ⚠️ Espelhar e a **mesma tarefa vista do outro lado**, e nao uma posicao
-    # nova: as damas sao simetricas sob rotacao de 180 graus com troca de cor, e
-    # ha cadeado comparando os lances legais dos dois lados nas quatro
+    # A pessoa nao pode ser o jogador 2 (`CLAUDE.md`: *"o humano e o Jogador 1,
+    # azul"*). ⚠️ Espelhar e a **mesma tarefa vista do outro lado**, e nao uma
+    # posicao nova: as damas sao simetricas sob rotacao de 180 graus com troca de
+    # cor, e ha cadeado comparando os lances legais dos dois lados nas quatro
     # modalidades.
     #
-    # ⛔ **Nao se resolve isto variando um numero par de lances** — ja foi
-    # tentado, no mesmo dia: dois lances consomem a distancia ate o objetivo e
+    # ⚠️ **NO RAMO DOS MOLDES ELE VIROU REDE, e nao mais o mecanismo** — desde
+    # 16/09/2026 a posicao ja chega aqui com as brancas a jogar, porque o lance de
+    # variacao foi do adversario (ver o bloco la em cima). ⛔ E foi justamente
+    # quando ele era o mecanismo que o `damas_sobreviver` saiu ao avesso: espelhar
+    # devolve as brancas a jogar **trocando quem e o jogador 1**.
+    #
+    # ⛔ **Quem ainda depende dele de verdade e o ramo SEM molde**, onde a
+    # variacao e a abertura inteira e pode terminar em qualquer lado.
+    #
+    # ⛔ **E nao se resolve nada disto variando um numero par de lances** — ja foi
+    # tentado, em 11/09/2026: dois lances consomem a distancia ate o objetivo e
     # deixam o desafio banal (ou impossivel de gerar).
     return EstadoDamas(
         co_modalidade=co_modalidade, fen_inicial=com_as_brancas_a_jogar(estado.fen)
