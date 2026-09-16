@@ -4575,3 +4575,109 @@ dado (RF-DES-192). A proposta ficou onde estava, com o aviso na receita.
 medição — as que sobram esperam por **acervo**, que é pescaria, não relógio.
 
 ⛔ **Nenhuma migração.** Os números 5 e 9 estão na `tb901` desde a `0018`.
+
+---
+
+## 2026-09-16 — O job de 15/09 fora da banda: o que os dados do `des` dizem, e o que eles NÃO dizem
+
+**Contexto.** O job rodou com os 11 tipos e publicou 7 dias. ⚠️ **6 dos 7 saíram
+fora da banda `[0,70; 0,80]`, e todos para o mesmo lado — abaixo.** O dono
+autorizou a consulta ao banco: *"Se você quiser avaliar, veja diretamente no
+banco de dados."*
+
+### ✅ O que a régua gravou (`desafio.tb002_medicao_regua`, 21 linhas)
+
+| dia | tipo | adversário | cacau | pita | tex | magno | média |
+|---|---|---|---|---|---|---|---|
+| 15/09 | `damas_capturar_multipla` | pita | 0,10 | — | 0,60 | 0,85 | 0,52 |
+| 16/09 | `pontinhos_fechar_caixas` | tex | 0,35 | 0,60 | — | 0,80 | 0,58 |
+| 17/09 | `damas_coroar {damas 2}` | magno | 0,05 | 0,05 | 0,05 | — | **0,05** |
+| 18/09 | `pontinhos_paciencia` | cacau | — | 0,45 | 0,45 | 0,60 | 0,50 |
+| 19/09 | `damas_sacrificio {3,2}` | pita | 0,40 | — | 0,85 | 0,80 | 0,68 |
+| 20/09 | `pontinhos_chegar_ao_placar` | tex | 0,10 | 0,15 | — | 1,00 | 0,42 |
+| 21/09 | `damas_sobreviver {8,2}` | magno | 0,50 | 0,90 | 1,00 | — | **0,80 ✅** |
+
+### ✅ O sinal de saúde está VERDE, e é o que quase se perdeu na média
+
+⚠️ **A escada do produto está monótona e na ordem certa em 6 dos 7 dias** —
+Cacau < Pita < Tex < Magno. É exatamente o que 14/09 mostrou estar **invertido**
+no `sobreviver` antes da correção do piso. ⛔ A média de três mascotes esconde
+isso: `0,05 · 0,05 · 0,05` e `0,00 · 0,05 · 0,10` dão a mesma média e são coisas
+completamente diferentes.
+
+### ⛔ Um defeito real, e é de VARIANTE: `damas_coroar {damas: 2, lances: 8}`
+
+1 de 20 nos **três** mascotes, com a escada **plana**. Não é "duro": é quase
+impossível — nem o Tex, que resolve 0,60 a 1,00 em todo o resto, chega lá. ⚠️ E
+custou **1.157 s**, o dia mais caro dos sete.
+
+⚠️ Ela entrou no editorial em 12/09 com rótulo **NO LIMITE** (1 de 3 candidatos),
+e ⛔ **nunca passou pela régua** — como 20 das 27 variantes no ar.
+
+⛔ **Não foi removida.** O dado é de **uma** posição, e a regra que vale para
+entrar vale para sair: ninguém decide por uma amostra de 1. A medição está
+encomendada.
+
+### ⚠️ E a métrica tem uma confusão estrutural — que os dados NÃO provam ser a causa
+
+Quem mede são **os três que não são o adversário do dia** (RF-DES-204). Logo, o
+conjunto de medidores muda conforme o adversário sorteado:
+
+    adversário magno  →  medem cacau, pita, tex   (os três mais fracos)
+    adversário cacau  →  medem pita, tex, magno   (os três mais fortes)
+
+⚠️ **Dois efeitos empurram para o mesmo lado e se somam:** adversário forte torna
+o desafio mais difícil (legítimo) **e** deixa a medição com os mascotes mais
+fracos (artefato).
+
+⛔ **E os dados de 7 dias não sustentam que seja isso.** 18/09 mediu com os três
+mais fortes e deu 0,50; 21/09 mediu com os três mais fracos e deu 0,80. Com sete
+pontos e sete tipos diferentes, a variação entre tipos domina. ⚠️ **O artefato é
+fato de código; ser ele a causa é hipótese** — e é assim que fica registrado.
+
+### ⚠️ A banda é REQUISITO, e a tradução dela para "média" não está na spec
+
+RF-DES-016 nasceu como afirmação sobre a **forma da escada**: *"a PITA precisa
+resolver, e a CACAU não"*. RF-DES-204 a reescreveu para *"a taxa de resolução dos
+três mascotes que não são o adversário"* — e ⛔ **não diz taxa média**. Quem
+escolheu a média foi o código.
+
+⚠️ Aplicando o critério original de RF-DES-016 aos 7 dias, **17/09 e 20/09 seriam
+reprovados** — exatamente os dois que a leitura por mascote aponta (escada plana
+em 0,05; salto de 0,15 para 1,00). Os outros cinco passariam.
+
+⛔ **Trocar a métrica é decisão do dono**, não minha: a banda é requisito e ele
+validou a spec. Registrado aqui como achado, e levado a ele como pergunta.
+
+### ✅ A previsão da medição de 16/09 acertou
+
+`damas_sobreviver {8,2}` foi **o único dia dentro da banda** — e é a única
+variante do catálogo que a medição com régua tinha aprovado em **3 de 3 dias**.
+`damas_sacrificio {3,2}`, medida com "2 de 3 dias na banda", saiu em 0,68,
+errando por 0,02. ⚠️ **As duas previsões bateram**, e isso é o que dá confiança
+para encomendar a medição do resto.
+
+### ✅ O que foi feito no código: o alvo `no-ar`
+
+⛔ **A investigação esbarrou numa lacuna da ferramenta.** `A_MEDIR` é uma tabela
+**paralela** ao editorial, e as duas já divergiram: `pontinhos_paciencia` e
+`pontinhos_nao_entregar` estão no ar desde 14/09 e **não estão nela**. A paciência
+publicou em 18/09 com taxa 0,50, e ⛔ nenhuma rodada de medição a examinaria.
+
+⚠️ **O próprio comentário de `A_MEDIR` avisa desse defeito.** O aviso estava
+escrito; faltava quem o cobrasse.
+
+✅ `no-ar`, `no-ar-damas` e `no-ar-pontinhos` leem o **editorial na hora**, com os
+botões de **cada** publicação — e não os da variante 0, que mediriam
+`acima_do_guloso` com preparo 8 e `damas_sobreviver` com teto 12. Três cadeados
+novos.
+
+⚠️ **`A_MEDIR` não sai:** ela guarda as candidatas em **estudo**, incluindo as
+recusadas. São perguntas diferentes.
+
+### ✅ E as medidas de saída dos dois tipos novos entraram certas na produção
+
+Conferido no `des`: o sacrifício de 19/09 gravou faixa **9 → 12** (adversário com
+12 peças, capturar 3) e o sobreviver de 21/09 faixa **0 → 8** (jogador com 10,
+entregar 2). ⚠️ Os números saíram da **posição**, como projetado — o mecanismo do
+alvo relativo funcionou ponta a ponta.

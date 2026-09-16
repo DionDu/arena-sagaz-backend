@@ -113,6 +113,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from job import editorial as editorial_mod  # noqa: E402
 from job import gerador as gerador_mod  # noqa: E402
+from job import tipos_de_desafio as tipos_de_desafio_mod  # noqa: E402
 
 #: Quantos candidatos pedir por dia — o mesmo do job (`CANDIDATOS_POR_DIA`).
 #:
@@ -647,6 +648,56 @@ def medir(
             print(linha)
 
 
+#: O alvo que mede **o que esta publicado**, e nao uma lista escrita a mao.
+#:
+#: ⛔ **NASCEU DO JOB DE 15/09/2026**, em que 6 dos 7 dias sairam fora da banda —
+#: e a investigacao esbarrou numa lacuna da propria ferramenta: `A_MEDIR` e uma
+#: tabela **paralela** ao editorial, e as duas ja tinham divergido.
+#: `pontinhos_paciencia` e `pontinhos_nao_entregar` estao no ar desde 14/09 e nao
+#: estao em `A_MEDIR` — ⚠️ **elas nunca seriam remedidas**, que e exatamente o
+#: defeito que o comentario de `A_MEDIR` avisa e que ninguem viu acontecer.
+#:
+#: ⚠️ **E as duas tabelas respondem perguntas diferentes, entao nenhuma some:**
+#:
+#:     A_MEDIR   as candidatas em ESTUDO — inclui as recusadas, que ficam para
+#:               o dia em que o acervo ou o gerador mudarem
+#:     no-ar     as variantes PUBLICADAS, lidas do editorial na hora
+#:
+#: ⛔ **E aqui os botoes saem de cada publicacao, e nao da variante 0.** `medir()`
+#: usa `publicacao_de(co_tipo, 0)` para os botoes de todas as candidatas, o que
+#: vale enquanto elas compartilham botao — e ⛔ **nao vale no editorial**, onde
+#: `acima_do_guloso` pede preparo 14 e `damas_sobreviver` pede teto 18. Medi-las
+#: com os botoes da variante 0 devolveria uma taxa que descreve uma execucao que
+#: o job nao faz.
+ALVO_NO_AR = "no-ar"
+
+#: Os tres alvos que leem o editorial, e de que jogo cada um le.
+#:
+#: ⚠️ O filtro por jogo existe por **preco**: a rodada com regua das 10 variantes
+#: de damas custa ~2h20, e a das 17 de Pontinhos ~1h.
+ALVOS_NO_AR: Mapping[str, str | None] = {
+    ALVO_NO_AR: None,
+    f"{ALVO_NO_AR}-damas": "damas",
+    f"{ALVO_NO_AR}-pontinhos": "pontinhos",
+}
+
+
+def candidatas_do_editorial(co_tipo: str) -> tuple["Candidata", ...]:
+    """As variantes publicadas daquele tipo, com os botoes de cada uma.
+
+    ⚠️ Le `editorial.variantes_de` **na hora**: variante que entrar no editorial
+    amanha entra nesta medicao sem ninguem copiar numero nenhum.
+    """
+    return tuple(
+        Candidata(
+            publicacao.parametros,
+            nu_lances_de_preparo=publicacao.nu_lances_de_preparo,
+            nu_maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
+        )
+        for publicacao in editorial_mod.variantes_de(co_tipo)
+    )
+
+
 def tipos_do_alvo(alvo: str) -> list[str]:
     """Quais tipos de `A_MEDIR` o argumento da linha de comando seleciona.
 
@@ -674,6 +725,24 @@ def tipos_do_alvo(alvo: str) -> list[str]:
     # rotina dobrar de tamanho sem ninguem ter pedido.
     if alvo == "em-avaliacao":
         return list(EM_AVALIACAO)
+
+    # ⚠️ **Os tipos saem de `RECEITAS`, e nao de `A_MEDIR`** — e e esse o ponto
+    # do alvo: medir o que esta no ar, inclusive o que a tabela paralela esqueceu.
+    if alvo in ALVOS_NO_AR:
+        # ⚠️ `no-ar-damas` e `no-ar-pontinhos` existem por PRECO, e nao por
+        # arrumacao: a rodada com regua das 10 variantes de damas custa ~2h20 e a
+        # das 17 de Pontinhos ~1h. ⛔ Um alvo unico obrigaria a pagar as duas
+        # para investigar uma.
+        so_do_jogo = ALVOS_NO_AR[alvo]
+        return [
+            co_tipo
+            for co_tipo in sorted(tipos_de_desafio_mod.RECEITAS)
+            if editorial_mod.variantes_de(co_tipo)
+            and (
+                so_do_jogo is None
+                or tipos_de_desafio_mod.RECEITAS[co_tipo].co_jogo == so_do_jogo
+            )
+        ]
 
     tabela = {**A_MEDIR, **EM_AVALIACAO}
     return [
@@ -816,7 +885,11 @@ def principal(argumentos: Sequence[str]) -> int:
     tipos = tipos_do_alvo(alvo)
     if not tipos:
         print(f"⛔ nada a medir para {alvo!r}.")
-        print("   Use um JOGO (pontinhos · damas), `todos`, ou um TIPO:")
+        print(
+            "   Use um JOGO (pontinhos · damas), `todos`, `em-avaliacao`, um "
+            "TIPO, ou o que esta PUBLICADO: `no-ar` · `no-ar-damas` · "
+            "`no-ar-pontinhos`:"
+        )
         for co_tipo in A_MEDIR:
             print(f"     {co_tipo}")
         return 2
@@ -831,7 +904,13 @@ def principal(argumentos: Sequence[str]) -> int:
     medidas = 0
     tabela = {**A_MEDIR, **EM_AVALIACAO}
     for co_tipo in tipos:
-        candidatas = tabela[co_tipo]
+        # ⛔ No alvo `no-ar` as candidatas **nao saem da tabela**: saem do
+        # editorial, com os botoes de cada publicacao (ver `ALVO_NO_AR`).
+        candidatas = (
+            candidatas_do_editorial(co_tipo)
+            if alvo in ALVOS_NO_AR
+            else tabela[co_tipo]
+        )
         if so_botao_proprio:
             candidatas = tuple(so_as_de_botao_proprio(candidatas))
         medidas += len(candidatas)

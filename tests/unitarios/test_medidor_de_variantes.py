@@ -457,3 +457,109 @@ def test_quando_NENHUM_encaixa_a_linha_diz_de_quanto_foi_o_erro(monkeypatch):
     assert "banal" in linha and "duro" in linha
     # 0.90 passa 0.10 do teto 0.80, e e o menor erro dos tres.
     assert "0.10" in linha, linha
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O ALVO `no-ar` — medir O QUE ESTA PUBLICADO, e nao uma lista paralela
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_alvo_no_ar_cobre_TODO_tipo_publicado():
+    """⛔ **`A_MEDIR` e uma tabela PARALELA ao editorial, e as duas ja divergiram.**
+
+    ⚠️ **Achado investigando o job de 15/09/2026**, em que 6 dos 7 dias sairam
+    fora da banda: `pontinhos_paciencia` e `pontinhos_nao_entregar` estao no ar
+    desde 14/09 e **nao estao em `A_MEDIR`**. Uma delas publicou no dia 18/09 com
+    taxa 0,50, e ⛔ nenhuma rodada de medicao a teria examinado.
+
+    ⚠️ **E o proprio comentario de `A_MEDIR` avisa desse defeito** — *"variante
+    publicada fora da lista deixa de ser remedida quando o gerador muda"*. O aviso
+    estava escrito; o que faltava era quem o cobrasse.
+
+    ✅ O alvo `no-ar` le `RECEITAS` e o editorial **na hora**, entao ele nao pode
+    envelhecer: tipo novo entra sozinho.
+    """
+    no_ar = set(MEDIDOR.tipos_do_alvo(MEDIDOR.ALVO_NO_AR))
+    publicados = {
+        co_tipo for co_tipo in RECEITAS if editorial_mod.variantes_de(co_tipo)
+    }
+    assert no_ar == publicados, (
+        "⛔ o alvo `no-ar` deixou de cobrir algum tipo publicado. Ele existe "
+        "justamente para nao depender de uma lista escrita a mao."
+    )
+
+    # ⚠️ E o cadeado morde nos dois sentidos: se um tipo publicado voltar a faltar
+    # em `A_MEDIR`, isto NAO falha — mas a mensagem abaixo diz quais sao, para
+    # quem for ler o relatorio de uma rodada `todos` e se perguntar o que sumiu.
+    fora_da_tabela = publicados - set(MEDIDOR.A_MEDIR)
+    assert fora_da_tabela == {"pontinhos_nao_entregar", "pontinhos_paciencia"}, (
+        "⚠️ mudou a lista de tipos publicados que NAO estao em `A_MEDIR`: "
+        f"{sorted(fora_da_tabela)}. Isso nao e erro — `A_MEDIR` guarda as "
+        "candidatas em estudo, e `no-ar` mede as publicadas —, mas a divergencia "
+        "merece ser vista de proposito, e nao descoberta num job."
+    )
+
+
+def test_as_candidatas_do_no_ar_levam_os_botoes_DE_CADA_variante():
+    """⛔ `medir()` usa os botoes da variante 0 para todas, e isso NAO vale aqui.
+
+    ⚠️ **A simplificacao e legitima em `A_MEDIR`**, onde as candidatas de um tipo
+    quase sempre compartilham preparo e teto — e as que nao compartilham trazem o
+    botao escrito a mao na linha delas.
+
+    ⛔ **No editorial ela mentiria:** `pontinhos_chegar_ao_placar` publica tres
+    variantes com preparo 8 e duas de `acima_do_guloso` com preparo **14** (sem
+    cadeia formada nao ha double dealing a cobrar), e `damas_sobreviver` publica
+    com teto **18** (`lances: 8` sao 16 meios-lances). Medir com os botoes da
+    variante 0 devolveria uma taxa que descreve uma execucao que o job nao faz.
+    """
+    for co_tipo in MEDIDOR.tipos_do_alvo(MEDIDOR.ALVO_NO_AR):
+        candidatas = MEDIDOR.candidatas_do_editorial(co_tipo)
+        publicacoes = editorial_mod.variantes_de(co_tipo)
+        assert len(candidatas) == len(publicacoes), co_tipo
+
+        for candidata, publicacao in zip(candidatas, publicacoes):
+            assert candidata.parametros == publicacao.parametros, co_tipo
+            assert (
+                candidata.nu_lances_de_preparo == publicacao.nu_lances_de_preparo
+            ), f"{co_tipo}: preparo diferente do publicado"
+            assert (
+                candidata.nu_maximo_de_meios_lances
+                == publicacao.nu_maximo_de_meios_lances
+            ), f"{co_tipo}: teto diferente do publicado"
+
+    # ⚠️ **E o caso so prova alguma coisa se houver variedade de botao para
+    # provar.** Sem isto ele passaria num editorial em que tudo usa o padrao, e
+    # daria a impressao de cobrir o que nao cobre.
+    preparos = {
+        c.nu_lances_de_preparo
+        for co_tipo in MEDIDOR.tipos_do_alvo(MEDIDOR.ALVO_NO_AR)
+        for c in MEDIDOR.candidatas_do_editorial(co_tipo)
+    }
+    assert len(preparos) >= 2, (
+        "⛔ todas as variantes no ar passaram a usar o mesmo preparo, e este caso "
+        "deixou de provar o que promete. Reveja-o."
+    )
+
+
+def test_os_alvos_no_ar_por_JOGO_particionam_o_editorial():
+    """⚠️ `no-ar-damas` e `no-ar-pontinhos` existem por PRECO, nao por arrumacao.
+
+    A rodada com regua das 10 variantes de damas custa ~2h20 e a das 17 de
+    Pontinhos ~1h. ⛔ Um alvo unico obrigaria a pagar as duas para investigar uma.
+
+    ⚠️ **E eles tem de PARTICIONAR**: juntos dao o `no-ar` inteiro, e nenhum tipo
+    aparece nos dois. Um jogo novo que nao entrasse em nenhum sumiria da medicao
+    sem erro nenhum — e e assim que uma variante fica anos sem ser remedida.
+    """
+    inteiro = set(MEDIDOR.tipos_do_alvo(MEDIDOR.ALVO_NO_AR))
+    das_damas = set(MEDIDOR.tipos_do_alvo("no-ar-damas"))
+    dos_pontinhos = set(MEDIDOR.tipos_do_alvo("no-ar-pontinhos"))
+
+    assert das_damas | dos_pontinhos == inteiro, (
+        "⛔ os dois alvos por jogo nao cobrem o `no-ar` inteiro. Se um jogo novo "
+        "entrou no catalogo, ele precisa do alvo dele em `ALVOS_NO_AR`."
+    )
+    assert not (das_damas & dos_pontinhos), "um tipo caiu nos dois jogos"
+    assert all(receita_de(t).co_jogo == "damas" for t in das_damas)
+    assert all(receita_de(t).co_jogo == "pontinhos" for t in dos_pontinhos)
