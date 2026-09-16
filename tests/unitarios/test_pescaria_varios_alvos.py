@@ -267,3 +267,42 @@ def test_alvos_REPETIDOS_colapsam_num_so() -> None:
         {"damas": 1, "lances": 6},
     )
     assert len(alvos) == 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. A janela tem de caber no teto — o defeito nº 1 desta familia
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_pescaria_RECUSA_janela_que_nao_cabe_no_teto() -> None:
+    """🔒 Uma janela maior que o teto nunca fecha, e o log nao acusa a causa.
+
+    ⛔ **Ja custou uma cacada inteira:** a primeira do `damas_sobreviver`
+    (10/09/2026) aprovou ZERO moldes porque o teto ficava abaixo da janela do
+    tipo — e o motivo registrado era `nao_cumpriu_no_teto`, indistinguivel de
+    *"o jogo nao permite"*.
+
+    ⚠️ **E o risco voltou em 16/09**, quando `--parametros` passou a deixar o dono
+    escrever a janela a mao. A aritmetica: os lados alternam e o jogador comeca,
+    entao o N-esimo lance DELE e o meio-lance `2N - 1`.
+
+    ⛔ **Erro, e nao aviso** — um aviso seria lido depois de trinta segundos de
+    barra de progresso, quando a pescaria ja parece estar indo bem.
+    """
+    fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
+    assert "preciso = 2 * valores[\"lances\"] - 1" in fonte
+    assert "if preciso > teto:" in fonte
+    assert "raise SystemExit(" in fonte
+
+
+def test_a_janela_de_10_CABE_no_teto_de_20() -> None:
+    """✅ A aritmetica da pescaria que o dono vai rodar, travada aqui.
+
+    10 lances do jogador → o 10º lance dele e o meio-lance 19, e o teto e 20.
+    ⚠️ Se alguem baixar `nu_maximo_de_meios_lances` do `damas_coroar`, este teste
+    cai antes de a pescaria gastar horas para nao achar nada.
+    """
+    from job.editorial import variantes_de
+
+    teto = max(p.nu_maximo_de_meios_lances for p in variantes_de("damas_coroar"))
+    assert 2 * 10 - 1 <= teto, f"janela de 10 lances nao cabe no teto {teto}"

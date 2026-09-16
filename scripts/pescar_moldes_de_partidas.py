@@ -101,6 +101,7 @@ from scripts.cacar_moldes_damas import (  # noqa: E402
     TIPOS,
     MotivoDeDescarte,
     parametros_do_tipo,
+    teto_do_tipo,
     resolve_varios_alvos,
     _mapear,
     processos_padrao,
@@ -746,6 +747,38 @@ def main() -> int:
     else:
         alvos[_nome_do_alvo(padrao, padrao)] = padrao
 
+    # ── ⛔ A JANELA TEM DE CABER NO TETO ────────────────────────────────────
+    #
+    # ⛔ **E o defeito nº 1 desta familia de ferramentas, e ele volta sempre que
+    # alguem escreve os dois numeros a mao.** A primeira cacada do
+    # `damas_sobreviver` (10/09/2026) aprovou ZERO moldes porque o teto ficava
+    # abaixo da janela do tipo — e o log dizia `nao_cumpriu_no_teto`, que e
+    # indistinguivel de *"o jogo nao permite"*. Horas de busca para um numero que
+    # nunca poderia fechar.
+    #
+    # ⚠️ **A aritmetica:** os dois lados alternam e o jogador comeca, entao o
+    # N-esimo lance DELE e o meio-lance `2N - 1`. Uma janela de 10 lances do
+    # jogador precisa de pelo menos 19 meios-lances de teto.
+    #
+    # ⛔ **Erro, e nao aviso.** Um aviso seria lido depois de trinta segundos de
+    # barra de progresso, quando a pescaria ja parece estar indo bem.
+    teto = teto_do_tipo(args.tipo)
+    for nome, valores in alvos.items():
+        if "lances" not in valores:
+            continue
+        preciso = 2 * valores["lances"] - 1
+        if preciso > teto:
+            raise SystemExit(
+                f"⛔ o alvo [{nome}] pede janela de {valores['lances']} lances do "
+                f"jogador, que sao {preciso} meios-lances — e o teto deste tipo e "
+                f"{teto}.\n"
+                "   Nenhum molde poderia fechar, e o log diria apenas "
+                '"nao_cumpriu_no_teto".\n'
+                f"   Ou baixe a janela para {(teto + 1) // 2} lances, ou suba "
+                "`nu_maximo_de_meios_lances` no editorial do tipo."
+            )
+
+    print(f"teto da busca: {teto} meios-lances (~{-(-teto // 2)} lances do jogador)")
     if len(alvos) == 1:
         print(f"peneira julga com: {next(iter(alvos.values()))}")
     else:
