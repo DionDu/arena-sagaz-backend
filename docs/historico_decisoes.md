@@ -4918,3 +4918,119 @@ corte virar commit.
 
 ⚠️ E a pescaria nova continua valendo: 92 moldes com material ~9,5 ainda estão
 longe dos 15-19 dos outros três tipos.
+
+## 2026-09-16 (noite) — ⛔ O dono abre o `prd` para LEITURA, e o acervo do coroar quadruplica
+
+**Contexto.** A sondagem do acervo do `damas_coroar` estava rodando no `des`, e o
+dono leu o cabeçalho da saída antes de mim:
+
+    posicoes reais, sem repeticao: 1777
+    com 12+ pecas: 1205
+    com pedra a 3+ fileira(s) da coroacao: 1054
+
+> *"No entanto vejo que você está usando a base de DES como referência. Nela tem
+> poucas partidas (todas jogadas por mim em alguns testes). Talvez fosse mais
+> assertivo rodar no banco de Produção onde tem muitas partidas de usuários reais
+> no App. (...) Como você está rodando apenas SELECT no banco, não vejo problema
+> em acessar o banco de produção. Só tomar cuidado pra não rodar nem um DDL,
+> DELETE, UPDATE ou INSERT."*
+
+⚠️ **Ele estava certo sobre a origem do acervo, e o número prova.** Todas as 1.777
+posições do `des` saíram das partidas de teste dele; o acervo do coroar era, no
+fundo, um retrato de como **uma pessoa** joga damas.
+
+### ⛔ A regra que mudou, e a que NÃO mudou
+
+Até hoje valia *"o assistente não conecta no `prd`"*. O que o dono abriu foi
+**leitura**, e só; escrita em produção continua sendo comando dele, como sempre.
+
+⛔ **E a exceção virou código, não memória.** Uma autorização dada em conversa
+vira "mas da outra vez pôde" no dia seguinte — então ela entrou como
+`scripts/consultar_prd.py`, **arquivo novo**, com a trava do irmão intacta.
+
+### Por que um arquivo novo, e não um `--ambiente` no script do `des`
+
+A trava número 1 de `consultar_des.py` é literalmente *"a URL usada é sempre
+`DATABASE_URL_DES`"*: hoje aquele script **não consegue** apontar para produção
+nem se alguém quiser. ⛔ Transformar o banco em argumento destruiria exatamente
+essa propriedade, e faria um erro de digitação virar escrita em produção.
+
+⚠️ **A lógica de conferência, essa sim, é importada** — `sem_comentarios` nasceu
+de um falso positivo real (a palavra "do" de um comentário em português), e
+duplicá-la significaria consertar o mesmo defeito duas vezes, esquecendo uma.
+
+**No `prd` a trava é quádrupla**, e a quarta é a que o irmão não tem:
+
+    1. só DATABASE_URL_PRD
+    2. SET TRANSACTION READ ONLY        ← a defesa de verdade, imposta pelo banco
+    3. as palavras de escrita           ← importada do irmão
+    4. tem de COMEÇAR com SELECT ou WITH  ← ⛔ só aqui
+
+⚠️ **A quarta existe por causa do `EXPLAIN ANALYZE`**, que passa nas outras três e
+**executa o plano de verdade**. No `des` uma consulta esquisita é um erro; aqui é
+um incidente.
+
+⛔ **E o cadeado que vale por todos** (`tests/unitarios/test_consultar_prd.py`)
+trava o recorte: cada script cita **só a sua** variável de ambiente. ⚠️ Ele lê a
+fonte pela **AST**, e não por linha, porque os dois arquivos *explicam um ao
+outro* na prosa — o do `prd` cita `DATABASE_URL_DES` no cabeçalho para dizer por
+que não a usa, e uma busca ingênua acusaria a própria explicação. A AST descarta
+comentário e docstring e **mantém as strings do código**, que é onde o nome da
+variável de fato está.
+
+### ✅ O que o `prd` tinha: as damas estão em campo desde 03/09
+
+| modalidade | partidas | jogadas | FENs únicas | primeira | última |
+|---|---|---|---|---|---|
+| brasileira | 65 | 3.791 | 3.515 | 03/09 | 16/09 |
+| portuguesa | 23 | 1.246 | 1.129 | 03/09 | 10/09 |
+| casa | 23 | 1.147 | 1.039 | 04/09 | 12/09 |
+| anglo | 7 | 548 | 539 | 03/09 | 14/09 |
+
+⚠️ **As quatro modalidades entram no acervo, e isso é de propósito.** Uma FEN é um
+arranjo de peças; o que a modalidade muda é como se *chega* nela, não se ela é
+uma posição brasileira válida. O molde é publicado e resolvido em brasileira de
+qualquer forma — e o pescador recusa sozinho o que não montar.
+
+### ✅ O acervo peneirado quadruplicou, e o material entrou na faixa certa
+
+| banco | FENs únicas | 12+ peças | alcançável ≤6 | **≥3 fileiras** |
+|---|---|---|---|---|
+| `prd` | 6.117 | 3.747 | 3.738 | **3.113** |
+| `des` | 1.777 | 1.205 | 1.204 | **1.054** |
+| **união** | 7.823 | — | — | **4.096** |
+
+⛔ **4.096 contra 1.054 — e 3.042 delas não existiam no `des`.**
+
+✅ **E o material pós-peneira é 17,7 (de 12 a 24)** — a faixa dos outros três
+tipos (`capturar_multipla` 17,0 · `sacrificio` 18,9 · `sobreviver` 15,2), contra
+os **7,3** do acervo atual do coroar. ⚠️ O filtro de distância trouxe o tabuleiro
+cheio junto, como a medição de mais cedo previa.
+
+Distância da pedra mais adiantada, no acervo peneirado do `prd`:
+
+    3 fileiras:  863
+    4 fileiras: 1631
+    5 fileiras:  572
+    6 fileiras:   47
+
+### ⚠️ Os arquivos de FEN do `prd` NÃO entram no Git
+
+`fens_damas_prd.json` e `fens_damas_prd_e_des.json` são dado de produção. O
+`.gitignore` já os pega pelo padrão `fens_*.json` — conferido com
+`git check-ignore -v`, e não por inspeção.
+
+⚠️ **E o JSON gravado pelo PowerShell 5.1 sai em UTF-16**, porque o `>` do shell
+usa a codificação dele e não a do script. O pescador já trata isso
+(`_texto_do_arquivo`); um `json.load` direto quebra com
+`'utf-8' codec can't decode byte 0xff in position 0`.
+
+### ⏳ O que fica em aberto
+
+A pescaria do acervo novo, que é processo de horas. ⛔ **E ela precisa de
+`--diario` próprio**: a assinatura inclui o arquivo de origem e os filtros, e o
+diário do `des` recusaria a retomada — que é o cadeado funcionando.
+
+⚠️ **Sem `--amostra`, e com `--embaralhar`:** como o diário grava por FEN e
+retoma, embaralhar faz de **qualquer parada** uma amostra não-viesada. Amostrar
+de antemão só jogaria trabalho fora.
