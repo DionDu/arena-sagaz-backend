@@ -149,12 +149,12 @@
     },
     {
       "caminho": "jogos/jogo_damas/contrato/contrato_damas.json",
-      "sha256": "84d97218178db58bdefb98ad5fb690e10adcaf789ea313bd95108f8830834be4",
-      "tamanho_bytes": 30102
+      "sha256": "ca092ed7be2776de31c7d2861c06fe7dda10e1d45c53929e3b4c02bc00ce102a",
+      "tamanho_bytes": 30357
     },
     {
       "caminho": "jogos/jogo_damas/contrato/MANIFESTO_HASHES.json",
-      "sha256": "d4e7c5ffcf2028e6d8b499008ba407a4f1bf5b5de2444172e3035ee15a64d199",
+      "sha256": "99e559fb9058b42e820d78fa86087f63a368da9ba0ca5a6c2d4c0d8043b0d7db",
       "tamanho_bytes": 1498
     },
     {

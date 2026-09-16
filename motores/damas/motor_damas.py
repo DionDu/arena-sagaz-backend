@@ -86,12 +86,16 @@ MOTIVO_SEM_LANCES = "sem_lances"
 # questão — ele é cópia byte-idêntica, e editá-lo derruba o cadeado 6. Então a
 # tradução é trabalho do adaptador, e é este o lugar dela.
 #
-# ⚠️ Nota de fato, para quem vier depois: o app HOJE mostra essa prosa crua no
-# subtítulo da tela de resultado das damas, então quem joga em inglês ou espanhol
-# vê português sem acento. Isso é defeito do app, tem tarefa própria (T003, o
-# i18n do empate das damas na spec 008), e ⛔ não se conserta aqui: pôr acento ou
-# traduzir no espelho criaria uma terceira grafia e quebraria a paridade com o
-# motor em Dart.
+# ✅ **O app parou de mostrar a prosa crua em 16/09/2026** (T003). O motor em
+# Dart ganhou `empateDeclarado`, que devolve identificador, número e artigo, e a
+# tela de resultado das damas monta a frase pelo `l10n`. ⚠️ **E ele usa ESTES
+# identificadores** - `textoDoEmpate`, em
+# `lib/modulos/jogos/damas/logica/textos_damas.dart`, tem os cinco. Acrescentar
+# um aqui sem acrescentar lá deixa o subtítulo em branco no aparelho, e o cadeado
+# `test/modulos/jogos/damas/empate_traduzido_test.dart` é quem cobra.
+#
+# ⛔ Continua fora de questão consertar isso dentro do espelho: pôr acento ou
+# traduzir ali criaria uma terceira grafia e quebraria a paridade com o Dart.
 #
 # A chave é um pedaço estável da prosa; o valor é o identificador que sobe.
 _MOTIVOS_DE_EMPATE = (

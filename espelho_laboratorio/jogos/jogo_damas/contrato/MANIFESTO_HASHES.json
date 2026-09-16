@@ -7,8 +7,8 @@
   "arquivos": [
     {
       "nome": "contrato_damas.json",
-      "sha256": "84d97218178db58bdefb98ad5fb690e10adcaf789ea313bd95108f8830834be4",
-      "tamanho_bytes": 30102,
+      "sha256": "ca092ed7be2776de31c7d2861c06fe7dda10e1d45c53929e3b4c02bc00ce102a",
+      "tamanho_bytes": 30357,
       "copias": [
         {
           "repositorio": "arena-sagaz",

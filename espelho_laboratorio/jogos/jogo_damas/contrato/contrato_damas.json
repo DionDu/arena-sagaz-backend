@@ -297,7 +297,7 @@
     "regras_de_exibicao": [
       "Só aparece quando está correndo. Um contador parado a partida inteira vira ruído — e nas portuguesas isso é regra, não estética: o relógio dos 20 lances não corre fora do final.",
       "A unidade da Forçada é diferente: '4 de 12' ali quer dizer lances DAS BRANCAS, não meios-lances dos dois lados.",
-      "Quando o empate chegar, o texto vem do motor (HistoricoDaPartida.motivo_de_empate), com o artigo citado — não uma frase reescrita no app."
+      "Quando o empate chegar, a REGRA vem do motor (identificador, número e artigo) e a FRASE vem do l10n do app: nem uma regra reescrita na tela, nem uma frase escrita no motor. O artigo citado muda com a modalidade, e por isso ele viaja como DADO e não como texto traduzido. Até 16/09/2026 o motor entregava a frase pronta, e ela chegava ao aparelho em português nos três idiomas (RF-DES-019b)."
     ],
     "por_modalidade": {
       "brasileira": [
