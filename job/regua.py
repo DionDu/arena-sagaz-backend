@@ -151,6 +151,7 @@ def tentativa_com_motor(
     nu_semente: int,
     maximo_de_meios_lances: int,
     co_personagem_do_dia: str,
+    solucionador=None,
 ) -> Callable[[str, int], bool]:
     """Monta a funcao `tentar` que a regua consome, usando um motor de verdade.
 
@@ -162,6 +163,17 @@ def tentativa_com_motor(
     resolve; o adversario do dia joga o outro. Ver o topo do modulo: ate
     11/09/2026 o nivel do mascote medido era aplicado aos dois lados, e a taxa
     descrevia uma partida que ninguem joga.
+
+    ⛔ **E `solucionador`, de 16/09/2026, e a MESMA licao outra vez.** Quando o
+    tipo tem um solucionador proprio (`gerador.SOLUCIONADOR_POR_TIPO`), a geracao
+    o usa e ⚠️ **a regua nao usava** — entao `pontinhos_cadeia_longa` era gerado
+    pelo arquiteto e medido pelo Sagaz, que e o pior solucionador possivel para
+    ele (7% contra 43%, medido em 30 posicoes).
+
+    ⚠️ **O solucionador proprio nao tem nivel**, e isso e uma limitacao conhecida:
+    ele joga igual para Cacau e para Magno, e a escada daquele tipo passa a
+    depender so do adversario. ⛔ E ainda assim e melhor que o anterior — medir com
+    o solucionador errado nao mede a dificuldade de coisa nenhuma.
     """
     nivel_do_adversario = NIVEL_POR_PERSONAGEM[co_personagem_do_dia]
     # ⚠️ Quem resolve e quem joga primeiro — a mesma definicao do julgamento.
@@ -183,14 +195,22 @@ def tentativa_com_motor(
                 nu_semente, execucao * 1000 + numero
             )
             try:
-                lance = jogador.escolher_lance(
-                    atual,
-                    nivel
-                    if atual.vez_de == vez_do_solucionador
-                    else nivel_do_adversario,
-                    limite=orcamento,
-                    semente=semente,
-                )
+                if solucionador is not None and atual.vez_de == vez_do_solucionador:
+                    # ⚠️ **So a vez de quem resolve** — a mesma fronteira do
+                    # `_resolver` da geracao. O adversario do dia continua sendo
+                    # o personagem publicado, no nivel dele.
+                    lance = solucionador(
+                        getattr(jogador, "arbitro", jogador), atual
+                    )
+                else:
+                    lance = jogador.escolher_lance(
+                        atual,
+                        nivel
+                        if atual.vez_de == vez_do_solucionador
+                        else nivel_do_adversario,
+                        limite=orcamento,
+                        semente=semente,
+                    )
             except ValueError:
                 # A partida acabou antes do objetivo: nao resolveu.
                 return False

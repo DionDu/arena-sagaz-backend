@@ -503,6 +503,11 @@ async def cobrir_um_dia(
                 # mascote que esta sendo medido. Sem isto a regua media 'Cacau
                 # contra Cacau', que e uma partida que ninguem joga.
                 co_personagem_do_dia=candidato.co_personagem,
+                # ⛔ **E quem resolve usa o solucionador do TIPO, quando ha um.**
+                # Ate 16/09/2026 a regua chamava sempre o jogador comum, e a
+                # `pontinhos_cadeia_longa` era gerada pelo arquiteto e medida
+                # pelo Sagaz — 7% contra 43%, medido no proprio registro.
+                solucionador=bancada.solucionador,
             ),
             co_versao_perfil=co_versao_perfil,
             co_versao_motor=co_versao_motor,

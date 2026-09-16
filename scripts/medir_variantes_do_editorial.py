@@ -840,6 +840,8 @@ def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
                 # montou.
                 maximo_de_meios_lances=teto,
                 co_personagem_do_dia=candidato.co_personagem,
+                # ⛔ O mesmo solucionador com que o candidato foi GERADO.
+                solucionador=bancada.solucionador,
             ),
             co_versao_perfil="sonda",
             co_versao_motor="sonda",

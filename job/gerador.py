@@ -1214,12 +1214,27 @@ class Bancada:
         arbitro: quem diz se a partida acabou (`veredito`) e aplica lance.
         estado_inicial: a posicao de partida do candidato.
         julgar: `(fita) -> Julgamento`, com a linha de chegada daquele desafio.
+        solucionador: quem escolhe o lance de **quem resolve**, quando o tipo tem
+            um proprio (`SOLUCIONADOR_POR_TIPO`). `None` = o jogador comum, no
+            nivel do mascote.
+
+    ⛔ **O `solucionador` entrou em 16/09/2026, e a falta dele era um defeito de
+    MEDICAO.** Ate aqui a regua chamava sempre o jogador comum, enquanto a
+    geracao ja usava o solucionador proprio — entao `pontinhos_cadeia_longa` era
+    **gerado pelo arquiteto e medido pelo Sagaz**. ⚠️ E a diferenca esta medida no
+    proprio registro: o Sagaz chega a seis caixas seguidas em **7%** das
+    posicoes, o arquiteto em **43%**. A regua daria ~0,07 num candidato que o
+    gerador produz com folga, e o log diria *"duro demais"*.
+
+    ⚠️ **E o adversario NAO muda**: ele continua sendo o personagem do dia, com o
+    nivel dele. O solucionador so substitui o lado de quem resolve.
     """
 
     jogador: Any
     arbitro: Any
     estado_inicial: Any
     julgar: Any
+    solucionador: Any = None
 
 
 def bancada(candidato: Candidato) -> Bancada:
@@ -1267,6 +1282,9 @@ def bancada(candidato: Candidato) -> Bancada:
         arbitro=arbitro,
         estado_inicial=candidato.estado_inicial,
         julgar=julgar,
+        # ⚠️ **O mesmo registro que a geracao consulta**, e nao uma copia: medir
+        # com um solucionador diferente do que gerou mede outro desafio.
+        solucionador=SOLUCIONADOR_POR_TIPO.get(candidato.receita.co_tipo_desafio),
     )
 
 

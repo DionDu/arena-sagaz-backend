@@ -389,13 +389,15 @@ def _regua_falsa(monkeypatch, taxas_por_candidato):
             for nome in ("cacau", "tex", "magno")
         ]
 
-    # ⚠️ A bancada falsa precisa dos tres campos que `tentativa_com_motor` le -
-    # ela e construida antes de a regua ser chamada, e um `object()` pelado
-    # quebraria antes de chegar na regra que este teste prova.
+    # ⚠️ A bancada falsa precisa dos campos que `tentativa_com_motor` le - ela e
+    # construida antes de a regua ser chamada, e um `object()` pelado quebraria
+    # antes de chegar na regra que este teste prova.
     class _BancadaFalsa:
         jogador = None
         estado_inicial = None
         julgar = None
+        # ⚠️ De 16/09/2026: o solucionador do TIPO, quando ha um.
+        solucionador = None
 
     monkeypatch.setattr(MEDIDOR.gerador_mod, "bancada", lambda c: _BancadaFalsa())
     monkeypatch.setattr(regua_mod, "medir_candidato", medir_falso)

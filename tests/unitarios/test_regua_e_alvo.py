@@ -399,3 +399,104 @@ def test_as_duas_funcoes_da_banda_NUNCA_se_contradizem():
         assert dentro == (distancia == 0.0), (
             f"⛔ {resolveu}/10 nos tres: dentro={dentro} e distancia={distancia}"
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O SOLUCIONADOR DO TIPO — gerar com um e medir com outro mede outro desafio
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_SOLUCIONADOR_DO_TIPO_joga_o_lado_de_quem_resolve() -> None:
+    """🔒 ⛔ A regua media com um solucionador diferente do que GEROU o candidato.
+
+    ⚠️ **`SOLUCIONADOR_POR_TIPO` existe desde 12/09/2026 e era usado so na
+    geracao.** `pontinhos_cadeia_longa` e gerado pelo **arquiteto** — vencer no
+    Pontinhos e partir o tabuleiro em cadeias curtas, o oposto de construir uma
+    cadeia grande — e era medido pelo jogador comum, que ali e o pior
+    solucionador possivel: **7% contra 43%**, medido em 30 posicoes no proprio
+    registro.
+
+    ⛔ Uma regua assim diria *"duro demais"* (taxa ~0,07, banda [0,70; 0,80])
+    sobre um candidato que o gerador produz com folga — e o descarte cairia sobre
+    a variante, que nao tem culpa nenhuma.
+
+    ⚠️ **E o adversario NAO muda**: o solucionador substitui so o lado de quem
+    resolve. Se ele vazasse para o outro lado, a regua voltaria a medir uma
+    partida que ninguem joga — o defeito irmao, de 11/09/2026.
+    """
+    from job.regua import tentativa_com_motor
+
+    jogador = _JogadorQueAnota()
+    chamadas: list[int] = []
+
+    def solucionador_falso(_arbitro, estado) -> str:
+        chamadas.append(estado.vez_de)
+        return "do-arquiteto"
+
+    tentar = tentativa_com_motor(
+        jogador=jogador,
+        estado_inicial=_EstadoFalso(vez_de=1),
+        julgar=lambda fita: type("J", (), {"cumpriu": len(fita) >= 4})(),
+        nu_semente=7,
+        maximo_de_meios_lances=4,
+        co_personagem_do_dia="magno",
+        solucionador=solucionador_falso,
+    )
+    tentar("cacau", 1)
+
+    assert chamadas, (
+        "⛔ o solucionador do tipo nao foi chamado. A regua voltou a medir com o "
+        "jogador comum um candidato que o gerador produz com outro."
+    )
+    assert set(chamadas) == {1}, (
+        "⛔ o solucionador jogou pelo ADVERSARIO. Ele substitui so o lado de quem "
+        "resolve; o outro lado e o personagem do dia, no nivel dele."
+    )
+    # ⚠️ E o jogador comum continua jogando — pelo adversario, e so por ele.
+    assert jogador.pedidos, "o adversario nunca jogou"
+    assert {vez for vez, _ in jogador.pedidos} == {-1}, (
+        "com solucionador proprio, o jogador comum so pode ser chamado pelo "
+        "lado do adversario"
+    )
+
+
+def test_sem_solucionador_proprio_NADA_muda() -> None:
+    """⚠️ O caminho antigo continua sendo o de todo tipo que nao tem solucionador.
+
+    ⛔ Dez dos onze tipos no ar caem aqui, entao um `solucionador` que virasse
+    obrigatorio silenciosamente quebraria a medicao inteira.
+    """
+    from job.perfil import NIVEL_POR_PERSONAGEM
+    from job.regua import tentativa_com_motor
+
+    jogador = _JogadorQueAnota()
+    tentar = tentativa_com_motor(
+        jogador=jogador,
+        estado_inicial=_EstadoFalso(vez_de=1),
+        julgar=lambda fita: type("J", (), {"cumpriu": len(fita) >= 4})(),
+        nu_semente=7,
+        maximo_de_meios_lances=4,
+        co_personagem_do_dia="magno",
+    )
+    tentar("cacau", 1)
+
+    niveis_de_quem_resolve = [n for vez, n in jogador.pedidos if vez == 1]
+    assert set(niveis_de_quem_resolve) == {NIVEL_POR_PERSONAGEM["cacau"]}
+
+
+def test_a_BANCADA_carrega_o_solucionador_do_tipo_do_candidato() -> None:
+    """⛔ O elo que faltava: o registro e consultado na hora de MEDIR, e nao so ao gerar.
+
+    ⚠️ **Este caso olha o registro de verdade**, e nao uma copia: no dia em que um
+    tipo novo ganhar solucionador proprio, a regua passa a usa-lo sem ninguem
+    tocar em `regua.py`. ⛔ Era justamente a copia ausente que deixava os dois
+    caminhos divergirem em silencio.
+    """
+    from job import gerador as gerador_mod
+
+    assert gerador_mod.SOLUCIONADOR_POR_TIPO, (
+        "o registro ficou vazio — se o solucionador da cadeia longa saiu, este "
+        "caso precisa de outro tipo para provar o elo"
+    )
+    for co_tipo, esperado in gerador_mod.SOLUCIONADOR_POR_TIPO.items():
+        assert esperado is not None, co_tipo

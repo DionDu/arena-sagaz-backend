@@ -4681,3 +4681,106 @@ Conferido no `des`: o sacrifício de 19/09 gravou faixa **9 → 12** (adversári
 12 peças, capturar 3) e o sobreviver de 21/09 faixa **0 → 8** (jogador com 10,
 entregar 2). ⚠️ Os números saíram da **posição**, como projetado — o mecanismo do
 alvo relativo funcionou ponta a ponta.
+
+---
+
+## 2026-09-16 (noite) — ⛔ A RÉGUA NÃO MEDE O QUE A PESSOA FAZ: o dono desmentiu o "difícil demais"
+
+**Contexto.** Eu havia registrado, horas antes, que `damas_coroar {damas: 2,
+lances: 8}` era *"quase impossível"* — 1 de 20 nos três mascotes. ⛔ **Estava
+errado, e o dono viu olhando a posição no painel:**
+
+> *"Você está dizendo que o desafio (...) está muito difícil? Sério isso? (...)
+> Ele é extremamente fácil. Ele é simplesmente empurrar as 2 peças azuis para
+> frente. Não há desafio algum nisso. Não há barreiras de peças. A única jogada
+> errada que eu vejo é deixar a pedra da casa 11 parada ou movê-la para a casa 7."*
+
+### ✅ Reproduzido, 20 execuções por mascote, e a causa é limpa
+
+A posição é `W:W11,20:B5,10,13` — duas peças brancas contra três pretas, caminho
+livre. **Onde cada execução travou:**
+
+| mascote | cumpriu | **coroou 1 e travou** | coroou 0 | perdeu peça |
+|---|---|---|---|---|
+| Cacau | 1 | 3 | **0** | 16 |
+| Pita | 1 | 14 | **0** | 5 |
+| Tex | 1 | **18** | **0** | 1 |
+
+⛔ **Ninguém falha por não conseguir coroar: `coroou 0` é ZERO nos três.** O Tex
+coroa a primeira dama em 19 de 20 execuções e trava em 18 delas.
+
+⚠️ **E a fita diz por quê.** Uma execução típica do Tex:
+
+    11-8 · 10-15 · 8-4 (coroou!) · 15-19 · 4-18 · 13-17 · 18-11 · 19-23 ·
+    11-4 · 23-27 · 20-16 (a segunda peça ENFIM anda, no 6º lance) · …
+
+⛔ **Depois de coroar a primeira, o motor joga com a DAMA** — ela é a peça mais
+valiosa, e usá-la é o melhor lance *da partida*. A segunda peça fica parada até
+não haver mais tempo. ✅ **O dono também acertou o erro da Cacau em cheio:** ela
+joga `11-7` e perde a peça para `10x3` — e com duas peças, perder uma encerra o
+desafio.
+
+### ⛔ A causa é a que o projeto já nomeou duas vezes, e a régua não a conhece
+
+> *"O Sagaz busca a vitória, e nem todo desafio pede vitória."*
+> — `gerador.SOLUCIONADOR_POR_TIPO`, 12/09/2026
+
+⚠️ **O mascote não sabe qual é o desafio.** Ele joga a partida. Um humano lê
+*"coroe 2 damas em 8 lances"* na tela e empurra as duas peças — informação que o
+medidor não tem. ⛔ A régua mede **cumprimento acidental**, e a banda de
+RF-DES-016 é comparada contra isso.
+
+⚠️ **E isso explica o viés sistemático do job**, em que 6 dos 7 dias saíram
+abaixo da banda. Ordenando os dias por *"o objetivo coincide com jogar bem?"*:
+
+| dia | tipo | coincide? | taxa |
+|---|---|---|---|
+| 21/09 | `sobreviver` | ✅ resistir é jogar bem | **0,80 ✅** |
+| 19/09 | `sacrificio` | ~ parcial (capturar sim, entregar não) | 0,68 |
+| 16/09 | `fechar_caixas` | ✅ | 0,58 |
+| 15/09 | `capturar_multipla` | ✅ | 0,52 |
+| 18/09 | `paciencia` | ⛔ **não fechar caixa é contra o jogo** | 0,50 |
+| 20/09 | `chegar_ao_placar` (guloso) | ⛔ exige double dealing | 0,42 |
+| 17/09 | `coroar {damas: 2}` | ⛔ usar a dama é melhor | **0,05** |
+
+⚠️ **A ordenação é quase perfeita**, e a hipótese ganhou muito mais força que a
+do "conjunto de medidores" registrada hoje de manhã.
+
+### ✅ O que foi corrigido agora: a régua usa o solucionador DO TIPO
+
+⛔ **Defeito inequívoco, e do mesmo formato do de 11/09.** `SOLUCIONADOR_POR_TIPO`
+existe desde 12/09 e era consultado **só na geração**. Então
+`pontinhos_cadeia_longa` era **gerada pelo arquiteto e medida pelo Sagaz** — que
+ali é o pior solucionador possível, e o próprio registro mede a diferença:
+**7% contra 43%** em 30 posições.
+
+⚠️ A régua dela diria taxa ~0,07 (banda `[0,70; 0,80]`) sobre um candidato que o
+gerador produz com folga, e o descarte cairia sobre a variante.
+
+`Bancada` passa a carregar `solucionador`, e `tentativa_com_motor` o usa **só na
+vez de quem resolve** — o adversário continua sendo o personagem do dia, no nível
+dele. Três cadeados novos em `test_regua_e_alvo.py`.
+
+⚠️ **Limitação declarada:** o solucionador próprio **não tem nível** — joga igual
+para Cacau e para Magno, e a escada daquele tipo passa a depender só do
+adversário. ⛔ Ainda assim é melhor que medir com o solucionador errado.
+
+⏳ **E a taxa da cadeia longa vai MUDAR com isso**: ela precisa ser remedida antes
+de qualquer leitura nova (`no-ar-pontinhos --com-regua`).
+
+### ⏳ O que NÃO foi corrigido, porque é decisão do dono
+
+Dez dos onze tipos não têm solucionador próprio, e para eles a régua continua
+medindo cumprimento acidental. ⛔ **Escrever um solucionador por tipo é caro e
+tem um efeito colateral sério: o solucionador não tem nível**, então a escada dos
+mascotes — que é o sinal de saúde do produto — se perderia.
+
+⚠️ **E a pergunta anterior a essa é de produto:** a banda deve medir *"quem joga
+bem cumpre por acidente?"* ou *"quem LÊ o enunciado cumpre?"*. São coisas
+diferentes, e só a segunda descreve a pessoa. Levado ao dono.
+
+### ⚠️ E `damas_coroar {damas: 2, lances: 8}` continua no editorial
+
+⛔ Ela não é "quase impossível": é **fácil**, e o dono a rejeitaria por isso —
+curadoria, não calibração. Mas remover é decisão dele, e com a régua nesse estado
+nenhum número dela merece confiança.

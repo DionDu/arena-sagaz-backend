@@ -105,6 +105,10 @@ class _Bancada:
         self.jogador = motor
         self.arbitro = motor
         self.estado_inicial = _EstadoFalso()
+        # ⚠️ **O campo entrou em 16/09/2026** e a bancada falsa tem de te-lo: a
+        # regua passou a receber o solucionador do TIPO, quando ha um. `None` e o
+        # caso de dez dos onze tipos no ar - "use o jogador comum".
+        self.solucionador = None
         self._cumpre = cumpre
         if not acaba:
             self.arbitro = type(
