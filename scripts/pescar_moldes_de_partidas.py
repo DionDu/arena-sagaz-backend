@@ -85,6 +85,7 @@ sys.path.insert(0, str(RAIZ))
 # ⚠️ O console do Windows e cp1252; sem isto um acento no dado derruba o script.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+from job import editorial as editorial_mod  # noqa: E402
 from job.espelho_de_damas import com_as_brancas_a_jogar  # noqa: E402
 
 # ⚠️ **Importar da cacada, e nao copiar dela.** A peneira, a medicao, os
@@ -127,7 +128,7 @@ def _peneirar_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
     processo tem a sua memoria; um `Counter` global seria incrementado em catorze
     copias e nenhuma delas chegaria ao pai.
     """
-    fen, co_tipo, alvos = tarefa
+    fen, co_tipo, (alvos, teto) = tarefa
     motivos = MotivoDeDescarte()
     achados = resolve_varios_alvos(
         fen,
@@ -137,6 +138,7 @@ def _peneirar_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
         nos=NOS_DA_PENEIRA,
         segundos=SEGUNDOS_DA_PENEIRA,
         motivos=motivos,
+        teto=teto,
     )
     return fen, achados, dict(motivos)
 
@@ -148,7 +150,7 @@ def _medir_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
     que nao cumpre entra como `None`, e e o `MINIMO_DE_MODALIDADES` que decide se
     o molde presta — um molde nao precisa servir aos quatro regulamentos.
     """
-    fen, co_tipo, alvos = tarefa
+    fen, co_tipo, (alvos, teto) = tarefa
     motivos = MotivoDeDescarte()
     por_alvo: dict[str, list] = {nome: [] for nome in alvos}
     for modalidade in MODALIDADES:
@@ -160,6 +162,7 @@ def _medir_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
             nos=NOS_DA_MEDICAO,
             segundos=SEGUNDOS_DA_MEDICAO,
             motivos=motivos,
+            teto=teto,
         )
         for nome, lance in achados.items():
             por_alvo[nome].append(lance)
@@ -535,6 +538,55 @@ def _resumo_da_medicao(diario: "Diario") -> str:
     return "— " + "  ·  ".join(partes)
 
 
+def tabela_do_p(distancia: "Counter[int]", piso: int) -> list[str]:
+    """Quantos moldes cada `p` da frase renderia — *"coroe X damas em ate p lances"*.
+
+    ⚠️ **Pedido do dono, 16/09/2026:** *"eu imaginei que o teto de 20 meios lances
+    nos daria uma liberdade para escolher este `p` da frase do desafio. Este P
+    poderia ser 6, 7, 8, 9, 10, 11, 12, 13 etc."*
+
+    ⛔ **Sem esta tabela a liberdade era teorica.** Os dados estavam no diario,
+    mas escolher exigiria rele-lo e fazer a conta a mao — e, sem a conta, a
+    escolha viraria chute. Aqui e uma leitura.
+
+    ⚠️ **Um molde cabe em `p` quando a solucao dele cabe em `p` lances DO
+    JOGADOR.** Os lados alternam e o jogador comeca, entao o `p`-esimo lance dele
+    e o meio-lance `2p - 1`: um molde de 9 meios-lances cabe em `p = 5`, e em
+    qualquer `p` maior.
+
+    Args:
+        distancia: quantos moldes ha em cada distancia, em meios-lances.
+        piso: o `nu_minimo_de_meios_lances` do editorial. `0` = sem piso.
+
+    Returns:
+        As linhas a imprimir. Vazio se nao houver molde nenhum.
+
+    ⛔ **A coluna do piso nao e enfeite:** sem ela a tabela diria que ha 133
+    moldes para um `p` onde o gerador publicaria 20 — ele recusa gabarito abaixo
+    do piso, e a diferenca so apareceria como "sem candidato" semanas depois.
+    """
+    if not distancia:
+        return []
+    linhas = ["quantos moldes cada `p` da frase renderia:"]
+    maior = max(distancia)
+    for lances_p in range(1, (maior + 1) // 2 + 1):
+        cabem = sum(
+            quantos
+            for meios, quantos in distancia.items()
+            if meios <= 2 * lances_p - 1
+        )
+        if not cabem:
+            continue
+        com_piso = sum(
+            quantos
+            for meios, quantos in distancia.items()
+            if piso <= meios <= 2 * lances_p - 1
+        )
+        aviso = "" if com_piso == cabem else f"  (com o piso de hoje: {com_piso})"
+        linhas.append(f"    p = {lances_p:2} lances: {cabem} moldes{aviso}")
+    return linhas
+
+
 def _tempo(segundos: float) -> str:
     """`4530` vira `1h15m`. Numero de sete horas em segundos nao se le."""
     if segundos < 90:
@@ -590,7 +642,7 @@ def _rodar_fase(
     ja_feitas: int,
     total: int,
     args,
-    alvos,
+    alvos_e_teto,
     anotar,
     resumo,
 ) -> None:
@@ -603,7 +655,7 @@ def _rodar_fase(
     relogio = time.monotonic()
     feitas = ja_feitas
     for resultado in _mapear(
-        funcao, [(f, args.tipo, alvos) for f in pendentes], args.processos
+        funcao, [(f, args.tipo, alvos_e_teto) for f in pendentes], args.processos
     ):
         anotar(resultado)
         feitas += 1
@@ -660,6 +712,22 @@ def main() -> int:
             "`damas_coroar` nasceu curto duas vezes. ⚠️ **E o ALVO muda a "
             "tarefa**: `damas: 2` pede duas coroacoes e reprova quem so comporta "
             "uma, entao ele pede diario proprio."
+        ),
+    )
+    ap.add_argument(
+        "--teto",
+        type=int,
+        default=0,
+        help=(
+            "teto da busca em MEIOS-lances, sobrepondo o do editorial. "
+            "⚠️ **Serve para pescar um acervo mais FUNDO do que o que se publica "
+            "hoje**, e assim poder escolher o `p` da frase (*'coroe X damas em "
+            "ate p lances'*) depois, sem repescar: com teto 26 o acervo comporta "
+            "p de 3 a 13. ⛔ **O preco e real**: a peneira vai mais fundo em toda "
+            "posicao, e mais posicoes passam para a fase 2, que custa ~12x. "
+            "⛔ **E o acervo passa a conter moldes que o editorial de hoje NAO "
+            "gera** - cada linha do bloco final traz a distancia dela, e o resumo "
+            "diz quantos moldes cada `p` renderia."
         ),
     )
     ap.add_argument(
@@ -762,7 +830,8 @@ def main() -> int:
     #
     # ⛔ **Erro, e nao aviso.** Um aviso seria lido depois de trinta segundos de
     # barra de progresso, quando a pescaria ja parece estar indo bem.
-    teto = teto_do_tipo(args.tipo)
+    teto_publicado = teto_do_tipo(args.tipo)
+    teto = args.teto or teto_publicado
     for nome, valores in alvos.items():
         if "lances" not in valores:
             continue
@@ -778,7 +847,34 @@ def main() -> int:
                 "`nu_maximo_de_meios_lances` no editorial do tipo."
             )
 
+    # ⚠️ Lido do editorial, e nao escrito aqui: e o mesmo numero que o gerador
+    # usa para recusar gabarito curto.
+    try:
+        piso_do_editorial = max(
+            p.nu_minimo_de_meios_lances
+            for p in editorial_mod.variantes_de(args.tipo)
+        )
+    except Exception:  # noqa: BLE001 — tipo em avaliacao nao tem editorial
+        piso_do_editorial = 0
+
     print(f"teto da busca: {teto} meios-lances (~{-(-teto // 2)} lances do jogador)")
+    if piso_do_editorial:
+        print(
+            f"piso do editorial: {piso_do_editorial} meios-lances "
+            f"(~{-(-piso_do_editorial // 2)} lances) — o gerador recusa abaixo disso"
+        )
+    if args.teto and args.teto != teto_publicado:
+        # ⛔ **Nao e um detalhe de log: e a diferenca entre o acervo e o que o job
+        # consegue publicar.** O comentario de `TETO_POR_TIPO` avisa que "um teto
+        # diferente aqui aprovaria molde que la nao gera", e foi o defeito da
+        # primeira versao desta ferramenta. ⚠️ A diferenca agora e que o diario
+        # **registra a distancia de cada molde**, entao a escolha e informada em
+        # vez de cega — ver a tabela de `p` no fim da pescaria.
+        print(
+            f"⚠️ teto do editorial hoje: {teto_publicado}. Os moldes que passarem "
+            f"de {teto_publicado} meios-lances entram no acervo mas NAO serao "
+            "gerados ate `nu_maximo_de_meios_lances` subir no editorial."
+        )
     if len(alvos) == 1:
         print(f"peneira julga com: {next(iter(alvos.values()))}")
     else:
@@ -861,6 +957,9 @@ def main() -> int:
             "parametros": [
                 [nome, sorted(valores.items())] for nome, valores in sorted(alvos.items())
             ],
+            # ⛔ Retomar com outro teto misturaria dois acervos: metade
+            # peneirada ate 20 meios-lances e metade ate 26.
+            "teto": teto,
             "desvantagem": args.desvantagem,
             "embaralhar": args.embaralhar,
             "amostra": args.amostra,
@@ -884,7 +983,7 @@ def main() -> int:
                 len(candidatas) - len(pendentes),
                 len(candidatas),
                 args,
-                alvos,
+                (alvos, teto),
                 anotar=lambda r: diario.anotar_peneira(r[0], r[1], r[2]),
                 resumo=lambda: _resumo_da_peneira(diario),
             )
@@ -941,7 +1040,7 @@ def main() -> int:
                 len(aprovadas) - len(pendentes),
                 len(aprovadas),
                 args,
-                alvos,
+                (alvos, teto),
                 anotar=lambda r: diario.anotar_medicao(r[0], r[1]),
                 resumo=lambda: _resumo_da_medicao(diario),
             )
@@ -997,6 +1096,9 @@ def main() -> int:
                     f"    {meios} meios-lances (~{-(-meios // 2)} do jogador): "
                     f"{distancia[meios]}"
                 )
+
+            for linha in tabela_do_p(distancia, piso_do_editorial):
+                print(linha)
         else:
             codigo_de_saida = 1
 

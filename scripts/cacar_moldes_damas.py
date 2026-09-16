@@ -586,6 +586,7 @@ def resolve_varios_alvos(
     nos: int,
     segundos: float,
     motivos: MotivoDeDescarte,
+    teto: int = 0,
 ) -> dict[str, int | None]:
     """Como `resolve`, mas julga VARIOS objetivos na MESMA fita.
 
@@ -610,6 +611,13 @@ def resolve_varios_alvos(
         nos: teto de nos por lance.
         segundos: teto de tempo por lance.
         motivos: onde registrar a causa do descarte.
+        teto: quantos meios-lances a busca pode gastar. `0` (o padrao) usa o do
+            editorial, por `teto_do_tipo`.
+            ⚠️ **Um teto MAIOR que o do editorial pesca um acervo mais fundo do
+            que o que se publica hoje** — e e o que permite escolher o `p` da
+            frase depois, sem repescar. ⛔ Em troca, o acervo passa a conter
+            moldes que o gerador de hoje nao monta; quem os separa e a distancia
+            registrada em cada um.
 
     Returns:
         `{nome: lance_em_que_caiu_ou_None}`, com uma entrada por alvo.
@@ -642,7 +650,7 @@ def resolve_varios_alvos(
     fita: list[dict[str, Any]] = []
     atual = estado
 
-    for numero in range(1, teto_do_tipo(co_tipo) + 1):
+    for numero in range(1, (teto or teto_do_tipo(co_tipo)) + 1):
         try:
             lance = motor.escolher_lance(
                 atual,

@@ -306,3 +306,63 @@ def test_a_janela_de_10_CABE_no_teto_de_20() -> None:
 
     teto = max(p.nu_maximo_de_meios_lances for p in variantes_de("damas_coroar"))
     assert 2 * 10 - 1 <= teto, f"janela de 10 lances nao cabe no teto {teto}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. A tabela que escolhe o `p` da frase
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_tabela_do_p_usa_a_aritmetica_2p_menos_1() -> None:
+    """🔒 Um molde cabe em `p` quando a solucao cabe em `p` lances DO JOGADOR.
+
+    ⚠️ Os lados alternam e o jogador comeca, entao o `p`-esimo lance dele e o
+    meio-lance `2p - 1`. ⛔ Usar `2p` daria um lance a mais de folga e a tabela
+    prometeria moldes que a variante nao publicaria.
+    """
+    from collections import Counter
+
+    from scripts.pescar_moldes_de_partidas import tabela_do_p
+
+    # Um molde de 9 meios-lances cabe em p = 5 (o 5º lance e o meio-lance 9).
+    linhas = tabela_do_p(Counter({9: 1}), 0)
+    assert any("p =  5 lances: 1 moldes" in linha for linha in linhas)
+    # E nao cabe em p = 4 (o 4º lance e o meio-lance 7).
+    assert not any("p =  4 lances" in linha for linha in linhas)
+
+
+def test_a_tabela_do_p_MOSTRA_o_efeito_do_piso() -> None:
+    """⛔ Sem a coluna do piso a tabela mentiria sobre o que o job publica.
+
+    ⚠️ Com o acervo de 16/09 (133 moldes) e o piso de 9, `p = 6` renderia 133
+    moldes pela distancia e **20** de verdade — o gerador recusa o resto. A
+    diferenca so apareceria como *"sem candidato"* semanas depois.
+    """
+    from collections import Counter
+
+    from scripts.pescar_moldes_de_partidas import tabela_do_p
+
+    real = Counter({3: 43, 4: 13, 5: 21, 6: 10, 7: 12, 8: 14, 9: 10, 10: 7, 11: 3})
+    linhas = "\n".join(tabela_do_p(real, 9))
+    assert "p =  6 lances: 133 moldes  (com o piso de hoje: 20)" in linhas
+    # ⚠️ E o acervo de hoje NAO chega a p = 7: ele foi pescado com teto 12.
+    assert "p =  7 lances" not in linhas
+
+
+def test_a_tabela_do_p_some_quando_nao_ha_molde() -> None:
+    """⚠️ Um cabecalho sozinho pareceria defeito."""
+    from collections import Counter
+
+    from scripts.pescar_moldes_de_partidas import tabela_do_p
+
+    assert tabela_do_p(Counter(), 0) == []
+
+
+def test_sem_piso_a_tabela_nao_poe_a_COLUNA() -> None:
+    """⚠️ `(com o piso de hoje: N)` repetindo o mesmo numero seria so ruido."""
+    from collections import Counter
+
+    from scripts.pescar_moldes_de_partidas import tabela_do_p
+
+    linhas = "\n".join(tabela_do_p(Counter({3: 5, 9: 2}), 0))
+    assert "com o piso" not in linhas
