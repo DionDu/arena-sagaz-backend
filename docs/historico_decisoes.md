@@ -4784,3 +4784,63 @@ diferentes, e só a segunda descreve a pessoa. Levado ao dono.
 ⛔ Ela não é "quase impossível": é **fácil**, e o dono a rejeitaria por isso —
 curadoria, não calibração. Mas remover é decisão dele, e com a régua nesse estado
 nenhum número dela merece confiança.
+
+---
+
+## 2026-09-16 (noite) — ⛔ O acervo do `damas_coroar` é o ÚNICO que ficou no mundo vazio
+
+**Contexto.** Vendo o desafio de 17/09, o dono perguntou: *"Conseguimos deixar o
+coroar 1 dama, porém iniciar com tabuleiros mais cheios? Para o usuário não
+precisa cumprir o desafio apenas arrastando a peça até o final, sem obstáculo e
+desafio?"*
+
+### ✅ Medido, e a intuição dele bate com o número
+
+| tipo | moldes | **material médio** | mín | máx |
+|---|---|---|---|---|
+| `damas_coroar` | 515 | **7,3** | 3 | 24 |
+| `damas_capturar_multipla` | 87 | 17,0 | 6 | 24 |
+| `damas_sacrificio` | 188 | 18,9 | 12 | 24 |
+| `damas_sobreviver` | 112 | 15,2 | 10 | 22 |
+
+⛔ **72% dos moldes do coroar têm 6 peças ou menos** (369 de 515). A posição de
+17/09, com cinco peças, é o caso **típico** — não a exceção.
+
+### ⚠️ É a mesma lição de 12/09, e o coroar foi o único tipo que não a recebeu
+
+> *"As candidatas sintéticas nasciam de tabuleiros quase vazios (material ~7),
+> onde um Sagaz com espaço de sobra nunca concede cadeia; as posições reais têm
+> material 17,3."* — o acervo do `capturar_multipla`, 12/09/2026
+
+Os três tipos pescados em partidas reais têm material 15 a 19. ⚠️ **O coroar ficou
+com 7,3 porque nunca foi repescado** — o acervo dele é anterior à descoberta.
+
+### ⛔ E aqui "comprimento da solução" NÃO mede dificuldade
+
+A posição de 17/09 tem solução de **6 lances do jogador** — não é curta, e mesmo
+assim é um passeio. ⚠️ O que falta não é distância: é **oposição**. Então o corte
+do acervo tem de ser por **material**, e não pelo número de lances, que foi o
+critério usado no `sacrificio` e no `capturar_multipla`.
+
+⚠️ É a terceira vez que uma grandeza óbvia não mede o que parece: já aconteceu com
+`lances_do_jogador` no `sobreviver` (todos caem no lance 15) e com
+`capturas_extras` no `sacrificio`.
+
+### ⏳ O caminho, e a tensão que ele tem
+
+A pescaria já sabe fazer isso — `--tipo damas_coroar` é o **padrão** do
+`pescar_moldes_de_partidas.py`, e `--minimo-pecas` e `--alcancavel` já existem.
+⛔ Nenhum código novo.
+
+⚠️ **Mas "cheio" e "alcançável" puxam em direções opostas:** coroar exige uma peça
+adiantada, e num tabuleiro cheio as peças estão atrás. Uma peça infiltrada num
+tabuleiro cheio é **rara** — e é exatamente a posição em que coroar é façanha.
+✅ Por isso a ordem é **sondagem primeiro** (`--amostra 200 --embaralhar`), que
+responde em minutos se o filtro rende, antes de pagar horas.
+
+### ⏳ E `{damas: 2, lances: 8}` provavelmente não sobrevive a isso
+
+Com tabuleiro vazio ela é trivial (o dono a rejeitaria); com tabuleiro cheio,
+atravessar duas vezes em 8 lances é quase certamente impossível. ⚠️ Ela vive de uma
+faixa estreita que talvez não exista. ⛔ **Não foi removida:** a decisão espera a
+medição do acervo novo, e é do dono.
