@@ -210,625 +210,248 @@ RECEITAS: dict[str, Receita] = {
             "lances": p["lances"],
             "personagem": personagem,
         },
-        # Finais em que uma branca esta a poucos passos da oitava fileira, com
-        # pretas suficientes para a partida nao acabar antes.
+        # Finais em que uma branca esta a algumas fileiras da oitava, com o
+        # tabuleiro ainda CHEIO — pretas suficientes para atrapalhar o caminho, e
+        # nao so para a partida nao acabar antes.
         #
-        # ⚠️ **Os tres primeiros foram desenhados a mao; os 158 seguintes foram
-        # MEDIDOS** por `scripts/cacar_moldes_damas.py` em 11/09/2026 (300
-        # candidatas) — o Sagaz jogou os dois lados a partir de cada um, nas
-        # quatro modalidades, com o mesmo orcamento do gerador. Cada comentario
-        # diz em que lance o objetivo caiu, na media dos regulamentos.
+        # ⛔ **O ACERVO INTEIRO FOI TROCADO em 16/09/2026**, e desta vez a troca
+        # e uma reprovacao, nao um acrescimo. Os 515 moldes anteriores (3
+        # desenhados a mao, 327 sinteticos de `scripts/cacar_moldes_damas.py` e
+        # 185 pescados do `prd` em 12/09) sairam inteiros; quem os quiser de
+        # volta os encontra no Git e em `docs/DECISOES-do-dono.md` §8k-13.
         #
-        # ⛔ **Dez moldes aprovados pelo script foram REMOVIDOS depois**, mais um
-        # dos quatro fundadores: eles entregavam o objetivo **no primeiro lance**.
-        # ⚠️ A medicao nao pegava porque **o Sagaz joga a PARTIDA, e nao o
-        # DESAFIO** — coroar de cara costuma ser mau lance, entao ele escolhia
-        # outra coisa e a medicao anotava "objetivo no lance 3"; so que quem joga
-        # o desafio nao esta jogando para vencer, esta cumprindo a tarefa.
+        # ⚠️ **O motivo, do dono, olhando o desafio publicado de 17/09:**
         #
-        # ⛔ Quem guarda isso agora e `job/moldes_de_damas.py`, na peneira do
-        # script **e** no cadeado `tests/unitarios/test_moldes_de_damas.py` — a
-        # pergunta e direta ("ha lance legal que cumpre o objetivo agora?") e nao
-        # custa um no de busca.
+        # > *"Ele e extremamente facil. Ele e simplesmente empurrar as 2 pecas
+        # > azuis para frente. Nao ha desafio algum nisso. Nao ha barreiras de
+        # > pecas."*
+        #
+        # ⛔ **E a causa era estrutural, nao o azar do dia:** nos 515 moldes,
+        # **82% (422) tinham a pedra mais adiantada a 1 ou 2 fileiras** da
+        # coroacao, e o material medio era **7,3** — tabuleiro quase vazio.
+        # ⚠️ O editorial chamava a variante de duas damas de *dura*, e estava
+        # certo sobre a ESCASSEZ (poucos moldes comportam duas coroacoes na
+        # janela) — so que os moldes que comportam sao justamente os vazios.
+        # Escassez e facilidade eram a mesma coisa, e ninguem leu o rotulo assim.
+        #
+        # ⛔ **O criterio que separa e a DISTANCIA, e ele foi MEDIDO** (§8k-13):
+        # *"a solucao exige captura"* nao separa nada — em 80 moldes, 80% dos de
+        # 3-6 pecas ja exigem captura, contra 75% dos de 14+. ⚠️ Nas brasileiras a
+        # captura e **obrigatoria**, entao ela diz *"fui forcado a comer no
+        # caminho"* muito mais vezes que *"precisei comer para chegar"*.
+        # ✅ Ja a distancia traz as duas coisas que o dono pediu de uma vez: peca
+        # menos adiantada e tabuleiro mais cheio andam juntos.
+        #
+        # ── ✅ O ACERVO DE HOJE: 133 moldes, pescados do `prd` E do `des` ─────
+        #
+        # ⚠️ **As damas estao em campo desde 03/09**, entao pela primeira vez o
+        # coroar tem posicoes de gente de verdade em volume: 118 partidas reais
+        # deram **6.117 posicoes unicas** no `prd`, contra as 1.777 do `des` —
+        # que, no fundo, eram o retrato de como **uma pessoa** joga damas.
+        #
+        # O funil da pescaria de 16/09 (as duas fases, ~3 h no total):
+        #
+        #     7.823  posicoes reais, sem repeticao (uniao prd + des)
+        #     4.881  com 12+ pecas                      ← o piso de material
+        #     4.871  com a pedra a 6 fileiras ou menos  ← o teto, `--alcancavel`
+        #     4.096  com a pedra a 3+ fileiras          ← o PISO da §8k-13
+        #       234  passaram a peneira
+        #       142  serviram a tres ou mais modalidades
+        #       133  depois de tirar as 9 que o `capturar_multipla` ja usa
+        #
+        # ⚠️ **Essas 9 nao eram erro de colagem, e a premissa do cadeado
+        # envelheceu:** ate 11/09 os dois acervos vinham de funcoes geradoras
+        # diferentes, entao uma FEN nos dois lados so podia ser engano. Desde
+        # 12/09 os dois vem da **mesma** base de posicoes reais, e uma posicao
+        # de verdade comporta perfeitamente coroar **e** capturar duas.
+        # ⛔ Mesmo assim elas saem: o que o cadeado guarda agora e que ninguem
+        # receba **o mesmo tabuleiro** em dois desafios diferentes. ⚠️ Quem cede
+        # e o coroar, e nao o `capturar_multipla` — aquele ja esta no ar e
+        # medido, e mexer nele obrigaria a remedir a variante dele junto.
+        #
+        # Os 3.954 reprovados da peneira, pelo motivo:
+        #
+        #     3.674  nunca coroaram dentro do teto
+        #       129  partida ja acabada
+        #        59  ja nasciam coroando (objetivo no lance 1) — 46 na
+        #             brasileira, 13 na anglo
+        #
+        # Distancia ate o objetivo, nos 133 (lance medio das modalidades):
+        #
+        #     3 lances: 43     6 lances: 10      9 lances: 10
+        #     4 lances: 13     7 lances: 12     10 lances:  7
+        #     5 lances: 21     8 lances: 14     11 lances:  3
+        #
+        # ⚠️ **89 dos 133 servem as quatro modalidades**; os outros 44 servem a
+        # tres. O molde e publicado e resolvido em brasileira de qualquer forma
+        # — as modalidades sao o teste de robustez, nao o destino.
+        #
+        # ✅ **Material medio 16,1** (min 12, max 24), contra os 7,3 de antes —
+        # agora na faixa dos outros tres tipos de damas (17,0 · 18,9 · 15,2).
+        #
+        # ⚠️ **Nada se perdeu na troca, e isso foi conferido, nao presumido:**
+        # dos 515 antigos, apenas **27** passariam nos dois filtros de hoje, e os
+        # 27 **ja estavam** entre os 142 pescados. Os outros 488 sao o acervo
+        # reprovado — material 7,3 e a pedra a um ou dois lances da coroacao.
+        #
+        # ⚠️ **As quatro modalidades entram, de proposito.** Uma FEN e um arranjo
+        # de pecas; a modalidade muda como se **chega** nela, nao se ela e uma
+        # posicao brasileira valida. O molde e publicado e resolvido em
+        # brasileira de qualquer forma.
+        #
+        # ⛔ **Nenhum molde entrega o objetivo no primeiro lance.** A medicao
+        # sozinha nao pega isso — **o Sagaz joga a PARTIDA, e nao o DESAFIO**:
+        # coroar de cara costuma ser mau lance, entao ele escolhe outra coisa e a
+        # medicao anota *"objetivo no lance 3"*; so que quem joga o desafio nao
+        # esta jogando para vencer, esta cumprindo a tarefa. Quem guarda isso e
+        # `job/moldes_de_damas.py`, na peneira do script **e** no cadeado
+        # `tests/unitarios/test_moldes_de_damas.py` — a pergunta e direta ("ha
+        # lance legal que cumpre o objetivo agora?") e nao custa um no de busca.
+        #
+        # ⚠️ **Como refazer** (o diario permite interromper e retomar, e rerodar
+        # com `--bloco` reimprime a lista sem remedir nada):
+        #
+        #     .venv\Scripts\python -u scripts\pescar_moldes_de_partidas.py ^
+        #         fens_damas_prd_e_des.json --tipo damas_coroar ^
+        #         --minimo-pecas 12 --minimo-fileiras 3 --alcancavel 6 ^
+        #         --embaralhar --processos 14 ^
+        #         --diario pescaria_damas_coroar_prd.jsonl --bloco
+        #
+        # O comentario de cada linha e `modalidades validas/4 · lance medio`.
         moldes=(
-            # ── ⚠️ O ACERVO INTEIRO FOI REFEITO em 11/09/2026 (T049s) ────────
-            #
-            # **1.000 candidatas, 14 processos, ~1 h**: 549 passaram a peneira e
-            # 540 serviram a tres ou mais modalidades. ⛔ **Nem todas entraram.**
-            #
-            # ⚠️ **O corte e a DISTANCIA ate o objetivo**, e ele existe por causa
-            # de um relato do dono, olhando a fila publicada:
-            #
-            # > *"Todos sao resolviveis em 3 lances no total. O usuario entra pra
-            # > resolver um desafio e nao joga praticamente nada. Consegue
-            # > resolve-los em uns 10 segundos e sai do App?"*
-            #
-            # Ele tinha razao, e a causa era o acervo: os moldes anteriores foram
-            # cacados com o alvo *"objetivo no lance 3"* (`LANCE_MINIMO`), e a
-            # fila mostrava exatamente isso. A distribuicao dos 540 novos:
-            #
-            #     lance  3 -> 90     lance  7 ->  41
-            #     lance  4 -> 120    lance  8 ->  69
-            #     lance  5 -> 83     lance  9 ->   6
-            #     lance  6 -> 127    lance 10 ->   4
-            #
-            # ✅ **Ficaram os 330 com objetivo no lance 5 ou depois** — o dobro
-            # do acervo anterior inteiro (161), e nenhum deles se resolve em dois
-            # lances. ⛔ Os 210 mais curtos foram descartados **apesar de
-            # aprovados**: eles publicariam o desafio de dez segundos de novo.
-            #
-            # ⚠️ **Nao se recacou nada para isso.** A cacada ja anota a distancia
-            # molde a molde; quem corta e `scripts/selecionar_moldes_damas.py`,
-            # em segundos. Medir custa horas — o criterio, nao.
-            "W:W10,20,26:B16,19,22",   # 4/4 · lance 10.0
-            "W:W9,17,18:B14,23,24",   # 3/4 · lance 9.7
-            "W:W10,19,27:B14,21,24",   # 4/4 · lance 9.5
-            "W:W9,19,29:B14,21,22",   # 4/4 · lance 9.5
-            "W:W10,17,19:B14,18,23",   # 4/4 · lance 9.0
-            "W:W10,19,22:B14,17,20",   # 4/4 · lance 9.0
-            "W:W10,21,24:B13,19,20",   # 4/4 · lance 9.0
-            "W:W10,25,31:B17,18,22",   # 4/4 · lance 9.0
-            "W:W5,25,30:B13,19,22",   # 4/4 · lance 9.0
-            "W:W9,18,21:B14,19,24",   # 4/4 · lance 9.0
-            "W:W10,21,25:B16,17,22",   # 4/4 · lance 8.5
-            "W:W10,24,27:B13,19,20",   # 4/4 · lance 8.5
-            "W:W10,24,30:B13,18,21",   # 4/4 · lance 8.5
-            "W:W10,27,28:B15,17,24",   # 4/4 · lance 8.5
-            "W:W11,17,20:B16,18,19",   # 4/4 · lance 8.5
-            "W:W5,21,27:B13,19,23",   # 4/4 · lance 8.5
-            "W:W9,17,18:B16,20,21",   # 4/4 · lance 8.5
-            "W:W9,19,21:B18,22,23",   # 4/4 · lance 8.5
-            "W:W9,19,26:B17,18,22",   # 4/4 · lance 8.5
-            "W:W9,20,30:B13,14,24",   # 4/4 · lance 8.5
-            "W:W10,22,25:B18,20,23",   # 3/4 · lance 8.3
-            "W:W11,22,26:B14,18,24",   # 3/4 · lance 8.3
-            "W:W12,17,24:B21,22,23",   # 3/4 · lance 8.3
-            "W:W12,19,24:B15,16,23",   # 3/4 · lance 8.3
-            "W:W12,26,27:B14,21,23",   # 3/4 · lance 8.3
-            "W:W10,17,27:B18,22,23",   # 4/4 · lance 8.0
-            "W:W10,17,29:B16,18,19",   # 4/4 · lance 8.0
-            "W:W10,20,23:B14,17,21",   # 4/4 · lance 8.0
-            "W:W10,20,25:B13,19,24",   # 4/4 · lance 8.0
-            "W:W10,21,24:B13,16,23",   # 4/4 · lance 8.0
-            "W:W10,21,26:B13,22,23",   # 4/4 · lance 8.0
-            "W:W10,21,31:B17,19,24",   # 4/4 · lance 8.0
-            "W:W10,22,27:B13,20,21",   # 4/4 · lance 8.0
-            "W:W10,23,29:B16,17,18",   # 4/4 · lance 8.0
-            "W:W10,26,27:B18,22,23",   # 4/4 · lance 8.0
-            "W:W10,26,30:B13,19,20",   # 4/4 · lance 8.0
-            "W:W11,17,18:B15,20,24",   # 4/4 · lance 8.0
-            "W:W11,17,32:B14,15,18",   # 4/4 · lance 8.0
-            "W:W11,18,30:B15,16,21",   # 4/4 · lance 8.0
-            "W:W11,22,28:B17,20,24",   # 4/4 · lance 8.0
-            "W:W11,23,24:B18,19,20",   # 4/4 · lance 8.0
-            "W:W11,24,27:B16,19,23",   # 4/4 · lance 8.0
-            "W:W12,23,32:B13,15,16",   # 4/4 · lance 8.0
-            "W:W6,23,25:B13,14,19",   # 4/4 · lance 8.0
-            "W:W9,17,23:B14,15,19",   # 4/4 · lance 8.0
-            "W:W9,17,25:B15,19,22",   # 4/4 · lance 8.0
-            "W:W9,18,23:B13,14,24",   # 4/4 · lance 8.0
-            "W:W9,18,26:B21,23,24",   # 4/4 · lance 8.0
-            "W:W9,20,24:B13,17,23",   # 4/4 · lance 8.0
-            "W:W9,23,29:B16,18,24",   # 4/4 · lance 8.0
-            "W:W11,19,26:B18,22,24",   # 3/4 · lance 7.7
-            "W:W12,25,31:B21,22,23",   # 3/4 · lance 7.7
-            "W:W12,26,30:B13,19,24",   # 3/4 · lance 7.7
-            "W:W12,29,31:B13,17,22",   # 3/4 · lance 7.7
-            "W:W9,17,19:B14,16,22",   # 3/4 · lance 7.7
-            "W:W9,22,29:B17,19,24",   # 3/4 · lance 7.7
-            "W:W10,19,22:B13,18,20",   # 4/4 · lance 7.5
-            "W:W10,21,24:B16,18,23",   # 4/4 · lance 7.5
-            "W:W10,23,26:B19,20,21",   # 4/4 · lance 7.5
-            "W:W10,23,29:B15,18,20",   # 4/4 · lance 7.5
-            "W:W10,24,30:B13,19,22",   # 4/4 · lance 7.5
-            "W:W10,26,28:B16,19,20",   # 4/4 · lance 7.5
-            "W:W11,17,25:B19,23,24",   # 4/4 · lance 7.5
-            "W:W11,19,26:B18,20,24",   # 4/4 · lance 7.5
-            "W:W11,21,22:B15,16,20",   # 4/4 · lance 7.5
-            "W:W11,21,28:B13,17,23",   # 4/4 · lance 7.5
-            "W:W11,21,31:B13,17,19",   # 4/4 · lance 7.5
-            "W:W11,22,28:B18,21,23",   # 4/4 · lance 7.5
-            "W:W11,24,27:B20,21,22",   # 4/4 · lance 7.5
-            "W:W12,18,19:B21,22,24",   # 4/4 · lance 7.5
-            "W:W12,20,25:B18,22,23",   # 4/4 · lance 7.5
-            "W:W12,22,27:B17,18,19",   # 4/4 · lance 7.5
-            "W:W12,22,29:B15,17,18",   # 4/4 · lance 7.5
-            "W:W9,18,27:B17,22,23",   # 4/4 · lance 7.5
-            "W:W9,18,28:B14,17,24",   # 4/4 · lance 7.5
-            "W:W9,22,23:B15,18,21",   # 4/4 · lance 7.5
-            "W:W9,22,25:B13,17,23",   # 4/4 · lance 7.5
-            "W:W9,24,30:B19,20,22",   # 4/4 · lance 7.5
-            "W:W9,25,27:B15,16,19",   # 4/4 · lance 7.5
-            "W:W10,17,21:B18,19,20",   # 4/4 · lance 7.0
-            "W:W10,20,25:B14,17,22",   # 4/4 · lance 7.0
-            "W:W10,22,30:B18,20,21",   # 4/4 · lance 7.0
-            "W:W10,22,31:B16,18,24",   # 4/4 · lance 7.0
-            "W:W10,23,26:B19,21,22",   # 4/4 · lance 7.0
-            "W:W10,23,28:B18,19,20",   # 4/4 · lance 7.0
-            "W:W10,24,28:B18,20,21",   # 4/4 · lance 7.0
-            "W:W11,20,22:B17,23,24",   # 4/4 · lance 7.0
-            "W:W11,22,26:B13,14,23",   # 4/4 · lance 7.0
-            "W:W11,23,25:B13,14,24",   # 3/4 · lance 7.0
-            "W:W11,23,25:B15,18,24",   # 4/4 · lance 7.0
-            "W:W11,23,28:B13,16,22",   # 4/4 · lance 7.0
-            "W:W11,24,27:B14,15,21",   # 4/4 · lance 7.0
-            "W:W11,26,29:B13,18,24",   # 4/4 · lance 7.0
-            "W:W11,28,32:B15,17,19",   # 4/4 · lance 7.0
-            "W:W12,17,31:B18,19,22",   # 4/4 · lance 7.0
-            "W:W12,18,24:B15,16,22",   # 4/4 · lance 7.0
-            "W:W12,22,23:B13,15,17",   # 4/4 · lance 7.0
-            "W:W12,22,27:B15,19,21",   # 4/4 · lance 7.0
-            "W:W12,22,32:B13,20,21",   # 4/4 · lance 7.0
-            "W:W12,24,25:B14,20,22",   # 4/4 · lance 7.0
-            "W:W12,24,27:B13,15,19",   # 4/4 · lance 7.0
-            "W:W12,24,29:B13,19,21",   # 4/4 · lance 7.0
-            "W:W12,26,30:B13,19,20",   # 4/4 · lance 7.0
-            "W:W5,18,21:B15,16,19",   # 4/4 · lance 7.0
-            "W:W5,21,22:B14,17,18",   # 4/4 · lance 7.0
-            "W:W5,22,28:B16,18,19",   # 4/4 · lance 7.0
-            "W:W9,18,22:B13,17,21",   # 4/4 · lance 7.0
-            "W:W9,18,23:B19,21,24",   # 4/4 · lance 7.0
-            "W:W9,18,32:B13,19,21",   # 4/4 · lance 7.0
-            "W:W9,19,23:B13,18,22",   # 4/4 · lance 7.0
-            "W:W9,19,26:B15,20,21",   # 4/4 · lance 7.0
-            "W:W9,20,28:B18,21,24",   # 4/4 · lance 7.0
-            "W:W9,21,26:B16,18,22",   # 4/4 · lance 7.0
-            "W:W9,21,29:B15,17,20",   # 4/4 · lance 7.0
-            "W:W9,21,30:B17,19,23",   # 4/4 · lance 7.0
-            "W:W9,22,32:B15,19,24",   # 4/4 · lance 7.0
-            "W:W9,24,32:B19,21,22",   # 4/4 · lance 7.0
-            "W:W9,27,31:B15,21,23",   # 4/4 · lance 7.0
-            "W:W9,27,32:B13,14,17",   # 3/4 · lance 7.0
-            "W:W9,30,31:B14,15,19",   # 4/4 · lance 7.0
-            "W:W10,17,24:B14,15,20",   # 4/4 · lance 6.5
-            "W:W10,17,26:B13,16,21",   # 4/4 · lance 6.5
-            "W:W10,19,25:B14,17,21",   # 4/4 · lance 6.5
-            "W:W10,21,27:B16,17,20",   # 4/4 · lance 6.5
-            "W:W10,21,30:B17,20,24",   # 4/4 · lance 6.5
-            "W:W10,25,28:B16,21,22",   # 4/4 · lance 6.5
-            "W:W11,17,18:B13,15,23",   # 4/4 · lance 6.5
-            "W:W11,17,30:B13,20,23",   # 4/4 · lance 6.5
-            "W:W11,18,27:B14,21,23",   # 4/4 · lance 6.5
-            "W:W11,19,26:B16,20,22",   # 4/4 · lance 6.5
-            "W:W11,21,22:B17,20,24",   # 4/4 · lance 6.5
-            "W:W11,21,26:B15,18,19",   # 4/4 · lance 6.5
-            "W:W11,23,31:B15,18,22",   # 4/4 · lance 6.5
-            "W:W11,24,25:B14,19,23",   # 4/4 · lance 6.5
-            "W:W11,30,31:B14,16,21",   # 4/4 · lance 6.5
-            "W:W12,17,23:B13,15,21",   # 4/4 · lance 6.5
-            "W:W12,20,24:B17,19,22",   # 4/4 · lance 6.5
-            "W:W12,20,27:B13,15,19",   # 4/4 · lance 6.5
-            "W:W12,20,29:B13,16,18",   # 4/4 · lance 6.5
-            "W:W12,23,32:B18,21,22",   # 4/4 · lance 6.5
-            "W:W5,19,20:B15,16,24",   # 4/4 · lance 6.5
-            "W:W6,25,27:B14,19,24",   # 4/4 · lance 6.5
-            "W:W7,17,23:B15,18,24",   # 4/4 · lance 6.5
-            "W:W7,21,24:B13,17,19",   # 4/4 · lance 6.5
-            "W:W9,18,31:B13,15,19",   # 4/4 · lance 6.5
-            "W:W9,22,26:B13,14,18",   # 4/4 · lance 6.5
-            "W:W9,23,29:B18,19,20",   # 4/4 · lance 6.5
-            "W:W9,26,28:B15,17,23",   # 4/4 · lance 6.5
-            "W:W9,31,32:B14,16,21",   # 4/4 · lance 6.5
-            "W:W10,27,31:B13,15,22",   # 3/4 · lance 6.3
-            "W:W11,21,23:B16,19,20",   # 3/4 · lance 6.3
-            "W:W10,17,27:B13,19,21",   # 4/4 · lance 6.0
-            "W:W10,18,24:B13,22,23",   # 4/4 · lance 6.0
-            "W:W10,18,26:B16,22,23",   # 4/4 · lance 6.0
-            "W:W10,20,27:B13,16,19",   # 4/4 · lance 6.0
-            "W:W10,27,30:B13,18,19",   # 4/4 · lance 6.0
-            "W:W10,28,29:B15,20,22",   # 4/4 · lance 6.0
-            "W:W11,17,25:B18,19,20",   # 4/4 · lance 6.0
-            "W:W11,22,27:B14,16,18",   # 4/4 · lance 6.0
-            "W:W11,23,29:B14,17,20",   # 4/4 · lance 6.0
-            "W:W11,24,29:B18,19,20",   # 4/4 · lance 6.0
-            "W:W11,25,28:B19,20,21",   # 4/4 · lance 6.0
-            "W:W11,26,31:B21,22,23",   # 4/4 · lance 6.0
-            "W:W12,17,24:B14,15,20",   # 4/4 · lance 6.0
-            "W:W12,17,30:B13,15,18",   # 4/4 · lance 6.0
-            "W:W12,18,23:B13,17,22",   # 4/4 · lance 6.0
-            "W:W12,20,29:B15,18,23",   # 4/4 · lance 6.0
-            "W:W12,25,26:B19,20,22",   # 4/4 · lance 6.0
-            "W:W12,25,30:B14,22,23",   # 4/4 · lance 6.0
-            "W:W12,26,27:B19,20,23",   # 4/4 · lance 6.0
-            "W:W12,27,31:B18,23,24",   # 4/4 · lance 6.0
-            "W:W5,19,22:B18,20,23",   # 4/4 · lance 6.0
-            "W:W5,19,28:B13,16,17",   # 4/4 · lance 6.0
-            "W:W5,20,23:B14,19,21",   # 4/4 · lance 6.0
-            "W:W5,20,23:B17,19,24",   # 4/4 · lance 6.0
-            "W:W5,21,31:B17,19,24",   # 4/4 · lance 6.0
-            "W:W5,22,25:B13,18,24",   # 4/4 · lance 6.0
-            "W:W5,22,31:B14,17,19",   # 4/4 · lance 6.0
-            "W:W6,17,23:B14,19,22",   # 4/4 · lance 6.0
-            "W:W6,17,25:B13,22,24",   # 4/4 · lance 6.0
-            "W:W6,27,31:B20,22,23",   # 4/4 · lance 6.0
-            "W:W7,19,28:B16,21,22",   # 4/4 · lance 6.0
-            "W:W7,20,24:B13,19,23",   # 4/4 · lance 6.0
-            "W:W7,21,23:B17,19,24",   # 4/4 · lance 6.0
-            "W:W7,23,24:B18,19,22",   # 4/4 · lance 6.0
-            "W:W8,20,25:B15,21,22",   # 4/4 · lance 6.0
-            "W:W8,20,28:B16,21,24",   # 4/4 · lance 6.0
-            "W:W8,25,27:B16,21,23",   # 4/4 · lance 6.0
-            "W:W9,17,23:B13,15,21",   # 4/4 · lance 6.0
-            "W:W9,17,28:B15,21,23",   # 4/4 · lance 6.0
-            "W:W9,18,28:B13,15,23",   # 4/4 · lance 6.0
-            "W:W9,18,28:B16,20,22",   # 4/4 · lance 6.0
-            "W:W9,19,27:B16,18,22",   # 4/4 · lance 6.0
-            "W:W9,19,29:B13,14,18",   # 4/4 · lance 6.0
-            "W:W9,23,28:B18,19,20",   # 4/4 · lance 6.0
-            "W:W9,24,30:B20,21,22",   # 4/4 · lance 6.0
-            "W:W9,24,31:B14,18,20",   # 4/4 · lance 6.0
-            "W:W9,27,30:B14,18,20",   # 4/4 · lance 6.0
-            "W:W10,17,24:B15,19,21",   # 3/4 · lance 5.7
-            "W:W12,17,18:B16,19,22",   # 3/4 · lance 5.7
-            "W:W12,25,28:B13,15,17",   # 3/4 · lance 5.7
-            "W:W5,22,31:B14,18,23",   # 3/4 · lance 5.7
-            "W:W6,26,27:B18,21,24",   # 3/4 · lance 5.7
-            "W:W9,18,24:B19,20,22",   # 3/4 · lance 5.7
-            "W:W10,17,20:B14,15,19",   # 4/4 · lance 5.5
-            "W:W10,18,20:B17,21,22",   # 4/4 · lance 5.5
-            "W:W10,18,28:B14,20,21",   # 4/4 · lance 5.5
-            "W:W10,19,32:B15,17,18",   # 4/4 · lance 5.5
-            "W:W10,24,26:B17,19,22",   # 4/4 · lance 5.5
-            "W:W10,24,29:B13,21,23",   # 4/4 · lance 5.5
-            "W:W11,17,18:B14,19,24",   # 4/4 · lance 5.5
-            "W:W11,17,19:B14,20,22",   # 4/4 · lance 5.5
-            "W:W11,18,27:B13,14,17",   # 4/4 · lance 5.5
-            "W:W11,18,31:B19,21,24",   # 4/4 · lance 5.5
-            "W:W11,20,31:B16,18,23",   # 4/4 · lance 5.5
-            "W:W11,22,32:B13,17,24",   # 4/4 · lance 5.5
-            "W:W11,23,32:B13,18,19",   # 4/4 · lance 5.5
-            "W:W11,25,31:B19,21,23",   # 4/4 · lance 5.5
-            "W:W11,26,32:B13,22,23",   # 4/4 · lance 5.5
-            "W:W12,17,31:B13,15,21",   # 4/4 · lance 5.5
-            "W:W12,18,27:B19,21,24",   # 4/4 · lance 5.5
-            "W:W12,19,32:B14,17,21",   # 4/4 · lance 5.5
-            "W:W12,19,32:B15,20,23",   # 4/4 · lance 5.5
-            "W:W12,21,22:B14,19,20",   # 4/4 · lance 5.5
-            "W:W12,21,27:B15,20,22",   # 4/4 · lance 5.5
-            "W:W12,22,29:B20,23,24",   # 4/4 · lance 5.5
-            "W:W12,26,32:B13,20,21",   # 4/4 · lance 5.5
-            "W:W5,19,26:B15,18,21",   # 4/4 · lance 5.5
-            "W:W5,20,22:B14,16,18",   # 4/4 · lance 5.5
-            "W:W5,20,24:B14,16,19",   # 4/4 · lance 5.5
-            "W:W5,22,29:B14,17,19",   # 4/4 · lance 5.5
-            "W:W5,22,31:B14,17,18",   # 4/4 · lance 5.5
-            "W:W6,22,31:B16,17,21",   # 4/4 · lance 5.5
-            "W:W7,17,19:B15,20,23",   # 4/4 · lance 5.5
-            "W:W7,18,27:B14,15,19",   # 4/4 · lance 5.5
-            "W:W7,21,26:B16,17,24",   # 4/4 · lance 5.5
-            "W:W7,23,26:B15,16,22",   # 4/4 · lance 5.5
-            "W:W8,21,22:B13,17,20",   # 4/4 · lance 5.5
-            "W:W8,23,24:B16,17,19",   # 4/4 · lance 5.5
-            "W:W8,26,29:B14,21,23",   # 4/4 · lance 5.5
-            "W:W9,17,28:B21,22,23",   # 4/4 · lance 5.5
-            "W:W9,18,25:B15,16,23",   # 4/4 · lance 5.5
-            "W:W9,18,30:B13,15,17",   # 4/4 · lance 5.5
-            "W:W9,19,30:B15,16,24",   # 4/4 · lance 5.5
-            "W:W9,19,32:B15,16,18",   # 4/4 · lance 5.5
-            "W:W9,22,24:B13,15,23",   # 4/4 · lance 5.5
-            "W:W9,24,27:B14,15,21",   # 4/4 · lance 5.5
-            "W:W10,17,26:B15,20,23",   # 4/4 · lance 5.0
-            "W:W10,19,26:B14,17,23",   # 4/4 · lance 5.0
-            "W:W10,19,28:B14,16,17",   # 4/4 · lance 5.0
-            "W:W10,19,31:B16,21,23",   # 4/4 · lance 5.0
-            "W:W10,23,25:B14,17,24",   # 4/4 · lance 5.0
-            "W:W10,25,26:B15,16,21",   # 4/4 · lance 5.0
-            "W:W10,25,32:B15,17,22",   # 4/4 · lance 5.0
-            "W:W10,29,32:B17,19,22",   # 3/4 · lance 5.0
-            "W:W11,17,24:B15,18,21",   # 4/4 · lance 5.0
-            "W:W11,18,20:B19,22,24",   # 4/4 · lance 5.0
-            "W:W11,18,26:B17,21,22",   # 4/4 · lance 5.0
-            "W:W11,18,28:B13,14,17",   # 4/4 · lance 5.0
-            "W:W11,18,28:B14,19,20",   # 4/4 · lance 5.0
-            "W:W11,19,22:B16,17,21",   # 4/4 · lance 5.0
-            "W:W11,19,26:B20,22,24",   # 4/4 · lance 5.0
-            "W:W11,19,29:B16,18,20",   # 4/4 · lance 5.0
-            "W:W11,19,31:B13,16,17",   # 4/4 · lance 5.0
-            "W:W11,22,24:B13,18,20",   # 4/4 · lance 5.0
-            "W:W11,24,31:B15,18,20",   # 4/4 · lance 5.0
-            "W:W11,24,31:B17,19,20",   # 3/4 · lance 5.0
-            "W:W11,25,26:B16,22,23",   # 4/4 · lance 5.0
-            "W:W11,25,26:B18,20,22",   # 4/4 · lance 5.0
-            "W:W11,25,29:B13,20,24",   # 4/4 · lance 5.0
-            "W:W12,17,18:B14,22,24",   # 4/4 · lance 5.0
-            "W:W12,17,18:B15,19,21",   # 4/4 · lance 5.0
-            "W:W12,17,23:B14,19,20",   # 4/4 · lance 5.0
-            "W:W12,17,26:B14,15,23",   # 4/4 · lance 5.0
-            "W:W12,17,27:B14,19,24",   # 4/4 · lance 5.0
-            "W:W12,17,31:B14,18,22",   # 4/4 · lance 5.0
-            "W:W12,18,20:B13,22,24",   # 4/4 · lance 5.0
-            "W:W12,18,22:B13,19,21",   # 4/4 · lance 5.0
-            "W:W12,18,23:B15,17,19",   # 4/4 · lance 5.0
-            "W:W12,18,27:B20,22,24",   # 4/4 · lance 5.0
-            "W:W12,18,28:B13,14,15",   # 4/4 · lance 5.0
-            "W:W12,19,21:B15,16,23",   # 4/4 · lance 5.0
-            "W:W12,19,31:B15,18,22",   # 4/4 · lance 5.0
-            "W:W12,21,24:B17,22,23",   # 4/4 · lance 5.0
-            "W:W12,21,30:B13,15,22",   # 4/4 · lance 5.0
-            "W:W12,23,26:B15,17,22",   # 4/4 · lance 5.0
-            "W:W12,26,27:B16,19,23",   # 4/4 · lance 5.0
-            "W:W12,26,27:B17,20,22",   # 4/4 · lance 5.0
-            "W:W12,27,30:B15,17,24",   # 4/4 · lance 5.0
-            "W:W12,27,31:B14,22,24",   # 4/4 · lance 5.0
-            "W:W12,28,29:B14,23,24",   # 4/4 · lance 5.0
-            "W:W12,28,30:B15,20,24",   # 4/4 · lance 5.0
-            "W:W5,18,26:B13,17,23",   # 4/4 · lance 5.0
-            "W:W5,18,31:B13,15,20",   # 4/4 · lance 5.0
-            "W:W5,19,20:B16,18,22",   # 4/4 · lance 5.0
-            "W:W5,21,24:B17,19,23",   # 4/4 · lance 5.0
-            "W:W6,18,30:B15,17,20",   # 4/4 · lance 5.0
-            "W:W6,19,24:B13,16,18",   # 4/4 · lance 5.0
-            "W:W6,19,31:B16,21,22",   # 4/4 · lance 5.0
-            "W:W6,19,32:B16,20,22",   # 4/4 · lance 5.0
-            "W:W6,21,22:B13,14,18",   # 4/4 · lance 5.0
-            "W:W7,17,28:B16,18,24",   # 4/4 · lance 5.0
-            "W:W7,18,23:B15,19,21",   # 4/4 · lance 5.0
-            "W:W7,18,32:B14,15,22",   # 4/4 · lance 5.0
-            "W:W7,20,21:B13,16,19",   # 4/4 · lance 5.0
-            "W:W7,20,27:B16,19,24",   # 4/4 · lance 5.0
-            "W:W7,21,25:B15,17,22",   # 4/4 · lance 5.0
-            "W:W7,21,27:B16,23,24",   # 4/4 · lance 5.0
-            "W:W8,18,19:B15,16,22",   # 4/4 · lance 5.0
-            "W:W8,19,26:B15,16,23",   # 4/4 · lance 5.0
-            "W:W8,21,24:B16,19,20",   # 4/4 · lance 5.0
-            "W:W8,23,25:B13,14,19",   # 4/4 · lance 5.0
-            "W:W9,17,19:B13,16,18",   # 4/4 · lance 5.0
-            "W:W9,17,23:B13,18,20",   # 4/4 · lance 5.0
-            "W:W9,18,29:B16,21,24",   # 4/4 · lance 5.0
-            "W:W9,20,28:B15,16,18",   # 4/4 · lance 5.0
-            "W:W9,20,30:B13,14,16",   # 4/4 · lance 5.0
-            "W:W9,21,26:B15,16,22",   # 4/4 · lance 5.0
-            "W:W9,21,28:B17,19,22",   # 4/4 · lance 5.0
-            "W:W9,21,31:B15,17,23",   # 4/4 · lance 5.0
-            "W:W9,22,29:B16,17,24",   # 4/4 · lance 5.0
-            "W:W9,23,32:B16,21,22",   # 3/4 · lance 5.0
-            "W:W9,25,26:B14,20,22",   # 4/4 · lance 5.0
-            "W:W9,25,28:B13,17,21",   # 4/4 · lance 5.0
-            "W:W9,25,31:B15,19,24",   # 4/4 · lance 5.0
-            "W:W9,25,31:B18,22,24",   # 4/4 · lance 5.0
-            "W:W9,26,27:B19,21,24",   # 3/4 · lance 5.0
-            "W:W9,27,30:B16,18,24",   # 4/4 · lance 5.0
-            "W:W9,27,30:B18,20,22",   # 4/4 · lance 5.0
-            "W:W9,27,32:B17,20,24",   # 3/4 · lance 5.0
-
-            # ── ⚠️ E 185 POSICOES REAIS ENTRARAM EM 12/09/2026 ──────────────
-            #
-            # Segunda pescaria na base de producao (`pescar_moldes_de_partidas.py
-            # --tipo damas_coroar`), no mesmo CSV de lances do `prd` que deu o
-            # acervo da captura multipla — 4.090 posicoes de partidas humanas.
-            #
-            # ⛔ **Aqui NAO houve troca de acervo, e a diferenca importa.** Na
-            # captura multipla o acervo sintetico saiu inteiro porque a premissa
-            # dele estava errada: tabuleiros quase vazios (material ~7) nunca
-            # concedem cadeia, e por isso os 29 moldes cabiam todos em 3 lances.
-            # ⚠️ **O coroar nunca teve esse defeito** — os 330 acima foram
-            # medidos, cobrem de 5 a 10 lances e publicam ha dias. Entao o que a
-            # pescaria fez foi **somar**, e nao corrigir.
-            #
-            # O funil, para quem for repeti-la:
-            #
-            #     2.842  nunca coroaram dentro do teto
-            #       636  partida ja acabada
-            #       212  ja nasciam coroando (objetivo no lance 1) — 166 na
-            #            brasileira, 46 na anglo
-            #       400  passaram a peneira
-            #       295  serviram a tres ou mais modalidades (220 servem as quatro)
-            #
-            # Distancia ate o objetivo, nos 295 pescados:
-            #
-            #     3 lances: 63     7 lances: 32     11 lances:  5
-            #     4 lances: 38     8 lances: 40
-            #     5 lances: 40     9 lances: 18
-            #     6 lances: 43    10 lances: 16
-            #
-            # ✅ **Entraram os 194 de lance 5 ou depois** — o mesmo corte da
-            # T049s, que e do dono: *"o usuario entra pra resolver um desafio e
-            # nao joga praticamente nada"*. ⛔ Os 101 mais curtos ficaram de fora
-            # apesar de aprovados, e nao se recacou nada: a medicao ja anota a
-            # distancia, entao o corte e uma leitura do diario.
-            #
-            # ⚠️ **Nove dos 194 JA ESTAVAM no acervo acima**, achados pela cacada
-            # sintetica meses antes — coincidencia util, porque mostra que as
-            # duas fontes olham para o mesmo tipo de final. Sobraram **185**.
-            #
-            # Material dos 185: media 9,7 (min 3, max 24) — praticamente o mesmo
-            # dos sinteticos, e e por isso que eles se somam sem desequilibrar a
-            # fila. ⚠️ Note o contraste com a captura multipla, cujos moldes reais
-            # tem material 17,3: la a diferenca era a causa do problema; aqui nao
-            # ha diferenca, porque nao havia problema.
-            #
-            # ⚠️ **Como refazer** (o diario permite interromper e retomar):
-            #
-            #     .venv\Scripts\python -u scripts\pescar_moldes_de_partidas.py ^
-            #         <csv de lances do prd> --tipo damas_coroar ^
-            #         --processos 14 --bloco
-            #
-            # O comentario de cada linha e `modalidades validas/4 · lance medio`.
-            "W:W29,30,31:B1,5,9,17,21,27",   # 4/4 · lance 11.0
-            "W:W12,16,24,28,32:B3,4,9",   # 4/4 · lance 10.5
-            "W:W12,17,18,20,21,24,25,29:B2,4,5,7,10,15",   # 4/4 · lance 10.0
-            "W:W16,17,21,22,25,28,29:B4,12,13,23",   # 4/4 · lance 10.0
-            "W:W13,21:B11,12,K29",   # 4/4 · lance 10.0
-            "W:W10,14,15,18,25,32:B2,3,5,8,13,24",   # 4/4 · lance 10.0
-            "W:W13,17,21:B10,28",   # 4/4 · lance 10.0
-            "W:W17,18,19,21,22:B3,8,12,13,16",   # 4/4 · lance 9.5
-            "W:W13,20,25,28,30,31:B11,15,18,19,23",   # 4/4 · lance 9.5
-            "W:W9,19,21,23,24,29:B2,4,5,14,15",   # 4/4 · lance 9.5
-            "W:WK2,13,16,20,21,27,29:B3,4,14",   # 4/4 · lance 9.5
-            "W:W12,17,18,21,24,25,29:B4,5,7",   # 4/4 · lance 9.0
-            "W:W12,16,29,30,31,32:B2,4,5,13,17",   # 4/4 · lance 9.0
-            "W:W5,16,18,20,23,29,32:B1,6,10,11,12",   # 4/4 · lance 9.0
-            "W:W19,31:B12,17,18",   # 4/4 · lance 9.0
-            "W:W17,18,19,22,29:B4,6,8,12",   # 4/4 · lance 9.0
+            "W:W15,16,19,21,24,26,29,31:B3,4,11,12,13,14,17",   # 4/4 · lance 9.5
+            "W:W13,19,20,21,24,26,28,32:B2,4,7,8,11,12,17",   # 4/4 · lance 9.5
+            "W:W19,20,21,23,24,K26,28,29,31:B4,5,8,12,13",   # 4/4 · lance 9.5
             "W:W14,15,23,27,28,29:B1,3,4,12,20,22",   # 4/4 · lance 9.0
-            "W:W15,18,21,22,27,29:B3,12,13,16",   # 4/4 · lance 9.0
-            "W:W22,30:B4,12,20,23",   # 4/4 · lance 9.0
-            "W:W18,21,23,26,27,29:B3,8,9,12",   # 4/4 · lance 9.0
-            "W:WK1,13,17,21:B8,10,11,24,28",   # 4/4 · lance 8.5
-            "W:W11,16,18,21:B3,4,10,13",   # 4/4 · lance 8.5
-            "W:W9,20,21,22:B2,5,18",   # 4/4 · lance 8.5
-            "W:W9,15,29:B1,3,4,27,28,K30",   # 4/4 · lance 8.5
-            "W:W5,10,12,20,21,22,24,25,29:B1,3,4,8,11,18",   # 4/4 · lance 8.5
+            "W:W19,20,21,22,23,25,26,29,31:B1,5,7,9,10,11,12,13,14",   # 4/4 · lance 9.0
+            "W:W13,18,19,20,26,27,28,29,30,31,32:B3,4,6,8,9,10,11,12",   # 4/4 · lance 9.0
+            "W:W14,20,22,27,29,30,32:B1,2,4,5,15,21",   # 4/4 · lance 8.5
             "W:W17,20,29,30,31,32:B4,8,11,12,16,18,21",   # 4/4 · lance 8.5
-            "W:WK3,11,13,21,24,28,29,30,31,32:B2,4,10,18",   # 4/4 · lance 8.0
-            "W:W12,17,20,21,24,25,29:B2,4,5,10,16",   # 4/4 · lance 8.0
-            "W:WK4,12,20,21,28,29:B6,7,14,17",   # 4/4 · lance 8.0
-            "W:WK4,18,21:B12,28",   # 4/4 · lance 8.0
-            "W:W13,29,31:BK21",   # 4/4 · lance 8.0
-            "W:W9,13,19,22,25,28,29,30:B2,4,10,12",   # 4/4 · lance 8.0
             "W:W13,14,19,22,25,28,29,30:B2,4,7,12",   # 4/4 · lance 8.0
-            "W:W14,15,19,28,29:B1,3,4,12,26,27",   # 4/4 · lance 8.0
-            "W:W14,15,19,21,22,29:B7,12,17,20",   # 4/4 · lance 8.0
-            "W:W15,18,19,21,22,29:B7,12,13,20",   # 4/4 · lance 8.0
-            "W:W13,20,21,30:B4,11,12,14,15,18",   # 4/4 · lance 8.0
-            "W:W13,21:B17,28",   # 4/4 · lance 8.0
+            "W:WK1,20,21,23,26,28,29,32:B8,10,11,13,15,16",   # 4/4 · lance 8.0
+            "W:W15,21,23,27,28,29:B8,12,16,17,18,20,22",   # 4/4 · lance 8.0
             "W:W13,14,19,20,21,25,27,29:B3,4,5,12,16",   # 4/4 · lance 8.0
-            "W:W11,12,13,15,20,29,31:B2,3,4,5,K9",   # 4/4 · lance 8.0
-            "W:W14,20,29:B1,9,13",   # 4/4 · lance 8.0
             "W:WK1,14,20,26,27,28,29,32:B3,7,8,11,21,23",   # 4/4 · lance 8.0
-            "W:W10,11,19,21,22,28,31:B1,2,4,13,17",   # 4/4 · lance 7.5
-            "W:WK3,11,21:B4,13,24",   # 4/4 · lance 7.5
-            "W:WK4,15,21:B12,K32",   # 4/4 · lance 7.5
+            "W:W15,19,21,24,26,29,31:B4,10,12,13,14,17",   # 4/4 · lance 7.5
+            "W:W13,19,20,21,25,26,28,31,32:B4,6,16,18",   # 4/4 · lance 7.5
             "W:W13,24,27,29,30,31,32:B4,7,11,12,15,18,20,21",   # 4/4 · lance 7.5
-            "W:W11,12,13,17,20,22,29,31:B2,3,4,5,24",   # 4/4 · lance 7.5
-            "W:WK4,16,21,29,32:BK6",   # 4/4 · lance 7.5
-            "W:WK3,11,21,25,29:B1,2,9,K32",   # 4/4 · lance 7.5
-            "W:W9,18,20,27,28,29,30,32:B2,3,8,10,11,21",   # 4/4 · lance 7.5
-            "W:W12,13,18,21,24,25,29:B4,5,10",   # 4/4 · lance 7.0
-            "W:W18,20,29:B12,22,25",   # 4/4 · lance 7.0
-            "W:W11,12,18,21:B3,4,13,15",   # 4/4 · lance 7.0
-            "W:W5,14,18,20,23,29,32:B1,9,12",   # 4/4 · lance 7.0
-            "W:W9,21:B12,15,K29",   # 4/4 · lance 7.0
-            "W:WK11,12,23,26,27,28,31:B4,13,25",   # 4/4 · lance 7.0
-            "W:W10,11,18,22,27:B2,4,5,12,20,28",   # 4/4 · lance 7.0
-            "W:W13,14,28,29,31:B6,19,22,K30",   # 4/4 · lance 7.0
-            "W:W9,11,21,22:B2,5,14,16",   # 4/4 · lance 7.0
+            "W:W13,14,19,20,24,26,28,32:B2,4,7,8,12,16",   # 4/4 · lance 7.5
+            "W:W14,15,18,22,23,24,25,27,29,31,32:B1,3,4,5,6,7,11,12,13,16,20",   # 4/4 · lance 7.0
+            "W:W14,19,20,23,28,29,30,31,32:B3,4,5,6,7,8,11,12,13,21",   # 4/4 · lance 7.0
+            "W:W19,21,22,23,25,26,29,31:B1,5,7,9,10,12,13,14,20",   # 4/4 · lance 7.0
             "W:W13,19,21,22,25,28,29,30:B2,3,4,6,9,12,17",   # 4/4 · lance 7.0
-            "W:W9,10,19,21,23,29:B2,5,12,14",   # 4/4 · lance 7.0
-            "W:W9,10,19,21,23,25:B2,5,14,16",   # 4/4 · lance 7.0
-            "W:W17,30:B4,16,20,23",   # 4/4 · lance 7.0
-            "W:WK3,6,13,22,23,26,27,28,30:B8,11,12,14,16,20,25",   # 4/4 · lance 7.0
-            "W:W14,20,21,22,24,25,27:B11,13,15,19",   # 4/4 · lance 7.0
-            "W:W15,16,20,21,29,32:B4,6,7,K30",   # 4/4 · lance 7.0
-            "W:W14,15,21,25,29:B1,2,5,20",   # 4/4 · lance 7.0
-            "W:W11,24,29:B3,20",   # 4/4 · lance 7.0
-            "W:W11,12,17,21,24,25,29:B2,4,5,15",   # 4/4 · lance 6.5
-            "W:W11,18,19,21:B3,4,6,13",   # 4/4 · lance 6.5
-            "W:W5,18,19,20,23,29,32:B1,6,8,10,11",   # 4/4 · lance 6.5
-            "W:W15,20,21:B2,14",   # 4/4 · lance 6.5
-            "W:W5,10,12,20,21,24,29:B1,3,4,8,25",   # 4/4 · lance 6.5
-            "W:W5,10,12,20,21,24,25,29:B1,3,4,8,18",   # 4/4 · lance 6.5
-            "W:W10,13,17,25:B3,24",   # 4/4 · lance 6.5
-            "W:WK1,15,16,21:B2,4,K25",   # 4/4 · lance 6.5
+            "W:W17,18,20,21,22,23,24,26,27,28,29,32:B2,4,6,7,8,9,10,11,12,13,15,16",   # 4/4 · lance 7.0
             "W:W13,20,29,30,31,32:B4,8,11,12,18,19,21",   # 4/4 · lance 6.5
-            "W:W10,15,18,20,22,25,28,29,30,32:B1,2,9,12,13",   # 4/4 · lance 6.5
-            "W:W10,11,14,19,22,28,31:B1,2,4,17",   # 4/4 · lance 6.0
-            "W:W13,14,24,28,30,32:B4,5,12,18,23",   # 4/4 · lance 6.0
-            "W:W11,13,29:B1,5,9,10,K18,26",   # 4/4 · lance 6.0
-            "W:W5,21,28,29,30,31,32:B1,16",   # 4/4 · lance 6.0
-            "W:W10,14,20,29:B4,5,8,11,12,23",   # 4/4 · lance 6.0
-            "W:W5,14,18,19,20,29,32:B1,12,13",   # 4/4 · lance 6.0
+            "W:W17,18,20,21,22,23,25,26,27,29:B1,5,6,7,8,9,11,12,13,16,24,K32",   # 4/4 · lance 6.0
+            "W:W17,18,20,21,22,23,24,26,27,29,30,31:B1,4,5,6,7,9,10,11,12,13,15,16",   # 4/4 · lance 6.0
             "W:W18,19,21,22,23,24,26,28,29,30,31,32:B2,3,4,5,6,7,8,9,11,12,13,14",   # 4/4 · lance 6.0
-            "W:W9,K29:BK10,11",   # 4/4 · lance 6.0
-            "W:W15,16,21:B7,14",   # 4/4 · lance 6.0
-            "W:W28,30:B3,16,K24",   # 4/4 · lance 6.0
-            "W:W13,14,19,21,29:B3,20",   # 4/4 · lance 6.0
-            "W:W11,12,15,20,29,31:B3,4,5,9",   # 4/4 · lance 6.0
-            "W:W9,20,21,29,32:B4,K19",   # 4/4 · lance 6.0
-            "W:W13,17,21:B8,11,15,28",   # 4/4 · lance 5.5
-            "W:W18,20,29,30:B12,15,21,26",   # 4/4 · lance 5.5
-            "W:W11,12,21,28,29,30,31,32:B1,3,6,9",   # 4/4 · lance 5.5
-            "W:W13,20,25,30:B9,11,12,23",   # 4/4 · lance 5.5
-            "W:WK4,15,17:B16,K32",   # 4/4 · lance 5.5
-            "W:W10,13,17,21:B3,28",   # 4/4 · lance 5.5
-            "W:WK1,11,12,21:B2,4,K25",   # 4/4 · lance 5.5
-            "W:W12,13,17,21,25,29:B27",   # 4/4 · lance 5.5
-            "W:W10,18,20,21,25,27,29:B2,3,11,13,16",   # 4/4 · lance 5.0
-            "W:W10,13,24,28,30,32:B4,5,12,22,23",   # 4/4 · lance 5.0
-            "W:W7,13,24,28,30,32:B4,9,12,22,23",   # 4/4 · lance 5.0
-            "W:W12,18,21:B4,10,13,15",   # 4/4 · lance 5.0
-            "W:W14,20,29:B12,22,K30",   # 4/4 · lance 5.0
-            "W:W5,20,29:B16,26,K30",   # 4/4 · lance 5.0
-            "W:W10,21,22,25,28,29:B4,13,19,27",   # 4/4 · lance 5.0
-            "W:W17,21,25,26,27,K28,29,32:B2,3,4,9,12,18,20",   # 4/4 · lance 5.0
-            "W:W14,21,22,27:B3,8,13,16",   # 4/4 · lance 5.0
-            "W:W12,23,K25,26,27,28,31:B4,21",   # 4/4 · lance 5.0
-            "W:W9,13,28,29,31:B10,19,22,K30",   # 4/4 · lance 5.0
-            "W:W13:B4,19,20,24",   # 4/4 · lance 5.0
-            "W:W13,14,15,29:B6,7,16",   # 4/4 · lance 5.0
+            "W:W17,19,20,21,22,23,25,26:B1,6,8,10,12,13,14,15",   # 4/4 · lance 6.0
+            "W:W13,16,17,20,21,22,25,26,28,32:B4,5,6,7,8,10,11,15,18",   # 4/4 · lance 5.5
+            "W:W18,19,20,22,25,29,32:B2,8,9,10,11,12,13",   # 4/4 · lance 5.5
+            "W:W21,22,23,25,26,29,31:B1,5,7,9,12,13,14,19,20",   # 4/4 · lance 5.0
+            "W:W16,17,21,22,23,25,26:B1,6,8,10,12,13,14,24",   # 4/4 · lance 5.0
+            "W:W18,20,21,24,28,29,30,31,32:B1,3,4,5,7,8,9,11,13,15,16,19",   # 4/4 · lance 5.0
+            "W:W16,K19,21,23,24,26,28,29,31:B4,7,12",   # 4/4 · lance 5.0
             "W:W13,16,20,21,22,27,29:B3,4,5,10,18",   # 4/4 · lance 5.0
-            "W:W13,14,15,19,21,29:B11,12,20",   # 4/4 · lance 5.0
-            "W:W13,14,21,29:B3,11",   # 4/4 · lance 5.0
-            "W:W10,13,21,29:B3,16",   # 4/4 · lance 5.0
-            "W:W13,30:B8,16,20,23",   # 4/4 · lance 5.0
-            "W:W5,30:B12,16,20,26",   # 4/4 · lance 5.0
-            "W:WK1,12,15,21:B2,4,K29",   # 4/4 · lance 5.0
-            "W:W10,K23:B8,12,20,25,K30,K32",   # 4/4 · lance 5.0
-            "W:WK1,12,13,15,21,22,25:B3,4,5,7,9",   # 4/4 · lance 5.0
-            "W:W15:B4,8,12,16,17,20",   # 4/4 · lance 5.0
-            "W:WK2,12,21,31,32:B4,5,17,28",   # 4/4 · lance 5.0
-            "W:W10,15,21,25,29:B1,2,5,24",   # 4/4 · lance 5.0
-            "W:W11,19,29:B3,24",   # 4/4 · lance 5.0
-            "W:W11,12,29:B3,K32",   # 4/4 · lance 5.0
-            "W:WK1,12,16,28,29,30:B3,4,8,10,27",   # 3/4 · lance 11.0
+            "W:W17,19,20,21,22,23,25,31:B1,6,8,10,11,12,13,14",   # 4/4 · lance 5.0
+            "W:W13,20,21,24,28,30,31:B4,5,8,11,15,16,18,K32",   # 4/4 · lance 5.0
+            "W:W17,18,19,20,22,25,28:B7,8,9,10,11,12,13",   # 4/4 · lance 5.0
+            "W:W13,20,23,24,25,26,28,30:B5,7,9,10,11,12,16",   # 4/4 · lance 5.0
+            "W:W14,18,22,23,24,25,27,29,31,32:B1,3,5,6,7,11,12,13,16,20",   # 4/4 · lance 5.0
+            "W:W18,19,21,24,28,29,30,32:B1,3,10,11,12",   # 4/4 · lance 5.0
+            "W:W13,17,20,21,23,24,26,28,29,30,31,32:B1,2,4,5,7,8,9,10,11,14,15,16",   # 4/4 · lance 5.0
+            "W:W13,17,20,22,25,28,30,31:B2,5,6,8,9,11,16",   # 4/4 · lance 5.0
+            "W:W17,21,25,26,27,K28,29,32:B2,3,4,9,12,18,20",   # 4/4 · lance 5.0
+            "W:W13,14,17,20,21,24,25,28,30,31,32:B1,3,4,6,7,8,10,11,15,16",   # 4/4 · lance 4.0
+            "W:W14,15,18,21,22,25,28,29:B2,3,4,5,6,9,13,20",   # 4/4 · lance 4.0
+            "W:W13,14,21,28,29,31:B6,9,11,15,22,23",   # 4/4 · lance 4.0
+            "W:W19,20,22,25,29,32:B2,8,9,10,12,13,18",   # 4/4 · lance 3.5
+            "W:W20,21,24,26,28,29,31,32:B1,3,4,5,7,8,9,11,13,16,19,22",   # 4/4 · lance 3.5
+            "W:W15,21,29,32:B1,2,5,7,8,9,12,14,20",   # 4/4 · lance 3.5
+            "W:W14,24,28,29,30,31:B2,4,6,11,15,16",   # 4/4 · lance 3.5
+            "W:W20,21,22,23,25,29,31:B4,6,8,10,11,14,15",   # 4/4 · lance 3.5
+            "W:W14,17,18,21,22,25,26,27,28:B4,5,10,12",   # 4/4 · lance 3.5
+            "W:W13,20,21,22,K24,26,28,29,30,32:B1,5,9,10,11",   # 4/4 · lance 3.5
+            "W:W14,15,18,22,23,25,27,28,29,31,32:B1,3,4,5,6,7,8,11,13,16,20",   # 4/4 · lance 3.5
+            "W:W16,21,23,25,26:B1,6,8,10,12,14,15,24",   # 4/4 · lance 3.0
+            "W:WK3,13,15,18,25,27,29,30,31,32:B4,8,10,12,20",   # 4/4 · lance 3.0
+            "W:W14,21,23,26,28,29,30:B3,5,6,7,8,9,12,15,16,20,K31",   # 4/4 · lance 3.0
+            "W:W20,21,22,25,28,31:B3,8,11,13,16,18",   # 4/4 · lance 3.0
+            "W:WK1,14,17,21,22,25,28,29,30,31:B4,16,24",   # 4/4 · lance 3.0
+            "W:W14,18,19,24,25,27,28,29,30,31,32:B1,2,4,5,7,8,9,10,11,12,15,22",   # 4/4 · lance 3.0
+            "W:W13,17,20,21,K23,27,28:B4,5,7,12,K29",   # 4/4 · lance 3.0
+            "W:W13,14,17,21,22,23,26,28,32:B2,4,5,6,8,12,15,16,19,K20",   # 4/4 · lance 3.0
+            "W:W20,22,23,24,26,29,31,32:B4,7,9,10,12,13,15,K30",   # 4/4 · lance 3.0
+            "W:W20,21,22,23,24,25,26,28,29,31:B1,3,4,5,6,8,10,14,15",   # 4/4 · lance 3.0
+            "W:W17,19,21,25,26,29,30,31:B2,3,4,6,9,10,12,14",   # 4/4 · lance 3.0
+            "W:WK3,17,20,21,22,23,25,27,29,30,32:B1,4,5,6,7,9,10,14,15",   # 4/4 · lance 3.0
+            "W:W13,20,21,23,24,26,28,29,30,31,32:B4,5,6,7,8,9,10,11,14,15,16",   # 4/4 · lance 3.0
+            "W:W21,22,23,24,25,27,29,30:B1,2,3,5,6,7,8,13,14,15,20",   # 4/4 · lance 3.0
+            "W:W17,18,20,21,22,23,24,25,28,29,32:B4,5,6,7,8,9,10,11,12,13,15",   # 4/4 · lance 3.0
+            "W:W14,18,22,23,24,25,26,27,29,32:B1,5,6,7,8,11,12,13,16,20",   # 4/4 · lance 3.0
+            "W:W13,17,20,21,24,28,30,31:B2,6,8,9,10,11,15,16,23",   # 4/4 · lance 3.0
+            "W:W18,21,24,28,29,30,32:B1,3,11,12,19",   # 4/4 · lance 3.0
+            "W:W20,21,24,28,29,31,32:B1,3,4,5,7,8,9,11,16,19,22",   # 4/4 · lance 3.0
+            "W:W16,17,19,21,22,24,28,29,31:B1,4,7,8,10,12,13,15",   # 4/4 · lance 3.0
+            "W:W17,21,25,26,K28,29,32:B2,3,4,9,12,18,27",   # 4/4 · lance 3.0
+            "W:W13,18,20,22,24,25,26,27,28,29,30,32:B1,3,4,5,6,7,9,10,11,12,15,19",   # 4/4 · lance 3.0
+            "W:W15,21:B1,2,3,5,6,11,12,13,14,K17,23",   # 4/4 · lance 3.0
+            "W:W16,20,22,24,25,26,28,29,30:B2,5,6,7,8,10,11,13,15,21",   # 4/4 · lance 3.0
+            "W:WK10,18,20,25,28,29,30,31:B2,3,8,9,11,16,22",   # 4/4 · lance 3.0
+            "W:W13,17,20,22,23,24,26,28,29,30:B2,5,6,8,9,11,12,15,16",   # 4/4 · lance 3.0
+            "W:W14,18,19,22,23,25,27,28,29,31,32:B1,3,4,5,6,7,8,11,12,13,20",   # 4/4 · lance 3.0
+            "W:W13,20,22,25,28,30,31:B2,5,6,8,11,16,18",   # 4/4 · lance 3.0
+            "W:W14,15,16,20,24,28,29,32:B5,7,8,13",   # 4/4 · lance 3.0
+            "W:W20,22,23,24,26,28,29,31:B7,8,9,10,12,13,15,K30",   # 4/4 · lance 3.0
+            "W:W18,20,21,24,26,28,29:B1,2,8,9,11,13,16",   # 4/4 · lance 3.0
+            "W:W21,22,25,26,29,31:B1,5,7,9,13,14,19,20",   # 4/4 · lance 3.0
+            "W:W13,17,21,22,25:B2,3,4,6,10,14,18,20,K31",   # 4/4 · lance 3.0
+            "W:W17,18,19,22,24,25,27,28,29,30,31,32:B1,2,4,5,6,7,8,10,11,12,13,15",   # 4/4 · lance 3.0
+            "W:W17,20,21,23,24,26,28,29,30,31,32:B1,4,5,7,8,9,10,11,14,15,16",   # 4/4 · lance 3.0
+            "W:W13,18,19,20,25,26,27,28,30,31,32:B4,6,7,8,9,10,11,12",   # 3/4 · lance 11.0
+            "W:W13,19,20,21,23,24,26,28,32:B2,4,7,8,10,11,12,18",   # 3/4 · lance 11.0
             "W:W13,20,21,22,23,29,30:B10,11,12,14,16,19",   # 3/4 · lance 11.0
-            "W:W11,12,13,20,21,22,29,31:B2,3,4,5,19",   # 3/4 · lance 11.0
-            "W:WK4,12,29:B7,K21",   # 3/4 · lance 11.0
-            "W:W19,21,28,31:B11,12,22,24",   # 3/4 · lance 10.3
-            "W:W11,12,17,21,25,27,29,31:B2,3,4,5,10,19",   # 3/4 · lance 10.3
-            "W:W20,28,32:B4,13,19",   # 3/4 · lance 10.3
-            "W:W19,26:B12,18,21",   # 3/4 · lance 9.7
+            "W:W13,18,19,20,23,26,27,29,30,31:B1,4,5,6,8,9,10,11,12",   # 3/4 · lance 10.3
+            "W:W20,26,28,29:B1,4,5,9,13,17,18,19",   # 3/4 · lance 9.7
             "W:W13,19,21,22,25,29,30,32:B2,3,4,6,9,12,14",   # 3/4 · lance 9.7
-            "W:W12,K20,21,22,30,31,32:B4,5,6,13,17,28",   # 3/4 · lance 9.7
-            "W:WK7,12,23,26,27,28,31:B4,13,21",   # 3/4 · lance 9.0
+            "W:W14,18,19,20,28,29,30,31,32:B3,4,5,7,8,10,11,12,13,21",   # 3/4 · lance 9.7
+            "W:W18,19,26,28,29,30,31,32:B4,5,8,10,11,12,13,21",   # 3/4 · lance 9.0
             "W:W13,21,22,28,29,31:B6,9,11,14,15,23",   # 3/4 · lance 9.0
-            "W:WK1,13,19,22,25,28,29,30:B2,4,12,17",   # 3/4 · lance 9.0
-            "W:W14,15,19,27,28,29:B1,3,4,12,20,26",   # 3/4 · lance 9.0
             "W:W17,K19,20,21,22,23,24,28,29:B4,9,11,13",   # 3/4 · lance 9.0
-            "W:W10,15,19,21,23,27,29,30,31:B2,3,5,8,12,16,20",   # 3/4 · lance 9.0
-            "W:WK1,K2,12,21,22,25:B3,4,5,19",   # 3/4 · lance 9.0
-            "W:WK11,13,17,22,25:BK1",   # 3/4 · lance 9.0
-            "W:W15,17,21,25,29:B1,2,5,16",   # 3/4 · lance 9.0
-            "W:WK1,13,29,31:B10,22,K30",   # 3/4 · lance 8.3
-            "W:W18,24,28,30:B3,16,K29",   # 3/4 · lance 8.3
-            "W:W10,20,21,23,25,28,29,31:B2,3,4,9,11,12",   # 3/4 · lance 8.3
-            "W:W9,21,25,K31:B2,3,4,24",   # 3/4 · lance 8.3
-            "W:W17,28,31,32:B4,8,12,18,19",   # 3/4 · lance 8.3
-            "W:W14,21,22,25,28,29:B4,13,19,23",   # 3/4 · lance 7.7
-            "W:W14,20,25:B4,5,8,19,K24",   # 3/4 · lance 7.7
+            "W:W19,21,23,27,28,29:B8,12,14,16,17,20,22",   # 3/4 · lance 9.0
+            "W:W14,15,19,27,28,29:B1,3,4,12,20,26",   # 3/4 · lance 9.0
+            "W:WK1,13,19,22,25,28,29,30:B2,4,12,17",   # 3/4 · lance 9.0
+            "W:W17,18,19,20,21,22,28:B7,8,10,11,12,13,14",   # 3/4 · lance 9.0
+            "W:W13,18,20,23,26,27,29,30,31:B1,4,5,6,8,9,10,11,19",   # 3/4 · lance 8.3
+            "W:W17,20,21,22,23,24,26,27,28,29,30:B1,2,5,8,9,10,11,12,13,16",   # 3/4 · lance 8.3
             "W:W20,21,22,23,24,25,27:B11,13,15,16,18",   # 3/4 · lance 7.7
-            "W:WK4,13,17,22,25:BK28",   # 3/4 · lance 7.7
-            "W:W12,14,K20,22,30,31,32:B4,5,9,13,28",   # 3/4 · lance 7.7
+            "W:W14,20,21,27,28,29,31,32:B4,6,8,11,12,13",   # 3/4 · lance 7.0
+            "W:W13,17,K19,20,21,27,28:B4,5,7,K8,12",   # 3/4 · lance 7.0
+            "W:W15,18,20,21,28,29:B2,3,4,5,12,13",   # 3/4 · lance 7.0
             "W:W14,17,18,20,22,25,26,28:B7,8,10,11,12,13,19",   # 3/4 · lance 7.0
-            "W:W9,20,25,28,30,31:B15,16,18,19,23",   # 3/4 · lance 7.0
-            "W:W10,18,19,22,24,27:B2,4,5,12,16,20",   # 3/4 · lance 7.0
-            "W:W13,17,21,28,29,31:B6,9,11,15,18,23",   # 3/4 · lance 7.0
-            "W:W17,26,27:B4,19,20,22",   # 3/4 · lance 7.0
-            "W:WK4,K6,K10,11,15,K18:BK12,K28",   # 3/4 · lance 7.0
             "W:W17,18,19,20,22:B6,8,9,10,11,12,13",   # 3/4 · lance 7.0
-            "W:WK2,12,21,22,K24,25:B3,4,9",   # 3/4 · lance 7.0
+            "W:W13,17,21,28,29,31:B6,9,11,15,18,23",   # 3/4 · lance 7.0
             "W:W15,25,26,27,28:B4,6,8,9,11,12,20",   # 3/4 · lance 7.0
-            "W:W13,28,31,32:B4,8,12,18,23",   # 3/4 · lance 7.0
             "W:W17,18,20,22,25,26,28:B6,7,8,10,11,12,19",   # 3/4 · lance 6.3
-            "W:WK3,6,13,20,21,22,23,26,28:B8,11,12,16,17",   # 3/4 · lance 6.3
-            "W:W10,K25:B18,22,K23,K27,28,K29",   # 3/4 · lance 6.3
-            "W:WK2,K12,13,16,28,29,32:B1,4,9,10",   # 3/4 · lance 5.7
-            "W:W9,13,22,25,26,28:B11,12,19,20",   # 3/4 · lance 5.7
+            "W:W18,19,20,21,23,25,26,27,29,30,31:B1,4,5,6,7,8,9,10,11,12,14",   # 3/4 · lance 5.7
             "W:W14,18,20,21,22,26,28,29:B1,7,8,11,12,13,19",   # 3/4 · lance 5.7
-            "W:W20,21,25,27,28:B4,14,15,16,19,K30",   # 3/4 · lance 5.7
-            "W:W12,20,21,28,29,30,31,32:B1,3,5,6,16",   # 3/4 · lance 5.7
-            "W:WK3,5,6,29,30,32:B8,18,24",   # 3/4 · lance 5.7
-            "W:W9,28,29,30,31:B2,4,11,13,19,20,21,22",   # 3/4 · lance 5.7
-            "W:W13,K31:BK29",   # 3/4 · lance 5.0
-            "W:W10,15,18,22,24,27:B2,4,5,12,19,20",   # 3/4 · lance 5.0
-            "W:WK10,13:BK4",   # 3/4 · lance 5.0
-            "W:W16,20,21,29,30,31,32:B2,13,15",   # 3/4 · lance 5.0
-            "W:W9,13,14,22,23,24,25,26,28,32:B1,4,11,12,15",   # 3/4 · lance 5.0
-            "W:W13,14,15,19,23,27,29,30,31:B6,7,8,12,16,20",   # 3/4 · lance 5.0
-            "W:WK8,18,20,21,22,23,24,26:B4,5,6,9,10,11,13,15",   # 3/4 · lance 5.0
-            "W:W17,18,20,22:B6,8,9,11,12,13,19",   # 3/4 · lance 5.0
-            "W:W11,16,29:B3,28",   # 3/4 · lance 5.0
+            "W:W14,19,22,24,28,29,30,32:B3,4,6,12,13",   # 3/4 · lance 5.0
+            "W:W14,18,21,22,23,26,27,29,30,32:B3,5,6,7,8,9,12,13,16,20,24",   # 3/4 · lance 5.0
             "W:W14,20,23,25,26,28,29,30,31,32:B2,3,7,9,11,12,16",   # 3/4 · lance 5.0
+            "W:W19,20,21,23,25,26,29,30,31:B1,3,4,5,7,10,12,14",   # 3/4 · lance 5.0
+            "W:WK8,18,20,21,22,23,24,26:B4,5,6,9,10,11,13,15",   # 3/4 · lance 5.0
+            "W:W13,14,15,19,23,27,29,30,31:B6,7,8,12,16,20",   # 3/4 · lance 5.0
+            "W:W13,17,18,20,22,24,26,28,29,30:B2,5,6,8,9,11,12,15,19",   # 3/4 · lance 5.0
+            "W:W15,19,22,23,24,27,28,29,30,32:B3,4,5,6,8,9,12,13,14,16,21",   # 3/4 · lance 4.3
+            "W:W18,19,20,21,22,25,29,31,32:B1,3,4,5,7,9,12,13,14",   # 3/4 · lance 3.7
+            "W:W13,18,20,22,24,25,26,28,29,30,31,32:B1,3,4,5,6,7,8,9,10,11,15,19",   # 3/4 · lance 3.0
+            "W:W13,18,20,22,25,26,28:B6,7,8,11,12,15,19",   # 3/4 · lance 3.0
+            "W:W21,22,23,25,27,28,29,31,32:B1,4,5,7,8,9,15,16",   # 3/4 · lance 3.0
+            "W:W14,24,28,29,31:B1,4,5,7,8,16,22,K27",   # 3/4 · lance 3.0
+            "W:WK17,18,20,21,22,23,24,26:B5,6,8,9,11,13,15",   # 3/4 · lance 3.0
+            "W:W14,21,24,28,29,31:B1,4,5,7,8,13,16,K27",   # 3/4 · lance 3.0
+            "W:W18,21,24,28,29,31:B1,4,5,7,8,13,16,K32",   # 3/4 · lance 3.0
+            "W:W20,21,22,23,25,29,32:B3,4,5,6,11,12,13,14,27",   # 3/4 · lance 3.0
         ),
     ),
     "damas_capturar_multipla": Receita(

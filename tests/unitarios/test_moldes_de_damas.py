@@ -54,7 +54,19 @@ TIPOS = ("damas_coroar", "damas_capturar_multipla")
 #: trivial numa modalidade nova, por exemplo), e o conserto seria mexer no
 #: numero — que e como um cadeado vira decoracao. O piso e uma **fracao**, e
 #: pega o acidente provavel: um pedaco da lista apagado por engano.
-PISO_DE_MOLDES = {"damas_coroar": 250, "damas_capturar_multipla": 25}
+#:
+#: ⚠️ **O do coroar desceu a 100 em 16/09/2026**, e desceu porque o acervo foi
+#: TROCADO, nao porque o cadeado incomodou: os 515 moldes antigos sairam inteiros
+#: (§8k-13 — 82% deles entregavam a coroacao em um ou dois lances) e os 133 novos
+#: sao pescados com piso de material e de distancia. ⛔ **A fracao e que se
+#: manteve** (~75% do acervo), que e o que faz o cadeado continuar pegando dois
+#: tercos apagados por engano.
+#:
+#: ⚠️ **E a repeticao na fila, que e o que o piso protege, folgou em vez de
+#: apertar:** um desafio de damas a cada dois dias, rodiziando quatro tipos, faz
+#: o coroar sair a cada ~8 dias — com 133 moldes distintos, sao anos ate a mesma
+#: posicao poder voltar.
+PISO_DE_MOLDES = {"damas_coroar": 100, "damas_capturar_multipla": 25}
 
 
 def moldes(co_tipo: str) -> tuple[str, ...]:
@@ -80,11 +92,24 @@ def test_os_moldes_sao_DISTINTOS_dentro_do_tipo(co_tipo) -> None:
 
 
 def test_nenhum_molde_APARECE_NOS_DOIS_tipos() -> None:
-    """A mesma posicao servindo a dois objetivos seria suspeita.
+    """⛔ Ninguem recebe o MESMO TABULEIRO em dois desafios diferentes.
 
-    Os dois tipos pedem coisas diferentes (coroar uma pedra x capturar duas em
-    sequencia), e as candidatas sao geradas por funcoes diferentes. Uma FEN nos
-    dois lados quase certamente e erro de colagem entre as duas listas.
+    ⚠️ **Este teste guardava outra coisa ate 16/09/2026, e a premissa
+    envelheceu.** Ele dizia que as candidatas dos dois tipos vinham de funcoes
+    geradoras diferentes, entao uma FEN nos dois lados so podia ser erro de
+    colagem. ⛔ Desde 12/09 os dois acervos sao **pescados da mesma base de
+    posicoes reais** — e uma posicao de partida humana comporta perfeitamente
+    coroar uma pedra **e** capturar duas em sequencia. Foram 9 delas na troca de
+    acervo do coroar, todas legitimas.
+
+    ✅ **O que sobra e uma razao de produto, e ela basta:** o jogador que resolveu
+    o desafio de segunda nao deve reencontrar aquele tabuleiro na quinta sob outro
+    objetivo. A regra do dono e que nenhum desafio se repita, e *"mesma posicao,
+    outro enunciado"* e repeticao para quem joga.
+
+    ⚠️ **Quem cede e o `damas_coroar`**, o acervo mais novo — o
+    `damas_capturar_multipla` ja esta no ar e medido, e tirar molde dele
+    obrigaria a remedir a variante junto.
     """
     coroar = set(moldes("damas_coroar"))
     capturar = set(moldes("damas_capturar_multipla"))

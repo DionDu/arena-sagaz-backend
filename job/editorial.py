@@ -903,6 +903,34 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             nu_lances_de_preparo=14,
         ),
     ),
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⛔ TUDO O QUE ESTA MEDIDO ABAIXO DESCREVE UM ACERVO QUE JA SAIU (16/09)
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⛔ **Nenhum numero deste bloco vale para o `damas_coroar` de hoje**, e sao
+    # DOIS motivos independentes, cada um bastando sozinho:
+    #
+    # 1. **O acervo foi trocado**, nao somado: os 515 moldes que produziram estas
+    #    linhas sairam inteiros e entraram 133 outros, com material medio 16,1
+    #    contra 7,3 e a pedra a 3+ fileiras da coroacao (§8k-13). ⚠️ A tarefa
+    #    mudou de tamanho — e era esse o objetivo do dono, nao um efeito colateral.
+    # 2. **A regua deixou de ser a MEDIA e passou a ser a ESCADA** (§8k-15): o
+    #    criterio de aceite agora e *quase nenhum para a Cacau, poucos para a
+    #    Pita, mais da metade para o Tex, quase sempre o Magno*. ⛔ Uma taxa
+    #    uniforme NUNCA passa numa escada, entao "FOLGA (3 de 3)" aqui nao diz
+    #    mais se a variante entra.
+    #
+    # ⚠️ **O historico fica, e fica de proposito.** Ele e a unica forma de ver que
+    # a variante de 4 lances vinha perdendo aperto a cada acervo (4,3 → 6,1) e que
+    # a de duas damas media escassez enquanto todo mundo lia dificuldade. ⛔ O que
+    # nao se pode e **usa-lo como se fosse a medida de agora**.
+    #
+    # ⏳ **O que destrava:** a remedicao com a escada, que e comando do dono —
+    # `scripts/medir_variantes_do_editorial.py no-ar-damas --com-regua` (~2h20).
+    # Ate ela chegar, as variantes abaixo continuam publicando, porque tira-las
+    # deixaria dia descoberto; o que muda e que **nenhuma decisao nova se apoia
+    # nestes numeros**.
+    #
     # ⚠️ **AS DAMAS AINDA TEM UMA VARIANTE SO, e isso e pendencia declarada.**
     # Uma geracao de damas custa ~26 s (medido em 11/09/2026), entao medir as
     # candidatas e trabalho de outra janela — o comando esta no cabecalho de

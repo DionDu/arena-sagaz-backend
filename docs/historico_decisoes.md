@@ -21,6 +21,78 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-16 — ⛔ O acervo do `damas_coroar` foi TROCADO, e não cortado
+
+**Contexto.** O dono olhou o desafio publicado de 17/09 e reprovou: *"Ele é
+extremamente fácil. Ele é simplesmente empurrar as 2 peças azuis para frente. Não
+há desafio algum nisso. Não há barreiras de peças."* A §8k-13 mediu a causa e ela
+era estrutural, não o azar do dia: nos 515 moldes do acervo, **82% (422) tinham a
+pedra mais adiantada a uma ou duas fileiras da coroação**, e o material médio era
+**7,3** - tabuleiro quase vazio.
+
+**Decisão.** ⛔ **Os 515 saíram inteiros; entraram 133 outros**, pescados da união
+das posições reais do `prd` e do `des`.
+
+**Por que trocar, e não cortar - que era o plano escrito.** A §8k-13 terminava com
+*"com `>= 3`, 92 dos 515 moldes sobrevivem"*. ⚠️ **Aplicando os dois filtros de
+hoje, sobrevivem 27**, não 92: o piso de distância sozinho deixa 93, e o piso de
+material (12+ peças) derruba a maioria deles. Um acervo de 27 moldes repetiria a
+mesma posição em meses, que é exatamente o defeito que T049g existiu para resolver.
+
+**O funil da pescaria** (duas fases, ~3 h, com diário retomável):
+
+    7.823  posições reais, sem repetição (união prd + des)
+    4.881  com 12+ peças                      ← o piso de material
+    4.871  com a pedra a 6 fileiras ou menos  ← o teto, `--alcancavel`
+    4.096  com a pedra a 3+ fileiras          ← o piso da §8k-13
+      234  passaram a peneira
+      142  serviram a três ou mais modalidades
+      133  depois de tirar as 9 do `damas_capturar_multipla`
+
+**Consequências.**
+
+- ✅ **A troca não perdeu nada, e isso foi conferido, não presumido.** Os 27
+  sobreviventes do acervo antigo **já estavam** entre os 142 pescados. Os outros
+  488 são o acervo reprovado.
+- ✅ **Material médio 16,1** (min 12, max 24), contra 7,3 - agora na faixa dos
+  outros três tipos de damas (17,0 · 18,9 · 15,2). ⚠️ O filtro de distância trouxe
+  o tabuleiro cheio junto, como a §8k-13 previu: peça menos adiantada e tabuleiro
+  mais cheio andam juntos.
+- ✅ **A distância abriu**: de 3 a 11 lances, contra uma concentração em 2.
+- ⛔ **O piso do cadeado desceu de 250 para 100**, e só por isso: o comentário do
+  próprio piso diz que ele **não é o tamanho do acervo**, é uma **fração** (~75%)
+  que pega *"um pedaço da lista apagado por engano"*. A fração se manteve. ⚠️ E o
+  que o piso protege - repetição na fila - **folgou**: o coroar sai a cada ~8 dias,
+  então 133 moldes distintos são anos até uma posição poder voltar.
+
+**⚠️ Um cadeado teve a premissa envelhecida, e ela valia quando foi escrita.**
+`test_nenhum_molde_APARECE_NOS_DOIS_tipos` dizia que uma FEN nos dois acervos *"quase
+certamente é erro de colagem"*, porque as candidatas vinham de **funções geradoras
+diferentes**. ⛔ Desde 12/09 os dois são **pescados da mesma base de posições
+reais**, e uma posição de partida humana comporta perfeitamente coroar uma pedra
+**e** capturar duas em sequência - foram 9 delas, todas legítimas.
+
+✅ **O teste ficou, com outra razão de ser:** ninguém deve reencontrar o **mesmo
+tabuleiro** na quinta sob outro enunciado, porque *"mesma posição, outro objetivo"*
+é repetição para quem joga. ⚠️ **Quem cede é o coroar**, o acervo novo - o
+`damas_capturar_multipla` já está no ar e medido, e tirar molde dele obrigaria a
+remedir a variante junto.
+
+**⏳ O que isto NÃO fecha.** ⛔ **Nenhum número do editorial do coroar vale**, por
+dois motivos independentes: eles descrevem o acervo que saiu, **e** foram tirados
+pela **média**, que a §8k-15 substituiu pela **escada**. O aviso está no topo do
+bloco em `job/editorial.py`; as variantes seguem publicando porque tirá-las deixaria
+dia descoberto, mas nenhuma decisão nova se apoia nelas. A remedição
+(`scripts/medir_variantes_do_editorial.py no-ar-damas --com-regua`, ~2h20) é comando
+do dono.
+
+**Onde está.** `job/tipos_de_desafio.py` (o acervo e o porquê),
+`tests/unitarios/test_moldes_de_damas.py` (o piso e a premissa nova),
+`job/editorial.py` (o aviso), `../arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8k-13.
+
+---
+
 ## 2026-09-16 — ⛔ A régua media o candidato errado, e o relatório saiu pessimista
 
 **Contexto.** A rodada com régua (2.754 s) trouxe os números das seis variantes. Ao

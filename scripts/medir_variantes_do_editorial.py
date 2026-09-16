@@ -674,7 +674,7 @@ ALVO_NO_AR = "no-ar"
 #: Os tres alvos que leem o editorial, e de que jogo cada um le.
 #:
 #: ⚠️ O filtro por jogo existe por **preco**: a rodada com regua das 10 variantes
-#: de damas custa ~2h20, e a das 17 de Pontinhos ~1h.
+#: de damas custa ~2h, e a das 17 de Pontinhos ~1h.
 ALVOS_NO_AR: Mapping[str, str | None] = {
     ALVO_NO_AR: None,
     f"{ALVO_NO_AR}-damas": "damas",
@@ -730,9 +730,15 @@ def tipos_do_alvo(alvo: str) -> list[str]:
     # do alvo: medir o que esta no ar, inclusive o que a tabela paralela esqueceu.
     if alvo in ALVOS_NO_AR:
         # ⚠️ `no-ar-damas` e `no-ar-pontinhos` existem por PRECO, e nao por
-        # arrumacao: a rodada com regua das 10 variantes de damas custa ~2h20 e a
-        # das 17 de Pontinhos ~1h. ⛔ Um alvo unico obrigaria a pagar as duas
-        # para investigar uma.
+        # arrumacao: a rodada com regua das variantes de damas custa ~2h e a das
+        # 17 de Pontinhos ~1h. ⛔ Um alvo unico obrigaria a pagar as duas para
+        # investigar uma.
+        #
+        # ⚠️ **Eram 10 variantes de damas ate 16/09; hoje sao 9** — a de duas
+        # damas saiu (§8k-13). ⛔ Mas nao conte com a rodada mais curta: o acervo
+        # novo do `damas_coroar` tem tabuleiro CHEIO e a pedra mais longe da
+        # coroacao, entao o gerador recusa mais candidato e cada dia custa mais.
+        # O numero acima e o piso, e nao a estimativa.
         so_do_jogo = ALVOS_NO_AR[alvo]
         return [
             co_tipo
