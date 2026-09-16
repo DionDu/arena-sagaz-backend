@@ -720,6 +720,10 @@ def main() -> int:
         default=0,
         help=(
             "teto da busca em MEIOS-lances, sobrepondo o do editorial. "
+            "⚠️ **MEIO-lance, e nao lance seu**: os lados alternam e o jogador "
+            "comeca, entao o p-esimo lance DELE e o meio-lance 2p-1. "
+            "teto 12 -> p ate 6 · teto 15 -> p ate 8 · teto 20 -> p ate 10 · "
+            "teto 23 -> p ate 12 · teto 26 -> p ate 13. "
             "⚠️ **Serve para pescar um acervo mais FUNDO do que o que se publica "
             "hoje**, e assim poder escolher o `p` da frase (*'coroe X damas em "
             "ate p lances'*) depois, sem repescar: com teto 26 o acervo comporta "
@@ -857,7 +861,16 @@ def main() -> int:
     except Exception:  # noqa: BLE001 — tipo em avaliacao nao tem editorial
         piso_do_editorial = 0
 
-    print(f"teto da busca: {teto} meios-lances (~{-(-teto // 2)} lances do jogador)")
+    # ⛔ **O maior `p` e `(teto + 1) // 2`, e nao `teto // 2`.** O p-esimo lance do
+    # jogador e o meio-lance `2p - 1`, entao um teto impar (15) comporta um `p` a
+    # mais do que a divisao simples sugere (8, e nao 7). ⚠️ A ambiguidade
+    # "lance x meio-lance" ja causou QUATRO leituras erradas neste projeto — o
+    # dono em 12/09 e em 16/09, o assistente em 11/09 e em 16/09 —, e todas
+    # custaram horas de busca ou um acervo mal lido.
+    print(
+        f"teto da busca: {teto} meios-lances — comporta `p` de ate "
+        f"{(teto + 1) // 2} lances do jogador"
+    )
     if piso_do_editorial:
         print(
             f"piso do editorial: {piso_do_editorial} meios-lances "

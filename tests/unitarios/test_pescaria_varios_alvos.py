@@ -366,3 +366,33 @@ def test_sem_piso_a_tabela_nao_poe_a_COLUNA() -> None:
 
     linhas = "\n".join(tabela_do_p(Counter({3: 5, 9: 2}), 0))
     assert "com o piso" not in linhas
+
+
+def test_o_maior_p_de_um_teto_e_teto_mais_um_sobre_dois() -> None:
+    """🔒 `(teto + 1) // 2`, e nao `teto // 2`.
+
+    ⛔ O p-esimo lance do jogador e o meio-lance `2p - 1`, entao um teto IMPAR
+    comporta um `p` a mais do que a divisao simples sugere: com 15 o jogador chega
+    ao 8º lance (meio-lance 15), e nao ao 7º.
+
+    ⚠️ **A ambiguidade "lance x meio-lance" ja causou QUATRO leituras erradas
+    neste projeto** — o dono em 12/09 e em 16/09, o assistente em 11/09 e em
+    16/09. Esta linha e a conversao oficial.
+    """
+    for teto, maior_p in ((12, 6), (15, 8), (20, 10), (23, 12), (26, 13)):
+        assert (teto + 1) // 2 == maior_p, teto
+        # E o lance desse `p` cabe no teto, por construcao.
+        assert 2 * maior_p - 1 <= teto
+        # Enquanto o `p` seguinte NAO cabe.
+        assert 2 * (maior_p + 1) - 1 > teto
+
+
+def test_o_cabecalho_IMPRIME_a_conversao_do_teto() -> None:
+    """⚠️ O teto decide a pescaria inteira, e so faz sentido em lances do jogador.
+
+    ⛔ Ate 16/09/2026 ele nao aparecia na tela em unidade nenhuma — foi por isso
+    que ninguem viu que ele era 12, cortando tudo acima de 6 lances.
+    """
+    fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
+    assert 'comporta `p` de ate "' in fonte
+    assert "{(teto + 1) // 2} lances do jogador" in fonte
