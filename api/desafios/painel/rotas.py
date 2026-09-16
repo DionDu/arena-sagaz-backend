@@ -53,7 +53,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.desafios.painel import pagina
+from api.desafios.painel import execucao_do_job, pagina
 from api.desafios.painel.repositorio import RepositorioPainel
 from api.desafios.painel.seguranca import (
     NOME_DO_COOKIE,
@@ -301,3 +301,50 @@ async def desagendar(
     except ErroNegocio as erro:
         return _voltar(erro.detalhe, erro=True)
     return _voltar(resultado.mensagem)
+
+
+@router.post("/desafios/gerar", include_in_schema=False)
+async def gerar(
+    _: bool = Depends(exigir_curador),
+    campos: dict[str, str] = Depends(campos_do_formulario),
+) -> RedirectResponse:
+    """Dispara o job de geracao em segundo plano (T040c).
+
+    ⚠️ **Pedido do dono em 16/09/2026**: *"O comando `rodar_job_local.py --dias
+    14` eu nao vou conseguir memorizar. Ele precisava estar dentro do painel de
+    curadoria."*
+
+    ⛔ **A rota recusa quando `PAINEL_PODE_GERAR` esta desligada** — e nao apenas
+    o botao some da tela. Esconder o botao sem fechar a rota e seguranca de
+    fachada, e esta rota dispara vinte minutos de CPU no processo que atende o
+    aplicativo.
+
+    ⚠️ **Volta na hora.** Quem espera e a thread; a pagina passa a mostrar o
+    estado da execucao, e o dono recarrega quando quiser (o painel nao tem
+    JavaScript, por decisao de `pagina.py`).
+    """
+    bruto = (campos.get("dias") or "").strip()
+    try:
+        nu_dias = int(bruto)
+    except ValueError:
+        return _voltar(f"`{bruto}` nao e um numero de dias.", erro=True)
+    if nu_dias not in execucao_do_job.DIAS_OFERECIDOS:
+        # ⚠️ Recusa o que o botao nao oferece: um `dias=300` digitado na mao
+        # gastaria horas de CPU por um formulario que ninguem revisou.
+        return _voltar(
+            f"{nu_dias} dia(s) nao e uma opcao "
+            f"({', '.join(str(d) for d in execucao_do_job.DIAS_OFERECIDOS)}).",
+            erro=True,
+        )
+
+    try:
+        execucao_do_job.disparar(nu_dias)
+    except execucao_do_job.GeracaoDesligada as erro:
+        return _voltar(str(erro), erro=True)
+    except execucao_do_job.JaEstaRodando as erro:
+        return _voltar(f"ja ha uma execucao em andamento — {erro}", erro=True)
+
+    return _voltar(
+        f"geracao de {nu_dias} dia(s) comecou. "
+        "Recarregue a pagina daqui a alguns minutos."
+    )

@@ -44,7 +44,7 @@ from datetime import date
 from html import escape
 from typing import Any, Iterable, Optional
 
-from api.desafios.painel import desenho
+from api.desafios.painel import desenho, execucao_do_job, frase_objetivo
 from api.desafios.painel.repositorio import DesafioNoPainel
 from api.desafios.painel.vigilancia import (
     ContagemDeAuditoria,
@@ -55,6 +55,20 @@ from api.desafios.painel.vigilancia import (
 #: O caminho base do painel. Escrito uma vez para que os `action=` dos
 #: formularios nao se espalhem como literais.
 BASE = "/painel/desafios"
+
+
+def _frase_do_card(item: DesafioNoPainel) -> str:
+    """O bloco da frase em portugues, como a pessoa a le no aplicativo.
+
+    ⚠️ **Devolve vazio quando nao da para montar**, e o card segue com a chave
+    crua logo abaixo. ⛔ Uma chave nova no aplicativo antes de a copia ser regerada
+    nao pode derrubar a pagina de curadoria — quem avisa que a copia envelheceu e
+    `tests/unitarios/test_frases_objetivo.py`, que e o lugar certo para o aviso.
+    """
+    frase = frase_objetivo.frase_do_desafio(item.co_chave_objetivo, item.js_objetivo)
+    if not frase:
+        return ""
+    return f'<p class="frase">{_txt(frase)}</p>'
 
 
 def _txt(valor: Any) -> str:
@@ -142,6 +156,16 @@ h2 {{
 .etiqueta.aprovado {{ background: var(--salvia); color: #fff; }}
 .etiqueta.descartado {{ background: var(--terracota); color: #fff; }}
 .etiqueta.reprise {{ background: var(--azul); color: #fff; }}
+/* ⛔ A FRASE DO DESAFIO (T040b), como a pessoa a le no aplicativo.
+   ⚠️ Ela e o texto mais importante do card e precisa PARECER isso: maior que os
+   dados, com a barra de acento a esquerda e sem a fonte monoespacada, que aqui
+   diz "isto e dado tecnico". A curadoria le esta linha primeiro. */
+p.frase {{
+  margin: 6px 0 10px; font-size: 15px; line-height: 1.4;
+  padding: 8px 12px; border-left: 3px solid var(--ouro);
+  background: var(--papel-2); border-radius: 0 8px 8px 0;
+}}
+p.nota {{ font-size: 13px; color: var(--tinta-suave); margin: 4px 0; }}
 dl.dados {{ display: grid; grid-template-columns: auto 1fr; gap: 2px 12px;
   margin: 8px 0; font-size: 13px; }}
 dl.dados dt {{ color: var(--tinta-suave); }}
@@ -451,8 +475,18 @@ def _cartao(item: DesafioNoPainel, *, dt_sugerida: date) -> str:
         f"<h3>{_txt(item.no_tipo_desafio)} "
         f"<small>({_txt(item.co_jogo)}{modalidade})</small></h3>"
         f"<div>{''.join(etiquetas)}</div>"
-        '<dl class="dados">'
-        f"<dt>objetivo</dt><dd>{_txt(item.co_chave_objetivo)} "
+        # ⛔ **A FRASE, antes de qualquer dado tecnico** (T040b). Pedido do dono
+        # em 16/09/2026: *"Eu gostaria de ver no painel de curadoria tambem a
+        # frase completa de cada desafio, como o usuario ira le-la no App, em
+        # pt-br apenas."*
+        #
+        # ⚠️ **Ela vem PRIMEIRO porque e o que se cura.** A chegada pode estar
+        # perfeita e o enunciado ambiguo, e ate hoje a curadoria nao tinha como
+        # ver isso — o dono precisou perguntar, no meio de uma sessao, o que
+        # `desafioObjetivoPaciencia {'lances': 3, ...}` queria dizer.
+        + _frase_do_card(item)
+        + '<dl class="dados">'
+        f"<dt>chave</dt><dd>{_txt(item.co_chave_objetivo)} "
         f"{_txt(item.js_objetivo)}</dd>"
         f"<dt>adversario</dt><dd>{_txt(_rotulo_personagem(item.co_personagem))} "
         f"&middot; semente {_txt(item.nu_semente)}</dd>"
@@ -478,6 +512,36 @@ def _cartao(item: DesafioNoPainel, *, dt_sugerida: date) -> str:
         + _acoes(item, dt_sugerida=dt_sugerida)
         + "</div></article>"
     )
+
+
+def _secao_gerar() -> str:
+    """O botao que roda o job, quando este processo pode (T040c).
+
+    ⚠️ **Pedido do dono em 16/09/2026**: *"O comando `rodar_job_local.py --dias
+    14` eu nao vou conseguir memorizar. Ele precisava estar dentro do painel de
+    curadoria."*
+
+    ⛔ **Devolve vazio quando `PAINEL_PODE_GERAR` esta desligada** — e e assim que
+    ele nao existe no Railway. ⚠️ A rota recusa pelo mesmo motivo, independente
+    daqui: esconder o botao sem fechar a rota e seguranca de fachada.
+    """
+    if not execucao_do_job.pode_gerar():
+        return ""
+
+    botoes = "".join(
+        f'<button type="submit" name="dias" value="{dias}">'
+        f"Gerar {dias} dias</button> "
+        for dias in execucao_do_job.DIAS_OFERECIDOS
+    )
+    return f"""
+  <section>
+    <h2>Gerar desafios</h2>
+    <p class="nota">Roda o job <strong>neste computador</strong>, e nao no
+    Railway. Leva alguns minutos por dia gerado; dia que ja tem desafio e
+    pulado.</p>
+    <form method="post" action="{BASE}/gerar">{botoes}</form>
+    <p class="nota">Ultima execucao: {_txt(execucao_do_job.ESTADO.resumo)}</p>
+  </section>"""
 
 
 def render(
@@ -539,6 +603,7 @@ def render(
 </header>
 <main>
   {bloco_recado}
+  {_secao_gerar()}
   <section>
     <h2>Vigilancia &mdash; a fila</h2>
     {_secao_fila(estado_da_fila)}

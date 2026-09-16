@@ -16,6 +16,8 @@ e executado. Quem confere isso e o banco de verdade, no portao T050.
 
 from __future__ import annotations
 
+import threading
+import time
 from dataclasses import replace
 from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
@@ -24,7 +26,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.configuracao import configuracoes
-from api.desafios.painel import desenho, pagina
+from api.desafios.painel import desenho, execucao_do_job, pagina
 from api.desafios.painel.repositorio import (
     DesafioNoPainel,
     MedicaoNoPainel,
@@ -849,3 +851,176 @@ def test_os_rotulos_das_ARESTAS_nao_se_sobrepoem() -> None:
             assert int(r) % 2 == 0 and int(c) % 2 == 1, f"{rotulo} nao existe"
         else:
             assert int(r) % 2 == 1 and int(c) % 2 == 0, f"{rotulo} nao existe"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔒 A FRASE DO DESAFIO (T040b) — como a pessoa a lê no aplicativo
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# > *"Eu gostaria de ver no painel de curadoria também a frase completa de cada
+# > desafio, como o usuário irá lê-la no App, em pt-br apenas."* — 16/09/2026
+#
+# ⚠️ Antes disso o card dizia `desafioObjetivoPaciencia {'lances': 3, ...}`, e o
+# dono precisou **perguntar** o que aquilo queria dizer. ⛔ A frase é parte do
+# desafio: uma chegada perfeita com enunciado ambíguo é um desafio ruim, e a
+# curadoria não tinha como ver isso.
+
+
+def test_o_card_mostra_a_FRASE_em_portugues() -> None:
+    """🔒 A frase montada aparece, com o plural e o personagem certos."""
+    item = replace(
+        _desafio(),
+        co_chave_objetivo="desafioObjetivoCoroarEmLances",
+        js_objetivo={
+            "damas": 1,
+            "lances": 6,
+            "modalidade": "brasileira",
+            "personagem": "magno",
+        },
+    )
+    html = _pagina([item])
+    assert "Coroe 1 dama em até 6 lances contra Magno" in html
+
+
+def test_a_frase_vem_ANTES_dos_dados_tecnicos() -> None:
+    """🔒 ⚠️ É o que se cura, então é o que se lê primeiro.
+
+    ⛔ Um enunciado no fim de um card cheio de UUID e semente é um enunciado que
+    ninguém lê - o mesmo princípio dos avisos no topo da página.
+    """
+    item = replace(
+        _desafio(),
+        co_chave_objetivo="desafioObjetivoChegarAoPlacar",
+        js_objetivo={"caixas": 7, "personagem": "tex"},
+    )
+    html = _pagina([item])
+    assert html.index("Chegue a 7 caixas") < html.index("<dt>chave</dt>")
+
+
+def test_a_CHAVE_crua_continua_no_card() -> None:
+    """🔒 ⚠️ A frase não substitui a chave: ela acrescenta.
+
+    ⛔ A chave e os parâmetros são o que se usa para reproduzir o desafio e para
+    conversar sobre ele - trocá-los pela frase tornaria o painel mais bonito e
+    menos útil.
+    """
+    item = replace(
+        _desafio(),
+        co_chave_objetivo="desafioObjetivoChegarAoPlacar",
+        js_objetivo={"caixas": 7, "personagem": "tex"},
+    )
+    html = _pagina([item])
+    assert "desafioObjetivoChegarAoPlacar" in html
+    assert "caixas" in html
+
+
+def test_chave_DESCONHECIDA_nao_derruba_a_pagina() -> None:
+    """🔒 ⛔ Uma chave nova no app antes de a cópia ser regerada.
+
+    ⚠️ O card volta a mostrar só a chave crua, e a página abre. Quem grita é
+    `test_frases_objetivo.py`, que é o lugar certo para o aviso.
+    """
+    item = replace(
+        _desafio(),
+        co_chave_objetivo="desafioObjetivoQueAindaNaoExiste",
+        js_objetivo={"n": 1},
+    )
+    html = _pagina([item])
+    assert "desafioObjetivoQueAindaNaoExiste" in html
+    assert "<p class=\"frase\">" not in html
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔒 O BOTÃO DE GERAR (T040c) — e a trava que o mantém fora de produção
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# > *"O comando `rodar_job_local.py --dias 14` eu não vou conseguir memorizar.
+# > Ele precisava estar dentro do painel de curadoria."* — 16/09/2026
+
+
+def test_SEM_a_variavel_o_botao_NAO_aparece(monkeypatch) -> None:
+    """🔒 ⛔ Em produção o botão não existe.
+
+    ⚠️ O job dispara minutos de CPU, e foi feito para ser um container próprio que
+    sobe, trabalha e morre - justamente para não disputar recurso com quem está
+    jogando.
+    """
+    monkeypatch.delenv(execucao_do_job.ENV_PODE_GERAR, raising=False)
+    html = _pagina([_desafio()])
+    assert "Gerar desafios" not in html
+    assert f"{pagina.BASE}/gerar" not in html
+
+
+def test_COM_a_variavel_o_botao_aparece(monkeypatch) -> None:
+    """🔒 No painel local, um clique por janela de dias."""
+    monkeypatch.setenv(execucao_do_job.ENV_PODE_GERAR, "1")
+    html = _pagina([_desafio()])
+    assert "Gerar desafios" in html
+    for dias in execucao_do_job.DIAS_OFERECIDOS:
+        assert f'value="{dias}"' in html
+
+
+@pytest.mark.parametrize("valor", ["", "0", "false", "False"])
+def test_valores_que_NAO_ligam_o_botao(monkeypatch, valor: str) -> None:
+    """🔒 ⚠️ `PAINEL_PODE_GERAR=0` desliga, e não liga por existir.
+
+    ⛔ Uma variável que liga só por estar presente é uma armadilha: alguém a
+    define como `0` para desligar e obtém o contrário.
+    """
+    monkeypatch.setenv(execucao_do_job.ENV_PODE_GERAR, valor)
+    assert execucao_do_job.pode_gerar() is False
+    assert "Gerar desafios" not in _pagina([_desafio()])
+
+
+def test_a_ROTA_recusa_quando_a_variavel_esta_desligada(monkeypatch) -> None:
+    """🔒 ⛔ Esconder o botão sem fechar a rota é segurança de fachada."""
+    monkeypatch.delenv(execucao_do_job.ENV_PODE_GERAR, raising=False)
+    with pytest.raises(execucao_do_job.GeracaoDesligada):
+        execucao_do_job.disparar(7)
+
+
+def test_UMA_execucao_de_cada_vez(monkeypatch) -> None:
+    """🔒 ⛔ Duas execuções escreveriam nos mesmos dias.
+
+    ⚠️ A segunda perderia tudo no `un001_dia` **depois** de gastar os minutos
+    caros - o pior desfecho possível: custo pago, resultado zero.
+    """
+    monkeypatch.setenv(execucao_do_job.ENV_PODE_GERAR, "1")
+    liberar = threading.Event()
+
+    def job_lento() -> int:
+        liberar.wait(timeout=5)
+        return 0
+
+    execucao_do_job.ESTADO.dh_inicio = None
+    execucao_do_job.ESTADO.dh_fim = None
+    try:
+        execucao_do_job.disparar(7, principal=job_lento)
+        assert execucao_do_job.ESTADO.rodando
+        with pytest.raises(execucao_do_job.JaEstaRodando):
+            execucao_do_job.disparar(14, principal=job_lento)
+    finally:
+        liberar.set()
+
+
+def test_o_ERRO_da_thread_nao_deixa_o_painel_dizendo_RODANDO(monkeypatch) -> None:
+    """🔒 ⛔ Uma thread que morre com o erro preso nela mentiria para sempre.
+
+    ⚠️ O dono ficaria esperando por algo que já acabou, e nada na tela diria isso.
+    """
+    monkeypatch.setenv(execucao_do_job.ENV_PODE_GERAR, "1")
+
+    def job_que_explode() -> int:
+        raise RuntimeError("o banco caiu")
+
+    execucao_do_job.ESTADO.dh_inicio = None
+    execucao_do_job.ESTADO.dh_fim = None
+    execucao_do_job.disparar(7, principal=job_que_explode)
+    for _ in range(100):
+        if not execucao_do_job.ESTADO.rodando:
+            break
+        time.sleep(0.01)
+
+    assert not execucao_do_job.ESTADO.rodando
+    assert "o banco caiu" in execucao_do_job.ESTADO.resumo
+    assert "⛔" in execucao_do_job.ESTADO.resumo

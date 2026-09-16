@@ -5262,3 +5262,109 @@ A bancada de desafios no painel (montar a posição à mão, simular e aprovar n
 hora) foi registrada como **T092**, explicitamente para **depois do frontend**.
 ⚠️ Ela é o único juiz que mede a coisa certa — a régua mede cumprimento
 **acidental**, e o dono lê o enunciado.
+
+## 2026-09-16 (noite) — ✅ O painel ganha a FRASE e o BOTÃO de gerar (T040b/T040c)
+
+Duas respostas do dono ao lançador de linha de comando que entregamos de tarde.
+
+### 1. ⛔ *"eu não vou conseguir memorizar"*
+
+> *"O comando `.venv\Scripts\python scripts\rodar_job_local.py --dias 14` eu não
+> vou conseguir memorizar. Ele precisava estar dentro do painel de curadoria."*
+
+⚠️ **Ele está certo, e o motivo é o próprio desenho do painel.** A ferramenta
+existe para ele *"abrir uma vez por dia"* e decidir; um passo que exige decorar um
+caminho de venv e um nome de script não é um passo da ferramenta, é um imposto
+sobre usá-la.
+
+⛔ **Mas o botão não pode existir em produção.** O painel é servido pela API, e um
+botão que dispara vinte minutos de CPU dentro do processo que atende o aplicativo
+é um risco que não se corre por conveniência — o job foi feito para ser um
+container próprio, que sobe, trabalha e morre, justamente para não disputar
+recurso com quem está jogando.
+
+A trava é `PAINEL_PODE_GERAR`, e ela vale **nos dois lugares**: o botão não é
+desenhado e a rota recusa. ⚠️ Esconder o botão sem fechar a rota é segurança de
+fachada.
+
+⚠️ **E ela desliga com `0`**, e não liga só por existir: uma variável que liga por
+estar presente é uma armadilha — alguém a define como `0` para desligar e obtém o
+contrário.
+
+**Thread, e não `asyncio.create_task`:** o job é trabalho de CPU com `asyncio.run`
+próprio lá dentro, e uma corrotina no mesmo laço travaria o servidor por vinte
+minutos sem atender mais ninguém. ⚠️ A rota volta na hora, e a página passa a
+mostrar o estado — o painel não tem JavaScript (decisão de `pagina.py`), então o
+dono recarrega quando quiser. Para uma tarefa de vinte minutos isso basta, e
+mantém a propriedade de que *"o que está na tela é o que está no banco"*.
+
+⛔ **Uma execução de cada vez.** Duas escreveriam nos mesmos dias, e a segunda
+perderia tudo no `un001_dia` **depois** de gastar os minutos caros — custo pago,
+resultado zero.
+
+⚠️ **E abrir o painel local também era um comando para decorar**, então entrou
+`painel-local.cmd`: um duplo-clique sobe a API em `127.0.0.1:8099`, liga a
+variável e abre o navegador já autenticado.
+
+### 2. ✅ A FRASE do desafio, como a pessoa a lê
+
+> *"Eu gostaria de ver no painel de curadoria também a frase completa de cada
+> desafio, como o usuário irá lê-la no App, em pt-br apenas."*
+
+Até hoje o card dizia:
+
+    objetivo  desafioObjetivoPaciencia {'lances': 3, 'variante': 'pequeno', ...}
+
+⚠️ **E o dono precisou PERGUNTAR o que aquilo queria dizer**, no meio de uma
+sessão. ⛔ O pedido é maior do que parece: **a frase é parte do desafio**. Uma
+chegada perfeita com enunciado ambíguo é um desafio ruim, e a curadoria não tinha
+como ver isso — foi assim que a `damas_sobreviver` ganhou o teto de perdas no
+enunciado, em 15/09: alguém leu a frase montada e viu que faltava.
+
+**De onde vem o texto.** A fonte da verdade é `app_pt.arb`, ⛔ **mas o painel roda
+dentro da imagem da API**, onde o repositório do aplicativo não existe — ler o
+`.arb` em runtime funcionaria na máquina do dono e falharia em produção, que é o
+pior modo de falhar que há. ✅ Então há uma cópia,
+`contratos/frases_objetivo_pt.json`, gerada por `scripts/gerar_frases_objetivo.py`
+e travada por um teste que compara e **falha** quando divergem. ⚠️ É o mesmo
+padrão do contrato da CNN e dos vetores: o projeto já resolveu isto duas vezes.
+
+**O formato é ICU, e ele não é decorativo.**
+
+    '{damas, plural, =1{Coroe 1 dama} other{Coroe {damas} damas}} em até ...'
+
+O plural existe porque *"Coroe 1 damas"* é errado em português. ⛔ Renderizar com
+`str.format()` imprimiria as chaves na tela, e a frase deixaria de ser *"a frase
+como o usuário a lê"* — que é a única coisa que ela precisa ser. ⚠️ O renderizador
+cobre `{var}` e `{var, plural, ...}` com recursão de um nível, e **levanta** diante
+do que não conhece em vez de imprimir lixo.
+
+⚠️ **Contar chaves, e não procurar o próximo `}`**: os ramos do plural contêm
+`{damas}` dentro, então o primeiro `}` quase nunca é o certo.
+
+### ✅ A feature se pagou no primeiro uso
+
+Ao renderizar as onze frases apareceu **`cedendo no maximo`** — sem acento, em
+`app_pt.arb` **e** em `app_es.arb`, numa chave **já publicada**. ⚠️ Ninguém tinha
+lido aquela frase montada antes; no `.arb` ela é um `{ganhar, plural, =1{...}}`
+que o olho atravessa. Corrigido nos dois (o `en` não tinha o problema).
+
+⚠️ **E só na linha do VALOR:** as `description` deste projeto são escritas sem
+acento de propósito, e um `sed` no arquivo inteiro teria mudado as duas.
+
+### ⚠️ O caractere que quase entrou
+
+Ao escrever `execucao_do_job.py` digitei `_travа` com um **`а` cirílico**
+(`а`). ⛔ Python 3 aceita letras Unicode em identificadores, então isso
+compila, roda e é **invisível** em qualquer revisão. Pegou-se comparando o
+conjunto de caracteres do arquivo contra as letras do português — e fica a
+varredura como hábito para arquivo novo.
+
+### ✅ E o job local é o MESMO que sobe para o Railway
+
+Pergunta do dono, e a resposta é sim, com prova: `rodar_job_local.py` e o botão do
+painel chamam `job.__main__.principal()`, exatamente o que
+`CMD ["python", "-m", "job"]` executa na imagem. ⚠️ **E o runtime de inferência
+confere:** `conferir_runtime_inferencia.py --runtime litert` roda no venv local
+com **desvio 0,000000000** em 12 vetores contra a referência do TensorFlow — que
+é o mesmo portão que o `Dockerfile.job` executa na construção da imagem.

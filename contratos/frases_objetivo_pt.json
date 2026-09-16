@@ -1,0 +1,13 @@
+{
+  "desafioObjetivoCadeiaLonga": "Capture {caixas} ou mais caixas em sequência contra {personagem}",
+  "desafioObjetivoCapturaMultipla": "{pecas, plural, =1{Capture 1 peça} other{Capture {pecas} peças}} num só lance, em até {lances, plural, =1{1 lance} other{{lances} lances}}, contra {personagem}",
+  "desafioObjetivoChegarAoPlacar": "Chegue a {caixas} caixas contra {personagem}",
+  "desafioObjetivoCoroarEmLances": "{damas, plural, =1{Coroe 1 dama} other{Coroe {damas} damas}} em até {lances, plural, =1{1 lance} other{{lances} lances}} contra {personagem}",
+  "desafioObjetivoEconomiaDeLances": "{caixas, plural, =1{Feche 1 caixa} other{Feche {caixas} caixas}} em ate {lances, plural, =1{1 lance} other{{lances} lances}} contra {personagem}",
+  "desafioObjetivoFecharCaixasEmTurnos": "{caixas, plural, =1{Feche 1 caixa} other{Feche {caixas} caixas}} em {turnos, plural, =1{1 turno} other{{turnos} turnos}} contra {personagem}",
+  "desafioObjetivoNaoEntregar": "{lances, plural, =1{Nao deixe {personagem} fechar nenhuma caixa por 1 lance seu} other{Nao deixe {personagem} fechar nenhuma caixa por {lances} lances seus}}",
+  "desafioObjetivoPaciencia": "{lances, plural, =1{Passe 1 lance} other{Passe {lances} lances}} sem fechar nem ceder nenhuma caixa a {personagem}",
+  "desafioObjetivoSacrificio": "Troque {entregar, plural, =1{1 peça} other{{entregar} peças}} por {capturar, plural, =1{1 de} other{{capturar} de}} {personagem}",
+  "desafioObjetivoSobreviver": "{lances, plural, =1{Resista 1 lance a {personagem} perdendo no máximo {perder, plural, =1{1 peça} other{{perder} peças}}} other{Resista {lances} lances a {personagem} perdendo no máximo {perder, plural, =1{1 peça} other{{perder} peças}}}}",
+  "desafioObjetivoTrocaFavoravel": "{ganhar, plural, =1{Feche 1 caixa} other{Feche {ganhar} caixas}} cedendo no máximo {ceder, plural, =1{1} other{{ceder}}} a {personagem}"
+}
