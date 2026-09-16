@@ -196,9 +196,15 @@ def test_a_peneira_aprova_quem_passou_em_PELO_MENOS_UM_alvo() -> None:
     ⛔ E jogaria fora **de graca**: a medicao custa o mesmo para um alvo ou tres,
     porque a fita e uma so. Exigir os tres seria pagar o caro e guardar o pouco.
     """
-    fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
-    assert "if any(" in fonte
-    assert "_por_alvo(diario.peneira.get(f), nome) is not None for nome in alvos" in fonte
+    from scripts.pescar_moldes_de_partidas import _serve
+
+    alvos = ["damas=1", "damas=2", "damas=3"]
+    # Passou so no alvo de uma coroacao: entra.
+    assert _serve({"damas=1": 15, "damas=2": None, "damas=3": None}, alvos, 9) is True
+    # Passou so no de duas: entra igual.
+    assert _serve({"damas=1": None, "damas=2": 17, "damas=3": None}, alvos, 9) is True
+    # Em nenhum: fica de fora.
+    assert _serve({"damas=1": None, "damas=2": None, "damas=3": None}, alvos, 9) is False
 
 
 def test_o_bloco_final_sai_UM_POR_ALVO() -> None:
@@ -396,3 +402,61 @@ def test_o_cabecalho_IMPRIME_a_conversao_do_teto() -> None:
     fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
     assert 'comporta `p` de ate "' in fonte
     assert "{(teto + 1) // 2} lances do jogador" in fonte
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. A fase 2 so mede quem o piso deixaria publicar
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_fase_2_PULA_o_que_o_piso_recusaria() -> None:
+    """⛔ Medir um molde que o gerador vai recusar e pagar o caro pelo inutil.
+
+    ⚠️ A fase 2 custa ~12x a peneira por posicao. Com o piso de 9 meios-lances,
+    um molde de 5 (= 3 lances do jogador) nunca sai — e e exatamente o desafio de
+    dez segundos que o dono reprovou por semanas.
+
+    ⚠️ **`>=` e nao `>`:** o piso 9 INCLUI os moldes de 9 meios-lances, que sao os
+    5 lances do jogador que se quer publicar.
+    """
+    from scripts.pescar_moldes_de_partidas import _serve
+
+    alvos = ["damas=1", "damas=2"]
+    assert _serve({"damas=1": 9, "damas=2": None}, alvos, 9) is True
+    assert _serve({"damas=1": 11, "damas=2": None}, alvos, 9) is True
+    assert _serve({"damas=1": 7, "damas=2": None}, alvos, 9) is False
+    assert _serve({"damas=1": 5, "damas=2": None}, alvos, 9) is False
+
+
+def test_basta_servir_a_UM_alvo_para_entrar_na_medicao() -> None:
+    """⚠️ Uma posicao pode ser curta para um alvo e otima para outro.
+
+    ⛔ Cortar pela primeira jogaria fora a segunda tarefa **de graca**, ja que a
+    fita e a mesma para os dois — o ganho inteiro da busca combinada.
+    """
+    from scripts.pescar_moldes_de_partidas import _serve
+
+    alvos = ["damas=1", "damas=2"]
+    # Coroa UMA em 3 meios-lances (curta demais) e DUAS em 15 (otima).
+    assert _serve({"damas=1": 3, "damas=2": 15}, alvos, 9) is True
+
+
+def test_piso_zero_pergunta_so_se_PASSOU_na_peneira() -> None:
+    """⚠️ E a pergunta que conta quantas ficaram de fora por serem curtas."""
+    from scripts.pescar_moldes_de_partidas import _serve
+
+    alvos = ["damas=1"]
+    assert _serve({"damas=1": 3}, alvos, 0) is True
+    assert _serve({"damas=1": None}, alvos, 0) is False
+
+
+def test_o_corte_da_fase_2_usa_o_piso_do_EDITORIAL() -> None:
+    """🔒 Um numero escrito no script envelheceria calado.
+
+    ⚠️ E o mesmo motivo que fez o teto e a janela virarem leitura do editorial:
+    duas copias do mesmo numero divergem, e o sintoma e um acervo medido por um
+    criterio que ninguem escolheu.
+    """
+    fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
+    assert "_serve(diario.peneira.get(f), alvos, piso_do_editorial)" in fonte
+    assert "p.nu_minimo_de_meios_lances" in fonte

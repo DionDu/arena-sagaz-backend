@@ -491,6 +491,37 @@ def _por_alvo(valor: object, nome: str) -> object:
     return valor
 
 
+def _serve(anotado: object, alvos, piso: int) -> bool:
+    """Esta posicao serve a ALGUM alvo, com solucao a partir do piso?
+
+    ⛔ **A fase 2 custa ~12x a peneira por posicao**, entao medir um molde que o
+    gerador vai recusar e pagar o caro para guardar o inutil. Com o piso de 9
+    meios-lances, um molde de 5 (= 3 lances do jogador) nunca sai: e exatamente o
+    desafio de dez segundos que o dono reprovou por semanas.
+
+    ⚠️ **Basta servir a UM alvo.** Uma posicao pode coroar uma dama em 3
+    meios-lances (curta demais) e duas em 15 (otima) — cortar pelo primeiro alvo
+    jogaria fora a segunda tarefa de graca, ja que a fita e a mesma.
+
+    ⚠️ `piso=0` responde a outra pergunta: *"passou na peneira, seja em que
+    distancia for?"*.
+
+    Args:
+        anotado: o que o diario guardou para esta FEN (dicionario por alvo, ou o
+            numero solto dos diarios antigos).
+        alvos: os alvos desta pescaria.
+        piso: o minimo de meios-lances. `0` desliga.
+
+    Returns:
+        `True` se algum alvo caiu com distancia `>= piso`.
+    """
+    for nome in alvos:
+        valor = _por_alvo(anotado, nome)
+        if valor is not None and valor >= piso:
+            return True
+    return False
+
+
 def _alvos_do_diario(diario: "Diario") -> list[str]:
     """Que alvos aparecem no diario, na ordem em que foram vistos."""
     for valor in diario.peneira.values():
@@ -1004,14 +1035,41 @@ def main() -> int:
         # ⚠️ **Aprovada e quem passou em PELO MENOS UM alvo.** Medir so quem
         # passou em todos jogaria fora o acervo de uma coroacao inteiro, que e o
         # mais numeroso — e a medicao custa o mesmo, porque a fita e uma so.
+        # ── ⛔ E A FASE 2 SO MEDE QUEM O PISO DEIXARIA PUBLICAR ──────────────
+        #
+        # ⚠️ **A fase 2 custa ~12x a peneira por posicao**, e medir um molde que o
+        # gerador vai recusar e pagar o caro para guardar o inutil. Com o piso de
+        # 9 meios-lances, um molde de 5 (= 3 lances do jogador) nunca sai: e
+        # exatamente o desafio de dez segundos que o dono reprovou.
+        #
+        # ⛔ **O corte e o piso do EDITORIAL, e nao um numero escrito aqui.**
+        # Assim ele acompanha a decisao em vez de envelhecer calado — o mesmo
+        # motivo que fez o teto e a janela virarem leitura do editorial.
+        #
+        # ⚠️ **O preco de cortar, declarado:** se o piso baixar um dia, os moldes
+        # abaixo dele **nao estarao medidos**, e recupera-los custa repescar. A
+        # peneira ja os guardou no diario com a distancia — o que falta neles e a
+        # medicao nas quatro modalidades.
+        #
+        # ⚠️ `>=` e nao `>`: o piso 9 **inclui** os moldes de 9 meios-lances, que
+        # sao os 5 lances do jogador que se quer publicar.
         aprovadas = [
+            f for f in candidatas if _serve(diario.peneira.get(f), alvos, piso_do_editorial)
+        ]
+        curtas = [
             f
             for f in candidatas
-            if any(
-                _por_alvo(diario.peneira.get(f), nome) is not None for nome in alvos
-            )
+            if _serve(diario.peneira.get(f), alvos, 0)
+            and not _serve(diario.peneira.get(f), alvos, piso_do_editorial)
         ]
         print(f"peneira: {len(aprovadas)} de {len(candidatas)}")
+        if curtas:
+            print(
+                f"    ⏭️ {len(curtas)} posicao(oes) elegiveis ficaram FORA da "
+                f"medicao: solucao abaixo do piso de {piso_do_editorial} "
+                f"meios-lances (~{-(-piso_do_editorial // 2)} lances do jogador). "
+                "Elas estao no diario, com a distancia — o que falta e medi-las."
+            )
         if len(alvos) > 1:
             for nome in alvos:
                 quantas = sum(
