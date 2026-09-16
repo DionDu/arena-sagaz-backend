@@ -848,9 +848,12 @@ def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
             nu_execucoes=EXECUCOES_DA_SONDA_DE_REGUA,
         )
         taxa = regua_mod.taxa_media(medicoes)
-        distancia = regua_mod.distancia_da_banda(
-            medicoes, piso=alvo.piso, teto=alvo.teto
-        )
+        # ⛔ **A ESCADA, e nao a banda** — desde 16/09/2026 e ela que decide, e
+        # este relatorio existe para prever o que o job fara. Medir aqui por um
+        # criterio e publicar por outro daria um numero que descreve uma execucao
+        # que ninguem roda — exatamente o defeito que o `solucionador` corrigiu na
+        # propria regua, quatro dias antes.
+        distancia = regua_mod.distancia_da_escada(medicoes, escada=alvo.escada)
         detalhe = " · ".join(
             f"{m.co_personagem} {m.nu_resolveu}/{m.nu_execucoes}" for m in medicoes
         )
@@ -860,20 +863,26 @@ def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
             # real produz.
             return (
                 f"      {dia}: ✅ candidato {ordem} de {len(candidatos)} "
-                f"na banda — {detalhe} → {taxa:.2f}"
+                f"NA ESCADA — {detalhe} → media {taxa:.2f}"
             )
-        lado = "duro" if taxa < alvo.piso else "banal"
-        tentados.append((distancia, f"{taxa:.2f} {lado}"))
+        # ⚠️ **QUAL degrau errou, e nao so quanto.** Uma distancia media de 0,15
+        # pode ser um mascote muito fora ou tres pouco fora, e as duas pedem
+        # reacoes opostas: a primeira e um tipo mal escolhido, a segunda e
+        # calibracao. O texto da escada e o que separa as duas.
+        tentados.append((distancia, regua_mod.descrever_escada(medicoes, escada=alvo.escada)))
 
     # ⛔ **Nenhum encaixou: e aqui que o dia sai fora da banda na producao.** O job
     # publica o **menos pior** — entao o relatorio diz de quanto foi o erro DELE,
     # e nao so que houve erro. ⚠️ `distancia_da_banda` ja e essa conta, e reusa-la
     # e o que garante que o numero impresso aqui e o mesmo que o job registraria.
     menor_erro = min(distancia for distancia, _ in tentados)
-    resumo = " · ".join(texto for _, texto in tentados)
+    # ⚠️ **So a escada do MENOS PIOR**, e nao as tres. E ele que o job publicaria,
+    # e imprimir as outras duas enterraria a linha que importa no meio de ruido.
+    _, escada_do_menos_pior = min(tentados, key=lambda par: par[0])
     return (
-        f"      {dia}: ⛔ NENHUM dos {len(tentados)} na banda "
-        f"({resumo}) — o job publicaria errando por {menor_erro:.2f}"
+        f"      {dia}: ⛔ NENHUM dos {len(tentados)} na escada — o job publicaria "
+        f"errando por {menor_erro:.2f}\n"
+        f"         {escada_do_menos_pior}"
     )
 
 

@@ -363,30 +363,55 @@ class _CandidatoFalso:
         self.nome = nome
 
 
-def _regua_falsa(monkeypatch, taxas_por_candidato):
+#: Uma escada que PASSA, como taxa por mascote.
+#:
+#: ⛔ **Desde 16/09/2026 uma taxa UNIFORME nunca cabe na escada**, e isso nao e um
+#: detalhe de teste: a escada exige que os mascotes resolvam em proporcoes
+#: **diferentes** (`regua.ESCADA_ALVO`), entao "todos com 0,75" e, por definicao,
+#: um desafio mal calibrado — e era exatamente o que a media aprovava.
+#:
+#: ⚠️ Estes tres numeros caem cada um na faixa do seu mascote.
+ESCADA_QUE_PASSA = {"cacau": 0.1, "tex": 0.6, "magno": 0.9}
+
+#: Uma escada que NAO cabe: todos resolvem quase tudo (o desafio banal).
+ESCADA_BANAL = {"cacau": 1.0, "tex": 1.0, "magno": 1.0}
+
+#: Uma escada que NAO cabe: quase ninguem resolve (o desafio duro demais).
+ESCADA_DURA = {"cacau": 0.3, "tex": 0.3, "magno": 0.3}
+
+
+def _regua_falsa(monkeypatch, escadas_por_candidato):
     """Faz a regua devolver taxas escolhidas, sem rodar motor nenhum.
+
+    Args:
+        escadas_por_candidato: uma lista de `{co_personagem: taxa}`, uma entrada
+            por candidato que o medidor for avaliar.
 
     ⚠️ **Sem isto o teste custaria minutos** — e o que se prova aqui e a REGRA de
     escolha, que e o que estava errado, e nao a contagem dos mascotes (essa ja
     tem os seus casos em `test_regua_e_alvo.py`).
+
+    ⛔ **Ate 16/09/2026 este duble recebia UMA taxa por candidato**, aplicada aos
+    tres mascotes. Funcionava enquanto a decisao era a media; com a escada, uma
+    taxa uniforme e sempre reprovada — entao o duble passou a receber a escada
+    inteira, que e a forma que o criterio de verdade enxerga.
     """
     from job import regua as regua_mod
 
     chamadas = {"quantas": 0}
 
     def medir_falso(**kwargs):
-        taxa = taxas_por_candidato[chamadas["quantas"]]
+        escada = escadas_por_candidato[chamadas["quantas"]]
         chamadas["quantas"] += 1
-        resolveu = round(taxa * 10)
         return [
             regua_mod.Medicao(
                 co_personagem=nome,
                 nu_execucoes=10,
-                nu_resolveu=resolveu,
+                nu_resolveu=round(taxa * 10),
                 co_versao_perfil="t",
                 co_versao_motor="t",
             )
-            for nome in ("cacau", "tex", "magno")
+            for nome, taxa in escada.items()
         ]
 
     # ⚠️ A bancada falsa precisa dos campos que `tentativa_com_motor` le - ela e
@@ -412,7 +437,7 @@ def test_a_regua_PARA_no_primeiro_candidato_que_cai_na_banda(monkeypatch):
     execucao real produz**, porque na producao os outros dois nao chegam a ser
     avaliados.
     """
-    chamadas = _regua_falsa(monkeypatch, [0.75, 0.30, 0.30])
+    chamadas = _regua_falsa(monkeypatch, [ESCADA_QUE_PASSA, ESCADA_DURA, ESCADA_DURA])
     linha = MEDIDOR._linha_da_regua(
         [_CandidatoFalso("a"), _CandidatoFalso("b"), _CandidatoFalso("c")],
         teto=12,
@@ -429,7 +454,7 @@ def test_a_regua_SEGUE_para_o_segundo_quando_o_primeiro_erra(monkeypatch):
     variante **que funciona** — o job publicaria o segundo. Medir so o primeiro a
     reprovaria, e o relatorio pareceria conclusivo.
     """
-    chamadas = _regua_falsa(monkeypatch, [1.00, 0.75, 0.30])
+    chamadas = _regua_falsa(monkeypatch, [ESCADA_BANAL, ESCADA_QUE_PASSA, ESCADA_DURA])
     linha = MEDIDOR._linha_da_regua(
         [_CandidatoFalso("a"), _CandidatoFalso("b"), _CandidatoFalso("c")],
         teto=12,
@@ -439,26 +464,35 @@ def test_a_regua_SEGUE_para_o_segundo_quando_o_primeiro_erra(monkeypatch):
     assert "✅" in linha and "candidato 2 de 3" in linha
 
 
-def test_quando_NENHUM_encaixa_a_linha_diz_de_quanto_foi_o_erro(monkeypatch):
-    """⚠️ **E o erro do MENOS PIOR**, que e o que o job publicaria.
+def test_quando_NENHUM_encaixa_a_linha_diz_QUAL_DEGRAU_errou(monkeypatch):
+    """⚠️ **E a escada do MENOS PIOR**, que e o candidato que o job publicaria.
 
-    ⛔ Dizer so *"nenhum na banda"* esconderia a diferenca entre errar por 0,03 —
+    ⛔ Dizer so *"nenhum na escada"* esconderia a diferenca entre errar por 0,03 —
     que e afinar um numero — e errar por 0,40, que e repensar o tipo.
+
+    ⚠️ **E desde 16/09/2026 a linha diz mais que o quanto: diz QUAL degrau.** Uma
+    distancia media de 0,15 pode ser um mascote muito fora ou tres pouco fora, e
+    as duas pedem reacoes opostas — tipo mal escolhido × calibracao.
+
+    ⚠️ **Taxas da GRADE de 10 execucoes** (multiplos de 0,1): a regua falsa
+    converte a taxa em `nu_resolveu` arredondado, entao pedir 0,95 devolveria
+    1,00 e o teste estaria provando outra coisa - foi o que aconteceu ao
+    escreve-lo.
     """
-    # ⚠️ **Taxas da GRADE de 10 execucoes** (multiplos de 0,1): a regua falsa
-    # converte a taxa em `nu_resolveu` arredondado, entao pedir 0,95 devolveria
-    # 1,00 e o teste estaria provando outra coisa - foi o que aconteceu ao
-    # escreve-lo.
-    _regua_falsa(monkeypatch, [1.00, 0.90, 0.30])
+    # O do meio e o menos pior: so o Tex erra, e por 0,10.
+    quase = {"cacau": 0.1, "tex": 0.3, "magno": 0.9}
+    _regua_falsa(monkeypatch, [ESCADA_BANAL, quase, ESCADA_DURA])
     linha = MEDIDOR._linha_da_regua(
         [_CandidatoFalso("a"), _CandidatoFalso("b"), _CandidatoFalso("c")],
         teto=12,
         dia="2026-10-03",
     )
     assert "NENHUM dos 3" in linha
-    assert "banal" in linha and "duro" in linha
-    # 0.90 passa 0.10 do teto 0.80, e e o menor erro dos tres.
-    assert "0.10" in linha, linha
+    # ⛔ O degrau que errou aparece nomeado, e os que acertaram tambem — e a
+    # combinacao das duas coisas que diz se e calibracao ou tipo errado.
+    assert "tex" in linha and "cacau 0.10 ✅" in linha, linha
+    # Tex 0,30 erra 0,15 do piso 0,45; dividido pelos tres mascotes, 0,05.
+    assert "0.05" in linha, linha
 
 
 # ═══════════════════════════════════════════════════════════════════════════
