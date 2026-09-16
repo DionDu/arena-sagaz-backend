@@ -1,0 +1,269 @@
+"""🔒 A pescaria que responde por VARIOS alvos na mesma busca.
+
+═══════════════════════════════════════════════════════════════════════════
+POR QUE ISTO EXISTE
+═══════════════════════════════════════════════════════════════════════════
+
+⚠️ **Pergunta do dono, 16/09/2026, com a pescaria de uma coroacao ja rodando:**
+
+> *"o script nao conseguiria em uma unica busca ja buscar coroacao de 2 damas e
+> de 1 dama, economizando metade do tempo? Ou realmente precisa ser separado?"*
+
+✅ **Consegue, e a economia e maior que metade** — e a razao e estrutural, nao um
+truque: o lance sai de `motor.escolher_lance(estado, SAGAZ, limite, semente)`, e
+**o objetivo nao entra na escolha**. O Sagaz joga a PARTIDA, nao o DESAFIO. Entao,
+para a mesma FEN e a mesma modalidade, a fita e identica quer se procure uma
+coroacao, duas ou tres; o que muda e so o `julgar_desafio` a cada meio-lance.
+
+⛔ **Procurar `{damas: 1}` PARA quando a primeira coroa; `{damas: 2}` continua.**
+Uma busca unica que vai ate o alvo mais exigente ja contem a resposta do menos
+exigente — o custo do combinado e o do mais caro sozinho, e os outros saem de
+graca.
+
+⚠️ **A equivalencia das duas funcoes foi provada contra o motor de verdade** (5
+FENs reais do acervo, `resolve` x `resolve_varios_alvos`, resultado identico nas
+5). Este arquivo guarda o que e barato de guardar: o formato do diario, os nomes
+dos alvos e os resumos — a parte que um `assert` pega sem pagar minutos de busca.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from scripts.pescar_moldes_de_partidas import (
+    _alvos_do_diario,
+    _nome_do_alvo,
+    _por_alvo,
+    _resumo_da_medicao,
+    _resumo_da_peneira,
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1. O nome do alvo — ele vai para o diario, entao tem de ser ESTAVEL
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_nome_sai_do_que_DIFERE_do_padrao() -> None:
+    """Um rotulo curto: so o que este alvo tem de diferente."""
+    padrao = {"damas": 1, "lances": 6}
+    assert _nome_do_alvo({"damas": 2, "lances": 6}, padrao) == "damas=2"
+    assert _nome_do_alvo({"damas": 2, "lances": 10}, padrao) == "damas=2,lances=10"
+
+
+def test_o_alvo_IGUAL_ao_padrao_tem_nome_proprio() -> None:
+    """⛔ Um nome vazio viraria chave vazia no diario, e duas pescarias
+    diferentes poderiam colidir nela sem ninguem notar."""
+    padrao = {"damas": 1, "lances": 6}
+    assert _nome_do_alvo(padrao, padrao) == "damas=1,lances=6"
+
+
+def test_o_nome_NAO_depende_da_ordem_em_que_o_dono_escreveu() -> None:
+    """🔒 Retomar com as chaves invertidas pareceria outro alvo.
+
+    ⚠️ E o diario recusaria a retomada, mandando recomecar horas de pescaria por
+    causa da ordem das chaves num JSON — que nao significa nada.
+    """
+    padrao = {"damas": 1, "lances": 6}
+    a = _nome_do_alvo({"damas": 3, "lances": 10}, padrao)
+    b = _nome_do_alvo({"lances": 10, "damas": 3}, padrao)
+    assert a == b == "damas=3,lances=10"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 2. O diario antigo continua legivel
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_formato_ANTIGO_de_um_alvo_so_continua_lido() -> None:
+    """⚠️ Diarios escritos antes de 16/09/2026 guardam um numero solto.
+
+    ⛔ Quebrar isso apagaria, na pratica, as ~3 h da pescaria de 16/09 e as ~7 h
+    das anteriores — e "nada e apagado" e regra do projeto.
+    """
+    # Formato novo: um valor por alvo.
+    assert _por_alvo({"damas=1": 9, "damas=2": 15}, "damas=1") == 9
+    assert _por_alvo({"damas=1": 9, "damas=2": None}, "damas=2") is None
+    # Formato antigo: um numero solto responde por qualquer alvo perguntado.
+    assert _por_alvo(7, "damas=1") == 7
+    assert _por_alvo(None, "damas=1") is None
+
+
+def test_os_alvos_saem_do_proprio_DIARIO() -> None:
+    """⛔ Uma lista escrita a mao ficaria cega quando o diario mudasse."""
+
+    class DiarioFalso:
+        peneira = {"fen1": {"damas=1": 9, "damas=2": 15}}
+        medicao: dict = {}
+
+    assert _alvos_do_diario(DiarioFalso()) == ["damas=1", "damas=2"]
+
+    class DiarioAntigo:
+        peneira = {"fen1": 9}
+        medicao: dict = {}
+
+    # ⚠️ Sem alvo nomeado, um alvo anonimo — e os resumos saem sem rotulo.
+    assert _alvos_do_diario(DiarioAntigo()) == [""]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 3. Os resumos separam os alvos — juntar mentiria sobre os dois
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class _Diario:
+    """Um diario de mentira, com o formato que a pescaria grava."""
+
+    def __init__(self, peneira: dict, medicao: dict) -> None:
+        self.peneira = peneira
+        self.medicao = medicao
+
+
+def test_o_resumo_da_peneira_CONTA_CADA_ALVO_separado() -> None:
+    """⛔ Somar os dois diria "6 elegiveis" onde ha 4 de um tipo e 2 de outro.
+
+    ⚠️ E a decisao que esse numero alimenta e *"vale a pena publicar esta
+    variante?"* — que e por variante, nunca pelo total.
+    """
+    diario = _Diario(
+        peneira={
+            "a": {"damas=1": 9, "damas=2": 15},
+            "b": {"damas=1": 11, "damas=2": None},
+            "c": {"damas=1": None, "damas=2": None},
+        },
+        medicao={},
+    )
+    resumo = _resumo_da_peneira(diario)
+    assert "[damas=1] elegiveis 2" in resumo
+    assert "[damas=2] elegiveis 1" in resumo
+    # A distancia tambem e por alvo.
+    assert "9L:1" in resumo and "11L:1" in resumo
+    assert "15L:1" in resumo
+
+
+def test_o_resumo_da_medicao_exige_o_MINIMO_DE_MODALIDADES() -> None:
+    """🔒 Um molde que so serve a duas modalidades nao e molde.
+
+    ⚠️ O piso e `MINIMO_DE_MODALIDADES` (3 de 4), e ele vale **por alvo**: o mesmo
+    tabuleiro pode servir as quatro para uma coroacao e a nenhuma para duas.
+    """
+    diario = _Diario(
+        peneira={"W:W9,13:B20,24": {"damas=1": 9, "damas=2": 15}},
+        medicao={
+            # 4 modalidades validas para um alvo, so 2 para o outro.
+            "W:W9,13:B20,24": {
+                "damas=1": [9, 9, 11, 9],
+                "damas=2": [15, None, None, 17],
+            }
+        },
+    )
+    resumo = _resumo_da_medicao(diario)
+    assert "[damas=1] moldes 1" in resumo
+    assert "[damas=2] moldes 0" in resumo
+
+
+def test_o_resumo_sem_alvo_nomeado_nao_poe_ROTULO() -> None:
+    """⚠️ Um `[]` vazio na tela pareceria defeito."""
+    diario = _Diario(peneira={"a": 9, "b": None}, medicao={})
+    resumo = _resumo_da_peneira(diario)
+    assert "[]" not in resumo
+    assert "elegiveis 1" in resumo
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. A trava que impede misturar dois acervos no mesmo arquivo
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_assinatura_do_diario_LEVA_os_alvos() -> None:
+    """🔒 Retomar com outro alvo misturaria dois acervos, e pareceria normal.
+
+    ⛔ Metade das posicoes julgada por *"coroar 1"* e metade por *"coroar 2"*, num
+    arquivo so — e o bloco final publicaria a mistura. ⚠️ Provado contra o script
+    de verdade em 16/09: a retomada e recusada, dizendo qual campo divergiu.
+    """
+    fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
+    assert '"parametros": [' in fonte
+    assert "[nome, sorted(valores.items())] for nome, valores in sorted(alvos.items())" in fonte
+
+
+def test_a_peneira_aprova_quem_passou_em_PELO_MENOS_UM_alvo() -> None:
+    """⚠️ Exigir todos jogaria fora o acervo de uma coroacao inteiro.
+
+    ⛔ E jogaria fora **de graca**: a medicao custa o mesmo para um alvo ou tres,
+    porque a fita e uma so. Exigir os tres seria pagar o caro e guardar o pouco.
+    """
+    fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
+    assert "if any(" in fonte
+    assert "_por_alvo(diario.peneira.get(f), nome) is not None for nome in alvos" in fonte
+
+
+def test_o_bloco_final_sai_UM_POR_ALVO() -> None:
+    """⛔ Uma lista so publicaria o desafio errado.
+
+    ⚠️ Coroar duas damas e uma tarefa diferente de coroar uma: o molde que serve a
+    uma pode nao servir a outra, e `job/tipos_de_desafio.py` precisa de um acervo
+    por tarefa.
+    """
+    fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
+    assert "for nome in alvos:" in fonte
+    assert 'print(f"\\n# ── colar em job/tipos_de_desafio.py{rotulo} ──")' in fonte
+
+
+def test_a_distancia_e_impressa_em_MEIOS_LANCES_com_a_conversao() -> None:
+    """⛔ A ambiguidade "lance x meio-lance" ja custou TRES leituras erradas.
+
+    ⚠️ O dono em 12/09 (leu "teto de 12" como doze lances dele), e o assistente em
+    11/09 e de novo em 16/09 — a ultima virou um acervo apresentado como "distancia
+    de 3 a 11 lances" quando eram meios-lances, metade disso.
+    """
+    fonte = Path("scripts/pescar_moldes_de_partidas.py").read_text(encoding="utf-8")
+    assert "distancia ate o objetivo (meios-lances, media das modalidades)" in fonte
+    assert "meios-lances (~{-(-meios // 2)} do jogador)" in fonte
+
+
+def test_varios_alvos_sao_nomeados_pelo_que_os_DISTINGUE_ENTRE_SI() -> None:
+    """⛔ Nomear contra o padrao saiu confuso, e esta foi a primeira versao.
+
+    Com o padrao `{damas: 1, lances: 6}`, o alvo `{damas: 1, lances: 10}` virava
+    `lances=10` — **sem a palavra `damas`** — ao lado de `damas=2,lances=10`. ⚠️ O
+    leitor precisava saber o padrao de cor para entender que o primeiro era "uma
+    dama".
+    """
+    from scripts.pescar_moldes_de_partidas import _nomear_alvos
+
+    padrao = {"damas": 1, "lances": 6}
+    nomes = list(
+        _nomear_alvos(
+            [
+                {"damas": 1, "lances": 10},
+                {"damas": 2, "lances": 10},
+                {"damas": 3, "lances": 10},
+            ],
+            padrao,
+        )
+    )
+    # ⚠️ `lances` e igual nos tres, entao nao distingue nada e sai do nome.
+    assert nomes == ["damas=1", "damas=2", "damas=3"]
+
+
+def test_um_alvo_so_continua_nomeado_contra_o_PADRAO() -> None:
+    """⚠️ Sem com quem comparar, o rotulo mais curto e o diff do padrao."""
+    from scripts.pescar_moldes_de_partidas import _nomear_alvos
+
+    nomes = list(_nomear_alvos([{"damas": 2, "lances": 10}], {"damas": 1, "lances": 6}))
+    assert nomes == ["damas=2,lances=10"]
+
+
+def test_alvos_REPETIDOS_colapsam_num_so() -> None:
+    """⚠️ Medir o mesmo alvo duas vezes seria pagar o dobro pelo mesmo numero."""
+    from scripts.pescar_moldes_de_partidas import _nomear_alvos
+
+    alvos = _nomear_alvos(
+        [{"damas": 2, "lances": 10}, {"damas": 2, "lances": 10}],
+        {"damas": 1, "lances": 6},
+    )
+    assert len(alvos) == 1

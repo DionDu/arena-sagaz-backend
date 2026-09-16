@@ -577,6 +577,112 @@ def resolve(
     return None
 
 
+def resolve_varios_alvos(
+    fen: str,
+    co_tipo: str,
+    alvos: Mapping[str, Mapping[str, Any]],
+    modalidade: str,
+    *,
+    nos: int,
+    segundos: float,
+    motivos: MotivoDeDescarte,
+) -> dict[str, int | None]:
+    """Como `resolve`, mas julga VARIOS objetivos na MESMA fita.
+
+    ⛔ **Uma busca responde por todos, e isso nao e otimizacao esperta: e uma
+    consequencia direta de o Sagaz jogar a PARTIDA, e nao o DESAFIO.** O lance
+    sai de `motor.escolher_lance(estado, SAGAZ, limite, semente)` — o objetivo
+    **nao entra na escolha**. Entao, para a mesma FEN e a mesma modalidade, a
+    fita de lances e identica quer se procure uma coroacao ou duas; o que muda e
+    so o `julgar_desafio` a cada meio-lance, que e barato perto da busca.
+
+    ⚠️ **A economia e quase a pescaria inteira, e nao metade** (pergunta do dono,
+    16/09/2026). Procurar `{damas: 1}` **para** quando a primeira coroa;
+    `{damas: 2}` continua. Uma busca unica que vai ate o alvo mais exigente ja
+    contem a resposta do menos exigente — o custo do combinado e o custo do mais
+    caro sozinho, e os outros saem de graca.
+
+    Args:
+        fen: a posicao candidata.
+        co_tipo: o tipo de desafio.
+        alvos: `{nome: parametros}`. O nome e o que vai para o diario.
+        modalidade: qual dos quatro regulamentos.
+        nos: teto de nos por lance.
+        segundos: teto de tempo por lance.
+        motivos: onde registrar a causa do descarte.
+
+    Returns:
+        `{nome: lance_em_que_caiu_ou_None}`, com uma entrada por alvo.
+
+    ⚠️ **O laco so para quando TODOS caem** — parar no primeiro devolveria `None`
+    para os demais sem que eles tivessem sido testados ate o teto, que e o defeito
+    que esta funcao existe para nao ter.
+    """
+    motor = MotorDamas(modalidade)
+    try:
+        estado = EstadoDamas(co_modalidade=modalidade, fen_inicial=fen)
+        js_posicao = pos.das_damas(estado.fen, co_modalidade=modalidade)
+    except Exception as erro:  # noqa: BLE001 — o tipo do erro vira o motivo
+        motivos[f"montagem:{type(erro).__name__}"] += 1
+        return {nome: None for nome in alvos}
+
+    # ⚠️ Cada alvo tem a sua chegada, e um pode ser inviavel sem que os outros
+    # sejam: `{damas: 2}` pede duas pedras, `{damas: 1}` se contenta com uma.
+    chegadas: dict[str, Any] = {}
+    for nome, parametros in alvos.items():
+        try:
+            chegadas[nome] = chegada_da_posicao(co_tipo, parametros, fen)
+        except editorial_mod.MaterialInsuficiente:
+            motivos[f"material_insuficiente:{nome}"] += 1
+
+    achados: dict[str, int | None] = {nome: None for nome in alvos}
+    if not chegadas:
+        return achados
+
+    fita: list[dict[str, Any]] = []
+    atual = estado
+
+    for numero in range(1, teto_do_tipo(co_tipo) + 1):
+        try:
+            lance = motor.escolher_lance(
+                atual,
+                NivelDeMotor.SAGAZ,
+                # ⚠️ Orcamento NOVO a cada lance, como no gerador — e a MESMA
+                # semente de `resolve`, para as duas funcoes darem a mesma fita.
+                limite=Orcamento(nos_maximos=nos, segundos_maximos=segundos).iniciar(),
+                semente=sem.semente_do_lance(SEMENTE_DA_BUSCA, numero),
+            )
+        except ValueError:
+            # ⚠️ A partida acabou. Quem ja caiu fica; quem nao caiu fica `None`.
+            motivos["partida_acabou" if numero > 1 else "sem_lance_no_1o"] += 1
+            return achados
+
+        fita.append({"n": numero, "jogador": atual.vez_de, "lance": lance})
+        atual = motor.aplicar(atual, lance)
+
+        for nome, js_chegada in chegadas.items():
+            if achados[nome] is not None:
+                continue
+            julgamento = julgar_desafio(
+                co_jogo="damas",
+                js_posicao_inicial=js_posicao,
+                js_chegada=js_chegada,
+                fita=fita,
+                jogador=js_posicao["vez_de"],
+                co_modalidade=modalidade,
+            )
+            if julgamento.cumpriu:
+                achados[nome] = julgamento.nu_lance_cumpre_desafio or numero
+
+        if all(valor is not None for valor in achados.values()):
+            return achados
+
+    for nome, valor in achados.items():
+        if valor is None:
+            motivos[f"nao_cumpriu_no_teto:{nome}"] += 1
+    return achados
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # O TRABALHO EM PARALELO
 # ═══════════════════════════════════════════════════════════════════════════

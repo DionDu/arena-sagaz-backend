@@ -94,13 +94,75 @@ from job.espelho_de_damas import com_as_brancas_a_jogar  # noqa: E402
 from job.moldes_de_damas import MODALIDADES  # noqa: E402
 from scripts.cacar_moldes_damas import (  # noqa: E402
     MINIMO_DE_MODALIDADES,
+    NOS_DA_MEDICAO,
+    NOS_DA_PENEIRA,
+    SEGUNDOS_DA_MEDICAO,
+    SEGUNDOS_DA_PENEIRA,
     TIPOS,
+    MotivoDeDescarte,
     parametros_do_tipo,
+    resolve_varios_alvos,
     _mapear,
-    _medir_uma,
-    _peneirar_uma,
     processos_padrao,
 )
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AS DUAS FASES, COM VARIOS ALVOS NA MESMA BUSCA
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⛔ **Precisam ser funcoes de MODULO** (e nao locais nem `lambda`): no Windows o
+# `multiprocessing` usa `spawn`, que re-importa este arquivo em cada processo
+# novo e localiza a funcao pelo nome. Uma closure nao sobrevive a isso.
+#
+# ⚠️ **E a tarefa leva os alvos junto**, e nao um alvo so — porque o ganho desta
+# versao e exatamente esse: uma fita responde por todos. Ver
+# `cacar_moldes_damas.resolve_varios_alvos` para o porque.
+
+
+def _peneirar_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
+    """Fase 1 com varios alvos. Devolve `(fen, {alvo: lance_ou_None}, motivos)`.
+
+    ⚠️ **Os motivos voltam no retorno, e nao num contador compartilhado.** Cada
+    processo tem a sua memoria; um `Counter` global seria incrementado em catorze
+    copias e nenhuma delas chegaria ao pai.
+    """
+    fen, co_tipo, alvos = tarefa
+    motivos = MotivoDeDescarte()
+    achados = resolve_varios_alvos(
+        fen,
+        co_tipo,
+        alvos,
+        "brasileira",
+        nos=NOS_DA_PENEIRA,
+        segundos=SEGUNDOS_DA_PENEIRA,
+        motivos=motivos,
+    )
+    return fen, achados, dict(motivos)
+
+
+def _medir_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
+    """Fase 2 com varios alvos, nas quatro modalidades.
+
+    Devolve `(fen, {alvo: [lance_por_modalidade]}, motivos)`. ⚠️ Uma modalidade
+    que nao cumpre entra como `None`, e e o `MINIMO_DE_MODALIDADES` que decide se
+    o molde presta — um molde nao precisa servir aos quatro regulamentos.
+    """
+    fen, co_tipo, alvos = tarefa
+    motivos = MotivoDeDescarte()
+    por_alvo: dict[str, list] = {nome: [] for nome in alvos}
+    for modalidade in MODALIDADES:
+        achados = resolve_varios_alvos(
+            fen,
+            co_tipo,
+            alvos,
+            modalidade,
+            nos=NOS_DA_MEDICAO,
+            segundos=SEGUNDOS_DA_MEDICAO,
+            motivos=motivos,
+        )
+        for nome, lance in achados.items():
+            por_alvo[nome].append(lance)
+    return fen, por_alvo, dict(motivos)
 
 
 def pecas_da_fen(fen: str) -> tuple[int, int]:
@@ -360,28 +422,116 @@ def _distancias(lances: list[int]) -> str:
     return " ".join(f"{n}L:{contagem[n]}" for n in sorted(contagem))
 
 
+def _nome_do_alvo(alvo: dict, padrao: dict) -> str:
+    """Um rotulo curto para o alvo, feito do que ele tem de DIFERENTE do padrao.
+
+    `{damas: 2, lances: 10}` contra o padrao `{damas: 1, lances: 6}` vira
+    `damas=2,lances=10`. ⚠️ **O nome vai para o diario e para a tela**, entao ele
+    tem de ser estavel: sai ordenado por chave, e nao pela ordem em que o dono
+    escreveu o JSON — senao retomar a pescaria com as chaves invertidas pareceria
+    outro alvo.
+
+    ⛔ Para VARIOS alvos use `_nomear_alvos`, que compara os alvos ENTRE SI.
+    """
+    diferentes = {k: v for k, v in sorted(alvo.items()) if padrao.get(k) != v}
+    if not diferentes:
+        return ",".join(f"{k}={v}" for k, v in sorted(alvo.items()))
+    return ",".join(f"{k}={v}" for k, v in diferentes.items())
+
+
+def _nomear_alvos(lista: list[dict], padrao: dict) -> dict[str, dict]:
+    """Nomeia cada alvo pelo que o distingue **dos outros alvos**.
+
+    ⛔ **E nao pelo que o distingue do padrao**, que foi a primeira versao e saiu
+    confusa: com o padrao `{damas: 1, lances: 6}`, o alvo `{damas: 1, lances: 10}`
+    virava `lances=10` — sem a palavra `damas` — ao lado de `damas=2,lances=10` e
+    `damas=3,lances=10`. ⚠️ O leitor tinha de saber o padrao de cor para entender
+    que o primeiro era "uma dama".
+
+    ⚠️ **Um alvo so continua nomeado contra o padrao**, que e o rotulo mais curto
+    possivel quando nao ha com quem comparar.
+    """
+    if len(lista) == 1:
+        alvo = {**padrao, **lista[0]}
+        return {_nome_do_alvo(alvo, padrao): alvo}
+
+    completos = [{**padrao, **item} for item in lista]
+    # As chaves que NAO sao iguais em todos os alvos: sao elas que distinguem.
+    variaveis = sorted(
+        {
+            chave
+            for chave in {c for alvo in completos for c in alvo}
+            if len({alvo.get(chave) for alvo in completos}) > 1
+        }
+    )
+    # ⚠️ Alvos identicos entre si nao tem o que variar; cai no nome contra o
+    # padrao, e o `dict` abaixo colapsaria os repetidos numa entrada so — que e o
+    # certo, porque medi-los duas vezes seria pagar o dobro pelo mesmo numero.
+    if not variaveis:
+        return {_nome_do_alvo(alvo, padrao): alvo for alvo in completos}
+    return {
+        ",".join(f"{chave}={alvo[chave]}" for chave in variaveis): alvo
+        for alvo in completos
+    }
+
+
+def _por_alvo(valor: object, nome: str) -> object:
+    """O valor daquele alvo, aceitando tambem o formato antigo de um alvo so.
+
+    ⚠️ **Diarios escritos antes de 16/09/2026 guardam um numero solto**, e nao um
+    dicionario por alvo. Eles continuam legiveis: um numero solto responde por
+    qualquer alvo perguntado, que e o que ele significava.
+    """
+    if isinstance(valor, dict):
+        return valor.get(nome)
+    return valor
+
+
+def _alvos_do_diario(diario: "Diario") -> list[str]:
+    """Que alvos aparecem no diario, na ordem em que foram vistos."""
+    for valor in diario.peneira.values():
+        if isinstance(valor, dict):
+            return list(valor)
+    return [""]
+
+
 def _resumo_da_peneira(diario: "Diario") -> str:
-    """Quantas passaram, e com que tamanho de solucao.
+    """Quantas passaram, e com que tamanho de solucao — uma linha por alvo.
 
     ⚠️ **A peneira ja sabe a distancia** — ela devolve em que lance o objetivo
     caiu, e nao um sim/nao. Entao o retrato do acervo aparece desde a primeira
     fase, horas antes de a medicao confirmar.
     """
-    passaram = [v for v in diario.peneira.values() if v is not None]
-    return f"— elegiveis {len(passaram)} | {_distancias(passaram)}"
+    nomes = _alvos_do_diario(diario)
+    partes = []
+    for nome in nomes:
+        passaram = [
+            _por_alvo(v, nome)
+            for v in diario.peneira.values()
+            if _por_alvo(v, nome) is not None
+        ]
+        rotulo = f"[{nome}] " if nome else ""
+        partes.append(f"{rotulo}elegiveis {len(passaram)} | {_distancias(passaram)}")
+    return "— " + "  ·  ".join(partes)
 
 
 def _resumo_da_medicao(diario: "Diario") -> str:
     """Quantos moldes fecharam, com que distancia e com quanto material."""
-    distancias: list[int] = []
-    material: list[int] = []
-    for fen, lances in diario.medicao.items():
-        validos = [n for n in lances if n is not None]
-        if len(validos) >= MINIMO_DE_MODALIDADES:
-            distancias.append(round(sum(validos) / len(validos)))
-            material.append(sum(pecas_da_fen(fen)))
-    media = f" | material {sum(material) / len(material):.1f}" if material else ""
-    return f"— moldes {len(distancias)} | {_distancias(distancias)}{media}"
+    nomes = _alvos_do_diario(diario)
+    partes = []
+    for nome in nomes:
+        distancias: list[int] = []
+        material: list[int] = []
+        for fen, lances in diario.medicao.items():
+            do_alvo = _por_alvo(lances, nome) or []
+            validos = [n for n in do_alvo if n is not None]
+            if len(validos) >= MINIMO_DE_MODALIDADES:
+                distancias.append(round(sum(validos) / len(validos)))
+                material.append(sum(pecas_da_fen(fen)))
+        media = f" | material {sum(material) / len(material):.1f}" if material else ""
+        rotulo = f"[{nome}] " if nome else ""
+        partes.append(f"{rotulo}moldes {len(distancias)} | {_distancias(distancias)}{media}")
+    return "— " + "  ·  ".join(partes)
 
 
 def _tempo(segundos: float) -> str:
@@ -439,7 +589,7 @@ def _rodar_fase(
     ja_feitas: int,
     total: int,
     args,
-    parametros,
+    alvos,
     anotar,
     resumo,
 ) -> None:
@@ -452,7 +602,7 @@ def _rodar_fase(
     relogio = time.monotonic()
     feitas = ja_feitas
     for resultado in _mapear(
-        funcao, [(f, args.tipo, parametros) for f in pendentes], args.processos
+        funcao, [(f, args.tipo, alvos) for f in pendentes], args.processos
     ):
         anotar(resultado)
         feitas += 1
@@ -573,19 +723,38 @@ def main() -> int:
     # ⛔ **O padrao sai do EDITORIAL, e nao de `TIPOS`** — a tabela era uma copia
     # escrita a mao da janela publicada, e ficava velha calada. `--parametros`
     # sobrepoe, para pescar um acervo que ainda nao tem variante no ar.
-    parametros = dict(parametros_do_tipo(args.tipo))
+    padrao = dict(parametros_do_tipo(args.tipo))
+    alvos: dict[str, dict] = {}
     if args.parametros:
         try:
             de_fora = json.loads(args.parametros.replace("'", '"'))
         except json.JSONDecodeError as erro:
             raise SystemExit(
                 f"⛔ --parametros nao e JSON valido: {erro}\n"
-                "   Ex.: --parametros \"{'damas': 2, 'lances': 10}\""
+                "   Um alvo: --parametros \"{'damas': 2, 'lances': 10}\"\n"
+                "   Varios:  --parametros \"[{'damas': 1, 'lances': 10}, "
+                "{'damas': 2, 'lances': 10}]\""
             ) from erro
-        if not isinstance(de_fora, dict):
-            raise SystemExit("⛔ --parametros tem de ser um objeto JSON.")
-        parametros.update(de_fora)
-    print(f"peneira julga com: {parametros}")
+        # ⚠️ Um objeto e um alvo; uma lista sao varios. A forma de um alvo so
+        # continua valendo, para nao quebrar quem ja usava a bandeira.
+        lista = de_fora if isinstance(de_fora, list) else [de_fora]
+        if not lista or not all(isinstance(item, dict) for item in lista):
+            raise SystemExit(
+                "⛔ --parametros tem de ser um objeto JSON, ou uma lista deles."
+            )
+        alvos = _nomear_alvos(lista, padrao)
+    else:
+        alvos[_nome_do_alvo(padrao, padrao)] = padrao
+
+    if len(alvos) == 1:
+        print(f"peneira julga com: {next(iter(alvos.values()))}")
+    else:
+        # ⛔ **Varios alvos custam o do MAIS EXIGENTE, e nao a soma** — a fita e a
+        # mesma para todos, porque o Sagaz joga a PARTIDA e nao o DESAFIO. Ver
+        # `cacar_moldes_damas.resolve_varios_alvos`.
+        print(f"⚡ {len(alvos)} alvos na MESMA busca (a fita e uma so):")
+        for nome, valores in alvos.items():
+            print(f"     {nome}: {valores}")
     candidatas = carregar(args.arquivo)
     print(f"posicoes reais, sem repeticao: {len(candidatas)}")
 
@@ -656,7 +825,9 @@ def main() -> int:
             # ⛔ **Sem isto, retomar com outro alvo misturaria dois acervos** no
             # mesmo diario — metade das posicoes julgada por "coroar 1" e metade
             # por "coroar 2" —, e o resultado pareceria normal.
-            "parametros": sorted(parametros.items()),
+            "parametros": [
+                [nome, sorted(valores.items())] for nome, valores in sorted(alvos.items())
+            ],
             "desvantagem": args.desvantagem,
             "embaralhar": args.embaralhar,
             "amostra": args.amostra,
@@ -675,19 +846,36 @@ def main() -> int:
         if pendentes:
             _rodar_fase(
                 "peneira",
-                _peneirar_uma,
+                _peneirar_varios,
                 pendentes,
                 len(candidatas) - len(pendentes),
                 len(candidatas),
                 args,
-                parametros,
+                alvos,
                 anotar=lambda r: diario.anotar_peneira(r[0], r[1], r[2]),
                 resumo=lambda: _resumo_da_peneira(diario),
             )
 
-        aprovadas = [f for f in candidatas if diario.peneira.get(f) is not None]
+        # ⚠️ **Aprovada e quem passou em PELO MENOS UM alvo.** Medir so quem
+        # passou em todos jogaria fora o acervo de uma coroacao inteiro, que e o
+        # mais numeroso — e a medicao custa o mesmo, porque a fita e uma so.
+        aprovadas = [
+            f
+            for f in candidatas
+            if any(
+                _por_alvo(diario.peneira.get(f), nome) is not None for nome in alvos
+            )
+        ]
         print(f"peneira: {len(aprovadas)} de {len(candidatas)}")
-        for causa, quantas in diario.motivos.most_common(8):
+        if len(alvos) > 1:
+            for nome in alvos:
+                quantas = sum(
+                    1
+                    for f in candidatas
+                    if _por_alvo(diario.peneira.get(f), nome) is not None
+                )
+                print(f"    [{nome}] {quantas}")
+        for causa, quantas in diario.motivos.most_common(10):
             print(f"    {causa}: {quantas}")
 
         if not aprovadas:
@@ -715,12 +903,12 @@ def main() -> int:
             )
             _rodar_fase(
                 "medicao",
-                _medir_uma,
+                _medir_varios,
                 pendentes,
                 len(aprovadas) - len(pendentes),
                 len(aprovadas),
                 args,
-                parametros,
+                alvos,
                 anotar=lambda r: diario.anotar_medicao(r[0], r[1]),
                 resumo=lambda: _resumo_da_medicao(diario),
             )
@@ -736,40 +924,60 @@ def main() -> int:
     finally:
         diario.fechar()
 
-    bons = sorted(
-        (
-            (len(validos), sum(validos) / len(validos), fen)
-            for fen in aprovadas
-            if (validos := [n for n in diario.medicao.get(fen, []) if n is not None])
-            and len(validos) >= MINIMO_DE_MODALIDADES
-        ),
-        key=lambda t: (-t[0], -t[1]),
-    )
-    print(f"medicao: {len(bons)} moldes")
-
-    # ── O retrato: material e distancia, que e o que se quer comparar ────────
-    if bons:
-        material = [sum(pecas_da_fen(f)) for _, _, f in bons]
-        print(
-            f"material dos aprovados: media {sum(material) / len(material):.1f} "
-            f"| min {min(material)} | max {max(material)}"
+    # ⚠️ **Um acervo POR ALVO, e nao um acervo so.** Coroar duas damas e uma
+    # tarefa diferente de coroar uma: o molde que serve a uma pode nao servir a
+    # outra, e juntar os dois numa lista publicaria o desafio errado.
+    codigo_de_saida = 0
+    for nome in alvos:
+        bons = sorted(
+            (
+                (len(validos), sum(validos) / len(validos), fen)
+                for fen in aprovadas
+                if (
+                    validos := [
+                        n
+                        for n in (_por_alvo(diario.medicao.get(fen), nome) or [])
+                        if n is not None
+                    ]
+                )
+                and len(validos) >= MINIMO_DE_MODALIDADES
+            ),
+            key=lambda t: (-t[0], -t[1]),
         )
-        distancia: Counter[int] = Counter(round(m) for _, m, _ in bons)
-        print("distancia ate o objetivo (lance medio):")
-        for lance in sorted(distancia):
-            print(f"    {lance} lances: {distancia[lance]}")
+        rotulo = f" [{nome}]" if len(alvos) > 1 else ""
+        print(f"\nmedicao{rotulo}: {len(bons)} moldes")
 
-    if args.bloco:
-        print("\n# ── colar em job/tipos_de_desafio.py ──")
-        for quantas, media, fen in bons:
-            # ⛔ **O comentario nao e enfeite: e o que permite DECIDIR depois.**
-            # Ate 15/09/2026 este bloco saia so com a FEN, e o acervo do
-            # `capturar_multipla` — colado a mao em 12/09 — tinha
-            # `# 4/4 · lance 7.0` em cada linha. ⚠️ Foi por essa informacao que o
-            # dono pode escolher cortar os moldes curtos; sem ela, a unica saida
-            # e reler o diario ou repescar.
-            print(f'    "{fen}",   # {quantas}/4 · lance {media:.1f}')
-    return 0
+        # ── O retrato: material e distancia, que e o que se quer comparar ────
+        if bons:
+            material = [sum(pecas_da_fen(f)) for _, _, f in bons]
+            print(
+                f"material dos aprovados: media {sum(material) / len(material):.1f} "
+                f"| min {min(material)} | max {max(material)}"
+            )
+            distancia: Counter[int] = Counter(round(m) for _, m, _ in bons)
+            # ⛔ **MEIOS-lances, e a palavra esta escrita.** Ate 16/09/2026 esta
+            # linha dizia so "lances", e o assistente leu como lances do jogador —
+            # o dobro do que e. A ambiguidade ja custou tres leituras erradas.
+            print("distancia ate o objetivo (meios-lances, media das modalidades):")
+            for meios in sorted(distancia):
+                print(
+                    f"    {meios} meios-lances (~{-(-meios // 2)} do jogador): "
+                    f"{distancia[meios]}"
+                )
+        else:
+            codigo_de_saida = 1
+
+        if args.bloco:
+            print(f"\n# ── colar em job/tipos_de_desafio.py{rotulo} ──")
+            for quantas, media, fen in bons:
+                # ⛔ **O comentario nao e enfeite: e o que permite DECIDIR
+                # depois.** Ate 15/09/2026 este bloco saia so com a FEN, e o
+                # acervo do `capturar_multipla` — colado a mao em 12/09 — tinha
+                # `# 4/4 · lance 7.0` em cada linha. ⚠️ Foi por essa informacao
+                # que o dono pode escolher cortar os moldes curtos; sem ela, a
+                # unica saida e reler o diario ou repescar.
+                print(f'    "{fen}",   # {quantas}/4 · {media:.1f} meios-lances')
+    return codigo_de_saida
 
 
 if __name__ == "__main__":
