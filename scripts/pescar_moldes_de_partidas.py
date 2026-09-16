@@ -495,6 +495,20 @@ def main() -> int:
         ),
     )
     ap.add_argument(
+        "--minimo-fileiras",
+        type=int,
+        default=0,
+        help=(
+            "so posicoes cuja pedra mais adiantada esta a N fileiras OU MAIS da "
+            "coroacao. ⛔ E o PISO que faltava ao lado do teto `--alcancavel`, e "
+            "ele nasceu de um numero: 82%% dos 515 moldes do `damas_coroar` tem a "
+            "pedra a 1 ou 2 fileiras — dois lances e acabou. ⚠️ Pedido do dono em "
+            "16/09/2026: *'se deixar as fileiras de tras totalmente livres e a "
+            "peca do humano avancada demais, fica um desafio de simplesmente "
+            "mover a peca pra frente'*."
+        ),
+    )
+    ap.add_argument(
         "--desvantagem",
         type=int,
         default=0,
@@ -556,6 +570,16 @@ def main() -> int:
             f"{len(candidatas)} (de {antes})"
         )
 
+    if args.minimo_fileiras:
+        antes = len(candidatas)
+        candidatas = [
+            f for f in candidatas if fileiras_ate_coroar(f) >= args.minimo_fileiras
+        ]
+        print(
+            f"com pedra a {args.minimo_fileiras}+ fileira(s) da coroacao: "
+            f"{len(candidatas)} (de {antes})"
+        )
+
     if args.desvantagem:
         antes = len(candidatas)
         # ⚠️ **Todas as FENs ja chegam com as brancas a jogar** (`carregar` as
@@ -594,6 +618,9 @@ def main() -> int:
             "arquivo": args.arquivo.name,
             "minimo_pecas": args.minimo_pecas,
             "alcancavel": args.alcancavel,
+            # ⚠️ Entra na assinatura como os outros: uma pescaria retomada com
+            # filtro diferente misturaria dois acervos no mesmo diario.
+            "minimo_fileiras": args.minimo_fileiras,
             "desvantagem": args.desvantagem,
             "embaralhar": args.embaralhar,
             "amostra": args.amostra,

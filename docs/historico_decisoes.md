@@ -4844,3 +4844,77 @@ Com tabuleiro vazio ela é trivial (o dono a rejeitaria); com tabuleiro cheio,
 atravessar duas vezes em 8 lances é quase certamente impossível. ⚠️ Ela vive de uma
 faixa estreita que talvez não exista. ⛔ **Não foi removida:** a decisão espera a
 medição do acervo novo, e é do dono.
+
+---
+
+## 2026-09-16 (noite) — ⛔ `damas_coroar {damas: 2}` aposentada, e o filtro que faltava era um PISO
+
+**Decisão do dono:** *"Então vamos abandonar por hora o coroar 2 damas."*
+
+⚠️ **E ele chegou nisso pelo caminho contrário do que o editorial registrava.**
+Tudo lá dizia que a variante era **dura** — NO LIMITE nas três medições, folga
+zero. Olhando o desafio de 17/09 no painel, ele viu que é **fácil**.
+
+⛔ **As duas coisas eram verdade ao mesmo tempo**, e é isso que torna o caso
+instrutivo: ela era difícil de **gerar** (poucos moldes comportam duas coroações
+na janela) e trivial de **resolver** (os moldes que comportam são justamente os
+de tabuleiro vazio). ⚠️ O rótulo NO LIMITE media a escassez, e ninguém leu que
+escassez e facilidade eram, ali, a mesma coisa.
+
+### ✅ O critério do dono, e o que a medição fez com ele
+
+> *"O adversário precisa ter algumas peças nas fileiras de trás. Se deixar as
+> fileiras de trás totalmente livres e a peça do humano avançada demais, fica um
+> desafio de simplesmente mover a peça pra frente. Se tiver peças a serem
+> comidas (...) pode ser necessário comer peças para chegar na última casa."*
+
+**Duas leituras foram medidas no acervo que já existe, sem pescar nada.**
+
+⛔ **A primeira MORREU: "a solução exige captura" não separa.** Medido em 80
+moldes, 20 por faixa de material:
+
+    3-6 peças    80% das soluções têm captura do jogador
+    7-9 peças    45%
+    10-13 peças  85%
+    14+ peças    75%
+
+⚠️ **A razão é uma regra do jogo:** nas damas brasileiras a captura é
+**obrigatória**. Quase toda partida tem capturas, e elas dizem *"fui forçado a
+comer no caminho"* muito mais vezes que *"precisei comer para chegar"*.
+
+✅ **A segunda ACERTOU, e é a distância.** Onde está a pedra mais adiantada, nos
+515 moldes:
+
+    1 fileira:    76        ⛔ um lance e acabou
+    2 fileiras:  346        ⛔ dois lances
+    3 fileiras:   66
+    4 fileiras:   24
+    5+:            3
+
+⛔ **82% do acervo (422 de 515) coroa em um ou dois lances.** O desafio de 17/09
+estava a **2 fileiras** — o caso típico, não o azar do dia.
+
+### ✅ E o mesmo filtro pega as DUAS coisas que o dono pediu
+
+Cruzando distância com material:
+
+    1-2 fileiras   material médio 6,9
+    3 fileiras     material médio 9,3
+    4 fileiras     material médio 10,1
+
+⚠️ **Peça menos adiantada e tabuleiro mais cheio andam juntos** — não era óbvio, e
+significa que um filtro só resolve o que parecia exigir dois.
+
+### O que entrou: `--minimo-fileiras`
+
+O pescador tinha o **teto** (`--alcancavel N`, aritmética contra o impossível) e
+não tinha o **piso**. ⛔ Agora tem, e ele entra na assinatura do diário como os
+outros — retomar uma pescaria com filtro diferente misturaria dois acervos.
+
+✅ **E dá para consertar o acervo sem pescar:** com `>= 3 fileiras`, **92 dos 515
+moldes** sobrevivem. É pouco, mas não é zero — o `damas_capturar_multipla` vive
+com 87. ⏳ A variante precisa ser remedida com o acervo cortado antes de qualquer
+corte virar commit.
+
+⚠️ E a pescaria nova continua valendo: 92 moldes com material ~9,5 ainda estão
+longe dos 15-19 dos outros três tipos.

@@ -106,3 +106,72 @@ def test_arquivo_sem_BOM_continua_sendo_utf8(tmp_path):
     arquivo.write_text(json.dumps([{"fen": FENS[0]}]), encoding="utf-8")
 
     assert carregar(arquivo) == [FENS[0]]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O PISO DE FILEIRAS — o filtro que separa o desafio do passeio
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_PISO_de_fileiras_e_o_oposto_do_teto_alcancavel():
+    """⚠️ `--alcancavel` e teto e `--minimo-fileiras` e piso, e faltava o piso.
+
+    ⛔ **O numero que fez o piso existir** (16/09/2026): 82% dos 515 moldes do
+    `damas_coroar` tem a pedra mais adiantada a **1 ou 2 fileiras** da coroacao —
+    dois lances e acabou. O desafio publicado em 17/09 era um deles, e o dono o
+    reprovou de imediato:
+
+    > *"Se deixar as fileiras de tras totalmente livres e a peca do humano
+    > avancada demais, fica um desafio de simplesmente mover a peca pra frente."*
+
+    ⚠️ **E o piso pega as DUAS coisas que ele descreveu de uma vez**, o que nao
+    era obvio: no acervo, distancia 3-4 vem com material medio 9,3-10,1, contra
+    6,9 nas distancias 1-2. Peca menos adiantada e tabuleiro mais cheio andam
+    juntos.
+    """
+    from scripts.pescar_moldes_de_partidas import fileiras_ate_coroar
+
+    # A posicao do desafio de 17/09/2026, que o dono reprovou.
+    do_dono = "W:W11,20:B5,10,13"
+    assert fileiras_ate_coroar(do_dono) == 2, (
+        "a pedra de 11 esta na fileira 2 — a dois lances de coroar, sem "
+        "obstaculo possivel"
+    )
+
+    # ⛔ Um piso de 3 a recusa; o teto `--alcancavel 6` a aceitava.
+    assert fileiras_ate_coroar(do_dono) < 3
+    assert fileiras_ate_coroar(do_dono) <= 6
+
+    # E uma posicao com a mesma peca atrasada passa nos dois.
+    atrasada = "W:W25,20:B5,10,13"
+    assert fileiras_ate_coroar(atrasada) == 4
+    assert 3 <= fileiras_ate_coroar(atrasada) <= 6
+
+
+def test_a_captura_NAO_serve_de_filtro_nas_damas_brasileiras():
+    """⛔ Medido, e o resultado poupa uma pescaria inteira.
+
+    ⚠️ **O criterio natural era "a solucao exige comer peca"** — o dono descreveu
+    exatamente isso (*"pode ser necessario comer pecas para chegar na ultima
+    casa"*). Medido em 80 moldes do acervo, 20 por faixa de material:
+
+        3-6 pecas     80% das solucoes tem captura do jogador
+        7-9 pecas     45%
+        10-13 pecas   85%
+        14+ pecas     75%
+
+    ⛔ **Nao separa nada, e a razao e uma regra do jogo:** nas damas brasileiras a
+    captura e **obrigatoria**. Quase toda partida tem capturas, e elas dizem
+    "fui forcado a comer no caminho" muito mais vezes que "precisei comer para
+    chegar".
+
+    ⚠️ **Este caso nao roda motor** — ele guarda a CONCLUSAO, para que ninguem
+    gaste a pescaria de novo. Se um dia a captura deixar de ser obrigatoria em
+    alguma modalidade, a conclusao muda e este texto e o lugar de descobrir isso.
+    """
+    from job.moldes_de_damas import MODALIDADES
+
+    assert "brasileira" in MODALIDADES, (
+        "a modalidade em que a medida foi feita saiu da lista — reveja a "
+        "conclusao acima antes de confiar nela"
+    )

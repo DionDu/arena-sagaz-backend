@@ -1017,33 +1017,36 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         # identico justamente porque nenhuma das duas chega a ser exercida — o
         # gerador para antes. Ha candidata escrita em
         # `scripts/medir_variantes_do_editorial.py` para medir isso com teto 16.
-        Publicacao(
-            parametros={"damas": 2, "lances": 8},
-            ic_chegada_encerra_partida=False,
-            medidas=_medidas_do_damas_coroar,
-            # ── ✅ TETO 16, MEDIDO EM 14/09/2026 ─────────────────────────────
-            #
-            # ⚠️ **O teto padrao de 12 estrangulava a propria janela desta
-            # variante.** Ela promete 8 lances do jogador, que sao 16
-            # meios-lances; com o gerador parando de procurar em 12, a promessa
-            # nunca era exercida — e era por isso que `lances: 8` e `lances: 10`
-            # mediam identico, o que este arquivo ja registrava sem saber a
-            # causa.
-            #
-            # ✅ **Medido, a mesma variante com os dois tetos:**
-            #
-            #     teto 12   NO LIMITE (1 de 3)   dias [1, 2, 3]    9,3 meios-lances
-            #     teto 16   NO LIMITE (1 de 3)   dias [1, 3, 3]   11,3 meios-lances
-            #
-            # ⚠️ **O rotulo nao mudou, e a tarefa ficou 21% mais longa.** Os dias
-            # melhoraram de `[1,2,3]` para `[1,3,3]` — ainda NO LIMITE, porque o
-            # dia mais fraco manda, mas com mais candidato nos outros dois.
-            #
-            # ⛔ **Nao custa Railway a mais**: 525 s contra 630 s na mesma
-            # medicao, porque o gerador acha solucao mais cedo quando pode
-            # aceitar as longas, em vez de esgotar as tentativas.
-            nu_maximo_de_meios_lances=16,
-        ),
+        # ── ⛔ APOSENTADA EM 16/09/2026, POR DECISAO DO DONO ─────────────────
+        #
+        # > *"Entao vamos abandonar por hora o coroar 2 damas."*
+        #
+        # ⚠️ **E ele chegou nisso pelo caminho contrario do que este comentario
+        # registrava.** Tudo acima diz que a variante era DURA (NO LIMITE nas tres
+        # medicoes, folga zero de candidato). ⛔ Olhando o desafio publicado em
+        # 17/09 no painel, o dono viu que ela e **FACIL**:
+        #
+        # > *"Ele e extremamente facil. Ele e simplesmente empurrar as 2 pecas
+        # > azuis para frente. Nao ha desafio algum nisso. Nao ha barreiras de
+        # > pecas."*
+        #
+        # ⚠️ **As duas coisas eram verdade ao mesmo tempo**, e e isso que torna o
+        # caso instrutivo: era dificil de GERAR (poucos moldes comportam duas
+        # coroacoes na janela) e trivial de RESOLVER (os moldes que comportam sao
+        # justamente os de tabuleiro vazio). ⛔ O rotulo NO LIMITE media a
+        # escassez, e ninguem leu que escassez e facilidade eram a mesma coisa.
+        #
+        # ⚠️ **E a regua nao podia avisar:** ela deu 0,05 nos tres mascotes, e a
+        # causa nao era dificuldade — os mascotes coroam a primeira dama e depois
+        # jogam com ELA, porque usar a dama e o melhor lance *da partida*. Medido
+        # em 20 execucoes por mascote: `coroou 0 damas` deu **zero** nos tres.
+        #
+        # ⛔ **O codigo dela nao se perde** — esta neste historico e no Git. O que
+        # falta para ela voltar e um acervo de tabuleiro cheio, e ai a pergunta
+        # muda: atravessar o tabuleiro DUAS vezes com oposicao provavelmente nao
+        # cabe em 8 lances. ⚠️ A variante vive de uma faixa estreita que talvez
+        # nao exista, e e por isso que a volta dela depende de medicao, e nao de
+        # vontade.
     ),
     # ⚠️ **MEDIDO no mesmo dia, e o resultado foi UMA variante so:**
     #
