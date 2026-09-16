@@ -141,6 +141,9 @@ class Candidata:
         nu_lances_de_preparo: quantos lances a posicao de partida ja traz. `None`
             herda o da publicacao no ar.
         nu_maximo_de_meios_lances: o teto de meios-lances do gabarito. `None` herda.
+        nu_minimo_de_meios_lances: o PISO de meios-lances do gabarito. `None`
+            herda; `0` e um piso legitimo (desligado), e e por isso que o valor
+            que herda e `None`, e nao zero.
 
     ⛔ **Os dois botoes precisam ser POR CANDIDATA, e descobrir isso custou uma
     execucao.** Ate 12/09/2026 eles saiam sempre da publicacao no ar, o que estava
@@ -154,6 +157,7 @@ class Candidata:
     parametros: Mapping[str, Any]
     nu_lances_de_preparo: int | None = None
     nu_maximo_de_meios_lances: int | None = None
+    nu_minimo_de_meios_lances: int | None = None
 
 
 #: As variantes a medir, por tipo. ⚠️ **A primeira de cada lista e a que esta no
@@ -592,6 +596,7 @@ def medir(
     print(
         f"  preparo={publicacao.nu_lances_de_preparo}  "
         f"teto_de_lances={publicacao.nu_maximo_de_meios_lances}  "
+        f"piso={publicacao.nu_minimo_de_meios_lances or 'sem'}  "
         f"(padrao do tipo; candidata com botao proprio aparece na linha dela)  "
         f"dias={[d.isoformat() for d in dias]}"
     )
@@ -603,6 +608,13 @@ def medir(
         # candidata que so troca um numero da mesma tarefa.
         preparo = candidata.nu_lances_de_preparo or publicacao.nu_lances_de_preparo
         teto = candidata.nu_maximo_de_meios_lances or publicacao.nu_maximo_de_meios_lances
+        # ⚠️ `or` nao serve aqui: o piso legitimo pode ser 0 (desligado), e
+        # `0 or X` devolveria X. A pergunta e se a candidata DECLAROU um piso.
+        piso = (
+            publicacao.nu_minimo_de_meios_lances
+            if getattr(candidata, "nu_minimo_de_meios_lances", None) is None
+            else candidata.nu_minimo_de_meios_lances
+        )
         # ⛔ **O tipo do dia tem de ser ESTE tipo.** `gerar_candidatos` reescolhe
         # o tipo pela data, e num dia em que ele escolher o outro tipo do jogo a
         # medicao estaria medindo o vizinho — com os parametros errados, e sem
@@ -630,6 +642,10 @@ def medir(
                 quantos=QUANTOS_POR_DIA,
                 tipos_recentes=outros,
                 maximo_de_meios_lances=teto,
+                # ⛔ **O mesmo piso da publicacao.** Medir sem ele diria que a
+                # variante gera com folga, e o job publicaria bem menos — que e
+                # a diferenca entre "gera" e "gera o que a gente quer".
+                minimo_de_meios_lances=piso,
                 lances_de_preparo=preparo,
                 # ⚠️ A mesma restricao da publicacao no ar: medir contra um
                 # adversario que o tipo nao publica descreveria outra execucao.
@@ -738,6 +754,7 @@ def candidatas_do_editorial(co_tipo: str) -> tuple["Candidata", ...]:
             publicacao.parametros,
             nu_lances_de_preparo=publicacao.nu_lances_de_preparo,
             nu_maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
+            nu_minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
         )
         for publicacao in editorial_mod.variantes_de(co_tipo)
     )

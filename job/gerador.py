@@ -764,6 +764,7 @@ def gerar_candidatos(
     tentativas_por_candidato: int | None = None,
     lances_de_preparo: int = 8,
     maximo_de_meios_lances: int = 12,
+    minimo_de_meios_lances: int = 0,
     personagens_possiveis: Sequence[str] | None = None,
     receita_em_avaliacao: Receita | None = None,
 ) -> list[Candidato]:
@@ -787,6 +788,14 @@ def gerar_candidatos(
             saem do mesmo `nu_lances_de_preparo` do editorial porque os tipos
             de um jogo nunca veem o do outro.
         maximo_de_meios_lances: o teto da busca por solucao.
+        minimo_de_meios_lances: o PISO do gabarito. Candidato cuja solucao for
+            mais curta que isto e recusado, e o laco procura outro. `0` (o
+            padrao) desliga o piso.
+            ⛔ **Sem ele, o desafio publicado e sempre o mais CURTO que existe** —
+            o gerador fica com o primeiro candidato que cabe na janela, e o mais
+            curto cabe sempre. Foi por isso que cortar os moldes curtos do acervo
+            nunca resolveu (duas tentativas, 11/09 e 16/09/2026): cortar a lista
+            so muda qual e o mais curto que sobrou.
         personagens_possiveis: a que adversarios este tipo se restringe.
             ⛔ **Existe porque nem todo desafio cabe contra todo mundo**: a cadeia
             longa contra o Magno e impossivel (medido, 0 de 30), porque ele parte
@@ -1089,6 +1098,34 @@ def gerar_candidatos(
             continue
 
         js_solucao = gabarito_mod.montar(fita, lance_chave=lance_chave)
+        nu_lances_solucao = gabarito_mod.nu_lances_solucao(js_solucao)
+
+        # ── ⛔ E NAO PODE SER CURTO DEMAIS ───────────────────────────────────
+        #
+        # Regra do dono, repetida por semanas e atendida so em 16/09/2026:
+        #
+        # > *"3 meios lances e muito ruim. O usuario entra no App e em 10
+        # > segundos conclui o desafio."*
+        #
+        # ⚠️ **Descartar aqui nao deixa o dia descoberto**, pelo mesmo motivo das
+        # duas recusas acima: o laco continua, e ha
+        # `tentativas_por_candidato * quantos` posicoes para tentar. ⛔ O que ele
+        # PODE fazer, com um piso alto demais para o acervo, e devolver menos
+        # candidatos que os pedidos — e e exatamente isso que a medicao de
+        # variante existe para descobrir ANTES de a variante ir ao ar.
+        if minimo_de_meios_lances and nu_lances_solucao < minimo_de_meios_lances:
+            # ⚠️ **Os dois numeros levam a conversao, e cada um a sua.** A
+            # primeira versao desta linha punha "(~N lances)" so no piso, e lia-se
+            # como se fosse do candidato — a mesma ambiguidade "lance x meio-lance"
+            # que ja custou tres leituras erradas ao projeto.
+            print(
+                f"⚠️ [job] {dt_dia}: candidato descartado — solucao de "
+                f"{nu_lances_solucao} meios-lances "
+                f"(~{-(-nu_lances_solucao // 2)} lances do jogador), abaixo do "
+                f"piso de {minimo_de_meios_lances} "
+                f"(~{-(-minimo_de_meios_lances // 2)} lances)"
+            )
+            continue
 
         encontrados.append(
             Candidato(
@@ -1104,7 +1141,7 @@ def gerar_candidatos(
                 co_personagem=co_personagem,
                 nu_semente=nu_semente,
                 js_solucao=js_solucao,
-                nu_lances_solucao=gabarito_mod.nu_lances_solucao(js_solucao),
+                nu_lances_solucao=nu_lances_solucao,
                 de_diagnostico=[f"tentativa {tentativa}"],
                 estado_inicial=base,
             )

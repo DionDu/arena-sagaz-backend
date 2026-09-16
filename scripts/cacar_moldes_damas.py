@@ -128,15 +128,44 @@ TETO_DE_LANCES = editorial_mod.MAXIMO_DE_MEIOS_LANCES_PADRAO
 #: aritmetica — ⛔ e o log diria *"nao cumpriu no teto"*, que e indistinguivel
 #: de *"o jogo nao permite"*.
 #:
-#: ⚠️ **O numero tem de bater com o do editorial** quando a variante subir: e o
-#: mesmo par que `damas_coroar {damas:2, lances:8}` usa (teto 16).
+#: ⛔ **ESTA TABELA E SO O SOCORRO DE QUEM NAO TEM EDITORIAL** desde 16/09/2026 —
+#: tipos em avaliacao, que ainda nao publicam. Quem publica e lido do editorial
+#: por `teto_do_tipo`, e a razao e um defeito que esta lista causou: ela era uma
+#: **copia escrita a mao** do numero que o gerador usa, e o proprio comentario
+#: dizia *"o numero tem de bater com o do editorial"*. ⚠️ Em 16/09 o
+#: `damas_coroar` subiu para teto 20 no editorial e a pescaria continuaria
+#: peneirando com 12 — aprovando moldes truncados **em silencio**, que e como a
+#: pescaria daquele dia produziu um acervo com 42% de desafios de 2 lances.
 TETO_POR_TIPO: Mapping[str, int] = {
     "damas_sobreviver": 18,
 }
 
 
 def teto_do_tipo(co_tipo: str) -> int:
-    """Quantos meios-lances a busca pode gastar neste tipo."""
+    """Quantos meios-lances a busca pode gastar neste tipo.
+
+    ⛔ **Pergunta ao EDITORIAL, e nao a uma lista** — pelo mesmo motivo que o
+    painel pergunta ao banco quais schemas existem: uma lista escrita a mao fica
+    verde e cega no dia em que o outro lado muda.
+
+    ⚠️ **Entre variantes do mesmo tipo, vale a MAIOR.** A peneira decide o que
+    entra no acervo, e o acervo e um so para todas as variantes: peneirar pelo
+    teto da mais apertada esconderia, da variante folgada, justamente os moldes
+    longos que ela poderia usar.
+    """
+    try:
+        tetos = [
+            publicacao.nu_maximo_de_meios_lances
+            for publicacao in editorial_mod.variantes_de(co_tipo)
+        ]
+    except editorial_mod.TipoSemEditorial:
+        # ⚠️ **Tipo em avaliacao nao tem editorial, e nao poderia ter:** o
+        # editorial diz com que numeros o tipo VAI AO AR, e ele ainda nao vai.
+        # ⛔ Deixar a excecao subir aqui derrubaria a cacada de um tipo novo — que
+        # e justamente quando a ferramenta mais serve.
+        tetos = []
+    if tetos:
+        return max(tetos)
     return TETO_POR_TIPO.get(co_tipo, TETO_DE_LANCES)
 
 #: Orcamento da PENEIRA (fase 1): barato, so para separar o que merece a medicao

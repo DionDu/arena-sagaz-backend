@@ -108,6 +108,35 @@ TETO_DE_LOG_PADRAO = 120
 # eu ja tinha caido na mesma armadilha em 11/09 lendo a solucao media. Renomear
 # custou um `sed`; a ambiguidade ja custou duas leituras erradas.
 MAXIMO_DE_MEIOS_LANCES_PADRAO = 12
+
+#: O PISO do gabarito, em meios-lances. ⛔ **Zero quer dizer "sem piso"**, que e
+#: o comportamento de sempre.
+#:
+#: ⛔ **Ele existe porque o teto sozinho nunca alongou desafio nenhum**, e essa
+#: licao custou tres tentativas. O dono relatou em 11/09/2026:
+#:
+#: > *"Todos sao resolviveis em 3 lances no total. O usuario entra pra resolver
+#: > um desafio e nao joga praticamente nada. Consegue resolve-los em uns 10
+#: > segundos e sai do App?"*
+#:
+#: ⚠️ **As duas primeiras correcoes mexeram no ACERVO** — cortaram os moldes
+#: curtos da lista — e as duas reincidiram. O motivo e aritmetico: o gerador pede
+#: 3 candidatos e fica com o primeiro que cabe na janela, e **o mais curto cabe
+#: sempre**. Cortar a lista so muda qual e o mais curto que sobrou. Em 16/09/2026
+#: o acervo do `damas_coroar` foi trocado inteiro e **42% dele ainda resolvia em
+#: 2 lances do jogador**.
+#:
+#: ⚠️ **E aumentar `js_chegada["lances"]` tambem nao alonga** — medido em 11/09:
+#: as linhas de 6, 8 e 10 lances sairam identicas **inclusive no tempo de
+#: geracao**, porque o gerador nao descarta candidato nenhum por causa delas. Sao
+#: a mesma tarefa com um numero maior escrito na frase.
+#:
+#: ⛔ **O padrao e ZERO de proposito.** Ligar o piso em todos os tipos de uma vez
+#: mudaria sete variantes ja publicadas sem que nenhuma fosse medida — e variante
+#: nao medida e a regra que este editorial inteiro existe para nao quebrar. Cada
+#: tipo liga o seu quando a medicao disser em que numero ele para de gerar.
+MINIMO_DE_MEIOS_LANCES_PADRAO = 0
+
 LANCES_DE_PREPARO_PADRAO = 8
 
 
@@ -130,6 +159,14 @@ class Publicacao:
     co_versao_minima: str = VERSAO_MINIMA_DOS_TIPOS_FUNDADORES
     nu_teto_log: int = TETO_DE_LOG_PADRAO
     nu_maximo_de_meios_lances: int = MAXIMO_DE_MEIOS_LANCES_PADRAO
+
+    #: O piso do gabarito, em MEIOS-lances. Zero = sem piso.
+    #:
+    #: ⚠️ **E o irmao do teto, e os dois se leem na mesma unidade:** `9` aqui sao
+    #: ~5 lances de quem resolve, porque nas damas a alternancia e estrita.
+    #: ⛔ Um piso ACIMA do teto nunca gera — ha cadeado para isso.
+    nu_minimo_de_meios_lances: int = MINIMO_DE_MEIOS_LANCES_PADRAO
+
     nu_lances_de_preparo: int = LANCES_DE_PREPARO_PADRAO
 
     #: A que adversarios este tipo se restringe. `None` = o rodizio dos quatro.
@@ -988,19 +1025,61 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # aperto (176 s contra 103 s: o gerador segue recusando candidato), mas o que
     # a pessoa **joga** quase nao difere. ⏳ Nao e motivo para tira-la agora; e
     # motivo para olha-la de novo na proxima mudanca de acervo.
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⛔ 16/09/2026 — O PISO ENTRA, E O TETO SOBE DE 12 PARA 20
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # ⛔ **O dono cobrou isto por semanas, e as duas "correcoes" anteriores nao
+    # atacaram a causa.** As duas cortaram moldes curtos do acervo; nenhuma
+    # impediu o gerador de escolher o mais curto que sobrou.
+    #
+    # > *"3 meios lances e muito ruim. O usuario entra no App e em 10 segundos
+    # > conclui o desafio. Se colocar um teto de 20 meio-lances e um piso de 9
+    # > meio-lances, por exemplo, nao resolveria?"*
+    #
+    # ✅ **Resolve, e os dois numeros sao dele.** O teto de 12 vinha do padrao, e
+    # o `damas_coroar` era o ULTIMO tipo ainda nele: o Pontinhos usa 34, o
+    # `capturar_multipla` 16 e 20, o `sobreviver` 18.
+    #
+    # ⛔ **O teto de 12 nao "limitava a dificuldade": ele produzia o acervo
+    # banal.** A peneira da pescaria usa o mesmo numero, entao toda posicao que
+    # demorasse mais de 6 lances do jogador para coroar era descartada com
+    # `nao_cumpriu_no_teto` — **3.674 das 4.096** na pescaria de 16/09. ⚠️ E o
+    # proprio `cacar_moldes_damas.py` avisa que esse motivo e *"indistinguivel de
+    # 'o jogo nao permite'"*. Sobravam so as posicoes com a pedra quase coroando,
+    # que sao exatamente as que o dono reprovou em 17/09.
+    #
+    # ⚠️ **9 meios-lances sao ~5 lances de quem resolve** (nas damas a
+    # alternancia e estrita). Contra os ~3,5 de hoje.
+    #
+    # ⏳ **O acervo ainda nao acompanha, e isso e declarado:** com piso 9, apenas
+    # **20 dos 133 moldes** de hoje qualificam — eles foram pescados com o teto
+    # de 12 e estao truncados nele. A repescagem com `--teto 20` e o que enche o
+    # acervo; ate la a variante gera pouco, e a medicao dira quanto.
     "damas_coroar": (
         Publicacao(
             # Uma dama em seis lances — o alvo com que os moldes foram escritos.
             parametros={"damas": 1, "lances": 6},
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_coroar,
+            nu_maximo_de_meios_lances=20,
+            nu_minimo_de_meios_lances=9,
         ),
         Publicacao(
             # A mesma dama com a janela apertada: a unica medida que muda o que o
             # gerador aceita.
+            #
+            # ⚠️ **Com o piso de 9 esta variante ficou quase impossivel, e por
+            # aritmetica:** a janela de 4 lances do jogador sao 8 meios-lances no
+            # melhor caso, e o piso pede 9. ⛔ Ela so fecha quando o adversario
+            # gasta meios-lances sem que o jogador precise de mais que 4 — o que
+            # existe, mas e raro. ⏳ A medicao dira se sobra candidato; se nao
+            # sobrar, a decisao e trocar a janela, e nao baixar o piso.
             parametros={"damas": 1, "lances": 4},
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_coroar,
+            nu_maximo_de_meios_lances=20,
+            nu_minimo_de_meios_lances=9,
         ),
         # ── ⚠️ DUAS DAMAS: a variante que o dono pediu, e a mais longa ────────
         #
@@ -1487,6 +1566,7 @@ __all__ = [
     "EDITORIAL",
     "LANCES_DE_PREPARO_PADRAO",
     "MAXIMO_DE_MEIOS_LANCES_PADRAO",
+    "MINIMO_DE_MEIOS_LANCES_PADRAO",
     "TETO_DE_LOG_PADRAO",
     "VERSAO_MINIMA_DOS_TIPOS_FUNDADORES",
     "Publicacao",

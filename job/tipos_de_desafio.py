@@ -276,11 +276,29 @@ RECEITAS: dict[str, Receita] = {
         #        59  ja nasciam coroando (objetivo no lance 1) — 46 na
         #             brasileira, 13 na anglo
         #
-        # Distancia ate o objetivo, nos 133 (lance medio das modalidades):
+        # Distancia ate o objetivo, nos 133 — ⚠️ em MEIOS-lances (a fita conta
+        # os dois lados), que e a unidade que o pescador imprime:
         #
-        #     3 lances: 43     6 lances: 10      9 lances: 10
-        #     4 lances: 13     7 lances: 12     10 lances:  7
-        #     5 lances: 21     8 lances: 14     11 lances:  3
+        #     3 meios: 43     6 meios: 10      9 meios: 10
+        #     4 meios: 13     7 meios: 12     10 meios:  7
+        #     5 meios: 21     8 meios: 14     11 meios:  3
+        #
+        # ⛔ **E essa distribuicao esta TRUNCADA PELO TETO, e nao pelo jogo.** A
+        # peneira usava o teto de 12 meios-lances do editorial, entao toda posicao
+        # que demorasse mais que isso saiu com `nao_cumpriu_no_teto` — **3.674 das
+        # 4.096**. ⚠️ Nenhum molde passa de 11 justamente porque 12 era a parede.
+        #
+        # ⛔ **Em lances do JOGADOR, que e o que a pessoa joga**, isso da:
+        #
+        #     2 lances: 56 (42%)     4 lances: 26     6 lances: 3
+        #     3 lances: 31           5 lances: 17
+        #
+        # ⚠️ **Ou seja: trocar o acervo consertou a DIFICULDADE e nao o
+        # COMPRIMENTO.** A Cacau caiu de resolver quase tudo para 0,10-0,20, mas
+        # 42% dos moldes continuam acabando em dois lances. ⏳ O conserto do
+        # comprimento e outro, e entrou no mesmo dia: o **piso** de
+        # `nu_minimo_de_meios_lances` no editorial, mais a repescagem com o teto
+        # de 20 — ver `job/editorial.py`, secao do `damas_coroar`.
         #
         # ⚠️ **89 dos 133 servem as quatro modalidades**; os outros 44 servem a
         # tres. O molde e publicado e resolvido em brasileira de qualquer forma

@@ -460,6 +460,10 @@ async def cobrir_um_dia(
         # `editorial.MAXIMO_DE_MEIOS_LANCES_PADRAO`. Um numero so nao servia: um tipo
         # falhava por falta de horizonte, o outro por falta de tabuleiro.
         maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
+        # ⛔ **O piso e o que impede o desafio de 10 segundos.** Sem ele o job
+        # fica com o primeiro candidato que cabe na janela, que e sempre o mais
+        # curto — ver `editorial.MINIMO_DE_MEIOS_LANCES_PADRAO`.
+        minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
         lances_de_preparo=publicacao.nu_lances_de_preparo,
         # ⚠️ **Nem todo tipo cabe contra todo adversario** - ver o campo no
         # editorial. `None` mantem o rodizio dos quatro.

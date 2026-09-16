@@ -58,7 +58,12 @@ mesma posição em meses, que é exatamente o defeito que T049g existiu para res
   outros três tipos de damas (17,0 · 18,9 · 15,2). ⚠️ O filtro de distância trouxe
   o tabuleiro cheio junto, como a §8k-13 previu: peça menos adiantada e tabuleiro
   mais cheio andam juntos.
-- ✅ **A distância abriu**: de 3 a 11 lances, contra uma concentração em 2.
+- ⚠️ **A distância NÃO abriu como eu li primeiro.** Os "3 a 11" são
+  **meios-lances**, não lances do jogador - e a distribuição está **truncada pelo
+  teto de 12**, não pelo jogo (3.674 das 4.096 posições saíram com
+  `nao_cumpriu_no_teto`). Em lances de quem joga: **42% (56 moldes) acabam em
+  dois**. ⛔ A troca de acervo consertou a **dificuldade**, e não o
+  **comprimento**.
 - ⛔ **O piso do cadeado desceu de 250 para 100**, e só por isso: o comentário do
   próprio piso diz que ele **não é o tamanho do acervo**, é uma **fração** (~75%)
   que pega *"um pedaço da lista apagado por engano"*. A fração se manteve. ⚠️ E o
