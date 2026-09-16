@@ -95,6 +95,7 @@ from job.moldes_de_damas import MODALIDADES  # noqa: E402
 from scripts.cacar_moldes_damas import (  # noqa: E402
     MINIMO_DE_MODALIDADES,
     TIPOS,
+    parametros_do_tipo,
     _mapear,
     _medir_uma,
     _peneirar_uma,
@@ -495,6 +496,22 @@ def main() -> int:
         ),
     )
     ap.add_argument(
+        "--parametros",
+        type=str,
+        default="",
+        help=(
+            "JSON com os numeros que a peneira julga, sobrepondo o padrao do "
+            "tipo. Ex.: --parametros \"{'damas': 2, 'lances': 10}\" (aspas "
+            "simples aceitas, para nao brigar com o PowerShell). "
+            "⛔ **A JANELA E UMA PAREDE, igual ao teto**: com `lances: 6` toda "
+            "posicao que precise de sete lances do jogador reprova na peneira, "
+            "por mais folgado que o teto esteja — foi assim que o acervo do "
+            "`damas_coroar` nasceu curto duas vezes. ⚠️ **E o ALVO muda a "
+            "tarefa**: `damas: 2` pede duas coroacoes e reprova quem so comporta "
+            "uma, entao ele pede diario proprio."
+        ),
+    )
+    ap.add_argument(
         "--minimo-fileiras",
         type=int,
         default=0,
@@ -553,7 +570,22 @@ def main() -> int:
         # captura) rodam no mesmo CSV e ⛔ nao podem dividir o mesmo diario.
         args.diario = args.arquivo.parent / f"pescaria_{args.tipo}.jsonl"
 
-    parametros = TIPOS[args.tipo]
+    # ⛔ **O padrao sai do EDITORIAL, e nao de `TIPOS`** — a tabela era uma copia
+    # escrita a mao da janela publicada, e ficava velha calada. `--parametros`
+    # sobrepoe, para pescar um acervo que ainda nao tem variante no ar.
+    parametros = dict(parametros_do_tipo(args.tipo))
+    if args.parametros:
+        try:
+            de_fora = json.loads(args.parametros.replace("'", '"'))
+        except json.JSONDecodeError as erro:
+            raise SystemExit(
+                f"⛔ --parametros nao e JSON valido: {erro}\n"
+                "   Ex.: --parametros \"{'damas': 2, 'lances': 10}\""
+            ) from erro
+        if not isinstance(de_fora, dict):
+            raise SystemExit("⛔ --parametros tem de ser um objeto JSON.")
+        parametros.update(de_fora)
+    print(f"peneira julga com: {parametros}")
     candidatas = carregar(args.arquivo)
     print(f"posicoes reais, sem repeticao: {len(candidatas)}")
 
@@ -621,6 +653,10 @@ def main() -> int:
             # ⚠️ Entra na assinatura como os outros: uma pescaria retomada com
             # filtro diferente misturaria dois acervos no mesmo diario.
             "minimo_fileiras": args.minimo_fileiras,
+            # ⛔ **Sem isto, retomar com outro alvo misturaria dois acervos** no
+            # mesmo diario — metade das posicoes julgada por "coroar 1" e metade
+            # por "coroar 2" —, e o resultado pareceria normal.
+            "parametros": sorted(parametros.items()),
             "desvantagem": args.desvantagem,
             "embaralhar": args.embaralhar,
             "amostra": args.amostra,

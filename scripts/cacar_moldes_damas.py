@@ -216,6 +216,47 @@ TIPOS: dict[str, Mapping[str, Any]] = {
 }
 
 
+def parametros_do_tipo(co_tipo: str) -> Mapping[str, Any]:
+    """Com que numeros a peneira julga este tipo — **a variante mais FOLGADA**.
+
+    ⛔ **A janela da peneira e uma segunda parede, irma do teto**, e ela produziu
+    o mesmo estrago em 16/09/2026. `TIPOS` dizia `{"damas": 1, "lances": 6}` para
+    o `damas_coroar`: toda posicao que precisasse de mais de **6 lances do
+    jogador** era reprovada na peneira, mesmo com o teto folgado. O acervo nascia
+    curto duas vezes.
+
+    ⚠️ **Por que a mais folgada, e nao a que esta no ar:** o acervo e **um so**
+    para todas as variantes do tipo. Peneirar pela janela mais apertada esconderia
+    da variante folgada justamente os moldes longos que ela poderia usar — e a
+    apertada continua podendo recusa-los na geracao, que e o lugar certo.
+
+    ⚠️ **E "mais folgada" e por JANELA, nao por alvo.** `{damas: 2}` e uma tarefa
+    diferente, e nao uma folga: ela pede **duas** coroacoes, entao peneirar com
+    ela reprovaria as posicoes que so comportam uma. Quem quiser o acervo de duas
+    damas pesca com `--parametros`, num diario proprio.
+    """
+    try:
+        variantes = editorial_mod.variantes_de(co_tipo)
+    except editorial_mod.TipoSemEditorial:
+        # ⚠️ Tipo em avaliacao ainda nao publica; o padrao da tabela e o que ha.
+        return TIPOS[co_tipo]
+
+    padrao = TIPOS[co_tipo]
+    if "lances" not in padrao:
+        return padrao
+    # ⛔ So a JANELA sobe. Os outros numeros ficam como a tabela os declara, para
+    # nao trocar de tarefa sem ninguem pedir.
+    maior = max(
+        (
+            publicacao.parametros["lances"]
+            for publicacao in variantes
+            if "lances" in publicacao.parametros
+        ),
+        default=padrao["lances"],
+    )
+    return {**padrao, "lances": max(maior, padrao["lances"])}
+
+
 def receita_do_tipo(co_tipo: str) -> Receita:
     """A receita do tipo, esteja ela **no ar** ou ainda **em proposta**.
 
