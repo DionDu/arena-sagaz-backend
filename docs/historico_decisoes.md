@@ -21,6 +21,73 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-16 — ✅ O portão T050 fechou, e a folha de aceite virou SCRIPT
+
+**Contexto.** A T050 é o portão de aceite do servidor: ⛔ nenhuma tarefa de tela
+começa antes dela. Ela fecha quando quatro condições valem ao mesmo tempo **no
+`des`** e estão registradas na folha de aceite (`quickstart.md` §8). A folha
+existia desde 09/09 com todas as linhas em `⏳`.
+
+**Decisão.** As quatro condições foram medidas e a folha foi preenchida com a
+evidência — e, além disso, **virou `scripts/conferir_portao_t050.py`**, que refaz
+as quatro em cerca de um minuto e sai com código 0 só quando as quatro fecham.
+
+**Por que um script, e não só o texto.** Uma folha escrita à mão descreve o banco
+de um dia. No dia seguinte alguém roda o job, limpa a fila ou mexe numa rota, e o
+texto continua dizendo que está tudo certo — o pior tipo de registro, porque
+*parece* evidência. É a mesma lição que já custou caro neste projeto com listas
+escritas à mão (o painel que não perguntava ao banco quais schemas existem, os
+cadeados com a lista de telas no código).
+
+**Como ele prova, e o que ele não finge.** Sobe `api.main:app` em memória por
+`ASGITransport` — sem abrir porta, sem depender do Railway — com a `DATABASE_URL`
+apontando para o `des`. ⚠️ **Uma única coisa é substituída: a verificação do token
+do Firebase.** O `usuario_autenticado` continua indo ao banco resolver o dono pelo
+`co_identidade_externa`, que é justamente a ida que a condição (c) quer provar; o
+que se pula é a assinatura, que é do Firebase e não deste servidor.
+
+**Ele escreve no `des`, e não tem como não escrever.** A condição (c) exige que
+`POST /v1/desafios/{id}/resolucao` responda com dado vindo do banco, e essa rota
+grava. ⛔ **Só no `des`**: a URL é sempre `DATABASE_URL_DES`, lida do catálogo fora
+do Git, e o script confere os schemas `desafio`/`desafio_dia` antes de escrever.
+
+**Dois achados da primeira execução, que valem mais que o veredito.**
+
+1. ⛔ **`co_evento` é UUID, e não texto livre.** O script mandou
+   `portao-t050-<uuid>`; o evento caiu como `falha_processamento` — ⚠️ **com 200 na
+   resposta**, porque um evento não pode derrubar o lote —, e a evidência ficou em
+   `log.tb001_evento_sync_rejeitado`. ✅ A blindagem por SAVEPOINT funcionou
+   exatamente como está documentada em `ingerir_eventos`.
+2. ✅ **Três execuções deixaram UMA resolução.** A idempotência não é só por
+   `co_evento` dentro de uma execução: a resolução é única por
+   (`id_desafio_dia`, `id_usuario`), e as execuções seguintes devolveram a mesma
+   linha. É isso que impede o outbox de encher o quadro de duplicatas.
+
+**Alternativas consideradas.**
+
+- *Preencher a folha à mão e seguir.* Descartada pelo motivo acima.
+- *Subir um servidor de verdade e chamar por `curl`.* Custaria uma porta, um
+  processo e um token válido, e não provaria nada a mais: o `ASGITransport` entrega
+  a requisição ao **mesmo** app.
+- *Substituir `usuario_autenticado` por um objeto pronto.* Seria mais simples e
+  pularia a resolução no banco — a metade da condição (c) que importa.
+
+**Três correções de leitura minhas, registradas porque a lição é a mesma.** A
+primeira versão do conferidor cobrou campos que eu **supus** em vez de ler nos
+contratos: (a) os nomes da resposta não são os das colunas (`jogo` × `co_jogo`);
+(b) a régua dos mascotes **não** é campo do quadro, vem dentro de `linhas` como
+itens de `sujeito: "mascote"`; (c) e são **três** mascotes por desafio, não quatro,
+porque `regua.medir` pula o adversário do dia de propósito (RF-DES-204). ⚠️ Nos três
+casos o portão ficou vermelho **por a rota estar certa** — um portão assim ensina a
+ignorá-lo, que é o pior resultado possível.
+
+⛔ **E a calibração dos desafios nunca foi condição do portão.** A condição (b) pede
+a régua *gravada e conferindo*, não o conteúdo bom. Foi o dono quem cobrou a
+distinção: *"Se formos esperá-las ficar perfeito, nunca chegaremos nas próximas
+tarefas do projeto."* Pescaria, escada e remedição correm em paralelo.
+
+---
+
 ## 2026-09-16 — ⛔ O acervo do `damas_coroar` foi TROCADO, e não cortado
 
 **Contexto.** O dono olhou o desafio publicado de 17/09 e reprovou: *"Ele é
