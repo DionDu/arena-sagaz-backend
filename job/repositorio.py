@@ -69,6 +69,7 @@ from api.desafios.modelos_producao import (
     VW_TIPO_DESAFIO,
 )
 
+from . import compactar_fila as compactar_mod
 from .gravacao import SQL_PUBLICAR_O_DIA, LinhaDeDesafio
 from .regua import Medicao
 
@@ -234,6 +235,45 @@ SELECT dt_dia
   FROM {VW_DESAFIO_DIA}
  WHERE dt_dia BETWEEN :dt_inicio AND :dt_fim
  ORDER BY dt_dia
+"""
+
+#: A fila com a CURADORIA de cada dia — o insumo da compactacao (T049k).
+#:
+#: ⚠️ **`dias_publicados` nao serve para isto**, e a diferenca e o ponto: ele
+#: devolve so as datas, e a compactacao precisa saber **o tipo** (para nao encostar
+#: iguais) e **o estado da curadoria** (para nao mover um candidato nem tratar um
+#: descartado como dia cheio).
+SQL_FILA_COM_CURADORIA = f"""
+SELECT dia.dt_dia,
+       dia.id_desafio_dia,
+       d.co_tipo_desafio,
+       d.co_curadoria
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d ON d.id_desafio = dia.id_desafio
+ WHERE dia.dt_dia BETWEEN :dt_inicio AND :dt_fim
+ ORDER BY dia.dt_dia
+"""
+
+#: Move um desafio ja aprovado para outra data.
+#:
+#: ⛔ **E o UNICO `UPDATE` que o job faz em `desafio_dia`**, e ele so existe
+#: porque a curadoria abre buracos no meio da fila (ver `job/compactar_fila.py`).
+#:
+#: ⚠️ **`dh_encerramento` anda junto, e esquece-lo seria o defeito silencioso
+#: perfeito:** um desafio movido de D+5 para D+1 que mantivesse o encerramento de
+#: D+5 ficaria aberto por cinco dias, e nada na tela denunciaria — o quadro do dia
+#: seguinte simplesmente aceitaria resolucoes de um desafio que ja saiu.
+#:
+#: ⚠️ **`WHERE dt_dia > :dt_hoje` e a rede do banco**, e nao confia na do Python:
+#: dia que ja foi ao ar nao se reescreve, e a regra vale mesmo que alguem chame
+#: esta consulta de outro lugar amanha.
+SQL_MOVER_O_DIA = """
+UPDATE desafio_dia.tb001_desafio_dia
+   SET dt_dia          = :dt_para,
+       dh_encerramento = :dh_encerramento
+ WHERE id_desafio_dia  = :id_desafio_dia
+   AND dt_dia          > :dt_hoje
+RETURNING id_desafio_dia
 """
 
 #: Os tipos publicados recentemente naquele jogo — o insumo do rodizio.
@@ -433,6 +473,49 @@ class RepositorioDoJob:
             text(SQL_DIAS_PUBLICADOS), {"dt_inicio": dt_inicio, "dt_fim": dt_fim}
         )
         return [linha["dt_dia"] for linha in resultado.mappings().all()]
+
+    async def fila_com_curadoria(
+        self, *, dt_inicio: date, dt_fim: date
+    ) -> list["compactar_mod.LinhaDaFila"]:
+        """A fila da janela, com o tipo e a curadoria de cada dia.
+
+        ⚠️ Devolve ja no formato que `compactar_fila.remanejar` consome — a
+        traducao de `Row` para `LinhaDaFila` mora aqui, e nao no modulo puro, que
+        assim continua sem saber o que e um banco.
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_FILA_COM_CURADORIA), {"dt_inicio": dt_inicio, "dt_fim": dt_fim}
+        )
+        return [
+            compactar_mod.LinhaDaFila(
+                dt_dia=linha["dt_dia"],
+                id_desafio_dia=linha["id_desafio_dia"],
+                co_tipo_desafio=linha["co_tipo_desafio"],
+                co_curadoria=linha["co_curadoria"],
+            )
+            for linha in resultado.mappings().all()
+        ]
+
+    async def mover_o_dia(
+        self, *, id_desafio_dia: Any, dt_para: date, dt_hoje: date
+    ) -> bool:
+        """Move um desafio aprovado para outra data. Devolve se moveu.
+
+        ⚠️ **Devolve `False` em vez de estourar quando nada casa**, e o caso
+        normal disso e uma corrida: outra execucao ja moveu ou publicou aquele
+        dia. ⛔ Derrubar o job por causa de uma corrida que o banco ja resolveu
+        custaria a fila inteira daquela noite.
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_MOVER_O_DIA),
+            {
+                "id_desafio_dia": id_desafio_dia,
+                "dt_para": dt_para,
+                "dh_encerramento": encerramento_do_dia(dt_para),
+                "dt_hoje": dt_hoje,
+            },
+        )
+        return resultado.first() is not None
 
     async def tipos_recentes(
         self, *, co_jogo: str, dt_inicio: date, dt_fim: date

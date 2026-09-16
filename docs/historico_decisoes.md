@@ -5136,3 +5136,129 @@ bem, então a régua o aprova justamente por ele ser o menos exigente.
 não"*); RF-DES-204 reescreveu para *"a taxa dos três"* e **não diz média** — a
 média foi escolha do código. Voltar à escada é mudança pequena no mesmo lugar, e
 é decisão do dono, não minha.
+
+## 2026-09-16 (tarde) — ⛔ A ESCADA substitui a MÉDIA, e mais três decisões do dono
+
+O dono respondeu à avaliação do defeito do espelho com quatro determinações.
+Esta entrada registra as três que viraram código hoje; a quarta virou a **T092**.
+
+### 1. ⛔ A régua muda — e ele deu o perfil, não só a direção
+
+> *"Com relação a régua, se ela está impactando na dificuldade, mesmo tendo sido
+> uma decisão minha no passado, precisamos ajustá-la. Pouquíssimos ou quase
+> nenhum dos desafios serem resolvíveis pela Cacau, poucos pela Pita, uma
+> quantidade maior pelo Tex (talvez mais da metade) e quase sempre o Magno
+> resolve os desafios."*
+
+⚠️ **Isto não é "deixe mais difícil": é uma FORMA.** Quatro patamares, um por
+mascote, e a decisão passou a ser sobre a escada inteira em vez da média dela:
+
+    cacau  0,00 - 0,20    "quase nenhum"
+    pita   0,05 - 0,45    "poucos"
+    tex    0,45 - 0,85    "mais da metade"
+    magno  0,75 - 1,00    "quase sempre" — e é o piso de RESOLUBILIDADE
+
+⚠️ **As faixas se sobrepõem de propósito.** Com 20 execuções o passo é 0,05; um
+perfil de pontos exatos seria inalcançável, e um sem sobreposição obrigaria a
+escada a ser íngreme em todos os tipos, quando ela só precisa ser **crescente**.
+
+**A prova de que as duas régua discordam onde importa:** o `damas_sobreviver` de
+21/09 foi o **único** dos sete dias que caiu na banda (média 0,80) — e foi o que
+o dono mais reprovou. Pela escada ele erra os três degraus de uma vez. ⚠️ E a
+escada que ele descreveu tem média **0,37**, que a banda antiga recusaria como
+duríssima. ⛔ As duas não discordam na margem: discordam no meio.
+
+⚠️ **A média não foi apagada** — continua calculada, gravada e impressa. O que
+mudou é **quem decide**.
+
+⚠️ **E a escada é INJETÁVEL pelo `Alvo`**, o que nasceu de um defeito de desenho
+meu no mesmo dia: fixa no módulo, ela quebrou dois testes de encadeamento do job
+que nada tinham a ver com calibração — eles injetavam uma banda `[0,00 - 1,00]`
+para dizer *"aceite qualquer coisa"*, e a alavanca tinha sumido. ⛔ Critério que
+não se consegue injetar é critério que não se consegue testar.
+
+### 2. ✅ O job passa a rodar na máquina do dono
+
+> *"hoje ele roda agendado no Railway. Mas eventualmente eu posso 'economizar'
+> dinheiro e rodá-los na minha máquina. (...) eu deixo minha máquina ligada
+> rodando os desafios dos próximos 14 dias, por exemplo."*
+
+✅ **O job não precisou mudar para isso** — ele já é um processo que lê
+`DATABASE_URL`, faz o trabalho e morre. Faltavam duas coisas:
+
+- **`DESAFIO_DIAS_A_COBRIR`** (variável de ambiente), que estica a fila além dos
+  7 dias padrão. ⛔ **Variável, e não argumento de linha de comando**, porque o
+  `CMD` do `Dockerfile.job` é `["python", "-m", "job"]` e não passa argumento
+  nenhum — um `sys.argv` daria duas formas de configurar a mesma coisa, e a do
+  Railway ficaria sendo a que ninguém testa. ⚠️ Valor inválido **avisa e segue com
+  o padrão**: um job que não roda por causa de um `"14 "` com espaço deixaria o
+  dia descoberto, que é o único defeito deste job que a pessoa vê na tela.
+- **`scripts/rodar_job_local.py`**, que escolhe o banco pelo nome e prepara o
+  ambiente.
+
+⛔ **E aqui não há o que travar: o job existe para GRAVAR.** Ao contrário dos
+scripts de consulta, a defesa é outra — o ambiente é explícito (`des` por padrão)
+e produção exige `--confirmo-escrita-em-producao`, uma flag longa e feia de
+propósito: quem a digita não a digitou por engano, e ela fica no histórico do
+shell para quem for investigar depois.
+
+⚠️ **E mesmo no `prd` o estrago possível é pequeno, por desenho:** tudo o que o
+job grava nasce `candidato` (RF-DES-012a), e nada vai ao ar sem a curadoria.
+
+### 3. ✅ A fila se COMPACTA: o aprovado distante desce para o buraco perto (T049k)
+
+> *"Se eu rejeitar o desafio de amanhã e depois de amanhã, nenhum outro desafio
+> já aprovado passa a ocupar o 'buraco' que ficou. Seria interessante que os
+> desafios aprovados preenchessem buracos das datas mais recentes mantendo a
+> variabilidade, sem repetir desafios muito semelhantes em dias consecutivos."*
+
+⚠️ **O job JÁ regenerava o buraco** — a execução de 16/09 gerou exatamente os dias
+17 e 21, que eram os descartados. ⛔ **Mas ele acorda uma vez por dia.** Uma
+reprovação às dez da noite deixa o dia seguinte vazio, com um aprovado parado em
+D+5 que resolveria agora.
+
+⚠️ **E compactar é mais barato que gerar:** um dia gerado custa minutos de Railway
+(1.024 s num único `damas_sobreviver`, medido hoje); mover uma linha custa um
+`UPDATE`.
+
+As regras, todas em `job/compactar_fila.py`, que **não conhece banco**:
+
+- ⛔ **só o `aprovado` desce** — um candidato pode ser reprovado amanhã, e
+  adiantá-lo só adianta o problema;
+- ⚠️ **dia com candidato não é buraco** — ele tem conteúdo esperando decisão;
+- ⛔ **nunca move para a frente**, e ⛔ **nunca toca no passado** (desafio
+  publicado é imutável, e reescrever a data de um dia vivido apagaria a história
+  de quem o resolveu);
+- ⚠️ **o doador é o mais DISTANTE**, e não o vizinho: as duas escolhas preenchem o
+  buraco, e a diferença é **onde fica o buraco novo**. Puxando do fim da fila ele
+  sobra no dia menos urgente que existe;
+- ⚠️ **"semelhante" é o mesmo TIPO**, não o mesmo jogo: com dois jogos no ar,
+  proibir jogos iguais em dias consecutivos tornaria quase toda compactação
+  impossível;
+- ⚠️ **a vizinhança é recalculada a cada movimento** — sem isso, duas mudanças na
+  mesma execução poderiam encostar dois `damas_coroar`.
+
+⛔ **E ela roda ANTES de ler os dias publicados.** A ordem é o ponto: a compactação
+muda quais dias estão cobertos, e ler antes faria o job gerar para um dia que ele
+mesmo acabou de preencher.
+
+⚠️ **`dh_encerramento` anda junto com `dt_dia`**, e esquecê-lo seria o defeito
+silencioso perfeito: um desafio movido de D+5 para D+1 que mantivesse o
+encerramento de D+5 ficaria aberto por cinco dias, e nada na tela denunciaria.
+
+### ⚠️ O defeito que o fake de SQL escondia
+
+A consulta nova da fila trouxe uma segunda ocorrência de `co_tipo_desafio`, e um
+teste que preparava esse trecho no dublê de sessão passou a **responder a
+pergunta errada** — o job estourou com `KeyError: 'dt_dia'`. ⛔ Casar por trecho
+curto é ambíguo, e a correção foi tornar o trecho inequívoco
+(`SELECT t.co_tipo_desafio`, com o alias). ⚠️ Fica o aviso para quem acrescentar
+consulta: **trecho genérico no dublê é uma armadilha que só dispara meses
+depois**.
+
+### ⏳ A quarta decisão virou tarefa
+
+A bancada de desafios no painel (montar a posição à mão, simular e aprovar na
+hora) foi registrada como **T092**, explicitamente para **depois do frontend**.
+⚠️ Ela é o único juiz que mede a coisa certa — a régua mede cumprimento
+**acidental**, e o dono lê o enunciado.

@@ -66,6 +66,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from . import alvo_observado as alvo_mod
 from . import auditoria as auditoria_mod
+from . import compactar_fila as compactar_mod
 from . import editorial as editorial_mod
 from . import estado_terminal as terminal_mod
 from . import expirar_partidas as expiracao_mod
@@ -126,6 +127,54 @@ CANDIDATOS_POR_DIA = 3
 #: jogando, e uma media de um ano atras descreveria outra base de jogadores.
 JANELA_DA_TAXA_OBSERVADA_EM_DIAS = 30
 
+#: A variavel de ambiente que estica a fila numa execucao avulsa.
+#:
+#: ⚠️ **Existe para o dono rodar o job na maquina dele** (16/09/2026): *"eventualmente
+#: eu posso economizar dinheiro e roda-los na minha maquina. (...) eu deixo minha
+#: maquina ligada rodando os desafios dos proximos 14 dias, por exemplo"*.
+#:
+#: ⛔ **Variavel de ambiente, e nao argumento de linha de comando**, porque o
+#: `CMD` do `Dockerfile.job` e `["python", "-m", "job"]` e nao passa argumento
+#: nenhum. Um `sys.argv` daria duas formas de configurar a mesma coisa, e a do
+#: Railway ficaria sendo a que ninguem testa.
+#:
+#: ⚠️ Ausente ou invalida, vale `gravacao.DIAS_MINIMOS` — que e o que o cron faz
+#: hoje e continua fazendo.
+ENV_DIAS_A_COBRIR = "DESAFIO_DIAS_A_COBRIR"
+
+
+def dias_a_cobrir_configurados() -> Optional[int]:
+    """Quantos dias esta execucao deve cobrir, se alguem pediu por ambiente.
+
+    Returns:
+        O numero pedido, ou `None` para usar a folga padrao.
+
+    ⚠️ **Valor invalido nao derruba o job: avisa e segue com o padrao.** Um job
+    que nao roda por causa de um "14 " com espaco deixaria o dia descoberto, que e
+    o unico defeito deste job que a pessoa ve na tela — e o estrago do valor
+    ignorado e uma fila mais curta, que a proxima execucao completa.
+    """
+    bruto = os.environ.get(ENV_DIAS_A_COBRIR, "").strip()
+    if not bruto:
+        return None
+    try:
+        quantos = int(bruto)
+    except ValueError:
+        print(
+            f"⚠️ [job] {ENV_DIAS_A_COBRIR}={bruto!r} nao e um numero — usando a "
+            "folga padrao.",
+            file=sys.stderr,
+        )
+        return None
+    if quantos < 1 or quantos > gravacao_mod.DIAS_MAXIMOS:
+        print(
+            f"⚠️ [job] {ENV_DIAS_A_COBRIR}={quantos} fora de 1.."
+            f"{gravacao_mod.DIAS_MAXIMOS} — usando a folga padrao.",
+            file=sys.stderr,
+        )
+        return None
+    return quantos
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # O relatorio da execucao
@@ -164,6 +213,14 @@ class Relatorio:
     ja_publicados: int = 0
     gerados: int = 0
     reprisados: int = 0
+
+    #: Os desafios ja aprovados que DESCERAM para um buraco (T049k).
+    #:
+    #: ⚠️ **Cada linha aqui e uma geracao que nao precisou acontecer**, e por
+    #: isso ela e informacao de custo, e nao so de operacao: um dia gerado custa
+    #: minutos de Railway (1.024 s num unico `damas_sobreviver`, em 16/09/2026) e
+    #: uma compactacao custa um `UPDATE`.
+    remanejados: list[str] = field(default_factory=list)
     descartados: list[str] = field(default_factory=list)
     fora_da_banda: list[str] = field(default_factory=list)
     #: Candidatos recusados por **ja terem sido publicados** (T049i).
@@ -235,7 +292,8 @@ class Relatorio:
             f"[job] expiracao: {self.partidas_expiradas} partida(s) fechada(s)",
             f"[job] fila: {self.dias_no_plano} dia(s) no plano, "
             f"{self.ja_publicados} ja publicado(s), {self.gerados} gerado(s), "
-            f"{self.reprisados} reprisado(s)",
+            f"{self.reprisados} reprisado(s), "
+            f"{len(self.remanejados)} remanejado(s)",
             f"[job] auditoria: {self.auditoria}",
         ]
         # ⚠️ **O total vem primeiro e o detalhe depois**: quem le o painel do
@@ -246,6 +304,11 @@ class Relatorio:
                 f"{dia} {seg:.0f}s" for dia, seg in sorted(self.segundos_por_dia.items())
             )
             linhas.append(f"[job] tempo: {total:.0f}s em {len(self.segundos_por_dia)} dia(s) — {detalhe}")
+        if self.remanejados:
+            # ⚠️ **Nomeia o que andou, e nao so quantos.** Uma linha "2
+            # remanejados" nao permite conferir nada depois; com o tipo e as duas
+            # datas, o dono confere a fila no painel sem abrir o banco.
+            linhas.append(f"[job] remanejados: {self.remanejados}")
         if self.descartados:
             linhas.append(f"[job] descartes: {self.descartados}")
         if self.motores_orfaos:
@@ -645,6 +708,55 @@ async def _tentar_reprisar(
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+async def _compactar_a_fila(
+    repositorio: RepositorioDoJob,
+    *,
+    dias: Sequence[date],
+    dt_hoje: date,
+    relatorio: "Relatorio",
+) -> None:
+    """Puxa os desafios ja aprovados para os buracos mais proximos (T049k).
+
+    ⚠️ **Nasceu de um relato do dono**, em 16/09/2026: *"Se eu rejeitar o
+    desafio de amanha e depois de amanha, nenhum outro desafio ja aprovado passa a
+    ocupar o 'buraco' que ficou."*
+
+    ⚠️ **O job ja regenerava o buraco** — mas so na execucao seguinte, de
+    madrugada. Uma reprovacao as dez da noite deixava o dia seguinte vazio, com um
+    desafio **ja aprovado** parado em D+5.
+
+    ⛔ **A decisao mora em `job/compactar_fila.py`, que nao conhece banco.** Aqui
+    so se le, se chama e se grava — e e por isso que as regras (nao mover
+    candidato, nao mover para a frente, nao encostar tipos iguais) tem teste sem
+    nenhuma conexao aberta.
+    """
+    if not dias:
+        return
+    fila = await repositorio.fila_com_curadoria(dt_inicio=dias[0], dt_fim=dias[-1])
+    mudancas = compactar_mod.remanejar(fila, dias_do_plano=dias, dt_hoje=dt_hoje)
+    if not mudancas:
+        return
+
+    for mudanca in mudancas:
+        moveu = await repositorio.mover_o_dia(
+            id_desafio_dia=mudanca.id_desafio_dia,
+            dt_para=mudanca.dt_para,
+            dt_hoje=dt_hoje,
+        )
+        if moveu:
+            relatorio.remanejados.append(str(mudanca))
+        else:
+            # ⚠️ Corrida: outra execucao ja mexeu naquele dia. O banco resolveu,
+            # e o proximo passo (gerar) cobre o que sobrou.
+            print(
+                f"⚠️ [job] nao deu para mover {mudanca} — outra execucao chegou "
+                "antes. Segue para a geracao.",
+                file=sys.stderr,
+            )
+    if relatorio.remanejados:
+        print(f"[job] fila compactada: {compactar_mod.resumo(mudancas)}")
+
+
 async def executar(
     sessao: Any,
     *,
@@ -708,7 +820,23 @@ async def executar(
     relatorio.motores_orfaos = await repositorio.motores_orfaos()
 
     # ── 3. Que dias cobrir ──────────────────────────────────────────────────
-    dias = gravacao_mod.dias_a_cobrir(dt_hoje=dt_hoje)
+    # ⚠️ A fila pode ser esticada por ambiente, para uma execucao avulsa na
+    # maquina do dono (ver `ENV_DIAS_A_COBRIR`). Sem a variavel, nada muda.
+    quantos_dias = dias_a_cobrir_configurados()
+    dias = gravacao_mod.dias_a_cobrir(
+        dt_hoje=dt_hoje,
+        **({"dias_minimos": quantos_dias} if quantos_dias is not None else {}),
+    )
+    if quantos_dias is not None:
+        print(f"[job] fila esticada por {ENV_DIAS_A_COBRIR}: {quantos_dias} dia(s)")
+    # ⛔ **COMPACTAR VEM ANTES DE LER OS DIAS PUBLICADOS** (T049k), e a ordem e
+    # o ponto: a compactacao muda quais dias estao cobertos, e ler antes faria o
+    # job gerar para um dia que ele mesmo acabou de preencher — pagando minutos
+    # de Railway por um desafio que seria descartado na gravacao.
+    await _compactar_a_fila(
+        repositorio, dias=dias, dt_hoje=dt_hoje, relatorio=relatorio
+    )
+
     publicados = await repositorio.dias_publicados(
         dt_inicio=dias[0], dt_fim=dias[-1]
     )

@@ -591,7 +591,19 @@ async def test_a_lista_de_RECENTES_e_lida_uma_vez_e_usada_nas_DUAS_escolhas() ->
             "INSERT INTO desafio_dia.tb001_desafio_dia": [{"id_desafio_dia": "dd"}],
             # A leitura do rodizio devolve algo, para o teste nao passar com
             # duas listas vazias — que seriam iguais por acidente.
-            "co_tipo_desafio": [{"co_tipo_desafio": "pontinhos_fechar_caixas"}],
+            #
+            # ⛔ **O trecho tem de ser INEQUIVOCO, e este ja foi generico
+            # demais.** Ate 16/09/2026 aqui estava so `"co_tipo_desafio"`, e no
+            # dia em que a compactacao da fila (T049k) trouxe uma segunda
+            # consulta com essa coluna, o duble passou a responder a pergunta
+            # errada — a fila veio com a forma dos tipos recentes, e o job
+            # estourou com `KeyError: 'dt_dia'`.
+            #
+            # ⚠️ `SELECT t.co_tipo_desafio` (com o alias da tabela) so existe em
+            # `SQL_TIPOS_RECENTES`.
+            "SELECT t.co_tipo_desafio": [
+                {"co_tipo_desafio": "pontinhos_fechar_caixas"}
+            ],
         }
     )
     await _rodar(sessao, gerar=gerar_espiao)
@@ -1237,3 +1249,145 @@ def test_o_processo_encerra_com_os_exit_e_NAO_com_sys_exit() -> None:
     assert "sys.stdout.flush()" in corpo and "sys.stderr.flush()" in corpo, (
         "`os._exit` sem `flush` antes: o resumo da execucao nao chega ao log."
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔒 A COMPACTAÇÃO DA FILA (T049k) — o aprovado longe desce para o buraco perto
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# > *"Se eu rejeitar o desafio de amanhã e depois de amanhã, nenhum outro desafio
+# > já aprovado passa a ocupar o 'buraco' que ficou."* — o dono, 16/09/2026
+#
+# ⚠️ As **regras** (não mover candidato, não mover para a frente, não encostar
+# tipos iguais) têm teste próprio e sem banco em `test_compactar_fila.py`. ⛔ O que
+# se prova aqui é outra coisa: que o job **chama**, **grava** e o faz **antes** de
+# decidir o que gerar.
+
+#: O trecho que identifica a consulta da fila. ⚠️ Inequívoco de propósito — ver o
+#: comentário de `SELECT t.co_tipo_desafio`, acima.
+TRECHO_DA_FILA = "SELECT dia.dt_dia,"
+
+#: O trecho do `UPDATE` que move um dia.
+TRECHO_DO_MOVIMENTO = "UPDATE desafio_dia.tb001_desafio_dia"
+
+
+def _sessao_com_fila(linhas: list[dict[str, Any]]) -> FakeSessaoSQL:
+    """Uma sessão feliz cuja consulta de fila devolve `linhas`."""
+    sessao = _sessao_feliz()
+    sessao.respostas[TRECHO_DA_FILA] = linhas
+    sessao.respostas[TRECHO_DO_MOVIMENTO] = [{"id_desafio_dia": "movido"}]
+    return sessao
+
+
+@pytest.mark.asyncio
+async def test_o_job_MOVE_o_aprovado_distante_para_o_buraco() -> None:
+    """🔒 O caso do dono, ponta a ponta: amanhã vazio, D+5 aprovado."""
+    hoje = date(2026, 9, 20)
+    sessao = _sessao_com_fila(
+        [
+            {
+                "dt_dia": hoje,
+                "id_desafio_dia": "hoje",
+                "co_tipo_desafio": "pontinhos_paciencia",
+                "co_curadoria": "aprovado",
+            },
+            # ⛔ amanhã não está aqui: é o buraco
+            {
+                "dt_dia": hoje + timedelta(days=5),
+                "id_desafio_dia": "longe",
+                "co_tipo_desafio": "damas_sacrificio",
+                "co_curadoria": "aprovado",
+            },
+        ]
+    )
+    relatorio = await _rodar(sessao, dt_hoje=hoje)
+
+    movimentos = [
+        parametros
+        for texto, parametros in sessao.executadas
+        if TRECHO_DO_MOVIMENTO in texto
+    ]
+    assert len(movimentos) == 1, "o job não moveu o desafio aprovado"
+    assert movimentos[0]["id_desafio_dia"] == "longe"
+    assert movimentos[0]["dt_para"] == hoje + timedelta(days=1)
+    assert relatorio.remanejados, "o remanejamento não entrou no relatório"
+
+
+@pytest.mark.asyncio
+async def test_a_compactacao_vem_ANTES_de_ler_os_dias_publicados() -> None:
+    """🔒 ⛔ A ordem, e ela é o ponto.
+
+    ⚠️ A compactação muda quais dias estão cobertos. Ler os publicados antes faria
+    o job gerar para um dia que ele mesmo acabou de preencher — pagando minutos de
+    Railway por um candidato que a gravação descartaria no `un001_dia`.
+    """
+    hoje = date(2026, 9, 20)
+    sessao = _sessao_com_fila(
+        [
+            {
+                "dt_dia": hoje + timedelta(days=4),
+                "id_desafio_dia": "longe",
+                "co_tipo_desafio": "damas_sacrificio",
+                "co_curadoria": "aprovado",
+            }
+        ]
+    )
+    await _rodar(sessao, dt_hoje=hoje)
+
+    ordem = [texto for texto, _ in sessao.executadas]
+    posicao_movimento = next(
+        i for i, texto in enumerate(ordem) if TRECHO_DO_MOVIMENTO in texto
+    )
+    posicao_publicados = next(
+        i for i, texto in enumerate(ordem) if "SELECT dt_dia\n  FROM" in texto
+    )
+    assert posicao_movimento < posicao_publicados
+
+
+@pytest.mark.asyncio
+async def test_fila_CHEIA_nao_gera_UPDATE_nenhum() -> None:
+    """🔒 Sem buraco, nenhuma escrita — o caso comum, e ele tem de ser barato."""
+    hoje = date(2026, 9, 20)
+    sessao = _sessao_com_fila(
+        [
+            {
+                "dt_dia": hoje + timedelta(days=n),
+                "id_desafio_dia": f"d{n}",
+                "co_tipo_desafio": f"tipo_{n}",
+                "co_curadoria": "aprovado",
+            }
+            for n in range(7)
+        ]
+    )
+    relatorio = await _rodar(sessao, dt_hoje=hoje)
+
+    assert not sessao.sql_executado(TRECHO_DO_MOVIMENTO)
+    assert relatorio.remanejados == []
+
+
+@pytest.mark.asyncio
+async def test_a_CORRIDA_no_movimento_nao_derruba_o_job() -> None:
+    """🔒 ⛔ Outra execução chegou antes: o job avisa e segue para a geração.
+
+    ⚠️ O `UPDATE` tem `WHERE dt_dia > :dt_hoje` e devolve zero linhas quando
+    alguém já mexeu naquele dia. Derrubar o job por uma corrida que o banco já
+    resolveu custaria a fila inteira daquela noite.
+    """
+    hoje = date(2026, 9, 20)
+    sessao = _sessao_com_fila(
+        [
+            {
+                "dt_dia": hoje + timedelta(days=5),
+                "id_desafio_dia": "longe",
+                "co_tipo_desafio": "damas_sacrificio",
+                "co_curadoria": "aprovado",
+            }
+        ]
+    )
+    # ⚠️ O `UPDATE` não casa nada — é a corrida.
+    sessao.respostas[TRECHO_DO_MOVIMENTO] = []
+
+    relatorio = await _rodar(sessao, dt_hoje=hoje)
+
+    assert relatorio.remanejados == []
+    assert relatorio.gerados > 0, "o job parou em vez de seguir para a geração"
