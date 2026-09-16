@@ -477,6 +477,25 @@ def _dias_do_jogo(co_jogo: str, quantos: int) -> list[date]:
     return dias
 
 
+def quanto_falta(segundos: float) -> str:
+    """Uma duracao em texto curto: `45s`, `7m`, `1h20m`.
+
+    ⚠️ **Existe porque o dono nao tinha como planejar a janela dele.** Ate
+    16/09/2026 este script so imprimia o tempo **depois** de cada variante
+    terminar: quem rodava a medicao de damas ficava duas horas sem saber se
+    faltavam dez minutos ou uma hora, e a unica saida era esperar ou matar o
+    processo. ⛔ Processo longo sem previsao e processo que ninguem consegue
+    encaixar no dia.
+    """
+    segundos = max(0.0, segundos)
+    if segundos < 90:
+        return f"{segundos:.0f}s"
+    minutos = segundos / 60
+    if minutos < 90:
+        return f"{minutos:.0f}m"
+    return f"{int(minutos // 60)}h{int(minutos % 60):02d}m"
+
+
 def _como_ler(dia_mais_fraco: int) -> tuple[str, str]:
     """Traduz o numero do dia mais fraco em algo que se le sem decorar.
 
@@ -529,7 +548,7 @@ def so_as_de_botao_proprio(candidatas: Sequence["Candidata"]) -> list["Candidata
 
 def medir(
     co_tipo: str, variantes: Sequence["Candidata"], *, com_regua: bool = False
-) -> None:
+) -> float:
     """Mede cada variante de um tipo e imprime o resultado, linha a linha.
 
     Args:
@@ -540,7 +559,10 @@ def medir(
             `BANDEIRA_COM_REGUA`.
     """
     if not variantes:
-        return
+        return 0.0
+
+    # ⚠️ Devolvido para a previsao da rodada inteira, em `principal`.
+    comeco_do_tipo = time.time()
 
     # ⚠️ **Tipo em avaliacao nao tem editorial, e nao poderia ter:** o editorial
     # diz com que numeros o tipo VAI AO AR, e este ainda nao vai. Os botoes dele
@@ -575,7 +597,7 @@ def medir(
     )
     print("═" * 75)
 
-    for candidata in variantes:
+    for nu_candidata, candidata in enumerate(variantes, start=1):
         parametros = candidata.parametros
         # ⚠️ `None` herda o botao da publicacao no ar — que e o certo para toda
         # candidata que so troca um numero da mesma tarefa.
@@ -592,7 +614,16 @@ def medir(
         lances_da_solucao: list[int] = []
         linhas_da_regua: list[str] = []
         inicio = time.time()
-        for dia in dias:
+        # ⚠️ **A previsao sai do que JA foi medido nesta variante**, e nao de um
+        # numero escrito aqui: o custo por dia varia com o acervo (o do
+        # `damas_coroar` sextuplicou na troca de 16/09/2026), entao qualquer
+        # estimativa fixa envelheceria calada.
+        print(
+            f"  ⏳ candidata {nu_candidata}/{len(variantes)} {parametros} — "
+            f"{len(dias)} dias, medindo...",
+            flush=True,
+        )
+        for nu_dia, dia in enumerate(dias, start=1):
             candidatos = gerador_mod.gerar_candidatos(
                 dia,
                 parametros=parametros,
@@ -617,6 +648,17 @@ def medir(
                 linhas_da_regua.append(
                     _linha_da_regua(candidatos, teto=teto, dia=dia.isoformat())
                 )
+
+            # ⚠️ `flush=True` **nao e enfeite no Windows**: sem ele a linha fica
+            # no buffer e a previsao so apareceria no fim — que e exatamente o
+            # problema que ela veio resolver.
+            gasto = time.time() - inicio
+            faltam = gasto / nu_dia * (len(dias) - nu_dia)
+            print(
+                f"     dia {nu_dia}/{len(dias)} ({dia}) — {quanto_falta(gasto)} "
+                f"gastos · faltam ~{quanto_falta(faltam)} nesta candidata",
+                flush=True,
+            )
 
         dia_mais_fraco = min(por_dia)
         media_da_solucao = (
@@ -646,6 +688,9 @@ def medir(
         # motivo pelo qual o dia mais fraco manda sobre a media de candidatos.
         for linha in linhas_da_regua:
             print(linha)
+
+    # ⚠️ Devolvido para a previsao da rodada inteira, em `principal`.
+    return time.time() - comeco_do_tipo
 
 
 #: O alvo que mede **o que esta publicado**, e nao uma lista escrita a mao.
@@ -920,6 +965,11 @@ def principal(argumentos: Sequence[str]) -> int:
     inicio = time.time()
     medidas = 0
     tabela = {**A_MEDIR, **EM_AVALIACAO}
+
+    # ⛔ **As candidatas sao escolhidas ANTES de medir, e nao durante.** Sem isto
+    # nao ha denominador, e sem denominador nao ha previsao: o dono so saberia o
+    # tamanho da rodada quando ela acabasse (16/09/2026).
+    por_tipo: list[tuple[str, tuple]] = []
     for co_tipo in tipos:
         # ⛔ No alvo `no-ar` as candidatas **nao saem da tabela**: saem do
         # editorial, com os botoes de cada publicacao (ver `ALVO_NO_AR`).
@@ -930,8 +980,38 @@ def principal(argumentos: Sequence[str]) -> int:
         )
         if so_botao_proprio:
             candidatas = tuple(so_as_de_botao_proprio(candidatas))
+        por_tipo.append((co_tipo, tuple(candidatas)))
+
+    total_de_candidatas = sum(len(c) for _, c in por_tipo)
+    if total_de_candidatas:
+        print()
+        print(
+            f"⏳ {total_de_candidatas} candidata(s) em {len(por_tipo)} tipo(s), "
+            f"{DIAS_MEDIDOS} dias cada"
+            + (" · com regua (mais caro)" if com_regua else "")
+        )
+        # ⛔ **Nenhuma previsao de tempo antes da primeira medida.** O custo por
+        # candidata varia de segundos a mais de dez minutos conforme o acervo, e
+        # um numero inventado aqui seria pior que a ausencia dele: o dono
+        # planejaria a janela em cima de um chute.
+        print("   ⚠️ a previsao aparece depois da primeira candidata medida")
+
+    ja_medidas = 0
+    for co_tipo, candidatas in por_tipo:
         medidas += len(candidatas)
         medir(co_tipo, candidatas, com_regua=com_regua)
+        ja_medidas += len(candidatas)
+
+        se_faltam = total_de_candidatas - ja_medidas
+        if se_faltam:
+            gasto = time.time() - inicio
+            print()
+            print(
+                f"⏳ {ja_medidas}/{total_de_candidatas} candidatas · "
+                f"{quanto_falta(gasto)} gastos · faltam "
+                f"~{quanto_falta(gasto / ja_medidas * se_faltam)}",
+                flush=True,
+            )
 
     # ⛔ Zero linhas com a bandeira ligada nao e "tudo certo": e a bandeira
     # aplicada a um alvo que nao tem nenhuma candidata de botao proprio, e sem
