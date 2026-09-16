@@ -59,6 +59,12 @@ _COLUNAS = """
        d.js_objetivo,
        d.co_personagem,
        d.nu_semente,
+       -- ⚠️ A REGUA DE TEMPO. Sem os dois, o aplicativo nao tem contra o que
+       -- medir "rapido": a parcela `q_tempo` do XP e
+       -- `(teto - t) / (teto - piso)`, e um desafio de 3 lances e um de 12
+       -- pagariam a mesma pressa. Saem da medicao (T037), por desafio.
+       d.nu_tempo_piso_ms,
+       d.nu_tempo_teto_ms,
        d.co_versao_minima,
        d.co_versao_perfil,
        d.nu_teto_log,

@@ -8,6 +8,10 @@ O que estes casos protegem:
     consultas, para que uma consulta nova nao nasca sem a clausula;
   · **os dois instantes chegam juntos** (RF-DES-008), e sao o mesmo `agora` para
     a resposta inteira;
+  · ⚠️ **a regua de tempo viaja** (RF-DES-223) — `tempo_piso_ms`/`tempo_teto_ms`
+    entraram em 16/09/2026, e sem eles a parcela `q_tempo` do XP nao fecha no
+    aparelho; ⛔ **sem valor padrao**, porque um padrao plausivel pagaria XP
+    errado em silencio;
   · **a ordem das rotas**: `/{id}` casa com qualquer coisa e teria engolido
     `/hoje` e `/proximos` se viesse antes;
   · **"nao ha desafio hoje" e 404 com codigo**, e nao 200 com corpo vazio.
@@ -90,6 +94,12 @@ def _linha(
         "co_versao_minima": "1.3.0",
         "co_versao_perfil": "perfil-2026-09",
         "nu_teto_log": 120,
+        # ⚠️ De proposito **nao** sao os 30 s / 180 s do exemplo do
+        # `data-model.md`: sao esses dois numeros que alguem escreveria a mao se
+        # resolvesse "arbitrar uma regua padrao", e um teste que os usasse
+        # passaria igual com o valor inventado. Aqui, nao passa.
+        "nu_tempo_piso_ms": 12_000,
+        "nu_tempo_teto_ms": 95_000,
         "ic_reprise": ic_reprise,
     }
 
@@ -281,6 +291,52 @@ def test_a_semente_viaja_porque_o_adversario_e_o_MESMO_para_todos():
 def test_a_reprise_vem_marcada():
     """O rotulo que diz que o dia e uma repeticao (RF-DES-029)."""
     assert para_resposta(_linha(ic_reprise=True), agora=AGORA).reprise is True
+
+
+def test_a_REGUA_DE_TEMPO_viaja_com_o_desafio():
+    """⚠️ Sem ela, "rapido" nao tem contra o que ser medido (RF-DES-223).
+
+    A parcela `q_tempo` de `Q` e `(teto - t) / (teto - piso)`, e ela **fecha no
+    aparelho**: SC-002 exige veredito e XP sem rede no caminho critico. Este
+    caso existe porque a ausencia dos dois campos **nao dava erro nenhum** — ela
+    foi achada em 16/09/2026, lendo o contrato ao escrever o modelo do
+    aplicativo, e nao por uma falha.
+
+    ⛔ Os valores conferidos sao os da linha, e nao um par plausivel: um padrao
+    arbitrado no servidor pagaria XP errado **em silencio**.
+    """
+    resposta = para_resposta(_linha(), agora=AGORA)
+
+    assert resposta.tempo_piso_ms == 12_000
+    assert resposta.tempo_teto_ms == 95_000
+
+
+def test_a_regua_e_OBRIGATORIA_e_a_falta_estoura_aqui(cliente):
+    """⛔ **Nao ha valor padrao**, e e isso que este caso tranca.
+
+    Um `= 30_000` no modelo faria uma consulta que esquecesse a coluna devolver
+    uma resposta **plausivel e errada** — o aplicativo dividiria por uma regua
+    que nao e a do desafio, e ninguem veria diferenca ate o XP sair torto. Sem
+    padrao, a falta e um erro alto, na hora, em teste.
+    """
+    linha = _linha()
+    del linha["nu_tempo_piso_ms"]
+    app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(hoje=linha)
+
+    with pytest.raises(KeyError):
+        cliente.get("/v1/desafios/hoje")
+
+
+def test_as_tres_consultas_publicas_trazem_a_regua():
+    """⚠️ O cadeado que le o **texto** do SQL, como o da curadoria.
+
+    `para_resposta` le `nu_tempo_piso_ms` da linha; quem poe a coluna na linha e
+    a consulta. Uma quarta rota que nascesse sem as duas colunas so falharia no
+    dia em que fosse chamada — e falharia com `KeyError`, longe da causa.
+    """
+    for nome, sql in repo_desafio.CONSULTAS_PUBLICAS.items():
+        assert "nu_tempo_piso_ms" in sql, f"{nome} nao traz o piso da regua"
+        assert "nu_tempo_teto_ms" in sql, f"{nome} nao traz o teto da regua"
 
 
 def test_a_colecao_vem_na_resposta():

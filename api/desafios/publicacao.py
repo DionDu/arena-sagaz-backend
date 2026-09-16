@@ -90,6 +90,11 @@ def para_resposta(
         versao_minima_app=linha["co_versao_minima"],
         versao_perfil=linha["co_versao_perfil"],
         teto_log_meios_lances=linha["nu_teto_log"],
+        # ⚠️ A regua de tempo vai **crua, em ms**, do jeito que a medicao a
+        # gravou: e o aplicativo quem divide, e converter aqui para segundos
+        # obrigaria os dois lados a concordarem sobre o arredondamento.
+        tempo_piso_ms=linha["nu_tempo_piso_ms"],
+        tempo_teto_ms=linha["nu_tempo_teto_ms"],
         encerra_em=linha["dh_encerramento"],
         agora_no_servidor=agora,
         reprise=linha["ic_reprise"],

@@ -21,6 +21,58 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-16 (noite) — ⛔ A RÉGUA DE TEMPO não era publicada: o conserto aditivo
+
+**Contexto.** Ao escrever `lib/core/desafios/desafio.dart` no app (T051 da fase
+3), o modelo foi montado lendo o contrato `desafio-publicado.md` campo a campo -
+e faltou um. A parcela `q_tempo` de `Q` é `(teto − t) / (teto − piso)`, cortada
+em [0, 1] (`data-model.md`), e ela **fecha no aparelho**: a SC-002 exige veredito
+e XP sem rede no caminho crítico. O piso e o teto existem em `tb001_desafio`
+desde a migração `0018`, `vw001_desafio` os expõe, `mascotes.py` e `quadro.py` os
+consomem - **e nenhum dos dois entrava em `DesafioPublicado`**.
+
+⚠️ **O buraco não aparecia em lugar nenhum.** Nada falhava: o contrato descrevia
+a resposta como ela era, os testes conferiam o que o contrato dizia, e a primeira
+notícia só chegaria com o XP do primeiro desafio saindo torto - e torto de um
+jeito plausível, que ninguém liga a uma causa.
+
+**Decisão.** Publicar `tempo_piso_ms` e `tempo_teto_ms` na resposta, crus, em
+milissegundos. São três lugares: as duas colunas nas consultas de
+`api/desafios/repositorio.py`, os dois campos em `modelos_resposta.py` e a
+passagem em `publicacao.py`. ⚠️ **Nenhuma migração**: a VIEW já os entregava.
+
+**Aditivo, e por isso seguro.** Campo só se acrescenta (diretriz de
+versionamento): um app já publicado continua lendo a mesma resposta e apenas
+ignora os dois novos - que é exatamente o que ele fazia antes.
+
+**Por que sem valor padrão.** A tentação era `tempo_piso_ms: int = 30_000`, os
+números do exemplo do `data-model.md`. ⛔ Um padrão transforma a consulta que
+esquece a coluna numa resposta **plausível e errada** - a mutação foi feita e o
+servidor respondeu `200` com a régua inventada, e só dois casos de teste
+acusaram. Sem padrão, a falta estoura como `KeyError`, na hora, em teste. É o
+mesmo desenho de `RegrasXp.calcularGanho` no app, que exige o perfil do jogo sem
+default, e a mesma razão de RF-DES-223 mandar vigiar a direção das parcelas: o
+defeito que não dá erro é o caro.
+
+**Por que crus, em ms.** Quem divide é o app. Converter para segundos aqui
+obrigaria os dois lados a concordarem sobre o arredondamento, e a discordância
+apareceria como alguns centésimos de XP - de novo, sem erro nenhum.
+
+**Alternativas consideradas.** (a) O app arbitrar uma régua própria - descartada:
+é inventar o número que decide o XP. (b) O servidor calcular `q_tempo` e mandar
+pronto - descartada: mata a SC-002, porque sem rede não haveria parcela. (c)
+Deixar como estava e tratar na T055 - descartada: a T055 é a fórmula, e ela não
+tem como nascer sem o dado.
+
+**Cadeados.** Três casos novos em `tests/unitarios/test_rotas_desafio_publicado.py`:
+a régua viaja com os valores da linha (⚠️ a fixture usa `12000`/`95000`, e não os
+`30000`/`180000` do exemplo, justamente para que um padrão inventado não passe);
+a falta estoura; e **as três consultas públicas trazem as duas colunas**, lido no
+texto do SQL - o mesmo desenho do cadeado da curadoria, para que uma quarta rota
+não nasça sem elas.
+
+---
+
 ## 2026-09-16 — ✅ O portão T050 fechou, e a folha de aceite virou SCRIPT
 
 **Contexto.** A T050 é o portão de aceite do servidor: ⛔ nenhuma tarefa de tela

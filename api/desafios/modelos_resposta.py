@@ -137,6 +137,27 @@ class DesafioPublicado(BaseModel):
     versao_perfil: str
     teto_log_meios_lances: int
 
+    # ── A regua de tempo (RF-DES-223) ────────────────────────────────────────
+    #
+    # ⚠️ **Sao o contra o que "rapido" e medido**, e por isso viajam: a parcela
+    # `q_tempo` de `Q` e `(teto - t) / (teto - piso)`, cortada em [0, 1]
+    # (`data-model.md`, "A direcao: tres parcelas correm ao contrario"), e ela
+    # **fecha no aparelho** — SC-002 exige veredito e XP sem rede no caminho
+    # critico. Sem os dois campos aqui, o aplicativo teria de arbitrar uma regua
+    # propria, e o XP sairia errado **em silencio**.
+    #
+    # ⚠️ Sao **por desafio**, e nao constantes: o piso e o gabarito jogado
+    # direto, o teto e onde a parcela zera. Um final de 3 lances e uma abertura
+    # de 12 nao pedem a mesma pressa — uma constante faria os dois pagarem igual.
+    #
+    # ⛔ **Obrigatorios, sem valor padrao.** As colunas sao `NOT NULL` desde a
+    # migracao `0018` e `ck007_regua_tempo` ja garante `0 < piso < teto`. Um
+    # padrao aqui (30 s / 180 s) transformaria uma consulta que esquecesse as
+    # colunas numa resposta **plausivel e errada**, que e o defeito que
+    # RF-DES-223 manda vigiar; faltando, o erro estoura aqui, em teste.
+    tempo_piso_ms: int
+    tempo_teto_ms: int
+
     encerra_em: datetime
     agora_no_servidor: datetime
 
