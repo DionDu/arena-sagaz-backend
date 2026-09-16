@@ -6,6 +6,19 @@ rem
 rem  Um duplo-clique abre o painel no navegador, ja autenticado, com o botao de
 rem  gerar desafios ligado.
 rem
+rem  ⚠️ DESDE 16/09/2026 ESTE NAO E MAIS O CAMINHO PRINCIPAL.
+rem  -------------------------------------------------------
+rem  A porta de entrada de todos os paineis passou a ser
+rem
+rem        ..\painel\painel.cmd
+rem
+rem  que abre o Painel de Gestao em 127.0.0.1:8080 e sobe a curadoria daqui
+rem  sozinho, no primeiro clique do cartao - junto com o replay de partidas, o
+rem  exportador de pecas de loja e os relatorios gerenciais.
+rem
+rem  Este arquivo CONTINUA funcionando, e continua na mesma porta (8099): serve
+rem  para abrir so a curadoria, sem subir o resto.
+rem
 rem  POR QUE ELE EXISTE (16/09/2026)
 rem  -------------------------------
 rem  O dono escreveu: "O comando `.venv\Scripts\python scripts\rodar_job_local.py
