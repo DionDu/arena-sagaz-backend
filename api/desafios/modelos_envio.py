@@ -43,7 +43,7 @@ from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from api.desafios.modelos_evento import XP_PISO_POR_RESOLVER, XP_TETO_DO_DIA
 
@@ -104,20 +104,61 @@ class EnvioDeResolucao(BaseModel):
     #: ⚠️ **Sem teto aqui** (RF-DES-155): 18 a 30 e a faixa de **um** desafio. O
     #: teto de 30/dia e da colecao, e entra como linha de `ajuste` negativa — nao
     #: como corte neste numero.
-    pontuacao: int = Field(ge=XP_PISO_POR_RESOLVER, le=XP_TETO_DO_DIA)
+    #:
+    #: ⚠️ A faixa e conferida em `_o_que_so_a_resolucao_tem`, e nao aqui: **a
+    #: tentativa que falhou sobe pela mesma rota** e vale 10 (RF-DES-041), que e
+    #: menor que o piso de quem resolveu.
+    pontuacao: int = Field(ge=0, le=XP_TETO_DO_DIA)
 
     #: ⚠️ A partida que **este mesmo aplicativo ja enviou** pelo log. E o unico
     #: elo com os lances.
     co_evento_partida: str = Field(min_length=1, max_length=64)
 
     #: O `nu_ordem` do lance que cumpriu o objetivo (RF-DES-214).
-    nu_lance_cumpre_desafio: int = Field(gt=0)
+    #:
+    #: ⚠️ **Opcional no modelo, obrigatorio na resolucao**: quem nao cumpriu nao
+    #: tem esse lance, e mandar um `1` de fachada faria o Raio-X apontar para um
+    #: lance que nao cumpriu nada. Quem cobra e o validador abaixo.
+    nu_lance_cumpre_desafio: Optional[int] = Field(default=None, gt=0)
 
     feitos: list[FeitoMedido] = Field(default_factory=list)
     versao_catalogo_feitos: int = Field(ge=1)
 
     resolvido_em: datetime
     origem: OrigemDoEnvio
+
+    @model_validator(mode="after")
+    def _o_que_so_a_resolucao_tem(self) -> "EnvioDeResolucao":
+        """As duas guardas que valem **so** quando o veredito e `resolvido`.
+
+        ⚠️ **Elas eram campos obrigatorios ate 17/09/2026**, e nesse formato
+        descreviam so metade dos envios: a tentativa que falhou usa a mesma rota
+        — e precisa usar, porque e ela que conta as tentativas para a parcela
+        `1/n` de `Q` — e nao tem nem lance que cumpriu, nem pontuacao de 18 a 30.
+
+        ⛔ **Recusa-la seria pior que aceitar um numero inutil**: o outbox do
+        aplicativo trata 422 como dado impossivel e **remove** o evento, entao a
+        contagem de tentativas ficaria so no aparelho. Quem tentasse dez vezes
+        entraria no quadro com a nota de quem acertou de primeira.
+        """
+        if self.veredito != "resolvido":
+            # ⚠️ **Nada e cobrado da tentativa que falhou**, e isso e decisao:
+            # o servidor nao usa a `pontuacao` dela (ele volta antes de gravar
+            # resolucao), e cada guarda a mais aqui e uma forma nova de perder a
+            # contagem de tentativas por um numero que ninguem le.
+            return self
+        if self.nu_lance_cumpre_desafio is None:
+            raise ValueError(
+                "uma resolucao precisa dizer em que lance o objetivo caiu "
+                "(nu_lance_cumpre_desafio): a coluna e NOT NULL, e um zero de "
+                "fachada faria o Raio-X apontar para um lance que nao existe"
+            )
+        if self.pontuacao < XP_PISO_POR_RESOLVER:
+            raise ValueError(
+                f"quem resolveu pontua de {XP_PISO_POR_RESOLVER} a "
+                f"{XP_TETO_DO_DIA}; veio {self.pontuacao}"
+            )
+        return self
 
 
 class RespostaDeResolucao(BaseModel):

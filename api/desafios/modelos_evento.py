@@ -114,6 +114,12 @@ TIPOS_XP_COM_FEITO = (XP_MERITO, XP_MEDIDA)
 XP_PISO_POR_RESOLVER = 18
 XP_TETO_DO_DIA = 30
 
+# Tentar e **nao** resolver vale isto, uma vez por dia (RF-DES-041). ⚠️ Nao e
+# `Q` e nao tem parcela: e a outra ancora da mesma regua, e e o que impede um
+# desafio dificil de virar castigo. O espelho no aplicativo e
+# `xpDaTentativaSemResolver`, em `lib/core/desafios/qualidade.dart`.
+XP_DA_TENTATIVA_SEM_RESOLVER = 10
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. Os modelos

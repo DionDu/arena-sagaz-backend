@@ -40,6 +40,7 @@ from api.desafios.modelos_envio import (
     OrigemDoEnvio,
 )
 from api.desafios.modelos_evento import (
+    XP_DA_TENTATIVA_SEM_RESOLVER,
     XP_DICA,
     XP_MEDIDA,
     XP_MERITO,
@@ -479,6 +480,51 @@ def test_o_lance_que_cumpre_o_desafio_e_obrigatorio():
     """
     with pytest.raises(ValueError):
         _envio(nu_lance_cumpre_desafio=0)
+    # E ausente tambem: ate 17/09/2026 o campo era obrigatorio no modelo, e
+    # afrouxa-lo para a tentativa nao pode afrouxa-lo para a resolucao.
+    with pytest.raises(ValueError):
+        _envio(nu_lance_cumpre_desafio=None)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 3b. A TENTATIVA QUE FALHOU sobe pela mesma rota — e nao cabia no modelo
+#
+# ⚠️ Achado em 17/09/2026 escrevendo o CONSUMIDOR (T066, o aplicativo). As duas
+# guardas abaixo descreviam so a resolucao; a tentativa que falhou nao tem lance
+# que cumpriu e vale 10 (RF-DES-041), que e menor que o piso de 18.
+#
+# ⛔ **E recusa-la seria pior que aceita-la**: o outbox do aplicativo trata 422
+# como dado impossivel e REMOVE o evento. A contagem de tentativas ficaria so no
+# aparelho, e quem tentasse dez vezes entraria no quadro com a nota de quem
+# acertou de primeira.
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def test_a_tentativa_que_falhou_nao_tem_lance_que_cumpriu():
+    """⛔ Quem nao cumpriu nao tem `nu_lance_cumpre_desafio` — e nao inventa um.
+
+    Um `1` de fachada faria o Raio-X apontar para um lance que nao cumpriu nada.
+    """
+    envio = _envio(
+        veredito="tentativa",
+        nu_lance_cumpre_desafio=None,
+        pontuacao=XP_DA_TENTATIVA_SEM_RESOLVER,
+    )
+    assert envio.nu_lance_cumpre_desafio is None
+
+
+def test_a_tentativa_que_falhou_vale_10_e_nao_18():
+    """⚠️ RF-DES-041: tentar e nao resolver vale 10, uma vez por dia.
+
+    O piso de 18 e de quem **resolveu** — cobra-lo da tentativa transformaria a
+    contagem de tentativas em 422.
+    """
+    envio = _envio(
+        veredito="tentativa",
+        nu_lance_cumpre_desafio=None,
+        pontuacao=XP_DA_TENTATIVA_SEM_RESOLVER,
+    )
+    assert envio.pontuacao == 10
 
 
 @pytest.mark.asyncio
