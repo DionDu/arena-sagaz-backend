@@ -21,6 +21,121 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-17 — O acervo do `damas_coroar` deixa de ser truncado, e três cadeados cegos aparecem
+
+**Contexto.** A pescaria de teto 26 que o dono rodou na máquina dele terminou:
+4.881 posições reais peneiradas, 834 medidas nas quatro modalidades, zero
+pendentes. Ela existia para responder a uma pergunta dele, de 16/09: *"eu
+imaginei que o teto de 20 meios lances nos daria uma liberdade para escolher este
+`p` da frase do desafio. Este P poderia ser 6, 7, 8, 9, 10, 11, 12, 13 etc."*.
+
+✅ **A liberdade existe, e agora está medida.** O acervo anterior (133 moldes,
+pescado com o teto de 12) tinha a distância **truncada na parede da peneira**:
+nenhum molde passava de 11 meios-lances, e 42% resolviam em dois lances. Com o
+teto de 26 a distribuição mudou de forma - de 9 a 25 meios-lances, isto é, de 5 a
+13 lances de quem joga.
+
+**Decisão 1 - o acervo foi trocado: 133 → 307 moldes.** O funil:
+
+```
+4.881  posições reais com 12+ peças (as mesmas do prd + des)
+  834  passaram a peneira em ao menos um alvo
+  449  serviram a três ou mais modalidades em "coroar 1 dama"
+  341  com solução a partir do piso de 9 meios-lances
+  311  depois de tirar as 30 que outros tipos já usam
+  307  depois de tirar 4 que entregavam o objetivo no 1º lance
+```
+
+⚠️ **Os três alvos foram pescados na MESMA fita**, porque a fita é uma só:
+coroar 1 dama rendeu 449 moldes, coroar 2 rendeu 62 e coroar 3 rendeu **2**. Só o
+de uma dama entra - a variante de duas damas foi aposentada pelo dono em 16/09, e
+dois moldes não sustentam variante nenhuma.
+
+⛔ **Nenhum molde abaixo do piso entra na lista.** A pescaria achou 108 deles;
+mantê-los faria o desafio de dez segundos voltar sozinho no dia em que alguém
+desligasse o piso. Eles não se perdem: estão no diário, com a distância medida, e
+voltam com uma releitura - não com uma repescagem.
+
+**Decisão 2 - a variante `{damas: 1, lances: 4}` saiu do editorial, porque ela
+não podia gerar nada.** O comentário que estava lá quase disse isso:
+
+> *"Com o piso de 9 esta variante ficou quase impossível, e por aritmética: a
+> janela de 4 lances do jogador são **8** meios-lances no melhor caso, e o piso
+> pede 9. Ela só fecha quando o adversário gasta meios-lances sem que o jogador
+> precise de mais que 4 - o que existe, mas é raro."*
+
+⛔ **São 7, e não 8.** O p-ésimo lance do jogador é o meio-lance `2p - 1`. Com 7,
+a conclusão não é *"raro"*: é **impossível**, e nenhum adversário gastando
+meios-lances muda isso, porque os meios-lances dele já estão contados nos 7.
+⚠️ **Um erro de uma unidade virou a diferença entre "raro" e "nunca"**, e foi por
+isso que a variante ficou publicada.
+
+⛔ **E o gerador não tenta outra variante quando a do dia falha** - ela é
+escolhida por odômetro. Em metade dos dias em que o rodízio caísse no
+`damas_coroar`, o tipo não tinha como produzir candidato, e o log diria *"sem
+candidato"*: a mesma frase que ele usa quando o acervo é pequeno ou o jogo não
+permite.
+
+**Decisão 3 - três cadeados que estavam verdes e cegos.**
+
+1. ⛔ **O piso era conferido contra o teto, e nunca contra a janela da frase.** É
+   o buraco acima. Agora `test_o_piso_nunca_passa_da_JANELA_DA_FRASE` faz a conta
+   `piso <= 2p - 1` em toda variante do editorial que tenha piso.
+2. ⛔ **`test_nenhum_molde_APARECE_NOS_DOIS_tipos` comparava um par escrito à
+   mão** (`coroar` × `capturar_multipla`) e nada mais. Havia **22 colisões reais**
+   que ele não via: 13 entre coroar e sacrifício, 8 entre sacrifício e sobreviver,
+   1 entre sacrifício e captura. Agora ele percorre todos os pares. As 9 que não
+   morreram com a troca do acervo saíram do `damas_sacrificio` (188 → 179), que é
+   quem tinha mais folga.
+3. ⛔ **`TIPOS` listava dois tipos à mão**, e o `damas_sacrificio` (188 moldes) e o
+   `damas_sobreviver` (112), que entraram em 15 e 16/09, **não passavam por
+   cadeado nenhum** daquele arquivo - nem posição legal, nem molde trivial, nem
+   FEN repetida. Agora a lista sai do próprio catálogo, e o tipo que nascer amanhã
+   já entra conferido. O arquivo foi de 19 para 33 casos.
+
+**Decisão 4 - a peneira de vários alvos não perguntava pelo molde trivial.** O
+modo `_peneirar_varios` nasceu em 16/09 sem a pergunta que a irmã de um alvo só
+sempre fez. A prova está no funil: **nenhuma** linha de `objetivo_no_lance_1_em_*`
+nesta pescaria, contra 59 na anterior. Quatro moldes triviais chegaram ao acervo,
+um deles medindo 18 meios-lances e cumprindo no lance 1 **nas quatro
+modalidades**.
+
+⚠️ **E o disfarce é o ponto:** o Sagaz joga a PARTIDA, não o DESAFIO. Coroar de
+cara costuma ser mau lance, então ele coroa mais tarde e a fita anota um número
+**alto** - o molde trivial se apresenta como molde longo. ✅ Quem os pegou foi o
+cadeado, que é a rede embaixo da peneira; os dois lados foram consertados.
+
+⚠️ **E a proxy escondia isso.** A pescaria de 16/09 usava `--minimo-fileiras 3`,
+que barrava de lado os moldes que coroam de cara (pedra a três fileiras não coroa
+num lance). Esta pescaria não a usou - com o teto de 26 a distância é **medida**
+em vez de estimada -, e o buraco apareceu. ⓘ Um filtro que acerta pelo motivo
+errado é o pior tipo de rede: ele cala o defeito em vez de corrigi-lo.
+
+**Alternativas consideradas.**
+
+- *Baixar o piso para a variante de 4 lances voltar a gerar.* ⛔ Descartada, e o
+  próprio editorial já mandava não fazer isso: *"a decisão, quando o acervo não
+  comportar, é trocar a janela, e não afrouxar o piso"*. O piso é o que impede o
+  desafio de dez segundos.
+- *Já trocar a janela de 6 para 10 lances junto com o acervo.* ⛔ Descartada:
+  ⛔ **nenhuma variante entra sem ser medida**, e essa é a decisão que a medição
+  do `p` responde. As candidatas estão escritas em `A_MEDIR`; até o resultado
+  chegar, o tipo publica **uma** variante, que gera.
+- *Manter os 108 moldes curtos "por precaução".* Descartada - ver a Decisão 1.
+- *Consertar só as colisões e deixar o cadeado como estava.* Descartada: o cadeado
+  de par escrito à mão é o mesmo defeito, e voltaria no quinto tipo.
+
+**O que fica pendente.** ⏳ **A escolha do `p`**, que depende de medição (~10 min
+de máquina, comando do dono). Com `lances: 6` a frase admite 11 meios-lances, e
+**236 dos 307 moldes continuam sem poder sair** - não por serem curtos, mas por
+serem longos demais para a frase prometida. A parede do teto virou a parede da
+janela, e é a última que resta.
+
+⚠️ **E o `damas_sacrificio` perdeu 9 dos 188 moldes** (4,8%). Não é variante nova,
+mas o acervo dele mudou; a remedição dele cabe na mesma rodada do `p`.
+
+---
+
 ## 2026-09-16 (madrugada) — ⛔ `Q` estava sendo auditada pela METADE, e o mérito sem régua
 
 **Contexto.** Escrever a peça do aplicativo que calcula `Q` (`qualidade.dart`,

@@ -54,12 +54,18 @@ def test_o_padrao_e_SEM_PISO() -> None:
     assert sem_declarar.nu_minimo_de_meios_lances == 0
 
 
-def test_o_coroar_LIGOU_o_piso_nas_duas_variantes() -> None:
+def test_o_coroar_LIGOU_o_piso_em_TODA_variante_que_publica() -> None:
     """🔒 O pedido do dono: teto 20, piso 9.
 
     ⛔ Se alguem baixar o piso para "fazer a variante gerar", este teste cai — e e
     para cair. A decisao, quando o acervo nao comportar, e **trocar a janela**,
     nao afrouxar o piso.
+
+    ⚠️ **E foi exatamente isso que aconteceu em 17/09/2026**, so que pelo outro
+    lado: a variante `{damas: 1, lances: 4}` tinha o piso certo e a **janela**
+    curta demais para ele, e saiu do editorial. O nome deste teste dizia "nas duas
+    variantes" e ficou errado no mesmo dia — por isso ele agora percorre as que
+    existirem, sem dizer quantas sao.
     """
     for publicacao in variantes_de("damas_coroar"):
         assert publicacao.nu_minimo_de_meios_lances == 9, publicacao.parametros
@@ -96,6 +102,62 @@ def test_o_piso_nunca_passa_do_TETO(co_tipo: str, publicacao: Publicacao) -> Non
         f"{co_tipo} {publicacao.parametros}: piso "
         f"{publicacao.nu_minimo_de_meios_lances} acima do teto "
         f"{publicacao.nu_maximo_de_meios_lances}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("co_tipo", "publicacao"),
+    [
+        (co_tipo, publicacao)
+        for co_tipo, publicacoes in EDITORIAL.items()
+        for publicacao in publicacoes
+    ],
+    ids=lambda v: v if isinstance(v, str) else str(getattr(v, "parametros", v)),
+)
+def test_o_piso_nunca_passa_da_JANELA_DA_FRASE(
+    co_tipo: str, publicacao: Publicacao
+) -> None:
+    """🔒 A **segunda** parede, e ela nao era conferida por ninguem.
+
+    ⛔ **O teto nao e o unico limite do gabarito: a janela da frase tambem e.**
+    *"Coroe uma dama em 4 lances"* promete que a solucao cabe em **4 lances do
+    jogador** — e, com a alternancia estrita das damas, o 4o lance dele e o
+    meio-lance **7**. Um piso de 9 pede uma solucao mais longa do que a propria
+    frase admite. ⛔ Nenhum numero e ao mesmo tempo `>= 9` e `<= 7`.
+
+    ⚠️ **E isso esteve NO AR, em metade dos dias do tipo, de 16 a 17/09/2026.** A
+    variante `{damas: 1, lances: 4}` do `damas_coroar` ganhou piso 9 na mesma
+    resposta em que o piso foi criado; o comentario do editorial ate previa o
+    risco (*"ficou quase impossivel, e por aritmetica"*), mas nenhum teste fazia a
+    conta. O gerador escolhe a variante do dia por odometro e ⛔ **nao tenta
+    outra quando a primeira falha**: nos dias em que o odometro caia nela, o
+    `damas_coroar` nao tinha como produzir candidato nenhum.
+
+    ⚠️ **O sintoma e o mesmo de sempre, e nao aponta para a causa:** o log diz
+    *"sem candidato"*, que e o que ele diz quando o acervo e pequeno ou o jogo nao
+    permite — e nao *"a frase que eu prometi e curta demais para o piso que eu
+    exijo"*.
+
+    ⚠️ **So vale para a janela em LANCES DO JOGADOR.** Tipo cuja janela e o
+    proprio objetivo (*"sobreviva 8 lances"*) nao esta prometendo prazo de
+    solucao, e por isso a conta nao se aplica — hoje nenhum deles tem piso, e o
+    `if` abaixo os deixa passar por ausencia de piso, nao por excecao escrita.
+    """
+    piso = publicacao.nu_minimo_de_meios_lances
+    if not piso:
+        return
+    lances_da_frase = dict(publicacao.parametros).get("lances")
+    if lances_da_frase is None:
+        return
+    # ⚠️ O p-esimo lance do jogador e o meio-lance `2p - 1`: ele joga nos
+    # impares, e o adversario responde nos pares. Um gabarito de 9 meios-lances
+    # usa 5 lances do jogador, e nao 4.
+    maximo_que_a_frase_admite = 2 * lances_da_frase - 1
+    assert piso <= maximo_que_a_frase_admite, (
+        f"{co_tipo} {dict(publicacao.parametros)}: o piso de {piso} meios-lances "
+        f"nao cabe na frase, que promete {lances_da_frase} lances do jogador "
+        f"(= no maximo {maximo_que_a_frase_admite} meios-lances). "
+        "Esta variante nunca gera candidato."
     )
 
 
@@ -174,17 +236,34 @@ def test_o_MEDIDOR_passa_o_piso() -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_o_acervo_de_hoje_ainda_NAO_acompanha_o_piso() -> None:
-    """⚠️ Declara, em teste, o que hoje e uma pendencia — e nao uma surpresa.
+def test_o_acervo_JA_ACOMPANHA_o_piso() -> None:
+    """✅ A pendencia que este teste declarava CAIU em 17/09/2026.
 
-    ⛔ **Os 133 moldes do `damas_coroar` foram pescados com o teto de 12**, entao
-    a distancia deles esta truncada ali: nenhum passa de 11 meios-lances. Com piso
-    9 sobram poucos, e a variante vai gerar pouco ate a repescagem com `--teto 20`.
+    ⛔ **O que ele dizia ate ontem:** *"os 133 moldes do `damas_coroar` foram
+    pescados com o teto de 12, entao a distancia deles esta truncada ali: nenhum
+    passa de 11 meios-lances. Com piso 9 sobram poucos, e a variante vai gerar
+    pouco ate a repescagem"*.
 
-    ⚠️ **Este teste nao falha quando o acervo melhorar** — ele so guarda que a
-    conta esta sendo feita, e serve de lugar para o numero novo entrar.
+    ✅ **A repescagem com `--teto 26` chegou**, e o acervo passou a **307** moldes,
+    todos com solucao de 9 a 25 meios-lances — ou seja, **todos** acima do piso.
+    O que era "sobram poucos" virou "nenhum sobra de fora".
+
+    ⚠️ **A pendencia que ficou nao e mais do acervo: e da JANELA.** Com
+    `lances: 6` a frase admite 11 meios-lances, e 236 dos 307 moldes continuam sem
+    poder sair — nao por serem curtos, mas por serem **longos demais para a frase
+    prometida**. ⏳ A escolha do `p` esta medida em
+    `scripts/medir_variantes_do_editorial.py`, e e a proxima decisao do dono.
+
+    ⚠️ **Este teste continua nao falhando quando o acervo melhorar** — ele guarda
+    que a conta esta sendo feita, e e o lugar onde o numero novo entra.
     """
     from job.tipos_de_desafio import RECEITAS
 
     moldes = RECEITAS["damas_coroar"].moldes
-    assert len(moldes) == 133, "o acervo mudou; atualize a conta desta pendencia"
+    assert len(moldes) == 307, "o acervo mudou; atualize a conta desta pendencia"
+
+    # ⛔ A parte que importa nao e o tamanho, e sim que a JANELA da variante no ar
+    # nao alcanca a maior parte dele. O dia em que esta conta mudar e o dia em que
+    # a escolha do `p` foi feita — e este teste tem de ser lido de novo.
+    janela_no_ar = dict(variantes_de("damas_coroar")[0].parametros)["lances"]
+    assert janela_no_ar == 6, "a janela mudou; a medicao do `p` chegou?"

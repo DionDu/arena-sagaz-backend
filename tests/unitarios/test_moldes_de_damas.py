@@ -24,6 +24,8 @@ numa suite.
 
 from __future__ import annotations
 
+from itertools import combinations
+
 import pytest
 
 from job.moldes_de_damas import (
@@ -31,11 +33,22 @@ from job.moldes_de_damas import (
     moldes_triviais,
     objetivo_no_primeiro_lance,
 )
-from job.tipos_de_desafio import receita_de
+from job.tipos_de_desafio import RECEITAS, receita_de
 from motores.damas.motor_damas import EstadoDamas, MotorDamas
 
-#: Os dois tipos de damas que usam molde.
-TIPOS = ("damas_coroar", "damas_capturar_multipla")
+#: Os tipos que usam molde — **perguntados ao catálogo, nunca escritos aqui**.
+#:
+#: ⛔ **Esta linha era uma lista de dois nomes até 17/09/2026, e ficou verde e
+#: cega por dois dias.** O `damas_sacrificio` (188 moldes) e o `damas_sobreviver`
+#: (112) entraram em 15 e 16/09 e **nenhum cadeado deste arquivo os viu**: nem o
+#: da posição legal, nem o do molde trivial, nem o da FEN repetida. Os dois
+#: acervos novos entraram sem conferência nenhuma, e nada no projeto denunciava.
+#:
+#: ⚠️ É o mesmo defeito que já custou quatro fluxos de fim de partida no
+#: aplicativo: um cadeado com a lista escrita à mão guarda o que existia no dia
+#: em que alguém a escreveu. Agora ele descobre os tipos sozinho, e o tipo que
+#: nascer amanhã já entra conferido.
+TIPOS = tuple(co_tipo for co_tipo, receita in RECEITAS.items() if receita.moldes)
 
 #: Piso de moldes por tipo.
 #:
@@ -66,7 +79,16 @@ TIPOS = ("damas_coroar", "damas_capturar_multipla")
 #: apertar:** um desafio de damas a cada dois dias, rodiziando quatro tipos, faz
 #: o coroar sair a cada ~8 dias — com 133 moldes distintos, sao anos ate a mesma
 #: posicao poder voltar.
-PISO_DE_MOLDES = {"damas_coroar": 100, "damas_capturar_multipla": 25}
+#:
+#: ⚠️ **O do coroar subiu a 230 em 17/09/2026**, quando a repescagem com o teto de
+#: 26 levou o acervo de 133 a 311 moldes. A fração (~75%) é a mesma de sempre; o
+#: que mudou foi o acervo que ela mede.
+PISO_DE_MOLDES = {
+    "damas_coroar": 230,
+    "damas_capturar_multipla": 25,
+    "damas_sacrificio": 130,
+    "damas_sobreviver": 80,
+}
 
 
 def moldes(co_tipo: str) -> tuple[str, ...]:
@@ -107,13 +129,28 @@ def test_nenhum_molde_APARECE_NOS_DOIS_tipos() -> None:
     objetivo. A regra do dono e que nenhum desafio se repita, e *"mesma posicao,
     outro enunciado"* e repeticao para quem joga.
 
-    ⚠️ **Quem cede e o `damas_coroar`**, o acervo mais novo — o
-    `damas_capturar_multipla` ja esta no ar e medido, e tirar molde dele
-    obrigaria a remedir a variante junto.
+    ⚠️ **Quem cede e o acervo mais novo** — o tipo que ja esta no ar e medido nao
+    cede, porque tirar molde dele obrigaria a remedir a variante junto.
+
+    ⛔ **ESTE TESTE COMPARAVA UM PAR ESCRITO A MAO, e estava cego — 17/09/2026.**
+    Ele olhava `damas_coroar` × `damas_capturar_multipla` e nada mais. Enquanto
+    isso havia **22 colisoes reais** que ele nao via: 13 entre coroar e
+    sacrificio, 8 entre sacrificio e sobreviver, 1 entre sacrificio e captura.
+    ⚠️ Nenhuma delas era erro de colagem — os quatro acervos sao pescados da
+    **mesma** base de posicoes reais desde 12/09, e uma posicao humana comporta
+    varios objetivos ao mesmo tempo. O defeito era do cadeado, que guardava a
+    dupla que existia no dia em que ele foi escrito.
+
+    ✅ Agora ele percorre **todos os pares**, e o par que nascer amanha ja entra.
     """
-    coroar = set(moldes("damas_coroar"))
-    capturar = set(moldes("damas_capturar_multipla"))
-    assert not (coroar & capturar), f"FEN nos dois tipos: {coroar & capturar}"
+    acervos = {co_tipo: set(moldes(co_tipo)) for co_tipo in TIPOS}
+    # `combinations` da cada par uma vez so: (a, b) e (b, a) sao a mesma pergunta.
+    repetidas = {
+        f"{um} × {outro}": acervos[um] & acervos[outro]
+        for um, outro in combinations(sorted(acervos), 2)
+        if acervos[um] & acervos[outro]
+    }
+    assert not repetidas, f"a mesma FEN em dois tipos: {repetidas}"
 
 
 @pytest.mark.parametrize("co_tipo", TIPOS)

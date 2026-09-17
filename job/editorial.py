@@ -1065,22 +1065,41 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             nu_maximo_de_meios_lances=20,
             nu_minimo_de_meios_lances=9,
         ),
-        Publicacao(
-            # A mesma dama com a janela apertada: a unica medida que muda o que o
-            # gerador aceita.
-            #
-            # ⚠️ **Com o piso de 9 esta variante ficou quase impossivel, e por
-            # aritmetica:** a janela de 4 lances do jogador sao 8 meios-lances no
-            # melhor caso, e o piso pede 9. ⛔ Ela so fecha quando o adversario
-            # gasta meios-lances sem que o jogador precise de mais que 4 — o que
-            # existe, mas e raro. ⏳ A medicao dira se sobra candidato; se nao
-            # sobrar, a decisao e trocar a janela, e nao baixar o piso.
-            parametros={"damas": 1, "lances": 4},
-            ic_chegada_encerra_partida=False,
-            medidas=_medidas_do_damas_coroar,
-            nu_maximo_de_meios_lances=20,
-            nu_minimo_de_meios_lances=9,
-        ),
+        # ── ⛔ A JANELA DE 4 LANCES SAIU EM 17/09/2026: ELA NAO PODIA GERAR ───
+        #
+        # ⚠️ **Ela esteve no ar por um dia sem conseguir produzir um candidato
+        # sequer**, e o texto que estava aqui quase disse isso:
+        #
+        # > *"Com o piso de 9 esta variante ficou quase impossivel, e por
+        # > aritmetica: a janela de 4 lances do jogador sao **8** meios-lances no
+        # > melhor caso, e o piso pede 9. Ela so fecha quando o adversario gasta
+        # > meios-lances sem que o jogador precise de mais que 4 — o que existe,
+        # > mas e raro."*
+        #
+        # ⛔ **Sao 7, e nao 8** — o p-esimo lance do jogador e o meio-lance
+        # `2p - 1`, porque ele joga nos impares e o adversario responde nos pares.
+        # Com 7, a conclusao nao e *"raro"*: e **impossivel**, e nenhum adversario
+        # gastando meios-lances muda isso, porque os meios-lances dele ja estao
+        # contados nos 7. ⚠️ Um erro de UMA unidade virou a diferenca entre
+        # *"raro"* e *"nunca"*, e foi por isso que a variante ficou publicada.
+        #
+        # ⛔ **E o gerador NAO tenta outra variante quando a do dia falha:** ela e
+        # escolhida por odometro (`gerador.escolher_variante`). Em metade dos dias
+        # em que o rodizio caia no `damas_coroar`, o tipo nao tinha como produzir
+        # nada — e o log diria *"sem candidato"*, que e o que ele diz quando o
+        # acervo e pequeno ou o jogo nao permite.
+        #
+        # ✅ **O conserto na raiz e um cadeado**, e nao esta linha apagada:
+        # `tests/unitarios/test_piso_de_meios_lances.py` passou a conferir o piso
+        # contra a **janela da frase**, e nao so contra o teto. Qualquer variante
+        # nova que prometa uma frase curta demais para o proprio piso cai antes de
+        # ser publicada.
+        #
+        # ⏳ **O que entra no lugar depende de MEDICAO**, e as candidatas ja estao
+        # escritas em `scripts/medir_variantes_do_editorial.py` (`A_MEDIR`): a
+        # janela de 10 lances, que e a que o acervo repescado pede, com e sem piso
+        # de 13. ⛔ Ate a medicao chegar, o tipo publica **uma** variante — que
+        # gera, e e melhor que duas em que uma nunca sai.
         # ── ⚠️ DUAS DAMAS: a variante que o dono pediu, e a mais longa ────────
         #
         # ⚠️ **Pedido dele, olhando a curadoria** (11/09/2026): *"esta solucao me

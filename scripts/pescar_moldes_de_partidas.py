@@ -92,7 +92,7 @@ from job.espelho_de_damas import com_as_brancas_a_jogar  # noqa: E402
 # orcamentos e o teto de lances tem de ser os MESMOS — um molde pescado com
 # criterio diferente do sorteado produziria uma fila com duas qualidades, e
 # ninguem saberia qual desafio veio de onde.
-from job.moldes_de_damas import MODALIDADES  # noqa: E402
+from job.moldes_de_damas import MODALIDADES, objetivo_no_primeiro_lance  # noqa: E402
 from scripts.cacar_moldes_damas import (  # noqa: E402
     MINIMO_DE_MODALIDADES,
     NOS_DA_MEDICAO,
@@ -127,9 +127,37 @@ def _peneirar_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
     ⚠️ **Os motivos voltam no retorno, e nao num contador compartilhado.** Cada
     processo tem a sua memoria; um `Counter` global seria incrementado em catorze
     copias e nenhuma delas chegaria ao pai.
+
+    ⛔ **A pergunta do molde TRIVIAL ficou de fora quando esta funcao nasceu, em
+    16/09/2026, e custou quatro moldes maus no acervo.** A irma de um alvo so
+    (`cacar_moldes_damas._peneirar_uma`) sempre a fez; a de varios alvos, nao —
+    e o funil da pescaria de 17/09 saiu **sem uma linha sequer** de
+    `objetivo_no_lance_1_em_*`, contra 59 na pescaria anterior. ⚠️ O sintoma nao
+    denunciava: um molde trivial passa a peneira como qualquer outro, e a
+    distancia dele fica **grande**, porque o Sagaz joga a PARTIDA e nao o
+    DESAFIO — coroar de cara costuma ser mau lance, entao ele coroa mais tarde e
+    a fita anota um numero alto. ✅ Quem os pegou foi o cadeado
+    `tests/unitarios/test_moldes_de_damas.py`, que e a rede embaixo desta.
     """
     fen, co_tipo, (alvos, teto) = tarefa
     motivos = MotivoDeDescarte()
+
+    # ⚠️ **Antes da busca, e nao depois:** a pergunta e direta ("ha lance legal
+    # que cumpre o objetivo agora?") e nao custa um no, enquanto a peneira custa
+    # segundos. E ela varre as QUATRO modalidades, porque um molde trivial em
+    # uma so ja publica o desafio de um toque um dia em cada quatro.
+    de_cara = next(
+        (
+            f"{modalidade}:{lance}"
+            for modalidade in MODALIDADES
+            if (lance := objetivo_no_primeiro_lance(fen, co_tipo, modalidade))
+        ),
+        None,
+    )
+    if de_cara is not None:
+        motivos[f"objetivo_no_lance_1_em_{de_cara.split(':')[0]}"] += 1
+        return fen, {nome: None for nome in alvos}, dict(motivos)
+
     achados = resolve_varios_alvos(
         fen,
         co_tipo,
