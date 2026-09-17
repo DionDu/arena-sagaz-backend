@@ -147,6 +147,30 @@ def test_chave_fora_do_catalogo_e_RECUSADA() -> None:
         conferir(linhas)
 
 
+def test_medida_de_SESSAO_no_merito_e_RECUSADA() -> None:
+    """⛔ Tempo, tentativas e dicas ja tem peso proprio em `Q` (RF-DES-042).
+
+    ⚠️ Pesa-las tambem no merito faria a mesma medida contar **duas vezes** - e
+    a soma dos relativos continuaria 1,000, entao nenhuma outra conferencia
+    veria. Achado em 16/09/2026, ao ligar as quatro parcelas no servidor.
+    """
+    linhas = _conjunto_valido()
+    linhas[0] = linha_de_faixa(
+        "tempo_ate_resolver", nu_ordem=1, vr_peso="0.600", vr_min=0, vr_max=60000
+    )
+    with pytest.raises(MedidasInvalidas, match="sessao"):
+        conferir(linhas)
+
+
+def test_as_de_TABULEIRO_continuam_aceitas() -> None:
+    """⚠️ A guarda acima mira a **procedencia**, e nao uma lista de nomes.
+
+    Sem este par, a recusa poderia estar barrando qualquer coisa e o caso de cima
+    passaria igual.
+    """
+    conferir(_conjunto_valido())
+
+
 def test_faixa_sem_maximo_divide_por_nulo() -> None:
     linhas = _conjunto_valido()
     linhas[0]["vr_max"] = None

@@ -145,6 +145,10 @@ def conferir(linhas: Sequence[Mapping[str, Any]]) -> None:
 
       1. **toda chave existe no catalogo** — uma chave inventada seria uma medida
          que nenhum jogo produz, e o desafio pagaria zero naquela parcela sempre;
+      1b. ⛔ **nenhuma chave e de SESSAO** — tempo, tentativas e dicas ja tem peso
+         fixo em `Q` (0,20, 0,30 e 0,25); pesa-las tambem no merito faria a mesma
+         medida contar **duas vezes**, e a soma dos pesos continuaria 1,000 sem
+         que nada acusasse;
       2. **os pesos somam 1,000** — a soma e o que faz `Q` ficar em [0, 1];
       3. **cada normalizacao tem os seus campos** — o `ck003_faixa` diz o mesmo,
          e falhar aqui aponta para quem montou as linhas;
@@ -168,6 +172,22 @@ def conferir(linhas: Sequence[Mapping[str, Any]]) -> None:
             f"chaves fora do catalogo de feitos: {desconhecidas}. ⚠️ Uma chave "
             "inventada e uma medida que nenhum jogo produz — a parcela pagaria "
             "zero para sempre, sem erro nenhum."
+        )
+
+    # ⛔ Medida de SESSAO nao entra no merito (16/09/2026). O merito e o que a
+    # pessoa fez **no jogo**; tempo, tentativas e dicas sao a sessao, e ja pesam
+    # em `Q` por fora. Pesa-las aqui pagaria a mesma coisa duas vezes — e, como a
+    # soma dos relativos continuaria 1,000, nenhuma outra conferencia veria.
+    de_sessao = [
+        l["co_feito"]
+        for l in linhas
+        if catalogo[l["co_feito"]]["co_procedencia"] == "sessao"
+    ]
+    if de_sessao:
+        raise MedidasInvalidas(
+            f"medidas de sessao entre os pesos do merito: {de_sessao}. ⚠️ Tempo, "
+            "tentativas e dicas ja tem peso proprio em Q (RF-DES-042); no merito "
+            "elas contariam uma segunda vez."
         )
 
     soma = sum((l["vr_peso"] for l in linhas), start=Decimal("0"))

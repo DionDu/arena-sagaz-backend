@@ -23,10 +23,15 @@ from uuid import uuid4
 import pytest
 
 from api.desafios.extrato_xp import (
+    PESO_DICA,
+    PESO_MERITO,
+    PESO_TEMPO,
+    PESO_TENTATIVAS,
     MedidaInvalida,
     montar_extrato,
     normalizar,
     qualidade_do_extrato,
+    soma_dos_pesos,
 )
 from api.desafios.modelos_envio import (
     EnvioDeDica,
@@ -34,7 +39,13 @@ from api.desafios.modelos_envio import (
     FeitoMedido,
     OrigemDoEnvio,
 )
-from api.desafios.modelos_evento import XP_MEDIDA, XP_MERITO
+from api.desafios.modelos_evento import (
+    XP_DICA,
+    XP_MEDIDA,
+    XP_MERITO,
+    XP_TEMPO,
+    XP_TENTATIVAS,
+)
 from api.desafios.servico_envio import (
     PartidaAindaNaoChegou,
     ServicoEnvio,
@@ -73,12 +84,56 @@ def _envio(**trocas) -> EnvioDeResolucao:
     return EnvioDeResolucao(**base)
 
 
+#: A regua de tempo usada nos casos do extrato.
+#:
+#: ⚠️ De proposito **nao** sao os 30 s/180 s do exemplo do `data-model.md`:
+#: sao esses os numeros que alguem escreveria a mao se resolvesse arbitrar um
+#: padrao, e um caso que os usasse passaria igual com a regua inventada.
+PISO_MS = 12_000
+TETO_MS = 95_000
+
+#: A direcao das tres chaves de sessao, como a dimensao as declara.
+#:
+#: ⚠️ Elas vem do banco em producao (`tb902_catalogo_feito`), e nunca de um
+#: literal no codigo: uma parcela na direcao errada **nao daria erro nenhum**, so
+#: pagaria mais a quem jogou pior.
+DIRECOES = {
+    "tentativas": "menor_melhor",
+    "tempo_ate_resolver": "menor_melhor",
+    "dicas_usadas": "menor_melhor",
+}
+
+
+def _extrato(*, medidas=None, pesos=None, **trocas):
+    """`montar_extrato` com a sessao ja preenchida na MELHOR resolucao.
+
+    Primeira tentativa, no piso do tempo, sem dica: assim cada caso piora so o
+    que esta medindo, em vez de repetir seis argumentos.
+    """
+    base = dict(
+        medidas=medidas if medidas is not None else {},
+        pesos=pesos if pesos is not None else _pesos(),
+        nu_tentativas=1,
+        nu_tempo_ms=PISO_MS,
+        nu_dicas=0,
+        nu_tempo_piso_ms=PISO_MS,
+        nu_tempo_teto_ms=TETO_MS,
+        direcoes=DIRECOES,
+    )
+    base.update(trocas)
+    return montar_extrato(**base)
+
+
 def _pesos() -> list[dict]:
-    """Os pesos de um desafio de damas, somando 1,000.
+    """Os pesos de merito de um desafio de damas, somando 1,000.
 
     ⚠️ Duas direcoes opostas de proposito: `damas_coroadas` e `maior_melhor`,
-    `tempo_ate_resolver` e `menor_melhor`. E a inversao que os casos abaixo
+    `material_do_adversario` e `menor_melhor`. E a inversao que os casos abaixo
     exercitam.
+
+    ⛔ **E nenhuma das duas e de SESSAO.** Tempo, tentativas e dicas ja tem peso
+    fixo em `Q`; pesa-las tambem no merito faria a mesma medida contar duas
+    vezes. O `conferir` do job recusa desde 16/09/2026.
     """
     return [
         {
@@ -94,13 +149,13 @@ def _pesos() -> list[dict]:
         },
         {
             "nu_feito": 40,
-            "co_feito": "tempo_ate_resolver",
+            "co_feito": "material_do_adversario",
             "co_direcao": "menor_melhor",
             "nu_ordem": 2,
             "vr_peso": Decimal("0.400"),
             "co_normalizacao": "faixa",
-            "vr_min": Decimal("10000"),
-            "vr_max": Decimal("70000"),
+            "vr_min": Decimal("0"),
+            "vr_max": Decimal("12"),
             "co_sobre": None,
         },
     ]
@@ -116,8 +171,19 @@ class RepoFalso:
         partida=None,
         resolucao_nova=True,
         dicas_gastas=0,
-        catalogo=("damas_coroadas", "tempo_ate_resolver", "tentativas"),
+        catalogo=(
+            "damas_coroadas",
+            "material_do_adversario",
+            # As tres de sessao existem no catalogo, e e por isso que
+            # envia-las nao e dado invalido: elas simplesmente nao pesam
+            # no merito deste desafio.
+            "tentativas",
+            "tempo_ate_resolver",
+            "dicas_usadas",
+        ),
+        sem_regua=False,
     ) -> None:
+        self._sem_regua = sem_regua
         self._dia = dia
         self._partida = partida
         self._resolucao_nova = resolucao_nova
@@ -148,6 +214,18 @@ class RepoFalso:
 
     async def existe_no_catalogo(self, co_feito):
         return co_feito in self._catalogo
+
+    async def regua_de_tempo(self, id_desafio):
+        # ⚠️ `None` quando o desafio nao tem regua - e ha caso para isso, porque
+        # o servico **nao pode** arbitrar um padrao no lugar.
+        return (
+            None
+            if self._sem_regua
+            else {"nu_tempo_piso_ms": PISO_MS, "nu_tempo_teto_ms": TETO_MS}
+        )
+
+    async def direcoes_de_sessao(self):
+        return DIRECOES
 
     async def dicas_ja_gastas(self, *, id_desafio_dia, id_usuario):
         return self._dicas_gastas
@@ -305,9 +383,52 @@ async def test_a_primeira_resolucao_grava_o_extrato():
     )
 
     assert resultado.resposta.ja_existia is False
-    # base + os dois feitos que o desafio pesa.
-    assert resultado.parcelas_gravadas == 3
+    # base + as tres de sessao + os dois feitos que o desafio pesa.
+    assert resultado.parcelas_gravadas == 6
     assert repo.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_desafio_SEM_regua_de_tempo_e_recusado():
+    """⛔ **Sem valor padrao, nem aqui nem na leitura.**
+
+    Arbitrar 30 s/180 s faria a auditoria conferir contra uma regua **inventada**
+    e acusar divergencia onde nao ha - e o alerta que acende sem motivo e o que
+    faz ninguem mais ler o painel.
+    """
+    repo = RepoFalso(partida=_partida(), sem_regua=True)
+
+    with pytest.raises(ErroNegocio) as erro:
+        await ServicoEnvio(repo).registrar_resolucao(
+            id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio()
+        )
+
+    assert erro.value.codigo == "regua_ausente"
+
+
+@pytest.mark.asyncio
+async def test_a_sessao_do_ENVIO_e_a_que_entra_nas_parcelas():
+    """⚠️ Tentativas, tempo e dicas saem do payload, e nao de um feito enviado.
+
+    O aplicativo manda as tres **tambem** como feitos, para o Raio-X; quem
+    pontua e o campo proprio. Se as parcelas lessem a lista de feitos, um envio
+    sem elas pagaria nota cheia de graca.
+    """
+    repo = RepoFalso(partida=_partida())
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO,
+        id_usuario=ID_USUARIO,
+        # 3 tentativas, 48,21 s e 1 dica: nenhuma das tres e a melhor marca.
+        envio=_envio(dicas_usadas=1),
+    )
+
+    tentativas, tempo, dica = repo.extratos[0][1:4]
+    assert tentativas.vr_medida == Decimal(3)
+    assert tempo.vr_medida == Decimal(48210)
+    assert dica.vr_medida == Decimal(1)
+    # 1 dica = metade da parcela (RF-DES-042).
+    assert dica.vr_normalizado == Decimal("0.5")
 
 
 @pytest.mark.asyncio
@@ -479,21 +600,159 @@ def test_o_extrato_percorre_os_PESOS_e_nao_as_medidas():
     aplicativo esquecesse de envia-lo, e a pessoa perderia XP sem que nada
     acusasse. Aqui, medida ausente conta como zero.
     """
-    parcelas = montar_extrato(medidas={}, pesos=_pesos())
+    parcelas = _extrato()
 
-    # base + os dois pesos, mesmo sem nenhuma medida enviada.
-    assert len(parcelas) == 3
-    assert all(p.vr_medida == Decimal(0) for p in parcelas[1:])
+    # base + as tres de sessao + os dois pesos, mesmo sem medida enviada.
+    assert len(parcelas) == 6
+    assert all(p.vr_medida == Decimal(0) for p in parcelas[4:])
 
 
 def test_a_linha_base_vale_o_piso_e_nao_aponta_para_feito():
     """`XP = 18 + 12 x Q`: os 18 sao a linha `base`.
 
-    ⚠️ Ela nao tem `nu_feito`, e o `ck003_feito` da migracao exige que nao tenha.
+    ⚠️ Ela nao tem `nu_feito`, e o `ck003_feito` da migracao exige que nao
+    tenha.
     """
-    base = montar_extrato(medidas={}, pesos=_pesos())[0]
+    base = _extrato()[0]
     assert base.vr_xp == Decimal(18)
     assert base.nu_feito is None
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 4b. ⚠️ AS TRES PARCELAS DE SESSAO (RF-DES-042) — o conserto de 16/09/2026
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Ate 16/09/2026 este modulo gerava **so** o merito, e com o peso relativo cru.
+# A auditoria discordava do aplicativo em toda resolucao — e, como vale o
+# aplicativo (D-05), o efeito nao seria XP errado na tela: seria o alerta de
+# divergencia do painel aceso sempre, ate ninguem mais o ler.
+
+
+def test_o_extrato_traz_as_tres_parcelas_de_sessao():
+    """Tentativas, tempo e dica, cada uma com o seu tipo da dimensao."""
+    tipos = [p.nu_tipo_xp for p in _extrato()]
+
+    assert tipos[1] == XP_TENTATIVAS
+    assert tipos[2] == XP_TEMPO
+    assert tipos[3] == XP_DICA
+
+
+def test_as_tres_de_sessao_NAO_apontam_para_feito():
+    """⛔ O `ck003_feito` so aceita `nu_feito` em `merito` e `medida`.
+
+    ⚠️ Elas **tem** chave no catalogo — e de la que vem a direcao —, mas na
+    tabela a coluna fica vazia, como o `data-model.md` mostra.
+    """
+    for parcela in _extrato()[1:4]:
+        assert parcela.nu_feito is None
+
+
+def test_os_pesos_de_uma_resolucao_somam_1000():
+    """⚠️ O cadeado barato: 0,30 + 0,20 + 0,25 + os 0,25 do merito repartidos.
+
+    Se a soma nao fechar em 1, `Q` deixa de poder chegar a 1 — e ninguem mais
+    tiraria 30, sem que nada desse erro.
+    """
+    assert soma_dos_pesos(_extrato()) == Decimal("1.000")
+
+    # E com o merito repartido em tres linhas, inclusive uma de peso zero.
+    pesos = _pesos()
+    pesos[0] = {**pesos[0], "vr_peso": Decimal("1.000")}
+    pesos[1] = {
+        **pesos[1],
+        "vr_peso": Decimal("0.000"),
+        "co_normalizacao": "nenhuma",
+        "vr_min": None,
+        "vr_max": None,
+    }
+    assert soma_dos_pesos(_extrato(pesos=pesos)) == Decimal("1.000")
+
+
+def test_o_peso_do_merito_e_RELATIVO_e_vira_um_quarto():
+    """⚠️ `0,600` dentro do merito e `0,150` em `Q` (RF-DES-173).
+
+    ⛔ Era este o segundo defeito: o peso relativo ia cru para a coluna, e a
+    linha valia `12 x 0,600 = 7,2` onde devia valer `12 x 0,150 = 1,8`.
+    """
+    merito = _extrato(medidas={"damas_coroadas": Decimal(2)})[4]
+
+    assert merito.vr_peso == PESO_MERITO * Decimal("0.600")
+    assert merito.vr_peso == Decimal("0.150")
+    assert merito.vr_xp == Decimal("1.800")
+
+
+def test_as_tres_correm_ao_CONTRARIO_e_a_direcao_vem_da_dimensao():
+    """⚠️ Mais tentativas, mais tempo e mais dicas dao MENOS XP.
+
+    ⛔ E a inversao vem de `co_direcao`, nunca de um `1 -` escrito na formula:
+    o caso troca a direcao na dimensao e a nota inverte junto. Uma parcela na
+    direcao errada nao daria erro nenhum.
+    """
+    melhor = _extrato()
+    assert [p.vr_normalizado for p in melhor[1:4]] == [Decimal(1)] * 3
+
+    pior = _extrato(nu_tentativas=1000, nu_tempo_ms=TETO_MS, nu_dicas=2)
+    assert pior[2].vr_normalizado == Decimal(0)
+    assert pior[3].vr_normalizado == Decimal(0)
+    assert pior[1].vr_normalizado < Decimal("0.01")
+
+    # A dimensao mandando ao contrario: a nota acompanha.
+    invertida = _extrato(
+        nu_dicas=2, direcoes={**DIRECOES, "dicas_usadas": "maior_melhor"}
+    )
+    assert invertida[3].vr_normalizado == Decimal(1)
+
+
+def test_piorar_nunca_aumenta_a_nota():
+    """A propriedade, sem numero esperado nenhum — ela sobrevive a afinacao dos
+    pesos em campo."""
+    anterior = Decimal(2)
+    for tentativas in (1, 2, 3, 4, 8, 20):
+        q = qualidade_do_extrato(_extrato(nu_tentativas=tentativas))
+        assert q < anterior
+        anterior = q
+
+    anterior = Decimal(2)
+    for tempo in (PISO_MS, 30_000, 60_000, TETO_MS):
+        q = qualidade_do_extrato(_extrato(nu_tempo_ms=tempo))
+        assert q < anterior
+        anterior = q
+
+    assert qualidade_do_extrato(_extrato(nu_dicas=0)) > qualidade_do_extrato(
+        _extrato(nu_dicas=1)
+    ) > qualidade_do_extrato(_extrato(nu_dicas=2))
+
+
+def test_a_regua_de_tempo_e_do_DESAFIO():
+    """O mesmo tempo, em duas reguas, vale notas diferentes (RF-DES-223).
+
+    Um final de 3 lances e uma abertura de 12 nao pedem a mesma pressa.
+    """
+    apertada = _extrato(
+        nu_tempo_ms=60_000, nu_tempo_piso_ms=10_000, nu_tempo_teto_ms=70_000
+    )
+    folgada = _extrato(
+        nu_tempo_ms=60_000, nu_tempo_piso_ms=30_000, nu_tempo_teto_ms=300_000
+    )
+    assert apertada[2].vr_normalizado < folgada[2].vr_normalizado
+
+
+@pytest.mark.parametrize(
+    "trocas",
+    [
+        {"nu_tentativas": 0},
+        {"nu_tempo_ms": -1},
+        {"nu_dicas": 3},
+        {"nu_tempo_piso_ms": 60_000, "nu_tempo_teto_ms": 60_000},
+        {"nu_tempo_piso_ms": 60_000, "nu_tempo_teto_ms": 30_000},
+        {"direcoes": {}},
+    ],
+)
+def test_numero_impossivel_de_sessao_e_medida_invalida(trocas):
+    """⚠️ Zero tentativas daria `1/0`; regua degenerada divide por zero; e sem
+    a direcao no catalogo nao ha como saber para que lado a parcela corre."""
+    with pytest.raises(MedidaInvalida):
+        _extrato(**trocas)
 
 
 def test_peso_zero_vira_MEDIDA_e_peso_positivo_vira_MERITO():
@@ -510,24 +769,118 @@ def test_peso_zero_vira_MEDIDA_e_peso_positivo_vira_MERITO():
     }
     pesos[0] = {**pesos[0], "vr_peso": Decimal("1.000")}
 
-    parcelas = montar_extrato(medidas={"damas_coroadas": Decimal(2)}, pesos=pesos)
+    parcelas = _extrato(medidas={"damas_coroadas": Decimal(2)}, pesos=pesos)
 
-    assert parcelas[1].nu_tipo_xp == XP_MERITO
-    assert parcelas[2].nu_tipo_xp == XP_MEDIDA
-    assert parcelas[2].vr_xp == Decimal(0)
+    assert parcelas[4].nu_tipo_xp == XP_MERITO
+    assert parcelas[5].nu_tipo_xp == XP_MEDIDA
+    assert parcelas[5].vr_xp == Decimal(0)
 
 
 def test_q_cheio_paga_o_teto_de_30():
-    """A formula fechada: `Q = 1` leva a 18 + 12 = 30."""
-    parcelas = montar_extrato(
+    """A formula fechada: `Q = 1` leva a 18 + 12 = 30.
+
+    ⚠️ **E agora exige as quatro parcelas cheias** — primeira tentativa, no
+    piso do tempo, sem dica e com o merito completo. Antes do conserto, o merito
+    sozinho bastava, e quem resolvesse na decima tentativa com duas dicas tirava
+    30 assim mesmo.
+    """
+    parcelas = _extrato(
         medidas={
             "damas_coroadas": Decimal(2),
-            "tempo_ate_resolver": Decimal(10000),
-        },
-        pesos=_pesos(),
+            "material_do_adversario": Decimal(0),
+        }
     )
     assert qualidade_do_extrato(parcelas) == Decimal(1)
     assert sum(p.vr_xp for p in parcelas) == Decimal(30)
+
+
+def test_a_pior_resolucao_ainda_paga_o_piso_de_18():
+    """⚠️ Quem resolveu, resolveu (RF-DES-040).
+
+    `Q` nao chega a zero exato porque a parcela de tentativas e `1/n`; o total
+    arredonda para 18, que e o chao que o piso de 60% garante por construcao.
+    """
+    parcelas = _extrato(
+        nu_tentativas=30,
+        nu_tempo_ms=TETO_MS * 2,
+        nu_dicas=2,
+        medidas={"material_do_adversario": Decimal(12)},
+    )
+    total = sum(p.vr_xp for p in parcelas)
+    assert Decimal(18) <= total < Decimal("18.5")
+    assert round(total) == 18
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 4c. 🔒 O CASO DE OURO — a tabela do `data-model.md`, linha a linha
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def test_o_caso_de_ouro_do_data_model():
+    """*"Tentou, falhou, tentou de novo e resolveu em 74 s, sem dica, fechando as
+    4 caixas e acertando 3 lances otimos de 6."*
+
+    ⚠️ **E o MESMO caso do teste do aplicativo** (`qualidade_test.dart`, grupo
+    "o caso de ouro"). Os dois lados calculam a mesma resolucao e tem de chegar
+    ao mesmo numero — e a auditoria de RF-DES-032 que depende disso. Se um dia
+    divergirem, o alerta do painel acende com razao.
+    """
+    pesos = [
+        {
+            "nu_feito": 10,
+            "co_feito": "caixas_fechadas",
+            "co_direcao": "maior_melhor",
+            "nu_ordem": 1,
+            "vr_peso": Decimal("0.600"),
+            "co_normalizacao": "faixa",
+            "vr_min": Decimal("0"),
+            "vr_max": Decimal("4"),
+            "co_sobre": None,
+        },
+        {
+            "nu_feito": 20,
+            "co_feito": "lances_otimos",
+            "co_direcao": "maior_melhor",
+            "nu_ordem": 2,
+            "vr_peso": Decimal("0.400"),
+            "co_normalizacao": "faixa",
+            "vr_min": Decimal("0"),
+            "vr_max": Decimal("6"),
+            "co_sobre": None,
+        },
+    ]
+    parcelas = _extrato(
+        medidas={
+            "caixas_fechadas": Decimal(4),
+            "lances_otimos": Decimal(3),
+        },
+        pesos=pesos,
+        nu_tentativas=2,
+        nu_tempo_ms=74_000,
+        nu_dicas=0,
+        nu_tempo_piso_ms=30_000,
+        nu_tempo_teto_ms=180_000,
+    )
+
+    base, tentativas, tempo, dica, caixas, otimos = parcelas
+
+    assert base.vr_xp == Decimal(18)
+    assert tentativas.vr_normalizado == Decimal("0.5")
+    assert tentativas.vr_xp == Decimal("1.800")
+    # (180000 - 74000) / (180000 - 30000) = 0,70666...
+    assert round(tempo.vr_normalizado, 4) == Decimal("0.7067")
+    assert round(tempo.vr_xp, 3) == Decimal("1.696")
+    assert dica.vr_xp == Decimal("3.000")
+    assert caixas.vr_peso == Decimal("0.150")
+    assert caixas.vr_xp == Decimal("1.800")
+    assert otimos.vr_peso == Decimal("0.100")
+    assert otimos.vr_normalizado == Decimal("0.5")
+    assert otimos.vr_xp == Decimal("0.600")
+
+    # ⚠️ O arredondamento acontece UMA vez, no fim: parcela a parcela daria 28.
+    total = sum(p.vr_xp for p in parcelas)
+    assert round(total, 3) == Decimal("26.896")
+    assert round(total) == 27
 
 
 def test_fracao_sem_denominador_e_medida_invalida():
@@ -550,7 +903,7 @@ def test_fracao_sem_denominador_e_medida_invalida():
         }
     ]
     with pytest.raises(MedidaInvalida):
-        montar_extrato(medidas={"capturas_extras": Decimal(2)}, pesos=pesos)
+        _extrato(medidas={"capturas_extras": Decimal(2)}, pesos=pesos)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -58,7 +58,16 @@ from api.desafios.modelos_evento import (
     VW_RESOLUCAO,
     VW_TENTATIVA,
 )
-from api.desafios.modelos_producao import VW_CATALOGO_FEITO, VW_FEITO_DESAFIO
+from api.desafios.extrato_xp import (
+    FEITO_DICAS,
+    FEITO_TEMPO,
+    FEITO_TENTATIVAS,
+)
+from api.desafios.modelos_producao import (
+    VW_CATALOGO_FEITO,
+    VW_DESAFIO,
+    VW_FEITO_DESAFIO,
+)
 
 #: A partida que o log ja trouxe, pelo `co_evento` do aplicativo.
 #:
@@ -92,6 +101,29 @@ SELECT nu_feito, co_feito, co_direcao, nu_ordem,
   FROM {VW_FEITO_DESAFIO}
  WHERE id_desafio = :id_desafio
  ORDER BY nu_ordem
+"""
+
+#: A regua de tempo daquele desafio, para a parcela `q_tempo` da auditoria.
+#:
+#: ⚠️ **Sao do DESAFIO, e nao constantes do servidor** (RF-DES-223): o piso e o
+#: gabarito jogado direto, o teto e onde a parcela zera. Um final de 3 lances e
+#: uma abertura de 12 nao pedem a mesma pressa.
+SQL_REGUA_DE_TEMPO = f"""
+SELECT nu_tempo_piso_ms, nu_tempo_teto_ms
+  FROM {VW_DESAFIO}
+ WHERE id_desafio = :id_desafio
+"""
+
+#: A direcao das tres chaves de sessao, lida da dimensao.
+#:
+#: ⛔ **Lida, e nunca escrita no codigo.** Mais tentativas, mais tempo e mais
+#: dicas reduzem o XP porque `tb902_catalogo_feito.co_direcao` diz `menor_melhor`
+#: - e uma parcela na direcao errada **nao daria erro nenhum**, so pagaria mais a
+#: quem jogou pior. Escrever a direcao aqui seria escreve-la uma segunda vez.
+SQL_DIRECOES_DE_SESSAO = f"""
+SELECT co_feito, co_direcao
+  FROM {VW_CATALOGO_FEITO}
+ WHERE co_feito = ANY(:chaves)
 """
 
 #: A tentativa. `nu_sequencia` sai de um `SELECT` na propria tabela, dentro do
@@ -235,6 +267,33 @@ class RepositorioEnvio:
             text(SQL_PESOS_DO_DESAFIO), {"id_desafio": id_desafio}
         )
         return [dict(m) for m in resultado.mappings().all()]
+
+    async def regua_de_tempo(self, id_desafio: UUID) -> Optional[dict[str, Any]]:
+        """`{nu_tempo_piso_ms, nu_tempo_teto_ms}` daquele desafio, ou `None`.
+
+        ⚠️ **`None` nao e "use o padrao"** - e desafio inexistente. Quem chama
+        trata, e ⛔ nao arbitra 30 s/180 s: um padrao plausivel faria a auditoria
+        conferir contra uma regua inventada e acusar divergencia onde nao ha.
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_REGUA_DE_TEMPO), {"id_desafio": id_desafio}
+        )
+        linhas = resultado.mappings().all()
+        return dict(linhas[0]) if linhas else None
+
+    async def direcoes_de_sessao(self) -> dict[str, str]:
+        """A direcao das tres chaves de sessao, lida da dimensao.
+
+        Returns:
+            `{co_feito: co_direcao}`. ⚠️ Chave que faltar simplesmente nao vem,
+            e quem monta o extrato estoura ao procura-la - que e o certo: sem a
+            direcao nao ha como saber para que lado a parcela corre.
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_DIRECOES_DE_SESSAO),
+            {"chaves": [FEITO_TENTATIVAS, FEITO_TEMPO, FEITO_DICAS]},
+        )
+        return {m["co_feito"]: m["co_direcao"] for m in resultado.mappings().all()}
 
     async def dicas_ja_gastas(
         self, *, id_desafio_dia: UUID, id_usuario: str

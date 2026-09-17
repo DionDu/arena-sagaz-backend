@@ -84,6 +84,52 @@ class ObjetivoPublicado(BaseModel):
     valores: dict[str, Any] = Field(default_factory=dict)
 
 
+class MedidaDeSaidaPublicada(BaseModel):
+    """Uma linha de `desafio.tb003_feito_desafio`: o que este desafio pontua.
+
+    ⚠️ **Sao elas que fecham a 4a parcela de `Q` no aparelho** (RF-DES-173): o
+    merito vale 0,25, e cada uma tem um peso **relativo dentro desses 0,25** — um
+    `0,600` vira `0,150` na conta final. Sem esta lista, o aplicativo mede
+    tentativas, tempo e dica sozinho, e o merito fica sem regua.
+
+    ⛔ **A DIRECAO NAO VEM AQUI, de proposito.** Ela ja esta declarada nos dois
+    lados, em `tb902_catalogo_feito.co_direcao` e em
+    `lib/core/feitos/catalogo_feitos.dart`, e manda-la junto seria escreve-la uma
+    segunda vez — no dia em que as duas discordassem ninguem perceberia, porque
+    uma parcela na direcao errada **nao da erro**: so paga mais a quem jogou pior.
+
+    ⚠️ **Nem o `nu_feito`**: o identificador numerico e da dimensao do banco, e
+    o aplicativo conhece as medidas pela **chave**. Publicar o numero criaria uma
+    segunda identidade para a mesma coisa.
+    """
+
+    #: A chave no catalogo de feitos. ⚠️ Chave desconhecida do aplicativo e dado
+    #: invalido, e nao campo novo a tolerar (RF-DES-033).
+    chave: str
+
+    #: O peso **relativo dentro do merito**, de 0 a 1. Os de um desafio somam
+    #: `1,000` — conferido na geracao por `job/medidas_de_saida.conferir`.
+    peso: float = Field(ge=0.0, le=1.0)
+
+    #: Como a medida crua vira um numero entre 0 e 1.
+    #:
+    #: ⚠️ `nenhuma` e a medida **exibida e nao pontuada** (peso zero): ela
+    #: aparece no Raio-X sem mexer na nota.
+    normalizacao: Literal["faixa", "fracao", "nenhuma"]
+
+    #: Os limites da `faixa`; `null` nas outras. ⚠️ O maximo costuma ser o
+    #: **proprio alvo do desafio**, e nao o total do tabuleiro: fechar quatro
+    #: caixas quando o pedido eram quatro e nota cheia.
+    minimo: Optional[float] = None
+    maximo: Optional[float] = None
+
+    #: A chave da medida que serve de denominador na `fracao`; `null` nas outras.
+    #:
+    #: ⚠️ **O denominador e OUTRA medida da mesma partida**, e por isso nao e um
+    #: numero do desafio: ele muda a cada resolucao.
+    sobre: Optional[str] = None
+
+
 class DesafioPublicado(BaseModel):
     """Um desafio como o aplicativo o recebe.
 
@@ -157,6 +203,20 @@ class DesafioPublicado(BaseModel):
     # RF-DES-223 manda vigiar; faltando, o erro estoura aqui, em teste.
     tempo_piso_ms: int
     tempo_teto_ms: int
+
+    # ── As medidas de saida (RF-DES-173) ─────────────────────────────────────
+    #
+    # ⚠️ **A 4a parcela de `Q`**, e o segundo buraco achado do mesmo jeito que a
+    # regua de tempo: escrevendo o consumidor. As linhas existem em
+    # `tb003_feito_desafio` desde a migracao `0018`, o job as grava, e ate
+    # 16/09/2026 nenhuma delas chegava ao aplicativo — que, sem elas, nao tem como
+    # fechar o merito de `Q` no aparelho (SC-002).
+    #
+    # ⛔ **Pelo menos uma, e sem valor padrao.** Um desafio sem medida de saida
+    # teria o Raio-X vazio e o merito sem do que ser calculado; o `conferir` do
+    # job ja recusa publicar assim, e aqui a falta estoura na leitura em vez de
+    # virar uma resposta plausivel com merito zero para todo mundo.
+    medidas_de_saida: list[MedidaDeSaidaPublicada] = Field(min_length=1)
 
     encerra_em: datetime
     agora_no_servidor: datetime

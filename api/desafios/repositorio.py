@@ -35,7 +35,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.desafios.modelos_evento import VW_DESAFIO_DIA
-from api.desafios.modelos_producao import VW_DESAFIO
+from api.desafios.modelos_producao import VW_DESAFIO, VW_FEITO_DESAFIO
 
 #: As colunas que a resposta usa. ⛔ **`js_solucao` NAO esta aqui**, e essa e a
 #: ausencia mais importante deste arquivo: e o gabarito (RF-DES-076).
@@ -116,6 +116,29 @@ SELECT {_COLUNAS}
  LIMIT 1
 """
 
+#: As MEDIDAS DE SAIDA de um lote de desafios — o que cada um pontua, e com que
+#: peso relativo dentro do merito (RF-DES-173).
+#:
+#: ⚠️ **Uma consulta so para o lote inteiro** (`= ANY(:ids)`), e nao uma por
+#: desafio: o `/proximos` traz varios, e uma consulta por item seria N+1 no
+#: caminho que o aplicativo chama toda manha.
+#:
+#: ⛔ **`co_direcao` nao e selecionada**, embora a VIEW a tenha: ela ja esta
+#: declarada no catalogo dos dois lados, e publica-la seria escreve-la uma
+#: segunda vez.
+SQL_MEDIDAS_DE_SAIDA = f"""
+SELECT id_desafio,
+       co_feito,
+       vr_peso,
+       co_normalizacao,
+       vr_min,
+       vr_max,
+       co_sobre
+  FROM {VW_FEITO_DESAFIO}
+ WHERE id_desafio = ANY(:ids)
+ ORDER BY id_desafio, nu_ordem
+"""
+
 #: As tres, para o cadeado que confere o filtro de curadoria.
 CONSULTAS_PUBLICAS = {
     "hoje": SQL_HOJE,
@@ -137,6 +160,34 @@ class RepositorioDesafio:
     def __init__(self, sessao: AsyncSession) -> None:
         self.sessao = sessao
 
+    async def _com_medidas(
+        self, linhas: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Anexa `medidas_de_saida` a cada linha, num lugar so.
+
+        ⚠️ **As tres leituras passam por aqui**, e e isso que impede uma delas de
+        esquecer o campo: `publicacao.para_resposta` so le o que ja veio na
+        linha, e uma rota que saltasse este metodo estouraria na montagem da
+        resposta — que e onde o erro e visivel, e nao em campo.
+        """
+        if not linhas:
+            return linhas
+
+        resultado = await self.sessao.execute(
+            text(SQL_MEDIDAS_DE_SAIDA),
+            {"ids": [linha["id_desafio"] for linha in linhas]},
+        )
+        por_desafio: dict[Any, list[dict[str, Any]]] = {}
+        for m in resultado.mappings().all():
+            por_desafio.setdefault(m["id_desafio"], []).append(dict(m))
+
+        for linha in linhas:
+            # ⚠️ Lista vazia quando o desafio nao tem medidas. ⛔ Nao se inventa
+            # uma aqui: o modelo de resposta exige pelo menos uma, e um desafio
+            # sem nenhuma e defeito de quem o publicou.
+            linha["medidas_de_saida"] = por_desafio.get(linha["id_desafio"], [])
+        return linhas
+
     async def de_hoje(
         self, *, agora: Optional[datetime] = None
     ) -> Optional[dict[str, Any]]:
@@ -151,7 +202,9 @@ class RepositorioDesafio:
             text(SQL_HOJE), {"agora": agora, "dt_hoje": agora.date()}
         )
         linha = resultado.mappings().all()
-        return dict(linha[0]) if linha else None
+        if not linha:
+            return None
+        return (await self._com_medidas([dict(linha[0])]))[0]
 
     async def proximos(
         self, *, dt_hoje: date, limite: int = DIAS_DE_CACHE
@@ -160,7 +213,9 @@ class RepositorioDesafio:
         resultado = await self.sessao.execute(
             text(SQL_PROXIMOS), {"dt_hoje": dt_hoje, "limite": limite}
         )
-        return [dict(m) for m in resultado.mappings().all()]
+        return await self._com_medidas(
+            [dict(m) for m in resultado.mappings().all()]
+        )
 
     async def por_id(self, id_desafio: UUID) -> Optional[dict[str, Any]]:
         """Um desafio publicado, pelo identificador."""
@@ -168,4 +223,6 @@ class RepositorioDesafio:
             text(SQL_POR_ID), {"id_desafio": id_desafio}
         )
         linha = resultado.mappings().all()
-        return dict(linha[0]) if linha else None
+        if not linha:
+            return None
+        return (await self._com_medidas([dict(linha[0])]))[0]

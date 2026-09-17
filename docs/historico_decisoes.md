@@ -21,6 +21,93 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-16 (madrugada) — ⛔ `Q` estava sendo auditada pela METADE, e o mérito sem régua
+
+**Contexto.** Escrever a peça do aplicativo que calcula `Q` (`qualidade.dart`,
+T055) obrigou a ler a fórmula linha a linha no `data-model.md`, e ela revelou
+**dois defeitos deste lado** - achados do mesmo jeito que a régua de tempo horas
+antes: escrevendo o consumidor.
+
+A fórmula é
+
+```
+XP = 18 + 12 x Q
+Q  = 0,30 q_tentativas + 0,20 q_tempo + 0,25 q_dica + 0,25 q_merito
+```
+
+e `api/desafios/extrato_xp.py` (T043) fazia duas coisas diferentes disso:
+
+| | o `data-model.md` diz | o código fazia |
+|---|---|---|
+| as três parcelas de **sessão** | linhas `tentativas`, `tempo` e `dica`, somando **0,75** de `Q` | não as gerava |
+| o peso do **mérito** | relativo `0,600` x `0,25` = **0,150** | usava `0,600` cru |
+
+⚠️ **As duas somadas faziam a auditoria discordar do aplicativo em TODA
+resolução.** E o efeito não seria XP errado na tela - vale o aplicativo (D-05,
+RF-DES-032) -, seria o **alerta de divergência do painel de curadoria aceso
+sempre**, que é como um alerta deixa de ser lido. Os códigos `XP_TENTATIVAS`,
+`XP_TEMPO` e `XP_DICA` já existiam na dimensão desde a `0019`, sem ninguém os
+usar: a omissão era esquecimento, e não desenho.
+
+**E havia um terceiro buraco, do outro lado do fio:** as **medidas de saída**
+(`tb003_feito_desafio`) - que definem o mérito - **não eram publicadas**. Elas
+existem desde a `0018`, o job as grava (`job/medidas_de_saida.py`), e nenhuma
+chegava ao aplicativo. Sem elas, o aparelho mede tentativas, tempo e dica sozinho
+e fica **sem régua** para o que a pessoa fez no jogo - com a SC-002 exigindo que
+`Q` feche sem rede.
+
+**Decisão.** Três mudanças, todas **aditivas** e ⛔ **sem migração**:
+
+1. **`extrato_xp.py` passa a gerar as quatro parcelas.** `parcelas_de_sessao`
+   monta tentativas (`1/n`), tempo (`(teto-t)/(teto-piso)`) e dica
+   (`1 - dicas/2`); `montar_extrato` multiplica cada peso de mérito por
+   `PESO_MERITO` num lugar só. A soma dos pesos de uma resolução volta a fechar
+   em `1,000`, e `soma_dos_pesos` é o cadeado barato que o `data-model.md` pedia.
+2. **A resposta publicada ganha `medidas_de_saida`**, uma lista com `chave`,
+   `peso` (relativo), `normalizacao` e os campos dela. Uma consulta só para o
+   lote (`= ANY(:ids)`), e as três leituras passam pelo mesmo `_com_medidas`.
+3. **O job recusa medida de SESSÃO entre os pesos do mérito.** Tempo, tentativas
+   e dicas já têm peso próprio em `Q`; pesá-las também no mérito faria a mesma
+   medida contar **duas vezes** - e a soma dos relativos continuaria 1,000, então
+   nenhuma outra conferência veria.
+
+⛔ **A DIREÇÃO não é publicada, e isso é decisão, não esquecimento.** Ela já
+está declarada nos dois catálogos (`tb902_catalogo_feito.co_direcao` e
+`lib/core/feitos/catalogo_feitos.dart`); mandá-la junto seria escrevê-la uma
+segunda vez, e no dia em que as duas discordassem ninguém perceberia - uma
+parcela na direção errada **não dá erro**, só paga mais a quem jogou pior. Pelo
+mesmo motivo, as três parcelas de sessão leem a direção **da dimensão**
+(`direcoes_de_sessao`) em vez de trazerem um `1 - x` escrito na fórmula.
+
+**Alternativas consideradas.**
+
+- *Deixar a auditoria como estava e só publicar as medidas.* Recusada: a
+  divergência permanente é pior que auditoria nenhuma, porque ensina a ignorar o
+  painel.
+- *Publicar o peso já multiplicado por 0,25.* Recusada: esconderia que os
+  relativos somam `1,000` entre si, que é a conferência barata do outro lado.
+- *Arbitrar um padrão quando a régua ou as medidas faltam.* Recusada pelo mesmo
+  motivo da régua de tempo: a resposta sairia **plausível e errada**. Hoje falta
+  estoura - `medidas_de_saida` exige pelo menos uma, e a régua ausente vira
+  `regua_ausente` no envio.
+
+**Como se sabe que os dois lados concordam.** O mesmo caso de ouro roda nos dois:
+a tabela *"Um dia inteiro, linha a linha"* do `data-model.md` (2 tentativas, 74 s,
+sem dica, 4 caixas, 3 lances ótimos de 6) fecha em **26,896 → 27** no Python e no
+Dart, parcela a parcela. Se um dia divergirem, o alerta do painel acende com
+razão.
+
+⚠️ **Provado por mutação, sete vezes**, e três delas sobreviveram à primeira
+rodada - cada uma apontando um teste que faltava: as medidas anexadas às leituras
+(o `RepoFalso` substituía o repositório inteiro, então a junção nunca rodava),
+a direção publicada (a guarda olhava a resposta, e precisava olhar o **modelo**) e
+a medida de sessão no mérito (regra nova, sem caso). ⚠️ **Testar a rota não testa
+o repositório.**
+
+**Suite:** 1846 passando, 9 pulados.
+
+---
+
 ## 2026-09-16 (noite) — ⛔ A RÉGUA DE TEMPO não era publicada: o conserto aditivo
 
 **Contexto.** Ao escrever `lib/core/desafios/desafio.dart` no app (T051 da fase

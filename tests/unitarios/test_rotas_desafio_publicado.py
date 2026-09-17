@@ -12,6 +12,11 @@ O que estes casos protegem:
     entraram em 16/09/2026, e sem eles a parcela `q_tempo` do XP nao fecha no
     aparelho; ⛔ **sem valor padrao**, porque um padrao plausivel pagaria XP
     errado em silencio;
+  · ⚠️ **as medidas de saida viajam** (RF-DES-173) — entraram no mesmo dia, pelo
+    mesmo motivo e achadas do mesmo jeito: elas sao a 4a parcela de `Q`, o
+    merito, e sem elas o aplicativo mede a sessao sozinho e fica sem regua para
+    o que a pessoa fez **no jogo**; ⛔ **pelo menos uma**, e ⛔ **sem a direcao**,
+    que ja esta declarada nos dois catalogos;
   · **a ordem das rotas**: `/{id}` casa com qualquer coisa e teria engolido
     `/hoje` e `/proximos` se viesse antes;
   · **"nao ha desafio hoje" e 404 com codigo**, e nao 200 com corpo vazio.
@@ -20,12 +25,14 @@ O que estes casos protegem:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from api.desafios import repositorio as repo_desafio
+from api.desafios.modelos_resposta import MedidaDeSaidaPublicada
 from api.desafios.publicacao import para_resposta
 from api.desafios.rotas import obter_repositorio
 from api.main import app
@@ -46,6 +53,7 @@ def _linha(
     dt_dia: date = HOJE,
     ic_reprise: bool = False,
     id_desafio=None,
+    medidas_de_saida=None,
 ) -> dict:
     """Uma linha como as consultas de `repositorio.py` a devolvem.
 
@@ -101,6 +109,37 @@ def _linha(
         "nu_tempo_piso_ms": 12_000,
         "nu_tempo_teto_ms": 95_000,
         "ic_reprise": ic_reprise,
+        # ⚠️ O que este desafio pontua, como `_com_medidas` anexa a linha. Os
+        # pesos sao **relativos dentro do merito** e somam 1,000; a terceira e
+        # uma medida exibida e nao pontuada (peso zero).
+        "medidas_de_saida": medidas_de_saida
+        if medidas_de_saida is not None
+        else [
+            {
+                "co_feito": "capturas_extras",
+                "vr_peso": Decimal("0.700"),
+                "co_normalizacao": "faixa",
+                "vr_min": Decimal("0"),
+                "vr_max": Decimal("3"),
+                "co_sobre": None,
+            },
+            {
+                "co_feito": "material_restante",
+                "vr_peso": Decimal("0.300"),
+                "co_normalizacao": "fracao",
+                "vr_min": None,
+                "vr_max": None,
+                "co_sobre": "material_do_adversario",
+            },
+            {
+                "co_feito": "damas_coroadas",
+                "vr_peso": Decimal("0.000"),
+                "co_normalizacao": "nenhuma",
+                "vr_min": None,
+                "vr_max": None,
+                "co_sobre": None,
+            },
+        ],
     }
 
 
@@ -310,6 +349,183 @@ def test_a_REGUA_DE_TEMPO_viaja_com_o_desafio():
     assert resposta.tempo_piso_ms == 12_000
     assert resposta.tempo_teto_ms == 95_000
 
+
+
+def test_as_MEDIDAS_DE_SAIDA_viajam_com_o_desafio(cliente):
+    """⚠️ **A 4a parcela de `Q`** (RF-DES-173), e o segundo buraco achado do
+    mesmo jeito que a regua: escrevendo o consumidor.
+
+    As linhas existem em `tb003_feito_desafio` desde a `0018` e o job as grava;
+    ate 16/09/2026 nenhuma chegava ao aplicativo, que sem elas nao tem como
+    fechar o merito no aparelho (SC-002).
+    """
+    app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(hoje=_linha())
+
+    medidas = cliente.get("/v1/desafios/hoje").json()["medidas_de_saida"]
+
+    assert [m["chave"] for m in medidas] == [
+        "capturas_extras",
+        "material_restante",
+        "damas_coroadas",
+    ]
+    # ⚠️ Os pesos sao **relativos dentro dos 0,25 do merito**, e somam 1,000
+    # entre si. Publicar ja multiplicado esconderia essa soma, que e a
+    # conferencia barata do outro lado.
+    assert sum(m["peso"] for m in medidas) == 1.0
+    assert medidas[0]["minimo"] == 0 and medidas[0]["maximo"] == 3
+    assert medidas[1]["sobre"] == "material_do_adversario"
+    # Peso zero: exibida no Raio-X, nao pontua.
+    assert medidas[2]["peso"] == 0 and medidas[2]["normalizacao"] == "nenhuma"
+
+
+def test_a_DIRECAO_nao_viaja_com_as_medidas(cliente):
+    """⛔ Ela ja esta declarada nos DOIS catalogos, e publica-la seria escreve-la
+    uma segunda vez.
+
+    ⚠️ No dia em que as duas discordassem ninguem perceberia: uma parcela na
+    direcao errada **nao da erro**, so paga mais a quem jogou pior.
+    """
+    app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(hoje=_linha())
+
+    medidas = cliente.get("/v1/desafios/hoje").json()["medidas_de_saida"]
+
+    for m in medidas:
+        assert "direcao" not in m
+        assert "co_direcao" not in m
+        # ⚠️ Nem o identificador numerico da dimensao: o aplicativo conhece as
+        # medidas pela chave, e um numero seria uma segunda identidade.
+        assert "nu_feito" not in m
+
+    # ⚠️ **E a guarda e sobre o MODELO, nao so sobre esta resposta.** Uma
+    # mutacao que acrescentasse `co_direcao` ao SELECT passaria pelo laco acima
+    # sem ser vista, porque `publicacao.py` monta a medida campo a campo; quem
+    # precisa nao ter o campo e a classe.
+    assert "direcao" not in MedidaDeSaidaPublicada.model_fields
+    assert "nu_feito" not in MedidaDeSaidaPublicada.model_fields
+
+
+def test_desafio_SEM_medida_de_saida_nao_vira_resposta_plausivel(cliente):
+    """⛔ **Sem valor padrao, e sem lista vazia.**
+
+    Um desafio sem medida de saida teria o Raio-X vazio e o merito sem do que ser
+    calculado — e a resposta sairia **plausivel e errada**, pagando merito zero a
+    todo mundo. O `conferir` do job ja recusa publicar assim; aqui a falta
+    estoura na leitura.
+    """
+    app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(
+        hoje=_linha(medidas_de_saida=[])
+    )
+
+    with pytest.raises(Exception):
+        cliente.get("/v1/desafios/hoje")
+
+
+class SessaoFalsa:
+    """Uma sessao que devolve linhas prontas, na ordem em que sao pedidas.
+
+    ⚠️ Existe porque `RepoFalso` substitui o repositorio inteiro, e com ele o
+    metodo que anexa as medidas nunca rodava: uma mutacao que apagasse a juncao
+    passava por todos os casos acima. ⛔ Testar a rota nao testa o repositorio.
+    """
+
+    def __init__(self, respostas):
+        self._respostas = list(respostas)
+        self.comandos = []
+
+    async def execute(self, comando, parametros=None):
+        self.comandos.append((str(comando), parametros))
+        linhas = self._respostas.pop(0)
+
+        class _Resultado:
+            def mappings(self_):
+                class _M:
+                    def all(self__):
+                        return linhas
+
+                return _M()
+
+        return _Resultado()
+
+
+@pytest.mark.asyncio
+async def test_o_repositorio_ANEXA_as_medidas_a_cada_linha():
+    """⚠️ O metodo que as tres leituras compartilham, exercitado de verdade.
+
+    A consulta das medidas e **uma so para o lote** (`= ANY(:ids)`): uma por
+    desafio seria N+1 no `/proximos`, que o aplicativo chama toda manha.
+    """
+    id_a, id_b = uuid4(), uuid4()
+    medidas = [
+        {
+            "id_desafio": id_a,
+            "co_feito": "capturas_extras",
+            "vr_peso": Decimal("1.000"),
+            "co_normalizacao": "faixa",
+            "vr_min": Decimal("0"),
+            "vr_max": Decimal("3"),
+            "co_sobre": None,
+        },
+        {
+            "id_desafio": id_b,
+            "co_feito": "caixas_fechadas",
+            "vr_peso": Decimal("1.000"),
+            "co_normalizacao": "faixa",
+            "vr_min": Decimal("0"),
+            "vr_max": Decimal("4"),
+            "co_sobre": None,
+        },
+    ]
+    sessao = SessaoFalsa([medidas])
+    repo = repo_desafio.RepositorioDesafio(sessao)
+
+    linhas = await repo._com_medidas(
+        [{"id_desafio": id_a}, {"id_desafio": id_b}]
+    )
+
+    assert [m["co_feito"] for m in linhas[0]["medidas_de_saida"]] == [
+        "capturas_extras"
+    ]
+    assert [m["co_feito"] for m in linhas[1]["medidas_de_saida"]] == [
+        "caixas_fechadas"
+    ]
+    # ⚠️ **Uma consulta so**, e nao uma por desafio.
+    assert len(sessao.comandos) == 1
+    assert sessao.comandos[0][1] == {"ids": [id_a, id_b]}
+
+
+@pytest.mark.asyncio
+async def test_desafio_sem_medida_chega_com_lista_VAZIA_e_nao_inventada():
+    """⛔ O repositorio nao inventa uma medida no lugar da que falta.
+
+    Ele entrega a lista vazia, e quem recusa e o modelo de resposta - onde o erro
+    e visivel. Inventar aqui faria a resposta sair **plausivel e errada**.
+    """
+    id_a = uuid4()
+    repo = repo_desafio.RepositorioDesafio(SessaoFalsa([[]]))
+
+    linhas = await repo._com_medidas([{"id_desafio": id_a}])
+
+    assert linhas[0]["medidas_de_saida"] == []
+
+
+def test_as_tres_leituras_anexam_as_medidas(cliente):
+    """⚠️ O cadeado de que **nenhuma rota pode esquecer**.
+
+    As tres passam pelo mesmo `_com_medidas` do repositorio; um caminho que o
+    saltasse estouraria na montagem da resposta, que e onde o erro e visivel.
+    """
+    linha = _linha()
+    app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(
+        hoje=linha, proximos=[linha], por_id=linha
+    )
+
+    de_hoje = cliente.get("/v1/desafios/hoje").json()
+    proximos = cliente.get("/v1/desafios/proximos").json()
+    por_id = cliente.get(f"/v1/desafios/{linha['id_desafio']}").json()
+
+    assert de_hoje["medidas_de_saida"]
+    assert proximos["desafios"][0]["medidas_de_saida"]
+    assert por_id["medidas_de_saida"]
 
 def test_a_regua_e_OBRIGATORIA_e_a_falta_estoura_aqui(cliente):
     """⛔ **Nao ha valor padrao**, e e isso que este caso tranca.

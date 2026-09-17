@@ -207,19 +207,24 @@ class ServicoEnvio:
         )
 
     async def _extrato(self, *, id_desafio: UUID, envio: EnvioDeResolucao):
-        """Converte as medidas nas parcelas do extrato.
+        """Converte as medidas e a sessao nas parcelas do extrato.
 
         Raises:
-            ErroNegocio: chave de feito fora do catalogo, ou normalizacao
-                impossivel (RF-DES-033).
+            ErroNegocio: chave de feito fora do catalogo, normalizacao
+                impossivel (RF-DES-033), ou a regua de tempo do desafio faltando.
+
+        ⚠️ **As quatro parcelas de `Q` saem daqui** (RF-DES-042): tentativas,
+        tempo e dica vem do proprio envio; o merito, dos pesos do desafio. Ate
+        16/09/2026 so o merito era gravado, e com o peso relativo cru - a
+        auditoria discordava do aplicativo em toda resolucao.
         """
         pesos = await self.repo.pesos_do_desafio(id_desafio)
         conhecidas = {linha["co_feito"] for linha in pesos}
         medidas = {f.chave: Decimal(str(f.valor)) for f in envio.feitos}
 
-        # ⚠️ A conferencia e contra o catalogo **daquele desafio**, e nao contra a
-        # dimensao inteira: uma chave que existe no catalogo mas nao pesa neste
-        # desafio nao e invencao — e so uma medida que este desafio nao usa.
+        # ⚠️ A conferencia e contra o catalogo **daquele desafio**, e nao contra
+        # a dimensao inteira: uma chave que existe no catalogo mas nao pesa neste
+        # desafio nao e invencao - e so uma medida que este desafio nao usa.
         # O que se recusa e a chave que nao existe em lugar nenhum.
         desconhecidas = [
             chave
@@ -236,8 +241,31 @@ class ServicoEnvio:
                 status_http=400,
             )
 
+        # ⛔ **Sem valor padrao, nem aqui nem na leitura**: arbitrar 30 s/180 s
+        # faria a auditoria conferir contra uma regua inventada e acusar
+        # divergencia onde nao ha - e o alerta que ninguem le e pior que nenhum.
+        regua = await self.repo.regua_de_tempo(id_desafio)
+        if regua is None:
+            raise ErroNegocio(
+                "Desafio sem regua de tempo: sem ela a parcela de tempo de Q "
+                "nao tem contra o que ser medida.",
+                "regua_ausente",
+                status_http=400,
+            )
+
         try:
-            return montar_extrato(medidas=medidas, pesos=pesos)
+            return montar_extrato(
+                medidas=medidas,
+                pesos=pesos,
+                nu_tentativas=envio.tentativas,
+                # ⚠️ O tempo **da resolucao**, que e o tempo ate o objetivo cair
+                # e nao ate o fim da partida (RF-DES-214).
+                nu_tempo_ms=envio.tempo_ms,
+                nu_dicas=envio.dicas_usadas,
+                nu_tempo_piso_ms=regua["nu_tempo_piso_ms"],
+                nu_tempo_teto_ms=regua["nu_tempo_teto_ms"],
+                direcoes=await self.repo.direcoes_de_sessao(),
+            )
         except MedidaInvalida as erro:
             raise ErroNegocio(str(erro), "medida_invalida", status_http=400) from erro
 

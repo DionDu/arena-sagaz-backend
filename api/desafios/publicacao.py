@@ -24,6 +24,7 @@ from api.desafios.modelos_resposta import (
     COLECAO_DESAFIO_DO_DIA,
     FORMA_VERIFICACAO_V1,
     DesafioPublicado,
+    MedidaDeSaidaPublicada,
     ObjetivoPublicado,
 )
 
@@ -95,6 +96,21 @@ def para_resposta(
         # obrigaria os dois lados a concordarem sobre o arredondamento.
         tempo_piso_ms=linha["nu_tempo_piso_ms"],
         tempo_teto_ms=linha["nu_tempo_teto_ms"],
+        # ⚠️ O que este desafio pontua, na `nu_ordem` dele. Os pesos sao
+        # **relativos dentro dos 0,25 do merito**, e quem os multiplica e o
+        # aplicativo — publicar ja multiplicado esconderia que eles somam 1,000
+        # entre si, que e a conferencia barata do outro lado.
+        medidas_de_saida=[
+            MedidaDeSaidaPublicada(
+                chave=m["co_feito"],
+                peso=float(m["vr_peso"]),
+                normalizacao=m["co_normalizacao"],
+                minimo=None if m["vr_min"] is None else float(m["vr_min"]),
+                maximo=None if m["vr_max"] is None else float(m["vr_max"]),
+                sobre=m["co_sobre"],
+            )
+            for m in linha["medidas_de_saida"]
+        ],
         encerra_em=linha["dh_encerramento"],
         agora_no_servidor=agora,
         reprise=linha["ic_reprise"],
