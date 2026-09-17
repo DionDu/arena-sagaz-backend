@@ -639,7 +639,13 @@ def tabela_do_p(distancia: "Counter[int]", piso: int) -> list[str]:
         return []
     linhas = ["quantos moldes cada `p` da frase renderia:"]
     maior = max(distancia)
-    for lances_p in range(1, (maior + 1) // 2 + 1):
+    # ⛔ **O maior `p` util e `maior // 2 + 1`, e nao `(maior + 1) // 2`.** Um
+    # molde de 24 meios-lances precisa de `p = 13` (porque `2x13 - 1 = 25 >= 24`),
+    # e a conta antiga parava em 12 — a ultima linha da tabela simplesmente nao
+    # saia, e com ela os moldes mais longos do acervo. ⚠️ So acontecia quando a
+    # maior distancia era PAR, que e metade das vezes: em 17/09/2026 a tabela do
+    # alvo "coroar 2 damas" dizia 61 moldes onde havia 62.
+    for lances_p in range(1, maior // 2 + 2):
         cabem = sum(
             quantos
             for meios, quantos in distancia.items()
