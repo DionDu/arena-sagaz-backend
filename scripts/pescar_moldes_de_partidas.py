@@ -336,6 +336,17 @@ class Diario:
         self.medicao: dict[str, list] = {}
         self.motivos: Counter[str] = Counter()
 
+        # ⛔ **A assinatura passa pelo mesmo ida-e-volta que o arquivo impoe.**
+        # O JSON nao tem tupla: `("damas", 1)` e gravado como `["damas", 1]` e
+        # volta como lista. Comparar o que veio do disco com o que esta na
+        # memoria, sem isto, acusa divergencia onde o conteudo e identico — e a
+        # pescaria passa a ser irretomavel, sempre na primeira retomada, com uma
+        # mensagem que culpa o diario. Aconteceu em 17/09/2026, com a pescaria de
+        # `damas_coroar` ja bem avancada.
+        # `json.loads(json.dumps(...))` normaliza QUALQUER campo futuro pela
+        # mesma regra, em vez de exigir que cada um lembre de nascer serializavel.
+        assinatura = json.loads(json.dumps(assinatura, ensure_ascii=False))
+
         if caminho.exists():
             self._ler(assinatura)
 

@@ -102,6 +102,60 @@ class TestAssinatura:
         Diario(caminho, ASSINATURA).fechar()
         Diario(caminho, dict(ASSINATURA)).fechar()  # não levanta
 
+    def test_a_TUPLA_da_assinatura_nao_inventa_divergencia(
+        self, tmp_path: Path
+    ) -> None:
+        """🔒 ⛔ O defeito que tornou a pescaria irretomável (17/09/2026).
+
+        `--parametros` entra na assinatura como `sorted(valores.items())`, que é
+        uma lista de **tuplas**. O JSON não tem tupla: `("damas", 1)` é gravado
+        como `["damas", 1]` e volta como lista. A comparação era feita contra o
+        valor ainda em memória, então o diário e a execução discordavam com
+        conteúdo **idêntico** — e a mensagem de erro culpava o diário, mandando
+        apagar horas de trabalho já feito.
+
+        ⚠️ O teste velho não pegava porque a assinatura dele só tem `str` e
+        `int`, tipos que o JSON devolve iguais. Aqui a assinatura leva a forma
+        real da pescaria de verdade.
+        """
+        caminho = tmp_path / "p.jsonl"
+        com_tuplas = {
+            **ASSINATURA,
+            "parametros": [["damas=1", [("damas", 1), ("lances", 13)]]],
+        }
+        primeiro = Diario(caminho, com_tuplas)
+        primeiro.anotar_peneira("W:W7:B2", 5, {})
+        primeiro.fechar()
+
+        # A mesma linha de comando, rodada de novo: tem de retomar, não recusar.
+        retomado = Diario(caminho, dict(com_tuplas))
+        assert retomado.peneira == {"W:W7:B2": 5}
+        retomado.fechar()
+
+    def test_e_a_divergencia_de_VERDADE_em_parametros_continua_recusada(
+        self, tmp_path: Path
+    ) -> None:
+        """🔒 ⛔ O contrapeso do teste acima.
+
+        Normalizar a assinatura não pode virar "aceita qualquer coisa": alvo
+        diferente no mesmo diário mistura dois acervos — metade julgada por
+        "coroar 1" e metade por "coroar 2" — e o resultado pareceria normal.
+        """
+        caminho = tmp_path / "p.jsonl"
+        Diario(
+            caminho,
+            {**ASSINATURA, "parametros": [["damas=1", [("damas", 1), ("lances", 13)]]]},
+        ).fechar()
+        with pytest.raises(SystemExit) as erro:
+            Diario(
+                caminho,
+                {
+                    **ASSINATURA,
+                    "parametros": [["damas=2", [("damas", 2), ("lances", 13)]]],
+                },
+            )
+        assert "parametros" in str(erro.value)
+
 
 class TestLinhaQuebrada:
     """⚠️ A queda no meio da escrita — o caso para o qual o JSONL foi escolhido."""
