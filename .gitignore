@@ -77,3 +77,6 @@ Thumbs.db
 fens_*.json
 pescaria_*.jsonl
 perseguir_vs_vencer.jsonl
+maratona_*.jsonl
+maratona_do_gerador.json
+logs/
