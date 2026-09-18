@@ -226,8 +226,13 @@ def resolve(fen: str, modalidade: str, modo: str) -> dict[str, int | None]:
     return achados
 
 
-def _uma_posicao(fen: str) -> dict[str, dict[str, int]]:
-    """Quantas modalidades servem a cada alvo, em cada modo."""
+def _uma_posicao(fen: str) -> tuple[str, dict[str, dict[str, int]]]:
+    """Quantas modalidades servem a cada alvo, em cada modo.
+
+    ⚠️ Devolve a FEN junto porque o resultado vai para o **diario**, e com
+    `imap_unordered` a ordem de chegada nao e a da lista: sem a FEN na linha, a
+    retomada nao saberia o que ja foi medido.
+    """
     contagem = {modo: {"damas=1": 0, "damas=2": 0} for modo in MODOS}
     for modo in MODOS:
         for modalidade in MODALIDADES:
@@ -235,10 +240,85 @@ def _uma_posicao(fen: str) -> dict[str, dict[str, int]]:
             for alvo, n in achados.items():
                 if n is not None:
                     contagem[modo][alvo] += 1
-    return contagem
+    return fen, contagem
+
+
+def tabela(resultados: list[dict[str, dict[str, int]]]) -> None:
+    """Imprime o quadro que decide, a partir de quantas posicoes houver.
+
+    ⚠️ Serve tanto ao fim da medicao quanto a leitura de um diario interrompido:
+    e a mesma conta, e duas copias dela divergiriam.
+    """
+    total = len(resultados)
+    if not total:
+        print("diario vazio - nada a resumir")
+        return
+
+    print(f"\n== QUANTAS POSICOES SERVIRIAM DE MOLDE ==")
+    print(f"   (de {total}; 'serve' = objetivo cai em {MINIMO_DE_MODALIDADES}+ modalidades)\n")
+    print(f"   {'modo':<12} {'X=1 (CONTROLE)':>16} {'X=2':>10}")
+    print("   " + "-" * 44)
+    base_x1 = sum(
+        1 for r in resultados if r["sagaz"]["damas=1"] >= MINIMO_DE_MODALIDADES
+    )
+    for modo in MODOS:
+        x1 = sum(1 for r in resultados if r[modo]["damas=1"] >= MINIMO_DE_MODALIDADES)
+        x2 = sum(1 for r in resultados if r[modo]["damas=2"] >= MINIMO_DE_MODALIDADES)
+        # ⛔ A marca do controle: um solucionador que coroa UMA dama menos vezes
+        # que o Sagaz nao esta apto a responder sobre DUAS.
+        marca = (
+            ""
+            if modo == "sagaz"
+            else ("  OK" if x1 >= base_x1 * 0.9 else "  <-- REPROVA")
+        )
+        print(f"   {modo:<12} {x1:>16} {x2:>10}{marca}")
+
+    print(
+        "\nCOMO LER\n"
+        "  A coluna X=1 e o CONTROLE: o solucionador tem de coroar uma dama pelo\n"
+        "  menos tao bem quanto o Sagaz. Linha que afunda ali nao responde nada\n"
+        "  sobre a coluna X=2, por maior que o numero dela pareca.\n"
+        "  Entre as linhas APROVADAS, a coluna X=2 e a resposta: se ela for muito\n"
+        "  maior que a do sagaz, o acervo de duas damas estava subestimado."
+    )
+
+
+#: ⛔ Onde cada posicao medida e gravada, UMA POR LINHA e na hora.
+#:
+#: ⚠️ A primeira versao deste script (18/09/2026) nao tinha diario: as ~2h de
+#: medicao existiam so na tela, e fechar a janela as perdia inteiras. O pescador
+#: de moldes ja fazia isso certo (`--diario`), e a diferenca nao e de tamanho do
+#: trabalho - e de o trabalho sobreviver a maquina.
+DIARIO_PADRAO = RAIZ / "perseguir_vs_vencer.jsonl"
+
+
+def _ja_medidas(diario: Path) -> dict[str, dict[str, dict[str, int]]]:
+    """O que o diario ja tem, por FEN. Linha corrompida e ignorada, nao fatal.
+
+    ⚠️ Um diario truncado no meio de uma escrita e o caso NORMAL de quem matou o
+    processo - e exatamente quem mais precisa da retomada.
+    """
+    if not diario.exists():
+        return {}
+    feitas: dict[str, dict[str, dict[str, int]]] = {}
+    for linha in diario.read_text(encoding="utf-8").splitlines():
+        if not linha.strip():
+            continue
+        try:
+            r = json.loads(linha)
+            feitas[r["fen"]] = r["contagem"]
+        except (json.JSONDecodeError, KeyError):
+            continue
+    return feitas
 
 
 def main() -> None:
+    # ⚠️ `--tabela` nao mede nada: le o diario e imprime o quadro. E o que se roda
+    # depois de interromper, ou para olhar o parcial sem parar a medicao.
+    if "--tabela" in sys.argv:
+        tabela(list(_ja_medidas(DIARIO_PADRAO).values()))
+        return
+
     quantas = int(sys.argv[1]) if len(sys.argv) > 1 else 120
     processos = int(sys.argv[2]) if len(sys.argv) > 2 else 14
 
@@ -261,52 +341,57 @@ def main() -> None:
         if len(candidatas) >= quantas:
             break
 
+    # ⚠️ A retomada e por FEN, e nao por contagem: com `imap_unordered` a ordem
+    # de chegada nao e a da lista, entao "pular as N primeiras" pularia as erradas.
+    feitas = _ja_medidas(DIARIO_PADRAO)
+    restantes = [fen for fen in candidatas if fen not in feitas]
+
     print(f"{len(candidatas)} posicoes que ja servem a 'coroar 1 dama' com o Sagaz")
     print(f"teto {TETO} meios-lances (= p 10) - {processos} processos")
+    print(f"diario: {DIARIO_PADRAO.name}")
+    if feitas:
+        print(f"   ja medidas antes: {len(feitas)} - faltam {len(restantes)}")
     print("medindo 4 modos na mesma posicao...\n", flush=True)
 
     comeco = time.monotonic()
-    resultados = []
-    with multiprocessing.Pool(processes=processos) as piscina:
-        # ⚠️ `imap_unordered` e nao `map`: o `map` so devolve quando a ultima
-        # posicao termina, e uma medicao longa sem sinal na tela e
-        # indistinguivel de uma travada.
-        for feitas, resultado in enumerate(
-            piscina.imap_unordered(_uma_posicao, candidatas), start=1
-        ):
-            resultados.append(resultado)
-            gasto = time.monotonic() - comeco
-            print(
-                f"   {feitas:>4}/{len(candidatas)} · {gasto/60:.1f}m gastos "
-                f"· faltam ~{gasto/feitas*(len(candidatas)-feitas)/60:.0f}m",
-                flush=True,
-            )
+    resultados = [feitas[fen] for fen in candidatas if fen in feitas]
 
-    total = len(resultados)
-    print("\n== QUANTAS POSICOES SERVIRIAM DE MOLDE ==")
-    print(f"   (de {total}; 'serve' = objetivo cai em {MINIMO_DE_MODALIDADES}+ modalidades)\n")
-    print(f"   {'modo':<12} {'X=1 (CONTROLE)':>16} {'X=2':>10}")
-    print("   " + "-" * 40)
-    base_x1 = None
-    for modo in MODOS:
-        x1 = sum(1 for r in resultados if r[modo]["damas=1"] >= MINIMO_DE_MODALIDADES)
-        x2 = sum(1 for r in resultados if r[modo]["damas=2"] >= MINIMO_DE_MODALIDADES)
-        if modo == "sagaz":
-            base_x1 = x1
-        # ⛔ A marca do controle: um solucionador que coroa UMA dama menos vezes
-        # que o Sagaz nao esta apto a responder sobre DUAS.
-        marca = "" if modo == "sagaz" else ("  OK" if x1 >= base_x1 * 0.9 else "  <-- REPROVA")
-        print(f"   {modo:<12} {x1:>16} {x2:>10}{marca}")
+    # ⛔ Aberto em modo APPEND e com `flush` a cada linha: o objetivo inteiro do
+    # diario e sobreviver a um processo morto no meio.
+    with DIARIO_PADRAO.open("a", encoding="utf-8") as diario:
+        with multiprocessing.Pool(processes=processos) as piscina:
+            # ⚠️ `imap_unordered` e nao `map`: o `map` so devolve quando a ultima
+            # posicao termina, e uma medicao longa sem sinal na tela e
+            # indistinguivel de uma travada.
+            for n, (fen, contagem) in enumerate(
+                piscina.imap_unordered(_uma_posicao, restantes), start=1
+            ):
+                resultados.append(contagem)
+                diario.write(
+                    json.dumps({"fen": fen, "contagem": contagem}, ensure_ascii=False)
+                    + "\n"
+                )
+                diario.flush()
 
+                gasto = time.monotonic() - comeco
+                # ⚠️ O que cada posicao rendeu, e nao so que ela terminou: sem
+                # isso a unica noticia em duas horas e a tabela final.
+                placar = " · ".join(
+                    f"{modo[:3]} {contagem[modo]['damas=1']}/{contagem[modo]['damas=2']}"
+                    for modo in MODOS
+                )
+                achou_duas = any(
+                    contagem[modo]["damas=2"] >= MINIMO_DE_MODALIDADES for modo in MODOS
+                )
+                print(
+                    f"   {n:>4}/{len(restantes)} · {gasto/60:.1f}m "
+                    f"· faltam ~{gasto/n*(len(restantes)-n)/60:.0f}m "
+                    f"· {placar}" + ("   <<< X=2" if achou_duas else ""),
+                    flush=True,
+                )
+
+    tabela(resultados)
     print(f"\n   {(time.monotonic()-comeco):.0f}s")
-    print(
-        "\nCOMO LER\n"
-        "  A coluna X=1 e o CONTROLE: o solucionador tem de coroar uma dama pelo\n"
-        "  menos tao bem quanto o Sagaz. Linha que afunda ali nao responde nada\n"
-        "  sobre a coluna X=2, por maior que o numero dela pareca.\n"
-        "  Entre as linhas APROVADAS, a coluna X=2 e a resposta: se ela for muito\n"
-        "  maior que a do sagaz, o acervo de duas damas estava subestimado."
-    )
 
 
 if __name__ == "__main__":
