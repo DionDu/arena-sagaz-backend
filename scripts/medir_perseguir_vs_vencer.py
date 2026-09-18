@@ -35,6 +35,11 @@ from job import posicao_inicial as pos  # noqa: E402
 from job import semente as sem  # noqa: E402
 from job.moldes_de_damas import _campos, _lado_e_adversario, MODALIDADES  # noqa: E402
 from motores.damas.motor_damas import EstadoDamas, MotorDamas, NivelDeMotor  # noqa: E402
+from motores.damas.perseguir_coroacao import (  # noqa: E402
+    lance_de_quem_persegue_a_coroacao,
+    nota_da_posicao,
+    PESO_DA_PECA,
+)
 from motores.juiz import julgar_desafio  # noqa: E402
 from motores.nucleo.orcamento import Orcamento  # noqa: E402
 from scripts.cacar_moldes_damas import (  # noqa: E402
@@ -142,10 +147,13 @@ def _nota(modo: str, motor, estado_depois, indice_meu: int) -> tuple:
         # Material e progresso na mesma conta, e o material pesa dez vezes mais
         # que uma fileira.
         return (100 * damas + 10 * pecas - distancia,)
-    # "defensivo": o mesmo, descontando o que o adversario leva em seguida.
+    # ⛔ "defensivo" NAO tem conta propria: e o solucionador de producao
+    # (`motores/damas/perseguir_coroacao.py`). Duas copias da mesma heuristica
+    # divergiriam no dia em que uma fosse ajustada, e o numero medido aqui
+    # deixaria de descrever o que a pescaria faz.
     return (
-        100 * damas + 10 * (pecas - _pior_perda(motor, estado_depois, indice_meu))
-        - distancia,
+        nota_da_posicao(estado_depois.fen, indice_meu)
+        - PESO_DA_PECA * _pior_perda(motor, estado_depois, indice_meu),
     )
 
 

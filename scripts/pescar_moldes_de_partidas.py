@@ -139,7 +139,7 @@ def _peneirar_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
     a fita anota um numero alto. ✅ Quem os pegou foi o cadeado
     `tests/unitarios/test_moldes_de_damas.py`, que e a rede embaixo desta.
     """
-    fen, co_tipo, (alvos, teto) = tarefa
+    fen, co_tipo, (alvos, teto, perseguir) = tarefa
     motivos = MotivoDeDescarte()
 
     # ⚠️ **Antes da busca, e nao depois:** a pergunta e direta ("ha lance legal
@@ -167,6 +167,7 @@ def _peneirar_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
         segundos=SEGUNDOS_DA_PENEIRA,
         motivos=motivos,
         teto=teto,
+        perseguir=perseguir,
     )
     return fen, achados, dict(motivos)
 
@@ -178,7 +179,7 @@ def _medir_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
     que nao cumpre entra como `None`, e e o `MINIMO_DE_MODALIDADES` que decide se
     o molde presta — um molde nao precisa servir aos quatro regulamentos.
     """
-    fen, co_tipo, (alvos, teto) = tarefa
+    fen, co_tipo, (alvos, teto, perseguir) = tarefa
     motivos = MotivoDeDescarte()
     por_alvo: dict[str, list] = {nome: [] for nome in alvos}
     for modalidade in MODALIDADES:
@@ -191,6 +192,7 @@ def _medir_varios(tarefa: tuple[str, str, dict]) -> tuple[str, dict, dict]:
             segundos=SEGUNDOS_DA_MEDICAO,
             motivos=motivos,
             teto=teto,
+            perseguir=perseguir,
         )
         for nome, lance in achados.items():
             por_alvo[nome].append(lance)
@@ -811,6 +813,15 @@ def main() -> int:
         ),
     )
     ap.add_argument(
+        "--perseguir",
+        action="store_true",
+        help=(
+            "quem resolve joga para CUMPRIR o objetivo, e nao para vencer a "
+            "partida (motores/damas/perseguir_coroacao.py). Acha moldes que o "
+            "Sagaz nao acha, e so serve a variante gerada com o mesmo solucionador"
+        ),
+    )
+    ap.add_argument(
         "--minimo-fileiras",
         type=int,
         default=0,
@@ -912,6 +923,19 @@ def main() -> int:
     # barra de progresso, quando a pescaria ja parece estar indo bem.
     teto_publicado = teto_do_tipo(args.tipo)
     teto = args.teto or teto_publicado
+
+    # ⚠️ `--perseguir` troca a CABECA de quem resolve, e nao a forca dele: o
+    # adversario continua sendo o Sagaz. ⛔ Moldes pescados com ele so servem a
+    # uma variante que TAMBEM seja gerada e medida com ele - `gerador.py` exige
+    # que a regua use o mesmo solucionador da geracao, e moldes achados por um
+    # solucionador que o gerador nao tem sairiam como "sem candidato" todo dia.
+    if args.perseguir:
+        print(
+            f"[{args.tipo}] ⚠️ PERSEGUINDO O OBJETIVO: quem resolve joga para "
+            "cumprir o desafio, e nao para vencer a partida. "
+            "    Os moldes achados assim NAO servem ao gerador de hoje - ver "
+            "motores/damas/perseguir_coroacao.py."
+        )
     for nome, valores in alvos.items():
         if "lances" not in valores:
             continue
@@ -1072,7 +1096,7 @@ def main() -> int:
                 len(candidatas) - len(pendentes),
                 len(candidatas),
                 args,
-                (alvos, teto),
+                (alvos, teto, args.perseguir),
                 anotar=lambda r: diario.anotar_peneira(r[0], r[1], r[2]),
                 resumo=lambda: _resumo_da_peneira(diario),
             )
@@ -1156,7 +1180,7 @@ def main() -> int:
                 len(aprovadas) - len(pendentes),
                 len(aprovadas),
                 args,
-                (alvos, teto),
+                (alvos, teto, args.perseguir),
                 anotar=lambda r: diario.anotar_medicao(r[0], r[1]),
                 resumo=lambda: _resumo_da_medicao(diario),
             )

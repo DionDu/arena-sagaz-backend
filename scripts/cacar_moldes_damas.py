@@ -92,6 +92,9 @@ from job import semente as sem  # noqa: E402
 from job.tipos_de_desafio import RECEITAS, Receita, receita_de  # noqa: E402
 from job.tipos_propostos import PROPOSTAS  # noqa: E402
 from motores.damas.motor_damas import EstadoDamas, MotorDamas  # noqa: E402
+from motores.damas.perseguir_coroacao import (  # noqa: E402
+    lance_de_quem_persegue_a_coroacao,
+)
 from motores.juiz import julgar_desafio  # noqa: E402
 from motores.nucleo.orcamento import Orcamento  # noqa: E402
 from motores.nucleo.papeis import NivelDeMotor  # noqa: E402
@@ -587,6 +590,7 @@ def resolve_varios_alvos(
     segundos: float,
     motivos: MotivoDeDescarte,
     teto: int = 0,
+    perseguir: bool = False,
 ) -> dict[str, int | None]:
     """Como `resolve`, mas julga VARIOS objetivos na MESMA fita.
 
@@ -650,16 +654,25 @@ def resolve_varios_alvos(
     fita: list[dict[str, Any]] = []
     atual = estado
 
+    # ⚠️ Quem resolve e quem joga primeiro — a mesma definicao do julgamento.
+    vez_de_quem_resolve = estado.vez_de
+
     for numero in range(1, (teto or teto_do_tipo(co_tipo)) + 1):
         try:
-            lance = motor.escolher_lance(
-                atual,
-                NivelDeMotor.SAGAZ,
-                # ⚠️ Orcamento NOVO a cada lance, como no gerador — e a MESMA
-                # semente de `resolve`, para as duas funcoes darem a mesma fita.
-                limite=Orcamento(nos_maximos=nos, segundos_maximos=segundos).iniciar(),
-                semente=sem.semente_do_lance(SEMENTE_DA_BUSCA, numero),
-            )
+            if perseguir and atual.vez_de == vez_de_quem_resolve:
+                # ⛔ **So a vez de quem resolve.** O adversario continua sendo o
+                # Sagaz jogando a partida: um objetivo que so cai contra um
+                # adversario distraido nao e desafio, e armadilha.
+                lance = lance_de_quem_persegue_a_coroacao(motor, atual)
+            else:
+                lance = motor.escolher_lance(
+                    atual,
+                    NivelDeMotor.SAGAZ,
+                    # ⚠️ Orcamento NOVO a cada lance, como no gerador — e a MESMA
+                    # semente de `resolve`, para as duas funcoes darem a mesma fita.
+                    limite=Orcamento(nos_maximos=nos, segundos_maximos=segundos).iniciar(),
+                    semente=sem.semente_do_lance(SEMENTE_DA_BUSCA, numero),
+                )
         except ValueError:
             # ⚠️ A partida acabou. Quem ja caiu fica; quem nao caiu fica `None`.
             motivos["partida_acabou" if numero > 1 else "sem_lance_no_1o"] += 1

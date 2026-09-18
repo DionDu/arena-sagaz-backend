@@ -1057,13 +1057,51 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # de 12 e estao truncados nele. A repescagem com `--teto 20` e o que enche o
     # acervo; ate la a variante gera pouco, e a medicao dira quanto.
     "damas_coroar": (
+        # ── ✅ AS DUAS VARIANTES MEDIDAS EM 18/09/2026 ───────────────────────
+        #
+        # ⛔ **A de SEIS lances saiu, e o motivo e o pior possivel: ela media um
+        # DIA VAZIO.** Ela esteve no ar desde 16/09 e o relatorio de 18/09 a
+        # reprovou com `SEM DESAFIO` — `dias [3, 0, 3]`, e num dos tres o job nao
+        # produziu candidato nenhum. ⚠️ Dia sem candidato nao e "desafio mais
+        # facil": e um buraco na fila, que a pessoa ve na tela.
+        #
+        # ⚠️ **O dono havia aprovado `p >= 6` para X=1** (17/09), e a medicao
+        # mostrou que o 6 exato nao sobrevive: o piso de 9 meios-lances quase nao
+        # deixa espaco dentro de uma janela de 11. E o 8 sobrevive com folga.
+        #
+        #     X  p  piso  faixa      dia mais fraco  pior erro de escada
+        #     1  6     9   9..11     0 de 3  ⛔       um dia VAZIO
+        #     1  8    12  12..15     3 de 3  ✅       0.03
+        #     1 10    16  16..19     2 de 3  ⚠️       0.05
+        #
+        # ⚠️ **As duas que ficaram NAO se sobrepoem** — 12..15 e 16..19 — e e isso
+        # que as faz duas tarefas, e nao a mesma com a frase mais folgada. ⛔ Cada
+        # variante e um PAR `(piso, p)`: so trocar `p` mantendo o piso publica o
+        # mesmo molde com um numero maior escrito no enunciado, e isso ja foi
+        # medido em 11/09 (as linhas de 6, 8 e 10 lances sairam identicas ate no
+        # tempo de geracao).
+        #
+        # ⚠️ **O erro de escada residual e de 0,02 a 0,05 em dois dias de tres, e
+        # aparece nas CINCO candidatas** — o Magno parando em 0,70 onde a escada
+        # pede 0,75. Um desvio que nao distingue variante nenhuma e sinal da
+        # REGUA, e nao delas; quem responde isso e a remedicao geral das damas.
         Publicacao(
-            # Uma dama em seis lances — o alvo com que os moldes foram escritos.
-            parametros={"damas": 1, "lances": 6},
+            # Uma dama em oito lances, com piso de 12: a unica das cinco que
+            # mediu `FOLGA` nos tres dias.
+            parametros={"damas": 1, "lances": 8},
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_coroar,
             nu_maximo_de_meios_lances=20,
-            nu_minimo_de_meios_lances=9,
+            nu_minimo_de_meios_lances=12,
+        ),
+        Publicacao(
+            # A mesma tarefa, mais longa: piso de 16 poe a solucao em 8 a 10
+            # lances de quem resolve, acima de tudo o que as damas publicam hoje.
+            parametros={"damas": 1, "lances": 10},
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_damas_coroar,
+            nu_maximo_de_meios_lances=20,
+            nu_minimo_de_meios_lances=16,
         ),
         # ── ⛔ A JANELA DE 4 LANCES SAIU EM 17/09/2026: ELA NAO PODIA GERAR ───
         #
@@ -1095,11 +1133,64 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         # nova que prometa uma frase curta demais para o proprio piso cai antes de
         # ser publicada.
         #
-        # ⏳ **O que entra no lugar depende de MEDICAO**, e as candidatas ja estao
-        # escritas em `scripts/medir_variantes_do_editorial.py` (`A_MEDIR`): a
-        # janela de 10 lances, que e a que o acervo repescado pede, com e sem piso
-        # de 13. ⛔ Ate a medicao chegar, o tipo publica **uma** variante — que
-        # gera, e e melhor que duas em que uma nunca sai.
+        # ✅ **A MEDICAO CHEGOU EM 18/09/2026**, e as duas variantes acima sao o
+        # que ela aprovou.
+        #
+        # ── ⛔ DUAS DAMAS: MEDIDO E REPROVADO EM 18/09/2026 ───────────────────
+        #
+        # ⚠️ **Este bloco existe para o X=2 nao voltar a mesa uma quarta vez.** Ele
+        # ja foi aposentado em 16/09, reaberto pelo dono em 17/09 e medido em
+        # 18/09; o que segue e o numero de cada tentativa.
+        #
+        #     {damas:2, lances:10} piso 12   0 de 3 dias na escada   pior erro 0.17
+        #     {damas:2, lances:10} piso  9   0 de 3 dias na escada   pior erro 0.17
+        #
+        # ⚠️ **As duas mediram IDENTICO** — mesma solucao (17,8 meios-lances),
+        # mesmos dias, mesmas escadas. Piso 9 e piso 12 com `p=10` sao a mesma
+        # variante: o odometro do gerador pegou os mesmos moldes. ⛔ A escolha
+        # entre elas nunca existiu.
+        #
+        # ⛔ **E o pior dia foi o pior numero de todo o relatorio**: em 03/10 a
+        # Pita fez 0,00 e o Tex 0,00 — ninguem abaixo do Magno resolveu. Com 26
+        # moldes, todo dia cai perto do mesmo lugar.
+        #
+        # ── ⚠️ A HIPOTESE DO DONO, E POR QUE ELA NAO SALVOU O X=2 ────────────
+        #
+        # Ele perguntou (18/09): *"sera que o Coroar 2 Damas nao esta morrendo
+        # porque o personagem, apos coroar a primeira dama, prefere jogar com a
+        # primeira dama coroada ao inves de tentar coroar a segunda?"*
+        #
+        # ✅ **O mecanismo existe, e nao era impressao dele.** `damas_coroar` nao
+        # tem entrada em `gerador.SOLUCIONADOR_POR_TIPO`, entao quem resolve joga
+        # com `motor.escolher_lance(..., SAGAZ, ...)` — e **o objetivo do desafio
+        # nao entra na escolha do lance**, nem na regua nem na pescaria.
+        #
+        # ⚠️ **Isso reinterpreta a licao de 16/09.** Registrou-se entao que os
+        # unicos moldes que comportavam duas coroacoes eram os de tabuleiro vazio
+        # (material 7,3), e leu-se isso como "escassez e facilidade sao a mesma
+        # coisa". A causa era outra: e so no tabuleiro vazio que **vencer e coroar
+        # sao a mesma jogada**.
+        #
+        # ⛔ **E ainda assim o efeito e pequeno demais** (`medir_perseguir_vs_vencer.py`,
+        # 300 posicoes, 18/09):
+        #
+        #     modo         X=1 (CONTROLE)   X=2
+        #     sagaz                    99     3
+        #     guloso                   79     3   <-- reprova no controle
+        #     ponderado                79     3   <-- reprova no controle
+        #     defensivo                94     6   OK
+        #
+        # O solucionador que persegue a coroacao acha o DOBRO de moldes de duas
+        # damas — 5 posicoes que o Sagaz nao acha —, mas sao **6 em 300**, e a
+        # diferenca de tres casos ainda cabe no acaso. Extrapolado, o acervo iria
+        # de 37 para talvez 70, contra 307 do X=1.
+        #
+        # ⛔ **E trocar o solucionador nao e um interruptor:** `SOLUCIONADOR_POR_TIPO`
+        # e por TIPO, e X=1 e X=2 sao o mesmo `damas_coroar`. Um solucionador sem
+        # nivel joga igual para Cacau e para Magno (limitacao declarada em
+        # `job/regua.py`), entao liga-lo aqui mataria a escada do X=1, **que hoje
+        # funciona**. Se um dia entrar, tem de enxergar mais longe conforme o
+        # nivel, e ser escolhido por VARIANTE e nao por tipo.
         # ── ⚠️ DUAS DAMAS: a variante que o dono pediu, e a mais longa ────────
         #
         # ⚠️ **Pedido dele, olhando a curadoria** (11/09/2026): *"esta solucao me

@@ -66,10 +66,38 @@ def test_o_coroar_LIGOU_o_piso_em_TODA_variante_que_publica() -> None:
     curta demais para ele, e saiu do editorial. O nome deste teste dizia "nas duas
     variantes" e ficou errado no mesmo dia — por isso ele agora percorre as que
     existirem, sem dizer quantas sao.
+
+    ⚠️ **E o piso deixou de ser UM numero em 18/09/2026.** A medicao mostrou que
+    cada variante e um PAR `(piso, p)`: com o mesmo piso, trocar `p` so escreve um
+    numero maior na frase e publica o mesmo molde. As duas que ficaram tem pisos
+    diferentes de proposito, e e isso que as faz duas tarefas.
+
+    ⛔ **O que este teste guarda agora e a REGRA, e nao a tabela**: piso de pelo
+    menos 9 (o pedido do dono), teto 20, e a faixa de cada variante sem buraco
+    nem sobreposicao com a seguinte. Travar os numeros exatos faria o teste cair
+    a cada variante nova sem ter acusado defeito nenhum.
     """
-    for publicacao in variantes_de("damas_coroar"):
-        assert publicacao.nu_minimo_de_meios_lances == 9, publicacao.parametros
+    variantes = variantes_de("damas_coroar")
+    faixas = []
+    for publicacao in variantes:
+        piso = publicacao.nu_minimo_de_meios_lances
+        assert piso >= 9, f"{publicacao.parametros}: piso {piso} abaixo do pedido"
         assert publicacao.nu_maximo_de_meios_lances == 20, publicacao.parametros
+        # A faixa que a variante realmente publica: do piso ao ultimo meio-lance
+        # que a frase admite (`2p - 1`, porque o p-esimo lance do jogador e ele).
+        p_da_frase = dict(publicacao.parametros)["lances"]
+        faixas.append((piso, 2 * p_da_frase - 1, publicacao.parametros))
+
+    # ⛔ Duas variantes que se sobrepoem sao a MESMA tarefa publicada duas vezes:
+    # os moldes da faixa comum podem sair em qualquer uma das duas, e a pessoa ve
+    # o mesmo desafio com enunciados diferentes.
+    for (piso_a, topo_a, params_a), (piso_b, topo_b, params_b) in zip(
+        sorted(faixas), sorted(faixas)[1:]
+    ):
+        assert piso_b > topo_a, (
+            f"{params_a} ({piso_a}..{topo_a}) e {params_b} ({piso_b}..{topo_b}) "
+            "se sobrepoem: sao a mesma tarefa com frases diferentes"
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -248,22 +276,33 @@ def test_o_acervo_JA_ACOMPANHA_o_piso() -> None:
     todos com solucao de 9 a 25 meios-lances — ou seja, **todos** acima do piso.
     O que era "sobram poucos" virou "nenhum sobra de fora".
 
-    ⚠️ **A pendencia que ficou nao e mais do acervo: e da JANELA.** Com
-    `lances: 6` a frase admite 11 meios-lances, e 236 dos 307 moldes continuam sem
-    poder sair — nao por serem curtos, mas por serem **longos demais para a frase
-    prometida**. ⏳ A escolha do `p` esta medida em
-    `scripts/medir_variantes_do_editorial.py`, e e a proxima decisao do dono.
+    ✅ **E A JANELA ALCANCOU O ACERVO EM 18/09/2026.** Ficou pendente por um dia a
+    segunda metade: com `lances: 6` a frase admitia 11 meios-lances, e 236 dos 307
+    moldes nao podiam sair — nao por serem curtos, mas por serem **longos demais
+    para a frase prometida**. A medicao escolheu `p` 8 e 10, e as duas variantes
+    juntas alcancam de 12 a 19 meios-lances.
 
-    ⚠️ **Este teste continua nao falhando quando o acervo melhorar** — ele guarda
-    que a conta esta sendo feita, e e o lugar onde o numero novo entra.
+    ⛔ **A de 6 lances saiu porque media um DIA VAZIO** (`dias [3, 0, 3]`), e nao
+    por causa desta conta. ⚠️ As duas coisas apontavam para o mesmo lugar, e e
+    facil confundi-las: uma janela curta demais para o acervo desperdica moldes;
+    uma janela curta demais para o PISO nao gera nada.
+
+    ⚠️ **Este teste guarda a conta, e nao um numero bonito** — ele falha se as
+    variantes publicadas voltarem a deixar a maior parte do acervo inalcancavel.
     """
     from job.tipos_de_desafio import RECEITAS
 
     moldes = RECEITAS["damas_coroar"].moldes
     assert len(moldes) == 307, "o acervo mudou; atualize a conta desta pendencia"
 
-    # ⛔ A parte que importa nao e o tamanho, e sim que a JANELA da variante no ar
-    # nao alcanca a maior parte dele. O dia em que esta conta mudar e o dia em que
-    # a escolha do `p` foi feita — e este teste tem de ser lido de novo.
-    janela_no_ar = dict(variantes_de("damas_coroar")[0].parametros)["lances"]
-    assert janela_no_ar == 6, "a janela mudou; a medicao do `p` chegou?"
+    # O maior meio-lance que ALGUMA variante publicada admite.
+    alcance = max(
+        2 * dict(publicacao.parametros)["lances"] - 1
+        for publicacao in variantes_de("damas_coroar")
+    )
+    # ⛔ O acervo foi pescado com teto 26, entao ha moldes acima de qualquer
+    # janela possivel — o que se cobra e que a maior parte caiba, e nao todos.
+    assert alcance >= 19, (
+        f"as variantes no ar alcancam so {alcance} meios-lances; com o acervo "
+        "pescado ate 26, isso desperdica a maior parte dele"
+    )

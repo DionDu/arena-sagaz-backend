@@ -5975,3 +5975,62 @@ resposta. A coluna `X=1` do relatório existe para essa pergunta.
 controle achar muito mais moldes de X=2 que o `sagaz`, a pescaria do
 `damas_coroar` inteiro precisa ser refeita com ele - o acervo dos 307 foi
 filtrado por uma busca que jogava para vencer.
+
+---
+
+## 2026-09-18 (2) - O `damas_coroar` publica duas variantes, e o X=2 fica medido e fora
+
+**O que entrou.** `{damas:1, lances:8}` com piso 12 e `{damas:1, lances:10}` com
+piso 16. **O que saiu:** `{damas:1, lances:6}`, piso 9.
+
+⛔ **A de seis lances media um DIA VAZIO** - `dias [3, 0, 3]`: num dos três dias o
+job não produziu candidato nenhum. Não é "desafio mais fácil", é um buraco na fila
+que a pessoa vê na tela. ⚠️ O dono havia aprovado `p >= 6` para X=1 em 17/09, e a
+medição mostrou que o **6 exato** não sobrevive: com piso de 9 meios-lances, uma
+janela de 11 quase não deixa espaço.
+
+| X | p | piso | faixa | dia mais fraco | pior erro de escada |
+|---|---|---|---|---|---|
+| 1 | 6 | 9 | 9..11 | 0 de 3 ⛔ | um dia vazio |
+| 1 | 8 | 12 | 12..15 | 3 de 3 ✅ | 0,03 |
+| 1 | 10 | 16 | 16..19 | 2 de 3 ⚠️ | 0,05 |
+| 2 | 10 | 12 | 12..19 | 0 de 3 ⛔ | 0,17 |
+| 2 | 10 | 9 | 9..19 | 0 de 3 ⛔ | 0,17 |
+
+⚠️ **As duas de X=2 mediram idêntico** - mesma solução (17,8), mesmos dias, mesmas
+escadas. Piso 9 e piso 12 com `p=10` são a mesma variante; o odômetro pegou os
+mesmos moldes. A escolha entre elas nunca existiu.
+
+⚠️ **O erro residual de 0,02 a 0,05 aparece nas CINCO candidatas**, com o Magno
+parando em 0,70 onde a escada pede 0,75. Um desvio que não distingue variante
+nenhuma é sinal da **régua**, não delas - quem responde é a remedição geral das
+damas, ainda pendente.
+
+**A hipótese do dono, e por que ela não salvou o X=2.** Ele perguntou se o X=2 não
+estaria morrendo porque o personagem, depois de coroar a primeira dama, prefere
+jogar com ela a buscar a segunda. ✅ **O mecanismo existe** (ver a entrada
+anterior de hoje), e o solucionador que persegue a coroação acha o **dobro** de
+moldes de duas damas - 6 contra 3 em 300 posições, com 5 posições que o Sagaz não
+acha. ⛔ **Mas são 6 em 300**, e a diferença de três casos ainda cabe no acaso;
+extrapolado, o acervo iria de 37 para talvez 70, contra 307 do X=1.
+
+**Decisão do dono (18/09):** publicar as duas de X=1 agora e **repescar o X=2 com
+o solucionador defensivo** antes de decidir sobre ele.
+
+**O que isso criou.** `motores/damas/perseguir_coroacao.py` - o solucionador, com
+a assinatura de `SOLUCIONADOR_POR_TIPO` para que ligá-lo um dia seja uma linha - e
+a opção `--perseguir` em `scripts/pescar_moldes_de_partidas.py`. ⚠️ **O medidor
+importa o mesmo módulo**, em vez de manter uma cópia da heurística: duas cópias
+divergiriam no dia em que uma fosse ajustada, e o número medido deixaria de
+descrever o que a pescaria faz.
+
+⛔ **E ele NÃO está ligado em `SOLUCIONADOR_POR_TIPO`, de propósito.** O mapa é por
+**tipo**, e X=1 e X=2 são o mesmo `damas_coroar`; um solucionador sem nível joga
+igual para Cacau e para Magno, então ligá-lo mataria a escada do X=1, **que hoje
+funciona** (Cacau 0,10 · Magno 1,00). Se a repescagem render, a mudança necessária
+é estrutural: solucionador escolhido por **variante**, e com nível.
+
+**Alternativa considerada e recusada:** pescar com o solucionador novo e gerar com
+o Sagaz. ⛔ Os moldes achados assim seriam recusados pelo gerador todo dia, com o
+log dizendo apenas *"sem candidato"* - `gerador.py` exige que a régua use o mesmo
+solucionador da geração, e a pescaria é a terceira ponta da mesma regra.
