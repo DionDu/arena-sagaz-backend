@@ -53,6 +53,7 @@ class RepoFalso:
         reacoes=None,
         medicoes=None,
         partida=None,
+        lances=None,
         gabarito=None,
         tem_contexto=True,
         adversario="pita",
@@ -64,6 +65,7 @@ class RepoFalso:
         self._reacoes = reacoes or {}
         self._medicoes = medicoes or []
         self._partida = partida
+        self._lances = lances
         self._gabarito = gabarito
         self._tem_contexto = tem_contexto
 
@@ -98,6 +100,8 @@ class RepoFalso:
         return self._partida
 
     async def lances(self, id_partida):
+        if self._lances is not None:
+            return self._lances
         return [{"nu_ordem": 1, "nu_jogador": 1, "co_lance": "H_0_1"}]
 
     async def extrato(self, id_resolucao):
@@ -584,6 +588,10 @@ async def test_quem_resolveu_ve_o_replay_com_o_extrato_inteiro():
             "id_partida": uuid4(),
             "co_status": "concluida",
             "co_jogo": "pontinhos",
+            # ⚠️ O dublê espelha as colunas do `SELECT`: ler por chave (e ⛔ nao
+            # por `.get`) faz uma coluna esquecida no SQL estourar aqui, em vez
+            # de virar um `None` silencioso na tela.
+            "nu_lance_cumpre_desafio": 5,
         },
     )
 
@@ -656,3 +664,137 @@ async def test_desafio_inexistente_e_404():
         await ServicoQuadro(RepoFalso(tem_contexto=False)).montar(
             id_desafio=ID_DESAFIO, id_usuario=None, agora=AGORA
         )
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. ⚠️ O que a BARRA do replay precisa saber (T073a)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Tres numeros, e ⛔ nenhum deles e coluna nova: onde o objetivo caiu, onde o
+# registro comeca e quantos lances a partida teve **inteira**.
+
+
+def _repo_com_partida(lances=None, nu_lance=7):
+    """Um repositorio com uma resolucao fechada e os lances que se quiser."""
+    return RepoFalso(
+        minha={"id_resolucao": uuid4(), "nu_xp": 26, "nu_tempo_ms": 40000,
+               "dh_resolucao": AGORA},
+        partida={
+            "id_resolucao": uuid4(),
+            "id_usuario": EU,
+            "id_partida": uuid4(),
+            "co_status": "concluida",
+            "co_jogo": "damas",
+            "nu_lance_cumpre_desafio": nu_lance,
+        },
+        lances=lances,
+    )
+
+
+def _lances(de, ate):
+    """Meios-lances numerados de `de` a `ate`, como o log os guarda."""
+    return [
+        {"nu_ordem": n, "nu_jogador": 1 + (n % 2), "co_lance": f"18-2{n % 10}"}
+        for n in range(de, ate + 1)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_o_replay_diz_ONDE_o_objetivo_caiu():
+    """⚠️ RF-DES-213/214: o instante do cumprido e o `nu_ordem` da jogada.
+
+    E a estrela da barra. Sem ele a barra so saberia dizer *"lance 7 de 12"* —
+    e o lance que **explica** a resolucao seria indistinguivel dos outros onze.
+    """
+    replay = await ServicoQuadro(_repo_com_partida(_lances(1, 12))).replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+
+    assert replay["nu_lance_objetivo"] == 7
+
+
+@pytest.mark.asyncio
+async def test_quem_NAO_cumpriu_nao_tem_estrela():
+    """⚠️ `nu_lance_cumpre_desafio` vem `NULL` de quem tentou e nao resolveu.
+
+    ⛔ Um zero no lugar do nulo desenharia a estrela no lance zero — uma
+    afirmacao falsa, e ⛔ nao um compartimento vazio.
+    """
+    replay = await ServicoQuadro(
+        _repo_com_partida(_lances(1, 12), nu_lance=None)
+    ).replay(id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA)
+
+    assert replay["nu_lance_objetivo"] is None
+
+
+@pytest.mark.asyncio
+async def test_partida_INTEIRA_nao_esta_truncada():
+    """O caso comum: 99% dos desafios cabem no teto (RF-DES-039)."""
+    replay = await ServicoQuadro(_repo_com_partida(_lances(1, 12))).replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+
+    assert replay["truncado"] is False
+    assert replay["nu_primeiro_lance"] == 1
+    assert replay["nu_lances"] == 12
+
+
+@pytest.mark.asyncio
+async def test_o_truncamento_sai_da_NUMERACAO_e_nao_de_uma_coluna():
+    """⚠️ **O teto corta o COMECO, e a numeracao nao se refaz.**
+
+    O primeiro lance guardado carrega o `nu_ordem` original — entao
+    `nu_primeiro_lance > 1` **e** o truncamento, e o ultimo `nu_ordem` e o
+    tamanho da partida inteira.
+
+    ⛔ Uma coluna `ic_truncado` seria uma segunda fonte para o mesmo fato, e as
+    duas discordariam **em silencio** no dia em que uma fosse gravada errada.
+    """
+    replay = await ServicoQuadro(
+        _repo_com_partida(_lances(14, 24), nu_lance=19)
+    ).replay(id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA)
+
+    assert replay["truncado"] is True
+    assert replay["nu_primeiro_lance"] == 14
+    # ⚠️ **24, e ⛔ nao 11.** Sao onze lances guardados de uma partida de 24, e
+    # dizer *"lance 19 de 11"* seria um numero impossivel na tela.
+    assert replay["nu_lances"] == 24
+
+
+@pytest.mark.asyncio
+async def test_o_gabarito_nao_tem_lance_de_objetivo():
+    """⚠️ A solucao de referencia **e** o caminho ate o objetivo.
+
+    O ultimo lance dela e o que cumpre, por definicao — e uma estrela desenhada
+    sempre no fim diria como fato o que e tautologia.
+    """
+    repo = RepoFalso(gabarito={"js_solucao": {"lances": ["18-22"]},
+                               "nu_lances_solucao": 1})
+
+    replay = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO,
+        sujeito="desafio",
+        id_usuario=None,
+        agora=ENCERRA + timedelta(minutes=1),
+    )
+
+    assert replay["nu_lance_objetivo"] is None
+    assert replay["nu_primeiro_lance"] == 1
+    assert replay["truncado"] is False
+
+
+def test_o_SQL_do_replay_traz_o_lance_que_cumpriu():
+    """🔒 Sem esta coluna no `SELECT`, o servico leria `None` de um dado que
+    **existe** — e a estrela sumiria de todos os replays, sem erro nenhum."""
+    from api.desafios.quadro import SQL_PARTIDA_DO_SUJEITO
+
+    assert "nu_lance_cumpre_desafio" in SQL_PARTIDA_DO_SUJEITO
+
+
+def test_os_lances_vem_em_ORDEM_porque_o_primeiro_e_o_ultimo_decidem():
+    """⚠️ O truncamento e o tamanho sao lidos das **pontas** da lista.
+
+    Sem o `ORDER BY`, o Postgres pode devolver em qualquer ordem — e uma lista
+    embaralhada daria um *"lance 3 de 7"* numa partida de 24, ⛔ sem erro nenhum.
+    """
+    from api.desafios.quadro import SQL_LANCES
+
+    assert "ORDER BY j.nu_ordem ASC" in SQL_LANCES

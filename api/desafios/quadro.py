@@ -161,7 +161,8 @@ SELECT id_resolucao, co_tipo_reacao, COUNT(*) AS qt
 #: (RF-DES-187): sem desfecho nao ha o que servir, e e por isso que o job de
 #: expiracao (T046) existe.
 SQL_PARTIDA_DO_SUJEITO = f"""
-SELECT r.id_resolucao, r.id_usuario, r.id_partida, p.co_status, p.co_jogo
+SELECT r.id_resolucao, r.id_usuario, r.id_partida, p.co_status, p.co_jogo,
+       r.nu_lance_cumpre_desafio
   FROM {VW_RESOLUCAO} r
   JOIN partida.vw001_partida p
     ON p.id_partida = r.id_partida

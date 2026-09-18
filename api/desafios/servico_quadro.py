@@ -244,6 +244,12 @@ class ServicoQuadro:
                 "sujeito": "desafio",
                 "lances": gabarito["js_solucao"],
                 "nu_lances": gabarito["nu_lances_solucao"],
+                # ⚠️ **A solucao de referencia nao tem "lance do objetivo"**: ela
+                # E o caminho ate ele, e o ultimo lance dela e o que cumpre. Um
+                # numero aqui seria a estrela desenhada sempre no fim, dizendo
+                # como fato o que e definicao.
+                "nu_lance_objetivo": None,
+                "nu_primeiro_lance": 1,
                 "extrato": None,
                 "truncado": False,
             }
@@ -274,10 +280,32 @@ class ServicoQuadro:
             )
 
         lances = await self.repo.lances(linha["id_partida"])
+
+        # ⚠️ **A numeracao dos lances E o dado de truncamento** (RF-DES-039).
+        # O teto corta o **comeco** da partida, e a numeracao ⛔ nao se refaz: o
+        # primeiro lance guardado carrega o `nu_ordem` original. Entao
+        # `nu_primeiro_lance > 1` **e** o truncamento, e o ultimo `nu_ordem` e o
+        # tamanho da partida inteira — sem coluna nova e sem migracao.
+        #
+        # ⛔ **Uma coluna `ic_truncado` seria uma segunda fonte para o mesmo
+        # fato**, e as duas discordariam em silencio no dia em que uma delas
+        # fosse gravada errada. O log e append-only (`0006`); ele ja sabe.
+        nu_primeiro = lances[0]["nu_ordem"] if lances else None
+        nu_ultimo = lances[-1]["nu_ordem"] if lances else None
+
         return {
             "sujeito": sujeito,
             "jogo": linha["co_jogo"],
             "lances": lances,
+            # O tamanho da partida INTEIRA, e nao quantos lances vieram: com o
+            # comeco cortado, os dois numeros sao diferentes, e e o primeiro que
+            # a barra do replay precisa para dizer *"lance 19 de 24"*.
+            "nu_lances": nu_ultimo,
+            "nu_primeiro_lance": nu_primeiro,
+            # ⚠️ **O instante em que o objetivo caiu** (RF-DES-213/214): e o
+            # `nu_ordem` da jogada, e e ele que a estrela da barra marca. Vem
+            # `None` de quem tentou e ⛔ nao cumpriu.
+            "nu_lance_objetivo": linha["nu_lance_cumpre_desafio"],
             # ⚠️ **O extrato vem INTEIRO no Raio-X**, e so as linhas que pontuaram
             # na tela de resultado (RF-DES-177): e o **mesmo dado** nos dois
             # lugares, e nao uma segunda lista escrita para a tela.
@@ -285,5 +313,5 @@ class ServicoQuadro:
             # ⚠️ O teto de log **trunca**, nunca invalida (RF-DES-039): o replay
             # diz honestamente que esta truncado, e o veredito que a pessoa viu
             # permanece.
-            "truncado": False,
+            "truncado": nu_primeiro is not None and nu_primeiro > 1,
         }

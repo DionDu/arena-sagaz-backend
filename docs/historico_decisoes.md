@@ -5809,3 +5809,52 @@ com o calendário afirmando que nunca jogou.
 ⚠️ **E o zero aparece aqui**, ao contrário do quadro: RF-DES-064 proíbe o zero
 onde o número conta sobre o **tamanho da base**; aqui ele é sobre a própria
 pessoa, e a tela o traduz em convite.
+
+---
+
+## 2026-09-18 — O replay passa a dizer **onde o objetivo caiu** e se está truncado
+
+**Contexto.** Ao escrever a **T073** no aplicativo (o Raio-X), a rota de replay
+(`GET /v1/desafios/{id}/replay/{sujeito}`, da T044) mostrou **três buracos** -
+e um deles ⛔ não era ausência, era **afirmação falsa**:
+
+1. ⛔ **`truncado` era `False` escrito à mão.** A resposta **afirmava** que a
+   partida veio inteira sem ter como saber. RF-DES-039 diz o contrário: o teto de
+   log corta o começo das partidas longas, e *"o replay mostra o que coube,
+   dizendo honestamente que está truncado"*.
+2. ⛔ **⛔ Nenhum campo dizia ONDE o objetivo caiu**, embora
+   `tb003_resolucao.nu_lance_cumpre_desafio` guarde o número desde a `0019`
+   (RF-DES-213/214). Sem ele, o lance que **explica** a resolução seria
+   indistinguível dos outros na barra do replay.
+3. ⛔ **⛔ Nenhum campo dizia o tamanho da partida inteira** - só os lances
+   servidos.
+
+**Decisão.** Os três campos passam a ser servidos, **sem coluna nova e sem
+migração**: `nu_lance_objetivo`, `nu_primeiro_lance` e `nu_lances`, com
+`truncado` **derivado**. O contrato está em
+`arena-sagaz-frontend/specs/009-desafio-do-dia/contracts/raio-x.md`.
+
+⚠️ **O truncamento sai da NUMERAÇÃO.** O teto corta o **começo**, e a numeração
+⛔ não se refaz - o primeiro lance guardado carrega o `nu_ordem` original. Então
+`nu_primeiro_lance > 1` **é** o truncamento, e o último `nu_ordem` é o tamanho da
+partida inteira.
+
+**Alternativa considerada e recusada:** uma coluna `ic_truncado` em
+`tb001_partida`. ⛔ Ela seria uma **segunda fonte para o mesmo fato**, e as duas
+discordariam **em silêncio** no dia em que uma fosse gravada errada - o defeito
+que este projeto mais paga. O log é append-only desde a `0006`; ele já sabe.
+
+**Dois detalhes que são decisão:**
+
+1. ⚠️ **`nu_lances` é a partida INTEIRA, ⛔ não quantos lances vieram.** Com o
+   começo cortado os dois números são diferentes, e é o primeiro que a barra
+   precisa para dizer *"lance 19 de 24"*. Dizer *"19 de 11"* seria um número
+   impossível na tela.
+2. ⚠️ **O gabarito ⛔ não tem `nu_lance_objetivo`**, e vem `null`. A solução de
+   referência **é** o caminho até o objetivo: o último lance dela é o que cumpre,
+   por definição - e uma estrela desenhada sempre no fim diria como **fato** o que
+   é tautologia.
+
+🔒 **O `ORDER BY nu_ordem` do SQL de lances virou cadeado**, porque agora as
+**pontas** da lista decidem: sem ele, uma lista embaralhada daria *"lance 3 de 7"*
+numa partida de 24, ⛔ sem erro nenhum.
