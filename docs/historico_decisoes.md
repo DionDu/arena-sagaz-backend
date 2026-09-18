@@ -6034,3 +6034,51 @@ funciona** (Cacau 0,10 · Magno 1,00). Se a repescagem render, a mudança necess
 o Sagaz. ⛔ Os moldes achados assim seriam recusados pelo gerador todo dia, com o
 log dizendo apenas *"sem candidato"* - `gerador.py` exige que a régua use o mesmo
 solucionador da geração, e a pescaria é a terceira ponta da mesma regra.
+
+---
+
+## 2026-09-18 (3) - A repescagem do X=2 encerra o assunto, e revela um `max` que estava certo por acidente
+
+**O número.** A pescaria com `--perseguir` varreu as mesmas 4.881 posições:
+
+```
+peneira perseguindo o objetivo:  96 posições com solução
+   5L:5  7L:3  9L:3  11L:12  13L:15  15L:18  17L:15  19L:25
+medidas:  40  ->  16 viraram molde (taxa de 40%)
+
+extrapolando a taxa aos pisos que não chegaram à medição:
+   piso  9:  88 elegíveis  ->  ~35 moldes
+   piso 12:  73 elegíveis  ->  ~29 moldes
+contra os 37 que o SAGAZ já achava, com teto 26.
+```
+
+⛔ **Perseguir o objetivo não ampliou o acervo de duas damas.** A medição pareada
+já apontava isso (6 contra 3 em 300 posições); a pescaria completa confirmou no
+tamanho real. ⚠️ O critério de ~40 moldes foi escrito **antes** de o número sair,
+e nenhum caminho o alcança.
+
+**O X=2 está encerrado** - aposentado em 16/09, reaberto em 17/09, medido em 18/09,
+e a única hipótese que o explicaria testada duas vezes. Reabri-lo pede um fato
+novo, não uma ideia nova.
+
+### ⛔ O defeito que a repescagem expôs: `max` onde devia ser `min`
+
+`scripts/pescar_moldes_de_partidas.py` lia o piso do editorial com **`max`** sobre
+as variantes do tipo. ⚠️ **Enquanto o `damas_coroar` teve uma variante só, `max` e
+`min` sobre a mesma lista deram o mesmo número** - a função estava certa por
+acidente, e nenhum teste podia distingui-la da errada.
+
+Ele quebrou **no mesmo dia** em que o tipo passou a ter duas variantes (pisos 12 e
+16): a pescaria seguinte mandou **56 posições elegíveis** para fora da medição, e
+nenhuma delas era curta demais para o acervo. ⛔ Um molde serve ao acervo se
+**alguma** variante puder publicá-lo; cortar pelo maior piso joga fora o que a
+variante de piso menor usaria.
+
+⚠️ **E o sintoma não acusa a causa:** as posições descartadas aparecem no log como
+*"abaixo do piso"*, que é exatamente o que o script diz quando o corte está certo.
+A única pista era alguém reparar num número grande demais de descartes.
+
+**Os dois cadeados** (`tests/unitarios/test_piso_de_meios_lances.py`): um trava o
+`min`; o outro trava a **condição que torna o primeiro observável** - que o
+`damas_coroar` tenha variantes com pisos diferentes -, e falha avisando disso em
+vez de virar um cadeado verde e cego no dia em que o tipo voltar a ter um piso só.

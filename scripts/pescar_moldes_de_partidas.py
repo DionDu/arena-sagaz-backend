@@ -953,8 +953,16 @@ def main() -> int:
 
     # ⚠️ Lido do editorial, e nao escrito aqui: e o mesmo numero que o gerador
     # usa para recusar gabarito curto.
+    #
+    # ⛔ **E o MENOR piso entre as variantes, nao o maior.** Um molde serve ao
+    # acervo se **alguma** variante puder publica-lo; cortar pelo maior joga fora
+    # o que a variante de piso menor usaria. ⚠️ Enquanto o `damas_coroar` teve uma
+    # variante so, `max` e `min` deram o mesmo numero e o defeito ficou invisivel
+    # — ele nasceu no dia (18/09/2026) em que o tipo passou a ter duas, e apareceu
+    # na primeira pescaria seguinte: com pisos 12 e 16, o `max` mandou 56 posicoes
+    # elegiveis para fora da medicao sem que nenhuma delas fosse curta demais.
     try:
-        piso_do_editorial = max(
+        piso_do_editorial = min(
             p.nu_minimo_de_meios_lances
             for p in editorial_mod.variantes_de(args.tipo)
         )

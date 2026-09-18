@@ -306,3 +306,49 @@ def test_o_acervo_JA_ACOMPANHA_o_piso() -> None:
         f"as variantes no ar alcancam so {alcance} meios-lances; com o acervo "
         "pescado ate 26, isso desperdica a maior parte dele"
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. A pescaria le o piso do editorial — e o le pelo lado certo
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_pescaria_corta_pelo_MENOR_piso_entre_as_variantes() -> None:
+    """🔒 Um molde serve ao acervo se ALGUMA variante puder publica-lo.
+
+    ⛔ **O defeito nasceu de uma funcao que estava certa por acidente.** Enquanto
+    o `damas_coroar` teve uma variante so, `max` e `min` sobre a mesma lista
+    davam o mesmo numero — entao o `max` que o script usava parecia correto.
+    Ele quebrou no dia (18/09/2026) em que o tipo passou a ter duas variantes,
+    com pisos 12 e 16: a pescaria seguinte mandou **56 posicoes elegiveis** para
+    fora da medicao, nenhuma delas curta demais para o acervo.
+
+    ⚠️ **E o sintoma nao acusa a causa:** as posicoes descartadas aparecem no log
+    como "abaixo do piso", que e exatamente o que o script diz quando o corte
+    esta certo. Sem este caso, a unica pista seria alguem reparar num numero
+    grande demais de descartes.
+    """
+    import inspect
+
+    import scripts.pescar_moldes_de_partidas as pescaria
+
+    fonte = inspect.getsource(pescaria.main)
+    assert "piso_do_editorial = min(" in fonte, (
+        "a pescaria voltou a cortar pelo MAIOR piso: moldes que a variante de "
+        "piso menor publicaria estao sendo jogados fora"
+    )
+
+
+def test_o_coroar_tem_variantes_com_pisos_DIFERENTES() -> None:
+    """🔒 O caso que torna o teste acima observavel.
+
+    ⚠️ Se um dia o tipo voltar a ter um piso so, o teste de cima continua
+    passando **sem provar nada** — `min` e `max` coincidem. Este caso guarda a
+    condicao que da sentido ao outro, e falha avisando disso em vez de deixar um
+    cadeado verde e cego.
+    """
+    pisos = {p.nu_minimo_de_meios_lances for p in variantes_de("damas_coroar")}
+    assert len(pisos) > 1, (
+        f"o damas_coroar voltou a ter um piso so ({pisos}); o cadeado do `min` "
+        "na pescaria deixou de ser observavel e precisa de outro tipo para valer"
+    )

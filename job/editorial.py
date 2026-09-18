@@ -1191,6 +1191,31 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         # `job/regua.py`), entao liga-lo aqui mataria a escada do X=1, **que hoje
         # funciona**. Se um dia entrar, tem de enxergar mais longe conforme o
         # nivel, e ser escolhido por VARIANTE e nao por tipo.
+        #
+        # ── ⛔ A REPESCAGEM FOI FEITA, E ENCERRA O ASSUNTO (18/09/2026) ───────
+        #
+        # O dono mandou repescar as 4.881 posicoes com `--perseguir` antes de
+        # decidir. ⚠️ **O resultado nao e "pouco": e MENOS do que ja havia.**
+        #
+        #     peneira perseguindo o objetivo:  96 posicoes com solucao
+        #        5L:5  7L:3  9L:3  11L:12  13L:15  15L:18  17L:15  19L:25
+        #     medidas (o piso as cortou):      40  ->  16 viraram molde (40%)
+        #
+        #     extrapolando a taxa de 40% para os pisos que nao chegaram a medicao:
+        #        piso  9:  88 elegiveis  ->  ~35 moldes
+        #        piso 12:  73 elegiveis  ->  ~29 moldes
+        #     contra os 37 que o SAGAZ ja achava, com teto 26.
+        #
+        # ⛔ **O solucionador que persegue o objetivo nao ampliou o acervo de duas
+        # damas.** A medicao pareada ja dizia isso (6 contra 3 em 300), e a
+        # pescaria inteira confirmou no tamanho real. ⚠️ O criterio de ~40 moldes
+        # foi escrito ANTES do numero sair, e nenhum caminho o alcanca.
+        #
+        # ⛔ **O X=2 esta encerrado.** Nao por falta de tentativa: foi aposentado
+        # em 16/09, reaberto em 17/09, medido em 18/09 (0 de 3 dias na escada), e
+        # a unica hipotese que o explicaria foi testada duas vezes — de forma
+        # pareada e por pescaria completa. ⚠️ Reabri-lo pede um fato novo, e nao
+        # uma ideia nova.
         # ── ⚠️ DUAS DAMAS: a variante que o dono pediu, e a mais longa ────────
         #
         # ⚠️ **Pedido dele, olhando a curadoria** (11/09/2026): *"esta solucao me
