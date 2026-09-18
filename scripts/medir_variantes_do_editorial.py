@@ -267,63 +267,76 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
     # de um candidato num dia.
     # ── ⏳ A ESCOLHA DO `p`, com o acervo repescado de 17/09/2026 ────────────
     #
-    # ⚠️ **Estas quatro linhas respondem a UMA pergunta do dono** (16/09): *"eu
-    # imaginei que o teto de 20 meios lances nos daria uma liberdade para escolher
-    # este `p` da frase do desafio. Este P poderia ser 6, 7, 8, 9, 10, 11, 12, 13
-    # etc."*. ✅ A pescaria de teto 26 deu a liberdade; a medicao diz qual `p`
-    # comprar.
+    # ⚠️ **Estas cinco linhas foram ESCOLHIDAS PELO DONO em 17/09/2026**, depois de
+    # ver quantos moldes cada combinacao renderia: *"o p >= 6 para X=1 e o p >= 8
+    # para X=2 estao perfeitos"*. Elas respondem a pergunta que ele abrira no dia
+    # anterior: *"eu imaginei que o teto de 20 meios lances nos daria uma liberdade
+    # para escolher este `p` da frase do desafio"*. ✅ A pescaria de teto 26 deu a
+    # liberdade; a medicao diz quais dos pares comprar.
     #
-    # ⛔ **A janela sozinha NAO alonga desafio — isso ja foi medido** (11/09: as
-    # linhas de 6, 8 e 10 lances sairam identicas ate no tempo). O que alonga e o
-    # **piso**. A janela e o que **deixa o molde longo sair**: com `lances: 6` ela
-    # admite 11 meios-lances, e 236 dos 307 moldes do acervo novo nunca seriam
-    # publicados. As duas coisas andam juntas, e por isso as linhas 3 e 4 movem as
-    # duas.
+    # ⛔ **CADA VARIANTE E UM PAR `(piso, p)`, e nao um `p` solto.** A janela
+    # sozinha nao alonga desafio — isso ja foi medido em 11/09, quando as linhas de
+    # 6, 8 e 10 lances sairam identicas ate no tempo de geracao. O gerador fica com
+    # o primeiro molde que cabe, e o mais curto cabe sempre; quem alonga e o
+    # **piso**, e a janela e o que **deixa o molde longo sair**.
     #
-    # ⚠️ **O que olhar no resultado:** se 2 e 3 derem o mesmo numero, o piso nao
-    # mordeu e vale a mais barata; se 3 gerar e 4 quase nao gerar, o teto de 26 nao
-    # se paga. ⛔ E custo de geracao **se relata, nao decide** (§8k-0).
+    # ⚠️ **E e o par que faz duas variantes serem TAREFAS diferentes**, em vez da
+    # mesma tarefa com a frase mais folgada — que e a repeticao que a variacao de
+    # parametros existe para acabar. Cada linha publica os moldes cuja solucao cai
+    # na faixa `[piso, 2p - 1]`:
+    #
+    #     X  piso   p    a pessoa joga     moldes
+    #     1     9   6    5 a 6 lances          67
+    #     1    12   8    6 a 8 lances          95
+    #     1    16  10    8 a 10 lances         93
+    #     2    12  10    6 a 10 lances         22
+    #     2     9  10    5 a 10 lances         26
+    #
+    # ⚠️ **As duas ultimas sao alternativas, e a medicao escolhe.** O dono nao
+    # escolheu entre elas de proposito; medir as duas custa ~12 min e evita um
+    # segundo turno. ⛔ **Nao publique as duas** — elas se sobrepoem (a de piso 9
+    # contem a de piso 12) e sao a mesma tarefa com folga diferente.
+    #
+    # ⚠️ **O que olhar no resultado, e nao e o rotulo FOLGA:** e em quantos dias a
+    # regua caiu na banda. Em 15/09 seis variantes deram `FOLGA 3 de 3` e a regua
+    # achou uma dura demais e outra com a **escada invertida**. ⛔ E custo de
+    # geracao se relata, nao decide (§8k-0).
     "damas_coroar": (
-        # 1) A que esta no ar, como linha de comparacao.
-        Candidata({"damas": 1, "lances": 6}),
-        # 2) A janela que o acervo novo pede: 2x10-1 = 19, dentro do teto de 20.
-        Candidata({"damas": 1, "lances": 10}),
-        # 3) A mesma janela com o piso mordendo: so moldes de 7+ lances do
-        #    jogador. Sao 155 dos 307 no acervo.
-        Candidata({"damas": 1, "lances": 10}, nu_minimo_de_meios_lances=13),
-        # 4) A mais longa que o acervo comporta — e a unica que exige subir o
-        #    teto. ⚠️ O teto e o mesmo numero da REGUA: medir com um teto maior
-        #    que o da geracao faria os mascotes resolverem desafios que o gerador
-        #    nao monta.
-        Candidata(
-            {"damas": 1, "lances": 13},
-            nu_maximo_de_meios_lances=26,
-            nu_minimo_de_meios_lances=13,
-        ),
-        # ── ⛔ AS DE DUAS DAMAS SAIRAM DA MEDICAO EM 17/09/2026 ───────────────
+        # ── X = 1: as tres faixas nao se sobrepoem, e por isso as tres podem
+        #    entrar juntas. Cada uma e um tamanho de tarefa.
+        Candidata({"damas": 1, "lances": 6}, nu_minimo_de_meios_lances=9),
+        Candidata({"damas": 1, "lances": 8}, nu_minimo_de_meios_lances=12),
+        Candidata({"damas": 1, "lances": 10}, nu_minimo_de_meios_lances=16),
+        # ── X = 2: o acervo tem 37 moldes, e cabe UMA variante so.
         #
-        # ⚠️ **Nao por terem medido mal — elas nunca foram recusadas pela
-        # medicao.** A variante foi **aposentada pelo dono** em 16/09, depois de
-        # ver o desafio publicado: *"Ele e extremamente facil. E simplesmente
-        # empurrar as 2 pecas azuis para frente"*. Medir o que nao pode ser
-        # publicado gastaria ~10 min de maquina por rodada para produzir um numero
-        # que ninguem usaria.
+        # ⛔ **Esta variante foi APOSENTADA pelo dono em 16/09 e reaberta por ele
+        # em 17/09**, e o motivo da volta e o acervo: ele a reprovou olhando o
+        # desafio publicado (*"e simplesmente empurrar as 2 pecas azuis para
+        # frente. Nao ha barreiras de pecas"*), e naquele acervo o material medio
+        # era **7,3** — tabuleiro quase vazio. O de hoje e **14,7**.
         #
-        # ✅ **O que elas mediram fica registrado**, e o codigo esta no Git:
+        # ⚠️ **E a licao de la vale aqui:** o rotulo NO LIMITE media a ESCASSEZ, e
+        # os moldes que comportavam duas coroacoes eram justamente os vazios.
+        # Escassez e facilidade eram a mesma coisa. ⛔ Se estas duas linhas
+        # derem NO LIMITE de novo, a pergunta nao e *"gerou?"* — e *"gerou a partir
+        # de que moldes?"*.
+        Candidata({"damas": 2, "lances": 10}, nu_minimo_de_meios_lances=12),
+        Candidata({"damas": 2, "lances": 10}, nu_minimo_de_meios_lances=9),
+        # ⚠️ **O que as de duas damas mediram ANTES, com o acervo antigo** (as
+        # janelas de entao, sem piso, teto 12):
         #
         #     {damas:2, lances: 8}   NO LIMITE   (1 de 3)   9,7 meios-lances   314s
         #     {damas:2, lances:10}   NO LIMITE   (1 de 3)   9,4 meios-lances   265s
         #
-        # ⛔ **E a licao delas vale para as quatro linhas acima:** o rotulo NO
-        # LIMITE media a ESCASSEZ, e os moldes que comportavam duas coroacoes eram
-        # justamente os de tabuleiro vazio. Escassez e facilidade eram a mesma
-        # coisa, e ninguem leu o rotulo assim. ⚠️ Ao ler o resultado do `p`, a
-        # pergunta nao e so *"gerou?"* — e *"gerou a partir de que moldes?"*.
+        # ⛔ **Estes numeros NAO servem de comparacao com as linhas de hoje**: o
+        # acervo e outro (material 7,3 → 14,7), o teto e outro e agora ha piso. Tres
+        # botoes mudaram de uma vez, e uma diferenca no resultado nao diria qual
+        # deles a produziu.
         #
-        # ⛔ **A variante `{damas: 1, lances: 4}` tambem saiu**, e essa por
-        # aritmetica: a frase promete 4 lances do jogador (7 meios-lances) e o
-        # piso pede 9. Ela esteve NO AR de 16 a 17/09 sem poder gerar um candidato
-        # sequer. Ver `tests/unitarios/test_piso_de_meios_lances.py`.
+        # ⛔ **A variante `{damas: 1, lances: 4}` saiu da tabela e do editorial**, e
+        # essa por aritmetica: a frase promete 4 lances do jogador (7 meios-lances)
+        # e o piso pede 9. Ela esteve NO AR de 16 a 17/09 sem poder gerar um
+        # candidato sequer. Ver `tests/unitarios/test_piso_de_meios_lances.py`.
     ),
     "damas_capturar_multipla": (
         Candidata({"pecas": 2, "lances": 4}),
