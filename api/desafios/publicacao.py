@@ -18,7 +18,7 @@ alguem acrescentar a coluna a consulta sem perceber.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 from api.desafios.modelos_resposta import (
     COLECAO_DESAFIO_DO_DIA,
@@ -35,6 +35,33 @@ from api.desafios.modelos_resposta import (
 #: `variante` continua vindo **sempre**, generico: `tamanho` e um apelido que o
 #: contrato deu, e nao uma segunda informacao.
 JOGOS_COM_TAMANHO = frozenset({"pontinhos"})
+
+
+def posicao_publicada(
+    co_formato_posicao: str, js_posicao_inicial: Any
+) -> tuple[Optional[str], Optional[dict[str, Any]]]:
+    """A posicao inicial na forma que o aplicativo le: `(tabuleiro, posicao)`.
+
+    Args:
+        co_formato_posicao: `fen` ou `sequencia_lances`.
+        js_posicao_inicial: o `js_posicao_inicial` cru do desafio.
+
+    Returns:
+        ⚠️ **Exatamente um dos dois vem preenchido**, e `co_formato_posicao` diz
+        qual. A FEN cabe numa string; a posicao do Pontinhos, nao — a posse de
+        uma caixa e historico, e so a sequencia a descreve.
+
+    ⚠️ **Isto e uma funcao desde 18/09/2026 (T074a) porque agora ha DOIS
+    leitores**: o desafio publicado e o replay do Raio-X, que precisa da posicao
+    inicial para ter de onde comecar a reproduzir. Escrever o mesmo `if` nos dois
+    lugares faria a segunda copia envelhecer calada no dia em que um terceiro
+    formato de posicao entrasse — e a tela desenharia um tabuleiro vazio, sem
+    erro nenhum.
+    """
+    js_posicao = js_posicao_inicial or {}
+    if co_formato_posicao == "fen":
+        return js_posicao.get("fen"), None
+    return None, js_posicao
 
 
 def para_resposta(
@@ -58,14 +85,9 @@ def para_resposta(
     caixa e historico, e so a sequencia a descreve.
     """
     co_formato = linha["co_formato_posicao"]
-    js_posicao = linha["js_posicao_inicial"] or {}
-
-    if co_formato == "fen":
-        tabuleiro = js_posicao.get("fen")
-        posicao = None
-    else:
-        tabuleiro = None
-        posicao = js_posicao
+    tabuleiro, posicao = posicao_publicada(
+        linha["co_formato_posicao"], linha["js_posicao_inicial"]
+    )
 
     co_jogo = linha["co_jogo"]
     co_variante = linha["co_variante"]

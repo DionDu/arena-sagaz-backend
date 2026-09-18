@@ -31,6 +31,7 @@ from api.desafios.quadro import (
     fracao_servivel,
     replays_liberados,
 )
+from api.desafios.publicacao import posicao_publicada
 from api.nucleo.excecoes import ErroNaoAutorizado, ErroNaoEncontrado
 
 
@@ -189,6 +190,39 @@ class ServicoQuadro:
             ),
         }
 
+
+    @staticmethod
+    def _de_onde_se_parte(contexto: ContextoDoQuadro) -> dict[str, Any]:
+        """O jogo, o regulamento e a posicao inicial — os campos do replay.
+
+        ⚠️ **Escrito uma vez porque os DOIS ramos o servem**: quem jogou e o
+        gabarito comecam da mesma posicao, e e isso que permite comparar os dois
+        no seletor do Raio-X. Montar o dicionario duas vezes faria o gabarito
+        perder um campo no dia em que um quinto entrasse — e a tela do gabarito e
+        a que ⛔ menos tem quem reclame, porque so abre em D+1.
+
+        ⚠️ **A modalidade viaja AQUI, e ⛔ nao como parametro da tela** (mudou em
+        18/09/2026). Quem abre o Raio-X por uma linha do quadro ⛔ nunca teve o
+        desafio em maos, e quem o abre pelo historico esta olhando um dia que ja
+        passou: a tela mostrava a pilula do regulamento so quando a pessoa vinha
+        da tela de resultado, e ⛔ nada denunciava as outras duas portas. Um lance
+        que parece ilegal na brasileira e legal na casa (decisao §8g do dono).
+        """
+        tabuleiro, posicao = posicao_publicada(
+            contexto.co_formato_posicao, contexto.js_posicao_inicial
+        )
+        return {
+            "jogo": contexto.co_jogo,
+            "modalidade": contexto.co_modalidade,
+            # ⚠️ **A MESMA forma do desafio publicado**, e ⛔ nao uma reduzida
+            # para esta rota: `formato_posicao` diz qual dos dois veio, e o
+            # aplicativo ja sabe ler exatamente este par. Uma forma propria aqui
+            # obrigaria o aplicativo a ter um segundo leitor de posicao inicial.
+            "formato_posicao": contexto.co_formato_posicao,
+            "tabuleiro": tabuleiro,
+            "posicao": posicao,
+        }
+
     async def replay(
         self,
         *,
@@ -242,6 +276,11 @@ class ServicoQuadro:
             # extrato — e humano pode supera-la, o que e esperado.
             return {
                 "sujeito": "desafio",
+                # ⚠️ **O gabarito viajava SEM JOGO ate 18/09/2026** — e com ele
+                # uma lista de lances que ⛔ ninguem sabia desenhar: nem qual
+                # tabuleiro montar, nem por qual regulamento ler um lance. A
+                # ausencia ⛔ nao aparecia porque ⛔ nao havia player.
+                **self._de_onde_se_parte(contexto),
                 "lances": gabarito["js_solucao"],
                 "nu_lances": gabarito["nu_lances_solucao"],
                 # ⚠️ **A solucao de referencia nao tem "lance do objetivo"**: ela
@@ -295,7 +334,11 @@ class ServicoQuadro:
 
         return {
             "sujeito": sujeito,
-            "jogo": linha["co_jogo"],
+            # ⚠️ **O jogo passou a sair do DESAFIO** (T074a), e ⛔ nao mais de
+            # `partida.vw001_partida`: sao a mesma coisa, e duas fontes para um
+            # fato so discordam em silencio — no dia em que discordassem, a tela
+            # desenharia o tabuleiro de um jogo com os lances de outro.
+            **self._de_onde_se_parte(contexto),
             "lances": lances,
             # O tamanho da partida INTEIRA, e nao quantos lances vieram: com o
             # comeco cortado, os dois numeros sao diferentes, e e o primeiro que

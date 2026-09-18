@@ -57,8 +57,16 @@ class RepoFalso:
         gabarito=None,
         tem_contexto=True,
         adversario="pita",
+        jogo="pontinhos",
+        modalidade=None,
+        formato_posicao="sequencia_lances",
+        posicao_inicial=None,
     ) -> None:
         self._adversario = adversario
+        self._jogo = jogo
+        self._modalidade = modalidade
+        self._formato_posicao = formato_posicao
+        self._posicao_inicial = posicao_inicial
         self._gente = gente or []
         self._minha = minha
         self._fracao = fracao
@@ -79,6 +87,10 @@ class RepoFalso:
             nu_tempo_piso_ms=8_000,
             nu_tempo_teto_ms=90_000,
             co_personagem_do_dia=self._adversario,
+            co_jogo=self._jogo,
+            co_modalidade=self._modalidade,
+            co_formato_posicao=self._formato_posicao,
+            js_posicao_inicial=self._posicao_inicial,
         )
 
     async def medicoes(self, id_desafio):
@@ -798,3 +810,187 @@ def test_os_lances_vem_em_ORDEM_porque_o_primeiro_e_o_ultimo_decidem():
     from api.desafios.quadro import SQL_LANCES
 
     assert "ORDER BY j.nu_ordem ASC" in SQL_LANCES
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O REPLAY AUTO-CONTIDO (T074a) — a tela e feita de UMA resposta
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _partida_de(jogo="damas", status="concluida"):
+    """A linha de partida que o duplo devolve, espelhando o `SELECT`."""
+    return {
+        "id_resolucao": uuid4(),
+        "id_usuario": EU,
+        "id_partida": uuid4(),
+        "co_status": status,
+        "co_jogo": jogo,
+        "nu_lance_cumpre_desafio": 3,
+    }
+
+
+def _minha():
+    return {
+        "id_resolucao": uuid4(),
+        "nu_xp": 26,
+        "nu_tempo_ms": 40000,
+        "dh_resolucao": AGORA,
+    }
+
+
+@pytest.mark.asyncio
+async def test_o_replay_diz_de_onde_a_partida_COMECOU():
+    """⚠️ Sem a posicao inicial, os lances sao uma lista de textos.
+
+    ⛔ `"18-22"` ⛔ nao desenha nada sozinho: e preciso saber **de qual posicao**
+    aquela peca partiu. E quem abre o Raio-X por uma linha do quadro ⛔ nunca teve
+    o desafio em maos — o Raio-X e feito de **uma** resposta.
+    """
+    repo = RepoFalso(
+        minha=_minha(),
+        partida=_partida_de(),
+        jogo="damas",
+        modalidade="brasileira",
+        formato_posicao="fen",
+        posicao_inicial={"fen": "W:W22,31:B12,18"},
+    )
+
+    replay = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+
+    assert replay["jogo"] == "damas"
+    assert replay["modalidade"] == "brasileira"
+    assert replay["formato_posicao"] == "fen"
+    assert replay["tabuleiro"] == "W:W22,31:B12,18"
+    # ⚠️ **Os dois campos sao excludentes**, e `formato_posicao` diz qual veio:
+    # a FEN cabe numa string; a posicao do Pontinhos, ⛔ nao.
+    assert replay["posicao"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_posicao_do_Pontinhos_e_a_SEQUENCIA_e_nao_uma_FEN():
+    """⚠️ La a posicao **e** o historico: quem fecha caixa joga de novo, e de
+    quem e a vez no lance N depende de ter passado pelos N-1 anteriores.
+
+    ⛔ Uma "FEN do Pontinhos" seria um formato inventado para caber neste campo.
+    """
+    repo = RepoFalso(
+        minha=_minha(),
+        partida=_partida_de(jogo="pontinhos"),
+        jogo="pontinhos",
+        formato_posicao="sequencia_lances",
+        posicao_inicial={"lances": [{"lance": "H_0_1"}]},
+    )
+
+    replay = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+
+    assert replay["posicao"] == {"lances": [{"lance": "H_0_1"}]}
+    assert replay["tabuleiro"] is None
+    # ⛔ **Sem modalidade, e ⛔ isso nao e falta**: o Pontinhos ⛔ nao tem
+    # regulamento, e uma pilula vazia na tela seria um rotulo sobre nada.
+    assert replay["modalidade"] is None
+
+
+@pytest.mark.asyncio
+async def test_o_GABARITO_tambem_diz_qual_jogo_e():
+    """⛔ **Ele viajava sem jogo nenhum ate 18/09/2026** — uma lista de lances
+    que ⛔ ninguem sabia desenhar: nem qual tabuleiro montar, nem por qual
+    regulamento ler um lance.
+
+    ⚠️ A ausencia ⛔ nao aparecia porque ⛔ nao havia player: a lista crua ⛔ nunca
+    chegou a ser um tabuleiro. O dia em que o player nasce e o dia em que ela
+    vira uma tela vazia.
+    """
+    repo = RepoFalso(
+        gabarito={"js_solucao": {"lances": ["18-22"]}, "nu_lances_solucao": 1},
+        jogo="damas",
+        modalidade="brasileira",
+        formato_posicao="fen",
+        posicao_inicial={"fen": "W:W22,31:B12,18"},
+    )
+
+    aberto = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO,
+        sujeito="desafio",
+        id_usuario=None,
+        agora=ENCERRA + timedelta(minutes=1),
+    )
+
+    assert aberto["jogo"] == "damas"
+    assert aberto["modalidade"] == "brasileira"
+    # ⚠️ **A MESMA posicao de quem jogou** — e e isso que permite comparar os
+    # dois sujeitos no seletor: os dois comecaram do mesmo lugar.
+    assert aberto["tabuleiro"] == "W:W22,31:B12,18"
+
+
+@pytest.mark.asyncio
+async def test_o_jogo_sai_do_DESAFIO_e_nao_da_partida():
+    """⛔ Duas fontes para um fato so discordam em silencio.
+
+    `partida.vw001_partida` tambem tem `co_jogo`, e ele e a mesma coisa. No dia
+    em que discordassem, a tela desenharia o tabuleiro de um jogo com os lances
+    de outro — e o gabarito ⛔ nao tem partida nenhuma para consultar.
+    """
+    repo = RepoFalso(
+        minha=_minha(),
+        # A partida diz uma coisa; o desafio, outra. ⚠️ Isto ⛔ nao acontece na
+        # base — o caso existe para dizer **quem manda** quando acontecer.
+        partida=_partida_de(jogo="velha"),
+        jogo="damas",
+        formato_posicao="fen",
+        posicao_inicial={"fen": "W:W22:B12"},
+    )
+
+    replay = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+
+    assert replay["jogo"] == "damas"
+
+
+def test_os_dois_leitores_da_posicao_inicial_usam_a_MESMA_funcao():
+    """🔒 O desafio publicado e o replay leem a posicao inicial.
+
+    ⚠️ Escrever o mesmo `if` nos dois faria a segunda copia envelhecer calada no
+    dia em que um terceiro formato de posicao entrasse — e a tela desenharia um
+    tabuleiro vazio, ⛔ sem erro nenhum.
+    """
+    from api.desafios.publicacao import posicao_publicada
+
+    assert posicao_publicada("fen", {"fen": "W:W22:B12"}) == ("W:W22:B12", None)
+    assert posicao_publicada("sequencia_lances", {"lances": []}) == (
+        None,
+        {"lances": []},
+    )
+    # ⛔ Posicao ausente ⛔ nao estoura: vira o dicionario vazio, como na
+    # publicacao.
+    assert posicao_publicada("sequencia_lances", None) == (None, {})
+
+
+def test_o_SQL_dos_lances_traz_a_posicao_ANTES_de_cada_um():
+    """🔒 E ela que torna o replay **truncado** possivel (RF-DES-039).
+
+    Com o comeco da partida cortado, ⛔ nao ha posicao inicial de onde reproduzir
+    o primeiro lance guardado — e cada lance trazendo a sua resolve isso sem que
+    ninguem precise reproduzir nada.
+    """
+    from api.desafios.quadro import SQL_LANCES
+
+    assert "dm.co_fen_antes" in SQL_LANCES
+
+
+def test_o_SQL_do_dia_traz_o_que_o_replay_passou_a_servir():
+    """🔒 Sem estas quatro colunas, o servico leria dados que **existem** como
+    `None` — e a tela abriria sem tabuleiro nenhum, ⛔ sem erro nenhum."""
+    from api.desafios.quadro import SQL_DIA_DO_DESAFIO
+
+    for coluna in (
+        "d.co_jogo",
+        "d.co_modalidade",
+        "d.co_formato_posicao",
+        "d.js_posicao_inicial",
+    ):
+        assert coluna in SQL_DIA_DO_DESAFIO, coluna

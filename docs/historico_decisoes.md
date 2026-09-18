@@ -5858,3 +5858,63 @@ que este projeto mais paga. O log é append-only desde a `0006`; ele já sabe.
 🔒 **O `ORDER BY nu_ordem` do SQL de lances virou cadeado**, porque agora as
 **pontas** da lista decidem: sem ele, uma lista embaralhada daria *"lance 3 de 7"*
 numa partida de 24, ⛔ sem erro nenhum.
+
+---
+
+## 2026-09-18 — O replay do Raio-X vira AUTO-CONTIDO (T074a)
+
+**Contexto.** Ao montar o **player** de replay no aplicativo (T074), a resposta
+de `GET /v1/desafios/{id}/replay/{sujeito}` mostrou não ter o suficiente para um
+lance virar tabuleiro. `"18-22"` não desenha nada sozinho: é preciso saber **qual
+jogo** é, **por qual regulamento** um lance se lê (um lance legal na casa é ilegal
+na brasileira) e **de que posição** aquela peça partiu.
+
+**E nada disso estava ao alcance de quem abre o Raio-X.** Ele tem três portas, e
+só uma tinha o desafio em mãos:
+
+| a porta | tinha o desafio? |
+|---|---|
+| o botão "meu raio-x" da tela de resultado | sim |
+| uma linha do **quadro do dia** | ⛔ não - o quadro nunca teve o desafio |
+| o **histórico**, num dia que já passou | ⛔ não - o aplicativo nem guarda aquele dia |
+
+A modalidade chegava **por parâmetro da tela**: a pílula do regulamento aparecia
+numa porta e sumia nas outras duas, sem nada denunciar. Era um defeito já em
+campo desde a T073, e só apareceu ao escrever o player.
+
+**Decisão.** A resposta passa a servir, nos **dois** ramos (quem jogou e o
+gabarito): `jogo`, `modalidade`, `formato_posicao` e `tabuleiro`/`posicao`. E
+cada lance passa a trazer `co_fen_antes`. Mudança **aditiva, sem coluna nova e
+sem migração**.
+
+**Três detalhes que são decisão:**
+
+1. ⛔ **O gabarito viajava SEM JOGO.** Uma lista de lances que ninguém sabia
+   desenhar - nem qual tabuleiro montar, nem por qual regulamento ler um lance. A
+   ausência não aparecia porque não havia player: a lista crua nunca chegou a ser
+   um tabuleiro.
+2. ⚠️ **`jogo` sai do DESAFIO, e não da partida**, embora `partida.vw001_partida`
+   também o tenha. São a mesma coisa, e duas fontes para um fato só discordam em
+   silêncio: no dia em que discordassem, a tela desenharia o tabuleiro de um jogo
+   com os lances de outro. E o gabarito não tem partida nenhuma para consultar.
+3. ⚠️ **A posição inicial vem na MESMA forma do desafio publicado** -
+   `formato_posicao` mais `tabuleiro`/`posicao`, excludentes. Uma forma reduzida
+   só para esta rota obrigaria o aplicativo a ter um **segundo** leitor de posição
+   inicial. Em vez disso, o `if` de formato virou **função** (`posicao_publicada`),
+   porque agora há dois leitores.
+
+**`co_fen_antes`: o que torna o replay truncado possível.** RF-DES-039: o teto de
+log corta o **começo** da partida. Sem a posição por lance, não há de onde
+reproduzir o primeiro lance guardado - a posição inicial do desafio é a do lance
+1, e o filme começa no 14. ⛔ **Vem `NULL` no Pontinhos**, e isso não é falta: lá
+a posição **é** a sequência de traços, e uma "FEN do Pontinhos" seria um formato
+inventado para caber neste campo.
+
+**Alternativa considerada e recusada:** deixar a modalidade como parâmetro da
+tela e servir só a posição. ⛔ Ela mantém o defeito de origem - duas das três
+portas continuariam sem ter o que passar -, e cria duas fontes para o mesmo fato
+no dia em que a terceira porta passasse uma modalidade diferente da gravada.
+
+🔒 **O dublê do teste passou a carregar os quatro campos do desafio**, lendo por
+chave e não por `.get`: uma coluna esquecida no `SELECT` estoura no teste, em vez
+de virar um `None` silencioso na tela.

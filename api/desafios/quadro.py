@@ -74,7 +74,17 @@ SELECT dia.id_desafio_dia,
        d.id_desafio,
        d.nu_tempo_piso_ms,
        d.nu_tempo_teto_ms,
-       d.co_personagem
+       d.co_personagem,
+       -- ⚠️ **O QUE O REPLAY PRECISA PARA VIRAR TABULEIRO** (T074a). O Raio-X e
+       -- feito de UMA resposta, e o aplicativo pode nem ter o desafio daquele
+       -- dia: quem abre o Raio-X pelo historico esta olhando um dia que ja
+       -- passou, e quem o abre por uma linha do quadro nunca teve o desafio em
+       -- maos. Sem estes quatro, os lances sao uma lista de textos sem de onde
+       -- partir.
+       d.co_jogo,
+       d.co_modalidade,
+       d.co_formato_posicao,
+       d.js_posicao_inicial
   FROM {VW_DESAFIO_DIA} dia
   JOIN {VW_DESAFIO} d
     ON d.id_desafio = dia.id_desafio
@@ -175,6 +185,16 @@ SQL_LANCES = """
 SELECT j.nu_ordem,
        j.nu_jogador,
        COALESCE(p.co_aresta, dm.co_lance) AS co_lance,
+       -- ⚠️ **A POSICAO ANTES DAQUELE LANCE** (T074a), e so as damas a gravam.
+       -- Ela e o que torna o replay TRUNCADO possivel (RF-DES-039): com o
+       -- comeco da partida cortado, ⛔ nao ha posicao inicial de onde reproduzir
+       -- o primeiro lance guardado — e cada lance trazendo a sua resolve isso
+       -- sem que ninguem precise reproduzir nada.
+       --
+       -- ⛔ **Vem `NULL` no Pontinhos**, e ⛔ isso nao e falta: la a posicao E a
+       -- sequencia de tracos (quem fecha caixa joga de novo), e uma "FEN do
+       -- Pontinhos" seria um formato inventado para este campo.
+       dm.co_fen_antes,
        j.nu_tempo_decisao_ms
   FROM partida.tb002_jogada j
   LEFT JOIN jogo_pontinhos.tb002_jogada p ON p.id_jogada = j.id_jogada
@@ -216,6 +236,19 @@ class ContextoDoQuadro:
     #: O adversario daquele desafio. ⛔ **Ele nao entra na escada do quadro**
     #: (RF-DES-203): nao joga contra si mesmo, logo nao e regua naquele dia.
     co_personagem_do_dia: str
+    #: O jogo, o regulamento e a posicao de onde a partida comecou — o que o
+    #: replay precisa para virar tabuleiro (T074a).
+    #:
+    #: ⚠️ **O jogo sai do DESAFIO, e ⛔ nao da partida**, embora `partida.
+    #: vw001_partida` tambem o tenha: sao a mesma coisa, e servir a segunda
+    #: copia criaria duas fontes para um fato so — no dia em que discordassem, a
+    #: tela desenharia o tabuleiro de um jogo com os lances de outro. E o
+    #: gabarito ⛔ nao tem partida nenhuma: sem esta coluna ele viajaria **sem
+    #: jogo**, que e como ele viajava ate hoje.
+    co_jogo: str
+    co_modalidade: Optional[str]
+    co_formato_posicao: str
+    js_posicao_inicial: Optional[dict[str, Any]]
 
 
 class RepositorioQuadro:
@@ -240,6 +273,10 @@ class RepositorioQuadro:
             nu_tempo_piso_ms=linha["nu_tempo_piso_ms"],
             nu_tempo_teto_ms=linha["nu_tempo_teto_ms"],
             co_personagem_do_dia=linha["co_personagem"],
+            co_jogo=linha["co_jogo"],
+            co_modalidade=linha["co_modalidade"],
+            co_formato_posicao=linha["co_formato_posicao"],
+            js_posicao_inicial=linha["js_posicao_inicial"],
         )
 
     async def medicoes(self, id_desafio: UUID) -> list[dict[str, Any]]:
