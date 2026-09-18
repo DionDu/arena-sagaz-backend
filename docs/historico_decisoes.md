@@ -5766,3 +5766,46 @@ painel chamam `job.__main__.principal()`, exatamente o que
 confere:** `conferir_runtime_inferencia.py --runtime litert` roda no venv local
 com **desvio 0,000000000** em 12 vetores contra a referência do TensorFlow — que
 é o mesmo portão que o `Dockerfile.job` executa na construção da imagem.
+
+
+## 2026-09-18 — `GET /v1/desafios/meu-mes`: a rota que a tela do histórico pediu
+
+**Contexto.** Ao escrever a T072 no aplicativo (a trava de spoiler), a segunda
+metade da tarefa — a fatia **Histórico** da aba — esbarrou em **falta de fonte**.
+Ela mostra o calendário do mês e o total resolvido (RF-DES-067), e ⛔ não havia de
+onde tirá-los: o contador de tentativas do aplicativo guarda **um** dia, o
+corrente, **de propósito**; o cache só tem hoje e os próximos; e ⛔ nenhuma das
+rotas de `/v1/desafios` (hoje · próximos · `{id}` · resolução · dica · impedido ·
+quadro · replay) servia os dias resolvidos.
+
+**Decisão.** Rota nova, **aditiva e sem migração**:
+`GET /v1/desafios/meu-mes`, em `api/desafios/mes.py`, servindo o mês corrente -
+os dias publicados **até hoje**, o que houve em cada um para aquela pessoa, e o
+total resolvido. O contrato está em
+`arena-sagaz-frontend/specs/009-desafio-do-dia/contracts/resumo-do-mes.md`.
+
+**Alternativa considerada e recusada:** guardar o histórico **no aparelho**. ⛔ Ela
+contradiz RF-DES-114 (o histórico fica *indefinidamente*), e o sintoma seria o
+pior possível - quem joga há três meses trocaria de aparelho e veria um mês vazio,
+com o calendário afirmando que nunca jogou.
+
+**Quatro detalhes que são decisão, e ⛔ não implementação:**
+
+1. ⚠️ **A rota é declarada ANTES de `/{id_desafio}`.** O FastAPI casa a
+   **primeira** que serve: com o caminho genérico na frente, `meu-mes` seria lido
+   como `UUID` e responderia **422** - um erro de validação onde existe uma rota
+   válida. Há um teste que compara os índices das duas.
+2. ⚠️ **A resolução é filtrada no `ON`, e ⛔ não no `WHERE`.** No `WHERE`, o
+   `LEFT JOIN` vira um `JOIN` disfarçado e descarta justamente os dias **sem**
+   resolução dela - o calendário ficaria só com os dias bons, **sem erro nenhum**.
+   Um teste parte o SQL no `WHERE` e exige que `r.id_usuario` ⛔ não apareça
+   depois.
+3. ⛔ **Nada de amanhã** (RF-DES-009): a fila tem dias futuros publicados **nesta
+   mesma tabela**, e o corte superior é **hoje**.
+4. ⚠️ **Exige conta**, e ⛔ não tem versão pública: o histórico é pessoal. O
+   convidado joga e vê o quadro (RF-DES-080), mas o que ele resolveu vive no
+   aparelho até o login migrar o lote (RF-DES-083).
+
+⚠️ **E o zero aparece aqui**, ao contrário do quadro: RF-DES-064 proíbe o zero
+onde o número conta sobre o **tamanho da base**; aqui ele é sobre a própria
+pessoa, e a tela o traduz em convite.

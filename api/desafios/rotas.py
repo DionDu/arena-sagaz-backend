@@ -48,11 +48,16 @@ from api.desafios.modelos_envio import (
     EnvioDeResolucao,
     RespostaDeResolucao,
 )
-from api.desafios.modelos_resposta import DesafioPublicado, ProximosPublicados
+from api.desafios.modelos_resposta import (
+    DesafioPublicado,
+    ProximosPublicados,
+    ResumoDoMes,
+)
 from api.desafios.publicacao import para_resposta
 from api.desafios.repositorio import DIAS_DE_CACHE, RepositorioDesafio
 from api.desafios.quadro import RepositorioQuadro
 from api.desafios.impedido import RepositorioImpedido
+from api.desafios.mes import RepositorioMes, ServicoMes
 from api.desafios.repositorio_envio import RepositorioEnvio
 from api.desafios.servico_envio import ServicoEnvio
 from api.desafios.servico_quadro import ServicoQuadro
@@ -152,6 +157,44 @@ async def proximos_desafios(
     return ProximosPublicados(
         agora_no_servidor=agora,
         desafios=[para_resposta(linha, agora=agora) for linha in linhas],
+    )
+
+
+def obter_servico_mes(
+    sessao: AsyncSession = Depends(obter_sessao),
+) -> ServicoMes:
+    """Monta o servico do resumo do mes ligado a sessao da requisicao."""
+    return ServicoMes(RepositorioMes(sessao))
+
+
+@router.get("/meu-mes", response_model=ResumoDoMes)
+async def meu_mes(
+    servico: ServicoMes = Depends(obter_servico_mes),
+    dono: UsuarioAutenticado = Depends(usuario_autenticado),
+    _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+) -> ResumoDoMes:
+    """O resumo do mes corrente: o calendario, os dias passados e o total.
+
+    ⚠️ **Esta rota precisa ser declarada ANTES de `/{id_desafio}`**, e a ordem e
+    o unico motivo. O FastAPI casa a **primeira** que serve: com `/{id_desafio}`
+    na frente, o caminho `/meu-mes` cairia nela, e o `UUID` do parametro
+    responderia `422` — um erro de validacao onde ha uma rota perfeitamente
+    valida. E o mesmo cuidado que `/hoje` e `/proximos` ja exigiam.
+
+    ⚠️ **Exige conta** (`usuario_autenticado`, e nao `usuario_opcional`): o
+    historico e **pessoal**, e ⛔ nao existe versao publica dele. O convidado joga
+    o desafio inteiro e ve o quadro (RF-DES-080), mas o que ele resolveu vive no
+    aparelho ate o login migrar o lote (RF-DES-083) — e a tela dele e o convite de
+    cadastro, e nao uma lista vazia.
+    """
+    return ResumoDoMes(
+        **await servico.montar(
+            id_usuario=dono.id_usuario,
+            # ⚠️ O dia **UTC**, e ⛔ nao o dia local de quem pergunta: o desafio e
+            # do dia UTC (RF-DES-007), e dois fusos veriam calendarios diferentes
+            # do mesmo mes.
+            dt_hoje=agora_utc().date(),
+        )
     )
 
 

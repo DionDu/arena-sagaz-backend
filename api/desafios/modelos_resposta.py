@@ -40,7 +40,7 @@ conhece (diretriz de versionamento da API).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal, Optional
 from uuid import UUID
 
@@ -247,3 +247,42 @@ class ProximosPublicados(BaseModel):
 
     agora_no_servidor: datetime
     desafios: list[DesafioPublicado]
+
+
+class DiaDoCalendario(BaseModel):
+    """Um dia publicado do mes corrente, para o calendario e para o card.
+
+    ⚠️ **So os dias que JA CHEGARAM.** A fila tem dias futuros publicados, e eles
+    ⛔ nao entram: servir um dia que ainda nao aconteceu daria ao aplicativo o que
+    a RF-DES-009 o proibe de mostrar.
+
+    ⛔ **Sem XP, sem posicao e sem quadro.** O que a pessoa fez naquele dia, medida
+    a medida, e o Raio-X (RF-DES-078), e ele tem rota propria — trazer o numero
+    para ca faria a mesma informacao existir em dois lugares, com duas chances de
+    discordar.
+    """
+
+    dia: date
+    id_desafio: UUID
+    jogo: str
+    #: ⚠️ `None` no Pontinhos, que ⛔ nao tem modalidade. ⛔ Nao e string vazia: a
+    #: ausencia e a verdade, e a tela decide ⛔ nao desenhar a pilula.
+    modalidade: Optional[str] = None
+    reprise: bool
+    resolvido: bool
+
+
+class ResumoDoMes(BaseModel):
+    """O mes corrente de uma pessoa (RF-DES-067).
+
+    ⚠️ **Ele zera todo mes**, e e de proposito: todos recomecam juntos no dia 1.
+    O acumulado de longo prazo ja tem dono (RF-DES-068) — o ranking geral por XP.
+
+    ⚠️ **`resolvidos: 0` e resposta valida**, ao contrario do zero do quadro
+    (RF-DES-064): la o numero conta sobre o tamanho da base; aqui ele e sobre a
+    propria pessoa, e a tela o traduz em convite.
+    """
+
+    mes: str
+    dias: list[DiaDoCalendario]
+    resolvidos: int
