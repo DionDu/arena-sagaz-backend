@@ -5918,3 +5918,60 @@ no dia em que a terceira porta passasse uma modalidade diferente da gravada.
 🔒 **O dublê do teste passou a carregar os quatro campos do desafio**, lendo por
 chave e não por `.get`: uma coluna esquecida no `SELECT` estoura no teste, em vez
 de virar um `None` silencioso na tela.
+
+---
+
+## 2026-09-18 - O solucionador das damas joga a PARTIDA, e o desafio pede o OBJETIVO
+
+**Contexto.** A medição das cinco candidatas do `damas_coroar` reprovou as duas
+de X=2 (0 de 3 dias na escada, com o pior erro do relatório: 0,17 em 03/10, com
+Pita 0,00 e Tex 0,00). O dono levantou a hipótese: *"será que o personagem, após
+coroar a primeira dama, prefere jogar com a primeira dama coroada ao invés de
+tentar coroar a segunda?"*
+
+**O que a leitura do código confirmou.** `job/gerador.py` tem
+`SOLUCIONADOR_POR_TIPO` com **uma** entrada, `pontinhos_cadeia_longa`. Sem
+entrada, quem resolve joga com `motor.escolher_lance(..., SAGAZ, ...)`, tanto na
+régua (`job/regua.py`) quanto na pescaria (`scripts/cacar_moldes_damas.py`).
+⛔ **O objetivo do desafio não entra na escolha do lance** - e o comentário de
+`resolve_varios_alvos` já dizia isso em voz alta, como explicação de uma
+economia: *"a fita de lances é idêntica quer se procure uma coroação ou duas"*.
+
+⚠️ **Isso reinterpreta a lição de 16/09/2026.** Registrou-se então que "escassez
+e facilidade eram a mesma coisa" no X=2, porque os únicos moldes que comportavam
+duas coroações eram os de tabuleiro vazio (material 7,3). A causa era outra: é só
+no tabuleiro vazio que **vencer e coroar são a mesma jogada**. Não era o jogo, era
+o objetivo da busca - o mesmo tipo de erro que o teto de 12 causou no acervo.
+
+**Decisão: medir antes de mexer, e com controle.** Entra
+`scripts/medir_perseguir_vs_vencer.py`, que compara modos de solucionador de
+forma **pareada** (mesma posição, mesma modalidade, mesmo adversário, mesmo
+orçamento; muda só a cabeça de quem resolve).
+
+⛔ **E TODO SOLUCIONADOR PASSA POR UM CONTROLE.** A primeira versão do script
+mediu "5 de 163" e parecia refutar a hipótese do dono - até o controle mostrar
+que aquele mesmo solucionador coroava **uma** dama em apenas 51 das 163 posições
+em que o Sagaz coroava nas 163. ⚠️ A nota era lexicográfica, com material em
+último, então qualquer avanço valia mais que a peça que ele custava: o
+solucionador entregava material, a partida acabava, e nada coroava. **Um teste
+cujo controle desaba não mede o que foi perguntado** - ele mede a incompetência
+do instrumento, e teria encerrado a investigação com um número que parecia
+resposta. A coluna `X=1` do relatório existe para essa pergunta.
+
+**Alternativas consideradas.**
+
+1. **Publicar o X=2 assim mesmo**, já que o dono reabriu o tipo. ⛔ Recusada:
+   `NENHUMA VARIANTE ENTRA SEM SER MEDIDA`, e medida com o solucionador errado
+   não é medida - é a lição que `gerador.py:1355` já registra ao exigir que a
+   régua use o mesmo solucionador da geração.
+2. **Ligar um solucionador sem nível**, como o do Pontinhos. ⛔ Recusada: o mapa
+   é **por tipo**, e X=1 e X=2 são o mesmo `damas_coroar`. O solucionador do
+   Pontinhos joga igual para Cacau e para Magno (limitação declarada em
+   `regua.py`), então ligá-lo mataria a escada do X=1, **que hoje funciona**
+   (Cacau 0,10 · Magno 1,00). Se um solucionador entrar nas damas, ele precisa
+   enxergar mais longe conforme o nível.
+
+⏳ **Pendente, e é o que decide:** rodar o script. Se um modo aprovado no
+controle achar muito mais moldes de X=2 que o `sagaz`, a pescaria do
+`damas_coroar` inteiro precisa ser refeita com ele - o acervo dos 307 foi
+filtrado por uma busca que jogava para vencer.
