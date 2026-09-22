@@ -201,7 +201,14 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
    ⛔ Se **não** sumir, o caminho certo é regerar aqueles dias, e nunca inventar
    a linha de dimensão.
 
-## ⏳ A `0026_notificacao_de_reacao` — escrita em 22/09/2026, **ainda não aplicada**
+## ✅ A `0026_notificacao_de_reacao` — escrita e **aplicada no `des` em 22/09/2026**
+
+> ✅ **Aplicada no `des` em 22/09/2026** (`identificar_banco.py` → DES;
+> `0025_reacoes_do_design` → `0026_notificacao_de_reacao (head)`). Conferido em
+> seguida, só leitura: a `tb008` e a `vw008` existem com **0 linhas**, e as
+> restrições `un001_notificacao_reacao`, `ck001_pessoa` e `ck002_dispositivo`
+> estão lá. ⏳ **No `prd` ainda não** - ela entra antes do push que levar a T079 à
+> produção, como toda migração deste runbook.
 
 | migração | o que faz | risco |
 |---|---|---|
