@@ -236,6 +236,25 @@ def test_a_chama_UNE_as_duas_fontes():
     )
 
 
+def test_a_chama_conta_a_partida_de_DESAFIO():
+    """🔒 RF-DES-048, cenario 4 da US8 (T082): quem so resolveu o desafio num dia,
+    sem partida nenhuma, mantem a chama.
+
+    ⚠️ A partida de desafio tem `ic_pontua = FALSE` (o XP dela e parcela de
+    conta), e por isso o filtro antigo - so as que pontuam - a deixava de fora
+    em silencio. A prova de verdade, contra o `des`, e
+    `scripts/conferir_credito_do_dia_t082.py`; este cadeado so impede o `OR` de
+    sumir numa refatoracao.
+    """
+    fonte = (RAIZ / "api" / "sincronizacao" / "repositorio.py").read_text(
+        encoding="utf-8"
+    )
+    assert "OR co_modo = 'desafio'" in fonte, (
+        "⛔ `recalcular_chama` parou de contar a partida de desafio: quem so "
+        "resolve o desafio perde a chama no dia seguinte."
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 5. 🔒 Os dois cadeados
 # ═══════════════════════════════════════════════════════════════════════════

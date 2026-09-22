@@ -57,6 +57,7 @@ from api.desafios.modelos_evento import (
     VW_DESAFIO_DIA,
     VW_RESOLUCAO,
     VW_TENTATIVA,
+    VW_XP_DESAFIO,
 )
 from api.desafios.extrato_xp import (
     FEITO_DICAS,
@@ -228,6 +229,61 @@ SQL_FEITO_NO_CATALOGO = f"""
 SELECT 1
   FROM {VW_CATALOGO_FEITO}
  WHERE co_feito = :co_feito
+"""
+
+#: O que o Desafio do Dia ja pos na conta da pessoa **neste dia** (T082).
+#:
+#: ⚠️ **A resolucao entra pelo `nu_xp` dela, e ⛔ nao pela soma das parcelas**:
+#: as parcelas tem casas decimais (`26,896`), e o que o aplicativo mostrou e o
+#: que a conta recebeu e o inteiro arredondado uma vez (`27`). Consolo e ajuste
+#: ja sao inteiros, gravados como `10,000` e `-7,000`.
+#:
+#: ⚠️ **Pelas VIEWs**, como toda leitura do projeto: `vw004_xp_desafio` ja traz o
+#: `co_tipo_xp` resolvido, e o filtro fica pelo nome e ⛔ por um numero solto.
+SQL_CREDITADO_NO_DIA = f"""
+SELECT
+  COALESCE((SELECT SUM(x.vr_xp)
+              FROM {VW_XP_DESAFIO} x
+             WHERE x.id_desafio_dia = :id_desafio_dia
+               AND x.id_usuario = :id_usuario
+               AND x.co_tipo_xp IN ('consolo', 'ajuste')), 0)
+  + COALESCE((SELECT r.nu_xp
+                FROM {VW_RESOLUCAO} r
+               WHERE r.id_desafio_dia = :id_desafio_dia
+                 AND r.id_usuario = :id_usuario), 0)
+    AS ja_creditado,
+  EXISTS (SELECT 1
+            FROM {VW_XP_DESAFIO} x
+           WHERE x.id_desafio_dia = :id_desafio_dia
+             AND x.id_usuario = :id_usuario
+             AND x.co_tipo_xp = 'consolo')
+    AS tem_consolo
+"""
+
+#: Soma o credito do dia ao XP da conta — o numero que o ranking ordena (T082).
+#:
+#: ⚠️ **Escreve em `progressao`, fora do schema do desafio, e de proposito**: e a
+#: mesma tabela que o ingestor de partidas incrementa (`_incrementar_progressao`,
+#: na sincronizacao), e e a unica forma de o XP do desafio chegar ao ranking.
+#: Sem isto a pessoa via *"+27 XP"* na tela e o ranking nunca mudava.
+#:
+#: ⚠️ **Soma, e ⛔ `GREATEST`**: este e um EVENTO, como a partida. A reconciliacao
+#: por `GREATEST` do aplicativo so roda com a fila vazia - quando este credito ja
+#: entrou -, entao ela encontra o mesmo numero e nao soma de novo.
+#:
+#: ⚠️ **O `INSERT` cria a linha de quem nunca pontuou numa partida**: quem so
+#: joga o desafio ⛔ tem linha de progressao nenhuma, e um `UPDATE` sozinho
+#: perderia o XP dele em silencio. So o XP e os carimbos mudam; ⛔ partidas,
+#: vitorias e derrotas nao: o desafio ⛔ e uma partida (RF-DES-045).
+SQL_CREDITAR_NA_CONTA = """
+INSERT INTO progressao.tb001_progressao_usuario AS prog
+  (id_progressao, id_usuario, nu_xp_total,
+   nu_partidas, nu_vitorias, nu_derrotas, nu_empates, dh_atualizacao)
+VALUES
+  (gen_random_uuid(), :id_usuario, :xp, 0, 0, 0, 0, now())
+ON CONFLICT (id_usuario) DO UPDATE SET
+  nu_xp_total = prog.nu_xp_total + EXCLUDED.nu_xp_total,
+  dh_atualizacao = now()
 """
 
 
@@ -437,6 +493,31 @@ class RepositorioEnvio:
                     "vr_xp": _arredondar(parcela.vr_xp, 3),
                 },
             )
+
+    async def creditado_no_dia(
+        self, *, id_desafio_dia: UUID, id_usuario: str
+    ) -> tuple[int, bool]:
+        """O que o Desafio do Dia ja creditou hoje, e se o consolo ja entrou.
+
+        Returns:
+            `(ja_creditado, tem_consolo)`. ⚠️ `ja_creditado` e inteiro por
+            construcao (ver [SQL_CREDITADO_NO_DIA]); o `int()` so desfaz o
+            `Decimal` que o `NUMERIC` devolve.
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_CREDITADO_NO_DIA),
+            {"id_desafio_dia": id_desafio_dia, "id_usuario": id_usuario},
+        )
+        linha = resultado.mappings().one()
+        return int(linha["ja_creditado"]), bool(linha["tem_consolo"])
+
+    async def creditar_na_conta(self, *, id_usuario: str, xp: int) -> None:
+        """Soma [xp] ao `nu_xp_total` da conta. ⚠️ Zero nao chega a ir ao banco."""
+        if xp <= 0:
+            return
+        await self.sessao.execute(
+            text(SQL_CREDITAR_NA_CONTA), {"id_usuario": id_usuario, "xp": xp}
+        )
 
     async def gravar_dica(
         self, *, id_tentativa: UUID, nu_grau: int, dh_consumo: datetime

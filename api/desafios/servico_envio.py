@@ -54,11 +54,17 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from api.desafios.extrato_xp import MedidaInvalida, montar_extrato
+from api.desafios.credito_do_dia import credito_do_dia
+from api.desafios.extrato_xp import MedidaInvalida, ParcelaDeXp, montar_extrato
 from api.desafios.modelos_envio import (
     EnvioDeDica,
     EnvioDeResolucao,
     RespostaDeResolucao,
+)
+from api.desafios.modelos_evento import (
+    XP_AJUSTE,
+    XP_CONSOLO,
+    XP_DA_TENTATIVA_SEM_RESOLVER,
 )
 from api.desafios.repositorio_envio import RepositorioEnvio
 from api.nucleo.excecoes import ErroConflito, ErroNegocio
@@ -85,11 +91,21 @@ class PartidaAindaNaoChegou(ErroConflito):
 
 @dataclass(frozen=True, slots=True)
 class ResultadoDoEnvio:
-    """O que foi gravado, para o log e para a resposta."""
+    """O que foi gravado, para o log e para a resposta.
+
+    ⚠️ `xp_creditado` e o que entrou em `nu_xp_total` **por este envio** (T082):
+    zero no reenvio, zero na segunda falha do dia, e o valor ja cortado pelo
+    teto quando o dia enche. ⛔ Nao vai na resposta: o aplicativo calcula o mesmo
+    numero sozinho, sem esperar a rede (RF-DES-030).
+
+    ⛔ **Sem valor padrao**, de proposito: um `= 0` faria o caminho novo que
+    esquecesse de creditar compilar e passar nos testes que nao olham o XP.
+    """
 
     resposta: RespostaDeResolucao
     id_tentativa: UUID
     parcelas_gravadas: int
+    xp_creditado: int
 
 
 class ServicoEnvio:
@@ -158,12 +174,27 @@ class ServicoEnvio:
             # ⚠️ **Tentativa que falhou nao vira resolucao, e nao entra no
             # quadro** (RF-DES-062): falhar e privado. A linha existe no banco
             # porque e ela que conta as tentativas para `Q`.
+            #
+            # ⚠️ **Mas ela paga o consolo** (RF-DES-041, T082) - uma vez por
+            # dia, e so a primeira que chegar.
+            creditado = await self._creditar_o_consolo(
+                id_desafio_dia=envio.id_desafio_dia,
+                id_usuario=id_usuario,
+                id_tentativa=id_tentativa,
+            )
             await self.repo.confirmar()
             return ResultadoDoEnvio(
                 resposta=RespostaDeResolucao(aceita=True),
                 id_tentativa=id_tentativa,
                 parcelas_gravadas=0,
+                xp_creditado=creditado,
             )
+
+        # ⚠️ **Lido ANTES de gravar a resolucao**: depois dela, a soma do dia ja a
+        # incluiria, e o teto cortaria a resolucao contra ela mesma.
+        ja_creditado, _ = await self.repo.creditado_no_dia(
+            id_desafio_dia=envio.id_desafio_dia, id_usuario=id_usuario
+        )
 
         id_resolucao, nova = await self.repo.gravar_resolucao(
             id_desafio_dia=envio.id_desafio_dia,
@@ -186,6 +217,8 @@ class ServicoEnvio:
                 ),
                 id_tentativa=id_tentativa,
                 parcelas_gravadas=0,
+                # ⛔ O reenvio nao credita: a resolucao ja creditou quando nasceu.
+                xp_creditado=0,
             )
 
         parcelas = await self._extrato(id_desafio=id_desafio, envio=envio)
@@ -196,6 +229,15 @@ class ServicoEnvio:
             id_resolucao=id_resolucao,
             id_tentativa=id_tentativa,
         )
+        # ⚠️ **Credita a PONTUACAO que o aplicativo mandou**, e ⛔ a soma das
+        # parcelas: vale o aplicativo (D-05), e e o mesmo `nu_xp` que acabou de
+        # ser gravado na resolucao.
+        creditado = await self._creditar(
+            valor=envio.pontuacao,
+            ja_creditado=ja_creditado,
+            id_desafio_dia=envio.id_desafio_dia,
+            id_usuario=id_usuario,
+        )
         await self.repo.confirmar()
 
         return ResultadoDoEnvio(
@@ -204,7 +246,87 @@ class ServicoEnvio:
             ),
             id_tentativa=id_tentativa,
             parcelas_gravadas=len(parcelas),
+            xp_creditado=creditado,
         )
+
+    async def _creditar_o_consolo(
+        self, *, id_desafio_dia: UUID, id_usuario: str, id_tentativa: UUID
+    ) -> int:
+        """O consolo de quem tentou e nao resolveu - uma vez por dia (RF-DES-041).
+
+        Returns:
+            O que entrou na conta: 10, menos o que o teto cortar; zero quando o
+            consolo do dia ja estava la.
+
+        ⚠️ **"Ja existe consolo hoje?" e a guarda, e ⛔ "esta tentativa e nova?"**:
+        `gravar_tentativa` devolve `escreveu=True` tambem quando o reenvio
+        atualiza uma tentativa nao resolvida, entao ele nao separa o primeiro
+        envio do segundo. O consolo do dia separa - e ainda cobre a segunda
+        falha, que tambem ⛔ paga.
+        """
+        ja_creditado, tem_consolo = await self.repo.creditado_no_dia(
+            id_desafio_dia=id_desafio_dia, id_usuario=id_usuario
+        )
+        if tem_consolo:
+            return 0
+        # ⚠️ Ancorado na TENTATIVA, que e o que o `data-model.md` manda: o
+        # consolo e de uma tentativa, e ⛔ de uma resolucao que nao existe.
+        await self.repo.gravar_extrato(
+            [
+                ParcelaDeXp(
+                    nu_tipo_xp=XP_CONSOLO,
+                    nu_feito=None,
+                    vr_medida=None,
+                    vr_normalizado=None,
+                    vr_peso=None,
+                    vr_xp=Decimal(XP_DA_TENTATIVA_SEM_RESOLVER),
+                )
+            ],
+            id_desafio_dia=id_desafio_dia,
+            id_usuario=id_usuario,
+            id_resolucao=None,
+            id_tentativa=id_tentativa,
+        )
+        return await self._creditar(
+            valor=XP_DA_TENTATIVA_SEM_RESOLVER,
+            ja_creditado=ja_creditado,
+            id_desafio_dia=id_desafio_dia,
+            id_usuario=id_usuario,
+        )
+
+    async def _creditar(
+        self, *, valor: int, ja_creditado: int, id_desafio_dia: UUID, id_usuario: str
+    ) -> int:
+        """Aplica o teto do dia, grava o ajuste se houver corte, e soma na conta.
+
+        Returns:
+            O que entrou em `nu_xp_total`.
+
+        ⚠️ **O ajuste nao tem ancora** (`id_resolucao` e `id_tentativa` nulos):
+        ele e do DIA, e ⛔ de um evento - e o `data-model.md` que manda, e e o que
+        deixa a soma do dia fechar em 30 venha o consolo antes ou depois.
+        """
+        credito = credito_do_dia(ja_creditado=ja_creditado, valor=valor)
+        if credito.corte > 0:
+            await self.repo.gravar_extrato(
+                [
+                    ParcelaDeXp(
+                        nu_tipo_xp=XP_AJUSTE,
+                        nu_feito=None,
+                        vr_medida=None,
+                        vr_normalizado=None,
+                        vr_peso=None,
+                        # O sinal trocado: a linha TIRA o que passou do teto.
+                        vr_xp=Decimal(-credito.corte),
+                    )
+                ],
+                id_desafio_dia=id_desafio_dia,
+                id_usuario=id_usuario,
+                id_resolucao=None,
+                id_tentativa=None,
+            )
+        await self.repo.creditar_na_conta(id_usuario=id_usuario, xp=credito.creditado)
+        return credito.creditado
 
     async def _extrato(self, *, id_desafio: UUID, envio: EnvioDeResolucao):
         """Converte as medidas e a sessao nas parcelas do extrato.

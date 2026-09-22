@@ -1271,10 +1271,11 @@ class RepositorioSincronizacao:
     ) -> tuple[int, date | None, int]:
         """Recalcula a "chama" (sequência), o último dia jogado e o TOTAL de dias
         jogados de forma **AUTORITATIVA**, a partir dos DIAS LOCAIS distintos das
-        partidas concluídas que pontuam (``vs_cpu``) **unidos aos dias em que o
-        desafio não coube na versão do app** (``tb007_desafio_impedido``,
-        RF-DES-024 — o dia não conta contra quem não pôde participar). Persiste
-        sequência e data
+        partidas concluídas que pontuam (``vs_cpu``), **das partidas de desafio**
+        (``co_modo = 'desafio'``, RF-DES-048 — o desafio conta para a chama, T082)
+        e **dos dias em que o desafio não coube na versão do app**
+        (``tb007_desafio_impedido``, RF-DES-024 — o dia não conta contra quem não
+        pôde participar). Persiste sequência e data
         (SOBRESCREVE — não ``GREATEST`` — pois é a verdade derivada do histórico)
         e devolve ``(sequencia, ultimo_dia, total_de_dias)``.
 
@@ -1293,9 +1294,10 @@ class RepositorioSincronizacao:
         dia do **relógio do jogador**, reconstruído com o offset gravado em cada
         partida (``nu_offset_minuto_j1``): ``(dh em UTC) + offset``.
 
-        Se o jogador ainda não tem partidas que pontuam, **NÃO** mexe na linha
-        (para não zerar uma sequência vinda de merge de convidado cujas partidas
-        ainda não subiram) e devolve ``(0, None, 0)``."""
+        Se o jogador ainda não tem dia nenhum (nem partida que pontua, nem
+        desafio, nem dia impedido), **NÃO** mexe na linha (para não zerar uma
+        sequência vinda de merge de convidado cujas partidas ainda não subiram) e
+        devolve ``(0, None, 0)``."""
         resultado = await self.sessao.execute(
             text(
                 """
@@ -1307,14 +1309,23 @@ class RepositorioSincronizacao:
                 --
                 -- `UNION` (e nao `UNION ALL`) ja elimina o dia repetido: quem
                 -- visitou e depois jogou no mesmo dia tem UM dia, nao dois.
+                --
+                -- ⚠️ E a partida de DESAFIO entra na primeira fonte desde
+                -- 22/09/2026 (RF-DES-048, T082): ela ⛔ pontua (`ic_pontua` e
+                -- FALSE - o XP do desafio e parcela de conta), e sem o `OR`
+                -- quem so resolveu o desafio num dia perdia a chama dele.
+                -- ⚠️ Em QUALQUER status: a tentativa que parou no objetivo
+                -- fica `em_andamento` (RF-DES-213), a que saiu pela seta fica
+                -- `abandonada` - e as duas foram uma visita de verdade. O dia
+                -- sai do mesmo relogio local das outras.
                 SELECT dia FROM (
                   SELECT ((COALESCE(dh_fim, dh_inicio) AT TIME ZONE 'UTC')
                            + make_interval(mins => COALESCE(nu_offset_minuto_j1, 0)))::date
                            AS dia
                     FROM partida.tb001_partida
                    WHERE id_usuario = :id
-                     AND ic_pontua = true
-                     AND co_status = 'concluida'
+                     AND ((ic_pontua = true AND co_status = 'concluida')
+                          OR co_modo = 'desafio')
                   UNION
                   SELECT dt_dia_local AS dia
                     FROM desafio_dia.vw007_desafio_impedido
@@ -1334,7 +1345,11 @@ class RepositorioSincronizacao:
         # o tamanho da lista é o total — nada de consulta extra.
         total_dias = len(dias)
         # SOBRESCREVE (a verdade é o histórico). A linha existe: partidas que
-        # pontuam sempre criam/atualizam a progressão em `_incrementar_progressao`.
+        # pontuam sempre criam/atualizam a progressão em `_incrementar_progressao`,
+        # e o envio do desafio a cria no crédito (T082). ⚠️ Quem só tem a partida
+        # de desafio, com a resolução ainda na fila, pode não ter linha - e o
+        # UPDATE simplesmente não acha nada: a sequência devolvida continua certa,
+        # e a próxima leitura grava.
         await self.sessao.execute(
             text(
                 """

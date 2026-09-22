@@ -6343,3 +6343,59 @@ porque o T050 manda só as medidas de sessão e `co_sobre` não tem FK. Registra
 **T049t**, com a recomendação ao dono: `faixa` com piso = lances da solução, a mesma
 forma da régua de tempo. Enquanto isso, o script pula esses dias, **dizendo quais**,
 e mediu a migração com 3 dias em vez de 5.
+
+## 2026-09-22 (4) — O XP do desafio chega à conta, e o desafio conta para a chama (T082)
+
+**Contexto.** A T082 (economia de XP, bloco de código publicado) era descrita como
+tarefa só do aplicativo. Ao ler o caminho real, **o servidor não creditava nada**: a
+rota da resolução gravava `tb003_resolucao.nu_xp` e as parcelas de `tb004_xp_desafio`,
+e nenhuma linha somava em `progressao.tb001_progressao_usuario.nu_xp_total`, que é o
+que o ranking ordena. O consolo de 10 (RF-DES-041) e a linha de `ajuste` do teto de
+30/dia (RF-DES-181) existiam na dimensão `tb901_tipo_xp_desafio` e **nunca eram
+gravados**. E `recalcular_chama` só lia partidas que pontuam: a partida de desafio tem
+`ic_pontua = FALSE`, então quem só resolvia o desafio num dia perdia a chama (cenário
+4 da US8, RF-DES-048).
+
+A reconciliação por `GREATEST` do aplicativo **não servia de caminho**: ela é o
+fallback anti-perda, e com dois aparelhos um `GREATEST` que chega depois de uma
+partida do outro aparelho engole o XP do desafio. Evento se credita como evento.
+
+**Decisão.**
+
+- **O envio credita** (`api/desafios/credito_do_dia.py`, puro): cada evento do dia
+  põe na conta `min(valor, 30 − já creditado no dia)`. "Já creditado" é o `nu_xp` da
+  resolução mais as linhas de consolo e de ajuste do dia (`SQL_CREDITADO_NO_DIA`, pelas
+  VIEWs). A conta fecha em 30 **em qualquer ordem de chegada**: 10 + 20 ou 27 + 3.
+- **A primeira falha do dia grava o consolo** (+10, ancorado na tentativa). ⚠️ A guarda
+  é "já há consolo hoje?", e não "a tentativa é nova?": `gravar_tentativa` devolve
+  `escreveu=True` também quando o reenvio atualiza uma tentativa não resolvida. O valor
+  é a constante da regra, e ⛔ nunca a `pontuacao` do corpo.
+- **O corte vira linha de `ajuste`**, negativa e sem âncora (é do dia). O `nu_xp` da
+  resolução ⛔ nunca é cortado: é o que o quadro ordena (RF-DES-155).
+- **O crédito soma** em `nu_xp_total` (`INSERT ... ON CONFLICT DO UPDATE`, como o
+  ingestor de partidas), e o `INSERT` cria a linha de quem nunca pontuou numa partida.
+  O reenvio ⛔ credita de novo.
+- **A chama** passa a ler `(ic_pontua AND concluida) OR co_modo = 'desafio'`, em
+  qualquer status: a tentativa que parou no objetivo fica `em_andamento`, a que saiu
+  pela seta fica `abandonada`, e as duas foram uma visita de verdade. `nu_dias_jogados`
+  sai da mesma lista, então passa a contar os dias de desafio também.
+- ⚠️ **O Raio-X continua mostrando a resolução**, e ⛔ o dia: `SQL_EXTRATO` filtra por
+  `id_resolucao`, e o consolo e o ajuste não têm essa âncora. A conta do dia inteiro é
+  mostrada pelo aplicativo, na tela de resultado.
+
+**Alternativas descartadas.** (1) Creditar só no aparelho e deixar o `GREATEST` subir:
+perde XP com dois aparelhos, como descrito acima. (2) Ancorar o ajuste na resolução,
+para o Raio-X o mostrar: com o consolo ancorado em outra tentativa, o Raio-X mostraria
+"27 − 7 = 20" sem o +10, e a conta pareceria punição. (3) Recusar um dia que já passou
+do teto: a função roda dentro da rota do envio, e recusar faria o outbox tentar de
+novo até desistir, por um defeito que não é da pessoa. Ela credita zero.
+
+**Prova.** 14 funções de teste novas em `tests/unitarios/test_envio_de_resolucao.py`
+(19 casos coletados, 6 deles da tabela parametrizada da regra pura) e o cadeado do
+`OR` em `test_desafio_impedido.py`.
+`scripts/conferir_credito_do_dia_t082.py` roda a API contra o `des`, em transação
+desfeita, numa conta que ⛔ joga partida comum nenhuma: 0 → 10 → 10 (segunda falha)
+→ 30 (resolução com ajuste de −7), reenvio sem mudança, ordem inversa 27 + 3, e a
+chama com 2 dias jogados e zero partidas que pontuam. **Controle:** sem o `nu_xp` na
+soma do dia, a ordem inversa pagou 27 + 10; sem o `OR`, a chama deu zero dias. As
+duas mutações reprovaram o script.

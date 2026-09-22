@@ -22,6 +22,7 @@ from uuid import uuid4
 
 import pytest
 
+from api.desafios.credito_do_dia import credito_do_dia
 from api.desafios.extrato_xp import (
     PESO_DICA,
     PESO_MERITO,
@@ -40,6 +41,8 @@ from api.desafios.modelos_envio import (
     OrigemDoEnvio,
 )
 from api.desafios.modelos_evento import (
+    XP_AJUSTE,
+    XP_CONSOLO,
     XP_DA_TENTATIVA_SEM_RESOLVER,
     XP_DICA,
     XP_MEDIDA,
@@ -183,6 +186,8 @@ class RepoFalso:
             "dicas_usadas",
         ),
         sem_regua=False,
+        ja_creditado=0,
+        tem_consolo=False,
     ) -> None:
         self._sem_regua = sem_regua
         self._dia = dia
@@ -190,10 +195,18 @@ class RepoFalso:
         self._resolucao_nova = resolucao_nova
         self._dicas_gastas = dicas_gastas
         self._catalogo = set(catalogo)
+        # ⚠️ O que o dia ja tinha ANTES deste caso (T082). O resto da soma sai
+        # do que o proprio caso gravar - ver [creditado_no_dia].
+        self._ja_creditado_antes = ja_creditado
+        self._tem_consolo_antes = tem_consolo
 
         self.tentativas: list[dict] = []
         self.resolucoes: list[dict] = []
         self.extratos: list[list] = []
+        # As ancoras de cada `gravar_extrato`, na mesma ordem de [extratos].
+        self.ancoras: list[dict] = []
+        # Cada soma em `nu_xp_total`, na ordem - zero inclusive, se alguem pedir.
+        self.creditos: list[int] = []
         self.dicas: list[dict] = []
         self.commits = 0
 
@@ -241,6 +254,28 @@ class RepoFalso:
 
     async def gravar_extrato(self, parcelas, **kwargs):
         self.extratos.append(list(parcelas))
+        self.ancoras.append(kwargs)
+
+    async def creditado_no_dia(self, *, id_desafio_dia, id_usuario):
+        """A mesma conta de `SQL_CREDITADO_NO_DIA`, sobre o que o caso gravou.
+
+        ⚠️ Consolo e ajuste pelo `vr_xp`; a resolucao pela PONTUACAO - e so a
+        resolucao nova, porque a que ja existia nao gravou nada.
+        """
+        linhas = [p for lista in self.extratos for p in lista]
+        consolo_e_ajuste = sum(
+            int(p.vr_xp) for p in linhas if p.nu_tipo_xp in (XP_CONSOLO, XP_AJUSTE)
+        )
+        resolucoes = (
+            sum(r["nu_xp"] for r in self.resolucoes) if self._resolucao_nova else 0
+        )
+        tem_consolo = self._tem_consolo_antes or any(
+            p.nu_tipo_xp == XP_CONSOLO for p in linhas
+        )
+        return self._ja_creditado_antes + consolo_e_ajuste + resolucoes, tem_consolo
+
+    async def creditar_na_conta(self, *, id_usuario, xp):
+        self.creditos.append(xp)
 
     async def gravar_dica(self, **kwargs):
         self.dicas.append(kwargs)
@@ -1018,3 +1053,245 @@ def test_o_grau_da_dica_e_1_ou_2():
         _dica(grau=3)
     with pytest.raises(ValueError):
         _dica(grau=0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. ⚠️ O CREDITO NA CONTA (T082, RF-DES-041/047/181)
+#
+# Ate 22/09/2026 o servidor gravava o extrato e ⛔ nunca somava nada em
+# `nu_xp_total`: a pessoa via "+27 XP" na tela e o ranking nao mudava. Estes
+# casos provam o credito, o consolo uma vez por dia e o teto de 30 como linha de
+# ajuste - e que a conta do dia fecha igual em qualquer ordem de chegada.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _falha(**trocas) -> EnvioDeResolucao:
+    """Uma tentativa que ⛔ resolveu, como o aplicativo a manda."""
+    base = dict(
+        veredito="tentativa",
+        nu_lance_cumpre_desafio=None,
+        pontuacao=XP_DA_TENTATIVA_SEM_RESOLVER,
+    )
+    base.update(trocas)
+    return _envio(**base)
+
+
+def _linhas_do_tipo(repo: RepoFalso, tipo: int) -> list[tuple]:
+    """As linhas de um tipo, cada uma com as ancoras com que foi gravada."""
+    return [
+        (parcela, ancoras)
+        for lista, ancoras in zip(repo.extratos, repo.ancoras)
+        for parcela in lista
+        if parcela.nu_tipo_xp == tipo
+    ]
+
+
+@pytest.mark.asyncio
+async def test_resolver_de_primeira_credita_a_pontuacao_INTEIRA():
+    """O caso comum: sem consolo antes, 26 cabem nos 30 e ⛔ nao ha ajuste."""
+    repo = RepoFalso(partida=_partida())
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=26)
+    )
+
+    assert resultado.xp_creditado == 26
+    assert repo.creditos == [26]
+    assert _linhas_do_tipo(repo, XP_AJUSTE) == []
+
+
+@pytest.mark.asyncio
+async def test_resolver_com_30_de_primeira_cabe_EXATO_no_teto():
+    """🔒 A fronteira: 30 de 30 ⛔ e corte. Um `<` no lugar de `<=` cortaria 1."""
+    repo = RepoFalso(partida=_partida())
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=30)
+    )
+
+    assert resultado.xp_creditado == 30
+    assert _linhas_do_tipo(repo, XP_AJUSTE) == []
+
+
+@pytest.mark.asyncio
+async def test_a_primeira_falha_paga_o_consolo_ancorado_na_TENTATIVA():
+    """RF-DES-041: tentar e nao resolver vale 10.
+
+    ⚠️ A linha e ancorada na tentativa, e ⛔ numa resolucao que nao existe.
+    """
+    repo = RepoFalso(partida=_partida())
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
+    )
+
+    assert resultado.xp_creditado == 10
+    assert repo.creditos == [10]
+    [(consolo, ancoras)] = _linhas_do_tipo(repo, XP_CONSOLO)
+    assert consolo.vr_xp == Decimal(10) and consolo.nu_feito is None
+    assert ancoras["id_tentativa"] == resultado.id_tentativa
+    assert ancoras["id_resolucao"] is None
+    # ⛔ E a falha continua privada: resolucao nenhuma.
+    assert repo.resolucoes == []
+
+
+@pytest.mark.asyncio
+async def test_o_consolo_e_10_mesmo_que_o_corpo_diga_OUTRA_coisa():
+    """⚠️ O servidor ⛔ le a pontuacao da falha (o modelo aceita qualquer uma).
+
+    O consolo e constante da regra; ler o corpo daria a quem monta o corpo o
+    poder de escolher quanto ganha por errar.
+    """
+    repo = RepoFalso(partida=_partida())
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha(pontuacao=0)
+    )
+
+    assert resultado.xp_creditado == XP_DA_TENTATIVA_SEM_RESOLVER
+
+
+@pytest.mark.asyncio
+async def test_a_SEGUNDA_falha_do_dia_nao_paga_nada():
+    """⚠️ "Uma vez por dia" (RF-DES-041).
+
+    ⚠️ E a guarda e o consolo do DIA, e ⛔ a tentativa ser nova: o reenvio de uma
+    falha tambem responde `escreveu=True` em `gravar_tentativa`.
+    """
+    repo = RepoFalso(partida=_partida(), ja_creditado=10, tem_consolo=True)
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
+    )
+
+    assert resultado.xp_creditado == 0
+    assert repo.creditos == []
+    assert repo.extratos == []
+
+
+@pytest.mark.asyncio
+async def test_falhar_e_depois_resolver_fecha_o_dia_em_30_com_AJUSTE():
+    """🔒 O caso de ouro do `data-model.md`: 10 + 27 - 7 = 30.
+
+    ⚠️ O `nu_xp` da resolucao continua 27 - e o que o quadro ordena. O teto e da
+    colecao e mora no credito, ⛔ na pontuacao (RF-DES-155).
+    """
+    repo = RepoFalso(partida=_partida())
+    servico = ServicoEnvio(repo)
+
+    await servico.registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
+    )
+    resultado = await servico.registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=27)
+    )
+
+    assert repo.creditos == [10, 20]
+    assert resultado.xp_creditado == 20
+    assert repo.resolucoes[0]["nu_xp"] == 27
+    [(ajuste, ancoras)] = _linhas_do_tipo(repo, XP_AJUSTE)
+    assert ajuste.vr_xp == Decimal(-7)
+    # ⚠️ O ajuste e do DIA: nem resolucao, nem tentativa.
+    assert ancoras["id_resolucao"] is None and ancoras["id_tentativa"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_ORDEM_de_chegada_nao_muda_a_conta_do_dia():
+    """⚠️ A fila do aparelho ⛔ garante ordem: resolucao antes, consolo depois.
+
+    27 entra inteiro, e o consolo so cabe 3 - o dia fecha nos mesmos 30 e com o
+    mesmo ajuste de -7.
+    """
+    repo = RepoFalso(partida=_partida())
+    servico = ServicoEnvio(repo)
+
+    await servico.registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=27)
+    )
+    await servico.registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
+    )
+
+    assert repo.creditos == [27, 3]
+    assert sum(repo.creditos) == 30
+    [(ajuste, _)] = _linhas_do_tipo(repo, XP_AJUSTE)
+    assert ajuste.vr_xp == Decimal(-7)
+
+
+@pytest.mark.asyncio
+async def test_o_reenvio_da_resolucao_NAO_credita_de_novo():
+    """⛔ Creditar no reenvio daria XP em dobro a cada vez que o outbox insistisse."""
+    repo = RepoFalso(partida=_partida(), resolucao_nova=False)
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio()
+    )
+
+    assert resultado.xp_creditado == 0
+    assert repo.creditos == []
+
+
+@pytest.mark.asyncio
+async def test_um_dia_JA_CHEIO_grava_o_consolo_e_o_corte_inteiro():
+    """⚠️ O extrato continua dizendo a verdade: tentou (+10), e o teto cortou tudo.
+
+    E o caso de quem resolveu com 30 em outro aparelho e falhou neste depois.
+    """
+    repo = RepoFalso(partida=_partida(), ja_creditado=30)
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
+    )
+
+    assert resultado.xp_creditado == 0
+    [(ajuste, _)] = _linhas_do_tipo(repo, XP_AJUSTE)
+    assert ajuste.vr_xp == Decimal(-10)
+
+
+@pytest.mark.asyncio
+async def test_o_credito_entra_na_MESMA_transacao_do_extrato():
+    """⚠️ Um commit so: um extrato sem credito (ou o contrario) nao se conserta."""
+    repo = RepoFalso(partida=_partida())
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
+    )
+
+    assert repo.commits == 1
+
+
+# ── A regra pura ──────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("ja_creditado", "valor", "corte"),
+    [
+        (0, 30, 0),  # a resolucao perfeita de primeira
+        (10, 20, 0),  # consolo e resolucao que cabem EXATO
+        (10, 21, 1),  # um ponto alem: a fronteira do corte
+        (10, 27, 7),  # o exemplo do data-model
+        (27, 10, 7),  # a mesma conta, na ordem inversa
+        (30, 10, 10),  # o dia ja cheio corta tudo
+    ],
+)
+def test_credito_do_dia_corta_so_o_que_passa_do_teto(ja_creditado, valor, corte):
+    credito = credito_do_dia(ja_creditado=ja_creditado, valor=valor)
+    assert credito.corte == corte
+    assert credito.valor == valor, "⛔ o valor pontuado nunca e cortado"
+    assert credito.creditado == valor - corte
+
+
+def test_um_dia_ACIMA_do_teto_credita_zero_e_nao_recusa():
+    """⚠️ Soma do dia errada chega aqui dentro da rota do envio - recusar faria o
+    outbox tentar de novo ate desistir, por um defeito que ⛔ e da pessoa."""
+    assert credito_do_dia(ja_creditado=45, valor=18).creditado == 0
+
+
+def test_o_teto_e_o_do_PARAMETRO_e_nao_um_30_escrito_na_conta():
+    """🔒 O teto e da colecao (RF-DES-155); um torneio pode ter outro."""
+    assert credito_do_dia(ja_creditado=0, valor=30, teto=25).corte == 5
+
+
+def test_valor_negativo_e_defeito_de_quem_chamou():
+    with pytest.raises(ValueError):
+        credito_do_dia(ja_creditado=0, valor=-1)

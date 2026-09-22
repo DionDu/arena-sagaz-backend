@@ -282,6 +282,9 @@ async def enviar_resolucao(
             "veredito": envio.veredito,
             "ja_existia": resultado.resposta.ja_existia,
             "parcelas": resultado.parcelas_gravadas,
+            # O que este envio pos no ranking (T082) - e o numero a procurar no
+            # log quando alguem disser que resolveu e o XP nao subiu.
+            "xp_creditado": resultado.xp_creditado,
         },
     )
     return resultado.resposta
