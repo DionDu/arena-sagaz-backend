@@ -180,6 +180,17 @@ class ServicoQuadro:
                     "posicao": posicao,
                     "xp": propria["nu_xp"],
                     "tempo_ms": propria["nu_tempo_ms"],
+                    # ⚠️ **As reacoes que EU recebi** — o Design as desenha na
+                    # barra ancorada, e ⛔ nao tocaveis: ninguem reage a si mesmo,
+                    # mas ver quem aplaudiu voce e metade da graca de reagir.
+                    #
+                    # ⚠️ **Sai do mesmo mapa das linhas**, e ⛔ nao de uma segunda
+                    # consulta: a propria linha ja esta em `gente` no caso comum.
+                    # ⛔ **E quem se escondeu ⛔ nao aparece nele** — a linha dele
+                    # ⛔ nao passou pela clausula de publico, entao a chave falta e
+                    # a barra vem sem pilha. E o certo: quem sai do quadro sai
+                    # inclusive da contagem que se ve (RF-DES-077).
+                    "reacoes": reacoes.get(propria["id_resolucao"]) or None,
                 }
 
         return {
@@ -199,6 +210,11 @@ class ServicoQuadro:
                 dh_encerramento=contexto.dh_encerramento,
                 agora=agora,
             ),
+            # ⚠️ **O que a tela pode OFERECER hoje** (T078) — o catalogo ativo.
+            # Sem ele, desativar uma reacao ⛔ nao teria efeito enquanto houvesse
+            # aplicativo em campo: o botao continuaria la, e cada toque levaria
+            # 400 da propria rota de reagir.
+            "reacoes_oferecidas": await self.repo.reacoes_oferecidas(),
         }
 
 

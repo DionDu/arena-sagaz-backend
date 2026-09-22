@@ -52,6 +52,7 @@ class RepoFalso:
         fracao=(0, 0),
         reacoes=None,
         minhas_reacoes=None,
+        oferecidas=None,
         medicoes=None,
         partida=None,
         lances=None,
@@ -73,6 +74,13 @@ class RepoFalso:
         self._fracao = fracao
         self._reacoes = reacoes or {}
         self._minhas_reacoes = minhas_reacoes or {}
+        # ⚠️ O padrao e as **cinco do Design**, e ⛔ nao uma lista vazia: vazia
+        # faria todo caso existente afirmar que a tela ⛔ nao oferece nada.
+        self._oferecidas = (
+            ["palmas", "uau", "fogo", "coracao", "top"]
+            if oferecidas is None
+            else oferecidas
+        )
         self._medicoes = medicoes or []
         self._partida = partida
         self._lances = lances
@@ -108,14 +116,22 @@ class RepoFalso:
         return self._fracao
 
     async def reacoes(self, ids):
-        return self._reacoes
+        # ⚠️ **O duplo HONRA o `ids`**, e ⛔ nao devolve o mapa inteiro: o SQL de
+        # verdade tem `id_resolucao = ANY(:ids)`, e um duplo que ignora o filtro
+        # responde por resolucoes que ⛔ nao foram perguntadas - foi assim que o
+        # caso de quem se escondeu passou a ler a propria contagem.
+        return {k: v for k, v in self._reacoes.items() if k in ids}
+
+    async def reacoes_oferecidas(self):
+        return self._oferecidas
 
     async def minhas_reacoes(self, ids, id_usuario):
         # ⚠️ Convidado ⛔ nao tem nenhuma - e a mesma regra do repositorio
         # de verdade, e ⛔ nao um atalho do duplo.
         if id_usuario is None:
             return {}
-        return self._minhas_reacoes
+        # ⚠️ Mesmo filtro por `ids` do irmao acima, e pelo mesmo motivo.
+        return {k: v for k, v in self._minhas_reacoes.items() if k in ids}
 
     async def partida_do_sujeito(self, *, id_desafio_dia, id_usuario):
         return self._partida
@@ -448,6 +464,121 @@ async def test_ninguem_reage_a_si_mesmo():
     }
     assert por_uid[EU]["pode_reagir"] is False
     assert por_uid["outro"]["pode_reagir"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_propria_linha_TRAZ_as_reacoes_que_recebeu():
+    """⚠️ A barra ancorada mostra quem aplaudiu VOCE (T078).
+
+    ⛔ **Sem este campo a barra sairia sempre sem pilha para quem esta FORA do
+    topo** - justamente a unica pessoa para quem a barra existe. Quem esta no
+    topo tem a linha na lista, e a pilha dela; quem esta em 74o ⛔ nao tem outra
+    linha em lugar nenhum.
+    """
+    minha = _minha()
+    quadro = await ServicoQuadro(
+        RepoFalso(
+            gente=[_jogador(uid=EU, id_res=minha["id_resolucao"])],
+            minha=minha,
+            reacoes={minha["id_resolucao"]: {"fogo": 4}},
+        )
+    ).montar(id_desafio=ID_DESAFIO, id_usuario=EU, agora=AGORA)
+
+    assert quadro["minha_linha"]["reacoes"] == {"fogo": 4}
+
+
+@pytest.mark.asyncio
+async def test_a_propria_linha_SEM_reacao_vem_null_e_nao_mapa_vazio():
+    """⛔ RF-DES-073 vale para a propria linha tambem.
+
+    ⚠️ E um `{}` ⛔ nao seria igual: em Dart um mapa vazio e verdadeiro o
+    suficiente para desenhar a moldura de uma pilha **vazia**, que e o "0 👏"
+    entrando pela porta de tras.
+    """
+    minha = _minha()
+    quadro = await ServicoQuadro(
+        RepoFalso(gente=[_jogador(uid=EU, id_res=minha["id_resolucao"])], minha=minha)
+    ).montar(id_desafio=ID_DESAFIO, id_usuario=EU, agora=AGORA)
+
+    assert quadro["minha_linha"]["reacoes"] is None
+
+
+@pytest.mark.asyncio
+async def test_quem_se_escondeu_nao_le_a_contagem_da_propria_linha():
+    """⚠️ Sair do quadro e sair inclusive da contagem que se ve (RF-DES-077).
+
+    ⚠️ **E ⛔ nao ha `if` de visibilidade aqui**: a propria linha vem de
+    `minha_linha`, que ⛔ nao passa pela clausula de publico (ela existe para a
+    pessoa se ver mesmo em 74o), e as reacoes vem do mapa montado sobre as linhas
+    **publicas**. Quem se escondeu ⛔ nao esta nesse mapa, e a chave falta.
+    """
+    minha = _minha()
+    quadro = await ServicoQuadro(
+        # ⚠️ `gente` **sem** a propria linha e exatamente o que o SQL do quadro
+        # devolve para quem desligou a visibilidade.
+        RepoFalso(
+            gente=[_jogador(uid="outra", nome="Bia")],
+            minha=minha,
+            reacoes={minha["id_resolucao"]: {"palmas": 9}},
+        )
+    ).montar(id_desafio=ID_DESAFIO, id_usuario=EU, agora=AGORA)
+
+    assert quadro["minha_linha"]["reacoes"] is None
+
+
+@pytest.mark.asyncio
+async def test_o_quadro_diz_quais_reacoes_a_tela_pode_OFERECER():
+    """⚠️ Sem isto, desativar uma reacao ⛔ nao teria efeito em campo (T078).
+
+    O aplicativo publicado continuaria desenhando o botao, e cada toque levaria
+    **400** da rota de reagir - que le o mesmo `ic_ativo`. Um botao que o desenho
+    promete e o servidor recusa.
+    """
+    quadro = await ServicoQuadro(RepoFalso()).montar(
+        id_desafio=ID_DESAFIO, id_usuario=EU, agora=AGORA
+    )
+    assert quadro["reacoes_oferecidas"] == [
+        "palmas",
+        "uau",
+        "fogo",
+        "coracao",
+        "top",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_ordem_das_oferecidas_e_a_DO_BANCO():
+    """⚠️ `nu_ordem` e o desenho do Design, e ⛔ nao alfabetica.
+
+    ⛔ **A tela ⛔ nao reordena**: se ela ordenasse, o `nu_ordem` da dimensao
+    deixaria de significar coisa nenhuma, e trocar a ordem do seletor passaria a
+    exigir versao nova do aplicativo.
+    """
+    quadro = await ServicoQuadro(
+        RepoFalso(oferecidas=["top", "palmas"])
+    ).montar(id_desafio=ID_DESAFIO, id_usuario=EU, agora=AGORA)
+    assert quadro["reacoes_oferecidas"] == ["top", "palmas"]
+
+
+@pytest.mark.asyncio
+async def test_o_convidado_tambem_recebe_o_catalogo():
+    """⚠️ Ele ⛔ nao reage, e a lista ⛔ nao muda por causa disso.
+
+    ⚠️ **Quem decide se ha alvo de toque e `pode_reagir`, linha por linha** - e
+    ⛔ nao a ausencia do catalogo. Servir uma lista vazia ao convidado juntaria
+    duas perguntas diferentes ("o que existe?" e "eu posso?") num campo so, e a
+    segunda ja tem resposta propria em cada linha.
+    """
+    quadro = await ServicoQuadro(RepoFalso(gente=[_jogador()])).montar(
+        id_desafio=ID_DESAFIO, id_usuario=None, agora=AGORA
+    )
+    assert quadro["reacoes_oferecidas"] == [
+        "palmas",
+        "uau",
+        "fogo",
+        "coracao",
+        "top",
+    ]
 
 
 @pytest.mark.asyncio

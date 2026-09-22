@@ -57,6 +57,7 @@ from api.desafios.modelos_evento import (
     VW_REACAO,
     VW_RESOLUCAO,
     VW_TENTATIVA,
+    VW_TIPO_REACAO,
 )
 from api.desafios.modelos_producao import VW_DESAFIO, VW_MEDICAO_REGUA
 
@@ -193,6 +194,28 @@ SELECT id_resolucao, co_tipo_reacao
   FROM {VW_REACAO}
  WHERE id_resolucao = ANY(:ids)
    AND id_usuario = :id_usuario
+"""
+
+#: Quais reacoes a tela pode OFERECER hoje — o catalogo ativo, na ordem do Design.
+#:
+#: ⚠️ **Sem este campo, desativar uma reacao ⛔ nao teria efeito nenhum** enquanto
+#: houvesse aplicativo em campo: todo mundo continuaria oferecendo `top`, e cada
+#: toque levaria **400** (o `SQL_TIPO_ATIVO` da rota le o mesmo `ic_ativo`) — um
+#: erro sem explicacao, num botao que o desenho promete.
+#:
+#: ⚠️ **E isto ⛔ nao contradiz "o vocabulario e dado"** (RF-DES-226): e a
+#: fronteira do Bloco Y, do lado que ja se sabia. Uma reacao **nova** continua
+#: exigindo versao nova do aplicativo, porque o que falta la e **TEXTO** — o
+#: rotulo que o leitor de tela pronuncia, e que mora no `.arb`. Desativar ⛔ nao
+#: precisa de texto nenhum, e por isso funciona sozinho.
+#:
+#: ⛔ **O `nu_ordem` ⛔ nao viaja**, so a ordem da lista: a tela ⛔ nao tem o que
+#: fazer com o numero, e servi-lo convidaria alguem a reordenar do outro lado.
+SQL_REACOES_OFERECIDAS = f"""
+SELECT co_tipo_reacao
+  FROM {VW_TIPO_REACAO}
+ WHERE ic_ativo
+ ORDER BY nu_ordem
 """
 
 #: A partida por tras de um sujeito do quadro — o replay e o de uma PARTIDA.
@@ -374,6 +397,16 @@ class RepositorioQuadro:
             linha["id_resolucao"]: linha["co_tipo_reacao"]
             for linha in resultado.mappings().all()
         }
+
+    async def reacoes_oferecidas(self) -> list[str]:
+        """Os codigos que a tela pode oferecer hoje, na ordem do Design.
+
+        ⚠️ **⛔ Nao ha `if` de vocabulario aqui**: a lista e o que o banco diz
+        estar ativo. Uma sexta reacao aparece nesta resposta no instante do
+        `INSERT` — e a tela so a desenha quando tambem souber **nomea-la**.
+        """
+        resultado = await self.sessao.execute(text(SQL_REACOES_OFERECIDAS))
+        return [linha["co_tipo_reacao"] for linha in resultado.mappings().all()]
 
     async def partida_do_sujeito(
         self, *, id_desafio_dia: UUID, id_usuario: str
