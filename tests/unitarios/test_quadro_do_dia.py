@@ -51,6 +51,7 @@ class RepoFalso:
         minha=None,
         fracao=(0, 0),
         reacoes=None,
+        minhas_reacoes=None,
         medicoes=None,
         partida=None,
         lances=None,
@@ -71,6 +72,7 @@ class RepoFalso:
         self._minha = minha
         self._fracao = fracao
         self._reacoes = reacoes or {}
+        self._minhas_reacoes = minhas_reacoes or {}
         self._medicoes = medicoes or []
         self._partida = partida
         self._lances = lances
@@ -107,6 +109,13 @@ class RepoFalso:
 
     async def reacoes(self, ids):
         return self._reacoes
+
+    async def minhas_reacoes(self, ids, id_usuario):
+        # ⚠️ Convidado ⛔ nao tem nenhuma - e a mesma regra do repositorio
+        # de verdade, e ⛔ nao um atalho do duplo.
+        if id_usuario is None:
+            return {}
+        return self._minhas_reacoes
 
     async def partida_do_sujeito(self, *, id_desafio_dia, id_usuario):
         return self._partida

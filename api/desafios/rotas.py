@@ -45,6 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.desafios.modelos_envio import (
     EnvioDeDesafioImpedido,
     EnvioDeDica,
+    EnvioDeReacao,
     EnvioDeResolucao,
     RespostaDeResolucao,
 )
@@ -56,6 +57,7 @@ from api.desafios.modelos_resposta import (
 from api.desafios.publicacao import para_resposta
 from api.desafios.repositorio import DIAS_DE_CACHE, RepositorioDesafio
 from api.desafios.quadro import RepositorioQuadro
+from api.desafios.reacoes import RepositorioReacao, ServicoReacao
 from api.desafios.impedido import RepositorioImpedido
 from api.desafios.mes import RepositorioMes, ServicoMes
 from api.desafios.repositorio_envio import RepositorioEnvio
@@ -436,3 +438,94 @@ async def replay_do_sujeito(
         id_usuario=dono.id_usuario if dono else None,
         agora=agora_utc(),
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AS REACOES DO QUADRO (T077)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Exigem conta** (RF-DES-084): sem identidade ⛔ nao ha como honrar *"uma
+# reacao por pessoa, por linha"*. O convidado **ve** o quadro e ⛔ nao reage -
+# ver e social; reagir exige saber quem e.
+#
+# ⚠️ **Sao DOIS verbos, e ⛔ nao um toggle.** `POST` poe (ou troca); `DELETE`
+# desfaz. Um `POST` que alternasse apagaria a reacao no segundo toque de um
+# duplo toque acidental - e num reenvio da rede, sem ninguem ter tocado duas
+# vezes.
+
+
+def obter_servico_reacao(
+    sessao: AsyncSession = Depends(obter_sessao),
+) -> ServicoReacao:
+    """Monta o servico de reacao ligado a sessao da requisicao."""
+    return ServicoReacao(RepositorioReacao(sessao))
+
+
+@router.post("/{id_desafio}/reacao")
+async def reagir_a_uma_linha(
+    id_desafio: UUID,
+    envio: EnvioDeReacao,
+    dono: UsuarioAutenticado = Depends(usuario_autenticado),
+    servico: ServicoReacao = Depends(obter_servico_reacao),
+    _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+) -> dict:
+    """Poe - ou **troca** - a minha reacao na linha de outra pessoa.
+
+    ⚠️ **Repetir o mesmo pedido ⛔ nao apaga nada**: ele deixa a reacao onde ela
+    ja estava. Desfazer e o `DELETE .../reacao/{id_jogador}`, que e explicito.
+
+    Responde com a contagem **nova** daquela linha e com qual e a minha reacao
+    agora - e ⛔ nao `204`: com um `204` a tela teria de somar 1 no que tinha, e
+    erraria na troca (em que o total ⛔ nao muda) e sempre que outra pessoa
+    tivesse reagido nesse meio-tempo.
+    """
+    corpo = await servico.reagir(
+        id_desafio=id_desafio,
+        id_usuario=dono.id_usuario,
+        id_jogador=envio.id_jogador,
+        co_tipo_reacao=envio.tipo,
+        agora=agora_utc(),
+    )
+    log.info(
+        "desafio: reacao gravada",
+        extra={
+            "id_desafio": str(id_desafio),
+            "id_jogador": str(envio.id_jogador),
+            "tipo": envio.tipo,
+        },
+    )
+    return corpo
+
+
+@router.delete("/{id_desafio}/reacao/{id_jogador}")
+async def desfazer_reacao(
+    id_desafio: UUID,
+    id_jogador: UUID,
+    dono: UsuarioAutenticado = Depends(usuario_autenticado),
+    servico: ServicoReacao = Depends(obter_servico_reacao),
+    _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+) -> dict:
+    """Tira a minha reacao da linha daquela pessoa.
+
+    ⚠️ **⛔ Nao reclama se ⛔ nao havia nenhuma** - desfazer duas vezes deixa a
+    linha sem reacao das duas vezes, que e o que a pessoa queria.
+
+    ⚠️ **A pessoa vem no CAMINHO, e ⛔ nao num corpo.** Um `DELETE` com corpo e
+    legal, mas atravessa mal: ha proxy e cliente que o descartam em silencio, e o
+    pedido chegaria aqui sem saber de quem e a linha. ⛔ E ⛔ nao ha `tipo` a
+    dizer: ha **uma** reacao minha por linha, entao desfazer ⛔ nao precisa
+    escolher qual.
+    """
+    corpo = await servico.desfazer(
+        id_desafio=id_desafio,
+        id_usuario=dono.id_usuario,
+        id_jogador=id_jogador,
+    )
+    log.info(
+        "desafio: reacao desfeita",
+        extra={
+            "id_desafio": str(id_desafio),
+            "id_jogador": str(id_jogador),
+        },
+    )
+    return corpo

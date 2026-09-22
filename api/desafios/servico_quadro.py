@@ -95,7 +95,11 @@ class ServicoQuadro:
         contexto = await self._contexto(id_desafio)
 
         gente = await self.repo.linhas_de_gente(contexto.id_desafio_dia)
-        reacoes = await self.repo.reacoes([linha["id_resolucao"] for linha in gente])
+        ids_das_linhas = [linha["id_resolucao"] for linha in gente]
+        reacoes = await self.repo.reacoes(ids_das_linhas)
+        # ⚠️ **Qual e a MINHA** em cada linha (T077) - o Design destaca o chip
+        # e a escolha no seletor, e isso ⛔ nao se deduz da contagem.
+        minhas = await self.repo.minhas_reacoes(ids_das_linhas, id_usuario)
         taxas = taxas_das_medicoes(await self.repo.medicoes(id_desafio))
 
         mascotes = linhas_dos_mascotes(
@@ -119,6 +123,10 @@ class ServicoQuadro:
                 # (RF-DES-060c). E **estrutura**, e nao `if` na tela: reacao
                 # aponta para resolucao, e mascote nao tem resolucao.
                 "reacoes": None,
+                # ⛔ Mascote ⛔ nao recebe reacao, entao ⛔ nunca ha uma minha
+                # nele. O campo vem assim mesmo: uma linha com forma
+                # diferente obrigaria a tela a olhar o sujeito antes de ler.
+                "minha_reacao": None,
                 "pode_reagir": False,
             }
             for m in mascotes
@@ -133,6 +141,9 @@ class ServicoQuadro:
                 # ⛔ Zero reacoes nao e servido (RF-DES-073): a tela nao mostra
                 # "0 👏".
                 "reacoes": reacoes.get(linha["id_resolucao"]) or None,
+                # ⛔ `None` quando eu ⛔ nao reagi **e** quando sou convidado -
+                # sao a mesma coisa para a tela: nada em destaque.
+                "minha_reacao": minhas.get(linha["id_resolucao"]),
                 # ⚠️ Reagir exige conta (RF-DES-084): sem identidade nao ha como
                 # honrar "uma reacao por pessoa". E ninguem reage a si mesmo.
                 "pode_reagir": bool(id_usuario)

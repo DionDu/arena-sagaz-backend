@@ -200,6 +200,32 @@ class EnvioDeDica(BaseModel):
 
 
 
+class EnvioDeReacao(BaseModel):
+    """O corpo de `POST /v1/desafios/{id_desafio}/reacao` (T077).
+
+    ⚠️ **`id_jogador` e o campo `id` da LINHA DO QUADRO**, que e o `id_usuario`
+    daquela pessoa. ⛔ O `id_resolucao` ⛔ nao viaja ate o aplicativo - e
+    identificador interno, e servi-lo so para receber de volta daria a quem
+    guardasse um deles um ponteiro para uma linha que talvez ⛔ nao apareca mais.
+
+    ⛔ **⛔ Nao ha campo de texto aqui, e ⛔ nunca havera** (RF-DES-071): uma caixa
+    de texto e uma frente de moderacao que este aplicativo ⛔ nao abre.
+
+    ⚠️ **`tipo` ⛔ nao e `Enum`**: o catalogo vive em `tb903_tipo_reacao`
+    (RF-DES-226), e um `Enum` aqui faria uma reacao nova exigir deploy. Quem
+    confere e o servico, contra os tipos **ativos** do banco.
+
+    ⚠️ **Desfazer ⛔ nao usa este corpo**: ele e o
+    `DELETE .../reacao/{id_jogador}`, com a pessoa no caminho e sem corpo
+    nenhum - ha **uma** reacao minha por linha, entao desfazer ⛔ nao precisa
+    dizer qual.
+    """
+
+    id_jogador: UUID
+    #: O codigo do catalogo: `palmas`, `uau`, `fogo`, `coracao`, `top`.
+    tipo: str = Field(min_length=1, max_length=20)
+
+
 class MotorDoAparelho(BaseModel):
     """Um motor que o aparelho tinha no instante em que o desafio nao coube.
 

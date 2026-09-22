@@ -112,6 +112,20 @@ SELECT co_personagem, nu_execucoes, nu_resolveu
 #: nao ter linha de progressao nenhuma. Um `JOIN` a tiraria do quadro **em
 #: silencio** — a pessoa resolveria, ganharia XP e simplesmente nao apareceria.
 #: O padrao e aparecer; some quem **desligou** a visibilidade.
+#: ⚠️ **A regra de *"aparece em publico"*, escrita UMA vez** (T077).
+#:
+#: Ela nasceu inline aqui, e saiu para uma constante no dia em que a rota de
+#: reacao passou a precisar da **mesma** regra: reagir a quem se escondeu do
+#: quadro faria a reacao existir numa linha que ninguem ve. ⛔ Duas copias
+#: divergiriam, e - como o comentario acima ja avisava - **a mais frouxa
+#: mandaria**.
+#:
+#: ⚠️ **Quem a usa precisa dos aliases `u` (conta) e `g` (progressao)**, com o
+#: `LEFT JOIN` em `g` pelo motivo escrito acima.
+CLAUSULA_APARECE_EM_PUBLICO = (
+    "(COALESCE(g.ic_visivel_placar, TRUE) AND u.ic_idade_minima_declarada)"
+)
+
 SQL_LINHAS_DE_GENTE = f"""
 SELECT r.id_resolucao,
        r.id_usuario,
@@ -126,7 +140,7 @@ SELECT r.id_resolucao,
   LEFT JOIN progressao.tb001_progressao_usuario g
     ON g.id_usuario = r.id_usuario
  WHERE r.id_desafio_dia = :id_desafio_dia
-   AND (COALESCE(g.ic_visivel_placar, TRUE) AND u.ic_idade_minima_declarada)
+   AND {CLAUSULA_APARECE_EM_PUBLICO}
  ORDER BY r.nu_xp DESC, r.nu_tempo_ms ASC, r.dh_resolucao ASC
 """
 
@@ -163,6 +177,22 @@ SELECT id_resolucao, co_tipo_reacao, COUNT(*) AS qt
   FROM {VW_REACAO}
  WHERE id_resolucao = ANY(:ids)
  GROUP BY id_resolucao, co_tipo_reacao
+"""
+
+#: Qual e a **minha** reacao em cada linha do quadro (T077).
+#:
+#: ⚠️ **Ela viaja porque o Design a desenhou**: o chip e o seletor destacam a
+#: minha reacao (`minha: 'palmas'` no artefato), e sem este campo a tela so
+#: saberia disso enquanto lembrasse do proprio toque - ao voltar de outro
+#: aparelho, ou depois de fechar o aplicativo, a barra esqueceria.
+#:
+#: ⛔ **E ⛔ nao da para deduzir da contagem**: `{palmas: 3}` ⛔ nao diz se uma das
+#: tres e minha.
+SQL_MINHAS_REACOES = f"""
+SELECT id_resolucao, co_tipo_reacao
+  FROM {VW_REACAO}
+ WHERE id_resolucao = ANY(:ids)
+   AND id_usuario = :id_usuario
 """
 
 #: A partida por tras de um sujeito do quadro — o replay e o de uma PARTIDA.
@@ -325,6 +355,25 @@ class RepositorioQuadro:
                 linha["co_tipo_reacao"]
             ] = int(linha["qt"])
         return por_resolucao
+
+    async def minhas_reacoes(
+        self, ids: list[UUID], id_usuario: Optional[UUID]
+    ) -> dict[UUID, str]:
+        """`{id_resolucao: o tipo que EU dei}` - ⛔ so as minhas.
+
+        ⚠️ **Convidado ⛔ nao tem nenhuma**, e ⛔ nao por regra escrita aqui: sem
+        `id_usuario` ⛔ nao ha o que consultar. Ele ve o quadro e ⛔ nao reage
+        (RF-DES-084).
+        """
+        if not ids or id_usuario is None:
+            return {}
+        resultado = await self.sessao.execute(
+            text(SQL_MINHAS_REACOES), {"ids": ids, "id_usuario": id_usuario}
+        )
+        return {
+            linha["id_resolucao"]: linha["co_tipo_reacao"]
+            for linha in resultado.mappings().all()
+        }
 
     async def partida_do_sujeito(
         self, *, id_desafio_dia: UUID, id_usuario: str
