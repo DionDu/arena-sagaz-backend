@@ -6200,6 +6200,12 @@ aparelho: uma rota que a versão instalada não registrou cai na tela de erro do
 telas escolhe a tela (T079b). Sem o lado do aplicativo, o toque abre o aplicativo
 normalmente — e nada quebra.
 
+> **Atualização 22/09/2026 (T079b feita):** o aplicativo traduz o assunto em
+> `/desafio/quadro/<id>` e pergunta ao roteador se conhece a rota antes de navegar;
+> a rota só é registrada na T083. A linha *"Reações ao seu desafio"* entrou na tela
+> de notificações, e um teste do app lê `TIPO_DO_PUSH` e `CATEGORIA_REACOES` deste
+> repositório e compara. **Nada mudou no servidor.**
+
 ### ⚠️ `token=` e não `fid=`, apesar do aviso do SDK
 
 O `firebase-admin` **7.x** avisa que `Message.token` está depreciado *"em favor de

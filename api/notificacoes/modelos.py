@@ -20,9 +20,10 @@ from pydantic import BaseModel, Field
 #
 # ⚠️ **Acrescentar valor aqui é aditivo e não quebra app em campo:** o `Literal`
 # só recusa o que ENTRA, e os apps publicados enviam as quatro antigas. A coluna
-# `co_categoria` é `VARCHAR(20)` sem `CHECK`, então também não há migração. O que
-# falta é a **linha na tela** do aplicativo (T079b) — e a ausência de linha não
-# silencia ninguém: sem registro na tabela, vale ligado.
+# `co_categoria` é `VARCHAR(20)` sem `CHECK`, então também não há migração. A
+# **linha na tela** do aplicativo entrou com a T079b (22/09/2026); as versões
+# anteriores do app não a têm, e para elas a ausência de linha não silencia
+# ninguém: sem registro na tabela, vale ligado.
 CategoriaNotif = Literal[
     "transacional", "lembrete", "novidades", "marketing", "reacoes"
 ]

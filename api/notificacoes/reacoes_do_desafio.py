@@ -128,8 +128,13 @@ from api.notificacoes.servico import fusos_na_hora_local
 #: as duas faria uma escolha desligar a outra sem que ninguem tivesse pedido.
 #:
 #: ⚠️ A coluna e `VARCHAR(20)` **sem `CHECK`**, entao o codigo novo ⛔ nao exige
-#: migracao. O que falta e a **linha na tela** do aplicativo (T079b) - e a
-#: ausencia de linha ⛔ nao silencia ninguem: sem registro na tabela, vale ligado.
+#: migracao. A **linha na tela** do aplicativo entrou com a T079b (22/09/2026);
+#: nas versoes anteriores do app ela ⛔ nao existe, e a ausencia de linha ⛔ nao
+#: silencia ninguem: sem registro na tabela, vale ligado.
+#:
+#: ⚠️ **O aplicativo compara este valor** (e o de [TIPO_DO_PUSH]) num teste que
+#: le este arquivo: `arena-sagaz-frontend/test/core/notificacoes/
+#: destino_do_toque_test.dart`. Mudou aqui, muda la.
 CATEGORIA_REACOES = "reacoes"
 
 #: A hora **local** em que a notificacao sai (RF-DES-074b).
@@ -150,7 +155,8 @@ TOLERANCIA_EM_MINUTOS = 30
 #: chegar num idioma e o aplicativo abrir noutro.
 IDIOMA_DE_RESERVA = "en"
 
-#: O que o `data` do push diz que isto e - o aplicativo escolhe a tela por aqui.
+#: O que o `data` do push diz que isto e - o aplicativo escolhe a tela por aqui
+#: (`rotaDoToque`, em `lib/core/notificacoes/destino_do_toque.dart`).
 TIPO_DO_PUSH = "reacao_desafio"
 
 
