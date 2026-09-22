@@ -6082,3 +6082,182 @@ A única pista era alguém reparar num número grande demais de descartes.
 `min`; o outro trava a **condição que torna o primeiro observável** - que o
 `damas_coroar` tenha variantes com pisos diferentes -, e falha avisando disso em
 vez de virar um cadeado verde e cego no dia em que o tipo voltar a ter um piso só.
+
+---
+
+## 2026-09-22 — O primeiro envio direcionado: a notificação de reações (T079)
+
+**Contexto.** Até aqui **todo** push do servidor saía por **tópico** do FCM, e isso
+estava escrito como vantagem em `api/notificacoes/servico.py`: *"não precisamos
+guardar tokens de dispositivo no banco"*. A notificação de reações do Desafio do Dia
+(RF-DES-074) rompe isso por necessidade - ela traz o número **de uma pessoa**, e
+tópico entrega a todos os inscritos.
+
+**Decisão.** Push **por token**, lido de `conta.tb005_dispositivo_notificacao`, num
+**quarto serviço** do Railway com cron de hora em hora.
+
+### O serviço reusa a imagem da API, e não a do job
+
+| serviço | arquivo de config | imagem | cadência |
+|---|---|---|---|
+| API | `railway.json` | `Dockerfile` | de pé |
+| job do desafio | `railway.job.json` | `Dockerfile.job` | `0 6 * * *` |
+| **notificações** | **`railway.notificacoes.json`** | **`Dockerfile`** (a da API) | **`0 * * * *`** |
+
+⛔ **A imagem do job não serve**, e o motivo está escrito nela mesma:
+`requirements_job.txt` diz em voz alta que `firebase-admin` **não entra** porque
+*"quem autentica pessoa é a API. O job não vê ninguém."* Pôr a lib lá contrariaria a
+única razão pela qual aquela lista é curta - e ela carrega 19,8 MB de `.tflite` e o
+runtime de inferência, dos quais este disparo não usa uma linha.
+
+✅ A imagem da API já tem `firebase-admin` (verifica token desde a US2), o SQLAlchemy
+e o código de `api/`. O que muda é o **comando de partida**: `python -m
+api.notificacoes.disparo_de_reacoes` em vez do `uvicorn`.
+
+⛔ **E não é uma rota administrativa:** o Railway não tem cron de HTTP, só cron de
+processo - alguém teria de chamar a rota de hora em hora. Além disso, um laço que
+fala com o FCM dezenas de vezes não cabe num tempo de resposta.
+
+⛔ **E o arquivo é DOCUMENTAÇÃO, não configuração** - a lição que a T049d pagou em
+16/09/2026: o Config-as-code do Railway foi **descontinuado** (*"services that have
+never used Config as Code cannot opt in"*, e os arquivos existentes param em
+2026-12-01). O serviço novo será configurado **na UI**, e o arquivo existe para dizer,
+versionado, o que tem de estar lá - com um teste comparando-o ao módulo que ele
+nomeia.
+
+⚠️ **O passo que não dá erro quando é esquecido existe agora DUAS vezes:** sem o
+*Custom Start Command* na UI, o serviço sobe o `uvicorn` do `CMD` da imagem - uma
+**terceira API**, verde e inútil, e nenhuma notificação sai. Está no
+`checklist-producao.md`, ao lado do irmão do job, e com a mesma conclusão: ⛔ **confira
+pelo estado** (a linha na `tb008`), e nunca pela tela de configuração.
+
+### *"Ontem"* é do calendário de quem lê — e isso não é `hoje_utc - 1`
+
+O desafio é do dia **UTC** (RF-DES-007), então a conta ingênua parece equivalente.
+⛔ **Ela não é:**
+
+> Em **UTC+13**, o meio-dia local de 23/09 acontece às **23:00 UTC de 22/09**.
+> `hoje_utc - 1` daria **21/09** — um desafio de anteontem para ela —, e o de 22/09,
+> que ela acabou de jogar, **nunca seria notificado**.
+
+O dia alvo é o **dia local menos um**, por offset. Naquele fuso isso dá o dia UTC
+**corrente**, e está certo: lá o desafio de 22/09 começou às 13:00 locais.
+
+⚠️ **Nada nesse defeito daria erro:** a notificação sairia, no horário certo, com o
+número de outro dia. É a mesma classe de falha silenciosa que o `dt_dia_local` da
+`0021` já tinha coberto para a chama.
+
+### Uma por desafio: o `UNIQUE`, e a ordem entre reservar e enviar
+
+`desafio_dia.tb008_notificacao_reacao` (migração **0026**) guarda o **fato** de a
+notificação ter saído, com `UNIQUE (id_resolucao)`. Como a resolução já é única por
+(desafio, pessoa), uma linha por resolução **é** uma notificação por desafio.
+
+⛔ **Não serve contar reações.** *"Notifiquei quando eram 3, agora são 5"* renderia
+uma notificação nova a cada pessoa que reagisse — exatamente o que RF-DES-074b
+proíbe.
+
+⚠️ **A reserva é confirmada ANTES do envio**, e isso é uma troca explícita:
+
+| ordem | o que se perde |
+|---|---|
+| reservar → enviar (**escolhida**) | FCM fora do ar naquela hora = a pessoa perde a notificação daquele dia |
+| enviar → reservar | processo que morre no meio = **duas** notificações |
+
+*"Uma por desafio"* é requisito escrito; *"chega sempre"* não é.
+
+⚠️ **Mas quando nenhum aparelho aceita, a reserva é desfeita** — e aqui a faxina de
+tokens deixou de ser manual: o token que responde `UNREGISTERED` ou
+`SENDER_ID_MISMATCH` sai da `tb005` no mesmo instante. Era o que o cabeçalho de
+`scripts/faxina_tokens_fcm.py` chamava de *"o certo quando fizermos envio
+direcionado"*. O script continua servindo para varrer a tabela **inteira**; a faxina
+automática só toca em quem recebeu reação ontem.
+
+⛔ **`InvalidArgumentError` não é token morto**, e a distinção tem caso próprio: ela
+também aparece quando o **payload** está errado, e apagar o token nesse caso
+destruiria a base de tokens por um defeito nosso — um por hora, sem que nada
+denunciasse.
+
+### O texto é texto, e não nomeia o tipo de reação
+
+RF-DES-074 escreve *"3 pessoas aplaudiram"* como exemplo. A frase entregue diz
+**"reagiram"**: *"aplaudiram"* é o verbo das palmas, e dizê-lo quando as três reações
+foram 🔥 seria falso. Conjugar por tipo pediria 5 tipos × 3 idiomas ×
+singular/plural, com reação nova no banco caindo num vazio.
+
+⚠️ **E nenhum emoticon carrega significado** — a lição da T078, agora num lugar onde
+ela é ainda mais direta: o leitor de tela lê o título e o corpo da notificação
+exatamente como estão, e emoticon em voz alta sai com o nome técnico do sistema.
+
+⚠️ **O idioma é do APARELHO** (`co_idioma` da `tb005`), não da conta; idioma que não
+publicamos cai no **inglês**, o mesmo fallback do aplicativo.
+
+### O `data` leva o assunto, e não a rota
+
+O aplicativo navega por `data['rota']`, e o aplicativo em campo fica congelado no
+aparelho: uma rota que a versão instalada não registrou cai na tela de erro do
+`go_router`. O servidor manda `tipo: reacao_desafio` e `id_desafio`; quem tem as
+telas escolhe a tela (T079b). Sem o lado do aplicativo, o toque abre o aplicativo
+normalmente — e nada quebra.
+
+### ⚠️ `token=` e não `fid=`, apesar do aviso do SDK
+
+O `firebase-admin` **7.x** avisa que `Message.token` está depreciado *"em favor de
+`fid`"*. ⛔ **Trocar seria erro de identidade, não modernização:** `co_token_fcm` é o
+**registration token** (`FirebaseMessaging.getToken()` no app), e `fid` é o
+**Firebase Installation ID** — que o aplicativo nem reporta. A imagem instala a
+**6.9.0**, presa em `requirements_api.txt`, onde o campo não é depreciado; o aviso
+aparece só no venv da máquina, que tem a 7.5.0. Se um dia a imagem subir para a 7.x e
+o campo sair, a mudança é dos **dois lados**.
+
+### ⛔ O sétimo cadeado cego: a varredura que lia um arquivo só
+
+`test_modelos_desafio.test_toda_TB_declarada_e_criada_pela_migracao` lia **apenas a
+`0019`**. A versão irmã, das VIEWs, já varria a pasta desde 11/09 — e o comentário
+dela explicava por quê. A das tabelas ficou atrás, e a primeira tabela criada fora
+daquele arquivo (`tb008`) foi acusada de não existir.
+
+⚠️ **Aqui o defeito falhou para o lado bom** (vermelho falso, e não verde cego), mas
+o sentido inverso é o perigoso: uma constante `TB_` com o nome errado passaria calada
+se a migração que cria a tabela certa não fosse a lida. A varredura agora é da pasta,
+com um caso que exige que ela enxergue tabela criada **fora** da `0019`.
+
+### A prova por mutação: 50 mutações, e o que as 8 sobreviventes ensinaram
+
+**51 casos novos** em `tests/unitarios/test_notificacao_de_reacao.py`, e **nenhuma
+sobrevivente** na segunda rodada. As da primeira valeram a corrida:
+
+1. ⛔ **Um comentário meu estava ERRADO, e a mutação o desmentiu.** Eu havia escrito
+   em `grupos_por_dia_alvo` que *"com a hora alvo em 12h os offsets da janela caem
+   todos no mesmo dia local"*. **O mundo tem 26 horas de fusos:** às 23:00 UTC,
+   UTC+13 está ao meio-dia de 23/09 e UTC-11 ao meio-dia de 22/09 — **na mesma
+   janela, em dias diferentes**. Trocar o offset pelo `0` no cálculo do dia deixava a
+   suíte verde. ⚠️ É a armadilha do **comentário quase certo que encerra a
+   investigação**: escrito com confiança, ele desencoraja justamente o caso que
+   faltava.
+2. ⛔ **"As duas frases são diferentes" não é "cada uma é a sua".** O caso do singular
+   comparava `uma != varias`; com uma pessoa jogada no plural, *"1 pessoas
+   reagiram"* e *"2 pessoas reagiram"* continuam diferentes. Cada frase passou a ser
+   comparada com a **sua**.
+3. ⛔ **O repositório real não era alcançado por caso nenhum.** O duplo do serviço
+   implementa a própria reserva, então `return True` no lugar de
+   `bool(resultado.rowcount)` deixava a suíte **inteira** verde — e o defeito seria o
+   pior possível: toda execução acharia que reservou, e duas rodadas mandariam a
+   mesma notificação duas vezes, com as duas dizendo sucesso no log. Entraram quatro
+   casos com uma `SessaoFalsa` que anota SQL e parâmetros. É a outra ponta da lição
+   de `memory/fonte-falsa-nao-tem-rota`: **o duplo não prova o código que ele
+   substitui.**
+4. **O vizinho de UMA hora é o que mede a largura da janela.** Os casos conferiam
+   offsets a 3h e 6h do meio-dia, e a tolerância aberta de 30 para 90 minutos
+   sobrevivia. Entrou UTC-2, que está a uma hora.
+5. **Cinto só se prova com o valor que ele existe para pegar.** `data=dados` sem
+   `str(v)` passava porque todo caso já mandava strings.
+6. ⛔ **O cadeado do `data-model.md` não lê conteúdo de `CHECK` nem corpo de VIEW** —
+   por isso `ck001_pessoa >= 0` e um `SELECT *` na `vw008` sobreviveram. ⚠️ E o caso
+   do `SELECT *` só funciona lendo o SQL **sem comentários**: pelo texto cru do
+   arquivo, ele reprovava por causa do **próprio comentário** que explica por que não
+   se usa `SELECT *`.
+
+⚠️ **Quatro dos casos cobrem o enviador real** — a montagem da mensagem do FCM e a
+conversão das exceções —, porque o duplo nunca monta requisição nenhuma: é a lição
+das quatro mutações da T078 que sobreviveram exatamente por isso.

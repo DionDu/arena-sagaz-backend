@@ -9,12 +9,20 @@ token do FCM. A linha antiga fica em `conta.tb005_dispositivo_notificacao` como 
 Medido em 2026-07-12: um único aparelho, duas reinstalações, dois tokens — um vivo e
 um morto.
 
-**Por que isso importa (e por que NÃO é urgente):** o *broadcast* vai por **tópico**,
-e o tópico não olha a nossa tabela — por isso ele funciona mesmo com token morto.
-Quem sofre é o push **DIRECIONADO** (por usuário), que lê o token daqui: ele tentaria
-entregar num aparelho que não existe mais. Hoje o backend ainda não faz envio
-direcionado; quando fizer (módulo de campanha), o certo é apagar a linha assim que o
-FCM responder `UNREGISTERED` na entrega. Este script é a faxina manual até lá.
+**Por que isso importa:** o *broadcast* vai por **tópico**, e o tópico não olha a
+nossa tabela — por isso ele funciona mesmo com token morto. Quem sofre é o push
+**DIRECIONADO** (por usuário), que lê o token daqui: ele tentaria entregar num
+aparelho que não existe mais.
+
+⚠️ **Desde 22/09/2026 o envio direcionado EXISTE** — a notificação de reações do
+Desafio do Dia (T079, `api/notificacoes/reacoes_do_desafio.py`), que é push por
+token. E ela já faz a faxina **sozinha, no instante em que descobre**: o token que
+responde `UNREGISTERED` (ou `SENDER_ID_MISMATCH`) sai da `tb005` na mesma passada,
+que é exatamente o que este cabeçalho dizia ser "o certo quando fizer".
+
+**Então para que este script continua servindo:** ele varre a tabela **inteira**, e
+a faxina automática só toca nos tokens de quem recebeu reação ontem. Token morto de
+quem nunca apareceu no quadro fica na base até alguém varrer — e é isso aqui.
 
 **Como sabemos que um token morreu:** `dry_run=True` faz o FCM **validar** o token sem
 entregar nada ao aparelho. Token morto → `UnregisteredError`.

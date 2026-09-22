@@ -200,3 +200,33 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
    desafios foram gerados: a versão que o job grava é a mesma que eles carimbam.
    ⛔ Se **não** sumir, o caminho certo é regerar aqueles dias, e nunca inventar
    a linha de dimensão.
+
+## ⏳ A `0026_notificacao_de_reacao` — escrita em 22/09/2026, **ainda não aplicada**
+
+| migração | o que faz | risco |
+|---|---|---|
+| `0026_notificacao_de_reacao` | cria `desafio_dia.tb008_notificacao_reacao` + `vw008_notificacao_reacao` | tabela **nova e vazia**; ⛔ **não toca nenhuma coluna existente** e ⛔ não acrescenta FK a tabela povoada |
+
+**O que ela guarda.** O **fato** de a notificação *"N pessoas reagiram ao seu desafio
+de ontem"* ter saído (T079, RF-DES-074a/b). O `UNIQUE (id_resolucao)` é o teto de
+**uma por desafio**: sem ele, reação tardia renderia uma notificação nova por pessoa,
+e qualquer reexecução do disparo reenviaria tudo.
+
+**O passo 1 continua obrigatório** (`identificar_banco.py`). Depois dele:
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python scripts\identificar_banco.py
+.venv\Scripts\python -m alembic current      # esperado: 0025_reacoes_do_design
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m alembic current      # esperado: 0026_notificacao_de_reacao (head)
+```
+
+**O que conferir depois:**
+
+1. A tabela existe e tem **0 linhas** - ⚠️ **zero é o resultado certo**, e vai
+   continuar zero até o **quarto serviço** do Railway existir (o disparo é quem
+   escreve). Ver `checklist-producao.md`, seção *"O QUARTO serviço"*.
+2. ⛔ **A migração sozinha não envia nada.** Enquanto o serviço de cron não for
+   criado, o código está no ar (ele vive na imagem da API) mas **ninguém o chama** -
+   e isso é o estado esperado, não um defeito.

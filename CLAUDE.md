@@ -24,12 +24,22 @@ ambientes do ecossistema — `../ia/.venv_tf` (3.12, TensorFlow) e
 `../ia/.venv_gpu` (3.10, CUDA) — são do laboratório e **não** servem para a API:
 as versões de Python são diferentes de propósito.
 
-### Dependências: dois arquivos, papéis diferentes
+### Dependências: três arquivos, papéis diferentes
 
 - **`requirements_api.txt`** — o que a API precisa para **rodar**. É o que o
   `Dockerfile` instala. Dependência nova de runtime entra **aqui**.
 - **`requirements.txt`** — o de cima (`-r requirements_api.txt`) **mais** as
   ferramentas de teste. É o que você instala na sua máquina.
+- **`requirements_job.txt`** — a lista do **job em batch** do Desafio do Dia
+  (`Dockerfile.job`): inferência e banco, e ⛔ **sem `fastapi` nem
+  `firebase-admin`**, de propósito. O arquivo explica cada ausência; a regra é
+  *cada imagem instala a SUA lista, e nada mais*.
+
+⚠️ **A imagem da API roda mais de um processo.** Além do `uvicorn`, ela é a imagem
+do **serviço de notificações de reação** (T079), que o Railway acorda de hora em
+hora com `python -m api.notificacoes.disparo_de_reacoes` — porque é ela que tem
+`firebase-admin`. Ou seja: dependência tirada de `requirements_api.txt` pode
+quebrar um **cron**, e não só a API.
 
 ## Dois ambientes no Railway: `des` e `prd`
 

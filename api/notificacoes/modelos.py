@@ -11,7 +11,21 @@ from pydantic import BaseModel, Field
 
 # Categorias válidas de preferência (espelham o data-model e o app). `Literal`
 # faz o Pydantic recusar (422) qualquer valor fora desta lista.
-CategoriaNotif = Literal["transacional", "lembrete", "novidades", "marketing"]
+#
+# ⚠️ **`reacoes` entrou em 22/09/2026** (T079, RF-DES-074b), e é **categoria
+# própria de propósito** — não `lembrete`. Quem desliga o lembrete da chama está
+# dizendo *"não me cutuque para jogar"*; quem recebeu aplausos não pediu para ser
+# cutucado: outra pessoa fez algo. Juntar as duas faria uma escolha desligar a
+# outra sem que ninguém tivesse pedido.
+#
+# ⚠️ **Acrescentar valor aqui é aditivo e não quebra app em campo:** o `Literal`
+# só recusa o que ENTRA, e os apps publicados enviam as quatro antigas. A coluna
+# `co_categoria` é `VARCHAR(20)` sem `CHECK`, então também não há migração. O que
+# falta é a **linha na tela** do aplicativo (T079b) — e a ausência de linha não
+# silencia ninguém: sem registro na tabela, vale ligado.
+CategoriaNotif = Literal[
+    "transacional", "lembrete", "novidades", "marketing", "reacoes"
+]
 
 # Plataformas aceitas no registro de dispositivo.
 PlataformaNotif = Literal["android", "ios", "web"]

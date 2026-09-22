@@ -64,6 +64,8 @@ VW_RESOLUCAO = "desafio_dia.vw003_resolucao"
 VW_XP_DESAFIO = "desafio_dia.vw004_xp_desafio"
 VW_PODER_CONSUMIDO = "desafio_dia.vw005_poder_consumido"
 VW_REACAO = "desafio_dia.vw006_reacao"
+#: O registro de que a notificacao das reacoes de ontem **saiu** (`0026`, T079).
+VW_NOTIFICACAO_REACAO = "desafio_dia.vw008_notificacao_reacao"
 VW_TIPO_XP = "desafio_dia.vw901_tipo_xp_desafio"
 VW_TIPO_PODER = "desafio_dia.vw902_tipo_poder"
 VW_TIPO_REACAO = "desafio_dia.vw903_tipo_reacao"
@@ -76,6 +78,10 @@ TB_RESOLUCAO = "desafio_dia.tb003_resolucao"
 TB_XP_DESAFIO = "desafio_dia.tb004_xp_desafio"
 TB_PODER_CONSUMIDO = "desafio_dia.tb005_poder_consumido"
 TB_REACAO = "desafio_dia.tb006_reacao"
+#: ⚠️ Quem escreve aqui e o **disparo da notificacao** (T079), e ⛔ nao o
+#: aplicativo - ver o cabecalho da `0026` para o porque de a tabela morar neste
+#: schema mesmo assim.
+TB_NOTIFICACAO_REACAO = "desafio_dia.tb008_notificacao_reacao"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

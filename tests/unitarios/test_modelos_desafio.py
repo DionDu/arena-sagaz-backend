@@ -231,6 +231,32 @@ def _views_criadas_por_todas_as_migracoes() -> set[str]:
     return criadas
 
 
+def _tabelas_criadas_por_todas_as_migracoes() -> set[str]:
+    """Toda TABELA criada por QUALQUER migracao, em minusculas.
+
+    ⚠️ **Irma da funcao acima, e ela nasceu do MESMO defeito, um ano-luz depois**
+    (22/09/2026, T079): a versao das VIEWs ja varria a pasta, e a das tabelas
+    continuava lendo **so a `0019`**. A `0026` criou
+    `desafio_dia.tb008_notificacao_reacao`, a constante `TB_` apontou para ela, e o
+    cadeado disse *"faltando"* sobre uma tabela que existe.
+
+    ⚠️ **E o sentido inverso e o perigoso**: uma constante `TB_` com o nome errado
+    passaria caladinha se a migracao que cria a tabela certa nao fosse a lida - e o
+    erro so apareceria no primeiro `INSERT`, como *"relation does not exist"*, sem
+    dizer quem escreveu o nome.
+    """
+    criadas: set[str] = set()
+    for arquivo in sorted(MIG_DESAFIO.parent.glob("[0-9]*.py")):
+        fonte = arquivo.read_text(encoding="utf-8")
+        criadas |= {
+            nome.lower()
+            for nome in re.findall(
+                r"CREATE TABLE\s+([a-z_][a-z0-9_.]*)", fonte, re.I
+            )
+        }
+    return criadas
+
+
 @pytest.mark.parametrize(
     "modulo",
     [prod, ev],
@@ -259,12 +285,12 @@ def test_toda_TB_declarada_e_criada_pela_migracao() -> None:
     ⚠️ So `modelos_evento` declara tabela, e e de proposito: no schema `desafio`
     quem escreve e o job, e uma constante com o nome da tabela ali seria um
     convite a le-la direto, furando a convencao de ler pela VIEW.
+
+    ⚠️ **A varredura e da PASTA, e ⛔ nao da `0019`** - ver
+    `_tabelas_criadas_por_todas_as_migracoes`. Ate 22/09/2026 este caso lia um
+    arquivo so, e a primeira tabela criada fora dele foi acusada de nao existir.
     """
-    fonte = MIG_DESAFIO_DIA.read_text(encoding="utf-8")
-    criadas = {
-        nome.lower()
-        for nome in re.findall(r"CREATE TABLE\s+([a-z_][a-z0-9_.]*)", fonte, re.I)
-    }
+    criadas = _tabelas_criadas_por_todas_as_migracoes()
     declaradas = {
         valor
         for nome, valor in vars(ev).items()
@@ -276,6 +302,38 @@ def test_toda_TB_declarada_e_criada_pela_migracao() -> None:
     assert not [
         nome for nome in vars(prod) if nome.startswith("TB_")
     ], "modelos_producao declarou tabela — a API nao escreve no schema `desafio`"
+
+
+def test_a_varredura_de_tabelas_ENXERGA_fora_da_0019() -> None:
+    """🔒 A varredura ⛔ nao pode voltar a ler um arquivo so.
+
+    ⚠️ **Este caso existe por causa de um vermelho falso**, em 22/09/2026: o
+    cadeado das tabelas lia a `0019`, a `0026` criou
+    `desafio_dia.tb008_notificacao_reacao` e a constante certa foi acusada de
+    apontar para o nada. Exigir que a varredura ache tabela **criada fora daquele
+    arquivo** e o que impede a leitura unica de voltar disfarcada.
+
+    ⚠️ E ⛔ nao basta conferir que o conjunto ⛔ nao esta vazio: a `0019` sozinha
+    rende dez tabelas, e o cadeado passaria cego do mesmo jeito.
+    """
+    criadas = _tabelas_criadas_por_todas_as_migracoes()
+    da_0019 = {
+        nome.lower()
+        for nome in re.findall(
+            r"CREATE TABLE\s+([a-z_][a-z0-9_.]*)",
+            MIG_DESAFIO_DIA.read_text(encoding="utf-8"),
+            re.I,
+        )
+    }
+    assert da_0019, "a 0019 deixou de criar tabela — leia este caso com consciencia"
+    assert criadas - da_0019, (
+        "⛔ a varredura achou APENAS as tabelas da 0019. Ou nenhuma migracao "
+        "posterior criou tabela — e ai este caso deve ser reescrito — ou a "
+        "varredura voltou a ler um arquivo so."
+    )
+    # As duas que nasceram fora dela, e que o cadeado antigo ⛔ nao veria.
+    assert "desafio_dia.tb007_desafio_impedido" in criadas
+    assert "desafio_dia.tb008_notificacao_reacao" in criadas
 
 
 # ═══════════════════════════════════════════════════════════════════════════
