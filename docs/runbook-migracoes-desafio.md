@@ -233,7 +233,7 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 
 1. A tabela existe e tem **0 linhas** - ⚠️ **zero é o resultado certo**, e vai
    continuar zero até o **quarto serviço** do Railway existir (o disparo é quem
-   escreve). Ver `checklist-producao.md`, seção *"O QUARTO serviço"*.
+   escreve). Ver `arena-sagaz-frontend/specs/009-desafio-do-dia/guia-producao.md` §4.
 2. ⛔ **A migração sozinha não envia nada.** Enquanto o serviço de cron não for
    criado, o código está no ar (ele vive na imagem da API) mas **ninguém o chama** -
    e isso é o estado esperado, não um defeito.

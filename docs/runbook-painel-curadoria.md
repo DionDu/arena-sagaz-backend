@@ -1,7 +1,8 @@
 # Runbook — o painel de curadoria do Desafio do Dia
 
 > ⚠️ **Só o painel.** Migração é `runbook-migracoes-desafio.md`; operação do job
-> é `specs/006-conta-nuvem/checklist-producao.md`. Um runbook que cresce para
+> é `arena-sagaz-frontend/specs/009-desafio-do-dia/guia-producao.md` §3 (até
+> 22/09/2026 era o `checklist-producao.md` da 006, hoje congelado). Um runbook que cresce para
 > cobrir tudo deixa de ser consultável — e já temos um assim.
 
 **O que é:** uma página HTML servida pela própria API, em `/painel/desafios`.

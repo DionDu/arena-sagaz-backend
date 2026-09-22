@@ -359,8 +359,9 @@ def test_os_dois_servicos_sao_arquivos_DIFERENTES() -> None:
     Se o servico do job for apontado para `railway.json`, o Railway sobe uma
     SEGUNDA API: deploy verde, healthcheck verde, e o desafio do dia nunca
     gerado. Este teste garante ao menos que os dois arquivos continuam dizendo
-    coisas diferentes - o apontamento em si so existe no console, e por isso
-    virou item do `checklist-producao.md`.
+    coisas diferentes - a configuracao em si so existe na UI do Railway (o
+    Config-as-code foi descontinuado, T049d), e por isso virou item do guia de
+    producao da spec 009 (`specs/009-desafio-do-dia/guia-producao.md` §3).
     """
     api = json.loads(RAILWAY_API.read_text(encoding="utf-8"))
     job = json.loads(RAILWAY_JOB.read_text(encoding="utf-8"))
