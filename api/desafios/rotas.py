@@ -186,8 +186,9 @@ async def meu_mes(
     ⚠️ **Exige conta** (`usuario_autenticado`, e nao `usuario_opcional`): o
     historico e **pessoal**, e ⛔ nao existe versao publica dele. O convidado joga
     o desafio inteiro e ve o quadro (RF-DES-080), mas o que ele resolveu vive no
-    aparelho ate o login migrar o lote (RF-DES-083) — e a tela dele e o convite de
-    cadastro, e nao uma lista vazia.
+    aparelho ate o login, quando sobe pela fila com o token da conta nova
+    (RF-DES-083, T079a) — e a tela dele e o convite de cadastro, e nao uma lista
+    vazia.
     """
     return ResumoDoMes(
         **await servico.montar(

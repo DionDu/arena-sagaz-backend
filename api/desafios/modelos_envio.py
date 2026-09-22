@@ -70,6 +70,13 @@ class OrigemDoEnvio(BaseModel):
     (RF-DES-084, que exige identidade para honrar "uma reacao por pessoa"). O
     `lote` e o mesmo identificador que a sincronizacao ja usa para juntar o
     historico do convidado a conta quando ele se cadastra.
+
+    ⛔ **Aceito e NUNCA lido** (T079a, 22/09/2026). A rota exige conta, entao o
+    convidado nao a chama: o que ele resolveu espera na fila do aparelho e sobe
+    depois do login, com o token da conta nova. O dono e sempre o do token — ler
+    o `lote` daqui daria a quem monta o corpo o poder de escolher em nome de quem
+    a resolucao entra. O campo fica porque o aplicativo em campo o manda, e o
+    cliente antigo nao pode quebrar.
     """
 
     tipo: Literal["conta", "convidado"]

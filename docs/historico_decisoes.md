@@ -6297,3 +6297,49 @@ não era a ordem reservar → enviar; era um erro de configuração chegar até 
 mensagem nomeia a variável; e o controle — com credencial, o disparo segue até o
 banco). Três mutações (tirar a chamada; conferência que recusa sempre; mensagem sem
 o nome da variável), as três mortas. Suíte: 1976 passam.
+
+---
+
+## 2026-09-22 (3) — O merge do convidado no desafio já existia: é a fila do aparelho depois do login (T079a)
+
+**Contexto.** A T079a previa um `api/desafios/migrar_lote_convidado.py` para passar à
+conta as resoluções feitas como convidado. Ao ler o caminho real, o módulo não tinha
+o que fazer: a rota da resolução **exige conta** desde a T043, então o convidado ⛔
+não envia nada enquanto é convidado. O que ele resolve espera na `sync_outbox` do
+aparelho, junto com a partida de desafio, e sobe depois do login, com o token da conta
+nova. É o caminho pelo qual as partidas comuns do convidado migram desde a spec 006.
+
+**Decisão.** Nenhum código novo de produção, e nenhuma tabela de lote:
+
+- o dono é sempre o `id_usuario` **do token** (partida e resolução);
+- "uma vez só" já é a chave natural `(id_desafio_dia, id_usuario)` de `tb003_resolucao`,
+  o `id_partida UNIQUE` da tentativa e o `co_evento` da partida;
+- o `LoteConvidado` continua levando o que só ele leva (chama e conquistas, pelo
+  `/merge-convidado`, idempotente pelo `co_lote_migracao`);
+- ⚠️ `origem.lote` do envio da resolução é **aceito e não lido**. Ler o dono do corpo
+  daria a quem monta o corpo o poder de escolher em nome de quem a resolução entra.
+
+**Alternativa descartada.** Deixar o convidado enviar a resolução com `origem.lote` e
+guardá-la numa tabela do lote até o login. Seria uma segunda fonte da verdade para a
+mesma resolução, com dono provisório, e a rota perderia a garantia de que tudo o que
+ela grava tem conta. E seria preciso decidir o que fazer com o lote de quem nunca entra.
+
+**Prova.** `scripts/conferir_merge_convidado_t079a.py` roda a API em memória contra o
+`des`, **dentro de uma transação desfeita no fim**. As sessões das rotas nascem com
+`join_transaction_mode="create_savepoint"`, e o `commit` delas só fecha um savepoint.
+Uma conexão nova confere depois que nada ficou. O script refaz o login do convidado
+(a conta nasce, uma resolução chega antes da partida e recebe 409, o merge do lote,
+partidas de dias passados, as resoluções, e tudo de novo) e confere contagens, resumo
+do mês, quadro público de cada dia e a regra da primeira resolução. **5 mutações,
+5 mortas.**
+
+⚠️ **E ele achou outra coisa, que não é desta tarefa.** Nove dos treze dias publicados
+no `des` (15 a 27/09) têm um desafio com `lances_do_jogador` em `fracao` **sobre
+`lances_da_solucao`**. O denominador não é medida da partida e não está no catálogo.
+Por isso ninguém consegue resolver esses desafios: o servidor recusa a chave
+(`feito_desconhecido`) ou a falta dela (`medida_invalida`), e o aplicativo não
+calcula `Q`. O defeito vem do editorial do job desde a T049c. Nenhum portão o pegou,
+porque o T050 manda só as medidas de sessão e `co_sobre` não tem FK. Registrado como
+**T049t**, com a recomendação ao dono: `faixa` com piso = lances da solução, a mesma
+forma da régua de tempo. Enquanto isso, o script pula esses dias, **dizendo quais**,
+e mediu a migração com 3 dias em vez de 5.
