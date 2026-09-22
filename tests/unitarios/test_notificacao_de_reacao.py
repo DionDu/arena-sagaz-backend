@@ -20,6 +20,7 @@ errada.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Optional
@@ -924,6 +925,87 @@ def test_o_processo_sai_com_DOIS_quando_nem_comecou(monkeypatch) -> None:
 
     monkeypatch.setattr(disparo, "disparar", explode)
     assert disparo.main() == disparo.CODIGO_NEM_COMECOU
+
+
+@pytest.fixture
+def espiao_do_banco(monkeypatch):
+    """Troca a `SessaoLocal` real por uma que so ANOTA que foi aberta e para.
+
+    ⚠️ Ela levanta [BancoAberto] em vez de conectar: o que estes casos medem e
+    **se** o disparo chegou ao banco, e ⛔ nunca o que ele faria la dentro.
+    """
+    import api.nucleo.banco as banco
+
+    aberturas: list[str] = []
+
+    def sessao_espia():  # type: ignore[no-untyped-def]
+        aberturas.append("abriu")
+        raise BancoAberto()
+
+    monkeypatch.setattr(banco, "SessaoLocal", sessao_espia)
+    return aberturas
+
+
+class BancoAberto(Exception):
+    """Sinal do [espiao_do_banco]: o disparo tentou abrir a sessao."""
+
+
+def test_SEM_credencial_o_disparo_sai_com_DOIS_e_NEM_ABRE_o_banco(
+    monkeypatch, espiao_do_banco
+) -> None:
+    """🔒 Credencial esquecida e **2** desde a primeira hora, e ⛔ nenhuma reserva.
+
+    ⚠️ **O defeito que este caso trava (achado em 22/09/2026):** a credencial so
+    era lida dentro do envio de cada pessoa, e ali a reserva da `tb008` ja estava
+    confirmada. Cada pessoa da hora perdia o aviso do dia, a saida era **1** e, na
+    hora vazia, **0** - o servico mal configurado passava por saudavel.
+
+    ⚠️ **"Nem abre o banco" e a prova de que nada foi reservado**: sem sessao ⛔
+    nao ha `INSERT` possivel.
+    """
+    from api.configuracao import configuracoes
+    from api.notificacoes import disparo_de_reacoes as disparo
+
+    monkeypatch.setattr(configuracoes, "FIREBASE_CREDENTIALS", "")
+
+    assert disparo.main() == disparo.CODIGO_NEM_COMECOU
+    assert espiao_do_banco == []
+
+
+def test_a_mensagem_de_credencial_ausente_NOMEIA_a_variavel(monkeypatch) -> None:
+    """O log do Railway precisa dizer o que fazer, e ⛔ nao o recado da API.
+
+    ⚠️ A mensagem original (*"Verificacao de identidade indisponivel"*) foi
+    escrita para responder 401 sem vazar infra; num servico de cron ela manda
+    procurar o defeito no lugar errado.
+    """
+    from api.configuracao import configuracoes
+    from api.notificacoes import disparo_de_reacoes as disparo
+
+    monkeypatch.setattr(configuracoes, "FIREBASE_CREDENTIALS", "")
+
+    with pytest.raises(RuntimeError, match="FIREBASE_CREDENTIALS"):
+        disparo.conferir_credencial_do_firebase()
+
+
+def test_COM_credencial_o_disparo_SEGUE_para_o_banco(
+    monkeypatch, espiao_do_banco
+) -> None:
+    """O controle do caso acima: a conferencia ⛔ nao pode barrar o caminho bom.
+
+    ⚠️ Sem este caso, uma conferencia que recusasse **sempre** passaria no de
+    cima - e nenhuma notificacao sairia nunca, com saida 2 toda hora.
+    """
+    from api.notificacoes import disparo_de_reacoes as disparo
+
+    monkeypatch.setattr(
+        "api.nucleo.seguranca_firebase.garantir_app_firebase",
+        lambda: "app-falso",
+    )
+
+    with pytest.raises(BancoAberto):
+        asyncio.run(disparo.disparar())
+    assert espiao_do_banco == ["abriu"]
 
 
 def test_o_disparo_roda_de_HORA_em_hora_no_railway() -> None:

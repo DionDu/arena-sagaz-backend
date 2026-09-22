@@ -6261,3 +6261,33 @@ sobrevivente** na segunda rodada. As da primeira valeram a corrida:
 ⚠️ **Quatro dos casos cobrem o enviador real** — a montagem da mensagem do FCM e a
 conversão das exceções —, porque o duplo nunca monta requisição nenhuma: é a lição
 das quatro mutações da T078 que sobreviveram exatamente por isso.
+
+## 2026-09-22 (2) — A credencial do Firebase é conferida ANTES do banco (T079, adendo)
+
+**Contexto.** Ao detalhar o passo a passo do quarto serviço no guia de produção da
+spec 009, a frase *"sem `FIREBASE_CREDENTIALS` o processo sai com `2`"* não resistiu
+à leitura do código. A credencial só era lida dentro do enviador, e o enviador só
+roda **depois** de a reserva da `tb008` estar confirmada (de propósito: é o que
+impede dois avisos). A exceção virava falha daquela pessoa, e o resultado de um erro
+de **configuração** era o pior possível:
+
+| hora | sem a conferência | com a conferência |
+|---|---|---|
+| com gente a avisar | cada pessoa **perdia o aviso do dia** (reserva gasta, nada enviado), saída **1** | saída **2**, nenhuma reserva |
+| vazia (a mais comum) | saída **0** — o serviço mal configurado parecia saudável | saída **2** desde a primeira hora |
+
+**Decisão.** `disparo_de_reacoes.conferir_credencial_do_firebase()` chama
+`garantir_app_firebase()` antes de abrir a sessão, e troca a mensagem da API
+(*"Verificação de identidade indisponível"*, escrita para um 401 que não vaza infra)
+por uma que nomeia a variável. Credencial colada pela metade falha ali do mesmo
+jeito, porque `garantir_app_firebase` lê o JSON.
+
+**Alternativa descartada.** Desfazer a reserva em qualquer exceção do envio. Isso
+mexeria na decisão central da T079 (FCM fora do ar = a pessoa perde o dia; o
+contrário arrisca **dois** avisos), e ela continua certa para falha do FCM. O defeito
+não era a ordem reservar → enviar; era um erro de configuração chegar até ela.
+
+**Prova.** Três casos novos (sem credencial: saída 2 e banco **nem aberto**; a
+mensagem nomeia a variável; e o controle — com credencial, o disparo segue até o
+banco). Três mutações (tirar a chamada; conferência que recusa sempre; mensagem sem
+o nome da variável), as três mortas. Suíte: 1976 passam.

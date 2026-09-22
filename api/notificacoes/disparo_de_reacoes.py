@@ -47,6 +47,10 @@ e inutil, e ⛔ nenhuma notificacao sai. ⚠️ **Confira pelo ESTADO** (a linha
     1  →  fez, e alguma pessoa falhou no meio
     2  →  nem comecou (sem `DATABASE_URL`, sem credencial do Firebase, banco fora)
 
+⚠️ **A credencial e conferida ANTES do banco** - ver
+[conferir_credencial_do_firebase]. Sem isso ela so falhava dentro do envio de
+cada pessoa, depois de a reserva do dia ja estar gasta.
+
 ⚠️ **`2` e reservado ao que aconteceu ANTES do trabalho.** Uma falha na pessoa 40,
 com 39 notificacoes ja entregues, ⛔ nao e *"nem comecou"* - e 1, com o id da
 resolucao no log.
@@ -145,8 +149,52 @@ def enviar_para_token(
         raise TokenMorto(str(erro)) from erro
 
 
+def conferir_credencial_do_firebase() -> None:
+    """Falha ANTES do trabalho se a credencial do Firebase faltar ou for invalida.
+
+    Raises:
+        RuntimeError: com o nome da variavel, para o log do Railway dizer o que
+            fazer.
+
+    ⚠️ **Por que isto existe (achado em 22/09/2026, ao detalhar o guia).** Sem esta
+    conferencia, a falta de `FIREBASE_CREDENTIALS` so aparecia **dentro** do envio
+    de cada pessoa - e ali a reserva da `tb008` **ja estava confirmada** (ela e
+    confirmada antes do envio, de proposito: e o que impede duas notificacoes). O
+    erro virava falha daquela pessoa, e o resultado seria o pior possivel para um
+    erro de CONFIGURACAO:
+
+      · **cada pessoa da hora perdia o aviso do dia**, com a reserva gasta e
+        nenhum aparelho avisado;
+      · o processo saia com **1** (*"alguma pessoa falhou"*), e nao com **2**
+        (*"nem comecou"*), mandando olhar pessoa por pessoa;
+      · e na hora vazia, a mais comum, ⛔ nada denunciava: sem ninguem para
+        avisar, o envio nunca era tentado, e a saida era **0**.
+
+    Conferindo aqui, antes de abrir o banco, a variavel esquecida vira **2** em
+    toda execucao, desde a primeira, e ⛔ nenhuma reserva e gasta.
+
+    ⚠️ **`garantir_app_firebase` tambem le o JSON**: credencial colada pela metade
+    (a quebra de linha da chave privada, o erro classico ao colar no console)
+    falha aqui do mesmo jeito.
+    """
+    # Import local, pelo mesmo motivo do enviador: a lib pesada so e carregada
+    # quando o processo de verdade roda.
+    from api.nucleo.seguranca_firebase import garantir_app_firebase
+
+    try:
+        garantir_app_firebase()
+    except Exception as erro:  # noqa: BLE001 - qualquer defeito de credencial
+        # ⚠️ A mensagem original ("Verificacao de identidade indisponivel") foi
+        # escrita para a API, que responde 401 sem vazar infra. Aqui ela
+        # esconderia a causa: o recado precisa nomear a variavel.
+        raise RuntimeError(
+            "credencial do Firebase ausente ou invalida - confira a variavel "
+            f"FIREBASE_CREDENTIALS deste servico no Railway ({erro})"
+        ) from erro
+
+
 async def disparar(agora_utc: Optional[datetime] = None) -> RelatorioDoDisparo:
-    """Abre a sessao, monta o servico com o enviador real e faz a rodada.
+    """Confere a credencial, abre a sessao, monta o servico e faz a rodada.
 
     Args:
         agora_utc: o instante a considerar. ⚠️ **Parametro so para o dono poder
@@ -156,9 +204,16 @@ async def disparar(agora_utc: Optional[datetime] = None) -> RelatorioDoDisparo:
     Returns:
         O relatorio da rodada.
     """
-    # Import local: `api.nucleo.banco` cria a engine na importacao, e ela exige
-    # `DATABASE_URL`. Importando aqui, a falta da variavel vira erro dentro do
-    # `main()`, que sabe sair com [CODIGO_NEM_COMECOU].
+    # ⚠️ PRIMEIRO a credencial, e so depois o banco - ver
+    # [conferir_credencial_do_firebase]. A ordem e o que garante que nenhuma
+    # reserva seja gasta por um servico mal configurado.
+    conferir_credencial_do_firebase()
+
+    # Import local: `api.nucleo.banco` cria a engine na importacao. Importando
+    # aqui, um banco inalcancavel vira erro dentro do `main()`, que sabe sair com
+    # [CODIGO_NEM_COMECOU]. ⚠️ Sem `DATABASE_URL` a configuracao da API cai no
+    # padrao `localhost:5432`, e o log diz `ConnectionRefusedError` - que, neste
+    # servico, quer dizer *"a variavel nao foi posta"*, e nao *"o banco caiu"*.
     from api.nucleo.banco import SessaoLocal
 
     instante = agora_utc or datetime.now(timezone.utc)
