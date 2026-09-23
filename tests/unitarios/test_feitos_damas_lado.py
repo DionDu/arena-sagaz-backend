@@ -66,9 +66,10 @@ def test_a_captura_do_ADVERSARIO_nao_entra_na_maior_captura(bancada) -> None:
 def test_LANCES_DO_JOGADOR_conta_so_os_dele(bancada) -> None:
     """🔒 ⚠️ Ele **normaliza o XP**, e por isso o erro não era cosmético.
 
-    `tb003_feito_desafio` guarda uma medida com `co_sobre: lances_da_solucao`.
-    Contando os dois lados, a fração saía sobre um denominador dobrado — e o XP
-    de todo desafio de damas estava calculado sobre um número que não existe.
+    `tb003_feito_desafio` pesa `lances_do_jogador` no mérito (desde a T049t,
+    uma faixa de L a 3L, com L = os lances DA PESSOA na solução). Contando os
+    dois lados, a medida saía dobrada - e a parcela zerava para quem jogou o
+    próprio gabarito.
     """
     motor, inicial = bancada
     feitos = medir(motor, inicial, FITA_DE_PRODUCAO, jogador=1)

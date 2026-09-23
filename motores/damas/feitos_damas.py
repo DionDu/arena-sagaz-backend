@@ -114,8 +114,8 @@ def medir(
         if de_quem != jogador:
             # ⛔ Lance do adversario: nao entra em medida nenhuma do jogador. E
             # isso vale para TODAS elas — `lances_do_jogador` tambem estava
-            # contando o dobro, e ele normaliza o XP (`co_sobre:
-            # lances_da_solucao`).
+            # contando o dobro, e ele pesa no XP (desde a T049t, uma FAIXA de L
+            # a 3L sobre os lances da pessoa na solucao oficial).
             continue
 
         lances_do_jogador += 1

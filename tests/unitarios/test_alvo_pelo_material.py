@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import pytest
 
+from job.medidas_de_saida import PARAMETRO_LANCES_DA_SOLUCAO
+
 from job import editorial as editorial_mod
 from job.moldes_de_damas import (
     SEM_SOLUCAO_DE_UM_LANCE,
@@ -392,4 +394,14 @@ def test_as_medidas_de_saida_sao_GRAVAVEIS_em_qualquer_material_do_acervo():
 
                     # ⛔ Nao basta montar: tem de passar pelo mesmo `conferir`
                     # que o job chama antes de gravar.
-                    conferir(publicacao.medidas(efetivos))
+                    conferir(
+                        publicacao.medidas(
+                            {
+                                **efetivos,
+                                # O `L` que o job conta na solucao (T049t).
+                                PARAMETRO_LANCES_DA_SOLUCAO: (
+                                    editorial_mod.LANCES_DA_SOLUCAO_DE_EXEMPLO
+                                ),
+                            }
+                        )
+                    )

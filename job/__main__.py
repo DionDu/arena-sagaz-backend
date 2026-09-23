@@ -655,7 +655,19 @@ async def cobrir_um_dia(
     # posicao (`G + k`), e o editorial nem tem a chave que as medidas leem — ⛔
     # `publicacao.parametros` daria `KeyError: 'caixas'` na hora de publicar, e um
     # `vr_max` do editorial pagaria nota cheia por um alvo que a frase nao pediu.
-    medidas = publicacao.medidas(candidato.parametros)
+    #
+    # ⚠️ **E os lances da SOLUCAO entram nos parametros** (T049t, §8v): e deles
+    # que sai a faixa da economia de lances - `L` a `3L`. Contados SO os de quem
+    # resolve (`vez_de`), e ⛔ o `nu_lances_solucao`, que soma os dois lados.
+    medidas = publicacao.medidas(
+        {
+            **candidato.parametros,
+            medidas_mod.PARAMETRO_LANCES_DA_SOLUCAO: medidas_mod.lances_do_solucionador(
+                candidato.js_solucao,
+                vez_de=candidato.js_posicao_inicial["vez_de"],
+            ),
+        }
+    )
     medidas_mod.conferir(medidas)
 
     piso, teto = medidas_mod.regua_de_tempo(

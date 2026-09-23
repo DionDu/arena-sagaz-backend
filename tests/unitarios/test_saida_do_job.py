@@ -24,9 +24,13 @@ from job.gravacao import (
     versao_do_catalogo,
 )
 from job.medidas_de_saida import (
+    MULTIPLO_DA_ECONOMIA_DE_LANCES,
+    PARAMETRO_LANCES_DA_SOLUCAO,
     MedidasInvalidas,
     conferir,
     direcao_de,
+    lances_do_solucionador,
+    linha_da_economia_de_lances,
     linha_de_faixa,
     linha_de_fracao,
     linha_so_medida,
@@ -99,14 +103,107 @@ def _conjunto_valido() -> list[dict]:
         linha_de_faixa(
             "caixas_fechadas", nu_ordem=1, vr_peso="0.600", vr_min=0, vr_max=4
         ),
-        linha_de_fracao(
-            "lances_do_jogador",
-            nu_ordem=2,
-            vr_peso="0.400",
-            co_sobre="lances_da_solucao",
+        # ⚠️ A economia de lances como o job a publica desde a T049t: FAIXA
+        # de L a 3L. ⛔ Até 23/09/2026 esta fixture era a fração sobre
+        # `lances_da_solucao` - o próprio defeito, aprovado como "válido".
+        linha_da_economia_de_lances(
+            {PARAMETRO_LANCES_DA_SOLUCAO: 4}, nu_ordem=2, vr_peso="0.400"
         ),
         linha_so_medida("caixas_do_adversario", nu_ordem=3),
     ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# T049t — a fração sem denominador, e a economia de lances que a substituiu
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_T049t_fracao_sobre_chave_FORA_do_catalogo_e_recusada() -> None:
+    """🔒 O defeito exato que o editorial publicou de 10 a 23/09/2026.
+
+    `lances_da_solucao` ⛔ é medida de jogo nenhum: o aplicativo recusava
+    calcular `Q` (`MedidaDeSaidaInvalida`) e o servidor, a resolução - e ninguém
+    conseguia resolver aqueles desafios. O `conferir` roda ANTES de gravar.
+    """
+    linhas = _conjunto_valido()
+    linhas[1] = linha_de_fracao(
+        "lances_do_jogador",
+        nu_ordem=2,
+        vr_peso="0.400",
+        co_sobre="lances_da_solucao",
+    )
+    with pytest.raises(MedidasInvalidas, match="nao esta no catalogo"):
+        conferir(linhas)
+
+
+def test_T049t_fracao_sobre_medida_de_SESSAO_e_recusada() -> None:
+    """O denominador é medida da mesma PARTIDA - tempo e tentativas ⛔ são."""
+    linhas = _conjunto_valido()
+    linhas[1] = linha_de_fracao(
+        "lances_do_jogador",
+        nu_ordem=2,
+        vr_peso="0.400",
+        co_sobre="tentativas",
+    )
+    with pytest.raises(MedidasInvalidas, match="nao e medida do tabuleiro"):
+        conferir(linhas)
+
+
+def test_T049t_fracao_sobre_medida_do_TABULEIRO_continua_aceita() -> None:
+    """⚠️ O par das duas de cima: a guarda mira a CHAVE, e ⛔ a forma.
+
+    Sem este caso, recusar toda `fracao` passaria nos dois testes acima.
+    """
+    linhas = _conjunto_valido()
+    linhas[1] = linha_de_fracao(
+        "lances_do_jogador",
+        nu_ordem=2,
+        vr_peso="0.400",
+        co_sobre="caixas_fechadas",
+    )
+    conferir(linhas)
+
+
+def test_T049t_a_economia_de_lances_e_FAIXA_de_L_a_3L() -> None:
+    """🔒 A decisão do dono (§8v): nota cheia no gabarito, zero em 3x.
+
+    ⚠️ Os números entram escritos (4 e 12), e ⛔ lidos da constante: um caso que
+    lesse `MULTIPLO_DA_ECONOMIA_DE_LANCES` passaria com qualquer múltiplo.
+    """
+    linha = linha_da_economia_de_lances(
+        {PARAMETRO_LANCES_DA_SOLUCAO: 4}, nu_ordem=2, vr_peso="0.400"
+    )
+    assert linha["co_feito"] == "lances_do_jogador"
+    assert linha["co_normalizacao"] == "faixa"
+    assert linha["co_sobre"] is None
+    assert linha["vr_min"] == Decimal("4")
+    assert linha["vr_max"] == Decimal("12")
+    assert MULTIPLO_DA_ECONOMIA_DE_LANCES == 3
+
+
+def test_T049t_solucao_sem_lance_de_quem_resolve_e_recusada() -> None:
+    """Sem L a faixa degenera (min = max = 0) - e dividiria por zero."""
+    with pytest.raises(MedidasInvalidas, match="0 lance"):
+        linha_da_economia_de_lances(
+            {PARAMETRO_LANCES_DA_SOLUCAO: 0}, nu_ordem=2, vr_peso="0.400"
+        )
+
+
+def test_T049t_L_conta_SO_os_lances_de_quem_resolve() -> None:
+    """⚠️ A solução das damas traz os dois lados.
+
+    O `damas_coroar` de 23/09/2026 no `des`: 9 lances na solução, 5 da pessoa.
+    Com o total, a faixa começaria em 9 - e quem jogou os 5 do gabarito
+    ganharia a mesma nota de quem jogou 9.
+    """
+    solucao = {
+        "lances": [
+            {"n": n, "jogador": 1 if n % 2 else -1, "lance": "x"}
+            for n in range(1, 10)
+        ]
+    }
+    assert lances_do_solucionador(solucao, vez_de=1) == 5
+    assert lances_do_solucionador(solucao, vez_de=-1) == 4
 
 
 def test_um_conjunto_que_fecha_passa() -> None:

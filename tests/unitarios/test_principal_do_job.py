@@ -162,7 +162,17 @@ def _candidato(
         js_objetivo=receita.valores_da_frase(parametros, "pita"),
         co_personagem="pita",
         nu_semente=2087461933,
-        js_solucao={"versao": 1, "origem": "busca_sagaz", "lances": [], "lance_chave": 1},
+        # ⚠️ Com LANCES, e de quem resolve (T049t): o job conta os lances do
+        # solucionador na solucao para montar a faixa da economia de lances, e
+        # recusa uma solucao sem nenhum - uma lista vazia aqui derrubava o dia.
+        js_solucao={
+            "versao": 1,
+            "origem": "busca_sagaz",
+            "lances": [
+                {"n": n, "jogador": 1, "lance": f"H_0_{n}"} for n in range(5)
+            ],
+            "lance_chave": 1,
+        },
         nu_lances_solucao=5,
         parametros=parametros,
         estado_inicial=_EstadoFalso(),

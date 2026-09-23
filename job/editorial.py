@@ -44,7 +44,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
-from .medidas_de_saida import linha_de_faixa, linha_de_fracao, linha_so_medida
+from .medidas_de_saida import (
+    PARAMETRO_LANCES_DA_SOLUCAO,
+    linha_da_economia_de_lances,
+    linha_de_faixa,
+    linha_so_medida,
+)
 
 #: A versao do aplicativo que estreia o Desafio do Dia.
 #:
@@ -242,6 +247,12 @@ GULOSO_DE_EXEMPLO = 5
 #: existem juntas: passaria a provar menos do que o nome dele promete.
 MATERIAL_DE_EXEMPLO = (12, 12)
 
+#: Um `L` plausivel - os lances de quem resolve na solucao oficial - para as
+#: mesmas conferencias SEM posicao (T049t). ⛔ Como os dois de cima, nunca vai a
+#: producao: o job o conta na solucao do candidato
+#: (`medidas_de_saida.lances_do_solucionador`).
+LANCES_DA_SOLUCAO_DE_EXEMPLO = 5
+
 
 def alvo_sai_da_posicao(parametros: Mapping[str, Any]) -> bool:
     """Esta variante calcula o alvo a partir da posicao?"""
@@ -339,9 +350,14 @@ def parametros_efetivos(
 
 def parametros_para_conferencia(parametros: Mapping[str, Any]) -> dict[str, Any]:
     """Os parametros de uma variante quando nao ha posicao — so para conferir."""
-    return parametros_efetivos(
-        parametros, guloso=GULOSO_DE_EXEMPLO, material=MATERIAL_DE_EXEMPLO
-    )
+    return {
+        **parametros_efetivos(
+            parametros, guloso=GULOSO_DE_EXEMPLO, material=MATERIAL_DE_EXEMPLO
+        ),
+        # ⚠️ O job poe `L` nos parametros na hora de publicar (T049t); a
+        # conferencia sem posicao precisa de um tambem.
+        PARAMETRO_LANCES_DA_SOLUCAO: LANCES_DA_SOLUCAO_DE_EXEMPLO,
+    }
 
 
 class TipoSemEditorial(ValueError):
@@ -378,12 +394,7 @@ def _medidas_do_pontinhos_fechar_caixas(p: Mapping[str, Any]) -> list[dict[str, 
             vr_min=0,
             vr_max=p["caixas"],
         ),
-        linha_de_fracao(
-            "lances_do_jogador",
-            nu_ordem=2,
-            vr_peso="0.400",
-            co_sobre="lances_da_solucao",
-        ),
+        linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.400"),
         linha_so_medida("caixas_do_adversario", nu_ordem=3),
     ]
 
@@ -398,12 +409,7 @@ def _medidas_do_pontinhos_placar(p: Mapping[str, Any]) -> list[dict[str, Any]]:
             vr_min=0,
             vr_max=p["caixas"],
         ),
-        linha_de_fracao(
-            "lances_do_jogador",
-            nu_ordem=2,
-            vr_peso="0.300",
-            co_sobre="lances_da_solucao",
-        ),
+        linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.300"),
         linha_so_medida("caixas_do_adversario", nu_ordem=3),
     ]
 
@@ -428,12 +434,7 @@ def _medidas_da_cadeia_longa(p: Mapping[str, Any]) -> list[dict[str, Any]]:
             vr_min=0,
             vr_max=p["caixas"],
         ),
-        linha_de_fracao(
-            "lances_do_jogador",
-            nu_ordem=2,
-            vr_peso="0.300",
-            co_sobre="lances_da_solucao",
-        ),
+        linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.300"),
         linha_so_medida("caixas_fechadas", nu_ordem=3),
     ]
 
@@ -497,12 +498,7 @@ def _medidas_do_pontinhos_economia(p: Mapping[str, Any]) -> list[dict[str, Any]]
             vr_min=0,
             vr_max=p["caixas"],
         ),
-        linha_de_fracao(
-            "lances_do_jogador",
-            nu_ordem=2,
-            vr_peso="0.500",
-            co_sobre="lances_da_solucao",
-        ),
+        linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.500"),
         linha_so_medida("caixas_do_adversario", nu_ordem=3),
     ]
 
@@ -577,12 +573,7 @@ def _medidas_do_damas_coroar(p: Mapping[str, Any]) -> list[dict[str, Any]]:
             vr_min=0,
             vr_max=p["damas"],
         ),
-        linha_de_fracao(
-            "lances_do_jogador",
-            nu_ordem=2,
-            vr_peso="0.400",
-            co_sobre="lances_da_solucao",
-        ),
+        linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.400"),
         linha_so_medida("material_do_adversario", nu_ordem=3),
     ]
 
@@ -602,12 +593,7 @@ def _medidas_do_damas_captura(p: Mapping[str, Any]) -> list[dict[str, Any]]:
             vr_min=0,
             vr_max=p["pecas"],
         ),
-        linha_de_fracao(
-            "lances_do_jogador",
-            nu_ordem=2,
-            vr_peso="0.300",
-            co_sobre="lances_da_solucao",
-        ),
+        linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.300"),
         linha_so_medida("capturas_extras", nu_ordem=3),
     ]
 
@@ -644,12 +630,7 @@ def _medidas_do_damas_sacrificio(p: Mapping[str, Any]) -> list[dict[str, Any]]:
             vr_min=p["resta_ao_adversario"],
             vr_max=p["resta_ao_adversario"] + p["capturar"],
         ),
-        linha_de_fracao(
-            "lances_do_jogador",
-            nu_ordem=2,
-            vr_peso="0.300",
-            co_sobre="lances_da_solucao",
-        ),
+        linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.300"),
         linha_so_medida("material_restante", nu_ordem=3),
     ]
 

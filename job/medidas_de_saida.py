@@ -56,6 +56,22 @@ NENHUMA = "nenhuma"
 #:
 #: ⚠️ Teto igual ao piso faria a parcela de tempo dividir por zero — o
 #: `ck007_regua_tempo` da migracao recusa, e a funcao abaixo recusa antes.
+#: Onde a parcela da economia de lances ZERA, em multiplos dos lances da solucao
+#: (T049t, decisao do dono de 23/09/2026, `DECISOES-do-dono.md` §8v).
+#:
+#: ⚠️ **3, e nao 2**: quem joga 1,5x os lances do gabarito ainda leva 75% da
+#: parcela - o desafio e casual, e jogar um pouco mais que o gabarito nao e
+#: errar. A parcela pesa 0,3 a 0,4 do merito, que pesa 0,25 de `Q`.
+MULTIPLO_DA_ECONOMIA_DE_LANCES = 3
+
+#: A chave, NOS PARAMETROS que as medidas recebem, com os lances do SOLUCIONADOR
+#: na solucao oficial. ⚠️ **E parametro, e ⛔ medida**: ate a T049t ela era o
+#: `co_sobre` de uma `fracao`, e o contrato manda que `sobre` seja **outra medida
+#: da mesma partida** - o tamanho do gabarito e um numero fixo do desafio, e o
+#: lugar dele e a `faixa`. Com a fracao, NINGUEM conseguia resolver: o aplicativo
+#: recusava calcular `Q` (`MedidaDeSaidaInvalida`) e o servidor, a resolucao.
+PARAMETRO_LANCES_DA_SOLUCAO = "lances_da_solucao"
+
 PISO_DE_TEMPO_MINIMO_MS = 5_000
 FOLGA_DO_TETO = 6.0
 
@@ -120,6 +136,53 @@ def linha_de_fracao(
     }
 
 
+def lances_do_solucionador(js_solucao: Mapping[str, Any], *, vez_de: int) -> int:
+    """Quantos lances da solucao oficial sao **de quem resolve** o desafio.
+
+    ⚠️ **So os dele, e nao o tamanho da solucao**: nas damas a solucao traz os
+    lances dos dois lados (`nu_lances_solucao` = 9 no `damas_coroar` de
+    23/09/2026, dos quais 5 da pessoa), e `lances_do_jogador` conta so os dela.
+    Comparar a medida da pessoa com o total dos dois lados faria todo mundo
+    parecer economico.
+
+    Args:
+        js_solucao: o gabarito (`{"lances": [{"jogador": 1, ...}, ...]}`).
+        vez_de: o sinal de quem resolve - `js_posicao_inicial["vez_de"]`, o mesmo
+            que o juiz usa.
+    """
+    return sum(1 for lance in js_solucao["lances"] if lance["jogador"] == vez_de)
+
+
+def linha_da_economia_de_lances(
+    p: Mapping[str, Any], *, nu_ordem: int, vr_peso: str
+) -> dict[str, Any]:
+    """A parcela da economia de lances: FAIXA de `L` a `3L` (T049t, §8v).
+
+    `L` sao os lances do solucionador na solucao oficial
+    ([PARAMETRO_LANCES_DA_SOLUCAO], que o job poe nos parametros ao publicar).
+    Com `lances_do_jogador` em `menor_melhor`:
+
+        jogou L lances (o gabarito)   ->  nota 1,0
+        jogou 1,5 L                   ->  nota 0,75
+        jogou 3 L ou mais             ->  nota 0,0
+
+    E a mesma forma da regua de tempo: piso = o gabarito, teto = onde zera.
+    """
+    lances = int(p[PARAMETRO_LANCES_DA_SOLUCAO])
+    if lances <= 0:
+        raise MedidasInvalidas(
+            f"a solucao oficial tem {lances} lance(s) de quem resolve - sem "
+            "eles a economia de lances nao tem de onde partir"
+        )
+    return linha_de_faixa(
+        "lances_do_jogador",
+        nu_ordem=nu_ordem,
+        vr_peso=vr_peso,
+        vr_min=lances,
+        vr_max=lances * MULTIPLO_DA_ECONOMIA_DE_LANCES,
+    )
+
+
 def linha_so_medida(co_feito: str, *, nu_ordem: int) -> dict[str, Any]:
     """Uma medida **exibida e nao pontuada**.
 
@@ -153,7 +216,11 @@ def conferir(linhas: Sequence[Mapping[str, Any]]) -> None:
       3. **cada normalizacao tem os seus campos** — o `ck003_faixa` diz o mesmo,
          e falhar aqui aponta para quem montou as linhas;
       4. **a ordem de exibicao nao repete** — o Raio-X mostraria duas medidas na
-         mesma posicao.
+         mesma posicao;
+      5. ⛔ **o `co_sobre` de uma `fracao` e MEDIDA DO TABULEIRO do catalogo**
+         (T049t) — o denominador e outra medida da mesma partida. Ate 23/09/2026
+         o editorial publicava `lances_da_solucao` ali, que nao e medida nenhuma,
+         e nenhuma resolucao daqueles desafios era possivel.
 
     Raises:
         MedidasInvalidas: em qualquer um dos quatro casos.
@@ -204,10 +271,12 @@ def conferir(linhas: Sequence[Mapping[str, Any]]) -> None:
         raise MedidasInvalidas(f"nu_ordem comeca em 1; veio {ordens}")
 
     for linha in linhas:
-        _conferir_normalizacao(linha)
+        _conferir_normalizacao(linha, catalogo)
 
 
-def _conferir_normalizacao(linha: Mapping[str, Any]) -> None:
+def _conferir_normalizacao(
+    linha: Mapping[str, Any], catalogo: Mapping[str, Mapping[str, Any]]
+) -> None:
     """Cada normalizacao exige os SEUS campos, e proibe os outros.
 
     ⚠️ Sem isto, uma linha `faixa` sem `vr_max` divide por nulo na hora de
@@ -228,8 +297,25 @@ def _conferir_normalizacao(linha: Mapping[str, Any]) -> None:
             raise MedidasInvalidas(f"{chave}: `faixa` nao usa co_sobre")
 
     elif norma == FRACAO:
-        if not linha["co_sobre"]:
+        sobre = linha["co_sobre"]
+        if not sobre:
             raise MedidasInvalidas(f"{chave}: `fracao` exige co_sobre")
+        # ⛔ **O denominador e OUTRA MEDIDA DA MESMA PARTIDA** (contrato
+        # `desafio-publicado.md`). Fora do catalogo, nenhum jogo a produz: o
+        # aplicativo recusa calcular `Q` e o servidor recusa a resolucao - o
+        # desafio nasce sem resolucao possivel (T049t). De sessao, ela ja pesa
+        # em `Q` por fora.
+        if sobre not in catalogo:
+            raise MedidasInvalidas(
+                f"{chave}: a fracao e sobre `{sobre}`, que nao esta no catalogo "
+                "de feitos - nenhum jogo a mede, e ninguem resolveria o desafio. "
+                "Um numero fixo do desafio (o tamanho do gabarito) e `faixa`."
+            )
+        if catalogo[sobre]["co_procedencia"] != "tabuleiro":
+            raise MedidasInvalidas(
+                f"{chave}: a fracao e sobre `{sobre}`, que nao e medida do "
+                "tabuleiro - o denominador precisa sair da mesma partida"
+            )
         if linha["vr_min"] is not None or linha["vr_max"] is not None:
             raise MedidasInvalidas(f"{chave}: `fracao` nao usa vr_min/vr_max")
 
