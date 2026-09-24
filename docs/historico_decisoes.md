@@ -6399,3 +6399,32 @@ desfeita, numa conta que ⛔ joga partida comum nenhuma: 0 → 10 → 10 (segund
 chama com 2 dias jogados e zero partidas que pontuam. **Controle:** sem o `nu_xp` na
 soma do dia, a ordem inversa pagou 27 + 10; sem o `OR`, a chama deu zero dias. As
 duas mutações reprovaram o script.
+
+## 2026-09-24 — `qt_usos_poder` passa a contar a DICA (T085i, frontend)
+
+**Contexto.** A coluna nasceu na `0017` para o "voltar jogada" das damas, e é o
+filtro da reputação *"ninguém derrotou o Magno"* (vitórias com
+`qt_usos_poder = 0`, índice parcial `ix_partida_sem_poder`). Na análise dos
+poderes de 24/09/2026 apareceram dois buracos, os dois no **app**: o Pontinhos
+⛔ mandava o número (as 6 partidas do dono contra o Magno no `des` subiram com
+zero, uma com 8 jogadas canceladas), e a dica ⛔ contava em jogo nenhum.
+
+**Decisão do dono** (`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8x.3):
+**a dica conta como uso de poder.** A coluna passa a significar "quantos poderes
+a pessoa usou nesta partida" - voltar jogada + dicas -, nas damas e no Pontinhos.
+
+**O que mudou aqui: nada de código.** O ingestor já grava o que chega
+(`_inteiro_nao_negativo`) e o `DO UPDATE` da leva que completa já sobrescreve com
+`EXCLUDED.qt_usos_poder`. ⚠️ É por esse `DO UPDATE` que o app manda o número em
+**toda** leva, inclusive a do fim: uma leva sem o campo gravaria zero por cima do
+que a primeira gravou.
+
+**Alternativa considerada:** uma coluna separada para a dica (`qt_dicas`).
+Descartada pelo mesmo motivo que descartou o `ic_com_poder` na `0017`: duas
+colunas para o mesmo fato viram duas verdades, e a pergunta da reputação é uma só
+("usou algum poder?"). Quem quiser o detalhe por poder tem as dicas do desafio em
+`desafio_dia` e os cancelamentos em `tb002_jogada.co_poder`.
+
+⚠️ **O histórico do `des` fica como está**: as partidas antigas do Pontinhos com
+poder continuam com zero. O `prd` ⛔ foi afetado - os poderes do Pontinhos ainda
+⛔ saíram em versão publicada.
