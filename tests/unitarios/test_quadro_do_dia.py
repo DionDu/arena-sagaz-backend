@@ -14,6 +14,7 @@ O que estes casos protegem:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
@@ -63,6 +64,7 @@ class RepoFalso:
         modalidade=None,
         formato_posicao="sequencia_lances",
         posicao_inicial=None,
+        extrato=None,
     ) -> None:
         self._adversario = adversario
         self._jogo = jogo
@@ -86,6 +88,7 @@ class RepoFalso:
         self._lances = lances
         self._gabarito = gabarito
         self._tem_contexto = tem_contexto
+        self._extrato = extrato
 
     async def contexto(self, id_desafio):
         if not self._tem_contexto:
@@ -142,6 +145,8 @@ class RepoFalso:
         return [{"nu_ordem": 1, "nu_jogador": 1, "co_lance": "H_0_1"}]
 
     async def extrato(self, id_resolucao):
+        if self._extrato is not None:
+            return self._extrato
         return [{"co_tipo_xp": "base", "vr_xp": 18}]
 
     async def gabarito(self, id_desafio):
@@ -753,6 +758,99 @@ async def test_quem_resolveu_ve_o_replay_com_o_extrato_inteiro():
 
     assert replay["lances"]
     assert replay["extrato"]
+
+
+def _partida_concluida() -> dict:
+    """A linha de uma partida de desafio que acabou, como o `SELECT` a traz."""
+    return {
+        "id_resolucao": uuid4(),
+        "id_usuario": "uid-ana",
+        "id_partida": uuid4(),
+        "co_status": "concluida",
+        "co_jogo": "pontinhos",
+        "nu_lance_cumpre_desafio": 5,
+    }
+
+
+#: O extrato como o DRIVER o entrega: as colunas sao `NUMERIC`, e chegam ao
+#: Python como `Decimal`, com as 3 (ou 4) casas da coluna.
+EXTRATO_DO_BANCO = [
+    {"co_tipo_xp": "base", "co_feito": None, "co_unidade": None,
+     "co_direcao": None, "vr_medida": None, "vr_normalizado": None,
+     "vr_peso": None, "vr_xp": Decimal("18.000")},
+    {"co_tipo_xp": "tentativas", "co_feito": "tentativas",
+     "co_unidade": "contagem", "co_direcao": "menor_melhor",
+     "vr_medida": Decimal("2.000"), "vr_normalizado": Decimal("0.5000"),
+     "vr_peso": Decimal("0.300"), "vr_xp": Decimal("1.800")},
+]
+
+
+@pytest.mark.asyncio
+async def test_o_extrato_sai_como_NUMERO_pela_rota_HTTP(
+    cliente_http, monkeypatch
+):
+    """⛔ T085l: o extrato do Raio-X ⛔ funcionou NUNCA no aparelho.
+
+    As colunas do extrato sao `NUMERIC`; o driver as entrega como `Decimal`; e a
+    rota devolve um `dict` sem modelo — o FastAPI (pydantic 2) escreve `Decimal`
+    como TEXTO, `"vr_xp": "18.000"`. O aplicativo exigia numero, descartou
+    todas as parcelas, e o dono viu *"Total +0"* no iPhone.
+
+    ⚠️ **Por que pela rota HTTP, e ⛔ pelo servico direto:** o defeito ⛔ esta no
+    servico nem no repositorio — esta na SERIALIZACAO, que so acontece na
+    resposta. Todo caso deste arquivo chamava `ServicoQuadro(...).replay(...)`
+    com um duble que ja devolvia `int`, e os dois erros se escondiam um atras do
+    outro (`memory/fonte-falsa-nao-tem-rota`). Aqui o duble devolve `Decimal`,
+    como o banco, e o que se confere e o JSON que sai.
+    """
+    from api.desafios import rotas
+    from api.main import app
+    from api.nucleo.dependencias_conta_nuvem import usuario_opcional
+
+    repo = RepoFalso(partida=_partida_concluida(), extrato=EXTRATO_DO_BANCO)
+    # `dependency_overrides` troca uma dependencia do FastAPI por outra funcao:
+    # o servico vem do duble, e o convidado ⛔ precisa de banco para existir.
+    app.dependency_overrides[rotas.obter_servico_quadro] = (
+        lambda: ServicoQuadro(repo)
+    )
+    app.dependency_overrides[usuario_opcional] = lambda: None
+    # O dia ja encerrou: a trava de spoiler abre para qualquer um.
+    monkeypatch.setattr(rotas, "agora_utc", lambda: ENCERRA + timedelta(hours=1))
+    try:
+        resposta = await cliente_http.get(
+            f"/v1/desafios/{ID_DESAFIO}/replay/jogador/uid-ana",
+            headers={"X-App-Version": "1.3.0", "X-Platform": "android"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resposta.status_code == 200, resposta.text
+    base, tentativas = resposta.json()["extrato"]
+
+    # ⚠️ NUMERO, e ⛔ texto — e inteiro quando o valor e inteiro, como o
+    # contrato escreve (`contracts/raio-x.md`: `"vr_xp": 18`).
+    assert base["vr_xp"] == 18 and isinstance(base["vr_xp"], int)
+    assert tentativas["vr_medida"] == 2 and isinstance(tentativas["vr_medida"], int)
+    assert tentativas["vr_xp"] == 1.8 and isinstance(tentativas["vr_xp"], float)
+    assert tentativas["vr_normalizado"] == 0.5
+    assert tentativas["vr_peso"] == 0.3
+    # O que ⛔ e numero passa intacto.
+    assert base["vr_medida"] is None
+    assert tentativas["co_feito"] == "tentativas"
+
+
+def test_o_Decimal_vira_inteiro_so_quando_E_inteiro():
+    """⚠️ `18.000` e `18`, mas `18.500` ⛔ e `18` — cortar as casas mentiria."""
+    from api.desafios.servico_quadro import numero_para_o_json
+
+    assert numero_para_o_json(Decimal("18.000")) == 18
+    assert isinstance(numero_para_o_json(Decimal("18.000")), int)
+    assert numero_para_o_json(Decimal("18.500")) == 18.5
+    assert numero_para_o_json(Decimal("-7.000")) == -7
+    assert numero_para_o_json(Decimal("0.0001")) == 0.0001
+    # ⛔ O que ⛔ e `Decimal` ⛔ se toca.
+    assert numero_para_o_json("18.000") == "18.000"
+    assert numero_para_o_json(None) is None
 
 
 @pytest.mark.asyncio

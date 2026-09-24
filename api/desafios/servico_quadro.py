@@ -20,6 +20,7 @@ da ordem para virar uma comparacao que a tela faz sozinha.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
 
@@ -33,6 +34,40 @@ from api.desafios.quadro import (
 )
 from api.desafios.publicacao import posicao_publicada
 from api.nucleo.excecoes import ErroNaoAutorizado, ErroNaoEncontrado
+
+
+def numero_para_o_json(valor: Any) -> Any:
+    """O `Decimal` do banco como NUMERO do JSON; qualquer outro valor, intacto.
+
+    ⚠️ **T085l, 24/09/2026 — o extrato do Raio-X ⛔ funcionou nunca no
+    aparelho.** As colunas do extrato sao `NUMERIC` no banco
+    (`desafio_dia.tb004_xp_desafio`: `vr_medida`, `vr_normalizado`, `vr_peso`,
+    `vr_xp`), e o driver as entrega ao Python como `Decimal`. A rota do replay
+    devolve um `dict` sem modelo, e o FastAPI (pydantic 2) escreve `Decimal`
+    como **texto**: `{"vr_xp": "18.000"}`. O aplicativo exigia numero, descartou
+    todas as parcelas, e o dono viu *"Total +0"*.
+
+    ⚠️ **Inteiro quando o valor e inteiro** (`18.000` → `18`), e `float` quando
+    nao e (`1.800` → `1.8`): e a forma que `contracts/raio-x.md` escreve, e um
+    `2.0` onde a tela diz *"2 tentativas"* seria convite a um `2,0` no dia em
+    que alguem formatar sem cuidado.
+
+    ⚠️ `float` aqui ⛔ fere a regra do `Decimal` (`extrato_xp.py`): ela vale para
+    o que **vai ao banco**, onde somas se acumulam. Isto e so a exibicao de um
+    valor ja gravado com 3 casas, e o aplicativo refaz o rateio por conta propria.
+    """
+    if isinstance(valor, Decimal):
+        # `to_integral_value()` e o proprio valor sem as casas decimais; se os
+        # dois sao iguais, as casas eram todas zero (`18.000`).
+        if valor == valor.to_integral_value():
+            return int(valor)
+        return float(valor)
+    return valor
+
+
+def _linha_para_o_json(linha: dict[str, Any]) -> dict[str, Any]:
+    """Uma linha do banco com os `Decimal` convertidos (ver acima)."""
+    return {chave: numero_para_o_json(v) for chave, v in linha.items()}
 
 
 class ReplayTrancado(ErroNaoAutorizado):
@@ -379,7 +414,14 @@ class ServicoQuadro:
             # ⚠️ **O extrato vem INTEIRO no Raio-X**, e so as linhas que pontuaram
             # na tela de resultado (RF-DES-177): e o **mesmo dado** nos dois
             # lugares, e nao uma segunda lista escrita para a tela.
-            "extrato": await self.repo.extrato(linha["id_resolucao"]),
+            #
+            # ⚠️ **E sai como NUMERO** (T085l): as colunas sao `NUMERIC`, e sem
+            # a conversao o JSON as levaria como texto — ver
+            # `numero_para_o_json`.
+            "extrato": [
+                _linha_para_o_json(parcela)
+                for parcela in await self.repo.extrato(linha["id_resolucao"])
+            ],
             # ⚠️ O teto de log **trunca**, nunca invalida (RF-DES-039): o replay
             # diz honestamente que esta truncado, e o veredito que a pessoa viu
             # permanece.
