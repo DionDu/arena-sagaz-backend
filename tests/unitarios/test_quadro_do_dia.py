@@ -27,7 +27,7 @@ from api.desafios.mascotes import (
     taxas_das_medicoes,
 )
 from api.desafios.quadro import (
-    MINIMO_PARA_FRACAO,
+    MAXIMO_SEM_FRACAO,
     ContextoDoQuadro,
     fracao_servivel,
     replays_liberados,
@@ -388,16 +388,27 @@ def test_a_taxa_e_calculada_e_nao_lida():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_a_fracao_abaixo_de_20_nao_e_servida():
+def test_a_fracao_so_sai_com_MAIS_de_10_resolvidos():
     """⛔ RF-DES-063: *"2 de 3 resolveram"* grita que o aplicativo tem 3 usuarios.
 
     O numero que isto esconde conta sobre o **tamanho da base**, e nao sobre a
-    partida.
+    partida. ⚠️ Desde 24/09/2026 (§8z.11) o piso e de quem RESOLVEU: 10 ainda
+    esconde, 11 mostra - e ⛔ importa quantos tentaram.
     """
-    assert fracao_servivel(qt_pessoas=19, qt_resolveram=12) is None
-    assert fracao_servivel(
-        qt_pessoas=MINIMO_PARA_FRACAO, qt_resolveram=12
-    ) == {"tentaram": 20, "resolveram": 12}
+    # O limite e escrito como NUMERO, e ⛔ lido da constante: um caso que lesse
+    # `MAXIMO_SEM_FRACAO` passaria com qualquer valor que ela tivesse.
+    assert MAXIMO_SEM_FRACAO == 10
+    # 10 resolvidos, ainda que 500 tenham tentado: ⛔ sai.
+    assert fracao_servivel(qt_pessoas=500, qt_resolveram=10) is None
+    # 11 resolvidos, com 11 tentativas (abaixo do antigo piso de 20): sai.
+    assert fracao_servivel(qt_pessoas=11, qt_resolveram=11) == {
+        "tentaram": 11,
+        "resolveram": 11,
+    }
+    assert fracao_servivel(qt_pessoas=480, qt_resolveram=132) == {
+        "tentaram": 480,
+        "resolveram": 132,
+    }
 
 
 @pytest.mark.asyncio

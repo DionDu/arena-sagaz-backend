@@ -64,8 +64,16 @@ from api.desafios.modelos_producao import VW_DESAFIO, VW_MEDICAO_REGUA
 #: Quantas linhas de gente o topo do quadro traz, **alem** da propria.
 TOPO = 50
 
-#: Abaixo disto a fracao nao e servida (RF-DES-063).
-MINIMO_PARA_FRACAO = 20
+#: A fracao so e servida quando MAIS do que isto resolveram (RF-DES-063).
+#:
+#: ⚠️ **Conta quem RESOLVEU, e ⛔ quem tentou** (decisao do dono, 24/09/2026,
+#: `docs/DECISOES-do-dono.md` §8z.11): *"Pode colocar uma regra para aparecer
+#: quando forem mais de 10 usuarios que resolveram."* Ate ali o piso era 20
+#: tentativas. Com poucos usuarios, "3 de 4 resolveram" fala do tamanho da base
+#: e ⛔ do desafio; passando de 10 resolvidos, o numero ja diz algo do dia.
+#: Os mascotes ⛔ entram na conta: eles ⛔ tentam nem resolvem, estao no ranking
+#: fazendo companhia.
+MAXIMO_SEM_FRACAO = 10
 
 #: O dia e o desafio, com a regua de tempo que a encenacao dos mascotes precisa.
 SQL_DIA_DO_DESAFIO = f"""
@@ -472,12 +480,14 @@ def replays_liberados(
 def fracao_servivel(
     *, qt_pessoas: int, qt_resolveram: int
 ) -> Optional[dict[str, int]]:
-    """A fracao, ou `None` quando o denominador e pequeno demais.
+    """A fracao, ou `None` quando pouca gente resolveu.
 
-    ⛔ RF-DES-063: abaixo de 20 tentativas ela **nao e servida**. *"2 de 3
-    resolveram"* nao fala sobre o desafio — fala sobre quantos usuarios o
-    aplicativo tem, e isso nao e informacao que a tela deva dar.
+    ⛔ RF-DES-063: com ate 10 resolvidos ela **nao e servida**
+    (`MAXIMO_SEM_FRACAO`). *"2 de 3 resolveram"* nao fala sobre o desafio — fala
+    sobre quantos usuarios o aplicativo tem, e isso nao e informacao que a tela
+    deva dar. ⚠️ O piso olha o NUMERADOR (quem resolveu), e ⛔ o denominador:
+    e a regra do dono de 24/09/2026.
     """
-    if qt_pessoas < MINIMO_PARA_FRACAO:
+    if qt_resolveram <= MAXIMO_SEM_FRACAO:
         return None
     return {"tentaram": qt_pessoas, "resolveram": qt_resolveram}
