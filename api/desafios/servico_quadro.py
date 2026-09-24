@@ -276,6 +276,13 @@ class ServicoQuadro:
         return {
             "jogo": contexto.co_jogo,
             "modalidade": contexto.co_modalidade,
+            # ⚠️ **O adversario daquele dia, pelo mesmo motivo da modalidade**
+            # (T085m, 24/09/2026). O replay do Pontinhos escreve nas caixas
+            # fechadas as iniciais de quem as fechou, como a partida escreveu;
+            # sem o personagem, as caixas dele sairiam mudas - e o quadro e o
+            # historico, duas das portas do Raio-X, ⛔ tem o desafio em maos.
+            # ⚠️ Campo ADITIVO: aplicativo antigo o ignora.
+            "personagem": contexto.co_personagem_do_dia,
             # ⚠️ **A MESMA forma do desafio publicado**, e ⛔ nao uma reduzida
             # para esta rota: `formato_posicao` diz qual dos dois veio, e o
             # aplicativo ja sabe ler exatamente este par. Uma forma propria aqui

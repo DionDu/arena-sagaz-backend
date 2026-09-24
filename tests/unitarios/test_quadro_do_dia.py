@@ -1165,6 +1165,39 @@ async def test_o_GABARITO_tambem_diz_qual_jogo_e():
 
 
 @pytest.mark.asyncio
+async def test_o_replay_diz_QUEM_foi_o_adversario():
+    """⚠️ O personagem viaja no replay dos DOIS ramos (T085m, 24/09/2026).
+
+    O replay do Pontinhos escreve nas caixas fechadas as iniciais de quem as
+    fechou. Quem abre o Raio-X por uma linha do quadro ⛔ nunca teve o desafio
+    em maos - sem este campo, as caixas do personagem sairiam mudas.
+    """
+    repo = RepoFalso(
+        minha=_minha(),
+        partida=_partida_de(jogo="pontinhos"),
+        gabarito={"js_solucao": {"lances": ["H_0_1"]}, "nu_lances_solucao": 1},
+        adversario="magno",
+        posicao_inicial={"lances": [{"lance": "H_0_0"}]},
+    )
+    servico = ServicoQuadro(repo)
+
+    de_quem_jogou = await servico.replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+    do_gabarito = await servico.replay(
+        id_desafio=ID_DESAFIO,
+        sujeito="desafio",
+        id_usuario=None,
+        agora=ENCERRA + timedelta(minutes=1),
+    )
+
+    # ⚠️ "magno", e ⛔ o "pita" padrao do repositorio falso: um valor fixo no
+    # servico passaria num caso que usasse o padrao.
+    assert de_quem_jogou["personagem"] == "magno"
+    assert do_gabarito["personagem"] == "magno"
+
+
+@pytest.mark.asyncio
 async def test_o_jogo_sai_do_DESAFIO_e_nao_da_partida():
     """⛔ Duas fontes para um fato so discordam em silencio.
 
