@@ -228,11 +228,12 @@ SELECT co_tipo_reacao
 
 #: A partida por tras de um sujeito do quadro — o replay e o de uma PARTIDA.
 #:
-#: ⚠️ `co_status` vem junto porque **partida em andamento nao tem replay**
-#: (RF-DES-187): sem desfecho nao ha o que servir, e e por isso que o job de
-#: expiracao (T046) existe.
+#: ⚠️ **`co_status` saiu daqui em 25/09/2026 (T085f)**: ele so existia para o
+#: replay recusar a partida em andamento (404 `partida_em_andamento`), e a
+#: partida deixada aberta passou a ter replay (`DECISOES-do-dono.md` §8w.1).
+#: ⛔ Coluna lida que ninguem usa convida a escrever de novo a regra que saiu.
 SQL_PARTIDA_DO_SUJEITO = f"""
-SELECT r.id_resolucao, r.id_usuario, r.id_partida, p.co_status, p.co_jogo,
+SELECT r.id_resolucao, r.id_usuario, r.id_partida, p.co_jogo,
        r.nu_lance_cumpre_desafio
   FROM {VW_RESOLUCAO} r
   JOIN partida.vw001_partida p

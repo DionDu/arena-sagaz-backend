@@ -17,7 +17,7 @@ Sao **tres** os caminhos de saida de `em_andamento` (determinacao do dono,
 
 ⚠️ **Sem o terceiro, a promessa seria falsa**, e de um jeito que ninguem veria: o
 aplicativo pode nunca mais falar (desinstalado, aparelho trocado), e a partida
-ficaria `em_andamento` para sempre — sem `dh_fim` e **sem replay**.
+ficaria `em_andamento` para sempre — sem `dh_fim`.
 
 ═══════════════════════════════════════════════════════════════════════════
 ⚠️ ESTE ARQUIVO E A METADE ESTRUTURAL. A OUTRA MORA NO BANCO.
@@ -41,7 +41,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from api.desafios import quadro, servico_quadro
 from api.sincronizacao import repositorio as repo_sync
 from job import expirar_partidas
 
@@ -95,24 +94,15 @@ def test_abandonar_nao_desfaz_resolucao_xp_nem_quadro():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 2. E o que NAO existe sem partida fechada
+# 2. A partida por tras de uma resolucao
 # ═══════════════════════════════════════════════════════════════════════════
-
-
-def test_o_replay_recusa_partida_em_andamento():
-    """⛔ RF-DES-187/SC-024: sem desfecho nao ha replay.
-
-    ⚠️ **A recusa e do SERVIDOR**, e nao da tela: a rota le `co_status` e
-    responde 404 com codigo proprio. Servir meia partida seria pior — a pessoa
-    veria um replay que termina no nada e concluiria que o aplicativo perdeu
-    lances.
-    """
-    fonte = Path(servico_quadro.__file__).read_text(encoding="utf-8")
-    assert 'linha["co_status"] == "em_andamento"' in fonte
-    assert "partida_em_andamento" in fonte
-    # ⚠️ E a consulta traz `co_status` — sem isso a checagem acima nao teria o
-    # que ler, e passaria a comparar `None` com a string, sempre falso.
-    assert "p.co_status" in quadro.SQL_PARTIDA_DO_SUJEITO
+#
+# ⚠️ **Ate 25/09/2026 moravam aqui o cadeado "o replay recusa partida em
+# andamento"** (404 `partida_em_andamento`). O dono decidiu o contrario
+# (`DECISOES-do-dono.md` §8w.1, T085f): a partida deixada aberta mostra o replay
+# ate o objetivo. A prova do novo comportamento e de COMPORTAMENTO, e mora em
+# `test_quadro_do_dia.py` (`test_partida_ABERTA_tem_replay_ate_o_objetivo`) - um
+# cadeado de texto aqui seria uma segunda guarda para a mesma coisa.
 
 
 def test_a_resolucao_aponta_para_a_partida_pela_TENTATIVA():

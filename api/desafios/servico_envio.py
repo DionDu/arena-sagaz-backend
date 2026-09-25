@@ -42,8 +42,9 @@ expiracao de 7 dias** (T046), nao uma recusa aqui. Recusar seria tirar o XP
 exatamente de quem parou no objetivo, que e o comportamento que a spec descreve
 como esperado.
 
-⛔ O que **nao** existe sem partida fechada e o **replay** (T044) — e aquela rota,
-sim, exige estado terminal.
+⚠️ Ate 25/09/2026 o **replay** (T044) exigia estado terminal. Desde a T085f
+(`DECISOES-do-dono.md` §8w.1) nem ele exige: a partida deixada aberta mostra os
+lances que subiram, que terminam no objetivo.
 """
 
 from __future__ import annotations

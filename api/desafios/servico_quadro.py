@@ -336,7 +336,8 @@ class ServicoQuadro:
         ⚠️ **O replay servido e o de uma PARTIDA** (RF-DES-186): a rota resolve o
         sujeito → a resolucao → `id_partida`, e devolve os lances de
         `partida.tb002_jogada`. ⛔ Nao ha armazenamento de replay proprio do
-        desafio, e e por isso que toda partida de desafio precisa estar fechada.
+        desafio. ⚠️ Desde a T085f (25/09/2026) a partida ⛔ precisa estar
+        fechada: a deixada aberta serve os lances que subiram, ate o objetivo.
         """
         contexto = await self._contexto(id_desafio)
 
@@ -399,17 +400,23 @@ class ServicoQuadro:
                 "Esse sujeito nao resolveu este desafio.", "sem_resolucao"
             )
 
-        if linha["co_status"] == "em_andamento":
-            # ⚠️ **Partida sem desfecho nao tem replay** (RF-DES-187, SC-024). Ela
-            # existe — a pessoa parou no objetivo e nao voltou —, e o job de
-            # expiracao (T046) a fechara em ate 7 dias. Ate la, ⛔ nao ha o que
-            # reproduzir, e dizer isso e mais honesto que servir meia partida.
-            raise ErroNaoEncontrado(
-                "A partida desse sujeito ainda nao foi encerrada; o replay "
-                "aparece quando ela fechar.",
-                "partida_em_andamento",
-            )
-
+        # ⚠️ **A partida deixada ABERTA tambem tem replay** (T085f, decisao do
+        # dono de 23/09/2026, `DECISOES-do-dono.md` §8w.1 - muda o RF-DES-187 e o
+        # SC-024). Ate entao `co_status = 'em_andamento'` respondia 404
+        # `partida_em_andamento`, e a pessoa via *"o replay aparece quando ela
+        # fechar"* por ate 7 dias, ate o job de expiracao (T046) agir.
+        #
+        # O que subiu de uma partida aberta e a **leva do objetivo** (RF-DES-213):
+        # os lances ate o instante em que o objetivo caiu. Entao o replay termina
+        # exatamente na estrela, e o extrato e o mesmo que ela ganhou - ⛔ ha
+        # "meia partida" a esconder, ha a parte que decidiu o desafio. Por isso
+        # ⛔ ha campo novo nem aviso: a resposta tem a MESMA forma da partida
+        # fechada, e `nu_lances` sai do ultimo lance que subiu, como sempre.
+        #
+        # ⛔ **Nao ha `if` pelo status aqui, de proposito.** Uma guarda que
+        # tratasse a partida aberta de outro jeito seria uma segunda regra para
+        # o mesmo replay - e a que ja existe (as pontas da lista) responde certo
+        # nos dois casos.
         lances = await self.repo.lances(linha["id_partida"])
 
         # ⚠️ **A numeracao dos lances E o dado de truncamento** (RF-DES-039).

@@ -6476,3 +6476,36 @@ discordar.
 
 ⛔ **A migração vem ANTES do push** (o push é o deploy): a API nova grava
 `js_feito` e lê a `vw003_resolucao` com ela.
+
+## 2026-09-25 — A partida deixada ABERTA tem replay até o objetivo (T085f)
+
+**Contexto.** O replay (`GET /v1/desafios/{id}/replay/{sujeito}`,
+`servico_quadro.replay`) recusava com 404 `partida_em_andamento` a partida de
+desafio que ainda estava `em_andamento` (RF-DES-187/SC-024). Depois da T085c (a
+poda do aparelho), esse caso só sobra quando o aplicativo é fechado à força no
+meio da partida - e a pessoa lia *"o replay aparece quando ela fechar"* por até
+7 dias, até o job de expiração (T046) agir.
+
+**Decisão do dono** (23/09/2026, `arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8w.1): quem cumpriu e deixou a partida sem terminar vê o replay **até o
+objetivo** e o XP, ⛔ sem aviso. O servidor deixa de olhar `co_status`: serve os
+lances que subiram (a leva do objetivo, RF-DES-213) e o extrato, com a **mesma
+forma** da partida fechada. `co_status` saiu do `SQL_PARTIDA_DO_SUJEITO`, porque
+só existia para a recusa.
+
+**Alternativas consideradas.** (a) Um campo `partida_aberta` na resposta, para a
+tela avisar - recusado pelo dono ("sem aviso"), e o que subiu termina na estrela,
+então ⛔ falta a parte que decidiu o desafio. (b) Manter o 404 até o job fechar a
+partida - era o comportamento anterior, e escondia por dias um replay que já
+existe.
+
+⚠️ **O que continua valendo do RF-DES-187:** a garantia da **geração** (o jogo
+tem fim alcançável) e as três saídas de `em_andamento` (fim natural, sair da
+tela, job de 7 dias) - `test_partida_de_desafio_fechada.py` e
+`scripts/conferir_desafio_no_banco.py` seguem cobrando. Só o replay deixou de
+exigir o fim.
+
+⚠️ **Aplicativo antigo em campo:** a resposta tem a forma de sempre, então ele
+desenha o replay; o texto de "partida ainda não encerrada" que ele tem compilado
+deixa de aparecer. O aplicativo novo removeu as duas chaves
+(`desafioRaioXPartidaAberta` e `...Corpo`).

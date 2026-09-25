@@ -801,7 +801,6 @@ async def test_quem_resolveu_ve_o_replay_com_o_extrato_inteiro():
             "id_resolucao": uuid4(),
             "id_usuario": EU,
             "id_partida": uuid4(),
-            "co_status": "concluida",
             "co_jogo": "pontinhos",
             # ⚠️ O dublê espelha as colunas do `SELECT`: ler por chave (e ⛔ nao
             # por `.get`) faz uma coluna esquecida no SQL estourar aqui, em vez
@@ -824,7 +823,6 @@ def _partida_concluida() -> dict:
         "id_resolucao": uuid4(),
         "id_usuario": "uid-ana",
         "id_partida": uuid4(),
-        "co_status": "concluida",
         "co_jogo": "pontinhos",
         "nu_lance_cumpre_desafio": 5,
     }
@@ -912,13 +910,19 @@ def test_o_Decimal_vira_inteiro_so_quando_E_inteiro():
 
 
 @pytest.mark.asyncio
-async def test_partida_em_andamento_nao_tem_replay():
-    """⚠️ RF-DES-187/SC-024: sem desfecho nao ha o que reproduzir.
+async def test_partida_ABERTA_tem_replay_ate_o_objetivo():
+    """⚠️ T085f: quem cumpriu e deixou a partida aberta VE o replay e o XP.
 
-    A partida existe — a pessoa parou no objetivo e nao voltou —, e o job de
-    expiracao (T046) a fechara em ate 7 dias. Dizer isso e mais honesto que
-    servir meia partida.
+    Decisao do dono, 23/09/2026 (`DECISOES-do-dono.md` §8w.1 - muda o
+    RF-DES-187/SC-024). Ate entao a rota respondia 404 `partida_em_andamento`,
+    e a pessoa lia *"o replay aparece quando ela fechar"* por ate 7 dias.
+
+    ⚠️ O que subiu de uma partida aberta e a **leva do objetivo** (RF-DES-213):
+    os lances ate o instante em que o objetivo caiu. Entao o replay termina na
+    estrela - ⛔ ha aviso a dar, porque ⛔ falta a parte que decidiu o desafio.
     """
+    # A pessoa cumpriu no 7o meio-lance e parou ali: sobem os lances 1 a 7, e a
+    # partida fica `em_andamento` (o job de expiracao a fecha em 7 dias).
     repo = RepoFalso(
         minha={"id_resolucao": uuid4(), "nu_xp": 26, "nu_tempo_ms": 40000,
                "dh_resolucao": AGORA},
@@ -926,16 +930,25 @@ async def test_partida_em_andamento_nao_tem_replay():
             "id_resolucao": uuid4(),
             "id_usuario": EU,
             "id_partida": uuid4(),
-            "co_status": "em_andamento",
             "co_jogo": "damas",
+            "nu_lance_cumpre_desafio": 7,
         },
+        lances=_lances(1, 7),
     )
 
-    with pytest.raises(ErroNaoEncontrado) as erro:
-        await ServicoQuadro(repo).replay(
-            id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
-        )
-    assert erro.value.codigo == "partida_em_andamento"
+    replay = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+
+    # Os sete lances que subiram, e ⛔ uma recusa.
+    assert [lance["nu_ordem"] for lance in replay["lances"]] == list(range(1, 8))
+    # ⚠️ A barra diz *"lance 7 de 7"* com a estrela no ultimo: o tamanho sai do
+    # ultimo lance que subiu, como na partida fechada - ⛔ ha regra propria.
+    assert replay["nu_lances"] == 7
+    assert replay["nu_lance_objetivo"] == 7
+    assert replay["truncado"] is False
+    # E o XP: o extrato e o que ela ganhou no objetivo, que abandonar ⛔ desfaz.
+    assert replay["extrato"]
 
 
 @pytest.mark.asyncio
@@ -989,7 +1002,6 @@ def _repo_com_partida(lances=None, nu_lance=7):
             "id_resolucao": uuid4(),
             "id_usuario": EU,
             "id_partida": uuid4(),
-            "co_status": "concluida",
             "co_jogo": "damas",
             "nu_lance_cumpre_desafio": nu_lance,
         },
@@ -1113,13 +1125,12 @@ def test_os_lances_vem_em_ORDEM_porque_o_primeiro_e_o_ultimo_decidem():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _partida_de(jogo="damas", status="concluida"):
+def _partida_de(jogo="damas"):
     """A linha de partida que o duplo devolve, espelhando o `SELECT`."""
     return {
         "id_resolucao": uuid4(),
         "id_usuario": EU,
         "id_partida": uuid4(),
-        "co_status": status,
         "co_jogo": jogo,
         "nu_lance_cumpre_desafio": 3,
     }

@@ -5,8 +5,9 @@ POR QUE ESTE SCRIPT E SEPARADO DO CI
 ═══════════════════════════════════════════════════════════════════════════
 
 `tests/unitarios/test_partida_de_desafio_fechada.py` prova o que e **estrutura**:
-que as tres saidas de `em_andamento` existem, que o replay recusa partida sem
-desfecho, que abandonar nao desfaz nada. Isso roda no CI, sem Postgres.
+que as tres saidas de `em_andamento` existem e que abandonar nao desfaz nada.
+Isso roda no CI, sem Postgres. (Ate a T085f, 25/09/2026, provava tambem que o
+replay recusava partida sem desfecho; desde entao a partida aberta tem replay.)
 
 ⛔ **O que ele NAO consegue provar e o dado.** *"Toda resolucao aponta para
 partida em estado terminal"* e uma afirmacao sobre **linhas**, e linhas so
