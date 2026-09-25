@@ -134,6 +134,36 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     "jogos/jogo_damas/contrato/__init__.py",
     "jogos/jogo_damas/contrato/contrato_damas.json",
     "jogos/jogo_damas/contrato/MANIFESTO_HASHES.json",
+    # ── Os FONTES do motor Dart, que e quem joga de verdade (25/09/2026) ──
+    #
+    # ⛔ **Nao sao para rodar: sao para CONFERIR.** Desde 25/09/2026 o gabarito e
+    # a regua sao jogados pelo executavel do motor Dart, e nao pelo port Python.
+    # Um executavel e opaco - olhando para ele, ninguem sabe de que fontes veio.
+    #
+    # O executavel carrega um carimbo com o SHA-256 destes quinze arquivos
+    # (gravado por `motor_dart/bin/compilar_servidor_de_lances.dart`), e o
+    # backend recalcula o mesmo resumo a partir DESTAS copias na abertura do
+    # processo. Divergiu, recusa a conversa.
+    #
+    # ⚠️ **E o que fecha a corrente ate o aparelho:** `paridade_motor_test.dart`
+    # ja prova, por SHA-256, que os quinze arquivos do app sao byte-identicos aos
+    # do laboratorio. Com o executavel preso aos mesmos quinze, o motor do
+    # servidor e o motor do aparelho sao o mesmo codigo, e nao "a mesma versao".
+    "jogos/jogo_damas/motor_dart/lib/avaliacao_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/avaliacao_treinada_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/bancada_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/base_empacotada_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/busca_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/empates_declarados_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/empates_por_historico_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/espelho_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/explicacao_de_recusa_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/indice_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/oraculo_de_finais_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/politica_dificuldade_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/regras_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/retrograda_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/tabuleiro_damas.dart",
 )
 
 

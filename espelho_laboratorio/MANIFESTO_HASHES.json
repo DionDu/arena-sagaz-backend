@@ -158,6 +158,81 @@
       "tamanho_bytes": 1498
     },
     {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/avaliacao_damas.dart",
+      "sha256": "c83cefbef575b6a3193269410fe25b38a7a821d42c7502723a73b6cddadfe4d1",
+      "tamanho_bytes": 5257
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/avaliacao_treinada_damas.dart",
+      "sha256": "ab90c3d0d3d29a7b567f7f5bd8366bc309ad50b94d968eadb304729cbb26fba9",
+      "tamanho_bytes": 18872
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/bancada_damas.dart",
+      "sha256": "7e0fff381b5a4c91286fcb6be25b8063b9a83d3a021191f24f1b0cbc9570db9f",
+      "tamanho_bytes": 35537
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/base_empacotada_damas.dart",
+      "sha256": "14e553ae1cd59d2a4be9104621b05adf96d60d9492897e2bba8b30f43773cdcd",
+      "tamanho_bytes": 19135
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/busca_damas.dart",
+      "sha256": "0bd0223085a7b5a29bc9aee02784dbb0b979bbb3cb709898c6e6f7fd9b448c6f",
+      "tamanho_bytes": 57252
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/empates_declarados_damas.dart",
+      "sha256": "4c7a608d0561f3f088afba2dc81b11e82459e377bf19ed5bcaa04b3832ee1384",
+      "tamanho_bytes": 9980
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/empates_por_historico_damas.dart",
+      "sha256": "563b011788be6e8026ad4e8ef9c24e05aac4ba277ac92a18ee23ea5f12bf5a69",
+      "tamanho_bytes": 21658
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/espelho_damas.dart",
+      "sha256": "da7c7c614a894b61cae7c78711a35a767bbce73c2ee66a38ca75fc8f5bd26fa2",
+      "tamanho_bytes": 5245
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/explicacao_de_recusa_damas.dart",
+      "sha256": "b8a48f8890b55254c5202815a5194e18a0253efa9b0fea33b0dcb3fbc35092fb",
+      "tamanho_bytes": 21022
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/indice_damas.dart",
+      "sha256": "426ca4131810977334e584fad01d33e5f230ea817384ccac39b27f1e0a5bf8f9",
+      "tamanho_bytes": 25135
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/oraculo_de_finais_damas.dart",
+      "sha256": "41f7bbe6b69b570be1ccbee3fcde1267483dd9b542b784f3fe166d88fde902d0",
+      "tamanho_bytes": 6486
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/politica_dificuldade_damas.dart",
+      "sha256": "a5b73b1246e7b7473b747a0356bb8faa5fe2eacb1999537ccd6b2acf72730411",
+      "tamanho_bytes": 9579
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/regras_damas.dart",
+      "sha256": "7c2d103cfef8c32f2714b77807a6001333bce14ffb304fd9504dfb9e56d31554",
+      "tamanho_bytes": 31403
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/retrograda_damas.dart",
+      "sha256": "0fa4cf4b9cc410c4471c73e0448c64d6b6960966b67404364e0087af20a69e2c",
+      "tamanho_bytes": 22158
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/tabuleiro_damas.dart",
+      "sha256": "4b187918b650c0134d2f380691cc361f8b74a82412905c688e7c45e714d24537",
+      "tamanho_bytes": 14958
+    },
+    {
       "caminho": "contrato_dificuldade_pontinhos.json",
       "sha256": "0971d48f329419d6f71aa11de7aaa9e384c20bc1a15bda58eddf78ade0591c74",
       "tamanho_bytes": 7203
