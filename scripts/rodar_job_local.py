@@ -20,6 +20,16 @@ risco de apontar para o banco errado.
 quatro dias, dos quais 1.024 s foram um unico `damas_sobreviver`. Uma variante
 cara paga o dia inteiro — e rodar aqui custa so eletricidade.
 
+⚠️ **E ficou mais caro em 25/09/2026**, quando o job passou a jogar com o motor do
+aparelho: o Magno agora gasta os 288 mil nos do contrato em cada lance, contra os
+20 mil que a camada cortava. Medido: **~15 min por dia gerado**, e e a REGUA que
+domina (um candidato de damas levou 287 s, dos quais 285 s de regua).
+
+⛔ **Isto NAO e a unica porta.** Desde 25/09 a imagem do Railway compila o motor
+ela mesma (`Dockerfile.job`, estagio `motor`) e carrega a base de finais no
+espelho — o cron de la voltou a funcionar. As duas portas existem; esta e a que
+nao custa.
+
 ═══════════════════════════════════════════════════════════════════════════
 ⛔ ESTE SCRIPT **ESCREVE** NO BANCO — E E O OPOSTO DE `consultar_prd.py`
 ═══════════════════════════════════════════════════════════════════════════

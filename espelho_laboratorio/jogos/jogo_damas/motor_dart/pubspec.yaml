@@ -1,0 +1,37 @@
+# O motor de damas em Dart, como pacote.
+#
+# Ser um pacote — e não um punhado de arquivos soltos — resolve um problema
+# concreto: o app de bancada (`../bancada_aparelho/`) precisa deste código, e
+# COPIAR os arquivos criaria duas versões que divergem em silêncio. Com um
+# pacote, o app declara uma dependência por caminho e existe **uma cópia só**.
+#
+# É o mesmo raciocínio do contrato de codificação do Jogo dos Pontinhos: duas
+# cópias da mesma verdade é dívida, não conveniência.
+name: motor_damas
+description: >-
+  Motor de damas 8x8 (regras, busca alfa-beta e avaliacao) em Dart puro — o
+  codigo que roda no aparelho. O motor de REFERENCIA, contra o qual este e
+  conferido, e o de ../motor/ em Python.
+publish_to: none
+version: 0.1.0
+
+environment:
+  # Sem limite superior de propósito: este pacote não usa nada de bleeding edge,
+  # e travar a versão só criaria atrito com o Flutter do app de bancada.
+  sdk: ^3.0.0
+
+# Nenhuma dependência, e é para continuar assim. Este código entra dentro do
+# app da Arena Sagaz na etapa 8; cada dependência nova aqui vira uma dependência
+# nova lá.
+dependencies:
+
+dev_dependencies:
+  lints: ^5.0.0
+  # Só para `bin/compilar_servidor_de_lances.dart`, que carimba no executável o
+  # SHA-256 dos arquivos de `lib/`.
+  #
+  # ⚠️ **Não fere a regra de "nenhuma dependência" acima**, e a diferença é
+  # estrutural: o que entra no app são os arquivos de `lib/`, copiados um a um
+  # (`paridade_motor_test.dart` confere os quinze). `bin/` não é copiado, e
+  # `dev_dependencies` não viaja para quem consome o pacote.
+  crypto: ^3.0.0

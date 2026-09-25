@@ -165,6 +165,26 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     "jogos/jogo_damas/motor_dart/lib/regras_damas.dart",
     "jogos/jogo_damas/motor_dart/lib/retrograda_damas.dart",
     "jogos/jogo_damas/motor_dart/lib/tabuleiro_damas.dart",
+    # ── ⛔ E O QUE COMPILA O EXECUTAVEL, desde 25/09/2026 ──────────────────
+    #
+    # Ate aqui o espelho levava so os fontes de `lib/`, para CONFERIR o carimbo
+    # de um executavel compilado na maquina do dono. So que o Railway constroi a
+    # imagem a partir deste repositorio, e o executavel de la e de Windows: o
+    # job simplesmente nao tinha com que jogar na nuvem.
+    #
+    # ⚠️ **Com estes tres, a imagem compila o motor ela mesma** (ver
+    # `Dockerfile.job`), e o binario Linux nasce carimbado com o SHA-256 dos
+    # mesmos dezesseis arquivos de `lib/` que o aplicativo embarca. A corrente
+    # nao afrouxa em lugar nenhum: quem carimba e o proprio
+    # `compilar_servidor_de_lances.dart`, que tambem esta aqui.
+    #
+    # ⛔ **`pubspec.lock` NAO entra, de proposito.** Ele fixa versoes de
+    # `dev_dependencies` resolvidas no Windows; o que o build precisa e de um
+    # `pub get` que resolva na propria imagem. Um lock viajando daqui faria o
+    # build falhar por um motivo que nao tem nada a ver com o motor.
+    "jogos/jogo_damas/motor_dart/pubspec.yaml",
+    "jogos/jogo_damas/motor_dart/bin/servidor_de_lances_damas.dart",
+    "jogos/jogo_damas/motor_dart/bin/compilar_servidor_de_lances.dart",
 )
 
 
@@ -186,6 +206,43 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
 # subárvore é a estrutura de pacotes Python do laboratório, e o motor se importa
 # por caminho absoluto dentro dela. Um JSON do app ali dentro seria mentira sobre
 # de onde ele veio.
+
+#: As PASTAS que vêm do aplicativo inteiras: `(origem no app, destino no espelho)`.
+#:
+#: ═══════════════════════════════════════════════════════════════════════════
+#: ⛔ A BASE DE FINAIS — e é a do APLICATIVO, não a do laboratório
+#: ═══════════════════════════════════════════════════════════════════════════
+#:
+#: Desde 25/09/2026 o Magno do servidor consulta a base de finais, como o do
+#: aparelho consulta: sem ela, os dois divergem em todo final de até 4 peças. E
+#: ⛔ **tem de ser a mesma base**, não uma equivalente — é a mesma exigência do
+#: `.tflite` do Pontinhos logo abaixo, e pelo mesmo motivo.
+#:
+#: ⚠️ **A do laboratório NÃO serve.** `ia/dados/jogo_damas/` tem as 41 fatias
+#: cruas de cada modalidade; o que viaja no APK tem 23 (metade sai por simetria
+#: de cor, e cada uma é comprimida). Onde falta uma fatia a base responde
+#: `foraDaBase` — *"não sei"* — e o motor **busca** em vez de responder. Ou seja:
+#: a base crua daria MAIS base e ainda assim divergiria.
+#:
+#: ⚠️ São 9,5 MB entrando no Git, e é o mesmo preço declarado de RF-DES-148 que o
+#: `.tflite` de 19,8 MB já paga: o Railway constrói a imagem a partir deste
+#: repositório, e o que não estiver aqui dentro não existe na nuvem.
+#:
+#: ⚠️ **Pasta, e não arquivo a arquivo**, e a diferença importa: são 188 arquivos.
+#: A lista escrita à mão dos outros existe para que apagar uma origem quebre o
+#: espelho em vez de encolhê-lo em silêncio; aqui quem cumpre esse papel é o
+#: **manifesto**, que guarda o SHA-256 de cada um dos 188 e é versionado — uma
+#: fatia que sumisse apareceria no `git diff` dele.
+PASTAS_DO_APP: tuple[tuple[str, str], ...] = tuple(
+    (
+        f"assets/jogos/damas/base_finais/{modalidade}_4",
+        f"base_finais_damas/{modalidade}_4",
+    )
+    # ⚠️ As quatro modalidades, sempre. O rodízio publica qualquer uma delas, e
+    # descobrir que falta a `casa` no dia em que ela sai é descobrir tarde.
+    for modalidade in ("anglo", "brasileira", "casa", "portuguesa")
+)
+
 
 ARQUIVOS_DO_APP: tuple[tuple[str, str], ...] = (
     (
@@ -246,6 +303,23 @@ def _todos_os_pares() -> list[tuple[Path, Path, str]]:
     """
     pares = [(_origem(r), _destino(r), r) for r in ARQUIVOS_ESPELHADOS]
     pares += [(RAIZ_APP / o, _destino(d), d) for o, d in ARQUIVOS_DO_APP]
+
+    # ⚠️ As pastas são expandidas **ordenadas por nome**: sem isso, o manifesto
+    # sairia numa ordem diferente em cada sistema de arquivos e o `git diff` dele
+    # acusaria mudança onde não houve.
+    for origem_relativa, destino_relativo in PASTAS_DO_APP:
+        origem = RAIZ_APP / origem_relativa
+        if not origem.is_dir():
+            raise SystemExit(
+                f"PASTA DE ORIGEM AUSENTE: {origem}\n"
+                "Ajuste PASTAS_DO_APP antes de espelhar."
+            )
+        for arquivo in sorted(origem.rglob("*")):
+            if not arquivo.is_file():
+                continue
+            dentro = arquivo.relative_to(origem).as_posix()
+            relativo = f"{destino_relativo}/{dentro}"
+            pares.append((arquivo, _destino(relativo), relativo))
     return pares
 
 

@@ -23,6 +23,58 @@
 #   (c) o runtime de inferência entraria na imagem da API sem que ela o use.
 # ═══════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ESTÁGIO 1 de 2 — O MOTOR DO APARELHO, COMPILADO PARA DENTRO DA IMAGEM
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⛔ **Desde 25/09/2026 o job não joga mais com o port Python.** Quem escolhe os
+# lances do gabarito e da régua é o **motor Dart**, byte-idêntico ao que o
+# aplicativo embarca — porque o gabarito precisa ser o que a CPU vai jogar no
+# aparelho de quem resolve. O diagnóstico inteiro está em
+# `docs/investigacao_paridade_motores.md`.
+#
+# ⚠️ **E ele é compilado AQUI, e não trazido pronto.** O binário da máquina do
+# dono é um `.exe` de Windows; esta imagem é `linux/amd64`. Compilar no build é o
+# único jeito de o job ter com que jogar na nuvem, e não custa nada de confiança:
+#
+# ⛔ **A trava de identidade não afrouxa.** Quem compila é
+# `bin/compilar_servidor_de_lances.dart`, o mesmo programa que roda na máquina do
+# dono, e ele carimba dentro do binário o SHA-256 dos dezesseis arquivos de
+# `lib/`. Na abertura do processo, `motores/damas/jogador_dart.py` recalcula o
+# mesmo resumo a partir dos fontes espelhados e **recusa a conversa** se
+# divergirem. Um build que produzisse um motor diferente falharia alto no
+# primeiro lance, e não geraria uma fila inteira de desafios errados.
+#
+# ⚠️ **Multi-stage de propósito:** o SDK do Dart pesa ~700 MB e ⛔ não vai para a
+# imagem final. O que atravessa é um executável autocontido de alguns megabytes.
+FROM dart:stable AS motor
+
+WORKDIR /motor
+
+# Só o pacote do motor, que veio no espelho: `pubspec.yaml`, `lib/` e `bin/`.
+#
+# ⚠️ **O `pubspec.lock` ⛔ chega aqui**, e isso é decisão, não sorte: ele está no
+# `.dockerignore` (e no `.gitignore`). Basta abrir a pasta do espelho num editor
+# com o analisador do Dart para ele rodar `pub get` sozinho e deixar um lock
+# resolvido no **Windows** para trás; o que este build precisa é de um `pub get`
+# resolvido nesta imagem. Um lock viajando daqui faria o build falhar por um
+# motivo que não tem nada a ver com damas.
+COPY espelho_laboratorio/jogos/jogo_damas/motor_dart/ ./
+
+# `crypto` e `lints` são `dev_dependencies` — são elas que o carimbo usa.
+RUN dart pub get
+
+# ⚠️ Este comando faz as DUAS coisas, e nessa ordem: grava
+# `bin/_resumo_do_motor.g.dart` com o SHA-256 de cada arquivo de `lib/`, e então
+# compila. Rodar `dart compile` direto pularia o carimbo, e o executável abriria
+# a conversa afirmando um resumo velho.
+RUN dart run bin/compilar_servidor_de_lances.dart
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ESTÁGIO 2 de 2 — O JOB
+# ═══════════════════════════════════════════════════════════════════════════
+
 # A MESMA base da API. Não é coincidência nem gosto: o `ai-edge-litert` publica
 # wheel para `cp311` em `linux/amd64`, e é a dependência mais estreita do
 # conjunto — quem manda na versão do Python é ela (`research.md` §R-03).
@@ -57,6 +109,19 @@ RUN pip install --no-cache-dir -r requirements_job.txt
 #    constrói a imagem a partir deste repositório e de mais nada.
 COPY . .
 
+# ── 2b. O MOTOR compilado no estágio 1 ───────────────────────────────────────
+#
+# ⚠️ O binário vai para `/usr/local/bin/`, fora do `/app` — então ele ⛔ disputa
+# lugar com nada do repositório, e a ordem em relação ao `COPY . .` é indiferente.
+# Fica aqui por leitura: o motor e a variável que o aponta, juntos.
+#
+# `MOTOR_DART_DAMAS` é a variável que `motores/damas/jogador_dart.py` consulta
+# primeiro. ⛔ Sem ela, ele procuraria o laboratório vizinho — que só existe na
+# máquina do dono — e falharia com uma mensagem sobre compilar, dentro de uma
+# imagem onde compilar já foi feito.
+COPY --from=motor /motor/bin/servidor_de_lances_damas /usr/local/bin/servidor_de_lances_damas
+ENV MOTOR_DART_DAMAS=/usr/local/bin/servidor_de_lances_damas
+
 # ── 3. O PORTÃO DE BUILD (T001) ──────────────────────────────────────────────
 # ⚠️ ESTA LINHA É A ÚNICA EXECUÇÃO EM `linux/amd64` QUE O PROJETO TEM.
 #
@@ -79,6 +144,23 @@ COPY . .
 #    pensar. A máquina do dono não tem Docker nem WSL (conferido em 09/09/2026),
 #    então esta é a única oportunidade que existe de conferir no alvo real.
 RUN python scripts/conferir_runtime_inferencia.py --runtime litert
+
+# ── 3b. O PORTÃO DO MOTOR DE DAMAS (25/09/2026) ──────────────────────────────
+#
+# O irmão do portão acima, e pela mesma razão: o de cima pergunta *"esta imagem
+# calcula igual ao aplicativo?"* sobre a CNN do Pontinhos; este pergunta o mesmo
+# sobre o motor de damas — que nesta imagem foi **compilado aqui**, no estágio 1.
+#
+# ⛔ Ele confere a trava de identidade, a base de finais das quatro modalidades e
+# **três lances de uma partida real**, com nós, profundidade e consultas à base.
+# Um lance igual com nós diferentes já reprova: dois motores que param em pontos
+# diferentes só escolhem o mesmo lance por sorte.
+#
+# ⚠️ O risco que ele fecha não é "não compilou" — isso falharia cedo e alto. É
+# compilar, abrir e jogar **um pouco** diferente: o gabarito sairia de um
+# adversário que não é o adversário da pessoa, e nada no dado denunciaria. Foi
+# exatamente esse o defeito de 25/09/2026.
+RUN python scripts/conferir_motor_dart.py
 
 # ── 4. Usuário sem privilégios ───────────────────────────────────────────────
 # Defesa em profundidade (MEL-01), a mesma do `Dockerfile` da API: se um dia

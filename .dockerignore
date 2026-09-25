@@ -48,12 +48,18 @@ requirements.txt
 # duas imagens compartilham a mesma lista. Consequencias praticas:
 #
 #   - `espelho_laboratorio/` NAO pode ser excluido aqui. A imagem do job precisa
-#     da `.tflite` de 19,8 MB para jogar Pontinhos (RF-DES-148). O preco e que
-#     ela viaja tambem na imagem da API, que nunca a abre — peso morto conhecido
-#     e aceito, porque excluir daqui quebraria o job em silencio.
+#     da `.tflite` de 19,8 MB para jogar Pontinhos (RF-DES-148), e — desde
+#     25/09/2026 — dos fontes do motor Dart e dos 9,5 MB da BASE DE FINAIS de
+#     damas, sem os quais o Magno do servidor joga os finais diferente do Magno
+#     do aparelho. O preco e que tudo isso viaja tambem na imagem da API, que
+#     nunca abre nada disso — peso morto conhecido e aceito, porque excluir daqui
+#     quebraria o job em silencio.
+#     ⚠️ A unica excecao esta la embaixo: os artefatos do `pub`, que sao gerados
+#     e ⛔ devem atravessar.
 #   - `scripts/` NAO pode ser excluido: o `Dockerfile.job` roda
-#     `scripts/conferir_runtime_inferencia.py` como PORTAO DE BUILD, e sem o
-#     arquivo o build falharia por motivo errado.
+#     `scripts/conferir_runtime_inferencia.py` e `scripts/conferir_motor_dart.py`
+#     como PORTOES DE BUILD, e sem os arquivos o build falharia por motivo
+#     errado.
 #   - `requirements.txt` continua fora das duas: cada imagem instala a SUA lista
 #     (`requirements_api.txt` na API, `requirements_job.txt` no job).
 #   - `dados/` NAO pode voltar para esta lista. ⚠️ A nota historica no topo diz
@@ -63,3 +69,8 @@ requirements.txt
 #     POSICAO INICIAL de todo desafio de Pontinhos (T049h). Sem ela na imagem, o
 #     job quebra no Railway as 6 da manha, e o build fica verde.
 # ─────────────────────────────────────────────────────────────────────────────
+
+# Artefatos do `pub` no espelho do motor Dart - ver o .gitignore, mesma razao:
+# o `pub get` tem de resolver DENTRO da imagem, e nao herdar um lock do Windows.
+espelho_laboratorio/jogos/jogo_damas/motor_dart/.dart_tool/
+espelho_laboratorio/jogos/jogo_damas/motor_dart/pubspec.lock

@@ -459,36 +459,66 @@ decisão que é de tela, e ela não muda lance nenhum.
 | `tests/unitarios/test_jogador_dart.py` | o vetor virou a partida inteira: 13 lances, com nós, profundidade e base |
 | `tests/unitarios/test_motor_damas.py` | o padrão é Dart; o teto da camada não corta; a paridade com o port roda em `MOTOR_DAMAS_DO_SERVIDOR=python` |
 | `ferramentas/consultas_sql/desafio_limpar_TUDO_DES.sql` | **novo** — esvaziar a fila gerada com o motor errado |
+| `Dockerfile.job` | **multi-stage**: um estágio `dart:stable` compila o motor para `linux/amd64` |
+| `scripts/conferir_motor_dart.py` | **novo** — o portão de build: a imagem joga o que o aparelho joga? |
+| `scripts/espelhar_laboratorio.py` | o pacote do motor e a base de finais entram no espelho |
+| `.gitignore` · `.dockerignore` | barram o `pubspec.lock` e o `.dart_tool/` do espelho |
 
-### ⛔ CONSEQUÊNCIA OPERACIONAL: o job do Railway não roda mais assim
+### ✅ O JOB DO RAILWAY VOLTOU A FUNCIONAR — a imagem compila o motor
 
-O `Dockerfile.job` constrói uma imagem `python:3.11-slim`, e ⛔ **nela não há**:
+Ligar o motor Dart quebrou o job da nuvem, e por um bom motivo: o `Dockerfile.job`
+constrói uma imagem `python:3.11-slim`, e nela não havia nem o executável (o que
+existe na máquina do dono é um `.exe`, de Windows) nem a base de finais (ela mora
+nos assets do *frontend*). O job falhava alto — que é o certo, comparado a gerar
+com o motor errado — mas a fila pararia de crescer.
 
-* o **executável Dart** (o que existe é `.exe`, de Windows);
-* a **base de finais**, que mora nos assets do repositório do *frontend*.
+⛔ **Isso foi consertado no mesmo dia**, e não deixado como escolha para o dono:
 
-⚠️ **Isso é o comportamento certo, e não um descuido:** o job falha alto em vez
-de gerar com o motor errado. Mas o cron das 6h continua agendado, e vai sair com
-erro todo dia até que uma das duas coisas aconteça:
+1. **O espelho passou a carregar o que compila o motor** — `pubspec.yaml`,
+   `bin/servidor_de_lances_damas.dart` e `bin/compilar_servidor_de_lances.dart`.
+   ⚠️ O `pubspec.lock` ⛔ vai junto (entrou no `.gitignore` e no `.dockerignore`):
+   ele fixaria versões resolvidas no Windows, e o que o build precisa é de um
+   `pub get` resolvido na própria imagem.
+2. **E a base de finais**, em `espelho_laboratorio/base_finais_damas/` — 9,5 MB,
+   copiados **dos assets do aplicativo**, pelo mesmo mecanismo e com a mesma
+   justificativa do `.tflite` de 19,8 MB do Pontinhos (RF-DES-148: o que não
+   estiver neste repositório não existe na nuvem). ⚠️ E o `jogador_dart.py` passou
+   a ler **só** do espelho: uma segunda origem consultada em tempo de execução é
+   como duas versões passam a existir sem ninguém decidir.
+3. **O `Dockerfile.job` virou multi-stage.** Um estágio `dart:stable` roda
+   `dart pub get` e `dart run bin/compilar_servidor_de_lances.dart`; o executável
+   Linux atravessa com `COPY --from=motor`, e o SDK de ~700 MB fica para trás.
+4. **E há um portão de build novo** — `scripts/conferir_motor_dart.py` —, irmão do
+   que já existia para o runtime de inferência e pelo mesmo motivo escrito lá:
+   *"comando avulso se roda uma vez e envelhece; o portão re-confere a cada imagem
+   construída"*. Ele confere a trava, a base das quatro modalidades e **três
+   lances da partida do dono**, com nós, profundidade e consultas à base.
 
-1. **o dono rode na máquina dele** (`scripts/rodar_job_local.py`), que é a decisão
-   já tomada em 25/09 — e aí o cron do Railway deve ser **desligado**; ou
-2. **a imagem passe a carregar os dois**: compilar o motor para `linux/amd64` no
-   próprio build (o Dart SDK na imagem) e copiar a base empacotada para dentro.
+⛔ **A trava de identidade não afrouxa por o binário ser compilado na nuvem.** Quem
+compila é o mesmo programa que roda na máquina do dono, e ele carimba o SHA-256
+dos dezesseis arquivos de `lib/` dentro do executável; a abertura do processo
+recalcula a partir do espelho e recusa se divergir.
 
-⚠️ A opção 2 é trabalho de meia hora, mas ⛔ **ela reabre a pergunta da trava**: o
-binário Linux tem de carimbar o mesmo resumo dos fontes, o que o
-`compilar_servidor_de_lances.dart` já faz — é só rodá-lo no `RUN`, como o portão
-do runtime de inferência já é rodado ali.
+**Ensaiado sem Docker** (a máquina do dono não o tem, conferido em 09/09/2026):
+copiei o espelho para uma pasta limpa, rodei `dart pub get` **sem lock** e
+compilei. O resumo saiu **idêntico** ao do binário do laboratório
+(`a68628f014e20e11`), e o portão passou apontando para esse executável. ⚠️ O que o
+ensaio não cobre é o alvo `linux/amd64` — isso só o build do Railway responde, e é
+para isso que o portão está lá.
+
+⚠️ **E o job continua podendo rodar na máquina do dono** (`rodar_job_local.py`),
+que é a decisão de 16/09 e segue valendo por custo: ~15 min por dia gerado. A
+diferença é que agora as duas portas funcionam, em vez de uma estar quebrada.
 
 ### O que AINDA falta
 
 1. ⚠️ **Regerar a fila.** Nada do que está acima muda um desafio já gravado: a
    fila do `des` inteira saiu do adversário enfraquecido. O script de limpeza
    está em `ferramentas/consultas_sql/desafio_limpar_TUDO_DES.sql`.
-2. ⚠️ **Medir o job de ponta a ponta com o motor novo.** As medições acima são
-   por lance; o custo de um dia de `damas_sobreviver` (que já levou 17 min) não
-   foi refeito.
+2. ⚠️ **Medir o job de ponta a ponta com o motor novo.** Um candidato de damas com
+   adversário Pita levou **287 s** (2,7 s de geração, 285 s de régua), o que dá
+   ~15 min por dia. ⛔ O custo de um dia de `damas_sobreviver` (que já levou 17 min
+   antes) não foi refeito.
 3. ⚠️ **O `co_versao_motor` continua com prefixo `damas-py-`**, e agora ele é
    duplamente mentiroso: o espelho tem 16 `.dart` dentro e quem joga é o Dart.
    Trocar o prefixo é migração de dado, não só de código.

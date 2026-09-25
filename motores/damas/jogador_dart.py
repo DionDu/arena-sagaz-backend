@@ -95,7 +95,7 @@ VERSAO_DO_PROTOCOLO = 2
 
 
 #: A variável de ambiente que aponta para a base de finais, quando ela não está
-#: no repositório vizinho do aplicativo.
+#: no espelho.
 #:
 #: ═══════════════════════════════════════════════════════════════════════════
 #: ⛔ É A BASE DO APLICATIVO, E NÃO A DO LABORATÓRIO — elas NÃO respondem igual
@@ -112,11 +112,21 @@ VERSAO_DO_PROTOCOLO = 2
 #: jogar finais que o aparelho de ninguém joga: mais base, não menos, e mesmo
 #: assim divergente.
 #:
-#: ⚠️ **O caminho atravessa para o repositório do aplicativo de propósito.** A
-#: pergunta aqui não é *"que base existe?"*, é *"que base o aparelho carrega?"* —
-#: e a resposta é literalmente aquela pasta. Espelhá-la para cá criaria uma
-#: terceira cópia a manter em dia, que é a origem de toda esta investigação.
+#: ⚠️ **Ela é ESPELHADA para dentro deste repositório**, em
+#: `espelho_laboratorio/base_finais_damas/`, pelo mesmo mecanismo e pelo mesmo
+#: motivo que o `.tflite` do Pontinhos: o Railway constrói a imagem a partir
+#: daqui, e o que não estiver aqui dentro não existe na nuvem (RF-DES-148).
+#:
+#: ⛔ **E o espelho é a ÚNICA origem em runtime.** Ler direto dos assets do
+#: aplicativo funcionaria na máquina do dono e não na nuvem — e uma segunda
+#: origem consultada em tempo de execução é exatamente como duas versões passam a
+#: existir sem ninguém decidir. Quem garante que a cópia é fiel é
+#: `scripts/espelhar_laboratorio.py` (que copia) e o manifesto de hashes (que
+#: confere, sem precisar do aplicativo no disco).
 VARIAVEL_DA_BASE = "BASE_FINAIS_DAMAS"
+
+#: Onde a base espelhada mora, dentro deste repositório.
+BASE_NO_ESPELHO = RAIZ / "espelho_laboratorio" / "base_finais_damas"
 
 #: Quantas peças a base cobre. ⚠️ **4, e é o que o aplicativo embarca** — o
 #: laboratório tem `brasileira_5` no disco, e usá-la aqui seria outro adversário.
@@ -229,11 +239,12 @@ def pasta_da_base_de_finais(co_modalidade: str) -> Path:
 
     A ordem de procura, e cada degrau tem um motivo:
 
-      1. `BASE_FINAIS_DAMAS` no ambiente — é como um contêiner ou a máquina de
-         outra pessoa aponta para a pasta dela;
-      2. os assets do aplicativo, no repositório vizinho — o caso normal na
-         máquina do dono, e ⚠️ **a resposta certa por definição**: a pergunta é
-         *"que base o aparelho carrega?"*.
+      1. `BASE_FINAIS_DAMAS` no ambiente — a saída para quem guarda a base fora
+         do repositório;
+      2. o **espelho**, que é o caminho normal nos dois lugares: na máquina do
+         dono e dentro da imagem do Railway. ⚠️ É o mesmo arquivo que o
+         aplicativo embarca, copiado por `scripts/espelhar_laboratorio.py` e
+         conferido pelo manifesto de hashes.
 
     Raises:
         BaseDeFinaisIndisponivel: não há pasta, ou há e é a **crua** do
@@ -243,16 +254,7 @@ def pasta_da_base_de_finais(co_modalidade: str) -> Path:
             `empacotado_em` do manifesto, que só o empacotador escreve.
     """
     do_ambiente = os.environ.get(VARIAVEL_DA_BASE)
-    raiz = (
-        Path(do_ambiente)
-        if do_ambiente
-        else RAIZ.parent
-        / "arena-sagaz-frontend"
-        / "assets"
-        / "jogos"
-        / "damas"
-        / "base_finais"
-    )
+    raiz = Path(do_ambiente) if do_ambiente else BASE_NO_ESPELHO
 
     pasta = raiz / f"{co_modalidade}_{PECAS_NA_BASE}"
     manifesto = pasta / "manifesto.json"
@@ -260,9 +262,11 @@ def pasta_da_base_de_finais(co_modalidade: str) -> Path:
         raise BaseDeFinaisIndisponivel(
             f"não achei a base de finais de {co_modalidade} (procurei o "
             f"manifesto em {manifesto}).\n"
-            f"É a base que o APLICATIVO embarca, e ela vive nos assets dele. "
-            f"Se este backend roda noutro lugar, aponte {VARIAVEL_DA_BASE} para "
-            f"a pasta que contém os `<modalidade>_{PECAS_NA_BASE}`."
+            f"É a base que o APLICATIVO embarca, espelhada para cá. Traga-a "
+            f"com:\n"
+            f"  .venv\\Scripts\\python scripts\\espelhar_laboratorio.py\n"
+            f"Se ela mora fora do repositório, aponte {VARIAVEL_DA_BASE} para a "
+            f"pasta que contém os `<modalidade>_{PECAS_NA_BASE}`."
         )
 
     declarado = json.loads(manifesto.read_text(encoding="utf-8"))

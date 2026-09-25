@@ -80,3 +80,17 @@ perseguir_vs_vencer.jsonl
 maratona_*.jsonl
 maratona_do_gerador.json
 logs/
+
+# ── Artefatos do `pub` dentro do espelho (25/09/2026) ───────────────────────
+#
+# Desde 25/09/2026 o espelho carrega o pacote Dart do motor de damas, para que a
+# imagem do job (`Dockerfile.job`) compile o motor ela mesma. Basta abrir a pasta
+# num editor com o analisador do Dart para ele rodar `pub get` sozinho e deixar
+# estes dois para trás.
+#
+# ⛔ **O `pubspec.lock` NAO entra no Git nem na imagem**, e nao e descuido: ele
+# fixaria as versoes de `dev_dependencies` resolvidas no Windows. O que o build
+# precisa e de um `pub get` resolvido na propria imagem - um lock viajando daqui
+# faria o build falhar por um motivo que nao tem nada a ver com damas.
+espelho_laboratorio/jogos/jogo_damas/motor_dart/.dart_tool/
+espelho_laboratorio/jogos/jogo_damas/motor_dart/pubspec.lock

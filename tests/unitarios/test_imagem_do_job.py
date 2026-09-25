@@ -129,20 +129,120 @@ def test_os_tres_arquivos_do_job_existem(caminho: Path) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_a_base_e_a_mesma_da_api() -> None:
+def test_a_base_de_RUNTIME_e_a_mesma_da_api() -> None:
     """Python 3.11-slim nos dois, e nao e gosto: quem manda e o `ai-edge-litert`.
 
     O runtime de inferencia publica wheel para `cp311` em `linux/amd64`; ele e a
     dependencia mais estreita do conjunto (`research.md` §R-03). Se um dia a base
     do job subir sozinha, o wheel deixa de resolver e o build quebra por um
     motivo que ninguem vai associar a esta linha.
+
+    ⚠️ **O `FROM` que importa e o ULTIMO**, e ⛔ nao o primeiro. Desde 25/09/2026 o
+    `Dockerfile.job` e multi-stage: o primeiro estagio e um `dart:stable` que
+    compila o motor de damas, e ele ⛔ existe na imagem final. Ate ali este caso
+    exigia um `FROM` unico, e foi ele que acusou a mudanca — corretamente, porque
+    a pergunta que ele faz continua valendo; o que mudou foi onde ler a resposta.
     """
-    base_job = [ln for ln in linhas_de_instrucao(DOCKERFILE_JOB) if ln.startswith("FROM ")]
-    base_api = [ln for ln in linhas_de_instrucao(DOCKERFILE_API) if ln.startswith("FROM ")]
-    assert base_job == ["FROM python:3.11-slim"], f"base do job: {base_job}"
-    assert base_job == base_api, (
-        "as duas imagens deixaram de compartilhar a base: "
-        f"API={base_api} · job={base_job}"
+    froms_job = [ln for ln in linhas_de_instrucao(DOCKERFILE_JOB) if ln.startswith("FROM ")]
+    froms_api = [ln for ln in linhas_de_instrucao(DOCKERFILE_API) if ln.startswith("FROM ")]
+    assert froms_job, "o Dockerfile.job ficou sem nenhum `FROM`"
+    assert froms_job[-1] == "FROM python:3.11-slim", (
+        f"a base de runtime do job: {froms_job[-1]!r} (os estagios sao {froms_job})"
+    )
+    assert froms_job[-1] == froms_api[-1], (
+        "as duas imagens deixaram de compartilhar a base de runtime: "
+        f"API={froms_api[-1]} · job={froms_job[-1]}"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O MOTOR DE DAMAS DENTRO DA IMAGEM (25/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Desde 25/09/2026 o job joga com o **motor Dart**, byte-identico ao que o
+# aplicativo embarca — porque o gabarito precisa ser a partida que a CPU vai jogar
+# no aparelho de quem resolve (`docs/investigacao_paridade_motores.md`). O binario
+# da maquina do dono e um `.exe` de Windows, entao a imagem compila o dela.
+#
+# ⚠️ Os quatro casos abaixo travam as quatro partes disso, e cada um cobre um modo
+# de falha diferente.
+
+
+def test_um_estagio_compila_o_motor_de_damas() -> None:
+    """🔒 O estagio `motor`, com o SDK do Dart, existe.
+
+    ⛔ Sem ele a imagem sobe sem executavel, o job falha no primeiro lance de
+    damas e o dia fica descoberto — com um erro que fala de compilar, dentro de
+    uma imagem onde ninguem vai compilar nada a mao.
+    """
+    froms = [ln for ln in linhas_de_instrucao(DOCKERFILE_JOB) if ln.startswith("FROM ")]
+    assert any(ln.startswith("FROM dart:") and " AS motor" in ln for ln in froms), (
+        f"nenhum estagio compila o motor de damas. Os `FROM` sao: {froms}"
+    )
+
+
+def test_o_motor_e_compilado_PELO_PROGRAMA_QUE_CARIMBA() -> None:
+    """🔒 `compilar_servidor_de_lances.dart`, e ⛔ um `dart compile` direto.
+
+    ⛔ **E ele que carimba no binario o SHA-256 dos arquivos de `lib/`.** Um
+    `dart compile exe` no lugar produziria um executavel que compila, roda e
+    **abre a conversa afirmando um resumo velho** — e a trava de identidade
+    passaria a proteger nada.
+    """
+    instrucoes = linhas_de_instrucao(DOCKERFILE_JOB)
+    compila = [ln for ln in instrucoes if ln.startswith("RUN ") and "dart " in ln]
+    assert any("compilar_servidor_de_lances.dart" in ln for ln in compila), (
+        "o estagio do motor deixou de usar `compilar_servidor_de_lances.dart`. "
+        f"Comandos `dart` encontrados: {compila}"
+    )
+    assert not any(
+        "dart compile" in ln and "compilar_servidor_de_lances" not in ln
+        for ln in compila
+    ), (
+        "alguem trocou o programa que CARIMBA por um `dart compile` direto — o "
+        "binario sairia sem o resumo dos fontes, e a trava de identidade do "
+        "`jogador_dart.py` deixaria de provar coisa nenhuma."
+    )
+
+
+def test_o_executavel_atravessa_e_a_variavel_o_aponta() -> None:
+    """🔒 O binario chega a imagem final, e o backend sabe onde ele esta.
+
+    ⚠️ Sao **duas** coisas, e falhar em qualquer uma da o mesmo sintoma: o
+    `COPY --from` traz o executavel, e o `ENV MOTOR_DART_DAMAS` e o que
+    `motores/damas/jogador_dart.py` consulta primeiro. Sem a variavel ele
+    procuraria o laboratorio vizinho, que ⛔ existe na nuvem.
+    """
+    instrucoes = " ".join(linhas_de_instrucao(DOCKERFILE_JOB))
+    assert "COPY --from=motor" in instrucoes, (
+        "o executavel compilado no estagio `motor` ⛔ atravessa para a imagem "
+        "final — ela subiria sem motor nenhum."
+    )
+    assert "MOTOR_DART_DAMAS=" in instrucoes, (
+        "falta o `ENV MOTOR_DART_DAMAS` apontando para o binario."
+    )
+
+
+def test_o_portao_do_motor_esta_no_build() -> None:
+    """🔒 A linha que impede a imagem de JOGAR diferente do aplicativo.
+
+    O irmao do portao do runtime de inferencia, e pela mesma razao escrita la: um
+    comando avulso se roda uma vez e envelhece; o portao re-confere a cada imagem
+    construida.
+
+    ⛔ O risco que ele fecha ⛔ e "nao compilou" — isso falharia cedo e alto. E
+    compilar, abrir e jogar **um pouco** diferente: o gabarito sairia de um
+    adversario que nao e o adversario da pessoa, e nada no dado denunciaria. Foi
+    exatamente o defeito de 25/09/2026.
+    """
+    portao = [
+        ln
+        for ln in linhas_de_instrucao(DOCKERFILE_JOB)
+        if ln.startswith("RUN ") and "conferir_motor_dart.py" in ln
+    ]
+    assert portao, (
+        "o Dockerfile.job perdeu o portao do motor de damas. Sem ele, uma imagem "
+        "que joga diferente do aparelho chega ao Railway sem nada acusar."
     )
 
 

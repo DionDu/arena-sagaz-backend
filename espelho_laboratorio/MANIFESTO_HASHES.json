@@ -238,6 +238,21 @@
       "tamanho_bytes": 14958
     },
     {
+      "caminho": "jogos/jogo_damas/motor_dart/pubspec.yaml",
+      "sha256": "459bb7b79fd759a74215a134eb9e19b5fb65b877f61f9dd1989f2ade9cbdbdbb",
+      "tamanho_bytes": 1656
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/bin/servidor_de_lances_damas.dart",
+      "sha256": "256760488f0a813b019a845565a1dc96474da84bfb19862092a599a6d6dcd8ac",
+      "tamanho_bytes": 15955
+    },
+    {
+      "caminho": "jogos/jogo_damas/motor_dart/bin/compilar_servidor_de_lances.dart",
+      "sha256": "ab46ddc168efe47be814f432d2487905daee27e5af8a1da20fb7177a4d1c3d2f",
+      "tamanho_bytes": 6268
+    },
+    {
       "caminho": "contrato_dificuldade_pontinhos.json",
       "sha256": "0971d48f329419d6f71aa11de7aaa9e384c20bc1a15bda58eddf78ade0591c74",
       "tamanho_bytes": 7203
@@ -256,6 +271,946 @@
       "caminho": "contrato_codificacao_pontinhos.json",
       "sha256": "7399222bdbe51a4231dddae206c554c71dd24af9cdba19567c7449640c4a279d",
       "tamanho_bytes": 12361
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0101.distancias.gz",
+      "sha256": "72a78f3fc6ae1da9e903ccc478cbc385f23f74135d9eb130d03cd0f9fd030164",
+      "tamanho_bytes": 556
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0101.valores.gz",
+      "sha256": "c8e6c5aea279e41f090106ed26cd730ec132c4b933ae3cb5e9958f97c340b15e",
+      "tamanho_bytes": 308
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0102.distancias.gz",
+      "sha256": "7b197ee54703264e361094a9623642d382e239cf343547e5c7e041d55bc9aaca",
+      "tamanho_bytes": 9367
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0102.valores.gz",
+      "sha256": "735544bec3e74a8b143082d58f0327259463a766f44370e082a2b6372659fcc3",
+      "tamanho_bytes": 1351
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0103.distancias.gz",
+      "sha256": "79639a63b6874b5135a99db4982c1d42dd0b85b3483eca3b10e0965b8c36dad8",
+      "tamanho_bytes": 74085
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0103.valores.gz",
+      "sha256": "8af8cafd6cd1f05b20706a3a4eed5f5fb90e0f4b63dafb8445dec7f690c2d23f",
+      "tamanho_bytes": 3065
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0110.distancias.gz",
+      "sha256": "8e687f04cca7c69f7169071ed858458aed906c9451c1dab2710837d77b27c71f",
+      "tamanho_bytes": 436
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0110.valores.gz",
+      "sha256": "af5bb2dbf879c64119b0759362cf64d2e47ecdd97ca69ce79e241dbbe9472395",
+      "tamanho_bytes": 191
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0111.distancias.gz",
+      "sha256": "21e06b168132e4ceafe5366a21a05964a8f883c1c318b11ae1b1c10d485b8026",
+      "tamanho_bytes": 19317
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0111.valores.gz",
+      "sha256": "405d6604cbcced606df91231f1d0589a43413bc7a0124a4117b83013f64b8264",
+      "tamanho_bytes": 1894
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0112.distancias.gz",
+      "sha256": "e896f0a1ddd834fab0efcd4571ecb3cf6e14454e7928f6495797cc8b6d279dd6",
+      "tamanho_bytes": 269163
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0112.valores.gz",
+      "sha256": "104c661d183f49aba885bef9e2bd8acb5102dd2c111fccbaab9f7624676d4621",
+      "tamanho_bytes": 8995
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0120.distancias.gz",
+      "sha256": "e4974517be0b1b241c52622530a2a7fbc556c3691b66ef02a3cbb8d64fde21df",
+      "tamanho_bytes": 8466
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0120.valores.gz",
+      "sha256": "1df46806e45b4604601d5bec4334343868a597dde0672d494cf2faf714864621",
+      "tamanho_bytes": 913
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0121.distancias.gz",
+      "sha256": "98285aa0bef040954c912d9d29df5152db4b7a8f5944cda63d1329c04e0da3ad",
+      "tamanho_bytes": 272796
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0121.valores.gz",
+      "sha256": "e8924f6ae065e43ba297408d11d3c922ca06c6b34bf7f3aefbb0519d8da3093a",
+      "tamanho_bytes": 8636
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0130.distancias.gz",
+      "sha256": "0568c5654b39381fd0752aaf87bbebea2f68034f0c58293e59076e847148d215",
+      "tamanho_bytes": 86875
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0130.valores.gz",
+      "sha256": "3e376694b4576bc82ad3576bd179d3a4e2e548b74a43598c930a3b777c544ce4",
+      "tamanho_bytes": 2445
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0202.distancias.gz",
+      "sha256": "6867a18977b0a40af6494f2f639517fa2353793a6989f4b8fa1b343369bc6755",
+      "tamanho_bytes": 111099
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0202.valores.gz",
+      "sha256": "53219f97845722244f474ff742476fd3c2bacb84781e3edb29684e3da756f9f8",
+      "tamanho_bytes": 36303
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0210.distancias.gz",
+      "sha256": "375565d107732f32a470881dff3e63a245f1345375e1c2d37ba4a2c605735e42",
+      "tamanho_bytes": 6257
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0210.valores.gz",
+      "sha256": "8e9f387f5cb0c43c136d8b34eea52cb5457acfcd1183c9cb01a660cd511ac19e",
+      "tamanho_bytes": 569
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0211.distancias.gz",
+      "sha256": "c2a2cd0dc03f6ae60b0d4d4644899b212a8c5ff3e2f7ff7dfb5b71f1e54e45a9",
+      "tamanho_bytes": 235073
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0211.valores.gz",
+      "sha256": "976fa8622e1a197de11c8f86f7ccda0def9f58c6c940cc3b0d53db3f1dee55b8",
+      "tamanho_bytes": 71744
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0220.distancias.gz",
+      "sha256": "c8cc80ab29a2cacff8f2f6b1359a3713b21e9dba5072d5c25875a1ce8513499d",
+      "tamanho_bytes": 147411
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0220.valores.gz",
+      "sha256": "c77c791c28c0a09f77d45f64c1285a159099b8df946905472eb10dab6f4c94c2",
+      "tamanho_bytes": 29021
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0310.distancias.gz",
+      "sha256": "8ab7d47c41a8ed6b57a2802ebea84221a38245e0ee58b52b7280ea70b1ddc695",
+      "tamanho_bytes": 31999
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/0310.valores.gz",
+      "sha256": "c2e1dcf7c8c64e716a09c3ebb10c683e075f67785fe6dce628e887b6773abb69",
+      "tamanho_bytes": 1059
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1010.distancias.gz",
+      "sha256": "4859683574ad5558357ffc304516951ed140f05333c046ccf7f5ba80513b1076",
+      "tamanho_bytes": 250
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1010.valores.gz",
+      "sha256": "7bb37ab9b5fd4b32184f9acefe318ca22571120fecad63f1e5b1cfb8f97132f8",
+      "tamanho_bytes": 165
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1011.distancias.gz",
+      "sha256": "cd59f4b45269ccf98558474ed9f7249a377819d8f0a1d335192d19ae0387a36b",
+      "tamanho_bytes": 12144
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1011.valores.gz",
+      "sha256": "57b422a05052e806b4df5ebe7f8eb55b00773ebe13496cb2dfc7986e32886e5c",
+      "tamanho_bytes": 803
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1012.distancias.gz",
+      "sha256": "b78050495dd8a4bf9e000f6f454db43c0f3ae8acfadfc6db6b920258e7a83350",
+      "tamanho_bytes": 123343
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1012.valores.gz",
+      "sha256": "555e74e91ce18e83efb82d87030e53676839fefeddf3e6420d69b46b6ebb0d1d",
+      "tamanho_bytes": 2884
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1020.distancias.gz",
+      "sha256": "7548573c0528a8bc37795c3466d32df0aae739d3073cb9afa4128afc60391ce3",
+      "tamanho_bytes": 5406
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1020.valores.gz",
+      "sha256": "7a4f03e972a3e17781eb3508f41ed87e3bdd9ca4afb6a569ae421ccdc04ebaef",
+      "tamanho_bytes": 724
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1021.distancias.gz",
+      "sha256": "6579969e01b48b3ab8d5965747473082ca7ab51a74c214c7bca922b0eb50251f",
+      "tamanho_bytes": 130537
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1021.valores.gz",
+      "sha256": "78ebcdd8510a0405493fa793bd582620dbba30fce75d220e9d04a1474cd93735",
+      "tamanho_bytes": 3095
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1030.distancias.gz",
+      "sha256": "e8081c1dacf8a529bb26806ad0bfb932281f2fd20da05b0a348db3aef2669242",
+      "tamanho_bytes": 34283
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1030.valores.gz",
+      "sha256": "d29186849ec939d159911dba82cedbf99c143bc33ea2c0a1a5b19190e66ec0ae",
+      "tamanho_bytes": 2081
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1111.distancias.gz",
+      "sha256": "f7f450c73d3fee14458c61d0c1857af4b7f49af9d7a35ed6c046f92375163cd2",
+      "tamanho_bytes": 332059
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1111.valores.gz",
+      "sha256": "86b40d99aed07f0054324416de147027ae854a68268d7dd19f71d47fc325c2eb",
+      "tamanho_bytes": 108135
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1120.distancias.gz",
+      "sha256": "0418d237bfc638ecd778a2c03f326496674dcb80514493a18f7d39dd5c3d338c",
+      "tamanho_bytes": 229247
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/1120.valores.gz",
+      "sha256": "5c4fc3ab91c68121bb28ff6236a4a3463fe3d11ccc309971645463fe61f0f229",
+      "tamanho_bytes": 57143
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/2020.distancias.gz",
+      "sha256": "6641b57850a7ad551de10be636c036347a20c2ba3a3460816c4535d7d22d8178",
+      "tamanho_bytes": 56623
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/2020.valores.gz",
+      "sha256": "5790d50036edc5af4c05e2ccd21a916ee9eba003f6fdbc27c797926ee13b0adf",
+      "tamanho_bytes": 24332
+    },
+    {
+      "caminho": "base_finais_damas/anglo_4/manifesto.json",
+      "sha256": "4c99e6b3f41d4c1b30b6b2aee415c20b2b06f97077cafa189d508ab8939655e7",
+      "tamanho_bytes": 7916
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0101.distancias.gz",
+      "sha256": "1e96d9a153efba9943df3235e40860534fed8bfb2fab194b5825f70b7fb8b19d",
+      "tamanho_bytes": 276
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0101.valores.gz",
+      "sha256": "016e59ec5ea58ceca24085171561e2f97eb8a245a2ed05918d1177bb15d39440",
+      "tamanho_bytes": 225
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0102.distancias.gz",
+      "sha256": "b287da1758eaf9aaeeeb3aa8a512061f75087ed613f073c84b841b89ae97a56f",
+      "tamanho_bytes": 3091
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0102.valores.gz",
+      "sha256": "13deecc02984cfa221039e7bd833945959176b56d5cb74e328c556505f9eafc9",
+      "tamanho_bytes": 2333
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0103.distancias.gz",
+      "sha256": "54c09d63630766145e4bcd4dd57c047a56ade3acd3d0eb22eb5b0442f63bebad",
+      "tamanho_bytes": 78874
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0103.valores.gz",
+      "sha256": "3a82ce3125735a7d908275cb94c486aab5fa0c675f4f318ca77807ffb61d05e0",
+      "tamanho_bytes": 14881
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0110.distancias.gz",
+      "sha256": "9fed27dc9b508a9670fdb69152ba4fff2464a840ea39710d3e43ce3f31ecc39c",
+      "tamanho_bytes": 483
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0110.valores.gz",
+      "sha256": "470f8c0743ee061a8fcf2c403cafb1c821d15ce005e7593c7b8725073e585bf5",
+      "tamanho_bytes": 153
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0111.distancias.gz",
+      "sha256": "1001795f2cd00e30addf21467e87383278ce340265f6983b6a720a5f4411add9",
+      "tamanho_bytes": 6925
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0111.valores.gz",
+      "sha256": "d4cb93609f40b292ed0a6c9cd93cb92cad3abb9184855a840513460f7b8cdc9e",
+      "tamanho_bytes": 3930
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0112.distancias.gz",
+      "sha256": "0a722bee8f6bc97c1df14c154db3741f9ebeced5769108584720dce91cb012be",
+      "tamanho_bytes": 255141
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0112.valores.gz",
+      "sha256": "d08ef40f5174b3292b9296da0a9fb4a562e8b1613c86aea406e70fd078bd9af5",
+      "tamanho_bytes": 58012
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0120.distancias.gz",
+      "sha256": "4906a7209ca0005453479641277e67d4f48baaeb49b89a9c31a266947fa395e7",
+      "tamanho_bytes": 6606
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0120.valores.gz",
+      "sha256": "8070435f396f05f6bfe2b9b41be188534df5d5a8e193f51bc0373504f3b28654",
+      "tamanho_bytes": 2559
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0121.distancias.gz",
+      "sha256": "e382e3a558e888fd9ea26f6389758b8f7164d77434b59bcc1628089632f1ac78",
+      "tamanho_bytes": 250097
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0121.valores.gz",
+      "sha256": "9e354014f0f6382366fdd5a0afa88091f1e5df6faba8f2cd30eb8b16ad1891de",
+      "tamanho_bytes": 65786
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0130.distancias.gz",
+      "sha256": "1d9a2d8a2b2f1e7b6abfe2490bfa797de520c8242df1f5f51020df725443b124",
+      "tamanho_bytes": 60357
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0130.valores.gz",
+      "sha256": "5134c2ce493cb4d605d7a0f88a0ed980264cc708ab74b9dfc9f0637baca4b6f9",
+      "tamanho_bytes": 23897
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0202.distancias.gz",
+      "sha256": "1acde52157ba503d2571f75b4120d8f20e945b62c873b53a66bfc77d50ece9ec",
+      "tamanho_bytes": 36249
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0202.valores.gz",
+      "sha256": "27e5f83d8f13b0f156299ff1690c70f4697736e3cedaf1d4ee7176cf5138a7d9",
+      "tamanho_bytes": 27056
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0210.distancias.gz",
+      "sha256": "ffc67c056d6564c35191d4e8b01cb02e8c5dc61abc8077aa89c6d64ecb2c40f2",
+      "tamanho_bytes": 5126
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0210.valores.gz",
+      "sha256": "6370ec1342e9cfda22756774449e99ad07ca1df010338cfbadf5d9640b90ef61",
+      "tamanho_bytes": 861
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0211.distancias.gz",
+      "sha256": "5239b4b36c058dceae81d073c17dcce88620a7d3de0066fcffb1fb7eb09806b2",
+      "tamanho_bytes": 131549
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0211.valores.gz",
+      "sha256": "f188ea1061963b67bd20c228b82e5e65272b6312ff91346e6d656c0c8c744021",
+      "tamanho_bytes": 69376
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0220.distancias.gz",
+      "sha256": "37e19e3fc298767a631e760d7a559ad255bade2703ffa88ef11292887e09df97",
+      "tamanho_bytes": 103119
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0220.valores.gz",
+      "sha256": "956ba4d249cd6256d5a60e221106bbe2a92fb7e8a0e387d3d22a7d8928ab778a",
+      "tamanho_bytes": 24320
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0310.distancias.gz",
+      "sha256": "4431ce7dabf21fe040faf1c398b7460585b7a39869ccb048bbbf5f8a954993be",
+      "tamanho_bytes": 34365
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/0310.valores.gz",
+      "sha256": "faf0f348ff9fbd0425cb87769755bb0afc686ab4b5936ccffe45a9d582ea6253",
+      "tamanho_bytes": 2007
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1010.distancias.gz",
+      "sha256": "8a8797746feae696dcb7e43b6b2662d025fc0ffcd7d5c625c33d18d232215024",
+      "tamanho_bytes": 621
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1010.valores.gz",
+      "sha256": "687fb22af51741a8a3cb5ca59cc4af22e5ddd3b32177ac6ab58f8cdffe13e58a",
+      "tamanho_bytes": 288
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1011.distancias.gz",
+      "sha256": "3fa6d8c278bba776324ecd331e0225bb85e7e0b05d1a0e9c9c23b263adb7ed4b",
+      "tamanho_bytes": 8602
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1011.valores.gz",
+      "sha256": "f11f1ff03f22ce99c15a41e145d04d812c5431ea18da4019ed8583ead1ad2639",
+      "tamanho_bytes": 2363
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1012.distancias.gz",
+      "sha256": "34d988a26f6636e2e7e0aae0e4776b20bb3856849ba3f0ad683e25ef0618cb3e",
+      "tamanho_bytes": 115985
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1012.valores.gz",
+      "sha256": "833faf57fd77496757bc9a74abda323d62cbc2552153972822e484c61407cd76",
+      "tamanho_bytes": 10270
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1020.distancias.gz",
+      "sha256": "a967d8af798cdab839c83ba68f81a8c34e8df69106d948b99c27750557a461d4",
+      "tamanho_bytes": 5348
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1020.valores.gz",
+      "sha256": "35c3261eb21c9287d5a17318680f30c5ee9215f22e2d577a0feaa154ea1333e6",
+      "tamanho_bytes": 2088
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1021.distancias.gz",
+      "sha256": "3123cefc2a3f5962c740f90b9aa401f2716b390ea2d82c8cea8dd97a75b2438f",
+      "tamanho_bytes": 128255
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1021.valores.gz",
+      "sha256": "abe341a9ce035679b209eda6138d07c190c778699135b3c2d11b2b682e9b3457",
+      "tamanho_bytes": 15470
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1030.distancias.gz",
+      "sha256": "4dc83fec2638da825b6e5e515a9e32613a75ccdcd799abb25753cc71e3200e9a",
+      "tamanho_bytes": 46665
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1030.valores.gz",
+      "sha256": "60d9b630d739885f48c4af171f6c215026b47a3ac5a5fc8c7f0656a1d05e1b88",
+      "tamanho_bytes": 9635
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1111.distancias.gz",
+      "sha256": "d1c3529f6e5c2d2b895665dd236283f3e7a825af2e54b65344ea2916d39de747",
+      "tamanho_bytes": 249578
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1111.valores.gz",
+      "sha256": "de461964b6aa5fba423e49c55ca69688a0ea08b037da4b3268fe02c8f21d0281",
+      "tamanho_bytes": 119611
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1120.distancias.gz",
+      "sha256": "7dc87aff4a647a329f45408fec83ed00fe0800d485e3efd4dccb85f7bb8d2048",
+      "tamanho_bytes": 218706
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/1120.valores.gz",
+      "sha256": "db131069292c7339f30d6adce22d70c3ddf80465c0f551af974b533fc954d57a",
+      "tamanho_bytes": 55554
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/2020.distancias.gz",
+      "sha256": "c7c9737907624f62c8f8d99aed7e67d2661ff72a5bc59fd7c84497b8f41f97a3",
+      "tamanho_bytes": 90241
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/2020.valores.gz",
+      "sha256": "c305680448a40188c3e4649a2efeedc529c1b773cf592c09be680e414353d1cc",
+      "tamanho_bytes": 33200
+    },
+    {
+      "caminho": "base_finais_damas/brasileira_4/manifesto.json",
+      "sha256": "5417a198f0a16a37f82163d0d2bd9bc591398c330deb2f4502e254668b6d4ead",
+      "tamanho_bytes": 7931
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0101.distancias.gz",
+      "sha256": "1e96d9a153efba9943df3235e40860534fed8bfb2fab194b5825f70b7fb8b19d",
+      "tamanho_bytes": 276
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0101.valores.gz",
+      "sha256": "016e59ec5ea58ceca24085171561e2f97eb8a245a2ed05918d1177bb15d39440",
+      "tamanho_bytes": 225
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0102.distancias.gz",
+      "sha256": "b287da1758eaf9aaeeeb3aa8a512061f75087ed613f073c84b841b89ae97a56f",
+      "tamanho_bytes": 3091
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0102.valores.gz",
+      "sha256": "13deecc02984cfa221039e7bd833945959176b56d5cb74e328c556505f9eafc9",
+      "tamanho_bytes": 2333
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0103.distancias.gz",
+      "sha256": "97029a38d7e00410ce1f017102e19921b0ccd56877755799132a3161fe3ee06e",
+      "tamanho_bytes": 71179
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0103.valores.gz",
+      "sha256": "2f6d6a6b17ac515bb79a41603232110f929f7528bd7bdb355a26639881ea524d",
+      "tamanho_bytes": 14037
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0110.distancias.gz",
+      "sha256": "9fed27dc9b508a9670fdb69152ba4fff2464a840ea39710d3e43ce3f31ecc39c",
+      "tamanho_bytes": 483
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0110.valores.gz",
+      "sha256": "470f8c0743ee061a8fcf2c403cafb1c821d15ce005e7593c7b8725073e585bf5",
+      "tamanho_bytes": 153
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0111.distancias.gz",
+      "sha256": "1001795f2cd00e30addf21467e87383278ce340265f6983b6a720a5f4411add9",
+      "tamanho_bytes": 6925
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0111.valores.gz",
+      "sha256": "d4cb93609f40b292ed0a6c9cd93cb92cad3abb9184855a840513460f7b8cdc9e",
+      "tamanho_bytes": 3930
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0112.distancias.gz",
+      "sha256": "ad8e63543eefe20aa0eda379629f78192f4341e1bc2508b7ba21bbd2160d2966",
+      "tamanho_bytes": 247097
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0112.valores.gz",
+      "sha256": "004ec67c044f3eca631d2295da434aef3f47e0da060a6907f060e03f5cf0948d",
+      "tamanho_bytes": 56802
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0120.distancias.gz",
+      "sha256": "4906a7209ca0005453479641277e67d4f48baaeb49b89a9c31a266947fa395e7",
+      "tamanho_bytes": 6606
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0120.valores.gz",
+      "sha256": "8070435f396f05f6bfe2b9b41be188534df5d5a8e193f51bc0373504f3b28654",
+      "tamanho_bytes": 2559
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0121.distancias.gz",
+      "sha256": "418405d7715784833b41294a20498ee68dcd7d09a00ad22490f3796f7b3fc956",
+      "tamanho_bytes": 247220
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0121.valores.gz",
+      "sha256": "bccbfe0451d3004c6e9800425d655712d42ad90095c3d6c82ca8987dcfc4eac5",
+      "tamanho_bytes": 64922
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0130.distancias.gz",
+      "sha256": "a705fcb4f5c5440ce74c5aff8a1971c2e9f0231c888bfe89563098d5d3b55e9a",
+      "tamanho_bytes": 62266
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0130.valores.gz",
+      "sha256": "6ab97f778e63d82b67f92d47a6f7cf3048a4fb8662d8416d05aa031aa23da056",
+      "tamanho_bytes": 24148
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0202.distancias.gz",
+      "sha256": "1acde52157ba503d2571f75b4120d8f20e945b62c873b53a66bfc77d50ece9ec",
+      "tamanho_bytes": 36249
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0202.valores.gz",
+      "sha256": "27e5f83d8f13b0f156299ff1690c70f4697736e3cedaf1d4ee7176cf5138a7d9",
+      "tamanho_bytes": 27056
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0210.distancias.gz",
+      "sha256": "ffc67c056d6564c35191d4e8b01cb02e8c5dc61abc8077aa89c6d64ecb2c40f2",
+      "tamanho_bytes": 5126
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0210.valores.gz",
+      "sha256": "6370ec1342e9cfda22756774449e99ad07ca1df010338cfbadf5d9640b90ef61",
+      "tamanho_bytes": 861
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0211.distancias.gz",
+      "sha256": "5239b4b36c058dceae81d073c17dcce88620a7d3de0066fcffb1fb7eb09806b2",
+      "tamanho_bytes": 131549
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0211.valores.gz",
+      "sha256": "f188ea1061963b67bd20c228b82e5e65272b6312ff91346e6d656c0c8c744021",
+      "tamanho_bytes": 69376
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0220.distancias.gz",
+      "sha256": "37e19e3fc298767a631e760d7a559ad255bade2703ffa88ef11292887e09df97",
+      "tamanho_bytes": 103119
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0220.valores.gz",
+      "sha256": "956ba4d249cd6256d5a60e221106bbe2a92fb7e8a0e387d3d22a7d8928ab778a",
+      "tamanho_bytes": 24320
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0310.distancias.gz",
+      "sha256": "6a8b3093002b20b43dc3ba3015c8612811641d03bd7cc55e414d31597dfb88e6",
+      "tamanho_bytes": 32796
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/0310.valores.gz",
+      "sha256": "527d40ab35db8e7dd88c6c51f52ad1cd07b046446209a16b1d1c428c2bf30b15",
+      "tamanho_bytes": 1929
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1010.distancias.gz",
+      "sha256": "8a8797746feae696dcb7e43b6b2662d025fc0ffcd7d5c625c33d18d232215024",
+      "tamanho_bytes": 621
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1010.valores.gz",
+      "sha256": "687fb22af51741a8a3cb5ca59cc4af22e5ddd3b32177ac6ab58f8cdffe13e58a",
+      "tamanho_bytes": 288
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1011.distancias.gz",
+      "sha256": "3fa6d8c278bba776324ecd331e0225bb85e7e0b05d1a0e9c9c23b263adb7ed4b",
+      "tamanho_bytes": 8602
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1011.valores.gz",
+      "sha256": "f11f1ff03f22ce99c15a41e145d04d812c5431ea18da4019ed8583ead1ad2639",
+      "tamanho_bytes": 2363
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1012.distancias.gz",
+      "sha256": "b101b0c117ee82b82167faf872cdef8b3c6d4b5810493ba096c3eb753c67cb05",
+      "tamanho_bytes": 113395
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1012.valores.gz",
+      "sha256": "bb5e84896d4c2dfb1428fc540de099b4689fc780afbeca52806f5b769ea333e4",
+      "tamanho_bytes": 10199
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1020.distancias.gz",
+      "sha256": "a967d8af798cdab839c83ba68f81a8c34e8df69106d948b99c27750557a461d4",
+      "tamanho_bytes": 5348
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1020.valores.gz",
+      "sha256": "35c3261eb21c9287d5a17318680f30c5ee9215f22e2d577a0feaa154ea1333e6",
+      "tamanho_bytes": 2088
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1021.distancias.gz",
+      "sha256": "f450d6f481a40bef020b240ebed515cfecd1d18f6377b3fb8fccf888533105d4",
+      "tamanho_bytes": 127611
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1021.valores.gz",
+      "sha256": "fac7f902fc4343de992d75180c438533401a9f19c9038d478edfeeb69fb32428",
+      "tamanho_bytes": 15365
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1030.distancias.gz",
+      "sha256": "0dd009543afc7251c775ec2d9ed107d9eccb28fe71384992949adb4369192485",
+      "tamanho_bytes": 46871
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1030.valores.gz",
+      "sha256": "6a155d4f04130845c1f09b3b6d59460c08bc065a9b314cee5e49bd06b6074f3a",
+      "tamanho_bytes": 9729
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1111.distancias.gz",
+      "sha256": "d1c3529f6e5c2d2b895665dd236283f3e7a825af2e54b65344ea2916d39de747",
+      "tamanho_bytes": 249578
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1111.valores.gz",
+      "sha256": "de461964b6aa5fba423e49c55ca69688a0ea08b037da4b3268fe02c8f21d0281",
+      "tamanho_bytes": 119611
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1120.distancias.gz",
+      "sha256": "7dc87aff4a647a329f45408fec83ed00fe0800d485e3efd4dccb85f7bb8d2048",
+      "tamanho_bytes": 218706
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/1120.valores.gz",
+      "sha256": "db131069292c7339f30d6adce22d70c3ddf80465c0f551af974b533fc954d57a",
+      "tamanho_bytes": 55554
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/2020.distancias.gz",
+      "sha256": "c7c9737907624f62c8f8d99aed7e67d2661ff72a5bc59fd7c84497b8f41f97a3",
+      "tamanho_bytes": 90241
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/2020.valores.gz",
+      "sha256": "c305680448a40188c3e4649a2efeedc529c1b773cf592c09be680e414353d1cc",
+      "tamanho_bytes": 33200
+    },
+    {
+      "caminho": "base_finais_damas/casa_4/manifesto.json",
+      "sha256": "14d8d87627cd7894608e55bc2a27e01f14a242bb15520679615e39e54726df9f",
+      "tamanho_bytes": 7923
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0101.distancias.gz",
+      "sha256": "1e96d9a153efba9943df3235e40860534fed8bfb2fab194b5825f70b7fb8b19d",
+      "tamanho_bytes": 276
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0101.valores.gz",
+      "sha256": "016e59ec5ea58ceca24085171561e2f97eb8a245a2ed05918d1177bb15d39440",
+      "tamanho_bytes": 225
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0102.distancias.gz",
+      "sha256": "b287da1758eaf9aaeeeb3aa8a512061f75087ed613f073c84b841b89ae97a56f",
+      "tamanho_bytes": 3091
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0102.valores.gz",
+      "sha256": "13deecc02984cfa221039e7bd833945959176b56d5cb74e328c556505f9eafc9",
+      "tamanho_bytes": 2333
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0103.distancias.gz",
+      "sha256": "54c09d63630766145e4bcd4dd57c047a56ade3acd3d0eb22eb5b0442f63bebad",
+      "tamanho_bytes": 78874
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0103.valores.gz",
+      "sha256": "be0dda4f29414040ee7019b1c5b04473d1af688a263c87c2cb4e8587957a7145",
+      "tamanho_bytes": 14591
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0110.distancias.gz",
+      "sha256": "e2f1b4ab1484c6dd35d63575fe297cb3dc208e0fd692c4c75650d59f1da2f4aa",
+      "tamanho_bytes": 473
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0110.valores.gz",
+      "sha256": "db8278331a60b600485d89116ddad0c2ebfde743d5620bce01c952fe05b12b18",
+      "tamanho_bytes": 139
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0111.distancias.gz",
+      "sha256": "aea45ce70fc8afdaca6f6ca4ee13bdfdddddc8a1ece1d931604d0b8fb58f7ab3",
+      "tamanho_bytes": 6854
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0111.valores.gz",
+      "sha256": "b1d0440a00c01fb61b56fa7c7fa284ed2a186132c724eec9871ea3d63eb556f1",
+      "tamanho_bytes": 3857
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0112.distancias.gz",
+      "sha256": "8dd1c8013b70cebe69fadb00a15658f256ea2f4a5985b569540d5f092782371f",
+      "tamanho_bytes": 256175
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0112.valores.gz",
+      "sha256": "80058ef02772c8bafffb083f74a848d1ad023c682b75f5d65057e38404fbb608",
+      "tamanho_bytes": 58149
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0120.distancias.gz",
+      "sha256": "bad80a91f5acfb2c6a984a6cfe7baa8e41e779d7599e028095e04359dc4a1fa1",
+      "tamanho_bytes": 6552
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0120.valores.gz",
+      "sha256": "66f30345959968f89f7efbbe26dcc17ad029e218c94b792b49142229f8565ce4",
+      "tamanho_bytes": 2331
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0121.distancias.gz",
+      "sha256": "d9c246dc12badf23db0099a89faf74879f44901dcc92a50264fda8c2459a1c92",
+      "tamanho_bytes": 232300
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0121.valores.gz",
+      "sha256": "4136dd660bd3b8ad239bd4d40d9fe189d0591c012f8f3d9f08cb095061eb3641",
+      "tamanho_bytes": 68612
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0130.distancias.gz",
+      "sha256": "082cff72aaac616900b657ac7dcfa6f4753c1d8e52ce51972dbe535c6d35c847",
+      "tamanho_bytes": 53901
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0130.valores.gz",
+      "sha256": "556f7b1eaf9eb1a12d58b5936fd5662baded3cd34e22c0cc303805531ce0e06d",
+      "tamanho_bytes": 21906
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0202.distancias.gz",
+      "sha256": "1acde52157ba503d2571f75b4120d8f20e945b62c873b53a66bfc77d50ece9ec",
+      "tamanho_bytes": 36249
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0202.valores.gz",
+      "sha256": "27e5f83d8f13b0f156299ff1690c70f4697736e3cedaf1d4ee7176cf5138a7d9",
+      "tamanho_bytes": 27056
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0210.distancias.gz",
+      "sha256": "def80d49869b5278696b29b327cac6720f99b434e7e6934ac2bec62f914656ca",
+      "tamanho_bytes": 4002
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0210.valores.gz",
+      "sha256": "a2a6b680fd7dc132d385c8cc6412281de145e49e5a3b40daa081694ec1b2f332",
+      "tamanho_bytes": 845
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0211.distancias.gz",
+      "sha256": "84c117056fbdc6913b0ed1ebfa9b53b2e45a66ccd0f05c26226b2c6135c80d07",
+      "tamanho_bytes": 120744
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0211.valores.gz",
+      "sha256": "c1b81130ba0701353e39097be52433f7ed87520727366b22b2498ca471bfb466",
+      "tamanho_bytes": 66504
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0220.distancias.gz",
+      "sha256": "18149b93bce091347c6ed8cb559aa1c8ee17b87c6336e35592b0e71033a82ce0",
+      "tamanho_bytes": 84532
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0220.valores.gz",
+      "sha256": "29d530c2e0cb04ca84b28d80fcd774935a154f0ecd428e2b744ae938f4a1c5f3",
+      "tamanho_bytes": 21553
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0310.distancias.gz",
+      "sha256": "4fba9d978ebe85d57faecf48982ecfe0a4d8750c72172f8bf479f6954095c7a0",
+      "tamanho_bytes": 33325
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/0310.valores.gz",
+      "sha256": "8d33bfa93eb233d1f5123c5aa5826a2fb4732fb7dfca365c7e4101a07bd9333d",
+      "tamanho_bytes": 2001
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1010.distancias.gz",
+      "sha256": "e1db2d39aeba20556c6c9fb80309400aafbb662537de8400a65ff942a1ae137e",
+      "tamanho_bytes": 516
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1010.valores.gz",
+      "sha256": "36ede25381ccf744a7465ae926e49263bead450dffcc30975077b8623b5161cd",
+      "tamanho_bytes": 259
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1011.distancias.gz",
+      "sha256": "174cb2b83bbe5e68e0a5e3abd2b97773c740f0631a5c9dd6040373f5d9abc7c4",
+      "tamanho_bytes": 7017
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1011.valores.gz",
+      "sha256": "c4d1fed689a8f72010ae7f5ed90fbb35dbe24252b878784b2d50cf27005cfe43",
+      "tamanho_bytes": 1795
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1012.distancias.gz",
+      "sha256": "d7b325c55daede9313cd4043dc883a25dd6a0a06a4d0401c9cfdc3e1b10f8000",
+      "tamanho_bytes": 120559
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1012.valores.gz",
+      "sha256": "b16cdf42ec9f5aeb97c3b5cbb65c78babeb42b2cd39a1316bfd2de8bd1f46ca3",
+      "tamanho_bytes": 8783
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1020.distancias.gz",
+      "sha256": "25a1105110d0e56f016cf0552344891754e91dcce024723f777293f6cb1cf36b",
+      "tamanho_bytes": 4496
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1020.valores.gz",
+      "sha256": "1e7e5cc97d082c1e870fc4e7b4f2a0496b95bbecccd377158e0b7e986b0953c1",
+      "tamanho_bytes": 1839
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1021.distancias.gz",
+      "sha256": "4d4f065bcd985d5e8b3d8051b453c3e77058f5febea7e1b9f6655d388acefc6c",
+      "tamanho_bytes": 131216
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1021.valores.gz",
+      "sha256": "bd034a402098b9da22918ec743f91aefa8567c383c6f31e202b5188bc50799ea",
+      "tamanho_bytes": 15021
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1030.distancias.gz",
+      "sha256": "49c1c1216f984708b7a77a45e51d54d64cc12b623d7f0b32f6b8e69fe212317a",
+      "tamanho_bytes": 44805
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1030.valores.gz",
+      "sha256": "da1a51a1a82697e70eb70baca1075ecb7feb2cedee56bc7a1ce7e21d8edee3c8",
+      "tamanho_bytes": 9446
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1111.distancias.gz",
+      "sha256": "b545d8d592b3a4c4bc9d71b6da6e3b6163c127bfd2c5c7f5cbea691df1438915",
+      "tamanho_bytes": 218968
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1111.valores.gz",
+      "sha256": "9a7ceb1c971cdd372a787973d25c2d30c08758311ab74c98d6d3a89232ee3caf",
+      "tamanho_bytes": 108515
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1120.distancias.gz",
+      "sha256": "918d6f078444404b8dc6838ecdccf61d47c85aea285871df69b7ef35dbbf8858",
+      "tamanho_bytes": 189236
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/1120.valores.gz",
+      "sha256": "08a12f7cb1ebf4d6dc3ae4fe36173de537bdb457e99ad3bcf80c926747531c04",
+      "tamanho_bytes": 46065
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/2020.distancias.gz",
+      "sha256": "354a0e629196384688f7d032ec414b7584e9fd2020569fbca48eb41e93283fb7",
+      "tamanho_bytes": 64589
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/2020.valores.gz",
+      "sha256": "0c6bdc1aa5c6c26ea2ff1fd3e600caab50d250917081bbf8e27d9afc583559f6",
+      "tamanho_bytes": 24387
+    },
+    {
+      "caminho": "base_finais_damas/portuguesa_4/manifesto.json",
+      "sha256": "cf2da588fe7965a9a1d28e042f3b6186ad7ddfec16a1d1a41e6181b082612190",
+      "tamanho_bytes": 7916
     }
   ]
 }
