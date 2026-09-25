@@ -238,9 +238,16 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
    criado, o código está no ar (ele vive na imagem da API) mas **ninguém o chama** -
    e isso é o estado esperado, não um defeito.
 
-## ⏳ A `0027_retrato_da_resolucao` — escrita em 24/09/2026, **ainda não aplicada**
+## ✅ A `0027_retrato_da_resolucao` — escrita em 24/09/2026, **aplicada e conferida no `des` em 25/09/2026**
 
-> ⏳ **Comando do dono**, e ⚠️ **ANTES do push do backend da T085za**: a API nova
+> ✅ **Aplicada pelo dono em 25/09/2026**: `identificar_banco.py` disse DES,
+> `alembic current` saiu de `0026_notificacao_de_reacao` para
+> `0027_retrato_da_resolucao (head)`, e o `conferir_migracao_desafio.py` fechou com
+> *"18/18 tabelas conferem"* (colunas na ordem, `js_feito` no fim da
+> `tb003_resolucao`). O push do backend da T085za veio **depois** disso.
+> ⏳ **No `prd`** ela entra na virada de chave (`specs/009-desafio-do-dia/guia-producao.md`).
+>
+> ⚠️ Registro de por que a ordem importa: a API nova
 > grava `js_feito` em toda resolução e lê a `vw003_resolucao` com ela - publicada
 > sem a coluna, ela quebra no primeiro envio (o push é o deploy).
 
