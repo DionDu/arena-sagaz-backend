@@ -65,8 +65,12 @@ class RepoFalso:
         formato_posicao="sequencia_lances",
         posicao_inicial=None,
         extrato=None,
+        quem_reagiu=None,
     ) -> None:
         self._adversario = adversario
+        # `{id_resolucao: [linhas do SQL_QUEM_REAGIU]}` - por resolucao, para o
+        # duplo honrar o filtro como os irmaos de reacao honram o `ids`.
+        self._quem_reagiu = quem_reagiu or {}
         self._jogo = jogo
         self._modalidade = modalidade
         self._formato_posicao = formato_posicao
@@ -151,6 +155,9 @@ class RepoFalso:
 
     async def gabarito(self, id_desafio):
         return self._gabarito
+
+    async def quem_reagiu(self, id_resolucao):
+        return self._quem_reagiu.get(id_resolucao, [])
 
 
 def _jogador(*, nome="Ana", xp=28, tempo=41880, uid="uid-ana", id_res=None):
@@ -1334,3 +1341,179 @@ def test_o_SQL_do_dia_traz_o_que_o_replay_passou_a_servir():
         "d.js_posicao_inicial",
     ):
         assert coluna in SQL_DIA_DO_DESAFIO, coluna
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QUEM REAGIU (T085zc, peca M2 do Claude Design, 25/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _reagiu(*, uid, tipo="palmas", nome="Bia", publico=True):
+    """Uma linha como o `SQL_QUEM_REAGIU` a devolve."""
+    return {
+        "id_usuario": uid,
+        "co_tipo_reacao": tipo,
+        "co_usuario": "k7m3p9rt",
+        "no_exibicao": nome,
+        "ic_publico": publico,
+    }
+
+
+def _repo_com_reacoes(*, gente, reagiram, eu_publico=True):
+    """Eu resolvi (e, por padrao, apareco no quadro), e recebi [reagiram]."""
+    id_res = uuid4()
+    minha = _jogador(nome="Eu", xp=20, tempo=60_000, uid=EU, id_res=id_res)
+    return RepoFalso(
+        gente=gente + ([minha] if eu_publico else []),
+        minha={"id_resolucao": id_res, "nu_xp": 20, "nu_tempo_ms": 60_000,
+               "dh_resolucao": AGORA},
+        partida={
+            "id_resolucao": id_res,
+            "id_usuario": EU,
+            "id_partida": uuid4(),
+            "co_jogo": "pontinhos",
+            "nu_lance_cumpre_desafio": 5,
+        },
+        quem_reagiu={id_res: reagiram},
+    )
+
+
+async def _meu_replay(repo):
+    return await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+
+
+@pytest.mark.asyncio
+async def test_quem_reagiu_traz_nome_tipo_e_a_POSICAO_do_quadro():
+    """⚠️ A posicao e a MESMA que a linha mostra no quadro - mascotes contam."""
+    ana = _jogador(nome="Ana", xp=28, tempo=41_880, uid="uid-ana")
+    repo = _repo_com_reacoes(
+        gente=[ana], reagiram=[_reagiu(uid="uid-ana", tipo="fogo", nome="Ana")]
+    )
+
+    replay = await _meu_replay(repo)
+    quadro = await ServicoQuadro(repo).montar(
+        id_desafio=ID_DESAFIO, id_usuario=EU, agora=AGORA
+    )
+    # O numero que o quadro escreve na linha da Ana: o indice + 1.
+    posicao_no_quadro = 1 + next(
+        i for i, l in enumerate(quadro["linhas"]) if l.get("id") == "uid-ana"
+    )
+
+    assert replay["quem_reagiu"] == [
+        {"nome": "Ana", "tipo": "fogo", "id": "uid-ana",
+         "posicao": posicao_no_quadro}
+    ]
+    # 🔒 Os mascotes ocupam posicoes: sem eles a Ana seria a 1a.
+    assert posicao_no_quadro > 1
+
+
+@pytest.mark.asyncio
+async def test_quem_se_escondeu_reage_e_CONTINUA_escondido():
+    """⛔ Sem nome e sem id - e a linha vem, para a lista bater com a pilha."""
+    repo = _repo_com_reacoes(
+        gente=[], reagiram=[_reagiu(uid="uid-x", nome="Xavier", publico=False)]
+    )
+
+    replay = await _meu_replay(repo)
+
+    assert replay["quem_reagiu"] == [{"oculto": True, "tipo": "palmas"}]
+
+
+@pytest.mark.asyncio
+async def test_quem_reagiu_sem_ter_linha_no_quadro_vem_sem_id_e_sem_posicao():
+    """⚠️ Quem nao resolveu (ou nao aparece) ⛔ tem linha para o toque abrir."""
+    repo = _repo_com_reacoes(
+        gente=[], reagiram=[_reagiu(uid="uid-bia", tipo="uau", nome="Bia")]
+    )
+
+    replay = await _meu_replay(repo)
+
+    assert replay["quem_reagiu"] == [{"nome": "Bia", "tipo": "uau"}]
+
+
+@pytest.mark.asyncio
+async def test_nome_nulo_cai_no_codigo_curto_como_no_quadro():
+    repo = _repo_com_reacoes(
+        gente=[], reagiram=[_reagiu(uid="uid-bia", nome=None)]
+    )
+
+    replay = await _meu_replay(repo)
+
+    assert replay["quem_reagiu"][0]["nome"] == "k7m3p9rt"
+
+
+@pytest.mark.asyncio
+async def test_a_ordem_de_quem_reagiu_e_a_do_banco():
+    """⚠️ A mais recente primeiro e o `ORDER BY` do SQL; o servico ⛔ reordena."""
+    repo = _repo_com_reacoes(
+        gente=[],
+        reagiram=[
+            _reagiu(uid="uid-c", nome="Caio"),
+            _reagiu(uid="uid-a", nome="Ana"),
+            _reagiu(uid="uid-b", nome="Bia"),
+        ],
+    )
+
+    replay = await _meu_replay(repo)
+
+    assert [i["nome"] for i in replay["quem_reagiu"]] == ["Caio", "Ana", "Bia"]
+
+
+@pytest.mark.asyncio
+async def test_sem_reacao_nenhuma_a_lista_vem_VAZIA():
+    """A tela le a lista vazia e o bloco inteiro some - zero ⛔ aparece."""
+    repo = _repo_com_reacoes(gente=[], reagiram=[])
+
+    replay = await _meu_replay(repo)
+
+    assert replay["quem_reagiu"] == []
+
+
+@pytest.mark.asyncio
+async def test_quem_se_escondeu_do_quadro_NAO_ve_quem_reagiu():
+    """⚠️ RF-DES-077: a barra VOCE ja vem sem pilha, e a lista seria a mesma
+    informacao por outra porta."""
+    repo = _repo_com_reacoes(
+        gente=[], reagiram=[_reagiu(uid="uid-ana")], eu_publico=False
+    )
+
+    replay = await _meu_replay(repo)
+
+    assert replay["quem_reagiu"] == []
+
+
+@pytest.mark.asyncio
+async def test_quem_reagiu_NAO_existe_no_replay_de_outra_pessoa():
+    """⛔ So a dona da resolucao ve a lista - o campo nem viaja."""
+    repo = _repo_com_reacoes(gente=[], reagiram=[_reagiu(uid="uid-ana")])
+
+    replay = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO, sujeito="uid-ana", id_usuario=EU, agora=AGORA
+    )
+
+    assert "quem_reagiu" not in replay
+
+
+@pytest.mark.asyncio
+async def test_quem_reagiu_NAO_existe_no_gabarito():
+    repo = _repo_com_reacoes(gente=[], reagiram=[_reagiu(uid="uid-ana")])
+    repo._gabarito = {"js_solucao": [], "nu_lances_solucao": 3}
+
+    replay = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO, sujeito="desafio", id_usuario=EU, agora=AGORA
+    )
+
+    assert "quem_reagiu" not in replay
+
+
+def test_o_SQL_de_quem_reagiu_CALCULA_o_publico_e_nao_filtra():
+    """🔒 Filtrar tiraria da lista quem se escondeu, e ela discordaria da
+    contagem da pilha, que conta a reacao dele."""
+    from api.desafios.quadro import CLAUSULA_APARECE_EM_PUBLICO, SQL_QUEM_REAGIU
+
+    assert f"{CLAUSULA_APARECE_EM_PUBLICO} AS ic_publico" in SQL_QUEM_REAGIU
+    corpo_do_where = SQL_QUEM_REAGIU.split("WHERE", 1)[1]
+    assert CLAUSULA_APARECE_EM_PUBLICO not in corpo_do_where
+    assert "ORDER BY re.dh_reacao DESC" in SQL_QUEM_REAGIU

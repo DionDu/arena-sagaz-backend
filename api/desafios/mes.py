@@ -86,6 +86,9 @@ SELECT dia.dt_dia,
        d.co_jogo,
        d.co_modalidade,
        d.ic_reprise,
+       d.co_personagem,
+       d.co_chave_objetivo,
+       d.js_objetivo,
        (r.id_resolucao IS NOT NULL) AS ic_resolvido
   FROM {VW_DESAFIO_DIA} dia
   JOIN {VW_DESAFIO} d
@@ -110,6 +113,9 @@ class DiaDoMes:
     co_jogo: str
     co_modalidade: Optional[str]
     ic_reprise: bool
+    co_personagem: str
+    co_chave_objetivo: str
+    js_objetivo: Optional[dict[str, Any]]
     ic_resolvido: bool
 
 
@@ -178,6 +184,19 @@ class ServicoMes:
                 "modalidade": linha["co_modalidade"],
                 "reprise": bool(linha["ic_reprise"]),
                 "resolvido": bool(linha["ic_resolvido"]),
+                # ⚠️ **O adversario e o enunciado daquele dia** (T085zc,
+                # 25/09/2026): o card de um dia passado e as telas que ele abre
+                # mostram o rosto e a frase do desafio (o card do dia do Claude
+                # Design, peca N2). Sem isto, cada card buscaria o proprio
+                # desafio - uma chamada por dia do mes, so para uma frase.
+                # ⚠️ **A MESMA forma do desafio publicado** (`chave` + `valores`),
+                # e ⛔ a frase pronta: ela viajaria num idioma so (RF-DES-176).
+                # ⚠️ Campos ADITIVOS: aplicativo antigo os ignora.
+                "personagem": linha["co_personagem"],
+                "objetivo": {
+                    "chave": linha["co_chave_objetivo"],
+                    "valores": linha["js_objetivo"] or {},
+                },
             }
             for linha in linhas
         ]

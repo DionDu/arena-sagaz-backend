@@ -204,6 +204,40 @@ SELECT id_resolucao, co_tipo_reacao
    AND id_usuario = :id_usuario
 """
 
+#: **Quem reagiu** a uma resolucao, uma linha por pessoa (T085zc, peca M2 do
+#: Claude Design, 25/09/2026).
+#:
+#: O quadro serve QUANTAS reacoes cada linha recebeu; esta consulta serve QUEM
+#: mandou cada uma - e so vai para a dona da resolucao, no Raio-X dela.
+#:
+#: ⚠️ **`ic_publico` e calculado sobre QUEM REAGIU, e nao filtra**: reagir exige
+#: que o ALVO apareca em publico (a rota de reagir cobra isso), mas quem reage
+#: pode ter o perfil escondido. Esse continua escondido aqui - a linha vem, e a
+#: tela a escreve *"Jogador oculto"*, sem nome. Descarta-la faria a lista
+#: discordar da contagem da pilha, que conta a reacao dele.
+#:
+#: ⚠️ **A regra de publico e a MESMA do quadro** (`CLAUSULA_APARECE_EM_PUBLICO`,
+#: com os aliases `u` e `g` que ela exige): uma segunda definicao divergiria, e
+#: a mais frouxa mandaria.
+#:
+#: ⚠️ **Da mais recente para a mais antiga**, com a troca de reacao contando
+#: como ato novo (`dh_reacao` e regravado no `DO UPDATE`): e a ordem de quem
+#: abre a lista para ver o que chegou.
+SQL_QUEM_REAGIU = f"""
+SELECT re.id_usuario,
+       re.co_tipo_reacao,
+       u.co_usuario,
+       u.no_exibicao,
+       {CLAUSULA_APARECE_EM_PUBLICO} AS ic_publico
+  FROM {VW_REACAO} re
+  JOIN conta.tb001_usuario u
+    ON u.id_usuario = re.id_usuario
+  LEFT JOIN progressao.tb001_progressao_usuario g
+    ON g.id_usuario = re.id_usuario
+ WHERE re.id_resolucao = :id_resolucao
+ ORDER BY re.dh_reacao DESC, re.id_usuario
+"""
+
 #: Quais reacoes a tela pode OFERECER hoje — o catalogo ativo, na ordem do Design.
 #:
 #: ⚠️ **Sem este campo, desativar uma reacao ⛔ nao teria efeito nenhum** enquanto
@@ -406,6 +440,18 @@ class RepositorioQuadro:
             linha["id_resolucao"]: linha["co_tipo_reacao"]
             for linha in resultado.mappings().all()
         }
+
+    async def quem_reagiu(self, id_resolucao: UUID) -> list[dict[str, Any]]:
+        """Quem reagiu a [id_resolucao], da reacao mais recente para a mais antiga.
+
+        ⚠️ **Cada linha traz `ic_publico` de quem reagiu**, e quem decide o que
+        fazer com ele e o servico: esconder o nome e regra de exibicao, e ela
+        mora junto das outras (`servico_quadro.py`).
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_QUEM_REAGIU), {"id_resolucao": id_resolucao}
+        )
+        return [dict(m) for m in resultado.mappings().all()]
 
     async def reacoes_oferecidas(self) -> list[str]:
         """Os codigos que a tela pode oferecer hoje, na ordem do Design.

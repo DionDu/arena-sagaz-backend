@@ -50,6 +50,9 @@ def linha(
     jogo: str = "damas",
     modalidade: str | None = "brasileira",
     reprise: bool = False,
+    personagem: str = "tex",
+    chave_objetivo: str = "objetivo_coroar",
+    valores_objetivo: dict | None = None,
 ) -> dict:
     """Uma linha como o `SELECT` a devolve."""
     return {
@@ -59,6 +62,10 @@ def linha(
         "co_jogo": jogo,
         "co_modalidade": modalidade,
         "ic_reprise": reprise,
+        "co_personagem": personagem,
+        "co_chave_objetivo": chave_objetivo,
+        # ⚠️ `None` e o que a coluna JSON traz quando o objetivo ⛔ tem valores.
+        "js_objetivo": valores_objetivo,
         "ic_resolvido": resolvido,
     }
 
@@ -156,6 +163,69 @@ class TestOQueCadaDiaTraz:
 
         assert len(corpo["dias"]) == 1
         assert corpo["dias"][0]["resolvido"] is False
+
+
+class TestOCardDoDiaPassado:
+    """⚠️ T085zc (25/09/2026): o card do dia passado mostra o rosto do
+    adversario e o enunciado - a peca N2 do Claude Design."""
+
+    @pytest.mark.asyncio
+    async def test_traz_o_adversario_daquele_dia(self):
+        repo = RepoFalso([linha(dia=date(2026, 9, 17), personagem="cacau")])
+        corpo = await ServicoMes(repo).montar(id_usuario=EU, dt_hoje=HOJE)
+
+        assert corpo["dias"][0]["personagem"] == "cacau"
+
+    @pytest.mark.asyncio
+    async def test_o_enunciado_vem_como_CHAVE_e_valores_e_nao_como_frase(self):
+        # ⛔ **Nunca a frase pronta** (RF-DES-176): ela viajaria num idioma so. E
+        # a MESMA forma do desafio publicado, que o aplicativo ja sabe ler.
+        repo = RepoFalso(
+            [
+                linha(
+                    dia=date(2026, 9, 17),
+                    chave_objetivo="objetivo_capturar_num_lance",
+                    valores_objetivo={"pecas": 3},
+                )
+            ]
+        )
+        corpo = await ServicoMes(repo).montar(id_usuario=EU, dt_hoje=HOJE)
+
+        assert corpo["dias"][0]["objetivo"] == {
+            "chave": "objetivo_capturar_num_lance",
+            "valores": {"pecas": 3},
+        }
+
+    @pytest.mark.asyncio
+    async def test_objetivo_sem_valores_vem_com_mapa_vazio_e_nao_null(self):
+        # ⚠️ Mesma regra do desafio publicado (`valores=... or {}`): o leitor do
+        # aplicativo ⛔ precisa de um caso a mais para o `null`.
+        repo = RepoFalso([linha(dia=date(2026, 9, 17), valores_objetivo=None)])
+        corpo = await ServicoMes(repo).montar(id_usuario=EU, dt_hoje=HOJE)
+
+        assert corpo["dias"][0]["objetivo"]["valores"] == {}
+
+    def test_o_SQL_le_o_adversario_e_o_objetivo(self):
+        # 🔒 O dublê acima devolve as colunas que o teste escreve; e o SQL que
+        # decide se elas chegam de verdade.
+        for coluna in ("d.co_personagem", "d.co_chave_objetivo", "d.js_objetivo"):
+            assert coluna in SQL_DIAS_DO_MES
+
+    @pytest.mark.asyncio
+    async def test_a_resposta_passa_pelo_modelo_da_rota(self):
+        # ⚠️ A rota declara `response_model=ResumoDoMes`: um campo que o modelo
+        # ⛔ conhece sairia CORTADO em silencio, e o card ficaria sem frase.
+        from api.desafios.modelos_resposta import ResumoDoMes
+
+        repo = RepoFalso([linha(dia=date(2026, 9, 17), valores_objetivo={"n": 4})])
+        corpo = await ServicoMes(repo).montar(id_usuario=EU, dt_hoje=HOJE)
+        validado = ResumoDoMes.model_validate(corpo).model_dump(mode="json")
+
+        assert validado["dias"][0]["personagem"] == "tex"
+        assert validado["dias"][0]["objetivo"] == {
+            "chave": "objetivo_coroar",
+            "valores": {"n": 4},
+        }
 
 
 class TestATotalizacao:

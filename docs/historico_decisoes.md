@@ -6509,3 +6509,45 @@ exigir o fim.
 desenha o replay; o texto de "partida ainda não encerrada" que ele tem compilado
 deixa de aparecer. O aplicativo novo removeu as duas chaves
 (`desafioRaioXPartidaAberta` e `...Corpo`).
+
+## 2026-09-25 (2) — Três campos aditivos: o dia passado e "Quem reagiu" (T085zc)
+
+**Contexto.** O dono redesenhou no Claude Design as telas de um dia passado (o
+card do histórico, o "Ver quadro" e a "Solução oficial", que passaram a dizer
+**de que dia** e **de que desafio** se trata) e pediu um lugar para ver **quem**
+reagiu à própria resolução - o quadro só servia quantas reações cada linha tinha.
+E pediu que o toque na notificação de reações abrisse o Raio-X da própria
+resolução (`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zc).
+
+**Decisão.** Três campos **aditivos**, ⛔ nenhuma mudança de banco (as VIEWs já
+tinham tudo):
+
+1. `GET /v1/desafios/meu-mes` - cada dia traz `personagem` e `objetivo`
+   (`{chave, valores}`, a forma do desafio publicado). Sem isso, cada card do
+   histórico buscaria o próprio desafio: uma chamada por dia do mês, só para
+   escrever a frase.
+2. `GET /v1/desafios/{id}/replay/eu` - traz `quem_reagiu`, da reação mais recente
+   para a mais antiga. ⛔ **Só no sujeito `eu`**, e o campo ⛔ viaja nos outros. Quem
+   reagiu com o perfil escondido vem `{oculto: true, tipo}` (a regra de público é a
+   MESMA `CLAUSULA_APARECE_EM_PUBLICO` do quadro, calculada sobre quem reagiu, ⛔
+   como filtro - a lista tem de bater com a contagem da pilha). `id` e `posicao` só
+   de quem tem linha no quadro daquele dia; a posição sai da **mesma chave de
+   ordem** do quadro (`_chave_da_ordem`, extraída) e da mesma escada de mascotes
+   (`_mascotes`, extraído). ⚠️ **Lista vazia quando a dona se escondeu do quadro**:
+   a barra VOCÊ já vem sem pilha nesse caso (RF-DES-077).
+3. O desafio publicado (`/hoje`, `/proximos`, `/{id}`) traz `dia` (o `dt_dia` do
+   vínculo): o toque na notificação abre o Raio-X de um dia passado com o card do
+   dia, e o app só tem o `id_desafio`. ⛔ Deduzir a data de `encerra_em` no app o
+   amarraria a `encerramento_do_dia`, que é regra do job.
+
+**Alternativas consideradas.** (a) Uma rota própria `GET /{id}/reacoes` - recusada:
+a lista só aparece no Raio-X do "Você", que já é uma resposta, e uma segunda chamada
+na mesma tela seria mais um lugar para a trava de spoiler divergir. (b) Filtrar quem
+reagiu escondido - a lista discordaria da pilha do quadro, que conta a reação dele.
+(c) Buscar o desafio por id em cada card do histórico - N chamadas por mês.
+
+⚠️ **Aplicativo antigo em campo** ignora os três campos. Contratos:
+`contracts/resumo-do-mes.md` §5, `contracts/raio-x.md` §7,
+`contracts/desafio-publicado.md`. Testes: `test_resumo_do_mes.py`,
+`test_quadro_do_dia.py` (6 mutações do serviço, todas pegas),
+`test_rotas_desafio_publicado.py`.

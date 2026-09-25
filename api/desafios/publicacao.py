@@ -138,4 +138,9 @@ def para_resposta(
         reprise=linha["ic_reprise"],
         colecao=COLECAO_DESAFIO_DO_DIA,
         id_desafio_dia=linha["id_desafio_dia"],
+        # O dia UTC do desafio - o card do dia passado escreve a data (T085zc).
+        # Por chave, como os outros: as tres consultas publicas o trazem
+        # (`_COLUNAS`), e uma coluna esquecida estoura aqui em vez de virar
+        # um card sem data.
+        dia=linha["dt_dia"],
     )

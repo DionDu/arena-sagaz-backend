@@ -107,11 +107,114 @@ def _e_de_quem_olha(linha: dict[str, Any], id_usuario: Optional[str]) -> bool:
     return bool(id_usuario) and str(linha["id_usuario"]) == str(id_usuario)
 
 
+def _chave_da_ordem(item: dict[str, Any]) -> tuple[int, int]:
+    """A ordem do quadro: mais XP primeiro; no empate, o mais rapido (RF-DES-061).
+
+    ⚠️ **Escrita UMA vez** porque duas pecas a usam - o quadro e a posicao de
+    quem reagiu, no Raio-X (T085zc). Duas copias discordariam no dia em que o
+    criterio mudasse, e o Raio-X diria *"12o no quadro"* de quem esta em 13o.
+    """
+    return (-item["xp"], item["tempo_ms"])
+
+
 class ServicoQuadro:
     """Monta o quadro do dia e serve os replays."""
 
     def __init__(self, repo: RepositorioQuadro) -> None:
         self.repo = repo
+
+    async def _mascotes(self, contexto: ContextoDoQuadro, id_desafio: UUID) -> list:
+        """A escada de personagens daquele dia, com o tempo e o XP encenados.
+
+        ⚠️ **Um lugar so** para o quadro e para a posicao de quem reagiu: os
+        mascotes ocupam posicoes na lista, e quem os esquecesse numa das duas
+        contas numeraria as pessoas de outro jeito.
+        """
+        taxas = taxas_das_medicoes(await self.repo.medicoes(id_desafio))
+        return linhas_dos_mascotes(
+            id_desafio=id_desafio,
+            nu_tempo_piso_ms=contexto.nu_tempo_piso_ms,
+            nu_tempo_teto_ms=contexto.nu_tempo_teto_ms,
+            # ⛔ O adversario do dia sai da escada (RF-DES-203) — e ela **roda
+            # junto** com ele: em dia de Magno a escada e mais encorajadora; em
+            # dia de Cacau, mais dura.
+            co_personagem_do_dia=contexto.co_personagem_do_dia,
+            taxas=taxas,
+        )
+
+    async def _quem_reagiu(
+        self,
+        *,
+        contexto: ContextoDoQuadro,
+        id_desafio: UUID,
+        id_usuario: str,
+        id_resolucao: UUID,
+    ) -> list[dict[str, Any]]:
+        """Quem reagiu a MINHA resolucao, para o bloco "Quem reagiu" do Raio-X.
+
+        Cada item e um de dois formatos:
+
+        - quem aparece em publico: `{"nome", "tipo", "id"?, "posicao"?}` - o
+          `id` e a `posicao` so vem de quem **tem linha no quadro** daquele dia
+          (resolveu e e publico): e a linha que o toque abre, e a posicao e o
+          numero que ela mostra la;
+        - quem se escondeu: `{"oculto": true, "tipo"}` - ⛔ sem nome, sem id.
+
+        ⚠️ **Lista vazia quando EU me escondi do quadro.** Quem desliga a
+        visibilidade sai do quadro inclusive da contagem que se ve (RF-DES-077):
+        a barra VOCE ja vem sem pilha nesse caso, e a lista de nomes com a pilha
+        sumida seria a mesma informacao por outra porta.
+
+        ⛔ **Mascote nao reage** - e isso e estrutura, e nao um `if`: reacao e
+        linha de `tb006_reacao`, gravada por uma conta.
+        """
+        gente = await self.repo.linhas_de_gente(contexto.id_desafio_dia)
+        if not any(_e_de_quem_olha(linha, id_usuario) for linha in gente):
+            return []
+
+        reagiram = await self.repo.quem_reagiu(id_resolucao)
+        if not reagiram:
+            return []
+
+        # A lista inteira do quadro, na MESMA ordem e com a MESMA chave de
+        # `montar` - mascotes primeiro e gente depois, porque o `sort` do Python
+        # e estavel e e isso que desempata duas linhas identicas la.
+        mascotes = await self._mascotes(contexto, id_desafio)
+        ordem = [
+            {"xp": m.nu_xp, "tempo_ms": m.nu_tempo_ms, "id": None} for m in mascotes
+        ] + [
+            {
+                "xp": linha["nu_xp"],
+                "tempo_ms": linha["nu_tempo_ms"],
+                "id": str(linha["id_usuario"]),
+            }
+            for linha in gente
+        ]
+        ordem.sort(key=_chave_da_ordem)
+        # `enumerate(..., start=1)`: a posicao que o quadro escreve e o indice
+        # contado a partir de 1.
+        posicoes = {
+            item["id"]: indice
+            for indice, item in enumerate(ordem, start=1)
+            if item["id"] is not None
+        }
+
+        itens: list[dict[str, Any]] = []
+        for linha in reagiram:
+            if not linha["ic_publico"]:
+                # ⛔ Quem se escondeu continua escondido: nem nome, nem id.
+                itens.append({"oculto": True, "tipo": linha["co_tipo_reacao"]})
+                continue
+            item: dict[str, Any] = {
+                "nome": _nome_visivel(linha),
+                "tipo": linha["co_tipo_reacao"],
+            }
+            posicao = posicoes.get(str(linha["id_usuario"]))
+            if posicao is not None:
+                item["id"] = str(linha["id_usuario"])
+                item["posicao"] = posicao
+            itens.append(item)
+        return itens
 
     async def _contexto(self, id_desafio: UUID) -> ContextoDoQuadro:
         """O dia daquele desafio, ou 404."""
@@ -144,18 +247,7 @@ class ServicoQuadro:
         # ⚠️ **Qual e a MINHA** em cada linha (T077) - o Design destaca o chip
         # e a escolha no seletor, e isso ⛔ nao se deduz da contagem.
         minhas = await self.repo.minhas_reacoes(ids_das_linhas, id_usuario)
-        taxas = taxas_das_medicoes(await self.repo.medicoes(id_desafio))
-
-        mascotes = linhas_dos_mascotes(
-            id_desafio=id_desafio,
-            nu_tempo_piso_ms=contexto.nu_tempo_piso_ms,
-            nu_tempo_teto_ms=contexto.nu_tempo_teto_ms,
-            # ⛔ O adversario do dia sai da escada (RF-DES-203) — e ela **roda
-            # junto** com ele: em dia de Magno a escada e mais encorajadora; em
-            # dia de Cacau, mais dura.
-            co_personagem_do_dia=contexto.co_personagem_do_dia,
-            taxas=taxas,
-        )
+        mascotes = await self._mascotes(contexto, id_desafio)
 
         linhas: list[dict[str, Any]] = [
             {
@@ -212,8 +304,10 @@ class ServicoQuadro:
 
         # ⚠️ A ordenacao acontece **depois** de juntar as duas origens: e o que
         # faz "voce passou o Tex" ser uma leitura da ordem, e nao uma conta que a
-        # tela refaz.
-        linhas.sort(key=lambda item: (-item["xp"], item["tempo_ms"]))
+        # tela refaz. ⚠️ A chave e UMA (`_chave_da_ordem`): a posicao de quem
+        # reagiu, no Raio-X, sai dela tambem, e tem de bater com o numero que a
+        # linha mostra aqui.
+        linhas.sort(key=_chave_da_ordem)
 
         qt_pessoas, qt_resolveram = await self.repo.fracao(contexto.id_desafio_dia)
 
@@ -431,7 +525,22 @@ class ServicoQuadro:
         nu_primeiro = lances[0]["nu_ordem"] if lances else None
         nu_ultimo = lances[-1]["nu_ordem"] if lances else None
 
+        # ⚠️ **"Quem reagiu" so existe no sujeito `eu`** (T085zc, peca M2 do
+        # Claude Design): ver quem mandou cada reacao e da dona da resolucao, e
+        # no Raio-X de outra pessoa o bloco ⛔ existe. ⚠️ Campo ADITIVO, e
+        # AUSENTE (⛔ `null`) nos outros sujeitos: aplicativo antigo o ignora, e o
+        # novo le a ausencia como lista vazia - o bloco some.
+        extras: dict[str, Any] = {}
+        if sujeito == "eu":
+            extras["quem_reagiu"] = await self._quem_reagiu(
+                contexto=contexto,
+                id_desafio=id_desafio,
+                id_usuario=alvo,
+                id_resolucao=linha["id_resolucao"],
+            )
+
         return {
+            **extras,
             "sujeito": sujeito,
             # ⚠️ **O jogo passou a sair do DESAFIO** (T074a), e ⛔ nao mais de
             # `partida.vw001_partida`: sao a mesma coisa, e duas fontes para um

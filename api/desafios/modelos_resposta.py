@@ -229,6 +229,13 @@ class DesafioPublicado(BaseModel):
     #: e nao num desafio solto.
     id_desafio_dia: UUID
 
+    #: ⚠️ **O dia UTC daquele desafio** (`dt_dia`, T085zc, 25/09/2026). O toque
+    #: na notificacao de reacoes abre o Raio-X de um dia que passou, e o card do
+    #: dia escreve a data - *"21 de setembro"*. Deduzi-la de `encerra_em` no
+    #: aplicativo o amarraria a regra de `encerramento_do_dia`, que e do job.
+    #: ⚠️ Campo ADITIVO e opcional: aplicativo antigo o ignora.
+    dia: Optional[date] = None
+
 
 class ProximosPublicados(BaseModel):
     """O cache invisivel: os desafios dos proximos dias (RF-DES-120).
@@ -270,6 +277,11 @@ class DiaDoCalendario(BaseModel):
     modalidade: Optional[str] = None
     reprise: bool
     resolvido: bool
+    #: ⚠️ **O adversario e o enunciado daquele dia** (T085zc): o card de um dia
+    #: passado mostra o rosto e a frase, como a aba Hoje. ⚠️ Opcionais so para a
+    #: resposta continuar valida se um dia faltarem - o SQL sempre os traz.
+    personagem: Optional[str] = None
+    objetivo: Optional[ObjetivoPublicado] = None
 
 
 class FeitoDaResolucao(BaseModel):

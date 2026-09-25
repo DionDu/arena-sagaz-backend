@@ -269,6 +269,22 @@ def test_o_encerramento_e_o_do_VINCULO_e_nao_do_desafio():
     assert resposta.id_desafio_dia == linha["id_desafio_dia"]
 
 
+def test_o_DIA_do_desafio_viaja_e_e_o_do_vinculo():
+    """⚠️ T085zc: o toque na notificacao de reacoes abre o Raio-X de um dia que
+    passou, e o card do dia escreve a data. ⛔ Deduzi-la de `encerra_em` no app
+    amarraria o app a regra de encerramento do job."""
+    linha = _linha()
+    resposta = para_resposta(linha, agora=AGORA)
+    assert resposta.dia == linha["dt_dia"]
+
+
+def test_as_tres_consultas_publicas_trazem_o_dia():
+    """🔒 O duplo acima traz `dt_dia`; e o SQL que decide se ele chega."""
+    from api.desafios.repositorio import _COLUNAS
+
+    assert "dia.dt_dia" in _COLUNAS
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. A forma da resposta (contracts/desafio-publicado.md)
 # ═══════════════════════════════════════════════════════════════════════════
