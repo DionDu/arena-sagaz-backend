@@ -98,6 +98,15 @@ def _nome_visivel(linha: dict[str, Any]) -> str:
     return linha.get("no_exibicao") or linha.get("co_usuario") or "?"
 
 
+def _e_de_quem_olha(linha: dict[str, Any], id_usuario: Optional[str]) -> bool:
+    """Se a linha do quadro e a resolucao de quem esta olhando.
+
+    ⚠️ **Convidado (`id_usuario` `None`) ⛔ tem linha nenhuma** - e a comparacao
+    de texto e de proposito: o banco devolve `UUID`, e o token traz `str`.
+    """
+    return bool(id_usuario) and str(linha["id_usuario"]) == str(id_usuario)
+
+
 class ServicoQuadro:
     """Monta o quadro do dia e serve os replays."""
 
@@ -163,6 +172,8 @@ class ServicoQuadro:
                 # diferente obrigaria a tela a olhar o sujeito antes de ler.
                 "minha_reacao": None,
                 "pode_reagir": False,
+                # ⛔ Mascote ⛔ e ninguem que olha o quadro (ver `eu` abaixo).
+                "eu": False,
             }
             for m in mascotes
         ]
@@ -181,8 +192,20 @@ class ServicoQuadro:
                 "minha_reacao": minhas.get(linha["id_resolucao"]),
                 # ⚠️ Reagir exige conta (RF-DES-084): sem identidade nao ha como
                 # honrar "uma reacao por pessoa". E ninguem reage a si mesmo.
-                "pode_reagir": bool(id_usuario)
-                and str(linha["id_usuario"]) != str(id_usuario),
+                "pode_reagir": bool(id_usuario) and not _e_de_quem_olha(
+                    linha, id_usuario
+                ),
+                # ⚠️ **A linha diz se e de quem esta olhando** (T085e,
+                # 25/09/2026). Sem isto o aplicativo a reconhecia pela
+                # POSICAO de `minha_linha`, e errava em dois casos: no empate
+                # (duas linhas com o mesmo XP e o mesmo tempo, e a posicao
+                # aponta uma das duas) e em quem se escondeu (a propria linha
+                # ⛔ esta na lista, e a posicao dela cai sobre a de OUTRA
+                # pessoa, pintada de ouro com o nome de quem olha). E o toque
+                # na propria linha abria o Raio-X como terceiro sujeito
+                # (`jogador/{id}`), com a pessoa repetida no seletor.
+                # ⚠️ Campo ADITIVO: aplicativo antigo o ignora.
+                "eu": _e_de_quem_olha(linha, id_usuario),
             }
             for linha in gente
         ]

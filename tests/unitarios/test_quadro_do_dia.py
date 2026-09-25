@@ -483,6 +483,53 @@ async def test_ninguem_reage_a_si_mesmo():
 
 
 @pytest.mark.asyncio
+async def test_a_propria_linha_SABE_que_e_a_propria():
+    """⚠️ T085e: a linha de quem olha vem com `eu: true`, e SO ela.
+
+    Sem o campo, o aplicativo reconhecia a propria linha pela posicao de
+    `minha_linha`, e o toque nela abria o Raio-X com a pessoa repetida como
+    terceiro sujeito.
+    """
+    quadro = await ServicoQuadro(
+        RepoFalso(gente=[_jogador(uid=EU), _jogador(uid="outro", nome="Bia")])
+    ).montar(id_desafio=ID_DESAFIO, id_usuario=EU, agora=AGORA)
+
+    minhas = [l for l in quadro["linhas"] if l["eu"]]
+    assert [l["id"] for l in minhas] == [EU]
+    # ⚠️ O campo existe em TODA linha, mascote inclusive: uma linha com forma
+    # diferente obrigaria a tela a olhar o sujeito antes de ler.
+    outras = [l for l in quadro["linhas"] if l not in minhas]
+    assert any(l["sujeito"] == "mascote" for l in outras)
+    assert all(l["eu"] is False for l in outras)
+
+
+@pytest.mark.asyncio
+async def test_convidado_NAO_tem_linha_propria():
+    """⛔ Sem identidade, ⛔ nenhuma linha e `eu` - nem a de quem nao tem id."""
+    quadro = await ServicoQuadro(RepoFalso(gente=[_jogador()])).montar(
+        id_desafio=ID_DESAFIO, id_usuario=None, agora=AGORA
+    )
+    assert all(l["eu"] is False for l in quadro["linhas"])
+
+
+@pytest.mark.asyncio
+async def test_quem_se_escondeu_NAO_marca_a_linha_de_outra_pessoa():
+    """⚠️ O caso que a posicao errava: a propria linha ⛔ esta na lista.
+
+    A `minha_linha` continua vindo (a pessoa se ve na barra), e a posicao dela
+    cai sobre a linha de OUTRA pessoa - que o aplicativo pintava de ouro com o
+    nome de quem olha. Com `eu`, ⛔ nenhuma linha da lista e a propria.
+    """
+    minha = _minha()
+    quadro = await ServicoQuadro(
+        RepoFalso(gente=[_jogador(uid="outra", nome="Bia")], minha=minha)
+    ).montar(id_desafio=ID_DESAFIO, id_usuario=EU, agora=AGORA)
+
+    assert quadro["minha_linha"] is not None
+    assert all(l["eu"] is False for l in quadro["linhas"])
+
+
+@pytest.mark.asyncio
 async def test_a_propria_linha_TRAZ_as_reacoes_que_recebeu():
     """⚠️ A barra ancorada mostra quem aplaudiu VOCE (T078).
 
