@@ -6428,3 +6428,51 @@ colunas para o mesmo fato viram duas verdades, e a pergunta da reputação é um
 ⚠️ **O histórico do `des` fica como está**: as partidas antigas do Pontinhos com
 poder continuam com zero. O `prd` ⛔ foi afetado - os poderes do Pontinhos ainda
 ⛔ saíram em versão publicada.
+
+## 2026-09-24 (2) — O retrato da resolução (`js_feito`, a `0027`) e a rota "o meu dia" (T085za)
+
+**Contexto.** O cartão de quem resolveu diz o FEITO da pessoa (*"4 caixas em 2
+turnos"*). Esses números moravam **só no celular**, numa chave sem dono: a conta
+que entrasse no mesmo aparelho via o dia da anterior, e o outro aparelho da mesma
+pessoa não via nada. O servidor recebia as medidas (o `feitos` do envio), mas
+gravava em `tb004_xp_desafio` só as que PESAM no desafio; os turnos gastos nem
+subiam. O dono: *"Eu não gosto destes dados que ficam sendo salvos apenas
+localmente no celular [...] É preciso isolar isso tudo muito bem."*
+
+**Decisão do dono** (`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8z item 13,
+*"Está ótima a proposta toda"*):
+
+1. **`desafio_dia.tb003_resolucao.js_feito JSONB`** (migração `0027`, por `ALTER`,
+   no fim da tabela - a regra de 10/09 proíbe editar a `0019`): `{"medidas": {...},
+   "janela_gasta": n}`, montado **pelo servidor** a partir do próprio envio
+   (`api/desafios/retrato.py`) - todas as medidas de tabuleiro, menos as três de
+   sessão e `desafio_concluido`. O envio ganha só `janela_gasta` (opcional: o app
+   anterior não o manda, e recusar faria o outbox descartar a resolução).
+2. **`GET /v1/desafios/{id}/meu-dia`** (`api/desafios/meu_dia.py`), com conta:
+   tentativas fechadas, dicas, e a primeira resolução com o retrato.
+3. **O manifesto `contratos/medidas_do_feito.json`** (gerado no app): o que cada
+   frase de feito lê. O job o exige em `gravacao.montar_linha`
+   (`job/medidas_do_feito.py`) - tipo novo sem frase declarada ⛔ é gravado.
+
+**Alternativas consideradas.** (a) Linhas de XP zero na `tb004` para as medidas
+que ⛔ pesam, mais uma coluna `nu_janela_gasta` - fiel à §8b (feito relacional),
+mas o Raio-X passaria a listar medidas que hoje não mostra, e medida nova seria
+linha de catálogo; o dono preferiu o JSON. (b) O app mandar o retrato pronto -
+seria a segunda cópia das medidas que o `feitos` já traz, e as duas poderiam
+discordar.
+
+⚠️ **Duas armadilhas achadas no caminho:**
+
+- **A dica cria a linha da tentativa DURANTE a partida** (`registrar_dica`, com
+  `nu_tempo_ms = 0`). Se a pessoa larga a partida, a linha fica - e a partida
+  largada ⛔ entra no `1/n` (§8q). Por isso a contagem do "meu dia" tira a linha
+  que só a dica criou, e o "resolveu na N-ª" vem da parcela `tentativas` do
+  extrato (o `n` que o app mandou), e ⛔ de `nu_sequencia`.
+- **Os cadeados de migração só liam `CREATE TABLE`.** A `0027` chega por `ALTER
+  TABLE ... ADD COLUMN`, e o cadeado do `data-model.md` e o conferidor do banco
+  ficariam VERDES sem vê-la. `tests/unitarios/leitura_de_migracao.py` ganhou
+  `colunas_acrescentadas`/`acrescentar_colunas`, e os dois passaram a usar
+  `tabelas_das_migracoes()` (a consolidação, uma só).
+
+⛔ **A migração vem ANTES do push** (o push é o deploy): a API nova grava
+`js_feito` e lê a `vw003_resolucao` com ela.

@@ -199,3 +199,83 @@ def tabelas_do_sql(texto: str) -> dict[str, dict[str, object]]:
         achadas[nome] = {"colunas": colunas, "constraints": constraints}
 
     return achadas
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A COLUNA ACRESCENTADA DEPOIS: `ALTER TABLE ... ADD COLUMN`
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Nasceu em 24/09/2026, com a `0027`** (o retrato da resolucao,
+# `js_feito`). Ate ali toda coluna dos schemas do desafio nascia num `CREATE
+# TABLE`, e os cadeados so liam `CREATE TABLE`. A regra do dono de 10/09
+# (*"migracao ja aplicada NAO se edita. Crie outra"*) faz a coluna nova chegar
+# por `ALTER` - e um cadeado que so le `CREATE` ficaria VERDE sem nunca te-la
+# visto. E a setima aparicao do mesmo defeito que a docstring de
+# `migracoes_dos_schemas` conta: o cadeado cego exatamente para o que chegou.
+
+
+def colunas_acrescentadas(texto: str) -> list[tuple[str, str, str]]:
+    """`[(tabela, coluna, tipo)]` de todo `ALTER TABLE ... ADD COLUMN`, na ordem.
+
+    O `tipo` sai normalizado como o de [tabelas_do_sql] - maiusculas, espacos
+    colapsados e sem `REFERENCES` -, para as duas pontas se compararem com a
+    mesma regua.
+
+    ⚠️ **Uma coluna por `ALTER`.** A forma `ADD COLUMN a ..., ADD COLUMN b ...`
+    ⛔ e lida: ela ⛔ existe em migracao nenhuma do projeto, e um leitor que
+    aceitasse as duas formas teria o dobro de lugar para errar calado. Quem a
+    escrever vai ver a segunda coluna faltando no cadeado, e ai decide.
+    """
+    limpo = sem_comentarios_sql(texto)
+    achadas: list[tuple[str, str, str]] = []
+    for casa in re.finditer(
+        # O tipo vai ate o `;` ou o FIM DA LINHA. ⚠️ ⛔ ate o fim do texto: o
+        # `sql_da_migracao` junta os comandos com quebra de linha e SEM `;`, e
+        # um `[^;]+` engolia o `CREATE OR REPLACE VIEW` seguinte como "tipo"
+        # (visto na primeira rodada da `0027`). Por isso o `ALTER` que
+        # acrescenta coluna se escreve numa linha so - nos dois lados.
+        r"ALTER TABLE\s+([a-z_][a-z0-9_.]*)\s+ADD COLUMN\s+([a-z_][a-z0-9_]*)"
+        r"\s+([^;\n]+?)\s*(?:;|\n|$)",
+        limpo,
+        re.I,
+    ):
+        tipo = re.split(r"\bREFERENCES\b", casa.group(3), flags=re.I)[0]
+        achadas.append(
+            (
+                casa.group(1).lower(),
+                casa.group(2).lower(),
+                " ".join(tipo.upper().split()),
+            )
+        )
+    return achadas
+
+
+def acrescentar_colunas(
+    tabelas: dict[str, dict[str, object]],
+    texto: str,
+    schemas: tuple[str, ...] | None = None,
+) -> None:
+    """Aplica em [tabelas] (no lugar) as colunas que [texto] acrescenta.
+
+    A coluna entra **no fim**, que e onde o Postgres a poe - e a ordem e o que
+    o cadeado do `data-model.md` compara.
+
+    - [schemas]: so os `ALTER` destes schemas entram. Uma migracao pode mexer
+      em `partida` na mesma passada, e essa tabela ⛔ esta em [tabelas].
+
+    Raises:
+        AssertionError: `ALTER` numa tabela que ⛔ foi criada antes. Ignorar em
+            silencio faria a coluna sumir das duas pontas, e a comparacao
+            passaria sem ela.
+    """
+    for tabela, coluna, tipo in colunas_acrescentadas(texto):
+        if schemas is not None and tabela.split(".")[0] not in schemas:
+            continue
+        assert tabela in tabelas, (
+            f"ALTER TABLE {tabela} ADD COLUMN {coluna}: nenhum CREATE TABLE "
+            "anterior criou esta tabela. ⛔ O cadeado nao inventa a tabela - "
+            "confira a ordem das migracoes ou o nome."
+        )
+        colunas = tabelas[tabela]["colunas"]
+        assert isinstance(colunas, list)
+        colunas.append((coluna, tipo))

@@ -51,6 +51,7 @@ from api.desafios.modelos_envio import (
 )
 from api.desafios.modelos_resposta import (
     DesafioPublicado,
+    MeuDia,
     ProximosPublicados,
     ResumoDoMes,
 )
@@ -60,6 +61,7 @@ from api.desafios.quadro import RepositorioQuadro
 from api.desafios.reacoes import RepositorioReacao, ServicoReacao
 from api.desafios.impedido import RepositorioImpedido
 from api.desafios.mes import RepositorioMes, ServicoMes
+from api.desafios.meu_dia import RepositorioMeuDia, ServicoMeuDia
 from api.desafios.repositorio_envio import RepositorioEnvio
 from api.desafios.servico_envio import ServicoEnvio
 from api.desafios.servico_quadro import ServicoQuadro
@@ -392,6 +394,35 @@ def obter_servico_quadro(
 ) -> ServicoQuadro:
     """Monta o servico do quadro ligado a sessao da requisicao."""
     return ServicoQuadro(RepositorioQuadro(sessao))
+
+
+def obter_servico_meu_dia(
+    sessao: AsyncSession = Depends(obter_sessao),
+) -> ServicoMeuDia:
+    """Monta o servico do "meu dia" ligado a sessao da requisicao."""
+    return ServicoMeuDia(RepositorioMeuDia(sessao))
+
+
+@router.get("/{id_desafio}/meu-dia", response_model=MeuDia)
+async def meu_dia(
+    id_desafio: UUID,
+    servico: ServicoMeuDia = Depends(obter_servico_meu_dia),
+    dono: UsuarioAutenticado = Depends(usuario_autenticado),
+    _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+) -> MeuDia:
+    """O dia da pessoa neste desafio: tentativas, dicas e a resolucao (T085za).
+
+    E o que faz o OUTRO aparelho mostrar o mesmo que o primeiro - e a conta que
+    entra num celular onde outra pessoa jogou comecar do dia DELA
+    (`DECISOES-do-dono.md` §8z item 13).
+
+    ⚠️ **Exige conta** (`usuario_autenticado`): o dia e pessoal. O convidado ⛔
+    tem servidor - o que ele fez vive no aparelho, com o dono dele, ate o login
+    levar a fila para a conta (RF-DES-083).
+    """
+    return MeuDia(
+        **await servico.montar(id_desafio=id_desafio, id_usuario=dono.id_usuario)
+    )
 
 
 @router.get("/{id_desafio}/quadro")

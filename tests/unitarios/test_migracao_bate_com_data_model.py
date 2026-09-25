@@ -65,6 +65,7 @@ import pytest
 # ⚠️ O extrator de SQL mora em modulo proprio: tres cadeados o usam, e tres
 # implementacoes acabariam discordando — ver a docstring de la.
 from tests.unitarios.leitura_de_migracao import (
+    acrescentar_colunas,
     sem_comentarios_sql,
     sql_da_migracao,
     tabelas_do_sql,
@@ -109,6 +110,14 @@ def migracoes_dos_schemas() -> list[Path]:
         for caminho in sorted(VERSOES.glob("[0-9]*.py"))
         if any(
             f"CREATE TABLE {schema}." in sql_da_migracao(caminho)
+            # ⚠️ E a que so ACRESCENTA coluna (24/09/2026, a `0027`): ela ⛔
+            # cria tabela, e uma varredura so de `CREATE` a deixaria de fora -
+            # a setima aparicao do defeito que o paragrafo acima conta.
+            or re.search(
+                rf"ALTER TABLE\s+{schema}\.\w+\s+ADD COLUMN",
+                sql_da_migracao(caminho),
+                re.I,
+            )
             for schema in SCHEMAS
         )
     ]
@@ -149,21 +158,43 @@ def do_documento() -> dict[str, dict[str, object]]:
         f"o data-model.md nao esta em {DATA_MODEL}. ⛔ Este cadeado FALHA em vez "
         "de pular: sem o documento, a pre-validacao do dono vira cheque em branco."
     )
-    return _tabelas(DATA_MODEL.read_text(encoding="utf-8"))
+    texto = DATA_MODEL.read_text(encoding="utf-8")
+    tabelas = _tabelas(texto)
+    # ⚠️ O documento escreve a coluna acrescentada DEPOIS como o banco a
+    # recebeu - um `ALTER TABLE ... ADD COLUMN` abaixo do `CREATE TABLE` que o
+    # dono pre-validou. Lido com a mesma regra das migracoes, ela entra no fim.
+    acrescentar_colunas(tabelas, texto, SCHEMAS)
+    return tabelas
 
 
-@pytest.fixture(scope="module")
-def da_migracao() -> dict[str, dict[str, object]]:
-    """As tabelas de `desafio`/`desafio_dia` criadas por QUALQUER migracao."""
+def tabelas_das_migracoes() -> dict[str, dict[str, object]]:
+    """As tabelas de `desafio`/`desafio_dia` como TODAS as migracoes as deixam.
+
+    Na ordem dos arquivos: o `CREATE TABLE` de uma, e depois as colunas que as
+    seguintes acrescentam por `ALTER` - no fim, que e onde o Postgres as poe.
+
+    ⚠️ **Publica porque tem dois leitores**: o cadeado abaixo e
+    `scripts/conferir_migracao_desafio.py`, que compara isto com o BANCO. Com
+    duas copias da consolidacao, a do script - que ninguem roda no CI - seria a
+    que discordaria em silencio.
+    """
     juntas: dict[str, dict[str, object]] = {}
     for caminho in migracoes_dos_schemas():
-        for nome, corpo in _tabelas(sql_da_migracao(caminho)).items():
+        sql = sql_da_migracao(caminho)
+        for nome, corpo in _tabelas(sql).items():
             # ⛔ So os dois schemas que o documento descreve: uma migracao pode
             # criar tabela em `partida` ou `log` na mesma passada, e compara-la
             # com o `data-model.md` acusaria divergencia que nao existe.
             if nome.split(".")[0] in SCHEMAS:
                 juntas[nome] = corpo
+        acrescentar_colunas(juntas, sql, SCHEMAS)
     return juntas
+
+
+@pytest.fixture(scope="module")
+def da_migracao() -> dict[str, dict[str, object]]:
+    """As tabelas de `desafio`/`desafio_dia` criadas por QUALQUER migracao."""
+    return tabelas_das_migracoes()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -198,6 +229,35 @@ def test_a_varredura_NAO_e_uma_lista_escrita_a_mao() -> None:
         "migracao posterior criou tabela nestes schemas — e ai este caso deve "
         "ser reescrito com consciencia — ou a descoberta virou lista fixa de novo."
     )
+
+
+def test_a_coluna_acrescentada_por_ALTER_entra_no_FIM() -> None:
+    """🔒 O leitor de `ALTER TABLE ... ADD COLUMN` poe a coluna onde o banco poe.
+
+    ⚠️ **Existe porque o cadeado era cego para ela ate 24/09/2026**: a `0027`
+    acrescenta `js_feito` por `ALTER` (a regra de 10/09 proibe editar a `0019`),
+    e so `CREATE TABLE` era lido. O caso usa SQL sintetico de proposito: se
+    dependesse da `0027`, apagar o leitor e a migracao juntos o deixaria verde.
+    """
+    sql = """
+        CREATE TABLE desafio_dia.tb999_teste (
+            id_teste UUID PRIMARY KEY,
+            nu_valor SMALLINT NOT NULL
+        );
+        ALTER TABLE desafio_dia.tb999_teste ADD COLUMN js_retrato JSONB;
+        ALTER TABLE partida.tb001_partida ADD COLUMN nu_outro INT;
+    """
+    tabelas = _tabelas(sql)
+    acrescentar_colunas(tabelas, sql, SCHEMAS)
+
+    assert [c for c, _ in tabelas["desafio_dia.tb999_teste"]["colunas"]] == [
+        "id_teste",
+        "nu_valor",
+        "js_retrato",
+    ]
+    assert tabelas["desafio_dia.tb999_teste"]["colunas"][-1][1] == "JSONB"
+    # ⛔ O `ALTER` de outro schema ⛔ inventa tabela aqui.
+    assert "partida.tb001_partida" not in tabelas
 
 
 def test_as_MESMAS_tabelas_dos_dois_lados(do_documento, da_migracao) -> None:

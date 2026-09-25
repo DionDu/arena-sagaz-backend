@@ -54,6 +54,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from .medidas_do_feito import exigir_frase_do_feito
+
 RAIZ = Path(__file__).resolve().parents[1]
 CATALOGO = RAIZ / "contratos" / "catalogo_feitos.json"
 
@@ -225,7 +227,18 @@ def montar_linha(
     ⚠️ **Tudo nasce `candidato`** (RF-DES-012a): nada vai ao ar sem o dono ver. Um
     padrao `aprovado` aqui faria a curadoria virar opcional por acidente — e a
     primeira vez que alguem esquecesse de aprovar, o desafio iria ao ar sozinho.
+
+    Raises:
+        FraseDoFeitoNaoDeclarada: o tipo ⛔ declarou o que a frase de feito dele
+            le (T085za) - ver `job/medidas_do_feito.py`. ⚠️ Aqui, e ⛔ na
+            receita: este e o ponto UNICO em que um candidato vira linha, e o
+            tipo em avaliacao (a pescaria) ⛔ passa por `RECEITAS`.
     """
+    exigir_frase_do_feito(
+        co_chave_objetivo=candidato.receita.co_chave_objetivo,
+        co_jogo=candidato.co_jogo,
+        js_chegada=candidato.js_chegada,
+    )
     return LinhaDeDesafio(
         co_jogo=candidato.co_jogo,
         co_modalidade=candidato.co_modalidade,

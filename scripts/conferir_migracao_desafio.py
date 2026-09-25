@@ -222,17 +222,18 @@ def _colunas_esperadas() -> dict[str, list[str]]:
     # O extrator de SQL e o parser de `CREATE TABLE` vivem nos cadeados, e sao os
     # mesmos que rodam no CI — e essa e a razao de importa-los em vez de
     # reescreve-los.
-    from tests.unitarios.leitura_de_migracao import sql_da_migracao
+    # ⚠️ **A consolidacao tambem vem de la** (24/09/2026): desde a `0027` uma
+    # coluna chega por `ALTER TABLE ... ADD COLUMN`, e ler so os `CREATE TABLE`
+    # daria o banco migrado por "coluna a mais" - ou, pior, a falta dela por
+    # conferida.
     from tests.unitarios.test_migracao_bate_com_data_model import (
-        _tabelas,
-        migracoes_dos_schemas,
+        tabelas_das_migracoes,
     )
 
-    esperadas: dict[str, list[str]] = {}
-    for arquivo in migracoes_dos_schemas():
-        for tabela, dados in _tabelas(sql_da_migracao(arquivo)).items():
-            esperadas[tabela] = [nome for nome, _tipo in dados["colunas"]]
-    return esperadas
+    return {
+        tabela: [nome for nome, _tipo in dados["colunas"]]
+        for tabela, dados in tabelas_das_migracoes().items()
+    }
 
 
 async def _conferir(url: str) -> int:

@@ -1,0 +1,108 @@
+{
+  "de_documento": "O que cada frase de feito (o cartao de quem resolveu, \"4 caixas em 2 turnos\") le do retrato da resolucao (tb003_resolucao.js_feito). Gerado por tool/gerar_manifesto_medidas_do_feito.dart - NAO edite a mao.",
+  "co_fonte_da_verdade": "arena-sagaz-frontend/lib/modulos/desafio_do_dia/logica/medidas_do_feito.dart",
+  "nu_versao": 1,
+  "frases": [
+    {
+      "co_chave_objetivo": "desafioObjetivoCadeiaLonga",
+      "co_jogo": "pontinhos",
+      "medidas": [
+        "maior_cadeia_capturada"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoCapturaMultipla",
+      "co_jogo": "damas",
+      "medidas": [
+        "maior_captura"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoChegarAoPlacar",
+      "co_jogo": "pontinhos",
+      "medidas": [
+        "caixas_fechadas"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoCoroarEmLances",
+      "co_jogo": "damas",
+      "medidas": [
+        "damas_coroadas"
+      ],
+      "janela_gasta": true,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoEconomiaDeLances",
+      "co_jogo": "pontinhos",
+      "medidas": [
+        "caixas_fechadas"
+      ],
+      "janela_gasta": true,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoFecharCaixasEmTurnos",
+      "co_jogo": "pontinhos",
+      "medidas": [
+        "caixas_fechadas"
+      ],
+      "janela_gasta": true,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoNaoEntregar",
+      "co_jogo": "pontinhos",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoPaciencia",
+      "co_jogo": "pontinhos",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoSacrificio",
+      "co_jogo": "damas",
+      "medidas": [],
+      "janela_gasta": false,
+      "valores_do_objetivo": [
+        "entregar",
+        "capturar"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoSobreviver",
+      "co_jogo": "damas",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoTrocaFavoravel",
+      "co_jogo": "pontinhos",
+      "medidas": [
+        "caixas_fechadas",
+        "caixas_do_adversario"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    }
+  ]
+}

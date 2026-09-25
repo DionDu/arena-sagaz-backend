@@ -272,6 +272,42 @@ class DiaDoCalendario(BaseModel):
     resolvido: bool
 
 
+class FeitoDaResolucao(BaseModel):
+    """O retrato da resolucao (`tb003_resolucao.js_feito`, T085za)."""
+
+    #: As medidas de tabuleiro do instante do objetivo, pela chave do catalogo.
+    medidas: dict[str, float] = Field(default_factory=dict)
+    #: Quanto da janela foi gasto (os *"2 turnos"*), ou `null`.
+    janela_gasta: Optional[int] = None
+
+
+class PrimeiraResolucaoDoDia(BaseModel):
+    """A resolucao que vale - a primeira, definitiva (RF-DES-004a)."""
+
+    #: O `n` que entrou na nota - o que o aplicativo mandou.
+    na_tentativa: int
+    pontuacao: int
+    tempo_ms: int
+    #: ⚠️ `null` na resolucao anterior a `0027`: a tela cai em "Objetivo
+    #: cumprido", que continua verdadeiro.
+    feito: Optional[FeitoDaResolucao] = None
+
+
+class MeuDia(BaseModel):
+    """O dia da pessoa num desafio - `GET /{id}/meu-dia` (T085za).
+
+    ⚠️ **O aplicativo JUNTA isto com o que o aparelho sabe**, e ⛔ troca: a fila
+    pode ainda ⛔ ter subido a ultima tentativa, e o servidor ⛔ a conhece.
+    """
+
+    id_desafio_dia: UUID
+    #: Tentativas FECHADAS - ⛔ conta a linha que so uma dica criou.
+    tentativas: int
+    dicas: int
+    resolveu: bool
+    primeira: Optional[PrimeiraResolucaoDoDia] = None
+
+
 class ResumoDoMes(BaseModel):
     """O mes corrente de uma pessoa (RF-DES-067).
 

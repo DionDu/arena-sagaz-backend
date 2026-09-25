@@ -40,6 +40,7 @@ consertaria depois. Quem fecha e a rota.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Optional, Sequence
@@ -175,9 +176,10 @@ SELECT id_tentativa, ic_resolveu
 SQL_GRAVAR_RESOLUCAO = f"""
 INSERT INTO {TB_RESOLUCAO}
        (id_desafio_dia, id_usuario, id_tentativa, nu_lance_cumpre_desafio,
-        nu_xp, nu_versao_catalogo, dh_resolucao)
+        nu_xp, nu_versao_catalogo, dh_resolucao, js_feito)
 VALUES (:id_desafio_dia, :id_usuario, :id_tentativa, :nu_lance,
-        :nu_xp, :nu_versao_catalogo, :dh_resolucao)
+        :nu_xp, :nu_versao_catalogo, :dh_resolucao,
+        CAST(:js_feito AS JSONB))
 ON CONFLICT (id_desafio_dia, id_usuario) DO NOTHING
 RETURNING id_resolucao
 """
@@ -425,8 +427,13 @@ class RepositorioEnvio:
         nu_xp: int,
         nu_versao_catalogo: int,
         dh_resolucao: datetime,
+        js_feito: dict[str, Any],
     ) -> tuple[UUID, bool]:
         """Grava a resolucao, ou devolve a que ja existia.
+
+        - [js_feito]: o retrato do instante do objetivo (T085za) - ver
+          `api/desafios/retrato.py`. ⚠️ Vai como texto e o `CAST` o faz JSONB:
+          o driver ⛔ converte `dict` sozinho.
 
         Returns:
             `(id_resolucao, era_nova)`.
@@ -444,6 +451,7 @@ class RepositorioEnvio:
                 "nu_xp": nu_xp,
                 "nu_versao_catalogo": nu_versao_catalogo,
                 "dh_resolucao": dh_resolucao,
+                "js_feito": json.dumps(js_feito, ensure_ascii=False),
             },
         )
         nova = resultado.first()

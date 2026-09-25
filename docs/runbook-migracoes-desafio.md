@@ -237,3 +237,32 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 2. ⛔ **A migração sozinha não envia nada.** Enquanto o serviço de cron não for
    criado, o código está no ar (ele vive na imagem da API) mas **ninguém o chama** -
    e isso é o estado esperado, não um defeito.
+
+## ⏳ A `0027_retrato_da_resolucao` — escrita em 24/09/2026, **ainda não aplicada**
+
+> ⏳ **Comando do dono**, e ⚠️ **ANTES do push do backend da T085za**: a API nova
+> grava `js_feito` em toda resolução e lê a `vw003_resolucao` com ela - publicada
+> sem a coluna, ela quebra no primeiro envio (o push é o deploy).
+
+| migração | o que faz | risco |
+|---|---|---|
+| `0027_retrato_da_resolucao` | `ALTER TABLE desafio_dia.tb003_resolucao ADD COLUMN js_feito JSONB` + `CREATE OR REPLACE VIEW vw003_resolucao` com a coluna no fim | coluna **nula** numa tabela povoada: ⛔ reescreve linha nenhuma, e as resoluções de antes ficam `NULL` (= "anterior ao retrato", e o app cai em *"Objetivo cumprido"*) |
+
+**O que ela guarda.** O retrato do que a pessoa FEZ no instante do objetivo -
+`{"medidas": {...}, "janela_gasta": n}` - para o outro aparelho dela escrever *"4
+caixas em 2 turnos"* (`DECISOES-do-dono.md` §8z item 13, T085za). ⚠️ **No fim da
+tabela, por `ALTER`**: a regra de 10/09 (*"migração já aplicada NÃO se edita. Crie
+outra"*).
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python scripts\identificar_banco.py        # tem de dizer DES
+.venv\Scripts\python -m alembic current                  # esperado: 0026_notificacao_de_reacao
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m alembic current                  # esperado: 0027_retrato_da_resolucao (head)
+.venv\Scripts\python scripts\conferir_migracao_desafio.py
+```
+
+**O que conferir depois:** o `conferir_migracao_desafio.py` sai com as colunas **na
+ordem** - desde a T085za ele lê também as colunas acrescentadas por `ALTER`, então a
+`tb003_resolucao` tem de terminar em `js_feito`.

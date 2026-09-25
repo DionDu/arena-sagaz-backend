@@ -67,6 +67,7 @@ from api.desafios.modelos_evento import (
     XP_DA_TENTATIVA_SEM_RESOLVER,
 )
 from api.desafios.repositorio_envio import RepositorioEnvio
+from api.desafios.retrato import retrato_da_resolucao
 from api.nucleo.excecoes import ErroConflito, ErroNegocio
 
 #: O teto de dicas por **desafio** (RF-DES-057).
@@ -204,6 +205,9 @@ class ServicoEnvio:
             nu_xp=envio.pontuacao,
             nu_versao_catalogo=envio.versao_catalogo_feitos,
             dh_resolucao=envio.resolvido_em,
+            # O retrato para a frase do cartao (T085za): TODAS as medidas do
+            # tabuleiro, e ⛔ so as que pesam - essas vao para o extrato abaixo.
+            js_feito=retrato_da_resolucao(envio.feitos, envio.janela_gasta),
         )
 
         if not nova:

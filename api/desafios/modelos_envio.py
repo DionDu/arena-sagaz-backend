@@ -128,6 +128,16 @@ class EnvioDeResolucao(BaseModel):
     #: lance que nao cumpriu nada. Quem cobra e o validador abaixo.
     nu_lance_cumpre_desafio: Optional[int] = Field(default=None, gt=0)
 
+    #: Quanto da janela a pessoa gastou ate o objetivo - os *"2 turnos"* de
+    #: *"4 caixas em 2 turnos"* (T085za). Vai para o retrato da resolucao
+    #: (`tb003_resolucao.js_feito`).
+    #:
+    #: ⚠️ **Opcional, e sem guarda na resolucao**: e `null` quando a janela e a
+    #: partida inteira (⛔ ha o que contar), e o aplicativo anterior a T085za ⛔
+    #: o manda. Recusar a falta dele faria o outbox descartar a resolucao (422 e
+    #: "dado impossivel" la) - e a pessoa perderia o XP por uma frase.
+    janela_gasta: Optional[int] = Field(default=None, ge=0)
+
     feitos: list[FeitoMedido] = Field(default_factory=list)
     versao_catalogo_feitos: int = Field(ge=1)
 
