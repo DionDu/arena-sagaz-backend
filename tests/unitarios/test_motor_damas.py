@@ -31,7 +31,16 @@ from motores.damas.contrato_damas import (
     parametros_do_nivel,
     versao_do_motor,
 )
-from motores.damas.motor_damas import EstadoDamas, MotorDamas, estado_inicial
+from motores.damas.jogador_dart import (
+    MotorDartIndisponivel,
+    caminho_do_executavel,
+)
+from motores.damas.motor_damas import (
+    EstadoDamas,
+    MotorDamas,
+    estado_inicial,
+    motor_de_busca_escolhido,
+)
 from motores.nucleo.carimbo import Carimbo
 from motores.nucleo.orcamento import Orcamento
 from motores.nucleo.papeis import (
@@ -144,18 +153,30 @@ POSICOES = {
 @pytest.mark.parametrize("nivel", list(NivelDeMotor))
 @pytest.mark.parametrize("nome_da_posicao", sorted(POSICOES))
 def test_mesmo_lance_que_o_laboratorio_na_mesma_posicao_e_semente(
-    motor, nivel, nome_da_posicao
+    motor, nivel, nome_da_posicao, monkeypatch
 ):
-    """A prova de que o adaptador é só um adaptador.
+    """A prova de que o adaptador é só um adaptador — **do port Python**.
 
     Ele monta o `Buscador` com os parâmetros do contrato; este teste monta o
     mesmo `Buscador` à mão, com os mesmos parâmetros e a mesma semente, e exige
     o mesmo lance.
 
+    ⚠️ **Roda com `MOTOR_DAMAS_DO_SERVIDOR=python`, e é obrigatório que rode.**
+    Desde 25/09/2026 o padrão do adaptador é o **motor Dart compilado**, o mesmo
+    que o aplicativo embarca; comparar o padrão com o `Buscador` Python daqui
+    seria comparar dois motores diferentes, e este teste passaria a acusar uma
+    divergência que é a correção, não o defeito.
+
+    ⚠️ **Quem prova o caminho de verdade é `test_jogador_dart.py`**, contra os
+    lances que o aparelho do dono de fato jogou. Este aqui continua respondendo
+    à pergunta que ele sempre respondeu: *o adaptador acrescenta alguma coisa
+    por conta própria?* — e a resposta continua sendo não.
+
     ⚠️ A semente é fixa porque três dos quatro níveis têm acaso declarado (ruído
     e chance de errar). Sem ela, este teste falharia às vezes — e um teste que
     falha às vezes é desligado.
     """
+    monkeypatch.setenv("MOTOR_DAMAS_DO_SERVIDOR", "python")
     fen = POSICOES[nome_da_posicao]
     semente = 20260909
     estado = EstadoDamas(co_modalidade="brasileira", fen_inicial=fen)
@@ -426,3 +447,84 @@ def test_a_versao_do_motor_sai_dos_hashes_do_espelho():
 def test_a_versao_do_motor_e_estavel_entre_chamadas():
     """Uma versão que oscilasse não identificaria coisa nenhuma."""
     assert versao_do_motor() == versao_do_motor()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ QUEM JOGA PELO SERVIDOR (25/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Os três casos abaixo travam a correção do defeito que deixou o desafio
+# `d6a7317e` *"praticamente impossível"*, e cada um pega uma camada dele. As
+# duas primeiras camadas eram invisíveis uma para a outra:
+#
+#   1. o servidor jogava com o **port Python**, e o aparelho com o Dart/Rust;
+#   2. e ainda por cima com o teto de nós da **camada** (60 mil na geração,
+#      20 mil na régua), contra os 288 mil do contrato que o aparelho gasta.
+#
+# Medido na posição do lance 8 da partida do dono: pelo caminho do job, o Python
+# parava em **24.576 nós** e jogava `19-23`; o aparelho via **288.001** e jogava
+# `16-20`. Era o `19-23` que estava no painel de curadoria.
+
+
+def test_o_padrao_e_o_motor_do_aparelho(monkeypatch):
+    """Sem ninguém dizer nada, quem joga é o Dart.
+
+    ⛔ **O padrão é a peça inteira.** Se o padrão fosse o port, bastaria um
+    caminho do job esquecer de pedir o Dart para a fila do dia inteira voltar a
+    sair de outro adversário — e nada no dado denunciaria, porque o desafio sai
+    bem formado.
+    """
+    monkeypatch.delenv("MOTOR_DAMAS_DO_SERVIDOR", raising=False)
+    assert motor_de_busca_escolhido() == "dart"
+
+
+def test_um_motor_escrito_errado_falha_alto(monkeypatch):
+    """`=rust`, `=Dart`, `=py` — qualquer coisa fora dos dois é recusada.
+
+    ⚠️ Cair no padrão diante de um valor desconhecido seria pior que o defeito
+    original: quem escreveu a variável acredita ter trocado o motor.
+    """
+    monkeypatch.setenv("MOTOR_DAMAS_DO_SERVIDOR", "rust")
+    with pytest.raises(ValueError, match="não é um motor conhecido"):
+        motor_de_busca_escolhido()
+
+
+def test_o_limite_da_camada_NAO_corta_mais_o_teto_do_contrato(monkeypatch):
+    """A busca gasta os 288 mil nós do Sagaz mesmo com um orçamento apertado.
+
+    ⛔ **É o caso que teria pegado a segunda camada do defeito.** O adaptador
+    usava o **menor** entre o teto do nível e o da camada, e a camada era sempre
+    menor: o adversário do dia jogava no servidor com 60 mil nós e no aparelho
+    com 288 mil, então o gabarito descarrilava no primeiro lance dele — e o
+    desafio publicado prometia uma solução que ninguém consegue reproduzir.
+
+    ⚠️ O `limite` continua sendo **alimentado**: ele diz quanto o job gastou. O
+    que ele não faz mais é mudar a força do adversário.
+    """
+    monkeypatch.delenv("MOTOR_DAMAS_DO_SERVIDOR", raising=False)
+    try:
+        caminho_do_executavel()
+    except MotorDartIndisponivel as erro:
+        pytest.skip(str(erro))
+
+    # O orçamento mais apertado que o job usa hoje — o da prova de término.
+    orcamento = Orcamento(nos_maximos=8_000, segundos_maximos=0.5).iniciar()
+    estado = EstadoDamas(
+        co_modalidade="anglo",
+        fen_inicial="W:W18,22,23,28,29,30,31,32:B4,6,8,10,12,13,15,16,21",
+        lances=("18x11", "8x15", "23-18", "15-19", "18-15", "4-8", "32-27"),
+    )
+
+    lance = MotorDamas("anglo").escolher_lance(
+        estado, NivelDeMotor.SAGAZ, limite=orcamento, semente=43215085
+    )
+
+    assert lance == "16-20", (
+        f"o servidor jogou {lance} onde o aparelho do dono jogou 16-20. Com o "
+        f"teto da camada mordendo, este mesmo caso dava 19-23 — o lance que "
+        f"estava no painel de curadoria em 25/09/2026."
+    )
+    assert orcamento.nos_gastos > 288_000, (
+        f"a busca gastou {orcamento.nos_gastos} nós, e o Sagaz do contrato manda "
+        f"gastar 288.000. Algum limite voltou a cortar o orçamento do nível."
+    )

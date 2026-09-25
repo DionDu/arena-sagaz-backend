@@ -25,44 +25,72 @@ from motores.damas.jogador_dart import (
     MotorDartIndisponivel,
     JogadorDart,
     caminho_do_executavel,
+    pasta_da_base_de_finais,
     resumo_dos_fontes,
 )
 from motores.nucleo.papeis import NivelDeMotor
 
 # ═══════════════════════════════════════════════════════════════════════════
-# O VETOR DE PARIDADE
+# O VETOR DE PARIDADE — a partida do dono, inteira
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # A partida `a267bba1-88f1-4f49-9121-bda8def57955`, jogada pelo dono no `des` em
 # 25/09/2026 contra o desafio `d6a7317e` (`damas_coroar`, anglo, Magno, semente
-# publicada 282565477). Ela veio do banco com FEN antes de cada lance, a semente
-# de cada lance e o motor de busca identificado — por isso serve de vetor sem
-# custo nenhum.
+# publicada 282565477). Ela veio do banco (`jogo_damas.vw002_jogada`) com o FEN
+# antes de cada lance, a semente daquele lance e a telemetria do motor — por isso
+# serve de vetor sem custo nenhum.
 #
-# ⚠️ **Só entram os lances em que o aparelho NÃO consultou a base de finais.**
-# `qt_consultas_base` é zero nos lances 4, 6 e 8, e passa a 795 no lance 16. O
-# servidor ainda joga **sem** base (`motores/damas/motor_damas.py` nunca a passa),
-# então um vetor que incluísse os finais estaria cobrando uma paridade que
-# sabidamente ainda não existe — e um cadeado que falha por um defeito conhecido
-# ensina a ser ignorado.
+# ⚠️ **O aparelho jogou com o motor RUST**, e é o alvo certo: `conferir_equivalencia
+# _com_rust.dart` trava Rust e Dart no mesmo lance, então bater com o Rust é bater
+# com os dois.
 #
-# ⛔ **Quando a base entrar no servidor, os finais entram aqui.** É a segunda
-# divergência registrada na investigação, e este comentário é o lembrete dela.
+# ⛔ **Os treze lances da CPU entram, inclusive os finais.** Até 25/09 só os três
+# primeiros estavam aqui, porque o servidor jogava **sem** a base de finais e um
+# cadeado que falha por um defeito conhecido ensina a ser ignorado. A base entrou
+# no mesmo dia (`pasta_da_base_de_finais`), e com ela o vetor passou a cobrir a
+# partida inteira — 13 de 13.
+#
+# ⚠️ **Olhe `consultas_base` antes de olhar o lance.** No 16º lance o aparelho
+# registrou **795 consultas e 636 acertos**; o servidor precisa registrar os
+# mesmos números. Dois motores só chegam ao mesmo par se estiverem lendo a mesma
+# base, com as mesmas fatias — é o que separa *"usa uma base"* de *"usa A base"*,
+# e a base crua do laboratório (41 fatias contra 23) daria outro par.
 
 FEN_INICIAL = "W:W18,22,23,28,29,30,31,32:B4,6,8,10,12,13,15,16,21"
 
-#: `(lances jogados até ali, semente daquele lance, o que o APARELHO jogou)`.
+#: A partida inteira, na ordem. O índice `n-1` é o lance de ordem `n`.
+PARTIDA_DO_DONO = (
+    "18x11", "8x15", "23-18", "15-19", "18-15", "4-8", "32-27", "16-20",
+    "15-11", "8x15", "22-18", "15x22", "27-23", "19x26", "30x23", "21-25",
+    "31-26", "22x31", "29x22", "13-17", "22x13", "31-26", "28-24", "26x19x28",
+    "13-9", "6x13",
+)
+
+#: `(ordem do lance, semente gravada, nós, profundidade, consultas à base)`.
 #:
-#: As sementes são as gravadas no banco, e cada uma confere com a derivação do
-#: app — `(282565477 + ordem * 2654435761) & 0x7FFFFFFF`.
-VETOR_DA_PARTIDA_DO_DONO = (
-    (("18x11", "8x15", "23-18"), 162890281, "15-19"),
-    (("18x11", "8x15", "23-18", "15-19", "18-15"), 1176794507, "4-8"),
-    (
-        ("18x11", "8x15", "23-18", "15-19", "18-15", "4-8", "32-27"),
-        43215085,
-        "16-20",
-    ),
+#: ⚠️ `None` na telemetria é o **atalho de lance único** do aplicativo: sem
+#: escolha a fazer, ele joga sem buscar e sem gravar números
+#: (`TelemetriaDaBuscaDamas.lanceUnico`). O servidor busca nessas posições e
+#: chega ao mesmo lance — porque é o único legal. ⛔ Reproduzir o atalho aqui
+#: seria copiar para o motor uma decisão que é de **tela**, e ela não muda lance
+#: nenhum.
+#:
+#: As sementes são as do banco, e cada uma confere com a derivação do app —
+#: `(282565477 + ordem * 2654435761) & 0x7FFFFFFF`.
+LANCES_DA_CPU = (
+    (2, 1296469703, None, None, None),
+    (4, 162890281, 288001, 12, 0),
+    (6, 1176794507, 288001, 12, 0),
+    (8, 43215085, 288001, 12, 0),
+    (10, 1057119311, None, None, None),
+    (12, 2071023537, None, None, None),
+    (14, 937444115, None, None, None),
+    (16, 1951348341, 288001, 14, 795),
+    (18, 817768919, None, None, None),
+    (20, 1831673145, 23404, 10, 73),
+    (22, 698093723, 3989, 8, 34),
+    (24, 1711997949, 12, 2, 0),
+    (26, 578418527, None, None, None),
 )
 
 
@@ -102,8 +130,8 @@ def test_o_resumo_dos_fontes_e_deterministico() -> None:
     assert resumo_dos_fontes() == resumo_dos_fontes()
 
 
-def test_o_resumo_cobre_os_quinze_arquivos_do_motor() -> None:
-    """A pasta espelhada tem os mesmos quinze arquivos que o app embarca.
+def test_o_resumo_cobre_os_dezesseis_arquivos_do_motor() -> None:
+    """A pasta espelhada tem os mesmos dezesseis arquivos que o app embarca.
 
     ⚠️ É o elo do meio da corrente: `paridade_motor_test.dart` prova que o app é
     byte-idêntico ao laboratório, e `espelhar_laboratorio.py` traz o laboratório
@@ -113,14 +141,15 @@ def test_o_resumo_cobre_os_quinze_arquivos_do_motor() -> None:
     from motores.damas.jogador_dart import FONTES_DO_MOTOR_DART
 
     nomes = sorted(a.name for a in FONTES_DO_MOTOR_DART.glob("*.dart"))
-    assert len(nomes) == 15, (
+    assert len(nomes) == 16, (
         f"o espelho tem {len(nomes)} arquivo(s) do motor Dart, e o app embarca "
-        f"15. Se um arquivo novo nasceu no laboratório, acrescente-o a "
+        f"16. Se um arquivo novo nasceu no laboratório, acrescente-o a "
         f"ARQUIVOS_ESPELHADOS em scripts/espelhar_laboratorio.py — e à lista de "
         f"paridade_motor_test.dart no app, na MESMA resposta. Achei: {nomes}"
     )
     assert "busca_damas.dart" in nomes
     assert "regras_damas.dart" in nomes
+    assert "consulta_base_finais_damas.dart" in nomes
 
 
 def test_o_executavel_saiu_dos_fontes_deste_backend(jogador: JogadorDart) -> None:
@@ -140,30 +169,63 @@ def test_o_executavel_saiu_dos_fontes_deste_backend(jogador: JogadorDart) -> Non
 
 
 @pytest.mark.parametrize(
-    "lances, semente, esperado", VETOR_DA_PARTIDA_DO_DONO
+    "ordem, semente, nos, profundidade, consultas", LANCES_DA_CPU
 )
 def test_o_servidor_joga_o_mesmo_lance_que_o_aparelho(
-    jogador: JogadorDart, lances: tuple[str, ...], semente: int, esperado: str
+    jogador: JogadorDart,
+    ordem: int,
+    semente: int,
+    nos: int | None,
+    profundidade: int | None,
+    consultas: int | None,
 ) -> None:
     """O lance do servidor é o que o aparelho jogou, na mesma posição.
 
-    ⚠️ **O terceiro caso é o que abriu a investigação.** Ali o servidor respondia
+    ⚠️ **O lance 8 é o que abriu a investigação.** Ali o servidor respondia
     `19-23` e o aparelho `16-20`, e o desafio do dia ficava, nas palavras do
     dono, *"praticamente impossível"*.
+
+    ⚠️ **E o lance 16 é o que prova a base de finais.** O aparelho registrou 795
+    consultas e 636 acertos; sem a base — ou com a base errada — o servidor
+    chegaria a outros números muito antes de chegar a outro lance.
     """
     resposta = jogador.escolher_lance(
         co_modalidade="anglo",
         fen_inicial=FEN_INICIAL,
-        lances=lances,
+        lances=PARTIDA_DO_DONO[: ordem - 1],
         parametros=parametros_do_nivel(NivelDeMotor.SAGAZ),
         semente=semente,
+        pasta_da_base=pasta_da_base_de_finais("anglo"),
     )
+    esperado = PARTIDA_DO_DONO[ordem - 1]
+
     assert resposta["lance"] == esperado, (
-        f"o servidor jogou {resposta['lance']} onde o aparelho jogou {esperado}. "
-        f"Olhe NÓS e PROFUNDIDADE antes de olhar o lance: "
-        f"nos={resposta['nos']} prof={resposta['profundidade']}. "
-        f"Se pararam em pontos diferentes, o orçamento divergiu — foi assim que "
-        f"o defeito de 25/09/2026 se revelou."
+        f"no lance {ordem} o servidor jogou {resposta['lance']} onde o aparelho "
+        f"jogou {esperado}.\n"
+        f"Olhe NÓS, PROFUNDIDADE e CONSULTAS À BASE antes de olhar o lance:\n"
+        f"  servidor: nos={resposta['nos']} prof={resposta['profundidade']} "
+        f"consultas={resposta.get('consultas_base')}\n"
+        f"  aparelho: nos={nos} prof={profundidade} consultas={consultas}\n"
+        f"Se pararam em pontos diferentes, o orçamento divergiu; se consultaram "
+        f"a base um número diferente de vezes, não é a mesma base."
+    )
+
+    # ⚠️ **A telemetria é conferida só onde o aparelho a gravou.** Onde ela veio
+    # nula, o aplicativo usou o atalho de lance único e não buscou — ver
+    # `LANCES_DA_CPU`.
+    if nos is None:
+        return
+    assert (resposta["nos"], resposta["profundidade"]) == (nos, profundidade), (
+        f"no lance {ordem} o servidor parou em {resposta['nos']} nós e "
+        f"profundidade {resposta['profundidade']}; o aparelho parou em {nos} e "
+        f"{profundidade}. Dois motores que param em pontos diferentes só "
+        f"escolhem o mesmo lance por sorte."
+    )
+    assert resposta.get("consultas_base") == consultas, (
+        f"no lance {ordem} o servidor perguntou {resposta.get('consultas_base')} "
+        f"vezes à base de finais e o aparelho perguntou {consultas}. Não é a "
+        f"mesma base: a do laboratório tem 41 fatias por modalidade, e a que o "
+        f"aparelho embarca tem 23 (o resto sai por simetria de cor)."
     )
 
 
@@ -183,7 +245,7 @@ def test_a_busca_gasta_o_orcamento_INTEIRO_do_sagaz(jogador: JogadorDart) -> Non
     resposta = jogador.escolher_lance(
         co_modalidade="anglo",
         fen_inicial=FEN_INICIAL,
-        lances=("18x11", "8x15", "23-18", "15-19", "18-15", "4-8", "32-27"),
+        lances=PARTIDA_DO_DONO[:7],
         parametros=parametros,
         semente=43215085,
     )

@@ -123,6 +123,28 @@ MODALIDADES_POR_JOGO: dict[str, tuple[str, ...]] = {
 #: ⚠️ O preco, dito em voz alta: com teto baixo o Sagaz joga um pouco pior, e o
 #: gabarito pode nao ser a solucao mais curta. Isso e aceitavel — o gabarito
 #: prova que o desafio TEM solucao (RF-DES-196), e nao que aquela e a melhor.
+#:
+#: ═══════════════════════════════════════════════════════════════════════════
+#: ⛔ DESDE 25/09/2026 ESTE TETO NÃO CORTA MAIS A BUSCA DAS DAMAS
+#: ═══════════════════════════════════════════════════════════════════════════
+#:
+#: Ele continua contando o que foi gasto e continua respondendo `cancelado()` —
+#: mas ⛔ **não reduz mais o teto do nível**. Nas damas quem joga é o motor Dart
+#: compilado, o mesmo do aparelho, e o orçamento que vale é o do **contrato**.
+#:
+#: ⛔ **O motivo é o defeito que custou a investigação de 25/09.** O adversário
+#: do dia é o mesmo personagem que responde no aparelho de quem resolve. Com um
+#: teto menor aqui, ele escolhe outro lance no meio da partida, e o gabarito
+#: publicado deixa de ser reproduzível a partir dali. Medido na posição que abriu
+#: o caso: o servidor parava em **24.576 nós** e jogava `19-23`; o aparelho via
+#: **288.001** e jogava `16-20`. Era o `19-23` que estava no painel de curadoria.
+#:
+#: ⚠️ **E o teto existia por um motivo real, que acabou:** o port Python é ~40x
+#: mais lento que o motor do aparelho, e sem coleira uma geração de damas passava
+#: de 6 minutos. O Dart cumpre os 288 mil nós do Sagaz em ~0,7 s.
+#:
+#: ⚠️ **No Pontinhos ele continua cortando**, porque lá o motor é o do espelho e
+#: a conta é outra. Ver `motores/damas/motor_damas.py`.
 NOS_POR_LANCE_NA_GERACAO = 60_000
 SEGUNDOS_POR_LANCE_NA_GERACAO = 2.0
 

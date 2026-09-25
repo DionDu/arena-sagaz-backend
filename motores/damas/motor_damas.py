@@ -30,10 +30,12 @@ noutra máquina. O que atravessa é texto.
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, field
 from typing import Any
 
+from motores.damas import jogador_dart
 from motores.damas.contrato_damas import (
     ESPELHO,
     parametros_do_nivel,
@@ -254,6 +256,74 @@ class EstadoDamas:
         )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ QUEM JOGA PELO SERVIDOR: O MOTOR DO APARELHO
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Desde 25/09/2026 quem escolhe o lance do servidor é o **motor Dart compilado**,
+# o mesmo código que o aplicativo embarca, e não o port Python daqui. O port
+# continua no espelho e continua exercendo o papel de **árbitro** (regras,
+# veredito, lances legais), que é onde ele sempre esteve certo.
+#
+# ⚠️ **O port nunca foi infiel.** O que o traía era o relógio: a rede de
+# segurança de 10 s do contrato morde todo lance num motor ~40x mais lento e
+# nenhum lance no aparelho, então o servidor parava a busca em 124.928 nós onde
+# o aparelho via 288.001 — e o gabarito do dia saía de um Sagaz enfraquecido.
+# O diagnóstico inteiro está em `docs/investigacao_paridade_motores.md`.
+#
+# ⛔ **Não há queda silenciosa para o Python.** Sem executável, `escolher_lance`
+# FALHA, com a receita de como compilar. Cair para o port em silêncio é
+# exatamente o defeito de 25/09: o dado sairia bem formado e descreveria outro
+# adversário. Quem realmente quiser o port — medir os dois lado a lado, rodar
+# onde não há Dart — escreve isso, com todas as letras:
+#
+#     $env:MOTOR_DAMAS_DO_SERVIDOR = "python"
+#
+# ⚠️ E o que sai por essa porta ⛔ **não serve para publicar desafio**: o gabarito
+# não vai bater com o aparelho de ninguém.
+
+#: ⛔ **Quem joga com a base de finais: só o Sagaz.**
+#:
+#: ⚠️ **A regra é da TELA do aplicativo, e está copiada aqui de propósito.**
+#: `partida_screen.dart`, em `_talvezCarregarABase`, desiste antes de extrair o
+#: asset quando `widget.config.nivel != NivelDificuldade.sagaz` — quer dizer: no
+#: aparelho, Cacau, Pita e Tex jogam os finais **sem** base, buscando.
+#:
+#: ⛔ **Ligá-la aqui para todos faria os três mascotes jogarem no servidor melhor
+#: do que jogam no aparelho** — e a régua, que mede com eles, passaria a medir
+#: adversários que ninguém enfrenta. É a mesma classe de erro que esta
+#: investigação inteira trata, com o sinal trocado.
+#:
+#: ⚠️ A base é do **Magno** porque é ele que se vende por jogar quase perfeito
+#: (`CLAUDE.md` da raiz: *"o nível Sagaz é reservado ao jogo quase perfeito"*).
+NIVEIS_QUE_USAM_A_BASE = frozenset({NivelDeMotor.SAGAZ})
+
+#: A variável de ambiente que escolhe o motor de busca do servidor.
+VARIAVEL_DO_MOTOR = "MOTOR_DAMAS_DO_SERVIDOR"
+
+#: O padrão, e ele não é negociável em silêncio — ver o bloco acima.
+MOTOR_PADRAO = "dart"
+
+
+def motor_de_busca_escolhido() -> str:
+    """`"dart"` (o padrão) ou `"python"`, conforme o ambiente.
+
+    Raises:
+        ValueError: para qualquer outro valor. ⚠️ Um `MOTOR_DAMAS_DO_SERVIDOR=Dart`
+            com maiúscula, ou um `=rust` de quem se confundiu, cairia no padrão
+            sem ninguém ver — e o silêncio é o modo de falha que esta
+            investigação inteira existe para acabar.
+    """
+    escolhido = os.environ.get(VARIAVEL_DO_MOTOR, MOTOR_PADRAO)
+    if escolhido not in ("dart", "python"):
+        raise ValueError(
+            f"{VARIAVEL_DO_MOTOR}={escolhido!r} não é um motor conhecido. "
+            f"Use 'dart' (o padrão, que é o do aparelho) ou 'python' (o port, "
+            f"que ⛔ não serve para publicar desafio)."
+        )
+    return escolhido
+
+
 class MotorDamas:
     """Veste o motor do laboratório com os dois papéis da camada.
 
@@ -376,6 +446,16 @@ class MotorDamas:
                 f"a partida já acabou em {estado.fen!r}: não há lance a escolher."
             )
 
+        if motor_de_busca_escolhido() == "dart":
+            return self._pelo_motor_do_aparelho(
+                estado, parametros, nivel=nivel, semente=semente, limite=limite
+            )
+
+        # ── O port Python, daqui para baixo ──────────────────────────────────
+        #
+        # ⚠️ Só se chega aqui por `MOTOR_DAMAS_DO_SERVIDOR=python`, e o que sai
+        # ⛔ não serve para publicar desafio. Este caminho fica de pé para poder
+        # comparar os dois lado a lado — foi comparando que o defeito apareceu.
         teto_de_nos = parametros.teto_de_nos
         tempo_maximo = parametros.tempo_maximo
         if limite is not None:
@@ -411,6 +491,71 @@ class MotorDamas:
                 limite.contar_no(int(gastos))
 
         return str(resultado.lance)
+
+    def _pelo_motor_do_aparelho(
+        self,
+        estado: "EstadoDamas",
+        parametros: Any,
+        *,
+        nivel: NivelDeMotor,
+        semente: int | None,
+        limite: LimiteDeBusca | None,
+    ) -> str:
+        """O lance vindo do motor Dart compilado — o mesmo que o aplicativo roda.
+
+        ═══════════════════════════════════════════════════════════════════
+        ⛔ O TETO DE NÓS É O DO CONTRATO, E O `limite` NÃO O CORTA MAIS
+        ═══════════════════════════════════════════════════════════════════
+
+        Até 25/09/2026 valia o **menor** entre o teto do nível e o da camada, e a
+        camada era bem menor: 60.000 nós na geração do gabarito, 20.000 na régua,
+        8.000 na prova de término — contra os **288.000** que o Sagaz do contrato
+        manda, e que o aparelho de fato gasta.
+
+        ⛔ **E é por isso que o gabarito descarrilava.** O adversário do gabarito é
+        o mesmo personagem que responde no aparelho de quem joga. Jogando com
+        4,8x menos nós no servidor, ele escolhe outro lance no meio da partida —
+        e a solução publicada deixa de ser reproduzível a partir dali. Foi assim
+        que o desafio de 25/09/2026 ficou, nas palavras do dono, *"praticamente
+        impossível"*: no lance 8 o painel dizia `19-23` e o aparelho jogava
+        `16-20`.
+
+        ⚠️ **O teto da camada existia por um motivo real**, escrito em
+        `job/gerador.py`: *"sem orçamento, uma única geração de damas passou de 6
+        minutos sem terminar"*. Só que o motivo era a **lentidão do port Python**,
+        e ela acabou: o Dart cumpre os 288 mil nós do Sagaz em ~0,7 s, contra ~30 s
+        do port. O teto deixa de proteger coisa nenhuma e passa a ser só a causa
+        de uma divergência.
+
+        ⚠️ **O `limite` continua sendo alimentado** (`contar_no`), e continua
+        servindo ao que sempre foi seu de verdade: dizer quanto o job gastou, e
+        responder `cancelado()` a quem pergunta. O que ele não faz mais é mudar a
+        força do adversário.
+
+        ⛔ **E `tempo_maximo` não vai, nunca.** É o relógio que causou tudo: num
+        motor mais lento que o aparelho ele morde todo lance, e o ponto de parada
+        passa a depender da carga da máquina — o mesmo desafio daria lances
+        diferentes em duas execuções. Ver `motores/damas/jogador_dart.py`.
+        """
+        resposta = jogador_dart.jogador_compartilhado().escolher_lance(
+            co_modalidade=self.co_modalidade,
+            fen_inicial=estado.fen_inicial,
+            lances=estado.lances,
+            parametros=parametros,
+            semente=semente,
+            pasta_da_base=(
+                jogador_dart.pasta_da_base_de_finais(self.co_modalidade)
+                if nivel in NIVEIS_QUE_USAM_A_BASE
+                else None
+            ),
+        )
+
+        if limite is not None:
+            gastos = resposta.get("nos")
+            if gastos and hasattr(limite, "contar_no"):
+                limite.contar_no(int(gastos))
+
+        return str(resposta["lance"])
 
     # ── Papel TRADUTOR DE ESTADO ────────────────────────────────────────────
 

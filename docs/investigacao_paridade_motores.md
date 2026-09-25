@@ -353,3 +353,145 @@ lances diferentes em duas execuções**.
 4. **O executável no deploy**: hoje ele é achado no laboratório vizinho ou pela
    variável `MOTOR_DART_DAMAS`. O job roda na máquina do dono, então isso basta
    por agora; se um dia rodar em contêiner, o binário precisa viajar.
+
+---
+
+## 25/09/2026, parte 5 — ligado no job, e a SEGUNDA CAMADA do defeito
+
+### ⛔ O teto do contrato não era o que o servidor gastava
+
+Ao ligar o `JogadorDart` no caminho que o job realmente usa, apareceu uma camada
+do defeito que a parte 4 não tinha visto. `MotorDamas.escolher_lance` usava o
+**menor** entre o teto do nível e o da camada — e o da camada era sempre menor:
+
+| onde | teto da camada | teto do contrato (Sagaz) |
+|---|---|---|
+| `job/gerador.py` (o gabarito) | 60.000 nós · 2,0 s | 288.000 |
+| `job/regua.py` (a medição) | 20.000 nós · 1,0 s | 288.000 |
+| `job/estado_terminal.py` (a prova de fim) | 8.000 nós · 0,5 s | 288.000 |
+
+⛔ **O adversário do gabarito é o mesmo personagem que responde no aparelho de
+quem resolve.** Jogando com 4,8x menos nós no servidor, ele escolhe outro lance
+no meio da partida, e a solução publicada deixa de ser reproduzível a partir
+dali.
+
+Medido na posição do lance 8 da partida do dono, **pelo caminho do job**:
+
+| | lance | nós | tempo |
+|---|---|---|---|
+| Python, como o job estava | `19-23` | **24.576** | 2,03 s |
+| Dart, ligado | **`16-20`** | **288.001** | 0,68 s |
+| o aparelho (banco) | `16-20` | 288.001 | 0,11 s |
+
+⚠️ O `19-23` é exatamente o lance que estava no painel de curadoria. E note: o
+Python gastava **3x mais tempo** para fazer **12x menos trabalho**.
+
+⚠️ **O teto da camada existia por um motivo real, e ele acabou.** Estava escrito
+em `gerador.py`: *"sem orçamento, uma única geração de damas passou de 6 minutos
+sem terminar"*. O motivo era a lentidão do port. Medido agora, por lance:
+
+| nível | abertura | meio-jogo | final |
+|---|---|---|---|
+| cacau · pita · tex | 0,012 - 0,054 s | 0,012 s | 0,012 s |
+| **sagaz** | 0,960 s | 0,891 s | 0,140 s |
+
+O `limite` continua sendo **alimentado** (`contar_no`) e continua respondendo
+`cancelado()`. O que ele não faz mais é mudar a força do adversário.
+
+### ✅ A base de finais entrou, e a paridade agora cobre a partida INTEIRA
+
+A segunda divergência da parte 3 está fechada. Três peças:
+
+1. **`consulta_base_finais_damas.dart` mudou de casa** — de
+   `arena-sagaz-frontend/lib/modulos/jogos/damas/logica/` para o motor. É a
+   consulta **na raiz**: quando a posição cabe na base, o aparelho responde sem
+   buscar. Sem ela o servidor buscaria em todo final de até 4 peças. ⚠️ É a mesma
+   mudança que `oraculo_de_finais_damas.dart` fez em 27/08/2026, com a mesma
+   solução: o endereço antigo virou reexporte de uma linha. O motor passou de
+   **15 para 16** arquivos.
+2. **O servidor de lances abre a base** (protocolo **2**): `pasta_da_base` no
+   pedido, cache por pasta e modalidade, e a base entra **na raiz e na busca** (o
+   *probing*), como no aparelho.
+3. **⛔ É a base do APP, não a do laboratório.** O laboratório tem 41 fatias por
+   modalidade; o que viaja no APK tem 23 (metade sai por simetria de cor). Onde
+   falta uma fatia a resposta é `foraDaBase` e o motor **busca** — então a base
+   crua daria **mais** base e mesmo assim divergiria. `pasta_da_base_de_finais`
+   recusa a crua pela chave `empacotado_em` do manifesto.
+
+⚠️ **E ela só entra no Sagaz**, porque é assim na tela (`_talvezCarregarABase`
+desiste quando o nível não é o Magno). Ligá-la para todos faria Cacau, Pita e Tex
+jogarem melhor no servidor do que jogam no aparelho — a mesma classe de erro, com
+o sinal trocado.
+
+### ✅ A PROVA: 13 de 13 lances da partida do dono
+
+A partida `a267bba1` veio do banco (`jogo_damas.vw002_jogada`) com FEN, semente e
+telemetria de cada lance. O servidor reproduziu **todos os treze lances da CPU**:
+
+| lance | aparelho | servidor | nós | prof. | consultas/acertos na base |
+|---|---|---|---|---|---|
+| 4 · 6 · 8 | `15-19` `4-8` `16-20` | iguais | 288.001 | 12 | 0 / 0 |
+| **16** | `21-25` | **igual** | **288.001** | **14** | **795 / 636** |
+| 20 | `13-17` | igual | 23.404 | 10 | 73 / 64 |
+| 22 | `31-26` | igual | 3.989 | 8 | 34 / 34 |
+| 24 | `26x19x28` | igual | 12 | 2 | 0 / 0 |
+
+⚠️ **Os números da base são a prova de que é A base, e não uma base.** Acertar
+795 consultas e 636 acertos por acaso não acontece.
+
+⚠️ Nos lances 2, 10, 12, 14, 18 e 26 o aparelho não gravou telemetria: é o
+**atalho de lance único** da tela. O servidor buscou e chegou ao mesmo lance,
+porque era o único legal. ⛔ Reproduzir o atalho no motor seria copiar para lá uma
+decisão que é de tela, e ela não muda lance nenhum.
+
+### O que mudou no código
+
+| arquivo | o quê |
+|---|---|
+| `motores/damas/motor_damas.py` | `escolher_lance` delega ao Dart; `MOTOR_DAMAS_DO_SERVIDOR` escolhe, padrão `dart`, ⛔ **sem queda silenciosa**; `NIVEIS_QUE_USAM_A_BASE` |
+| `motores/damas/jogador_dart.py` | processo compartilhado (`jogador_compartilhado`), `pasta_da_base_de_finais`, protocolo 2 |
+| `ia/.../bin/servidor_de_lances_damas.dart` | base na raiz e na busca; `consultas_base`/`acertos_base` na resposta |
+| `ia/.../lib/consulta_base_finais_damas.dart` | **novo** (mudou de casa) — o 16º arquivo do motor |
+| `arena-sagaz-frontend/.../logica/consulta_base_finais_damas.dart` | virou reexporte |
+| `test/modulos/jogos/damas/paridade_motor_test.dart` | 15 → 16 arquivos |
+| `scripts/espelhar_laboratorio.py` | o 16º arquivo entra no espelho |
+| `job/gerador.py` · `job/regua.py` · `job/estado_terminal.py` | os três tetos ficam, documentados: ⛔ não cortam mais a busca das damas |
+| `tests/unitarios/test_jogador_dart.py` | o vetor virou a partida inteira: 13 lances, com nós, profundidade e base |
+| `tests/unitarios/test_motor_damas.py` | o padrão é Dart; o teto da camada não corta; a paridade com o port roda em `MOTOR_DAMAS_DO_SERVIDOR=python` |
+| `ferramentas/consultas_sql/desafio_limpar_TUDO_DES.sql` | **novo** — esvaziar a fila gerada com o motor errado |
+
+### ⛔ CONSEQUÊNCIA OPERACIONAL: o job do Railway não roda mais assim
+
+O `Dockerfile.job` constrói uma imagem `python:3.11-slim`, e ⛔ **nela não há**:
+
+* o **executável Dart** (o que existe é `.exe`, de Windows);
+* a **base de finais**, que mora nos assets do repositório do *frontend*.
+
+⚠️ **Isso é o comportamento certo, e não um descuido:** o job falha alto em vez
+de gerar com o motor errado. Mas o cron das 6h continua agendado, e vai sair com
+erro todo dia até que uma das duas coisas aconteça:
+
+1. **o dono rode na máquina dele** (`scripts/rodar_job_local.py`), que é a decisão
+   já tomada em 25/09 — e aí o cron do Railway deve ser **desligado**; ou
+2. **a imagem passe a carregar os dois**: compilar o motor para `linux/amd64` no
+   próprio build (o Dart SDK na imagem) e copiar a base empacotada para dentro.
+
+⚠️ A opção 2 é trabalho de meia hora, mas ⛔ **ela reabre a pergunta da trava**: o
+binário Linux tem de carimbar o mesmo resumo dos fontes, o que o
+`compilar_servidor_de_lances.dart` já faz — é só rodá-lo no `RUN`, como o portão
+do runtime de inferência já é rodado ali.
+
+### O que AINDA falta
+
+1. ⚠️ **Regerar a fila.** Nada do que está acima muda um desafio já gravado: a
+   fila do `des` inteira saiu do adversário enfraquecido. O script de limpeza
+   está em `ferramentas/consultas_sql/desafio_limpar_TUDO_DES.sql`.
+2. ⚠️ **Medir o job de ponta a ponta com o motor novo.** As medições acima são
+   por lance; o custo de um dia de `damas_sobreviver` (que já levou 17 min) não
+   foi refeito.
+3. ⚠️ **O `co_versao_motor` continua com prefixo `damas-py-`**, e agora ele é
+   duplamente mentiroso: o espelho tem 16 `.dart` dentro e quem joga é o Dart.
+   Trocar o prefixo é migração de dado, não só de código.
+4. ⚠️ **O risco não medido da parte 2 continua aberto:** se o Dart no aparelho não
+   cumprir 288 mil nós dentro dos 10 s num celular modesto, o relógio morde no
+   app também, e dois aparelhos divergem pelo mesmo mecanismo.

@@ -101,6 +101,50 @@ def url_do_ambiente(co_ambiente: str) -> str:
     raise SystemExit(f"⛔ {variavel} nao esta em {CATALOGO}")
 
 
+def conferir_o_motor() -> None:
+    """Sobe o motor Dart antes de comecar, e falha AQUI se algo faltar.
+
+    ═══════════════════════════════════════════════════════════════════════
+    ⚠️ POR QUE ANTES, E NAO NO PRIMEIRO LANCE
+    ═══════════════════════════════════════════════════════════════════════
+
+    Desde 25/09/2026 quem joga pelo servidor e o **motor Dart compilado**, o
+    mesmo que o aplicativo embarca, e ele precisa de duas coisas no disco: o
+    executavel (carimbado com o SHA-256 dos fontes) e a base de finais que o
+    aplicativo embarca.
+
+    ⛔ **Faltando qualquer uma, o job falha - e falha bem.** O que nao pode
+    acontecer e descobrir isso no meio da geracao do quarto dia, depois de
+    quarenta minutos de regua. Aqui custa dois segundos, e a mensagem de cada
+    uma ja traz a receita de como resolver.
+
+    ⚠️ **E o resumo impresso nao e enfeite:** e ele que responde, meses depois,
+    *"esta fila saiu de que motor?"*.
+    """
+    from motores.damas.jogador_dart import JogadorDart, pasta_da_base_de_finais
+    from motores.damas.motor_damas import motor_de_busca_escolhido
+
+    escolhido = motor_de_busca_escolhido()
+    if escolhido != "dart":
+        print(
+            f"⛔ [rodar_job_local] MOTOR_DAMAS_DO_SERVIDOR={escolhido!r}: o job "
+            f"jogaria com o port Python, que ⛔ NAO e o motor do aparelho.\n"
+            f"   O gabarito nao bateria com a partida de ninguem. Ver "
+            f"docs/investigacao_paridade_motores.md.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+    with JogadorDart() as jogador:
+        print(
+            f"[rodar_job_local] motor: dart, resumo "
+            f"{jogador.resumo_do_motor[:16]} (a trava passou)"
+        )
+    for co_modalidade in ("brasileira", "anglo", "portuguesa", "casa"):
+        pasta_da_base_de_finais(co_modalidade)
+    print("[rodar_job_local] base de finais: as quatro modalidades no lugar")
+
+
 def main() -> int:
     """Le os argumentos, prepara o ambiente e chama o job."""
     ap = argparse.ArgumentParser(
@@ -155,7 +199,14 @@ def main() -> int:
         "[rodar_job_local] dias: "
         + (f"{args.dias} (por DESAFIO_DIAS_A_COBRIR)" if args.dias else "a folga padrao")
     )
-    print("[rodar_job_local] ⚠️ isto demora — ~22 min para 4 dias gerados, medido no Railway\n")
+    conferir_o_motor()
+
+    print(
+        "[rodar_job_local] ⚠️ isto demora. Medido em 25/09/2026, na maquina do "
+        "dono, ja com o motor Dart: ~5 min por candidato de damas, ~15 min por "
+        "dia (sao 3 candidatos). ⛔ E a REGUA que domina, porque o Magno agora "
+        "gasta os 288 mil nos do contrato em cada lance.\n"
+    )
 
     # ⚠️ **Importado aqui, e nao no topo**, porque o job le `DATABASE_URL` ao ser
     # executado e queremos a variavel ja no lugar. ⛔ Chamamos `principal()`, e nao

@@ -183,6 +183,11 @@
       "tamanho_bytes": 57252
     },
     {
+      "caminho": "jogos/jogo_damas/motor_dart/lib/consulta_base_finais_damas.dart",
+      "sha256": "1de0e9e09ba28427f65ede38dc0c3288e2e61591dd7d7a9be97a6034cbb81bb1",
+      "tamanho_bytes": 19325
+    },
+    {
       "caminho": "jogos/jogo_damas/motor_dart/lib/empates_declarados_damas.dart",
       "sha256": "4c7a608d0561f3f088afba2dc81b11e82459e377bf19ed5bcaa04b3832ee1384",
       "tamanho_bytes": 9980

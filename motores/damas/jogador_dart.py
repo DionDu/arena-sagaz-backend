@@ -53,7 +53,7 @@ mesmo que custou esta investigação: o gabarito não bate com a partida.
 
 A corrente que fecha isso:
 
-    app        == laboratório   `paridade_motor_test.dart`, SHA-256 dos 15
+    app        == laboratório   `paridade_motor_test.dart`, SHA-256 dos 16
                                 arquivos de `lib/` — já existia
     espelho    == laboratório   `scripts/espelhar_laboratorio.py` + o manifesto
     executável == espelho       ESTE módulo, na abertura do processo
@@ -67,10 +67,13 @@ errado — e eles já estariam no banco, indistinguíveis dos bons.
 
 from __future__ import annotations
 
+import atexit
+import functools
 import hashlib
 import json
 import os
 import subprocess
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -84,7 +87,40 @@ FONTES_DO_MOTOR_DART = (
 
 #: A versão do protocolo que este módulo sabe falar. Tem de bater com
 #: `versaoDoProtocolo` em `bin/servidor_de_lances_damas.dart`.
-VERSAO_DO_PROTOCOLO = 1
+#:
+#: ⚠️ **2 (25/09/2026): a base de finais.** Um executável da versão 1 ignoraria
+#: `pasta_da_base` **em silêncio** e devolveria um lance buscado onde o aparelho
+#: responde pela base — que é o pior modo de falha possível.
+VERSAO_DO_PROTOCOLO = 2
+
+
+#: A variável de ambiente que aponta para a base de finais, quando ela não está
+#: no repositório vizinho do aplicativo.
+#:
+#: ═══════════════════════════════════════════════════════════════════════════
+#: ⛔ É A BASE DO APLICATIVO, E NÃO A DO LABORATÓRIO — elas NÃO respondem igual
+#: ═══════════════════════════════════════════════════════════════════════════
+#:
+#: O laboratório grava a base crua, com as **41** fatias de cada modalidade. O
+#: que viaja no APK é o formato empacotado, com **23** — metade sai por simetria
+#: de cor, e o resto é gzip por fatia (37,6 MB viram 2,3 MB). Ver
+#: `motor_dart/bin/empacotar_base_damas.dart`.
+#:
+#: ⚠️ **E as duas dão respostas diferentes onde uma fatia falta.** `consultar`
+#: devolve `foraDaBase` — *"não sei"* — para uma fatia ausente, e o motor então
+#: **busca** em vez de responder. Apontar isto para `ia/dados/` faria o servidor
+#: jogar finais que o aparelho de ninguém joga: mais base, não menos, e mesmo
+#: assim divergente.
+#:
+#: ⚠️ **O caminho atravessa para o repositório do aplicativo de propósito.** A
+#: pergunta aqui não é *"que base existe?"*, é *"que base o aparelho carrega?"* —
+#: e a resposta é literalmente aquela pasta. Espelhá-la para cá criaria uma
+#: terceira cópia a manter em dia, que é a origem de toda esta investigação.
+VARIAVEL_DA_BASE = "BASE_FINAIS_DAMAS"
+
+#: Quantas peças a base cobre. ⚠️ **4, e é o que o aplicativo embarca** — o
+#: laboratório tem `brasileira_5` no disco, e usá-la aqui seria outro adversário.
+PECAS_NA_BASE = 4
 
 
 class MotorDartIndisponivel(RuntimeError):
@@ -174,6 +210,74 @@ def caminho_do_executavel() -> Path:
     )
 
 
+class BaseDeFinaisIndisponivel(RuntimeError):
+    """Não há a base que o aparelho embarca — e o nível pedido precisa dela.
+
+    ⛔ **Não é aviso, é recusa.** O Magno do aparelho consulta a base em todo
+    final de até 4 peças; gerar um gabarito sem ela publica uma partida que o
+    adversário do dia não vai jogar.
+    """
+
+
+@functools.lru_cache(maxsize=None)
+def pasta_da_base_de_finais(co_modalidade: str) -> Path:
+    """A pasta da base **daquela modalidade**, na forma que o aparelho carrega.
+
+    ⚠️ **Memorizada** (`lru_cache`): ela lê e decodifica o manifesto, e o job a
+    chamaria uma vez por lance — dezenas de milhares de vezes por dia, para
+    responder sempre a mesma coisa.
+
+    A ordem de procura, e cada degrau tem um motivo:
+
+      1. `BASE_FINAIS_DAMAS` no ambiente — é como um contêiner ou a máquina de
+         outra pessoa aponta para a pasta dela;
+      2. os assets do aplicativo, no repositório vizinho — o caso normal na
+         máquina do dono, e ⚠️ **a resposta certa por definição**: a pergunta é
+         *"que base o aparelho carrega?"*.
+
+    Raises:
+        BaseDeFinaisIndisponivel: não há pasta, ou há e é a **crua** do
+            laboratório. ⚠️ A segunda recusa é a que importa: a base crua abre
+            sem queixa, responde mais posições que a do aplicativo e faria o
+            servidor jogar finais que ninguém joga. Quem as separa é a chave
+            `empacotado_em` do manifesto, que só o empacotador escreve.
+    """
+    do_ambiente = os.environ.get(VARIAVEL_DA_BASE)
+    raiz = (
+        Path(do_ambiente)
+        if do_ambiente
+        else RAIZ.parent
+        / "arena-sagaz-frontend"
+        / "assets"
+        / "jogos"
+        / "damas"
+        / "base_finais"
+    )
+
+    pasta = raiz / f"{co_modalidade}_{PECAS_NA_BASE}"
+    manifesto = pasta / "manifesto.json"
+    if not manifesto.is_file():
+        raise BaseDeFinaisIndisponivel(
+            f"não achei a base de finais de {co_modalidade} (procurei o "
+            f"manifesto em {manifesto}).\n"
+            f"É a base que o APLICATIVO embarca, e ela vive nos assets dele. "
+            f"Se este backend roda noutro lugar, aponte {VARIAVEL_DA_BASE} para "
+            f"a pasta que contém os `<modalidade>_{PECAS_NA_BASE}`."
+        )
+
+    declarado = json.loads(manifesto.read_text(encoding="utf-8"))
+    if "empacotado_em" not in declarado:
+        raise BaseDeFinaisIndisponivel(
+            f"a base em {pasta} é a CRUA do laboratório, e o aparelho embarca a "
+            f"empacotada. Elas não respondem igual: a do aplicativo tem metade "
+            f"das fatias (o resto sai por simetria de cor), e onde falta uma "
+            f"fatia a resposta é `foraDaBase` — o motor busca em vez de "
+            f"responder. Aponte {VARIAVEL_DA_BASE} para "
+            f"`arena-sagaz-frontend/assets/jogos/damas/base_finais`."
+        )
+    return pasta
+
+
 class JogadorDart:
     """Um processo do motor Dart, vivo, respondendo a pedidos de lance.
 
@@ -225,7 +329,7 @@ class JogadorDart:
         recebido = abertura.get("resumo_do_motor")
         if recebido != esperado:
             # ⚠️ A mensagem nomeia **quais** arquivos divergiram. "O resumo não
-            # bate" manda procurar em quinze arquivos; o nome manda direto ao que
+            # bate" manda procurar em dezesseis arquivos; o nome manda direto ao que
             # mudou — e costuma responder sozinho se falta recompilar ou falta
             # espelhar.
             do_exe: dict[str, str] = abertura.get("arquivos_do_motor", {})
@@ -261,6 +365,16 @@ class JogadorDart:
         """
         return self._abertura["resumo_do_motor"]
 
+    @property
+    def morreu(self) -> bool:
+        """O processo saiu (por erro, ou porque alguém o encerrou).
+
+        ⚠️ Serve ao processo compartilhado: um motor morto precisa ser
+        substituído, e não reusado até o pedido seguinte estourar com
+        `MotorDartIndisponivel` no meio de uma medição de horas.
+        """
+        return self._processo.poll() is not None
+
     # ── O uso ────────────────────────────────────────────────────────────────
 
     def pedir(self, pedido: dict[str, Any]) -> dict[str, Any]:
@@ -288,6 +402,7 @@ class JogadorDart:
         lances: tuple[str, ...] | list[str],
         parametros: Any,
         semente: int | None = None,
+        pasta_da_base: Path | None = None,
     ) -> dict[str, Any]:
         """O lance que o motor do aparelho joga nesta partida, neste nível.
 
@@ -322,6 +437,14 @@ class JogadorDart:
                 "chance_de_errar": parametros.chance_de_errar,
                 "margem_do_erro": parametros.margem_do_erro,
                 "semente": semente,
+                # ⚠️ **Caminho de pasta, e não bytes.** É como o aparelho a
+                # entrega ao isolate e ao motor Rust: quem lê os arquivos é o
+                # motor, do outro lado da fronteira. Passar os bytes por aqui
+                # mandaria 2,3 MB por lance pelo `stdin`.
+                #
+                # `None` significa **sem base**, e é o estado de todo nível que
+                # não seja o Magno — no aparelho também.
+                "pasta_da_base": str(pasta_da_base) if pasta_da_base else None,
             }
         )
         if "erro" in resposta:
@@ -344,3 +467,59 @@ class JogadorDart:
 
     def __exit__(self, *_) -> None:
         self.encerrar()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O PROCESSO COMPARTILHADO
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Um processo por processo Python, e não um por partida.** O job mede a
+# régua com 20 execuções por mascote, e cada execução é uma partida inteira: o
+# gerador faz dezenas de milhares de chamadas a `escolher_lance` num dia. Subir
+# um executável por chamada pagaria a partida do Dart (carregar o binário,
+# conferir o carimbo) esse tanto de vezes.
+#
+# ⛔ **E ele NÃO carrega estado de partida.** O `Buscador` nasce dentro de cada
+# pedido, do outro lado: o que se reaproveita aqui é o processo, não a tabela de
+# transposição. Reaproveitar a tabela faria o mesmo nível jogar diferente
+# conforme a ordem em que as posições foram perguntadas — é a mesma nota que
+# `MotorDamas` já carrega, e vale igual do lado Dart.
+#
+# ⚠️ **Quando o job roda em vários processos** (o `--processos` da maratona), cada
+# um monta o seu: esta variável é global do *processo*, e `multiprocessing` no
+# Windows parte de um interpretador novo. É o que se quer — um executável por
+# trabalhador, sem nenhum recurso compartilhado entre eles.
+#
+# ⛔ **Num sistema que use `fork`** (Linux, o padrão do `multiprocessing` lá), o
+# filho herdaria este processo já aberto, e **dois Python escreveriam no mesmo
+# `stdin`** — as respostas voltariam trocadas, sem erro nenhum. Quem for
+# paralelizar fora do Windows precisa de `spawn`, ou de chamar `encerrar()` no
+# filho antes do primeiro lance. Hoje não é o caso.
+
+_compartilhado: JogadorDart | None = None
+
+#: O cadeado do `_compartilhado`. Duas *threads* pedindo o motor ao mesmo tempo
+#: subiriam dois executáveis, e um deles ficaria órfão até o fim do processo.
+_cadeado = threading.Lock()
+
+
+def jogador_compartilhado() -> JogadorDart:
+    """O motor Dart deste processo, subindo-o na primeira vez que for pedido.
+
+    ⚠️ **Preguiçoso de propósito.** Quem só usa o papel de *árbitro* do
+    `MotorDamas` (o auditor de resoluções, por exemplo) nunca escolhe um lance —
+    e não deve pagar um executável, nem falhar por não ter um.
+
+    Raises:
+        MotorDartIndisponivel: não há executável compilado.
+        MotorDartDivergente: há, mas não saiu dos fontes deste backend.
+    """
+    global _compartilhado
+    with _cadeado:
+        if _compartilhado is None or _compartilhado.morreu:
+            _compartilhado = JogadorDart()
+            # ⚠️ Fechar na saída do processo evita deixar um executável vivo
+            # segurando o `stdin` quando o job termina por exceção. O `atexit`
+            # roda uma vez por processo, e o `encerrar()` é idempotente.
+            atexit.register(_compartilhado.encerrar)
+        return _compartilhado

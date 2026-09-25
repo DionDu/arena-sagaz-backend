@@ -154,6 +154,7 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     "jogos/jogo_damas/motor_dart/lib/bancada_damas.dart",
     "jogos/jogo_damas/motor_dart/lib/base_empacotada_damas.dart",
     "jogos/jogo_damas/motor_dart/lib/busca_damas.dart",
+    "jogos/jogo_damas/motor_dart/lib/consulta_base_finais_damas.dart",
     "jogos/jogo_damas/motor_dart/lib/empates_declarados_damas.dart",
     "jogos/jogo_damas/motor_dart/lib/empates_por_historico_damas.dart",
     "jogos/jogo_damas/motor_dart/lib/espelho_damas.dart",
