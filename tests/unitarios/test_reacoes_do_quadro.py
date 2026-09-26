@@ -348,3 +348,77 @@ def test_a_reacao_usa_A_MESMA_clausula_de_publico_que_o_quadro():
 
     assert CLAUSULA_APARECE_EM_PUBLICO in SQL_RESOLUCAO_PUBLICA
     assert CLAUSULA_APARECE_EM_PUBLICO in SQL_LINHAS_DE_GENTE
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. A reacao FICA - o `commit` (relato do dono, 26/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ Ate 26/09/2026 nenhum dos dois verbos confirmava a transacao, e a sessao da
+# requisicao DESFAZ o que ⛔ foi confirmado ao fechar. A tela via a reacao (a
+# contagem era lida dentro da mesma transacao) e, ao reabrir o quadro, ela tinha
+# sumido - o banco `des` tinha zero reacoes. Os casos acima mediam o SQL e a
+# resposta, e passavam: ⛔ nenhum perguntava se a gravacao ficava.
+
+
+def _posicao(sessao, trecho: str) -> int:
+    """Em que ponto da `linha_do_tempo` da sessao falsa aconteceu [trecho].
+
+    ⚠️ A linha do tempo junta consultas e `commit` na ordem em que vieram - e e
+    ela que separa *"confirmou"* de *"confirmou antes de montar a resposta"*: a
+    contagem que volta a tela tem de ser a que o proximo quadro vai ler.
+    """
+    return next(i for i, item in enumerate(sessao.linha_do_tempo) if trecho in item)
+
+
+@pytest.mark.asyncio
+async def test_reagir_CONFIRMA_a_transacao_antes_de_responder():
+    """⚠️ Um `commit`, depois do `INSERT` e ANTES da contagem da resposta."""
+    servico, sessao = _servico()
+
+    await servico.reagir(
+        id_desafio=ID_DESAFIO,
+        id_usuario=EU,
+        id_jogador=A_ANA,
+        co_tipo_reacao="fogo",
+        agora=AGORA,
+    )
+
+    assert sessao.commits == 1
+    assert (
+        _posicao(sessao, T_GRAVAR)
+        < _posicao(sessao, "commit")
+        < _posicao(sessao, T_CONTAGEM)
+    )
+
+
+@pytest.mark.asyncio
+async def test_desfazer_tambem_CONFIRMA_a_transacao():
+    """⚠️ Sem o `commit`, desfazer tambem ⛔ ficava - a reacao voltava."""
+    servico, sessao = _servico(**{T_CONTAGEM: [], T_MINHA: []})
+
+    await servico.desfazer(id_desafio=ID_DESAFIO, id_usuario=EU, id_jogador=A_ANA)
+
+    assert sessao.commits == 1
+    assert (
+        _posicao(sessao, T_APAGAR)
+        < _posicao(sessao, "commit")
+        < _posicao(sessao, T_CONTAGEM)
+    )
+
+
+@pytest.mark.asyncio
+async def test_pedido_recusado_NAO_confirma_nada():
+    """⛔ Uma guarda que recusa ⛔ chega ao `commit` - ⛔ ha o que confirmar."""
+    servico, sessao = _servico(**{T_RESOLUCAO: []})
+
+    with pytest.raises(LinhaSemResolucao):
+        await servico.reagir(
+            id_desafio=ID_DESAFIO,
+            id_usuario=EU,
+            id_jogador=A_ANA,
+            co_tipo_reacao="fogo",
+            agora=AGORA,
+        )
+
+    assert sessao.commits == 0

@@ -168,6 +168,17 @@ class RepositorioImpedido:
         )
         return resultado.first() is not None
 
+    async def confirmar(self) -> None:
+        """Fecha a transacao — chamada pela rota, nunca daqui de dentro.
+
+        ⚠️ **Ate 26/09/2026 ninguem a fechava**: a rota gravava e respondia 204,
+        e a sessao da requisicao (`obter_sessao`) DESFAZIA a linha ao fechar. O
+        dia impedido ⛔ chegou ao banco nenhuma vez (`des`: zero linhas) - e e
+        ele que protege a chama de quem abriu um desafio que ⛔ cabia na versao
+        (RF-DES-024). Achado junto com o `commit` que faltava nas reacoes.
+        """
+        await self.sessao.commit()
+
 
 #: As duas fontes de dias da chama, unidas.
 #:

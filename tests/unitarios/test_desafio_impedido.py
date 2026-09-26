@@ -358,3 +358,53 @@ def test_o_cadeado_do_uid_ENXERGA_o_defeito():
     assert achados == 2, (
         "a varredura deixou de enxergar o padrao que ela existe para pegar"
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. A linha FICA - o `commit` (26/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ja_existia", [False, True])
+async def test_a_rota_CONFIRMA_a_gravacao(ja_existia):
+    """⚠️ Ate 26/09/2026 a rota respondia 204 e a linha ⛔ ficava.
+
+    A sessao da requisicao desfaz o que ⛔ foi confirmado ao fechar, e ninguem
+    confirmava: o `des` tinha zero dias impedidos. Achado junto com o mesmo
+    defeito das reacoes, pela varredura das escritas sem `commit`.
+
+    ⚠️ **A rota e chamada de verdade**, com o repositorio real sobre a sessao
+    falsa - um caso que medisse so o repositorio ⛔ enxergaria quem esqueceu de
+    chamar o `confirmar`. E a repeticao (`ON CONFLICT DO NOTHING`, nada
+    gravado) confirma do mesmo jeito: um `if` ali seria so mais um caminho.
+    """
+    from api.desafios.impedido import RepositorioImpedido
+    from api.desafios.rotas import registrar_desafio_impedido
+    from api.nucleo.dependencias import ContextoRequisicao
+    from api.nucleo.dependencias_conta_nuvem import UsuarioAutenticado
+    from tests.unitarios.fakes_desafio import FakeSessaoSQL
+
+    sessao = FakeSessaoSQL(
+        respostas={
+            # O `RETURNING` devolve a linha nova; na repeticao, nada.
+            "tb007_desafio_impedido": [] if ja_existia else [{"id": 1}],
+        }
+    )
+    dono = UsuarioAutenticado(
+        id_usuario="7b0c0000-0000-4000-8000-000000000001",
+        co_usuario="ana",
+        contexto=ContextoRequisicao(
+            versao_app="1.2.0", plataforma="android", idioma="pt"
+        ),
+    )
+
+    resposta = await registrar_desafio_impedido(
+        envio=_envio(), dono=dono, repo=RepositorioImpedido(sessao)
+    )
+
+    assert resposta.status_code == 204
+    assert sessao.commits == 1
+    # O `commit` vem DEPOIS do `INSERT`: confirmar antes ⛔ confirmaria nada.
+    assert sessao.linha_do_tempo[-1] == "commit"
+    assert sessao.sql_executado("INSERT INTO desafio_dia.tb007_desafio_impedido")

@@ -378,6 +378,11 @@ async def registrar_desafio_impedido(
         co_versao_app=dono.contexto.versao_app,
         co_plataforma=dono.contexto.plataforma,
     )
+    # ⚠️ **Sem isto a linha ⛔ ficava** (26/09/2026): a sessao da requisicao
+    # desfaz o que ⛔ foi confirmado. Confirma-se tambem a repeticao (`gravou`
+    # falso) - ⛔ ha o que desfazer ali, e um `if` a mais seria so mais um
+    # caminho para errar.
+    await repo.confirmar()
     log.info(
         "desafio: dia impedido registrado",
         extra={

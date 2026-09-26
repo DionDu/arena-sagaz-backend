@@ -6630,3 +6630,35 @@ truncada, e sem erro nenhum.
   à thread. Ele confere primeiro que o órfão está no ar (senão o caso não mediria
   nada) e depois que a segunda thread o enterrou. Tirar a varredura da abertura
   reprova.
+
+## 2026-09-26 — Rota que escreve CONFIRMA: as reações e o dia impedido ⛔ ficavam (T085ze)
+
+**Contexto.** O dono relatou: *"as reações não estão ficando salvas"* - a reação
+aparecia ao lado do nome e sumia ao reabrir o Quadro. O banco `des` tinha **zero**
+linhas em `desafio_dia.tb006_reacao`.
+
+**Causa.** `obter_sessao` (`api/nucleo/banco.py`) entrega uma sessão que **⛔
+confirma sozinha**: ao fechar, ela desfaz o que ⛔ foi confirmado. As rotas que
+escrevem chamam `commit` (a do envio pelo `repo.confirmar()` do serviço; conta,
+ranking e sincronização na rota). O `ServicoReacao` ⛔ chamava - e a resposta
+enganava, porque a contagem nova era lida DENTRO da mesma transação: a tela recebia
+*"fogo: 1"* de uma gravação que sumia em seguida.
+
+**A varredura dos irmãos** (todo módulo de `api/` com `INSERT`/`UPDATE`/`DELETE`
+contra quem chama `commit`) achou um segundo: `POST /v1/desafios/impedido` - o dia em
+que o desafio ⛔ coube na versão, que protege a chama (RF-DES-024). Respondia 204 e ⛔
+gravava nada (`des`: zero linhas).
+
+**Decisão.** `RepositorioReacao.confirmar()` chamado pelo serviço depois da escrita e
+**antes** de montar a resposta (a contagem devolvida tem de ser a que o próximo
+quadro lê); `RepositorioImpedido.confirmar()` chamado pela rota, inclusive na
+repetição (`ON CONFLICT DO NOTHING`) - um `if` ali seria só mais um caminho.
+
+**Alternativas.** Uma sessão que confirma sozinha ao fim da requisição - recusada:
+mudaria a transação de TODA rota (a sincronização depende de ser atômica e confirmada
+na rota), e o defeito era de duas rotas.
+
+**Cadeados.** `test_reacoes_do_quadro.py` (a ordem `INSERT/DELETE → commit →
+contagem` pela `linha_do_tempo` da sessão falsa, e nenhum `commit` quando uma guarda
+recusa) e `test_desafio_impedido.py::test_a_rota_CONFIRMA_a_gravacao` (a rota
+chamada de verdade, na primeira vez e na repetição). 5 mutações, 5 pegas.

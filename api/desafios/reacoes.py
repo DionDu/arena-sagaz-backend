@@ -284,6 +284,18 @@ class RepositorioReacao:
         linha = resultado.mappings().first()
         return None if linha is None else linha["co_tipo_reacao"]
 
+    async def confirmar(self) -> None:
+        """Fecha a transacao — chamada pelo servico, nunca daqui de dentro.
+
+        ⚠️ **Sem ela, a reacao ⛔ ficava gravada** (relato do dono, 26/09/2026:
+        *"as reacoes nao estao ficando salvas"*). A sessao da requisicao
+        (`obter_sessao`) ⛔ confirma sozinha: ao fechar, ela DESFAZ o que ⛔ foi
+        confirmado. E a resposta enganava - a contagem nova era lida DENTRO da
+        mesma transacao, entao a tela recebia *"fogo: 1"* de uma gravacao que
+        sumia no instante seguinte. O banco `des` tinha zero reacoes.
+        """
+        await self.sessao.commit()
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. O servico
@@ -337,6 +349,10 @@ class ServicoReacao:
             nu_tipo_reacao=nu_tipo,
             dh_reacao=agora,
         )
+        # ⚠️ **Confirma ANTES de montar a resposta**: a contagem que volta tem
+        # de ser a que o proximo `GET .../quadro` vai ler - e ⛔ uma leitura de
+        # dentro de uma transacao que ainda pode ser desfeita.
+        await self.repo.confirmar()
         return await self._corpo(id_resolucao, id_usuario)
 
     async def desfazer(
@@ -353,6 +369,8 @@ class ServicoReacao:
             co_tipo_reacao=None,
         )
         await self.repo.desfazer(id_resolucao=id_resolucao, id_usuario=id_usuario)
+        # O mesmo `commit` de [reagir]: sem ele, desfazer tambem ⛔ ficava.
+        await self.repo.confirmar()
         return await self._corpo(id_resolucao, id_usuario)
 
     async def _preparar(
