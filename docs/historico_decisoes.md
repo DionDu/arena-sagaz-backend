@@ -6742,3 +6742,88 @@ para cima, o tempo se anula, a perda parte da contagem do app, piso de 18). 13
 mutações, 13 pegas. ⚠️ O SQL ⛔ tem teste automatizado (os unitários usam repositório
 falso): rodou no `des` com o texto exato da constante e bate com o extrato nas duas
 resoluções que existem lá.
+
+## 2026-09-26 (4) — A maratona do gerador fechou: o acervo que ela dá, e o piso que falta em três tipos
+
+**Contexto.** A maratona (`scripts/maratona_do_gerador.py`) rodou de 18/09 a
+26/09, com o computador desligado à noite e o processo retomado no dia seguinte.
+As cinco etapas fecharam: `regua-damas-no-ar` (180 min), `regua-pontinhos-no-ar`
+(34 min), `pescaria-sacrificio` (44 min), `pescaria-sobreviver` (274 min) e
+`pescaria-capturar-multipla` (190 min). Cada pescaria varreu as mesmas **4.881**
+posições de `fens_damas_prd_e_des.json`, com teto de 26 meios-lances — mais fundo
+que o do editorial de propósito, para permitir escolher o `p` da frase depois sem
+repescar.
+
+⚠️ **A maratona atravessou a troca do motor.** Desde `7eb77b3aa` (25/09 18:38) o
+`MotorDamas` delega ao Dart, que faz **288.001** nós por lance contra os ~24.576
+do Python. Então `sacrificio` e `sobreviver` inteiros, mais a peneira e as 128
+primeiras medições de `capturar_multipla`, foram medidos com o motor antigo.
+
+⛔ **Isso NÃO contamina desafio publicado, e a razão é estrutural.** A pescaria é
+um **filtro de candidatas**; o gabarito sai de `job/gerador.py:1122-1123`
+(`gabarito_mod.montar(fita, ...)`), que joga a partida de novo, na geração, com o
+motor do dia — e recusa na hora o que não atende o piso. O viés do motor antigo
+afeta **qual FEN entra na lista**, nunca o conteúdo do desafio.
+
+⚠️ **E o que ele afeta é só um motivo de descarte.** A peneira registra a causa, e
+três das quatro não usam busca nenhuma: `partida_acabou`, `material_insuficiente`
+e `objetivo_no_lance_1_em_*` (o código diz que essa pergunta "nao custa um no").
+Só `nao_cumpriu_no_teto` vem da busca. No `sacrificio` isso é **~84 posições de
+4.881 (1,7%)**; no `capturar_multipla`, 1.991 (41%); no `sobreviver`, 2.889 (59%).
+
+⛔ **A direção do viés não é previsível, e por isso não se "corrige" no papel.** Em
+`resolve_varios_alvos` (`scripts/cacar_moldes_damas.py:583`) o Sagaz joga **os dois
+lados**, sem `perseguir` — um motor mais forte joga melhor o ataque **e** a defesa.
+Com motor diferente a fita é outra partida, nem mais fácil nem mais difícil.
+
+### O acervo que a maratona entrega
+
+Molde utilizável é o critério do próprio script: solução em **3+ das 4
+modalidades** (`MINIMO_DE_MODALIDADES`) e não trivial (`LANCE_MINIMO = 3`).
+
+| tipo | moldes hoje em `tipos_de_desafio.py` | a maratona deu | com algum alvo ≥ 9 meios-lances |
+|---|---|---|---|
+| `damas_sacrificio` | 179 | **4.203** | 3.761 |
+| `damas_capturar_multipla` | 87 | **706** | 251 |
+| `damas_sobreviver` | 112 | **408** | 408 |
+
+Por alvo, com a distribuição de distâncias (meios-lances):
+
+- **`sacrificio`** — `capturar=2,entregar=1`: 4.203 moldes, de 3 a 23, com **44%
+  abaixo de 9**. `capturar=3,entregar=1`: 3.666 (16% curtos). `capturar=3,entregar=2`:
+  3.377 (9% curtos). ✅ O acervo mais rico e mais bem distribuído dos três.
+- **`sobreviver`** — `entregar=1,lances=10`: 195 moldes, **todos em 19**.
+  `entregar=2,lances=12`: 364, **todos em 23**. ⚠️ A distância é **constante por
+  construção**: "sobreviver N lances" cai no meio-lance `2N-1` e em nenhum outro,
+  então esta pescaria mede **se** a posição resiste, não quanto. O `p` da frase
+  aqui é o parâmetro do alvo, não uma escolha do acervo.
+  ⚠️ E os alvos pescados (`lances` 10 e 12) são **mais duros** que os publicados
+  (`lances: 8`): como material só decresce numa partida de damas, quem resiste 10
+  lances resiste 8 com o mesmo `entregar`. O acervo serve, com margem.
+- **`capturar_multipla`** — `pecas=2`: 706 moldes (65% curtos). `pecas=3`: **55
+  moldes, 53 deles curtos (96%)**, e 1.553 das 1.876 medidas não cumpriram em
+  modalidade nenhuma.
+
+### ⛔ O achado que pede decisão: o piso de 16/09 vale para UM tipo só
+
+`MINIMO_DE_MEIOS_LANCES_PADRAO = 0` (`job/editorial.py:143`), e o único tipo que
+declara piso é o `damas_coroar` (`nu_minimo_de_meios_lances=12`). `damas_sacrificio`,
+`damas_capturar_multipla` e `damas_sobreviver` publicam **sem piso**.
+
+⛔ **No `capturar_multipla` com `pecas=3` isso é quase certeza de desafio de dez
+segundos:** com 96% do acervo abaixo de 9 meios-lances, o gerador tem 53 moldes
+banais e 2 aproveitáveis para escolher. É exatamente o defeito que o dono cobrou
+por semanas em 16/09 (*"3 meios lances e muito ruim. O usuario entra no App e em
+10 segundos conclui o desafio"*), num tipo em que o remédio não foi aplicado.
+
+⚠️ **No `sobreviver` o piso é inócuo** (tudo cai em 19 ou 23) e no `sacrificio`
+um piso de 9 ainda deixa 3.761 moldes — folga de sobra. **A decisão fica com o
+dono**; o dado está aqui para ela não ser chute.
+
+### Alternativas consideradas
+
+| alternativa | por que não |
+|---|---|
+| Repescar `sacrificio` e `sobreviver` com o motor Dart | ~8h15 de CPU para trocar o viés de um único motivo de descarte, que no `sacrificio` pesa 1,7%. O acervo de 4.203 já excede qualquer necessidade de publicação |
+| Usar o motor Rust na pescaria | ⛔ Não existe ponte Python→Rust no backend, nem binário para Windows: `ia/jogos/jogo_damas/motor_rust/` só tem `build_android.ps1` e `build_ios.sh` |
+| Cortar os moldes curtos do acervo em vez de pôr piso | É o que as duas "correções" de antes de 16/09 fizeram, e nenhuma impediu o gerador de escolher o mais curto que **sobrou** |
