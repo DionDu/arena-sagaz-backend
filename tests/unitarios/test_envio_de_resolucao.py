@@ -31,6 +31,7 @@ from api.desafios.extrato_xp import (
     MedidaInvalida,
     montar_extrato,
     normalizar,
+    pontuacao_com_a_sessao_do_servidor,
     qualidade_do_extrato,
     soma_dos_pesos,
 )
@@ -188,8 +189,14 @@ class RepoFalso:
         sem_regua=False,
         ja_creditado=0,
         tem_consolo=False,
+        sessao_no_servidor=(0, 0),
     ) -> None:
         self._sem_regua = sem_regua
+        # `(tentativas, dicas)` que o servidor conta (T085zf). O padrao `(0, 0)`
+        # e "o servidor sabe menos que o envio": o envio vale, como antes.
+        self._sessao_no_servidor = sessao_no_servidor
+        # Os pedidos de [sessao_no_servidor], para conferir o que foi perguntado.
+        self.perguntas_da_sessao: list[dict] = []
         self._dia = dia
         self._partida = partida
         self._resolucao_nova = resolucao_nova
@@ -244,9 +251,16 @@ class RepoFalso:
     async def dicas_ja_gastas(self, *, id_desafio_dia, id_usuario):
         return self._dicas_gastas
 
+    async def sessao_no_servidor(self, **kwargs):
+        self.perguntas_da_sessao.append(kwargs)
+        return self._sessao_no_servidor
+
     async def gravar_tentativa(self, **kwargs):
         self.tentativas.append(kwargs)
-        return uuid4(), True
+        # O identificador fica guardado: a sessao do servidor e perguntada POR
+        # ELE, e o caso confere que foi esta a tentativa perguntada.
+        self.ultima_tentativa = uuid4()
+        return self.ultima_tentativa, True
 
     async def gravar_resolucao(self, **kwargs):
         self.resolucoes.append(kwargs)
@@ -1295,3 +1309,190 @@ def test_o_teto_e_o_do_PARAMETRO_e_nao_um_30_escrito_na_conta():
 def test_valor_negativo_e_defeito_de_quem_chamou():
     with pytest.raises(ValueError):
         credito_do_dia(ja_creditado=0, valor=-1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 9. ⚠️ A SESSAO QUE VALE e a MAIOR entre a do app e a do servidor (T085zf)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# O caso do dono (26/09/2026): errar tres vezes com a conta, sair dela, resolver
+# como convidado - que comeca o dia do zero no aparelho - e entrar de novo. A
+# resolucao chega "de primeira e sem dica"; o servidor viu as tres. As contas
+# abaixo usam Q = 1 no envio, para o numero esperado sair a mao:
+#
+#   4 tentativas: q_tentativas = 1/4  → perde 12 x 0,30 x 0,75 = 2,7 → 27,3 → 27
+#   2 dicas:      q_dica = 0          → perde 12 x 0,25 x 1    = 3,0 → 27
+#   as duas:      30 - 2,7 - 3,0 = 24,3 → 24
+
+
+def _de_primeira(**trocas) -> EnvioDeResolucao:
+    """O envio do convidado: 1a tentativa, sem dica, Q cheio, 30 XP."""
+    base = dict(tentativas=1, dicas_usadas=0, qualidade=1.0, pontuacao=30)
+    base.update(trocas)
+    return _envio(**base)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("no_servidor", "esperado"),
+    [((4, 0), 27), ((1, 2), 27), ((4, 2), 24)],
+)
+async def test_o_servidor_contou_MAIS_e_a_nota_desce(no_servidor, esperado):
+    """A nota gravada, a creditada e a do quadro saem da contagem do servidor."""
+    repo = RepoFalso(partida=_partida(), sessao_no_servidor=no_servidor)
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_de_primeira()
+    )
+
+    assert repo.resolucoes[0]["nu_xp"] == esperado
+    assert repo.creditos == [esperado]
+    assert resultado.xp_creditado == esperado
+
+
+@pytest.mark.asyncio
+async def test_o_EXTRATO_mostra_a_contagem_do_servidor():
+    """O Raio-X diz 4 tentativas e 2 dicas - e a parcela que desceu por elas."""
+    repo = RepoFalso(partida=_partida(), sessao_no_servidor=(4, 2))
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_de_primeira()
+    )
+
+    tentativas, _tempo, dica = repo.extratos[0][1:4]
+    assert tentativas.vr_medida == Decimal(4)
+    assert tentativas.vr_normalizado == Decimal("0.25")
+    assert dica.vr_medida == Decimal(2)
+    assert dica.vr_normalizado == Decimal(0)
+
+
+@pytest.mark.asyncio
+async def test_o_servidor_contou_MENOS_e_vale_o_envio():
+    """⛔ A menor nunca vence: a fila de outro aparelho pode nao ter chegado."""
+    repo = RepoFalso(partida=_partida(), sessao_no_servidor=(1, 0))
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO,
+        id_usuario=ID_USUARIO,
+        envio=_envio(tentativas=3, dicas_usadas=1, pontuacao=26),
+    )
+
+    assert repo.resolucoes[0]["nu_xp"] == 26
+    tentativas, _tempo, dica = repo.extratos[0][1:4]
+    assert tentativas.vr_medida == Decimal(3)
+    assert dica.vr_medida == Decimal(1)
+
+
+@pytest.mark.asyncio
+async def test_sessao_IGUAL_nao_refaz_a_conta_do_app():
+    """⚠️ Quem jogou honesto fica com o numero da tela, ao pe da letra.
+
+    `qualidade=0.7325` daria `round(18 + 8,79) = 27`, e o envio diz 26: sem
+    contagem a mais, o servidor ⛔ recalcula - uma diferenca de arredondamento
+    faria o quadro desmentir a tela de quem nao fez nada de errado.
+    """
+    repo = RepoFalso(partida=_partida(), sessao_no_servidor=(3, 1))
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO,
+        id_usuario=ID_USUARIO,
+        envio=_envio(tentativas=3, dicas_usadas=1, qualidade=0.7325, pontuacao=26),
+    )
+
+    assert repo.resolucoes[0]["nu_xp"] == 26
+
+
+@pytest.mark.asyncio
+async def test_a_pergunta_e_sobre_ESTA_tentativa_e_ate_a_resolucao():
+    """A sessao e contada ate a tentativa gravada e ate o instante do objetivo."""
+    repo = RepoFalso(partida=_partida())
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_de_primeira()
+    )
+
+    assert repo.perguntas_da_sessao == [
+        {
+            "id_desafio_dia": ID_DIA,
+            "id_usuario": ID_USUARIO,
+            "id_tentativa": repo.ultima_tentativa,
+            "ate": AGORA,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_dicas_ACIMA_do_teto_no_servidor_ficam_no_teto():
+    """Duas dicas pedidas juntas podem passar as duas pela conta do teto."""
+    repo = RepoFalso(partida=_partida(), sessao_no_servidor=(1, 3))
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_de_primeira()
+    )
+
+    assert repo.resolucoes[0]["nu_xp"] == 27
+    assert repo.extratos[0][3].vr_medida == Decimal(TETO_DE_DICAS)
+
+
+@pytest.mark.asyncio
+async def test_o_REENVIO_com_contagem_maior_continua_sem_creditar():
+    """A resolucao que ja existia ⛔ muda - nem nota, nem credito."""
+    repo = RepoFalso(
+        partida=_partida(), resolucao_nova=False, sessao_no_servidor=(4, 2)
+    )
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_de_primeira()
+    )
+
+    assert resultado.resposta.ja_existia is True
+    assert repo.creditos == []
+    assert repo.extratos == []
+
+
+def _recontada(**trocas) -> int:
+    """`pontuacao_com_a_sessao_do_servidor` com a regua e as direcoes do arquivo."""
+    base = dict(
+        qualidade=Decimal(1),
+        tentativas_do_app=1,
+        dicas_do_app=0,
+        tentativas=1,
+        dicas=0,
+        nu_tempo_ms=PISO_MS,
+        nu_tempo_piso_ms=PISO_MS,
+        nu_tempo_teto_ms=TETO_MS,
+        direcoes=DIRECOES,
+    )
+    base.update(trocas)
+    return pontuacao_com_a_sessao_do_servidor(**base)
+
+
+def test_recontada_o_MEIO_arredonda_para_CIMA_como_o_dart():
+    """`Q = 0,5` e uma dica a mais: 18 + 6 - 1,5 = 22,5 → 23.
+
+    ⚠️ O `round()` do Python arredonda o meio para o PAR (22); o do Dart, para
+    longe do zero (23). A conta tem de dar o que o aplicativo daria.
+    """
+    assert _recontada(qualidade=Decimal("0.5"), dicas=1) == 23
+
+
+def test_recontada_o_TEMPO_nao_muda_a_nota():
+    """O tempo e o mesmo dos dois lados: a parcela dele se anula."""
+    no_piso = _recontada(tentativas=4, nu_tempo_ms=PISO_MS)
+    no_teto = _recontada(tentativas=4, nu_tempo_ms=TETO_MS)
+
+    assert no_piso == no_teto == 27
+
+
+def test_recontada_parte_da_contagem_do_APP_e_nao_da_primeira():
+    """O app ja contava 2; o servidor, 4: perde so a diferenca entre 1/2 e 1/4.
+
+    12 x 0,30 x (1/2 - 1/4) = 0,9 → 30 - 0,9 = 29,1 → 29. Partir de "1
+    tentativa" tiraria 2,7 e daria 27.
+    """
+    assert _recontada(tentativas_do_app=2, tentativas=4) == 29
+
+
+def test_recontada_nunca_desce_do_piso_de_18():
+    """Um envio incoerente (Q = 0 dizendo "de primeira") ⛔ sai com menos de 18."""
+    assert _recontada(qualidade=Decimal(0), tentativas=20, dicas=2) == 18

@@ -56,7 +56,12 @@ from typing import Optional
 from uuid import UUID
 
 from api.desafios.credito_do_dia import credito_do_dia
-from api.desafios.extrato_xp import MedidaInvalida, ParcelaDeXp, montar_extrato
+from api.desafios.extrato_xp import (
+    MedidaInvalida,
+    ParcelaDeXp,
+    montar_extrato,
+    pontuacao_com_a_sessao_do_servidor,
+)
 from api.desafios.modelos_envio import (
     EnvioDeDica,
     EnvioDeResolucao,
@@ -192,6 +197,19 @@ class ServicoEnvio:
                 xp_creditado=creditado,
             )
 
+        # ⚠️ **A SESSAO QUE VALE e a MAIOR entre a do aplicativo e a do servidor**
+        # (T085zf, `DECISOES-do-dono.md` §8zf). O aplicativo conta o que ELE viu;
+        # o convidado comeca o dia do zero no aparelho, e quem errou tres vezes
+        # com a conta e resolveu como convidado chegaria aqui "de primeira". O
+        # servidor viu as tres. ⛔ A menor nunca vence: o servidor pode nao ter
+        # recebido tudo ainda (a fila de outro aparelho), e o aplicativo sabe.
+        tentativas, dicas = await self._sessao_que_vale(
+            envio=envio, id_usuario=id_usuario, id_tentativa=id_tentativa
+        )
+        pontuacao = await self._pontuacao_que_vale(
+            id_desafio=id_desafio, envio=envio, tentativas=tentativas, dicas=dicas
+        )
+
         # ⚠️ **Lido ANTES de gravar a resolucao**: depois dela, a soma do dia ja a
         # incluiria, e o teto cortaria a resolucao contra ela mesma.
         ja_creditado, _ = await self.repo.creditado_no_dia(
@@ -203,7 +221,7 @@ class ServicoEnvio:
             id_usuario=id_usuario,
             id_tentativa=id_tentativa,
             nu_lance=envio.nu_lance_cumpre_desafio,
-            nu_xp=envio.pontuacao,
+            nu_xp=pontuacao,
             nu_versao_catalogo=envio.versao_catalogo_feitos,
             dh_resolucao=envio.resolvido_em,
             # O retrato para a frase do cartao (T085za): TODAS as medidas do
@@ -226,7 +244,9 @@ class ServicoEnvio:
                 xp_creditado=0,
             )
 
-        parcelas = await self._extrato(id_desafio=id_desafio, envio=envio)
+        parcelas = await self._extrato(
+            id_desafio=id_desafio, envio=envio, tentativas=tentativas, dicas=dicas
+        )
         await self.repo.gravar_extrato(
             parcelas,
             id_desafio_dia=envio.id_desafio_dia,
@@ -234,11 +254,11 @@ class ServicoEnvio:
             id_resolucao=id_resolucao,
             id_tentativa=id_tentativa,
         )
-        # ⚠️ **Credita a PONTUACAO que o aplicativo mandou**, e ⛔ a soma das
-        # parcelas: vale o aplicativo (D-05), e e o mesmo `nu_xp` que acabou de
-        # ser gravado na resolucao.
+        # ⚠️ **Credita a PONTUACAO**, e ⛔ a soma das parcelas: vale o aplicativo
+        # (D-05), e e o mesmo `nu_xp` que acabou de ser gravado na resolucao. So
+        # as tentativas e as dicas a menos mudam o numero (T085zf).
         creditado = await self._creditar(
-            valor=envio.pontuacao,
+            valor=pontuacao,
             ja_creditado=ja_creditado,
             id_desafio_dia=envio.id_desafio_dia,
             id_usuario=id_usuario,
@@ -333,15 +353,95 @@ class ServicoEnvio:
         await self.repo.creditar_na_conta(id_usuario=id_usuario, xp=credito.creditado)
         return credito.creditado
 
-    async def _extrato(self, *, id_desafio: UUID, envio: EnvioDeResolucao):
+    async def _sessao_que_vale(
+        self, *, envio: EnvioDeResolucao, id_usuario: str, id_tentativa: UUID
+    ) -> tuple[int, int]:
+        """`(tentativas, dicas)`: o MAIOR entre o do envio e o do servidor.
+
+        ⚠️ As dicas ficam presas no teto (2): duas dicas pedidas ao mesmo tempo
+        passariam as duas pela conta do teto, e a parcela ⛔ aceita 3.
+        """
+        do_servidor = await self.repo.sessao_no_servidor(
+            id_desafio_dia=envio.id_desafio_dia,
+            id_usuario=id_usuario,
+            id_tentativa=id_tentativa,
+            ate=envio.resolvido_em,
+        )
+        tentativas = max(envio.tentativas, do_servidor[0])
+        dicas = min(TETO_DE_DICAS, max(envio.dicas_usadas, do_servidor[1]))
+        return tentativas, dicas
+
+    async def _pontuacao_que_vale(
+        self,
+        *,
+        id_desafio: UUID,
+        envio: EnvioDeResolucao,
+        tentativas: int,
+        dicas: int,
+    ) -> int:
+        """A pontuacao do envio, ou a recontada quando o servidor contou mais.
+
+        ⚠️ **Sessao igual a do envio = a pontuacao do envio, sem conta nenhuma.**
+        Refazer o arredondamento aqui mudaria o numero de quem jogou honesto por
+        uma diferenca de ponto flutuante, e o quadro diria outra coisa que a tela.
+        """
+        if tentativas == envio.tentativas and dicas == envio.dicas_usadas:
+            return envio.pontuacao
+        regua = await self._regua(id_desafio)
+        try:
+            return pontuacao_com_a_sessao_do_servidor(
+                # `str` antes do `Decimal`: o float `0.7325` viraria a dizima
+                # binaria dele, e ⛔ o numero que o aplicativo escreveu.
+                qualidade=Decimal(str(envio.qualidade)),
+                tentativas_do_app=envio.tentativas,
+                dicas_do_app=envio.dicas_usadas,
+                tentativas=tentativas,
+                dicas=dicas,
+                nu_tempo_ms=envio.tempo_ms,
+                nu_tempo_piso_ms=regua["nu_tempo_piso_ms"],
+                nu_tempo_teto_ms=regua["nu_tempo_teto_ms"],
+                direcoes=await self.repo.direcoes_de_sessao(),
+            )
+        except MedidaInvalida as erro:
+            raise ErroNegocio(str(erro), "medida_invalida", status_http=400) from erro
+
+    async def _regua(self, id_desafio: UUID) -> dict:
+        """A regua de tempo do desafio - ou 400, ⛔ um padrao inventado."""
+        # ⛔ **Sem valor padrao, nem aqui nem na leitura**: arbitrar 30 s/180 s
+        # faria a auditoria conferir contra uma regua inventada e acusar
+        # divergencia onde nao ha - e o alerta que ninguem le e pior que nenhum.
+        regua = await self.repo.regua_de_tempo(id_desafio)
+        if regua is None:
+            raise ErroNegocio(
+                "Desafio sem regua de tempo: sem ela a parcela de tempo de Q "
+                "nao tem contra o que ser medida.",
+                "regua_ausente",
+                status_http=400,
+            )
+        return regua
+
+    async def _extrato(
+        self,
+        *,
+        id_desafio: UUID,
+        envio: EnvioDeResolucao,
+        tentativas: int,
+        dicas: int,
+    ):
         """Converte as medidas e a sessao nas parcelas do extrato.
+
+        Args:
+            tentativas, dicas: a sessao que VALE ([_sessao_que_vale]) - e ⛔ a
+                do envio: o Raio-X mostra as quatro tentativas que o servidor
+                contou, e a parcela que desceu por elas.
 
         Raises:
             ErroNegocio: chave de feito fora do catalogo, normalizacao
                 impossivel (RF-DES-033), ou a regua de tempo do desafio faltando.
 
-        ⚠️ **As quatro parcelas de `Q` saem daqui** (RF-DES-042): tentativas,
-        tempo e dica vem do proprio envio; o merito, dos pesos do desafio. Ate
+        ⚠️ **As quatro parcelas de `Q` saem daqui** (RF-DES-042): o tempo vem
+        do proprio envio; tentativas e dica, da sessao que vale (o envio, ou o
+        servidor quando ele contou mais - T085zf); o merito, dos pesos. Ate
         16/09/2026 so o merito era gravado, e com o peso relativo cru - a
         auditoria discordava do aplicativo em toda resolucao.
         """
@@ -368,27 +468,17 @@ class ServicoEnvio:
                 status_http=400,
             )
 
-        # ⛔ **Sem valor padrao, nem aqui nem na leitura**: arbitrar 30 s/180 s
-        # faria a auditoria conferir contra uma regua inventada e acusar
-        # divergencia onde nao ha - e o alerta que ninguem le e pior que nenhum.
-        regua = await self.repo.regua_de_tempo(id_desafio)
-        if regua is None:
-            raise ErroNegocio(
-                "Desafio sem regua de tempo: sem ela a parcela de tempo de Q "
-                "nao tem contra o que ser medida.",
-                "regua_ausente",
-                status_http=400,
-            )
+        regua = await self._regua(id_desafio)
 
         try:
             return montar_extrato(
                 medidas=medidas,
                 pesos=pesos,
-                nu_tentativas=envio.tentativas,
+                nu_tentativas=tentativas,
                 # ⚠️ O tempo **da resolucao**, que e o tempo ate o objetivo cair
                 # e nao ate o fim da partida (RF-DES-214).
                 nu_tempo_ms=envio.tempo_ms,
-                nu_dicas=envio.dicas_usadas,
+                nu_dicas=dicas,
                 nu_tempo_piso_ms=regua["nu_tempo_piso_ms"],
                 nu_tempo_teto_ms=regua["nu_tempo_teto_ms"],
                 direcoes=await self.repo.direcoes_de_sessao(),

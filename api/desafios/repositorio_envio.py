@@ -226,6 +226,47 @@ SELECT COUNT(*) AS qt
 """
 
 
+#: O que o SERVIDOR sabe da sessao ate esta tentativa: quantas tentativas e
+#: quantas dicas (T085zf, `DECISOES-do-dono.md` §8zf).
+#:
+#: E a contagem que corrige a do aplicativo quando ela veio MENOR - o convidado
+#: que comeca o dia do zero no aparelho, ou dois aparelhos sem rede.
+#:
+#: ⚠️ **Tentativas pela hora de INICIO da partida, e ⛔ pela ordem de chegada**
+#: (`nu_sequencia`): a falha jogada DEPOIS da resolucao, num aparelho que subiu a
+#: fila antes, chega primeiro e ⛔ foi tentativa antes dela.
+#:
+#: ⚠️ **E a linha que so a DICA criou nao conta, se nada a fechou**: a dica cria
+#: a tentativa no meio da partida, com tempo ZERO (`registrar_dica`); quem larga
+#: a partida depois ⛔ manda envio nenhum, e o aplicativo ⛔ conta a largada no
+#: `1/n` (`registrarAPartidaLargada`). Contar essa linha puniria quem jogou
+#: honesto. A tentativa fechada por envio tem o tempo da partida (> 0), ou
+#: resolveu; e a desta resolucao conta sempre.
+#:
+#: ⚠️ **Dicas ate o instante da resolucao** (`dh_consumo <= :ate`): a dica paga
+#: numa tentativa de depois ⛔ ajudou esta. E a mesma regra do aplicativo (o
+#: total do DESAFIO ate ali).
+SQL_SESSAO_NO_SERVIDOR = f"""
+SELECT
+  (SELECT COUNT(*)
+     FROM {VW_TENTATIVA} t
+    WHERE t.id_desafio_dia = :id_desafio_dia
+      AND t.id_usuario = :id_usuario
+      AND t.dh_inicio <= (SELECT a.dh_inicio
+                            FROM {VW_TENTATIVA} a
+                           WHERE a.id_tentativa = :id_tentativa)
+      AND (t.ic_resolveu OR t.nu_tempo_ms > 0
+           OR t.id_tentativa = :id_tentativa)) AS tentativas,
+  (SELECT COUNT(*)
+     FROM desafio_dia.vw005_poder_consumido p
+     JOIN {VW_TENTATIVA} t
+       ON t.id_tentativa = p.id_tentativa
+    WHERE t.id_desafio_dia = :id_desafio_dia
+      AND t.id_usuario = :id_usuario
+      AND p.co_tipo_poder = 'dica'
+      AND p.dh_consumo <= :ate) AS dicas
+"""
+
 #: A chave de feito existe na dimensao? Usada so quando ela nao pesa no desafio.
 SQL_FEITO_NO_CATALOGO = f"""
 SELECT 1
@@ -362,6 +403,31 @@ class RepositorioEnvio:
             {"id_desafio_dia": id_desafio_dia, "id_usuario": id_usuario},
         )
         return int(resultado.scalar_one())
+
+    async def sessao_no_servidor(
+        self,
+        *,
+        id_desafio_dia: UUID,
+        id_usuario: str,
+        id_tentativa: UUID,
+        ate: datetime,
+    ) -> tuple[int, int]:
+        """`(tentativas, dicas)` que o servidor conta ate esta tentativa.
+
+        ⚠️ Lida **depois** de gravar a tentativa: ela entra na propria conta.
+        A regra de o que conta esta em [SQL_SESSAO_NO_SERVIDOR].
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_SESSAO_NO_SERVIDOR),
+            {
+                "id_desafio_dia": id_desafio_dia,
+                "id_usuario": id_usuario,
+                "id_tentativa": id_tentativa,
+                "ate": ate,
+            },
+        )
+        linha = resultado.mappings().one()
+        return int(linha["tentativas"]), int(linha["dicas"])
 
     # ── Escritas ──────────────────────────────────────────────────────────────
 

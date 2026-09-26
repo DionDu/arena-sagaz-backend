@@ -48,6 +48,10 @@ o total. O arredondamento acontece **uma vez, no fim** — e mesmo assim o total
 gravado em `tb003_resolucao.nu_xp` e o que o **aplicativo** mandou, nao o que
 esta conta produz: vale o aplicativo (D-05).
 
+⚠️ **A unica excecao sao as CONTAGENS** (T085zf): quando o servidor contou mais
+tentativas ou mais dicas que o aplicativo, o total desce so pelas duas parcelas
+de contagem - ver [pontuacao_com_a_sessao_do_servidor].
+
 ⚠️ Somar `0.6 + 0.4` em ponto flutuante nao da `1.0`, e um teste que exige soma
 de pesos igual a 1,000 reprovaria por isso.
 """
@@ -55,7 +59,7 @@ de pesos igual a 1,000 reprovaria por isso.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Mapping, Optional, Sequence
 
 from api.desafios.modelos_evento import (
@@ -488,3 +492,78 @@ def soma_dos_pesos(parcelas: Sequence[ParcelaDeXp]) -> Decimal:
     return sum(
         (p.vr_peso for p in parcelas if p.vr_peso is not None), Decimal(0)
     )
+
+
+def pontuacao_com_a_sessao_do_servidor(
+    *,
+    qualidade: Decimal,
+    tentativas_do_app: int,
+    dicas_do_app: int,
+    tentativas: int,
+    dicas: int,
+    nu_tempo_ms: int,
+    nu_tempo_piso_ms: int,
+    nu_tempo_teto_ms: int,
+    direcoes: Mapping[str, str],
+) -> int:
+    """A pontuacao de 18 a 30 com as tentativas e as dicas que o SERVIDOR contou.
+
+    ═══════════════════════════════════════════════════════════════════════
+    ⚠️ POR QUE EXISTE (T085zf, 26/09/2026, `DECISOES-do-dono.md` §8zf)
+    ═══════════════════════════════════════════════════════════════════════
+
+    O aplicativo calcula a nota com as tentativas e as dicas **que ele viu**.
+    Quem errou tres vezes com a conta, saiu dela e resolveu como convidado
+    manda, no login, uma resolucao "de primeira e sem dica": o convidado
+    comeca o dia do zero, porque no aparelho ele e outra pessoa. O servidor
+    sabia que era a quarta tentativa, e so gravava a contagem.
+
+    ⚠️ **So as duas parcelas de CONTAGEM mudam.** Tempo e merito continuam os
+    do aplicativo (D-05: vale o aplicativo no julgamento); o que o servidor
+    corrige e um FATO que ele ve melhor - quantas vezes a pessoa tentou e
+    quantas dicas pagou no dia. Por isso a conta parte da `qualidade` que o
+    aplicativo mandou e tira dela so a diferenca dessas duas parcelas, em vez
+    de recalcular `Q` inteira: recalcular o merito aqui faria qualquer
+    divergencia de normalizacao virar XP diferente, que e o que D-05 proibe.
+
+    Args:
+        qualidade: o `Q` que o aplicativo mandou, em [0,1].
+        tentativas_do_app, dicas_do_app: o que o aplicativo usou na conta.
+        tentativas, dicas: o que vale agora - o MAIOR entre o do aplicativo e o
+            do servidor; quem escolhe e o servico.
+        nu_tempo_ms, nu_tempo_piso_ms, nu_tempo_teto_ms: so para montar as
+            parcelas de sessao; a de tempo e igual nos dois lados e se anula.
+        direcoes: `{co_feito: co_direcao}` das tres chaves de sessao.
+
+    Returns:
+        `round(18 + 12 x Q')`, arredondado **para cima no meio** como o `round()`
+        do Dart (`lib/core/desafios/qualidade.dart`), preso em 18..30.
+
+    Raises:
+        MedidaInvalida: os mesmos numeros impossiveis de [parcelas_de_sessao].
+    """
+
+    def _contagem(n: int, d: int) -> Decimal:
+        """O XP das duas parcelas de contagem (tentativas + dica) com n e d."""
+        parcelas = parcelas_de_sessao(
+            nu_tentativas=n,
+            nu_tempo_ms=nu_tempo_ms,
+            nu_dicas=d,
+            nu_tempo_piso_ms=nu_tempo_piso_ms,
+            nu_tempo_teto_ms=nu_tempo_teto_ms,
+            direcoes=direcoes,
+        )
+        return sum(
+            (p.vr_xp for p in parcelas if p.nu_tipo_xp in (TIPO_TENTATIVAS, TIPO_DICA)),
+            Decimal(0),
+        )
+
+    # O que a pessoa perde por ter tentado e pedido mais do que o app sabia.
+    # ⚠️ Nunca negativo: o servico so pede esta conta com contagens MAIORES, e
+    # as duas reguas so descem quando a contagem sobe.
+    perda = _contagem(tentativas_do_app, dicas_do_app) - _contagem(tentativas, dicas)
+    bruto = Decimal(XP_PISO_POR_RESOLVER) + FAIXA_DE_Q * qualidade - perda
+    # `quantize(Decimal(1), ROUND_HALF_UP)`: arredonda para o inteiro, com o meio
+    # para cima - o `round()` do Dart faz o mesmo com numeros positivos.
+    inteiro = int(bruto.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    return max(XP_PISO_POR_RESOLVER, min(XP_TETO_DO_DIA, inteiro))

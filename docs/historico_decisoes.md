@@ -6697,3 +6697,48 @@ declaração abre a trava e ⛔ põe linha; as duas rotas repassam o parâmetro;
 vale `False`) e `test_resumo_do_mes.py` (a rota atende sem conta e pergunta por
 ninguém; a dependência é a opcional). 7 mutações: 6 pegas, 1 equivalente (consultar
 a própria linha com `id_usuario` nulo ⛔ acha nada, nem no banco).
+
+## 2026-09-26 (3) — A resolução usa a MAIOR contagem de tentativas e dicas: a do app ou a do servidor (T085zf)
+
+**Contexto.** Pergunta do dono: sair da conta, resolver como convidado e entrar de novo
+serve para melhorar a nota? Com a resolução da conta já gravada, ⛔ (a chave natural
+`(dia, pessoa)` guarda a primeira, e o reenvio credita zero). Sem ela, **servia**: a
+`pontuacao` sai do app, com as tentativas e as dicas que o aparelho viu, e o convidado
+começa o dia do zero no aparelho (a chave local tem dono, T085za). Três erros com a
+conta e um acerto como convidado chegavam aqui como "de primeira e sem dica", e o
+servidor, que tinha as três tentativas, só as gravava. Dois aparelhos sem rede dão o
+mesmo efeito, com menos frequência.
+
+**Decisão** (`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zf). Ao gravar uma
+resolução, `ServicoEnvio._sessao_que_vale` pergunta a `SQL_SESSAO_NO_SERVIDOR` e fica,
+para cada contagem, com **a maior** entre o envio e o servidor:
+- **tentativas**: as do dia com `dh_inicio` ≤ o desta (a hora do jogo, ⛔ a ordem de
+  chegada - a falha jogada depois, subida antes, ⛔ foi antes), sem a linha que só a
+  dica criou e nada fechou (tempo 0, ⛔ resolveu: é a partida largada, que o app ⛔
+  conta no `1/n`);
+- **dicas**: as do dia com `dh_consumo` ≤ `resolvido_em`, presas no teto de 2.
+
+Contagem igual à do envio vale a `pontuacao` do envio, sem conta nenhuma. Maior,
+`pontuacao_com_a_sessao_do_servidor` desconta da `qualidade` do app **só** as parcelas
+de tentativas e de dica (a de tempo se anula; o mérito ⛔ é tocado), arredonda o meio
+para cima como o `round()` do Dart e prende em 18..30. `nu_xp`, crédito e extrato
+usam o resultado.
+
+**Alternativas recusadas.**
+- *Recalcular `Q` inteira no servidor*: faria qualquer divergência de normalização do
+  mérito virar XP diferente - é o que D-05 proíbe. A exceção é só a contagem.
+- *Usar `nu_sequencia`*: é a ordem de chegada, e conta a linha nascida da dica numa
+  partida largada, que puniria quem jogou honesto.
+- *Corrigir no app, no login*: o convidado ⛔ tem como saber, e o servidor é o único
+  que vê todas as fontes (os dois aparelhos, a conta e o convidado).
+- *Bloquear o convidado no aparelho onde a conta jogou*: o aparelho pode ter pessoas
+  diferentes (§8ze.6).
+
+**Cadeados.** 13 casos em `test_envio_de_resolucao.py` (contou mais → nota desce, nos
+três sentidos; o extrato mostra a contagem que vale; contou menos → vale o envio;
+igual ⛔ refaz arredondamento; a pergunta é sobre esta tentativa e até a resolução;
+dicas acima do teto ficam no teto; o reenvio continua sem crédito; a conta pura: meio
+para cima, o tempo se anula, a perda parte da contagem do app, piso de 18). 13
+mutações, 13 pegas. ⚠️ O SQL ⛔ tem teste automatizado (os unitários usam repositório
+falso): rodou no `des` com o texto exato da constante e bate com o extrato nas duas
+resoluções que existem lá.
