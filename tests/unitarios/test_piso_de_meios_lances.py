@@ -38,20 +38,59 @@ from job.editorial import EDITORIAL, Publicacao, variantes_de
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_o_padrao_e_SEM_PISO() -> None:
-    """⛔ Ligar o piso em todos os tipos de uma vez seria variante nao medida.
+def test_o_padrao_TEM_a_faixa_do_hub() -> None:
+    """🔒 A faixa de 5 a 10 lances do jogador, no padrao — decisao do dono, 26/09/2026.
 
-    ⚠️ **E a regra que o editorial inteiro existe para nao quebrar.** Cada tipo
-    liga o seu quando a medicao disser em que numero ele para de gerar.
+    ⚠️ **Este teste dizia o contrario ate 26/09**, e a inversao e a decisao: o piso
+    nasceu em 16/09 declarado em um tipo so, e o dono corrigiu a leitura —
+    *"eu falei no geral, em qualquer jogo ou modalidade"*. O padrao deixou de ser
+    "sem piso" e passou a ser a faixa; quem fica fora dela declara e diz por que.
+
+    ⛔ **Por que travar o numero aqui:** o piso no padrao e o que faz um tipo NOVO
+    nascer dentro da faixa. Enquanto ele era zero, cada tipo herdava a ausencia da
+    regra, que e como as tres variantes do `damas_sacrificio` chegaram a 6,1
+    meios-lances sem nada acusar.
     """
-    assert editorial_mod.MINIMO_DE_MEIOS_LANCES_PADRAO == 0
-    # Uma publicacao que nao declara nada nasce sem piso.
+    assert editorial_mod.MINIMO_DE_MEIOS_LANCES_PADRAO == 9
+    assert editorial_mod.MAXIMO_DE_MEIOS_LANCES_PADRAO == 20
+    # Uma publicacao que nao declara nada nasce DENTRO da faixa.
     sem_declarar = Publicacao(
         parametros={},
         ic_chegada_encerra_partida=False,
         medidas=lambda p: [],
     )
-    assert sem_declarar.nu_minimo_de_meios_lances == 0
+    assert sem_declarar.nu_minimo_de_meios_lances == 9
+    assert sem_declarar.nu_maximo_de_meios_lances == 20
+
+
+def test_toda_variante_FORA_da_faixa_declara_o_zero_explicitamente() -> None:
+    """🔒 Ficar fora da faixa e escolha escrita, e ⛔ nunca heranca por distracao.
+
+    ⚠️ **Sao duas as excecoes de hoje, e as duas tem motivo no editorial:** o
+    Pontinhos inteiro (decisao do dono em 26/09 — *"deixe os Pontinhos da forma
+    que esta hoje... o tabuleiro ainda e pequeno"*, e `SEM_PISO_NO_PONTINHOS`) e a
+    variante `{pecas: 2}` do `damas_capturar_multipla`, cujo acervo e
+    compartilhado com a de tres pecas.
+
+    ⛔ **O que este teste impede e o silencio**, e nao o zero: enquanto o padrao
+    era zero, uma variante sem piso era indistinguivel de uma variante esquecida.
+    Agora o zero tem de estar escrito na publicacao, onde cabe o porque.
+    """
+    for co_tipo, publicacoes in EDITORIAL.items():
+        for publicacao in publicacoes:
+            if publicacao.nu_minimo_de_meios_lances:
+                continue
+            # O zero veio de uma linha do editorial, e nao do padrao — que hoje e 9.
+            assert editorial_mod.MINIMO_DE_MEIOS_LANCES_PADRAO != 0, (
+                "o padrao voltou a ser zero: este teste perdeu o sentido"
+            )
+            assert co_tipo.startswith("pontinhos_") or (
+                co_tipo == "damas_capturar_multipla"
+                and dict(publicacao.parametros).get("pecas") == 2
+            ), (
+                f"{co_tipo} {dict(publicacao.parametros)} esta fora da faixa do hub "
+                "sem ser uma das excecoes registradas no editorial"
+            )
 
 
 def test_o_coroar_LIGOU_o_piso_em_TODA_variante_que_publica() -> None:

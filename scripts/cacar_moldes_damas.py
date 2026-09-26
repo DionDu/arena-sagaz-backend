@@ -127,9 +127,11 @@ TETO_DE_LANCES = editorial_mod.MAXIMO_DE_MEIOS_LANCES_PADRAO
 #: meios-lances sao ~6 lances do jogador, e a janela nunca podia fechar.
 #:
 #: ⚠️ `damas_sobreviver` pede `lances_do_jogador >= 8`, que sao **16
-#: meios-lances** no melhor dos casos. Com o teto padrao ele reprovaria por
-#: aritmetica — ⛔ e o log diria *"nao cumpriu no teto"*, que e indistinguivel
-#: de *"o jogo nao permite"*.
+#: meios-lances** no melhor dos casos. Com o teto padrao de **12**, que valeu ate
+#: 26/09/2026, ele reprovava por aritmetica — ⛔ e o log dizia *"nao cumpriu no
+#: teto"*, que e indistinguivel de *"o jogo nao permite"*. ✅ O padrao passou a
+#: **20** com a faixa do hub, e os 16 agora cabem; a tabela abaixo continua aqui
+#: porque ela socorre tipo que ainda nao tem editorial.
 #:
 #: ⛔ **ESTA TABELA E SO O SOCORRO DE QUEM NAO TEM EDITORIAL** desde 16/09/2026 —
 #: tipos em avaliacao, que ainda nao publicam. Quem publica e lido do editorial

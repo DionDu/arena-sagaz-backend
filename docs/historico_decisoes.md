@@ -6827,3 +6827,97 @@ dono**; o dado está aqui para ela não ser chute.
 | Repescar `sacrificio` e `sobreviver` com o motor Dart | ~8h15 de CPU para trocar o viés de um único motivo de descarte, que no `sacrificio` pesa 1,7%. O acervo de 4.203 já excede qualquer necessidade de publicação |
 | Usar o motor Rust na pescaria | ⛔ Não existe ponte Python→Rust no backend, nem binário para Windows: `ia/jogos/jogo_damas/motor_rust/` só tem `build_android.ps1` e `build_ios.sh` |
 | Cortar os moldes curtos do acervo em vez de pôr piso | É o que as duas "correções" de antes de 16/09 fizeram, e nenhuma impediu o gerador de escolher o mais curto que **sobrou** |
+
+## 2026-09-26 (5) — A faixa de duração é do HUB, e o acervo do sacrifício foi trocado para ela caber
+
+**Contexto.** Ao apresentar o resultado da maratona (entrada anterior), eu disse
+que o piso de 9 meios-lances pedido em 16/09 *"só foi declarado no `damas_coroar`"*
+como se o pedido fosse daquele tipo. ⛔ **O dono corrigiu:**
+
+> *"Isso não é verdade eu falei no geral, em qualquer jogo ou modalidade. O que eu
+> quis dizer é que os desafios devem ser longos o suficiente para prender
+> minimamente o usuário no App. Entrar no App para ficar 10 segundos vai gastar
+> mais tempo iniciando o App do que jogando em si. Também não pode ser tão longo
+> quanto uma partida cheia."*
+
+**Decisão.** A faixa é **5 a 10 lances do jogador** - nas damas, **9 a 20
+meios-lances** -, e ela vive no **padrão** (`MINIMO_DE_MEIOS_LANCES_PADRAO = 9`,
+`MAXIMO_DE_MEIOS_LANCES_PADRAO = 20`), não em cada tipo. ⛔ **É o padrão que faz um
+tipo novo nascer dentro da regra**; enquanto ele era zero, cada tipo herdava a
+ausência dela - foi assim que as três variantes do `damas_sacrificio` chegaram a
+6,1 meios-lances sem nada acusar.
+
+### ⛔ O Pontinhos fica fora, por decisão do dono
+
+> *"deixe os Pontinhos da forma que está hoje. Lá os desafios estão sendo gerados
+> de uma forma mais interessante. Não tenho visto tantos problemas lá. Como o
+> tabuleiro ainda é pequeno os desafios não ficam extremamente longos e também não
+> têm saído muito curtos."*
+
+✅ **O tabuleiro pequeno faz o trabalho que o piso faria:** o 4x3 tem 31 lances ao
+todo, então não cabe nem o desafio de dez segundos nem a partida cheia. As 17
+publicações de Pontinhos declaram `SEM_PISO_NO_PONTINHOS` e
+`MAXIMO_DE_HOJE_NO_PONTINHOS` (o 12 que elas já tinham) - ⚠️ **sem a segunda,
+"deixar como está" teria mudado o Pontinhos em silêncio**, porque o teto padrão
+subiu de 12 para 20 junto com o piso.
+
+⚠️ **E duas razões técnicas dizem o mesmo.** Lá a conversão meio-lance → lance do
+jogador **não é 2:1** (quem fecha caixa joga de novo), e duas variantes não
+caberiam por aritmética: `pontinhos_nao_entregar` promete 4 lances (no máximo 7
+meios-lances) e `pontinhos_paciencia` promete 3 (no máximo 5). O cadeado
+`test_o_piso_nunca_passa_da_JANELA_DA_FRASE` já acusava as duas.
+
+### ⛔ O acervo do `damas_sacrificio` foi trocado: 179 → 1.437 moldes
+
+**Não é melhoria: é o que faz o piso funcionar.** O editorial registra a solução
+medida das três variantes - **6,1 · 6,3 · 7,7** meios-lances -, todas **abaixo** do
+piso. Com o piso ligado e o acervo velho, nenhuma das três geraria candidato, e o
+log diria só *"sem candidato"*.
+
+Os moldes novos saíram da maratona, com três condições e todas as três (1.543
+aprovaram, e 106 saíram depois para o cadeado de colisão entre tipos - a mesma FEN
+em dois tipos é repetição para quem joga, e o acervo mais novo é quem cede):
+
+    solução em 3+ das 4 modalidades   (MINIMO_DE_MODALIDADES)
+    distância de 9 a 20 meios-lances  (a faixa do dono)
+    nas TRÊS variantes, e não em uma  ← esta cortou mais
+
+⛔ **A terceira condição existe porque o acervo é da RECEITA, e não da variante.**
+O gerador sorteia um molde e monta a variante do dia: um molde bom só para
+`capturar=2` deixaria o dia de `capturar=3` descoberto. Por variante isolada havia
+2.324, 2.911 e 2.889; **a interseção é 1.543**, e 1.437 sobreviveram ao cadeado de colisão; 1.092 resolvem nas quatro
+modalidades. A ordem do acervo é por modalidades e depois pelo mais longo - o
+critério 6 do dono (*"de preferência muitos lances"*).
+
+### ✅ O que não precisou de nada
+
+- **`damas_sobreviver`** - solução medida **15,0**, dentro da faixa. E não poderia
+  ser outra: *"sobreviva N lances"* cumpre no meio-lance `2N-1` e em nenhum outro.
+- **`damas_capturar_multipla` `{pecas: 3}`** - solução medida **13,8**, a mais longa
+  do catálogo. ⚠️ **Eu havia proposto aposentar exatamente esta variante**, por ler
+  a distribuição da pescaria (55 moldes, 96% curtos) como se fosse o acervo em
+  produção. São populações diferentes: a pescaria varreu 4.881 FENs novas, e os 87
+  moldes que esta variante usa foram caçados antes e medem 13,8 com o alvo dela.
+  ⛔ A proposta estava errada e não foi aplicada.
+- **`damas_coroar`** - pisos 12 e 16, mais restritos que 9, medidos em 18/09.
+
+### ⏳ A única pendência, e ela é decisão de produto
+
+**`damas_capturar_multipla` `{pecas: 2, lances: 8}` ficou fora da faixa**, com
+`nu_minimo_de_meios_lances=0` escrito e o motivo ao lado. Os 87 moldes do tipo
+foram caçados para o alvo antigo (`pecas: 2, lances: 4`) e anotam **4 a 7**
+meios-lances - abaixo do piso. ⛔ E trocar o acervo resolveria esta e quebraria a
+de três peças: na faixa, a maratona dá **237** moldes para `pecas=2` e **2** para
+`pecas=3`. Um acervo só não serve as duas.
+
+As três saídas, para quando o dono decidir:
+
+| saída | o que custa |
+|---|---|
+| Aposentar a `{pecas: 2}` | Deixa a de três peças sozinha, e ela é `NO LIMITE` (1 candidato no dia mais fraco) - o contrapeso de ter duas variantes era justamente isso |
+| Separar o acervo **por variante** (`moldes` sai da `Receita` e vai para a `Publicacao`) | Mudança de estrutura; resolve de vez e serve a todo tipo futuro com variantes de exigência diferente |
+| Deixá-la fora da faixa, como está | Um desafio curto continua possível nos dias dela |
+
+⚠️ **Nada disso está medido no gerador ainda.** Quem responde *"a variante ainda
+gera candidato todo dia com o piso?"* é `scripts/medir_variantes_do_editorial.py`,
+e é processo longo - comando para o dono.

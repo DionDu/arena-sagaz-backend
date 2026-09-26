@@ -112,7 +112,12 @@ TETO_DE_LOG_PADRAO = 120
 # o dono leu "teto de 12" como "doze lances do usuario" — o dobro do que e —, e
 # eu ja tinha caido na mesma armadilha em 11/09 lendo a solucao media. Renomear
 # custou um `sed`; a ambiguidade ja custou duas leituras erradas.
-MAXIMO_DE_MEIOS_LANCES_PADRAO = 12
+#: ⛔ **20 desde 26/09/2026, e o numero e a metade de cima da FAIXA DO HUB** —
+#: ver `MINIMO_DE_MEIOS_LANCES_PADRAO` logo abaixo, onde a decisao esta contada.
+#: Era **12**, e o 12 nao vinha de decisao nenhuma: era o padrao que cada tipo
+#: novo herdava sem medir. ⚠️ Subir o teto **afrouxa** (admite gabarito mais
+#: longo), entao ele nao cria dia descoberto — quem cria e o piso.
+MAXIMO_DE_MEIOS_LANCES_PADRAO = 20
 
 #: O PISO do gabarito, em meios-lances. ⛔ **Zero quer dizer "sem piso"**, que e
 #: o comportamento de sempre.
@@ -136,11 +141,79 @@ MAXIMO_DE_MEIOS_LANCES_PADRAO = 12
 #: geracao**, porque o gerador nao descarta candidato nenhum por causa delas. Sao
 #: a mesma tarefa com um numero maior escrito na frase.
 #:
-#: ⛔ **O padrao e ZERO de proposito.** Ligar o piso em todos os tipos de uma vez
-#: mudaria sete variantes ja publicadas sem que nenhuma fosse medida — e variante
-#: nao medida e a regra que este editorial inteiro existe para nao quebrar. Cada
-#: tipo liga o seu quando a medicao disser em que numero ele para de gerar.
-MINIMO_DE_MEIOS_LANCES_PADRAO = 0
+#: ⛔ **DEIXOU DE SER ZERO EM 26/09/2026: A FAIXA E DO HUB, E NAO DE UM TIPO.**
+#:
+#: O piso nasceu em 16/09 e foi declarado **em um tipo so** (`damas_coroar`),
+#: porque cada variante precisava ser medida antes. Em 26/09 o dono corrigiu a
+#: leitura de que o pedido fosse do `damas_coroar`:
+#:
+#: > *"eu falei no geral, em qualquer jogo ou modalidade. O que eu quis dizer e
+#: > que os desafios devem ser longos o suficiente para prender minimamente o
+#: > usuario no App. Entrar no App para ficar 10 segundos vai gastar mais tempo
+#: > iniciando o App do que jogando em si. Tambem nao pode ser tao longo quanto
+#: > uma partida cheia."*
+#:
+#: ✅ **A faixa escolhida por ele e de 5 a 10 lances do jogador** — nas damas,
+#: **9 a 20 meios-lances**, que sao este piso e o teto acima. Ela vale para todo
+#: desafio do hub; tipo que queira ser mais estreito declara o seu (o
+#: `damas_coroar` tem pisos 12 e 16), e ⛔ ninguem declara mais **frouxo** sem
+#: medicao ao lado.
+#:
+#: ⚠️ **A escolha foi medida, e nao estimada.** A maratona do gerador (18 a
+#: 26/09) varreu 4.881 posicoes por tipo; nesta faixa sobram **2.324 a 2.911**
+#: moldes por variante do `damas_sacrificio` e **237** do `capturar_multipla`, e
+#: o `damas_sobreviver` nao e afetado — a solucao dele cai sempre em 15
+#: meios-lances, porque *"sobreviva N lances"* cumpre no lance exato e em nenhum
+#: outro. A medicao inteira esta em `docs/historico_decisoes.md`, 2026-09-26 (4).
+#:
+#: ⛔ **O Pontinhos NAO herda este piso** — ver `SEM_PISO_NO_PONTINHOS` abaixo.
+MINIMO_DE_MEIOS_LANCES_PADRAO = 9
+
+#: ⛔ **O PONTINHOS FICA FORA DO PISO, POR DECISAO DO DONO (26/09/2026).** O `0`
+#: tem nome para nao passar por esquecimento.
+#:
+#: ⚠️ **O motivo e observacao dele, e nao uma pendencia de medicao:**
+#:
+#: > *"deixe os Pontinhos da forma que esta hoje. La os desafios estao sendo
+#: > gerados de uma forma mais interessante. Nao tenho visto tantos problemas la.
+#: > Como o tabuleiro ainda e pequeno os desafios nao ficam extremamente longos e
+#: > tambem nao tem saido muito curtos."*
+#:
+#: ✅ **O tabuleiro pequeno ja faz o trabalho que o piso faria.** O 4x3 tem 31
+#: lances possiveis ao todo: nao ha espaco para o desafio de dez segundos de um
+#: lado nem para a partida cheia do outro. O piso existe para o problema que as
+#: damas tem, e o Pontinhos nao tem.
+#:
+#: ⚠️ **E duas razoes tecnicas dizem o mesmo, se um dia alguem quiser ligar:**
+#:
+#: 1. ⛔ **Aqui a conversao meio-lance → lance do jogador NAO e 2:1.** Quem fecha
+#:    caixa joga de novo, entao quatro caixas em quatro lances seguidos sao um
+#:    turno so. A faixa do dono esta em **lances do jogador**, e traduzi-la exige
+#:    saber quantos lances extras o fechamento dara — que nao e constante.
+#: 2. ⛔ **Duas variantes nao caberiam por aritmetica**, e o cadeado
+#:    `test_o_piso_nunca_passa_da_JANELA_DA_FRASE` acusa: `pontinhos_nao_entregar`
+#:    promete 4 lances (no maximo 7 meios-lances) e `pontinhos_paciencia` promete
+#:    3 (no maximo 5). Com piso 9 elas **nunca** gerariam candidato, e o log diria
+#:    so *"sem candidato"* — ⚠️ que e um buraco na fila que a pessoa ve na tela,
+#:    como a variante de seis lances do `damas_coroar` em 18/09.
+#:
+#: ⛔ **Nao se liga o piso aqui sem medir com
+#: `scripts/medir_variantes_do_editorial.py`** e sem o dono voltar atras no que
+#: disse acima. As duas coisas, e nao uma.
+SEM_PISO_NO_PONTINHOS = 0
+
+#: ⛔ **E o TETO de hoje do Pontinhos, pela mesma decisao e pelo mesmo motivo.**
+#:
+#: ⚠️ **Sem esta linha, "deixar como esta" teria mudado o Pontinhos em silencio.**
+#: O teto padrao subiu de 12 para 20 em 26/09 junto com o piso; os tipos do
+#: Pontinhos que **nao declaravam teto** herdariam o 20 e passariam a admitir
+#: gabarito mais longo do que o que o dono disse estar bom. Fixar o 12 aqui e o
+#: que faz a mudanca ser das damas, e so delas.
+#:
+#: ⚠️ **`pontinhos_cadeia_longa` e `pontinhos_chegar_ao_placar` nao usam esta
+#: constante**: as duas ja declaram **34**, de proposito (a cadeia longa precisa da
+#: partida quase inteira para existir). Elas ficam como estao.
+MAXIMO_DE_HOJE_NO_PONTINHOS = 12
 
 LANCES_DE_PREPARO_PADRAO = 8
 
@@ -743,6 +816,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # tem cadeia formada, e procurar por mais tempo nao inventa uma.
             nu_lances_de_preparo=14,
             medidas=_medidas_do_pontinhos_fechar_caixas,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
         Publicacao(
             # ⚠️ **O mesmo alvo, com um turno a mais** — e a variante que muda a
@@ -755,6 +835,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             nu_lances_de_preparo=14,
             medidas=_medidas_do_pontinhos_fechar_caixas,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
         Publicacao(
             # A mais dura que gera com folga.
@@ -767,6 +854,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             nu_lances_de_preparo=14,
             medidas=_medidas_do_pontinhos_fechar_caixas,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
     ),
     "pontinhos_cadeia_longa": (
@@ -803,6 +897,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # para 20%; a Cacau (57%) e a Pita (67%) sao onde o tipo vive.
             co_personagens=("cacau", "pita"),
             medidas=_medidas_da_cadeia_longa,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
         ),
         Publicacao(
             # A versao dura: sete caixas numa corrida so.
@@ -820,6 +918,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             nu_maximo_de_meios_lances=34,
             co_personagens=("cacau", "pita"),
             medidas=_medidas_da_cadeia_longa,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
         ),
     ),
     "pontinhos_chegar_ao_placar": (
@@ -836,6 +938,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # solucao medida usa 22 lances, e com 12 nunca se chega a sete caixas.
             nu_maximo_de_meios_lances=34,
             medidas=_medidas_do_pontinhos_placar,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
         ),
         Publicacao(
             # Seis de doze e o empate: quem chega la **nao perdeu**.
@@ -845,6 +951,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             nu_maximo_de_meios_lances=34,
             medidas=_medidas_do_pontinhos_placar,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
         ),
         Publicacao(
             # ⚠️ **Cinco nao e maioria**, e a frase nao promete que seja: o
@@ -858,6 +968,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             nu_maximo_de_meios_lances=34,
             medidas=_medidas_do_pontinhos_placar,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
         ),
         Publicacao(
             # ── O ALVO SAI DA POSICAO, E NAO DAQUI (desenho do dono, 11/09) ──
@@ -897,6 +1011,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # ⚠️ As medidas leem `caixas`, e recebem os parametros do
             # **candidato** (`G + 1`), nao os daqui — ver `job/__main__.py`.
             medidas=_medidas_do_pontinhos_placar,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
         ),
         Publicacao(
             # ── ✅ MEDIDA COM AS 20 TENTATIVAS, EM 14/09/2026 ────────────────
@@ -919,6 +1037,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_pontinhos_placar,
             nu_maximo_de_meios_lances=34,
             nu_lances_de_preparo=14,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
         ),
     ),
     # ═══════════════════════════════════════════════════════════════════════
@@ -1392,6 +1514,26 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_captura,
             nu_maximo_de_meios_lances=16,
+            # ⛔ **A UNICA VARIANTE DE DAMAS QUE FICOU FORA DA FAIXA DO HUB
+            # (26/09/2026), e o motivo e o acervo COMPARTILHADO.**
+            #
+            # ⚠️ **O acervo e da RECEITA, e nao da variante:** os 87 moldes de
+            # `tipos_de_desafio.py` servem as duas publicacoes deste tipo. Eles
+            # foram cacados para o alvo antigo (`pecas: 2, lances: 4`) e as
+            # distancias anotadas neles vao de **4 a 7 meios-lances** — abaixo do
+            # piso de 9. ⛔ Com o piso ligado aqui, esta variante deixaria de
+            # gerar nos dias em que o odometro caisse nela.
+            #
+            # ⛔ **E trocar o acervo pelos moldes da maratona resolveria ESTA e
+            # quebraria a de tres pecas:** na faixa 9-20 a maratona da **237**
+            # moldes para `pecas=2` e **2** para `pecas=3`. Um acervo so nao serve
+            # as duas.
+            #
+            # ⏳ **A decisao e do dono**, e as opcoes estao no
+            # `docs/historico_decisoes.md`, 2026-09-26 (5): aposentar esta
+            # variante, separar o acervo por variante (mudanca de estrutura) ou
+            # deixa-la fora da faixa como esta.
+            nu_minimo_de_meios_lances=0,
         ),
         Publicacao(
             # ⚠️ **TRES pecas, a tarefa mais longa de todo o catalogo** — 13,8
@@ -1410,6 +1552,10 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_captura,
             nu_maximo_de_meios_lances=20,
+            # ✅ **Herda o piso de 9 do padrao, e a medicao acima e a prova:** a
+            # solucao dela mede **13,8 meios-lances**, a mais longa do catalogo.
+            # ⚠️ Por isso a faixa do hub (26/09) nao pediu nada desta variante —
+            # ela ja estava dentro, com o acervo que tem.
         ),
     ),
     # ═══════════════════════════════════════════════════════════════════════
@@ -1492,7 +1638,8 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_damas_sobreviver,
             # ⛔ **O TETO E O BOTAO DESTE TIPO, e nao o enunciado.** `lances: 8`
             # sao 16 meios-lances no minimo aritmetico (os dois lados alternam), e
-            # o teto padrao e **12** — publicar com ele devolveria zero candidato
+            # o teto padrao era **12** quando esta linha entrou — publicar com ele
+            # devolveria zero candidato
             # por aritmetica, sem erro nenhum no log.
             nu_maximo_de_meios_lances=18,
         ),
@@ -1551,6 +1698,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             parametros={"lances": 4},
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_pontinhos_nao_entregar,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
     ),
     "pontinhos_economia_de_lances": (
@@ -1563,6 +1717,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_pontinhos_economia,
             nu_lances_de_preparo=14,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
         Publicacao(
             # ✅ FOLGA (3 de 3) · dias [3,3,3] · 10,1 meios-lances · 20s
@@ -1576,6 +1737,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_pontinhos_economia,
             nu_lances_de_preparo=14,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
         Publicacao(
             # ✅ FOLGA (3 de 3) · dias [3,3,3] · 9,0 meios-lances · 12s
@@ -1584,6 +1752,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_pontinhos_economia,
             nu_lances_de_preparo=14,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
     ),
     "pontinhos_troca_favoravel": (
@@ -1598,6 +1773,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_pontinhos_troca,
             nu_lances_de_preparo=14,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
         Publicacao(
             # ✅ FOLGA (3 de 3) · dias [3,3,3] · 7,6 meios-lances · 18s
@@ -1607,6 +1789,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_pontinhos_troca,
             nu_lances_de_preparo=14,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
     ),
     "pontinhos_paciencia": (
@@ -1623,6 +1812,13 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             parametros={"lances": 3},
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_pontinhos_paciencia,
+            # ⛔ O Pontinhos fica fora da faixa do hub — ver
+            # `SEM_PISO_NO_PONTINHOS`: a decisao e do dono, e o tabuleiro
+            # pequeno ja evita os dois extremos aqui.
+            nu_minimo_de_meios_lances=SEM_PISO_NO_PONTINHOS,
+            # ⛔ O teto que o Pontinhos ja tinha: sem esta linha ele herdaria o
+            # padrao novo (20) — ver `MAXIMO_DE_HOJE_NO_PONTINHOS`.
+            nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
     ),
 }
