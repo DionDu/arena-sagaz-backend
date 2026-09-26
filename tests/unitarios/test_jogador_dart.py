@@ -258,3 +258,45 @@ def test_a_busca_gasta_o_orcamento_INTEIRO_do_sagaz(jogador: JogadorDart) -> Non
         f"o aparelho chegou à profundidade 12 nesta posição e o servidor chegou "
         f"à {resposta['profundidade']}."
     )
+
+
+def test_o_motor_de_uma_thread_MORTA_e_enterrado_ao_abrir_o_seguinte() -> None:
+    """🔒 A defesa que nao depende de ninguem lembrar de chamar a limpeza.
+
+    ⚠️ **Com motores de verdade**, porque o que se mede aqui é o processo filho
+    sobrevivendo à thread que o criou — o que um duplo não teria.
+
+    O desenho: uma thread pede o motor dela e morre. O processo dele continua no
+    ar, porque `threading.local()` ser coletado não fecha `subprocess` nenhum.
+    Quando a próxima thread pede um motor, `jogador_compartilhado` varre os mortos
+    **antes** de subir o seu — e é isso que mantém o pico no número de threads
+    vivas, e não no total histórico (81 motores e 5,4 GB, em 25/09/2026).
+    """
+    import threading
+
+    from motores.damas import jogador_dart as mod
+
+    motores: list[JogadorDart] = []
+
+    def pedir_o_meu() -> None:
+        motores.append(mod.jogador_compartilhado())
+
+    primeira = threading.Thread(target=pedir_o_meu)
+    primeira.start()
+    primeira.join()
+    assert len(motores) == 1, "a primeira thread nao conseguiu motor"
+    orfao = motores[0]
+    # ⚠️ A prova de que o defeito existe: a thread morreu e o processo NAO.
+    assert orfao._processo.poll() is None, (
+        "o motor morreu junto com a thread — entao este caso nao mede nada"
+    )
+
+    segunda = threading.Thread(target=pedir_o_meu)
+    segunda.start()
+    segunda.join()
+
+    assert orfao._processo.poll() is not None, (
+        "o motor da thread morta continuou no ar depois de outra thread abrir o seu"
+    )
+    # E o da segunda thread e um processo DIFERENTE, nao o orfao reaproveitado.
+    assert motores[1] is not orfao

@@ -6551,3 +6551,82 @@ reagiu escondido - a lista discordaria da pilha do quadro, que conta a reação 
 `contracts/desafio-publicado.md`. Testes: `test_resumo_do_mes.py`,
 `test_quadro_do_dia.py` (6 mutações do serviço, todas pegas),
 `test_rotas_desafio_publicado.py`.
+
+## 2026-09-25 (3) — Um pool que fecha não fecha os processos das threads dele
+
+**Contexto.** No mesmo dia em que a régua passou a medir as 60 execuções de um
+candidato de damas em 8 threads (e ganhou 2,8× com isso), o dono gerou os 7 dias
+da fila pelo painel de curadoria. Deu certo: 7 desafios aprovados no `des`, das
+22:04 às 22:17, ~13 minutos no total, contra os ~15 minutos **por dia** de antes.
+
+Doze minutos depois de a geração terminar, a máquina dele tinha:
+
+```
+motores: 81  ·  memoria: 5416 MB  ·  CPU somada: 2091.8s
+depois de 15s: 81 motores  ·  CPU somada: 2091.8s  ·  variacao: 0s
+```
+
+**81 processos do motor Dart vivos, 5,4 GB de RAM, zero de CPU** — todos parados,
+todos filhos do uvicorn do painel.
+
+**O defeito.** `jogador_dart.jogador_compartilhado()` abre **um motor por thread**,
+e isso está certo: a fronteira com o motor é um `stdin`/`stdout` de linha única, e
+duas threads no mesmo processo receberiam as respostas trocadas, sem erro nenhum.
+O que faltava era o fim.
+
+Um `with ThreadPoolExecutor(...)` cria threads **novas** a cada bloco. Quando o
+bloco fecha, as threads morrem — e o `threading.local()` delas é coletado sem
+fechar `subprocess` nenhum. Pior: a lista que guardava os motores para o `atexit`
+continuava apontando para eles, então nem coletados eram. Sete dias × ~1,4
+candidatos × 8 threads ≈ 81, que é exatamente o que apareceu.
+
+⚠️ **Por que ninguém tinha visto:** `rodar_job_local.py` é processo **curto**, e o
+`atexit` fechava tudo ao sair. O painel fica no ar por horas, e ali o vazamento é
+cumulativo — cada geração soma outros 8 por candidato.
+
+**Decisão.** A limpeza é de um módulo **genérico**, `motores/nucleo/recursos_por_thread.py`,
+e ⛔ não de uma lista dentro do `jogador_dart`. Dois motivos:
+
+1. **Quem sabe que um pool terminou é a régua** — e ela mede qualquer jogo, então
+   ⛔ não pode importar o motor de damas. O registro é estrutural (`Protocol` com
+   `encerrar()`), e a régua fecha o que não conhece. No dia em que o Pontinhos
+   tiver processo por thread, ele se anota ali e a régua não muda.
+2. **A defesa principal não depende de ninguém lembrar de chamar.** Quem abre um
+   motor novo varre os mortos **antes** (`jogador_compartilhado` chama
+   `liberar_de_threads_mortas()`), então o pico fica no número de threads
+   **vivas**, e não no total histórico. A chamada explícita da régua é o que zera
+   entre candidatos; a varredura na abertura é o que impede o acúmulo mesmo em
+   quem nunca ouviu falar dela.
+
+⛔ **O critério é `Thread.is_alive()`, e guarda-se o objeto `Thread`, não o
+`ident`.** O sistema **reaproveita** identificadores de thread: um recurso órfão
+passaria por vivo porque outra thread nasceu com o mesmo número.
+
+⛔ **Nunca se fecha o recurso de uma thread viva** — nem o de quem pediu a
+limpeza. Fechar o motor de quem está no meio de uma busca daria resposta
+truncada, e sem erro nenhum.
+
+**Alternativas consideradas.**
+
+| alternativa | por que não |
+|---|---|
+| um `ThreadPoolExecutor` só, vivo pelo processo inteiro | resolve o acúmulo, mas mantém 8 motores presos para sempre no painel, e muda o desenho da régua por um motivo que é de limpeza |
+| submeter, ao fim do pool, uma tarefa de "feche o seu" por worker | ⛔ não é determinístico: uma thread pode pegar duas dessas tarefas e outra nenhuma |
+| a régua importar `jogador_dart` e fechar os motores | inverte o acoplamento — a régua mede Pontinhos também |
+| `weakref.finalize` no motor | o objeto não fica inalcançável: a lista do `atexit` o segura, e foi justamente isso que vazou |
+
+**Cadeados, os dois conferidos MORDENDO** (não só passando):
+
+- `tests/unitarios/test_recursos_por_thread.py` — 6 casos: thread morta fecha ·
+  thread **viva** não é tocada · a própria thread que limpa não é tocada · o
+  recurso fechado **sai** da lista (fechar duas vezes é lista que não encolhe) ·
+  uma falha ao fechar não derruba a limpeza nem deixa o recurso pendurado · dez
+  pools de quatro threads não fazem a lista crescer.
+- `tests/unitarios/test_regua_e_alvo.py::test_a_regua_paralela_FECHA_os_motores_das_threads` —
+  com um duplo por thread, no desenho exato do `jogador_compartilhado`. Trocar a
+  limpeza por `fechados = 0` reprova.
+- `tests/unitarios/test_jogador_dart.py::test_o_motor_de_uma_thread_MORTA_e_enterrado_ao_abrir_o_seguinte` —
+  com motores **de verdade**, porque o que se mede é o processo filho sobrevivendo
+  à thread. Ele confere primeiro que o órfão está no ar (senão o caso não mediria
+  nada) e depois que a segunda thread o enterrou. Tirar a varredura da abertura
+  reprova.

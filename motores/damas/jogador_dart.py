@@ -67,7 +67,6 @@ errado — e eles já estariam no banco, indistinguíveis dos bons.
 
 from __future__ import annotations
 
-import atexit
 import functools
 import hashlib
 import json
@@ -76,6 +75,8 @@ import subprocess
 import threading
 from pathlib import Path
 from typing import Any
+
+from motores.nucleo import recursos_por_thread
 
 RAIZ = Path(__file__).resolve().parents[2]
 
@@ -515,24 +516,12 @@ class JogadorDart:
 #:
 #: `threading.local()` é um objeto cujos atributos são **por thread**: cada uma
 #: enxerga só o que ela mesma guardou ali.
-_por_thread = threading.local()
-
-#: Todos os motores já abertos, para poder fechá-los na saída do processo.
 #:
-#: ⚠️ Um `atexit.register` por motor vazaria registros numa execução com muitas
-#: threads; uma lista e um único registro bastam.
-_abertos: list[JogadorDart] = []
-_cadeado = threading.Lock()
-
-
-def _encerrar_todos() -> None:
-    """Fecha todos os motores abertos — chamado uma vez, na saída do processo."""
-    with _cadeado:
-        for jogador in _abertos:
-            jogador.encerrar()
-
-
-atexit.register(_encerrar_todos)
+#: ⚠️ **Quem fecha os motores é o `motores/nucleo/recursos_por_thread.py`**, e não
+#: uma lista daqui. Motivo: o `threading.local()` de uma thread morta é coletado
+#: sem ninguém fechar o processo filho, e é a régua — que mede qualquer jogo e
+#: ⛔ não pode conhecer damas — quem sabe quando um pool terminou.
+_por_thread = threading.local()
 
 
 def jogador_compartilhado() -> JogadorDart:
@@ -547,6 +536,13 @@ def jogador_compartilhado() -> JogadorDart:
     do carimbo). Num `ThreadPoolExecutor` as threads são reaproveitadas, então o
     custo é pago uma vez por worker, e não por execução.
 
+    ⚠️ **E abrir um motor novo é a hora de enterrar os mortos.** Cada `with
+    ThreadPoolExecutor(...)` cria threads novas, e as do bloco anterior já
+    morreram — mas o processo do motor delas não morre com elas. Varrendo aqui, o
+    pico fica no número de threads **vivas**; sem isto, gerar 7 dias no painel
+    deixou 81 motores parados ocupando 5,4 GB (medido em 25/09/2026). Custa uma
+    passada numa lista curta, num caminho que já paga 200 ms de `subprocess`.
+
     Raises:
         MotorDartIndisponivel: não há executável compilado.
         MotorDartDivergente: há, mas não saiu dos fontes deste backend.
@@ -555,8 +551,8 @@ def jogador_compartilhado() -> JogadorDart:
     if meu is not None and not meu.morreu:
         return meu
 
+    recursos_por_thread.liberar_de_threads_mortas()
     meu = JogadorDart()
     _por_thread.jogador = meu
-    with _cadeado:
-        _abertos.append(meu)
+    recursos_por_thread.registrar(meu)
     return meu

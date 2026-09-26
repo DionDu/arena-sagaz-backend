@@ -50,6 +50,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
+from motores.nucleo import recursos_por_thread
 from motores.nucleo.orcamento import Orcamento
 from motores.nucleo.papeis import NivelDeMotor
 
@@ -273,6 +274,20 @@ def medir_candidato(
             # ⚠️ `map` preserva a ORDEM das tarefas, e nao a de termino — e por
             # isso `zip(tarefas, resultados)` logo abaixo continua valendo.
             resultados = list(pool.map(lambda t: tentar(*t), tarefas))
+
+        # ⛔ **O `with` fecha o pool, e nao os recursos das threads dele.** Cada
+        # thread abriu o seu processo do motor (~65 MB); quando o bloco termina as
+        # threads morrem e os processos ficam, parados, ate a saida do Python.
+        # Num job de processo curto ninguem via; num painel que fica horas no ar,
+        # gerar 7 dias deixou **81 motores e 5,4 GB** (medido em 25/09/2026).
+        #
+        # ⚠️ A regua mede qualquer jogo e ⛔ nao pode conhecer o motor de damas —
+        # por isso a limpeza e generica: quem abriu recurso por thread se anotou
+        # em `motores/nucleo/recursos_por_thread.py`, e aqui so se fecha o que
+        # pertencia a thread que ja morreu.
+        fechados = recursos_por_thread.liberar_de_threads_mortas()
+        if fechados:
+            print(f"[regua] {fechados} motor(es) das threads fechados.", flush=True)
 
     resolvidas: dict[str, int] = {p: 0 for p in medidos}
     for (co_personagem, _), resolveu_esta in zip(tarefas, resultados):

@@ -732,3 +732,64 @@ def test_paralelo_e_serie_dao_o_MESMO_placar() -> None:
     )
     # E o placar e o esperado, para o caso nao passar com dois erros iguais.
     assert em_serie == {"cacau": 10, "tex": 3, "magno": 3}
+
+
+def test_a_regua_paralela_FECHA_os_motores_das_threads() -> None:
+    """🔒 O cadeado do vazamento de 25/09/2026.
+
+    Gerar 7 dias pelo painel deixou **81 processos do motor vivos e 5,4 GB de
+    RAM**: cada `with ThreadPoolExecutor(...)` cria threads novas, e o `with`
+    fecha o pool — ⛔ nunca os processos filhos que as threads abriram.
+
+    ⚠️ Este caso **morde**: tirar a limpeza do fim de `medir_candidato` o reprova.
+    O duplo abre um "recurso" por thread, exatamente como `jogador_dart` faz com
+    o motor, e ⛔ nao e um motor de verdade — a regua mede qualquer jogo e nao
+    pode conhecer damas.
+    """
+    import threading
+
+    from motores.nucleo import recursos_por_thread
+
+    por_thread = threading.local()
+    abertos: list[object] = []
+    cadeado = threading.Lock()
+
+    class MotorFalso:
+        """Anota se foi fechado. Um por thread, como o de verdade."""
+
+        def __init__(self) -> None:
+            self.fechado = False
+
+        def encerrar(self) -> None:
+            self.fechado = True
+
+    def tentar(co_personagem: str, execucao: int) -> bool:
+        # Exatamente o desenho do `jogador_compartilhado`: a thread reusa o seu.
+        meu = getattr(por_thread, "motor", None)
+        if meu is None:
+            meu = MotorFalso()
+            por_thread.motor = meu
+            recursos_por_thread.registrar(meu)
+            with cadeado:
+                abertos.append(meu)
+        return execucao % 2 == 1
+
+    medir_candidato(
+        co_personagem_do_dia="pita",
+        tentar=tentar,
+        co_versao_perfil="perfil-teste",
+        co_versao_motor="motor-teste",
+        nu_execucoes=20,
+        co_jogo="damas",  # ⚠️ e o unico jogo que hoje mede em paralelo
+    )
+
+    assert abertos, "nenhuma thread abriu motor — o caso nao mediu nada"
+    assert len(abertos) > 1, (
+        f"so {len(abertos)} motor(es): a medicao nao rodou em paralelo, e sem "
+        "mais de uma thread este caso passaria de graca"
+    )
+    ficaram = [m for m in abertos if not m.fechado]  # type: ignore[attr-defined]
+    assert not ficaram, (
+        f"{len(ficaram)} de {len(abertos)} motor(es) ficaram abertos depois da "
+        "medicao — e assim que 81 processos somaram 5,4 GB no PC do dono"
+    )
