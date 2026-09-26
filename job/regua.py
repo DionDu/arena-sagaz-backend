@@ -43,6 +43,10 @@ ou quando a busca e corrigida.
 
 from __future__ import annotations
 
+import os
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
@@ -58,6 +62,88 @@ from .perfil import NIVEL_POR_PERSONAGEM
 #: execucoes dao uma taxa que oscila demais para separar 70% de 80%; mais
 #: multiplicam o tempo do job por candidato.
 EXECUCOES_PADRAO = 20
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QUANTAS EXECUCOES DA REGUA CORREM AO MESMO TEMPO — E POR QUE ISSO E POR JOGO
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# A regua e **60 partidas independentes por candidato** (3 mascotes x 20
+# execucoes), e ela domina o tempo do job: medido em 25/09/2026, um candidato de
+# damas levou 287 s, dos quais **285 s foram regua**. O PC do dono tem 16 nucleos
+# logicos e ficava com **um** ocupado.
+#
+# ⚠️ **Paralelizar NAO muda o resultado**, e e essa a razao de ser seguro: cada
+# execucao parte do mesmo `estado_inicial` e tem semente propria, derivada de
+# `(nu_semente, execucao * 1000 + numero)` — ⛔ nada nela depende de qual outra
+# execucao rodou antes. A soma no fim e a mesma, venha na ordem que vier.
+# Conferido no dia: `cacau 1/20 · tex 9/20 · magno 10/20` em serie e com 8
+# threads, 2,8x mais rapido.
+#
+# ⛔ **MAS SO NAS DAMAS, e isto foi descoberto batendo a cabeca.** O primeiro
+# ensaio com o Pontinhos estourou:
+#
+#     RuntimeError: There is at least 1 reference to internal data
+#     in the interpreter in the form of a numpy array or slice.
+#
+# O `Interpreter` do `ai-edge-litert` guarda estado interno e ⛔ nao e seguro para
+# threads. Nas damas o trabalho pesado acontece **fora** do Python — dentro do
+# executavel do motor, um processo por thread (`jogador_dart`) —, e a thread fica
+# parada no `readline()`, liberando o GIL. No Pontinhos a inferencia roda
+# **dentro** do processo, no mesmo interpretador.
+#
+# ⚠️ **E o Pontinhos nao precisa:** as 60 execucoes dele levam **7,7 s**. O
+# gargalo sempre foi damas, e e la que o ganho existe.
+
+
+#: Quantas threads cada jogo aceita. ⛔ **Jogo que nao esta aqui roda em SERIE.**
+#:
+#: ⚠️ **O padrao seguro e 1**, e isso e a peca: um jogo novo que ninguem lembrou
+#: de avaliar fica **lento**, e nao **errado**. Se o padrao fosse paralelo, o
+#: primeiro motor com estado interno daria `RuntimeError` no meio de uma medicao
+#: de horas — ou, pior, respostas trocadas sem erro nenhum.
+PARALELISMO_POR_JOGO: Mapping[str, str] = {
+    # "maquina" = o que couber nela; ver `trabalhadores_para`.
+    "damas": "maquina",
+    # ⛔ O interpretador do LiteRT nao e seguro para threads — e as 60 execucoes
+    # do Pontinhos levam 7,7 s, entao nao ha o que ganhar.
+    "pontinhos": "serie",
+}
+
+#: A variavel que desliga (ou fixa) o paralelismo.
+#:
+#: ⚠️ `DESAFIO_REGUA_PARALELA=1` poe tudo em serie, e e assim que se compara uma
+#: medicao nova com uma antiga em condicoes iguais.
+ENV_PARALELA = "DESAFIO_REGUA_PARALELA"
+
+
+def trabalhadores_para(co_jogo: str) -> int:
+    """Quantas threads usar para medir um candidato **daquele** jogo.
+
+    Args:
+        co_jogo: o jogo do candidato. ⚠️ Desconhecido devolve **1** — ver
+            `PARALELISMO_POR_JOGO`.
+
+    ⚠️ O teto e `os.cpu_count()` menos um (para sobrar nucleo para quem esta
+    usando o computador), limitado a **8**: acima disso cada thread paga um
+    processo do motor (~100 MB) e o ganho ja achatou. No container do Railway,
+    que tem poucos vCPU, a conta sozinha devolve um numero pequeno.
+    """
+    do_ambiente = os.environ.get(ENV_PARALELA, "").strip()
+    if do_ambiente:
+        try:
+            return max(1, int(do_ambiente))
+        except ValueError:
+            # ⚠️ Avisa e segue: um valor errado nao pode deixar o dia descoberto.
+            print(
+                f"⚠️ [regua] {ENV_PARALELA}={do_ambiente!r} nao e um numero — "
+                f"usando o padrao do jogo.",
+                file=sys.stderr,
+            )
+
+    if PARALELISMO_POR_JOGO.get(co_jogo) != "maquina":
+        return 1
+    return max(1, min(8, (os.cpu_count() or 2) - 1))
+
 
 #: O orcamento de busca de cada lance na medicao.
 #:
@@ -124,6 +210,7 @@ def medir_candidato(
     co_versao_perfil: str,
     co_versao_motor: str,
     nu_execucoes: int = EXECUCOES_PADRAO,
+    co_jogo: str = "",
 ) -> list[Medicao]:
     """Roda a escada e devolve uma linha por mascote.
 
@@ -133,6 +220,11 @@ def medir_candidato(
             carrega o motor; esta funcao so conta.
         co_versao_perfil, co_versao_motor: o carimbo das condicoes.
         nu_execucoes: quantas vezes cada mascote tenta.
+        co_jogo: de que jogo e o candidato — e so o que decide se as execucoes
+            correm em paralelo (`PARALELISMO_POR_JOGO`). ⚠️ **Vazio por padrao, e
+            vazio significa SERIE.** Um chamador que esqueca de informar fica
+            lento, e nao errado; o contrario quebraria o Pontinhos, cujo
+            interpretador ⛔ e seguro para threads.
 
     ⚠️ **A funcao `tentar` entra por parametro**, e nao e construida aqui, por
     duas razoes: o teste consegue medir a regua sem rodar motor nenhum, e o job
@@ -144,15 +236,61 @@ def medir_candidato(
     if co_personagem_do_dia not in NIVEL_POR_PERSONAGEM:
         raise ValueError(f"personagem desconhecido: {co_personagem_do_dia!r}")
 
-    medicoes: list[Medicao] = []
-    for co_personagem in NIVEL_POR_PERSONAGEM:
-        if co_personagem == co_personagem_do_dia:
-            continue
+    # ⚠️ **As 60 execucoes de uma vez, e nao 20 por mascote.** Um pool por
+    # mascote pagaria a partida dos processos do motor tres vezes e deixaria a
+    # maquina ociosa no fim de cada um — com 60 tarefas na mesma fila, a ultima
+    # thread a terminar e a unica que espera.
+    trabalhadores = trabalhadores_para(co_jogo)
+    medidos = [p for p in NIVEL_POR_PERSONAGEM if p != co_personagem_do_dia]
+    tarefas = [
+        (co_personagem, execucao)
+        for co_personagem in medidos
+        for execucao in range(1, nu_execucoes + 1)
+    ]
 
-        resolveu = sum(
-            1 for execucao in range(1, nu_execucoes + 1)
-            if tentar(co_personagem, execucao)
-        )
+    # ⚠️ **Uma linha ANTES de comecar, e nao so no fim.**
+    #
+    # ⛔ A regua e ~98% do tempo do job e ate 25/09/2026 nao imprimia nada: entre
+    # "posicao descartada" e o fim do dia havia minutos de silencio, e o dono
+    # perguntou se navegar no painel tinha interrompido a geracao. Um processo
+    # que trabalha calado e indistinguivel de um processo pendurado — e a mesma
+    # licao ja esta escrita no `Dockerfile.job`, sobre o buffer do `stdout`.
+    print(
+        f"[regua] medindo {len(tarefas)} execucoes "
+        f"({', '.join(medidos)} x {nu_execucoes}) contra {co_personagem_do_dia}, "
+        f"em {trabalhadores} thread(s)…",
+        flush=True,
+    )
+    inicio = time.perf_counter()
+
+    if trabalhadores == 1:
+        # ⛔ Sem pool nenhum quando e para rodar em serie: um `ThreadPoolExecutor`
+        # de 1 worker ainda troca de thread, e uma pilha de excecao vinda de
+        # outra thread e mais dificil de ler do que a mesma excecao aqui.
+        resultados = [tentar(p, e) for p, e in tarefas]
+    else:
+        with ThreadPoolExecutor(max_workers=trabalhadores) as pool:
+            # ⚠️ `map` preserva a ORDEM das tarefas, e nao a de termino — e por
+            # isso `zip(tarefas, resultados)` logo abaixo continua valendo.
+            resultados = list(pool.map(lambda t: tentar(*t), tarefas))
+
+    resolvidas: dict[str, int] = {p: 0 for p in medidos}
+    for (co_personagem, _), resolveu_esta in zip(tarefas, resultados):
+        if resolveu_esta:
+            resolvidas[co_personagem] += 1
+
+    # ⚠️ O placar por mascote **e** o tempo: e a taxa por nivel que decide se o
+    # candidato cai na banda, e e o tempo que responde "quanto falta para os
+    # outros dias" sem ninguem precisar cronometrar na mao.
+    gasto = time.perf_counter() - inicio
+    placar = " · ".join(
+        f"{p} {resolvidas[p]}/{nu_execucoes}" for p in medidos
+    )
+    print(f"[regua] {placar}  ({gasto:.0f}s)", flush=True)
+
+    medicoes: list[Medicao] = []
+    for co_personagem in medidos:
+        resolveu = resolvidas[co_personagem]
         medicoes.append(
             Medicao(
                 co_personagem=co_personagem,

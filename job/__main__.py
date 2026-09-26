@@ -557,6 +557,12 @@ async def cobrir_um_dia(
         # ── A regua: os TRES mascotes que nao sao o adversario do dia ───────
         medicoes = regua_mod.medir_candidato(
             co_personagem_do_dia=candidato.co_personagem,
+            # ⚠️ **E o jogo que decide se as 60 execucoes correm em paralelo**, e
+            # nao um numero escolhido aqui: nas damas o trabalho pesado roda fora
+            # do Python (um processo do motor por thread), no Pontinhos roda
+            # dentro, num interpretador que ⛔ e seguro para threads. A regra mora
+            # em `regua.PARALELISMO_POR_JOGO`, num lugar so.
+            co_jogo=candidato.co_jogo,
             tentar=regua_mod.tentativa_com_motor(
                 jogador=bancada.jogador,
                 estado_inicial=bancada.estado_inicial,

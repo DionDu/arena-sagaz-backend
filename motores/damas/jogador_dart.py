@@ -500,30 +500,63 @@ class JogadorDart:
 # paralelizar fora do Windows precisa de `spawn`, ou de chamar `encerrar()` no
 # filho antes do primeiro lance. Hoje não é o caso.
 
-_compartilhado: JogadorDart | None = None
+#: ⛔ **UM MOTOR POR THREAD, e não um por processo.**
+#:
+#: ⚠️ A fronteira com o motor é um `stdin`/`stdout` de linha única: quem escreve
+#: um pedido **espera** a resposta antes do próximo. Duas threads dividindo o
+#: mesmo processo receberiam as respostas trocadas — e trocadas sem erro nenhum,
+#: que é o pior modo de falha possível.
+#:
+#: ⚠️ **E é isso que destrava a máquina.** Com um motor por thread, N threads são
+#: N processos do executável calculando ao mesmo tempo, e o Python fica parado no
+#: `readline()` de cada um — o GIL é liberado durante a espera de E/S, então não
+#: há disputa. Sem isto, os 16 núcleos do PC do dono ficavam com **um** ocupado, e
+#: a régua de um candidato de damas levava 285 s.
+#:
+#: `threading.local()` é um objeto cujos atributos são **por thread**: cada uma
+#: enxerga só o que ela mesma guardou ali.
+_por_thread = threading.local()
 
-#: O cadeado do `_compartilhado`. Duas *threads* pedindo o motor ao mesmo tempo
-#: subiriam dois executáveis, e um deles ficaria órfão até o fim do processo.
+#: Todos os motores já abertos, para poder fechá-los na saída do processo.
+#:
+#: ⚠️ Um `atexit.register` por motor vazaria registros numa execução com muitas
+#: threads; uma lista e um único registro bastam.
+_abertos: list[JogadorDart] = []
 _cadeado = threading.Lock()
 
 
+def _encerrar_todos() -> None:
+    """Fecha todos os motores abertos — chamado uma vez, na saída do processo."""
+    with _cadeado:
+        for jogador in _abertos:
+            jogador.encerrar()
+
+
+atexit.register(_encerrar_todos)
+
+
 def jogador_compartilhado() -> JogadorDart:
-    """O motor Dart deste processo, subindo-o na primeira vez que for pedido.
+    """O motor Dart **desta thread**, subindo-o na primeira vez que for pedido.
 
     ⚠️ **Preguiçoso de propósito.** Quem só usa o papel de *árbitro* do
     `MotorDamas` (o auditor de resoluções, por exemplo) nunca escolhe um lance —
     e não deve pagar um executável, nem falhar por não ter um.
 
+    ⚠️ **Nem um pool, nem uma fila.** Uma thread que já tem motor o reusa; uma
+    thread nova paga a partida do executável uma vez (~200 ms, mais a conferência
+    do carimbo). Num `ThreadPoolExecutor` as threads são reaproveitadas, então o
+    custo é pago uma vez por worker, e não por execução.
+
     Raises:
         MotorDartIndisponivel: não há executável compilado.
         MotorDartDivergente: há, mas não saiu dos fontes deste backend.
     """
-    global _compartilhado
+    meu = getattr(_por_thread, "jogador", None)
+    if meu is not None and not meu.morreu:
+        return meu
+
+    meu = JogadorDart()
+    _por_thread.jogador = meu
     with _cadeado:
-        if _compartilhado is None or _compartilhado.morreu:
-            _compartilhado = JogadorDart()
-            # ⚠️ Fechar na saída do processo evita deixar um executável vivo
-            # segurando o `stdin` quando o job termina por exceção. O `atexit`
-            # roda uma vez por processo, e o `encerrar()` é idempotente.
-            atexit.register(_compartilhado.encerrar)
-        return _compartilhado
+        _abertos.append(meu)
+    return meu

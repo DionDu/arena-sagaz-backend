@@ -29,8 +29,10 @@ from job.regua import (
     descrever_escada,
     distancia_da_banda,
     distancia_da_escada,
+    PARALELISMO_POR_JOGO,
     medir_candidato,
     taxa_media,
+    trabalhadores_para,
 )
 
 
@@ -625,3 +627,108 @@ def test_a_escada_do_dono_e_CRESCENTE() -> None:
     # ⛔ O Magno e o degrau da RESOLUBILIDADE: sem um piso alto nele, a escada
     # aprovaria um desafio que ninguem resolve.
     assert ESCADA_ALVO["magno"][0] >= 0.70
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O PARALELISMO DA REGUA (25/09/2026) — e por que ele e POR JOGO
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# A regua e 60 partidas independentes por candidato e domina o tempo do job:
+# medido, 285 s dos 287 s de um candidato de damas. O PC do dono tem 16 nucleos
+# logicos e ficava com **um** ocupado.
+#
+# ⛔ **Mas paralelizar tudo NAO funciona**, e isto foi descoberto tentando: o
+# `Interpreter` do `ai-edge-litert`, que joga o Pontinhos, guarda estado interno e
+# estoura com acesso concorrente (`RuntimeError: There is at least 1 reference to
+# internal data in the interpreter`). Nas damas o trabalho pesado roda **fora** do
+# Python, num processo do motor por thread.
+
+
+def test_o_pontinhos_mede_em_SERIE() -> None:
+    """⛔ O interpretador do LiteRT nao e seguro para threads.
+
+    ⚠️ E ele nao perde nada com isso: as 60 execucoes do Pontinhos levam 7,7 s,
+    contra 285 s das damas. O gargalo sempre foi um jogo so.
+    """
+    assert trabalhadores_para("pontinhos") == 1, (
+        "o Pontinhos voltou a medir em paralelo. O interpretador do "
+        "`ai-edge-litert` estoura com acesso concorrente, e a medicao morre no "
+        "meio — depois de minutos de regua ja gastos."
+    )
+
+
+def test_um_jogo_DESCONHECIDO_mede_em_serie() -> None:
+    """🔒 O padrao seguro e a serie — lento, e nao errado.
+
+    ⛔ **E esta a peca inteira.** Se o padrao fosse paralelo, o primeiro jogo novo
+    com motor de estado interno daria `RuntimeError` no meio de uma medicao de
+    horas — ou, pior, respostas trocadas sem erro nenhum. Quem paralelize entra
+    em `PARALELISMO_POR_JOGO` de propria vontade, tendo olhado o motor.
+    """
+    assert trabalhadores_para("xadrez") == 1
+    assert trabalhadores_para("") == 1
+    assert set(PARALELISMO_POR_JOGO) == {"damas", "pontinhos"}, (
+        "um jogo entrou ou saiu de PARALELISMO_POR_JOGO. Se e jogo novo, o motor "
+        "dele foi conferido quanto a threads?"
+    )
+
+
+def test_as_damas_medem_em_PARALELO() -> None:
+    """🔒 Mais de uma thread, e com teto.
+
+    ⚠️ O numero exato depende da maquina (`os.cpu_count()`), entao o caso trava a
+    FAIXA: mais de um, no maximo oito. Acima de oito cada thread paga um processo
+    do motor (~100 MB) e o ganho ja achatou.
+    """
+    quantos = trabalhadores_para("damas")
+    assert 1 < quantos <= 8, f"as damas mediriam em {quantos} thread(s)"
+
+
+def test_a_variavel_de_ambiente_DESLIGA_o_paralelismo(monkeypatch) -> None:
+    """⚠️ E assim que se compara uma medicao nova com uma antiga em condicoes iguais."""
+    monkeypatch.setenv("DESAFIO_REGUA_PARALELA", "1")
+    assert trabalhadores_para("damas") == 1
+    monkeypatch.setenv("DESAFIO_REGUA_PARALELA", "4")
+    assert trabalhadores_para("damas") == 4
+    monkeypatch.setenv("DESAFIO_REGUA_PARALELA", "isto nao e numero")
+    # ⚠️ Valor invalido avisa e cai no padrao do jogo — ⛔ derruba o job, que
+    # deixaria o dia descoberto por causa de um erro de digitacao.
+    assert trabalhadores_para("damas") > 1
+
+
+def test_paralelo_e_serie_dao_o_MESMO_placar() -> None:
+    """⛔ A propriedade que torna paralelizar seguro.
+
+    Cada execucao parte do mesmo estado e tem semente propria — nada nela depende
+    de qual outra rodou antes. ⚠️ O `tentar` deste caso e deliberadamente
+    **assimetrico** (resolve em execucoes impares): um `tentar` que respondesse
+    sempre o mesmo passaria com qualquer ordem, e nao mediria nada.
+
+    ⚠️ Conferido tambem com os motores de verdade, em 25/09/2026:
+    `cacau 1/20 · tex 9/20 · magno 10/20` em serie e com 8 threads.
+    """
+
+    def tentar(co_personagem: str, execucao: int) -> bool:
+        return execucao % 2 == 1 if co_personagem == "cacau" else execucao <= 3
+
+    def placar(co_jogo: str) -> dict[str, int]:
+        return {
+            m.co_personagem: m.nu_resolveu
+            for m in medir_candidato(
+                co_personagem_do_dia="pita",
+                tentar=tentar,
+                co_versao_perfil="perfil-teste",
+                co_versao_motor="motor-teste",
+                nu_execucoes=20,
+                co_jogo=co_jogo,
+            )
+        }
+
+    em_serie = placar("pontinhos")  # 1 thread
+    em_paralelo = placar("damas")  # varias
+    assert em_serie == em_paralelo, (
+        f"a ordem das execucoes passou a importar: serie={em_serie} · "
+        f"paralelo={em_paralelo}"
+    )
+    # E o placar e o esperado, para o caso nao passar com dois erros iguais.
+    assert em_serie == {"cacau": 10, "tex": 3, "magno": 3}
