@@ -226,15 +226,22 @@ class ServicoQuadro:
         return contexto
 
     async def montar(
-        self, *, id_desafio: UUID, id_usuario: Optional[str], agora: datetime
+        self,
+        *,
+        id_desafio: UUID,
+        id_usuario: Optional[str],
+        agora: datetime,
+        declarou_resolver: bool = False,
     ) -> dict[str, Any]:
         """O quadro inteiro.
 
         Args:
             id_desafio: o desafio do dia.
             id_usuario: quem esta olhando. `None` para convidado — ⚠️ ele **ve** o
-                quadro, e so nao tem linha propria nem replays.
+                quadro, e so ⛔ tem linha propria.
             agora: o instante do servidor.
+            declarou_resolver: o aplicativo diz que quem olha JA resolveu este
+                desafio (`?resolvi=true`) - ver [ServicoQuadro.replay].
 
         Returns:
             O corpo de `GET /v1/desafios/{id}/quadro`.
@@ -357,8 +364,11 @@ class ServicoQuadro:
             # a tela mostra um convite — "Ninguem passou por aqui hoje. Seja o
             # primeiro." —, e nunca um `0`.
             "texto_vazio": qt_pessoas == 0,
+            # ⚠️ **A declaracao do aplicativo abre a trava tambem** (T085ze) - e
+            # ⛔ poe linha nenhuma no quadro: `minha_linha` continua saindo so do
+            # banco, porque e ela que os outros veem.
             "replays_liberados": replays_liberados(
-                resolveu_hoje=resolveu_hoje,
+                resolveu_hoje=resolveu_hoje or declarou_resolver,
                 dh_encerramento=contexto.dh_encerramento,
                 agora=agora,
             ),
@@ -416,6 +426,7 @@ class ServicoQuadro:
         sujeito: str,
         id_usuario: Optional[str],
         agora: datetime,
+        declarou_resolver: bool = False,
     ) -> dict[str, Any]:
         """O Raio-X de um sujeito: `eu` · `jogador/{id}` · `desafio`.
 
@@ -435,8 +446,20 @@ class ServicoQuadro:
         """
         contexto = await self._contexto(id_desafio)
 
-        resolveu_hoje = False
-        if id_usuario:
+        # ⚠️ **"Quem resolveu" e o banco OU a palavra do aplicativo** (T085ze,
+        # `DECISOES-do-dono.md` §8ze.4, 26/09/2026). A resolucao do CONVIDADO
+        # mora na fila do aparelho ate o login (RF-DES-083), e a de quem tem
+        # conta tambem, ate a fila subir - nos dois casos a pessoa resolveu, e a
+        # trava a tratava como quem ⛔ resolveu (o quadro dizia "resolva o
+        # desafio", e o Raio-X e a solucao oficial ficavam trancados).
+        #
+        # ⚠️ **⛔ E uma porta nova de confianca**: o servidor ja aceita o que o
+        # aplicativo diz da resolucao (RF-DES-032, *"vale o aplicativo"*). Um
+        # passe assinado foi considerado e recusado pelo dono - quem forjasse o
+        # pedido do passe o receberia do mesmo jeito. A trava continua sendo o
+        # que ela sempre foi: quem ⛔ resolveu ⛔ ve, na tela.
+        resolveu_hoje = declarou_resolver
+        if id_usuario and not resolveu_hoje:
             resolveu_hoje = (
                 await self.repo.minha_linha(
                     id_desafio_dia=contexto.id_desafio_dia, id_usuario=id_usuario

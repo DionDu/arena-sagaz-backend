@@ -6662,3 +6662,38 @@ na rota), e o defeito era de duas rotas.
 contagem` pela `linha_do_tempo` da sessão falsa, e nenhum `commit` quando uma guarda
 recusa) e `test_desafio_impedido.py::test_a_rota_CONFIRMA_a_gravacao` (a rota
 chamada de verdade, na primeira vez e na repetição). 5 mutações, 5 pegas.
+
+## 2026-09-26 (2) — O "resolvi" do aplicativo abre a trava de spoiler, e o mês atende o convidado (T085ze)
+
+**Contexto.** Relato do dono, resolvendo como **convidado**: o Quadro dizia
+*"resolva o desafio"* (com o botão de jogar), e o Raio-X e a solução oficial ficavam
+trancados. A trava de spoiler (RF-DES-076) decidia "quem resolveu" pelo banco, e a
+resolução do convidado mora na fila do aparelho até o login (RF-DES-083). Quem tem
+conta sofria o mesmo enquanto a fila ⛔ subia. O dono decidiu
+(`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8ze): o convidado vê **tudo**, menos
+aparecer no Quadro e reagir - e a trava continua valendo para ele.
+
+**Decisão.**
+- `GET .../quadro` e `GET .../replay/{sujeito}` aceitam `?resolvi=true`: o aplicativo
+  declara que quem olha já resolveu, e `replays_liberados` abre com isso como abre
+  com a resolução gravada. ⚠️ A declaração ⛔ põe linha no quadro: `minha_linha` e
+  `eu` continuam saindo só do banco. Ausente, vale `False` - o aplicativo publicado
+  antes ⛔ o manda e tem a trava de sempre.
+- `GET /meu-mes` passa a `usuario_opcional`: sem conta, os dias vêm todos com
+  `resolvido: false` (o `LEFT JOIN` com `id_usuario = NULL` ⛔ casa com nada), e o
+  aplicativo marca os que o aparelho resolveu. O calendário (dia, jogo, enunciado) é
+  o que o desafio publicou - ⛔ é dado de pessoa.
+
+**Alternativa recusada: o passe do dia assinado.** O servidor devolveria um token
+(HMAC com segredo no Railway) ao receber a resolução do convidado, e o token abriria
+a trava. O dono perguntou por que ⛔ simplesmente confiar no que o aplicativo diz - e
+a resposta é que o passe ⛔ protege mais: o servidor já aceita a palavra do aplicativo
+sobre a resolução (RF-DES-032, *"vale o aplicativo"*), então quem forjasse o pedido
+do passe o receberia igual. Só somaria um segredo e uma ida ao servidor.
+
+**Cadeados.** `test_quadro_do_dia.py` (convidado que declara vê a solução; que ⛔
+declara continua em 403; a conta com a fila por subir também vê; no quadro a
+declaração abre a trava e ⛔ põe linha; as duas rotas repassam o parâmetro; ausente
+vale `False`) e `test_resumo_do_mes.py` (a rota atende sem conta e pergunta por
+ninguém; a dependência é a opcional). 7 mutações: 6 pegas, 1 equivalente (consultar
+a própria linha com `id_usuario` nulo ⛔ acha nada, nem no banco).

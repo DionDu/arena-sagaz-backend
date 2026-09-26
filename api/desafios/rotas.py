@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.desafios.modelos_envio import (
@@ -174,7 +174,7 @@ def obter_servico_mes(
 @router.get("/meu-mes", response_model=ResumoDoMes)
 async def meu_mes(
     servico: ServicoMes = Depends(obter_servico_mes),
-    dono: UsuarioAutenticado = Depends(usuario_autenticado),
+    dono: Optional[UsuarioAutenticado] = Depends(usuario_opcional),
     _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
 ) -> ResumoDoMes:
     """O resumo do mes corrente: o calendario, os dias passados e o total.
@@ -185,16 +185,18 @@ async def meu_mes(
     responderia `422` — um erro de validacao onde ha uma rota perfeitamente
     valida. E o mesmo cuidado que `/hoje` e `/proximos` ja exigiam.
 
-    ⚠️ **Exige conta** (`usuario_autenticado`, e nao `usuario_opcional`): o
-    historico e **pessoal**, e ⛔ nao existe versao publica dele. O convidado joga
-    o desafio inteiro e ve o quadro (RF-DES-080), mas o que ele resolveu vive no
-    aparelho ate o login, quando sobe pela fila com o token da conta nova
-    (RF-DES-083, T079a) — e a tela dele e o convite de cadastro, e nao uma lista
-    vazia.
+    ⚠️ **O convidado tambem recebe, desde a T085ze** (26/09/2026,
+    `DECISOES-do-dono.md` §8ze.3 - *"por que o usuario Convidado nao consegue
+    enxergar dentro de todo o conteudo navegavel da aba Historico as mesmas coisas
+    que o usuario logado enxerga?"*). Ate entao a rota exigia conta, e a fatia do
+    convidado era so um convite. Sem conta, os dias vem todos com
+    `resolvido: false` - ⛔ ha resolucao dele no servidor -, e o aplicativo marca
+    os que o aparelho resolveu. ⚠️ O calendario (dias, jogos, enunciados) ⛔ e
+    dado de pessoa nenhuma: e o que o desafio publicou.
     """
     return ResumoDoMes(
         **await servico.montar(
-            id_usuario=dono.id_usuario,
+            id_usuario=dono.id_usuario if dono else None,
             # ⚠️ O dia **UTC**, e ⛔ nao o dia local de quem pergunta: o desafio e
             # do dia UTC (RF-DES-007), e dois fusos veriam calendarios diferentes
             # do mesmo mes.
@@ -430,12 +432,29 @@ async def meu_dia(
     )
 
 
+#: O `?resolvi=true` do quadro e do replay (T085ze, 26/09/2026).
+#:
+#: ⚠️ **O aplicativo diz que quem olha ja resolveu o desafio** - e a trava de
+#: spoiler abre com isso, como abre com a resolucao gravada. Existe para o
+#: CONVIDADO (a resolucao dele espera o login na fila do aparelho) e para quem
+#: tem conta com a resolucao ainda na fila. O porque de ⛔ ser um passe assinado
+#: esta em `ServicoQuadro.replay`.
+#:
+#: ⚠️ `False` quando ausente: o aplicativo publicado antes deste parametro ⛔ o
+#: manda, e continua tendo a trava de sempre.
+RESOLVI = Query(
+    default=False,
+    description="O aplicativo declara que quem olha ja resolveu este desafio.",
+)
+
+
 @router.get("/{id_desafio}/quadro")
 async def quadro_do_dia(
     id_desafio: UUID,
     servico: ServicoQuadro = Depends(obter_servico_quadro),
     dono: Optional[UsuarioAutenticado] = Depends(usuario_opcional),
     _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+    resolvi: bool = RESOLVI,
 ) -> dict:
     """O quadro do dia: os quatro mascotes e quem resolveu.
 
@@ -447,6 +466,7 @@ async def quadro_do_dia(
         id_desafio=id_desafio,
         id_usuario=dono.id_usuario if dono else None,
         agora=agora_utc(),
+        declarou_resolver=resolvi,
     )
 
 
@@ -457,6 +477,7 @@ async def replay_do_sujeito(
     servico: ServicoQuadro = Depends(obter_servico_quadro),
     dono: Optional[UsuarioAutenticado] = Depends(usuario_opcional),
     _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+    resolvi: bool = RESOLVI,
 ) -> dict:
     """O Raio-X de um sujeito — `eu` · `jogador/{id}` · `desafio`.
 
@@ -477,6 +498,7 @@ async def replay_do_sujeito(
         sujeito=sujeito,
         id_usuario=dono.id_usuario if dono else None,
         agora=agora_utc(),
+        declarou_resolver=resolvi,
     )
 
 

@@ -297,3 +297,39 @@ class TestAOrdemDasRotas:
         caminhos = [r.path for r in router.routes]
 
         assert caminhos.index("/meu-mes") < caminhos.index("/{id_desafio}")
+
+
+class TestOConvidado:
+    """⚠️ Desde a T085ze (26/09/2026, §8ze.3) o convidado recebe o mes."""
+
+    @pytest.mark.asyncio
+    async def test_a_rota_atende_SEM_conta_e_pergunta_por_ninguem(self):
+        # Sem conta, `id_usuario` vai `None` ao banco - e o `LEFT JOIN` com
+        # `id_usuario = NULL` ⛔ casa com nada: todo dia vem ⛔ resolvido. Quem
+        # marca o que o convidado resolveu e o aparelho.
+        from api.desafios.rotas import meu_mes
+        from api.nucleo.dependencias import ContextoRequisicao
+
+        repo = RepoFalso([linha(dia=HOJE, resolvido=False)])
+        resposta = await meu_mes(
+            servico=ServicoMes(repo),
+            dono=None,
+            _contexto=ContextoRequisicao(
+                versao_app="1.2.0", plataforma="android", idioma="pt"
+            ),
+        )
+
+        assert repo.pedido["id_usuario"] is None
+        assert [d.resolvido for d in resposta.dias] == [False]
+        assert resposta.resolvidos == 0
+
+    def test_a_dependencia_e_a_OPCIONAL(self):
+        # ⚠️ Com `usuario_autenticado`, o convidado levaria 401 antes de chegar
+        # ao servico - e o caso de cima, que chama a funcao direto, ⛔ veria.
+        import inspect
+
+        from api.desafios.rotas import meu_mes
+        from api.nucleo.dependencias_conta_nuvem import usuario_opcional
+
+        dono = inspect.signature(meu_mes).parameters["dono"].default
+        assert dono.dependency is usuario_opcional

@@ -126,7 +126,7 @@ class RepositorioMes:
         self.sessao = sessao
 
     async def dias(
-        self, *, id_usuario: str, primeiro_dia: date, dt_hoje: date
+        self, *, id_usuario: Optional[str], primeiro_dia: date, dt_hoje: date
     ) -> list[dict[str, Any]]:
         """Os dias publicados do mes, do mais recente para o mais antigo."""
         resultado = await self.sessao.execute(
@@ -156,12 +156,17 @@ class ServicoMes:
     def __init__(self, repo: RepositorioMes) -> None:
         self.repo = repo
 
-    async def montar(self, *, id_usuario: str, dt_hoje: date) -> dict[str, Any]:
+    async def montar(
+        self, *, id_usuario: Optional[str], dt_hoje: date
+    ) -> dict[str, Any]:
         """O corpo de `GET /v1/desafios/meu-mes`.
 
         Args:
-            id_usuario: quem esta perguntando. ⚠️ **Exigido** — o historico e
-                pessoal, e nao ha versao publica dele.
+            id_usuario: quem esta perguntando, ou `None` para o convidado
+                (T085ze) - e ai todo dia vem `resolvido: false`, porque o
+                `LEFT JOIN` filtra a resolucao por `id_usuario = NULL`, que em SQL
+                ⛔ casa com nada. Quem marca o que o convidado resolveu e o
+                aparelho.
             dt_hoje: o dia **UTC** de hoje, no servidor. ⚠️ O desafio e do dia
                 UTC (RF-DES-007); usar o dia local de quem pergunta faria duas
                 pessoas verem calendarios diferentes do mesmo mes.

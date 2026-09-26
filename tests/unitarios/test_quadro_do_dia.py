@@ -985,6 +985,131 @@ async def test_o_gabarito_so_sai_com_a_trava_aberta():
     assert aberto["extrato"] is None
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 4b. ⚠️ O "resolvi" do aplicativo abre a trava (T085ze, §8ze.4)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# A resolucao do CONVIDADO espera o login na fila do aparelho (RF-DES-083), e a
+# de quem tem conta espera a fila subir: nos dois casos a pessoa resolveu, e a
+# trava a tratava como quem ⛔ resolveu. O dono: *"O Convidado nao pode ver
+# resolucoes (outros jogadores e oficial) antes de ter resolvido o desafio"* -
+# e, resolvido, ve.
+
+
+@pytest.mark.asyncio
+async def test_o_convidado_que_DECLARA_ter_resolvido_ve_a_solucao_oficial():
+    """⚠️ Sem conta e sem resolucao no banco: a palavra do aplicativo basta."""
+    repo = RepoFalso(gabarito={"js_solucao": {"lances": ["18-22"]},
+                               "nu_lances_solucao": 1})
+
+    aberto = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO,
+        sujeito="desafio",
+        id_usuario=None,
+        agora=AGORA,
+        declarou_resolver=True,
+    )
+
+    assert aberto["lances"] == {"lances": ["18-22"]}
+
+
+@pytest.mark.asyncio
+async def test_o_convidado_que_NAO_declara_continua_trancado():
+    """⛔ A trava continua sendo trava: sem resolver, ⛔ ha solucao no dia D."""
+    repo = RepoFalso(gabarito={"js_solucao": {"lances": ["18-22"]},
+                               "nu_lances_solucao": 1})
+
+    with pytest.raises(ReplayTrancado):
+        await ServicoQuadro(repo).replay(
+            id_desafio=ID_DESAFIO, sujeito="desafio", id_usuario=None,
+            agora=AGORA,
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_conta_com_a_resolucao_AINDA_NA_FILA_tambem_ve():
+    """⚠️ Quem tem conta e resolveu, com a fila por subir: o banco ⛔ tem a
+    linha dela, e a declaracao abre do mesmo jeito."""
+    repo = RepoFalso(gabarito={"js_solucao": {"lances": ["18-22"]},
+                               "nu_lances_solucao": 1})
+
+    aberto = await ServicoQuadro(repo).replay(
+        id_desafio=ID_DESAFIO,
+        sujeito="desafio",
+        id_usuario=EU,
+        agora=AGORA,
+        declarou_resolver=True,
+    )
+
+    assert aberto["lances"] == {"lances": ["18-22"]}
+
+
+@pytest.mark.asyncio
+async def test_no_quadro_a_declaracao_abre_a_trava_e_NAO_poe_linha():
+    """⚠️ `replays_liberados` abre; `minha_linha` e `eu` continuam do BANCO.
+
+    ⛔ O convidado ⛔ aparece no quadro (RF-DES-081, §8ze.1) - declarar ter
+    resolvido abre o que ele pode VER, e ⛔ o poe onde os outros veem.
+    """
+    quadro = await ServicoQuadro(RepoFalso(gente=[_jogador()])).montar(
+        id_desafio=ID_DESAFIO,
+        id_usuario=None,
+        agora=AGORA,
+        declarou_resolver=True,
+    )
+
+    assert quadro["replays_liberados"] is True
+    assert quadro["minha_linha"] is None
+    assert all(l["eu"] is False for l in quadro["linhas"])
+
+    sem_declarar = await ServicoQuadro(RepoFalso(gente=[_jogador()])).montar(
+        id_desafio=ID_DESAFIO, id_usuario=None, agora=AGORA
+    )
+    assert sem_declarar["replays_liberados"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resolvi", [True, False])
+async def test_as_ROTAS_repassam_o_resolvi_ao_servico(resolvi):
+    """⚠️ As duas rotas levam o `?resolvi` ao servico - um parametro que a rota
+    lesse e ⛔ repassasse deixaria a trava fechada com o servico certo."""
+    from api.desafios.rotas import quadro_do_dia, replay_do_sujeito
+    from api.nucleo.dependencias import ContextoRequisicao
+
+    class Espiao:
+        def __init__(self):
+            self.pedidos = []
+
+        async def montar(self, **kw):
+            self.pedidos.append(kw)
+            return {}
+
+        async def replay(self, **kw):
+            self.pedidos.append(kw)
+            return {}
+
+    espiao = Espiao()
+    contexto = ContextoRequisicao(versao_app="1.2.0", plataforma="ios", idioma="pt")
+    await quadro_do_dia(
+        id_desafio=ID_DESAFIO, servico=espiao, dono=None, _contexto=contexto,
+        resolvi=resolvi,
+    )
+    await replay_do_sujeito(
+        id_desafio=ID_DESAFIO, sujeito="desafio", servico=espiao, dono=None,
+        _contexto=contexto, resolvi=resolvi,
+    )
+
+    assert [p["declarou_resolver"] for p in espiao.pedidos] == [resolvi, resolvi]
+
+
+def test_sem_o_parametro_a_trava_fica_como_sempre():
+    """⚠️ O aplicativo publicado antes da T085ze ⛔ manda o `resolvi`: ausente
+    tem de valer `False`, e ⛔ abrir."""
+    from api.desafios.rotas import RESOLVI
+
+    assert RESOLVI.default is False
+
+
 @pytest.mark.asyncio
 async def test_desafio_inexistente_e_404():
     """Sem dia, nao ha quadro."""
