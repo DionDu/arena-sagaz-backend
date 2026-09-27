@@ -1,6 +1,6 @@
 {
   "de_documento": "Vetores de verificacao do Desafio do Dia (RF-DES-198). GERADO por scripts/gerar_vetores_verificacao.py - nao edite a mao. Vetor nunca e apagado nem editado: corrigir e vetor NOVO.",
-  "versao": 1,
+  "versao": 2,
   "vetores": [
     {
       "id": "P1-escada-fecha-4-em-1-turno-cumpre",
@@ -3773,6 +3773,64 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    }
+  ],
+  "sementes": [
+    {
+      "id": "semente-do-defeito-de-26-09-lance-1",
+      "de_caso": "A semente publicada do desafio 449864e6 (damas_sobreviver anglo contra a Pita), que foi onde o defeito apareceu. O lance 1 e de quem resolve; o 2 e o primeiro da CPU, e era o que divergia.",
+      "nu_semente": 697571591,
+      "nu_lance": 1,
+      "esperado": 1204523704
+    },
+    {
+      "id": "semente-do-defeito-de-26-09-lance-2",
+      "de_caso": "A semente publicada do desafio 449864e6 (damas_sobreviver anglo contra a Pita), que foi onde o defeito apareceu. O lance 1 e de quem resolve; o 2 e o primeiro da CPU, e era o que divergia.",
+      "nu_semente": 697571591,
+      "nu_lance": 2,
+      "esperado": 1711475817
+    },
+    {
+      "id": "semente-do-defeito-de-26-09-lance-3",
+      "de_caso": "A semente publicada do desafio 449864e6 (damas_sobreviver anglo contra a Pita), que foi onde o defeito apareceu. O lance 1 e de quem resolve; o 2 e o primeiro da CPU, e era o que divergia.",
+      "nu_semente": 697571591,
+      "nu_lance": 3,
+      "esperado": 70944282
+    },
+    {
+      "id": "semente-do-defeito-de-26-09-lance-4",
+      "de_caso": "A semente publicada do desafio 449864e6 (damas_sobreviver anglo contra a Pita), que foi onde o defeito apareceu. O lance 1 e de quem resolve; o 2 e o primeiro da CPU, e era o que divergia.",
+      "nu_semente": 697571591,
+      "nu_lance": 4,
+      "esperado": 577896395
+    },
+    {
+      "id": "semente-minima-lance-1",
+      "de_caso": "O piso da faixa publicavel (`ck006_semente`).",
+      "nu_semente": 1,
+      "nu_lance": 1,
+      "esperado": 506952114
+    },
+    {
+      "id": "semente-maxima-lance-1",
+      "de_caso": "O teto da faixa: aqui a soma passa de 32 bits, e o que sobra depende do corte. E o caso em que uma implementacao que usasse inteiro de tamanho fixo divergiria de uma de inteiro grande.",
+      "nu_semente": 4294967295,
+      "nu_lance": 1,
+      "esperado": 506952112
+    },
+    {
+      "id": "semente-maxima-lance-alto",
+      "de_caso": "O mesmo teto num lance longe do inicio — uma partida de damas publicada chega a 20 meios-lances.",
+      "nu_semente": 4294967295,
+      "nu_lance": 20,
+      "esperado": 1549107667
+    },
+    {
+      "id": "semente-que-deriva-ZERO",
+      "de_caso": "⚠️ `1640531535 + 2654435761` da exatamente 2^32, e o corte de 31 bits devolve **zero**. Zero e resposta legitima: `Random(0)` vale nas duas linguagens. Este caso existe para que ninguem 'conserte' a conta somando 1 ao resultado, como faz a semente da PARTIDA — que tem outra faixa, por ter um CHECK no banco.",
+      "nu_semente": 1640531535,
+      "nu_lance": 1,
+      "esperado": 0
     }
   ]
 }

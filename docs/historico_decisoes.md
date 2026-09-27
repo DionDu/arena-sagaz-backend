@@ -6921,3 +6921,87 @@ As três saídas, para quando o dono decidir:
 ⚠️ **Nada disso está medido no gerador ainda.** Quem responde *"a variante ainda
 gera candidato todo dia com o piso?"* é `scripts/medir_variantes_do_editorial.py`,
 e é processo longo - comando para o dono.
+
+---
+
+## 2026-09-26 (6) — A semente de cada lance passa a ser A CONTA DO APLICATIVO
+
+**Contexto.** Relato do dono, à noite: *"O lance 2, da CPU, do gabarito do
+desafio atual está divergindo do que a CPU fez jogando contra mim na resolução de
+hoje, mesmo nossos primeiros lances (meu e do gabarito) sendo idênticos. Você
+disse que havia resolvido este problema ontem. O desafio atual foi gerado após
+você ter dito que havia resolvido os problemas."*
+
+Ele está certo nas duas coisas. O desafio (`449864e6`, *damas_sobreviver* anglo)
+foi gerado em 25/09 às 22:08, e o último commit da correção de ontem é das 19:17.
+⚠️ **Mas a causa é outra, e a correção de ontem foi condição para ela aparecer.**
+
+**O que mudou de um relato para o outro: o adversário.** O de 25/09 era contra o
+**Magno**; este é contra a **Pita**. O Magno é o único nível com `ruido = 0` e
+`chance_de_errar = 0,0` — ⛔ o único que **não consulta o sorteador**. Cacau, Pita
+e Tex consultam, e o Tex raramente, que é o pior caso: ele diverge de forma
+**intermitente**.
+
+**A causa.** O aplicativo deriva a semente de cada lance por Knuth
+(`(mestra + ordem * 2654435761) & 0x7FFFFFFF`, em `SementeDaPartida.para`); o job
+derivava por SHA-256. Com a semente publicada deste desafio (`697571591`):
+
+| ordem | o aplicativo | o job |
+|---|---|---|
+| 1 | 1204523704 | 1960240702 |
+| **2** | **1711475817** | **2857670330** |
+
+O lance 1 é de quem resolve — por isso batia. O 2 é o primeiro da CPU.
+
+⚠️ **E isso estava escrito como decisão** (RF-DES-211, no cabeçalho de
+`job/semente.py`): *"não precisam ser iguais: o papel do job é calibrar, não
+prever a partida de ninguém"*. ⛔ **A premissa era verdadeira e deixou de ser sem
+que nada denunciasse.** Ela vale enquanto o servidor joga com outro motor — dois
+sorteadores diferentes não dão a mesma sequência nem com a mesma semente, e
+igualar o número não compraria nada. Em 25/09 o servidor passou a jogar com **o
+motor do aparelho**, o sorteador virou o mesmo, e a semente virou a única peça
+fora do lugar.
+
+**Decisão 1 - `semente_do_lance` é copia da conta do aplicativo.** `sortear` (a
+semente da *partida*) continua SHA-256, e pode: ela não tem par do outro lado -
+quem nasce ali é o número **publicado**, que o aplicativo recebe pronto.
+
+⚠️ **A faixa da semente do lance mudou**, de `[1, 2^32-1]` para `[0, 2^31-1]`, que
+é o domínio do `Random`. **Zero é resposta legítima**, e há um caso no vetor que
+cai exatamente nele, para que ninguém "conserte" a conta somando 1 como faz a
+semente da partida (que tem `CHECK` no banco e por isso começa em 1).
+
+**Decisão 2 - o cadeado é um ARQUIVO lido pelos dois lados.** Igualdade que só
+existe em comentário volta a divergir. `contratos/vetores-verificacao-desafio.json`
+subiu para a **versão 2**, com um bloco `sementes` de oito pares
+`(semente, lance) -> esperado`, conferido em
+`tests/unitarios/test_gabarito_e_semente.py` e em
+`test/core/jogos/semente_da_partida_test.dart`. ✅ Visto **mordendo**: trocada a
+constante de Knuth no aplicativo, o teste Dart reprovou nomeando o caso.
+
+⛔ **É o elo que faltava na corrente de 25/09.** Aquela corrente prova que o
+**código** é o mesmo nos dois lados (SHA-256 dos 16 arquivos do motor); ela não
+olhava para os **argumentos** que esse código recebe. Semente é argumento.
+
+**Alternativas rejeitadas.**
+
+| alternativa | por que não |
+|---|---|
+| Fazer o aplicativo adotar o SHA-256 do job | O aplicativo está **em campo**. Uma versão nova mudaria o adversário de quem não atualizasse, e a promessa da semente publicada é justamente que todos enfrentem o mesmo |
+| Publicar a semente já derivada, lance a lance | Guardar N números em vez de 1, e o replay divergiria ao perder-se um (é a razão de a derivação existir) |
+| Deixar como está e aceitar que o gabarito é "só uma referência" | O Raio-X mostra a "Solução oficial" lance a lance ao lado da resolução da pessoa. Um gabarito que a CPU real não joga não é referência: é erro na tela |
+
+**⚠️ Achado novo, NÃO consertado: o Pontinhos tem a camada anterior aberta.** A
+correção vale para as damas. No Pontinhos o servidor ainda joga com
+`motores/pontinhos/politica.py`, em **Python** — logo o sorteador é o Mersenne
+Twister, e o do aparelho é o xorshift do Dart. ⛔ **Mesma semente, sequências
+diferentes:** o gabarito do Pontinhos contra Cacau, Pita ou Tex continua não
+seguível, ainda que a CNN seja a mesma (ela viaja no espelho). Não há conserto de
+uma linha: ou o Pontinhos ganha um servidor de lances em Dart, como as damas, ou o
+Python reimplementa o `Random` do Dart. **É decisão do dono.**
+
+**⚠️ Consequência operacional: a fila do `des` precisa ser regerada.** Nada disto
+muda desafio já gravado. Dos 8 dias publicados: 2 do Magno (✅ jogáveis, não
+sorteiam), 2 de damas contra a Pita (⛔ conserta regerando) e 4 de Pontinhos
+(⛔ regerar não basta).
+

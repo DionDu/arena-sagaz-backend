@@ -64,13 +64,21 @@ sys.path.insert(0, str(RAIZ))
 # ⚠️ As chegadas dos vetores de 14/09 saem das RECEITAS, e nao de JSON escrito a
 # mao: um vetor que julgasse por uma chegada propria provaria que os dois lados
 # concordam sobre algo que ninguem publica.
+from job.semente import (  # noqa: E402
+    SEMENTE_MAXIMA,
+    SEMENTE_MINIMA,
+    semente_do_lance,
+)
 from job.tipos_de_desafio import RECEITAS  # noqa: E402
 from motores.damas.motor_damas import EstadoDamas, MotorDamas  # noqa: E402
 from motores.damas import feitos_damas  # noqa: E402
 from motores.pontinhos import feitos_pontinhos  # noqa: E402
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos  # noqa: E402
 
-VERSAO = 1
+#: A versao do documento. ⚠️ **2 desde 26/09/2026**, quando o bloco `sementes`
+#: entrou: um leitor da versao 1 nao encontraria a chave, e e melhor que ele saiba
+#: disso pelo numero do que por um `KeyError`.
+VERSAO = 2
 
 # As duas copias. A do frontend fica em `contracts/` porque e artefato de
 # contrato da spec; a daqui fica em `contratos/`, ao lado do manifesto do
@@ -1395,6 +1403,92 @@ def vetores_das_damas_de_16_09() -> list[dict[str, Any]]:
     ]
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ AS SEMENTES POR LANCE — o segundo bloco do documento (26/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Este bloco nao julga nada**, e por isso ele e uma lista propria em vez de
+# mais uns vetores: os `vetores` respondem *"esta resolucao cumpriu?"*, e estes
+# respondem *"os dois lados derivam a MESMA semente?"*.
+#
+# ⛔ **Por que ele existe.** Ate 26/09/2026 o servidor derivava a semente de cada
+# lance por SHA-256 e o aplicativo por Knuth — contas diferentes, declaradas
+# diferentes de proposito, num tempo em que o servidor jogava com o port Python e
+# nao sortearia igual de qualquer jeito. Quando o servidor passou a jogar com o
+# **motor do aparelho** (25/09), o sorteador virou o mesmo e a semente ficou sendo
+# a unica peca fora do lugar: o gabarito de todo desafio contra Cacau, Pita ou Tex
+# deixou de ser reproduzivel, ja no **primeiro lance da CPU**.
+#
+# O relato do dono, no dia seguinte: *"o lance 2, da CPU, do gabarito esta
+# divergindo do que a CPU fez jogando contra mim"*.
+#
+# ⚠️ **Contra o Magno nada disso aparecia** (`ruido=0`, `chance_de_errar=0`): ele
+# nao consulta o sorteador. Foi por isso que o vetor de paridade dos motores, que
+# e uma partida contra o Magno, passou sem tocar no defeito.
+
+
+def sementes_de_verificacao() -> list[dict[str, Any]]:
+    """Pares `(semente, lance) -> esperado`, conferidos nos DOIS lados.
+
+    O `esperado` sai da propria conta do Python; o que prova a igualdade e o teste
+    Dart (`test/core/jogos/semente_da_partida_test.dart`) ler o **mesmo arquivo** e
+    exigir os mesmos numeros de `SementeDaPartida.para`.
+    """
+    casos: list[dict[str, Any]] = [
+        {
+            "id": f"semente-do-defeito-de-26-09-lance-{lance}",
+            "de_caso": "A semente publicada do desafio 449864e6 (damas_sobreviver "
+            "anglo contra a Pita), que foi onde o defeito apareceu. O lance 1 e de "
+            "quem resolve; o 2 e o primeiro da CPU, e era o que divergia.",
+            "nu_semente": 697571591,
+            "nu_lance": lance,
+        }
+        for lance in (1, 2, 3, 4)
+    ]
+    casos += [
+        {
+            "id": "semente-minima-lance-1",
+            "de_caso": "O piso da faixa publicavel (`ck006_semente`).",
+            "nu_semente": SEMENTE_MINIMA,
+            "nu_lance": 1,
+        },
+        {
+            "id": "semente-maxima-lance-1",
+            "de_caso": "O teto da faixa: aqui a soma passa de 32 bits, e o que "
+            "sobra depende do corte. E o caso em que uma implementacao que usasse "
+            "inteiro de tamanho fixo divergiria de uma de inteiro grande.",
+            "nu_semente": SEMENTE_MAXIMA,
+            "nu_lance": 1,
+        },
+        {
+            "id": "semente-maxima-lance-alto",
+            "de_caso": "O mesmo teto num lance longe do inicio — uma partida de "
+            "damas publicada chega a 20 meios-lances.",
+            "nu_semente": SEMENTE_MAXIMA,
+            "nu_lance": 20,
+        },
+        {
+            "id": "semente-que-deriva-ZERO",
+            "de_caso": "⚠️ `1640531535 + 2654435761` da exatamente 2^32, e o corte "
+            "de 31 bits devolve **zero**. Zero e resposta legitima: `Random(0)` "
+            "vale nas duas linguagens. Este caso existe para que ninguem 'conserte' "
+            "a conta somando 1 ao resultado, como faz a semente da PARTIDA — que "
+            "tem outra faixa, por ter um CHECK no banco.",
+            "nu_semente": 1640531535,
+            "nu_lance": 1,
+        },
+    ]
+
+    for caso in casos:
+        caso["esperado"] = semente_do_lance(caso["nu_semente"], caso["nu_lance"])
+
+    identificadores = [c["id"] for c in casos]
+    assert len(set(identificadores)) == len(identificadores), (
+        f"ha identificador de semente repetido: {identificadores}"
+    )
+    return casos
+
+
 def montar() -> dict[str, Any]:
     """O documento inteiro, com os vetores em ordem estavel.
 
@@ -1421,6 +1515,9 @@ def montar() -> dict[str, Any]:
         "Vetor nunca e apagado nem editado: corrigir e vetor NOVO.",
         "versao": VERSAO,
         "vetores": vetores,
+        # ⚠️ Chave nova em 26/09/2026 (versao 2). Ela entra **no fim** para que o
+        # diff do dia mostre acrescimo, e nao um arquivo inteiro reordenado.
+        "sementes": sementes_de_verificacao(),
     }
 
 
@@ -1439,7 +1536,10 @@ def main() -> int:
             arquivo.write(texto)
         print(f"escrito: {destino} ({len(texto.encode('utf-8'))} bytes)")
 
-    print(f"{len(documento['vetores'])} vetores, versao {VERSAO}")
+    print(
+        f"{len(documento['vetores'])} vetores e "
+        f"{len(documento['sementes'])} sementes, versao {VERSAO}"
+    )
     return 0
 
 

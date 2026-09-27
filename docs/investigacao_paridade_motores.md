@@ -525,3 +525,144 @@ diferença é que agora as duas portas funcionam, em vez de uma estar quebrada.
 4. ⚠️ **O risco não medido da parte 2 continua aberto:** se o Dart no aparelho não
    cumprir 288 mil nós dentro dos 10 s num celular modesto, o relógio morde no
    app também, e dois aparelhos divergem pelo mesmo mecanismo.
+
+---
+
+## 26/09/2026, parte 6 — a TERCEIRA camada: a semente por lance
+
+### O relato
+
+> *"O lance 2, da CPU, do gabarito do desafio atual está divergindo do que a CPU
+> fez jogando contra mim na resolução de hoje, mesmo nossos primeiros lances (meu
+> e do gabarito) sendo idênticos. Você disse que havia resolvido este problema
+> ontem. O desafio atual foi gerado após você ter dito que havia resolvido os
+> problemas."*
+
+Ele está certo nas duas coisas: o desafio é posterior à correção (gerado
+25/09 22:08, e o último commit da correção é das 19:17), e o defeito é o mesmo
+sintoma. Mas **a causa é outra**, e a correção de ontem foi condição para ela
+aparecer.
+
+### O desafio, e o que ele tem de diferente
+
+| | |
+|---|---|
+| desafio | `449864e6-095f-498a-afdc-f2c0f51c277e` |
+| tipo | `damas_sobreviver`, anglo |
+| adversário | ⚠️ **Pita** |
+| semente publicada | `697571591` |
+
+⚠️ **O adversário não é o Magno**, e é aí que está tudo. O relato de 25/09 era
+contra o Magno; o vetor de paridade que entrou com a correção é a partida do dono
+**contra o Magno**; e o Magno é o único nível com `ruido = 0` e
+`chance_de_errar = 0,0` — ⛔ **o único que não consulta o sorteador.**
+
+| nível | ruído | chance de errar | consulta o sorteador? |
+|---|---|---|---|
+| cacau | 90 | 0,35 | sim, quase sempre |
+| **pita** | **40** | **0,25** | **sim** |
+| tex | 0 | 0,08 | sim, raramente (⚠️ diverge **intermitente**) |
+| sagaz | 0 | 0,0 | **não** |
+
+### ⛔ A causa: duas contas diferentes para a semente de cada lance
+
+O aplicativo deriva em `SementeDaPartida.para` (Knuth):
+
+    (mestra + ordem * 2654435761) & 0x7FFFFFFF
+
+O job derivava em `semente_do_lance` (SHA-256):
+
+    sha256(f"{semente}:{lance}")[:4] % 4294967295 + 1
+
+Com a semente publicada deste desafio:
+
+| ordem | o aplicativo | o job | iguais? |
+|---|---|---|---|
+| 1 | 1204523704 | 1960240702 | não |
+| **2** | **1711475817** | **2857670330** | **não** |
+| 3 | 70944282 | 2472835854 | não |
+| 4 | 577896395 | 2279246978 | não |
+
+O lance 1 é de quem resolve — por isso batia. O lance **2** é o primeiro da CPU.
+
+### ⚠️ E isso estava ESCRITO, como decisão
+
+O cabeçalho de `job/semente.py` dizia, com todas as letras:
+
+> ⛔ *"**Ela nao iguala Python e Dart.** Os dois geram numeros diferentes a partir
+> da mesma semente, e ⛔ **nao precisam ser iguais**: o papel do job e **calibrar**
+> (a taxa em 20 execucoes), nao **prever** a partida de ninguem."* (RF-DES-211)
+
+⛔ **A premissa era verdadeira e deixou de ser, sem que nada denunciasse.** Ela
+vale enquanto o servidor joga com **outro motor**: dois sorteadores diferentes
+(o Mersenne Twister do Python e o xorshift do Dart) não produzem a mesma
+sequência nem com a mesma semente, então igualar a semente não compraria nada.
+
+Em 25/09 o servidor passou a jogar com **o motor do aparelho**. O sorteador
+virou o mesmo, e a semente virou a **única** peça fora do lugar. A correção de
+ontem não causou o defeito — ela o **revelou**, e ao mesmo tempo tornou a
+igualdade possível pela primeira vez.
+
+⚠️ **E o `js_solucao` não é mais só calibração**: ele é a "Solução oficial" que o
+Raio-X mostra lance a lance, ao lado da resolução da pessoa.
+
+### ✅ A correção
+
+`semente_do_lance` passou a ser **a conta do aplicativo**, copiada. `sortear` (a
+semente da *partida*) continua sendo SHA-256, e pode: ela não tem par do outro
+lado — quem nasce ali é o número **publicado**, que o aplicativo recebe pronto.
+
+⚠️ **A faixa mudou, e de propósito.** A semente da partida vive em
+`[1, 2^32-1]` (tem `CHECK` no banco); a do lance vive em `[0, 2^31-1]`, que é o
+domínio do `Random`. **Zero é resposta legítima**, e há um caso no vetor que cai
+exatamente nele (`1640531535 + 2654435761 = 2^32`), para que ninguém "conserte" a
+conta somando 1.
+
+### ✅ O cadeado, e ele foi visto mordendo
+
+O documento de vetores (`contratos/vetores-verificacao-desafio.json`, **versão
+2**) ganhou um bloco `sementes`: oito pares `(semente, lance) -> esperado`, lidos
+pelos dois lados —
+
+| lado | arquivo |
+|---|---|
+| servidor | `tests/unitarios/test_gabarito_e_semente.py` |
+| aplicativo | `test/core/jogos/semente_da_partida_test.dart` |
+
+✅ **Visto mordendo:** trocada a constante de Knuth no aplicativo (`...761` por
+`...759`), o teste Dart reprovou nomeando o caso e a mestra. Arquivo restaurado
+da cópia, não por `git checkout`.
+
+⛔ **Este é o elo que faltava na corrente de 25/09.** Aquela corrente prova que o
+**código** é o mesmo nos dois lados (SHA-256 dos 16 arquivos); ela não olhava
+para os **argumentos** que esse código recebe. Semente é argumento.
+
+### ⚠️ ACHADO NOVO, e não consertado: o PONTINHOS tem a camada anterior aberta
+
+A correção acima conserta as **damas**. No Pontinhos ela **não basta**, e o
+motivo é o defeito de 25/09, ainda de pé naquele jogo:
+
+| | damas | Pontinhos |
+|---|---|---|
+| quem joga no servidor | ⛔ o motor **Dart** do aparelho | `motores/pontinhos/politica.py`, **Python** |
+| o sorteador | `Random` do Dart, nos dois lados | ⚠️ Mersenne Twister (servidor) × xorshift (aparelho) |
+| a semente igual resolve? | ✅ sim | ⛔ **não** |
+
+⚠️ Mesma semente em geradores diferentes dá sequências diferentes. Enquanto o
+Pontinhos do servidor for Python, o gabarito dele contra Cacau, Pita ou Tex não é
+seguível lance a lance — ainda que a CNN seja a mesma (ela é: o `.tflite` viaja no
+espelho).
+
+⛔ **Não há conserto de uma linha aqui**, e por isso ele não foi feito junto: ou o
+Pontinhos ganha um servidor de lances em Dart (o caminho que as damas tomaram), ou
+o Python passa a reimplementar o `Random` do Dart. É decisão do dono.
+
+### ⚠️ A consequência operacional: a fila precisa ser regerada
+
+Nada disto muda um desafio **já gravado**. No `des`, dos 8 dias publicados:
+
+| adversário | jogo | dias | estado do gabarito |
+|---|---|---|---|
+| magno | damas | 2 | ✅ jogável (não sorteia) |
+| pita | damas | 2 | ⛔ não jogável — **conserta regerando** |
+| cacau · tex | pontinhos | 4 | ⛔ não jogável — **e regerar não basta** |

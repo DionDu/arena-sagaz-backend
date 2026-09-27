@@ -9,6 +9,9 @@ deliberadas**, e duplicacao sem guarda envelhece torta.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from job.gabarito import (
@@ -19,12 +22,21 @@ from job.gabarito import (
     nu_lances_solucao,
 )
 from job.semente import (
+    MASCARA_DO_RANDOM,
     SEMENTE_MAXIMA,
     SEMENTE_MINIMA,
     SementeInvalida,
     semente_do_lance,
     sortear,
     validar,
+)
+
+#: A copia deste repositorio do documento de vetores. ⚠️ A do frontend e
+#: byte-identica, e quem guarda essa igualdade e `test_vetores_verificacao.py`.
+VETORES = (
+    Path(__file__).resolve().parents[2]
+    / "contratos"
+    / "vetores-verificacao-desafio.json"
 )
 
 FITA = [
@@ -142,12 +154,16 @@ def test_a_semente_do_lance_e_deterministica() -> None:
 
 
 def test_lances_VIZINHOS_nao_recebem_sementes_vizinhas() -> None:
-    """🔒 A razao de a conta ser um hash, e nao `semente + lance`.
+    """🔒 A razao de a conta MULTIPLICAR, e nao `semente + lance`.
 
     Geradores lineares — o `Random` do Dart e um deles — produzem primeiros
     valores parecidos a partir de sementes parecidas. Somar faria o adversario
     ficar repetitivo de um jeito que se percebe jogando, e nenhum teste de
     igualdade acusaria.
+
+    ⚠️ **Este caso sobreviveu a troca da conta em 26/09/2026** (de SHA-256 para a
+    constante de Knuth do aplicativo), e isso e o ponto dele: a propriedade que
+    ele guarda e a dispersao, nao a implementacao. As duas contas a cumprem.
     """
     base = 2087461933
     sementes = [semente_do_lance(base, n) for n in range(1, 11)]
@@ -167,10 +183,65 @@ def test_a_semente_do_lance_comeca_no_lance_1() -> None:
         semente_do_lance(2087461933, 0)
 
 
-def test_a_semente_do_lance_tambem_cabe_na_faixa() -> None:
-    """Ela vai para o motor, que a passa ao gerador — fora da faixa, quebra la."""
+def test_a_semente_do_lance_cabe_no_DOMINIO_DO_RANDOM() -> None:
+    """Ela vai para o motor, que a passa ao `Random` — fora do dominio, quebra la.
+
+    ⚠️ **A faixa nao e a de `nu_semente`, e a diferenca e o zero.** A semente
+    publicada vai para uma coluna com `CHECK` e comeca em 1; a semente **do
+    lance** e o que `Random` aceita, e `Random(0)` e valido nas duas linguagens.
+    Exigir `>= 1` aqui faria o cadeado reprovar uma resposta correta — ver o caso
+    `semente-que-deriva-ZERO` nos vetores.
+    """
     for n in range(1, 200):
-        assert SEMENTE_MINIMA <= semente_do_lance(7, n) <= SEMENTE_MAXIMA
+        assert 0 <= semente_do_lance(7, n) <= MASCARA_DO_RANDOM
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O CADEADO DA IGUALDADE COM O APLICATIVO (26/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_semente_do_lance_E_A_CONTA_DO_APLICATIVO() -> None:
+    """🔒 O defeito de 26/09: o servidor derivava uma semente, o aparelho outra.
+
+    ⛔ **O que este caso guarda nao e a formula, e a IGUALDADE.** Ele le o mesmo
+    arquivo que `test/core/jogos/semente_da_partida_test.dart` le no frontend, e
+    os `esperado` sao os mesmos numeros para os dois: mudar a conta de um lado so
+    passa a quebrar a suite do outro.
+
+    ⚠️ **Por que isso nao era pego antes.** O servidor so passou a usar o mesmo
+    sorteador do aparelho em 25/09/2026, quando o motor Dart entrou no job. Antes
+    disso as duas contas eram diferentes **de propósito**, e estava escrito que
+    podiam ser. O vetor de paridade que entrou junto e uma partida contra o
+    **Magno** — o unico nivel que nao consulta o sorteador —, entao ele passou sem
+    tocar no defeito.
+    """
+    documento = json.loads(VETORES.read_text(encoding="utf-8"))
+    sementes = documento["sementes"]
+    assert sementes, "o bloco `sementes` sumiu do documento de vetores"
+
+    for caso in sementes:
+        calculado = semente_do_lance(caso["nu_semente"], caso["nu_lance"])
+        assert calculado == caso["esperado"], (
+            f"{caso['id']}: semente {caso['nu_semente']} no lance "
+            f"{caso['nu_lance']} deu {calculado}, e o vetor diz "
+            f"{caso['esperado']}. ⛔ Se a conta mudou de propósito, o aplicativo "
+            f"tem de mudar junto — ver o cabecalho de job/semente.py."
+        )
+
+
+def test_o_vetor_da_semente_COBRE_O_ZERO() -> None:
+    """⚠️ Zero e resposta legitima, e o vetor precisa continuar provando isso.
+
+    Sem este caso, alguem "consertaria" a conta somando 1 ao resultado — que e o
+    que a semente da PARTIDA faz, por ter outra faixa — e o cadeado de igualdade
+    continuaria verde ate o dia em que o aparelho caisse justamente nesse valor.
+    """
+    documento = json.loads(VETORES.read_text(encoding="utf-8"))
+    esperados = [c["esperado"] for c in documento["sementes"]]
+    assert 0 in esperados, (
+        "nenhum caso do vetor deriva zero: a propriedade deixou de ser guardada"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
