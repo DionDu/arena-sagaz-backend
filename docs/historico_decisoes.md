@@ -7005,3 +7005,66 @@ muda desafio já gravado. Dos 8 dias publicados: 2 do Magno (✅ jogáveis, não
 sorteiam), 2 de damas contra a Pita (⛔ conserta regerando) e 4 de Pontinhos
 (⛔ regerar não basta).
 
+---
+
+## 2026-09-26 (7) — O Pontinhos leva o Dart ao servidor, e nasce a bancada de paridade
+
+**Contexto.** Decisões do dono na mesma conversa da entrada (6), depois do
+**terceiro** episódio de divergência entre o motor do aplicativo e o do servidor.
+Os três têm a mesma forma, e é ela que importa:
+
+| # | episódio | o que divergia |
+|---|---|---|
+| 1 | a rede de segurança de 10 s mordia no servidor | o **relógio** |
+| 2 | o teto da camada (60 mil nós) cortava antes do contrato (288 mil) | o **teto** |
+| 3 | a semente do lance era SHA-256 no job e Knuth no aplicativo | a **semente** |
+
+⛔ **Nenhum dos três é código diferente: os três são o MESMO código recebendo
+argumentos diferentes.** E nenhuma das travas existentes olha para argumentos -
+elas comparam SHA-256 de **arquivo** (espelho = laboratório = aplicativo). Elas
+provam que o código é o mesmo; não provam que ele é **chamado** do mesmo jeito.
+
+**Decisão 1 - o Pontinhos passa a jogar com o motor Dart no servidor**, com a
+corrente de travas inteira que as damas ganharam em 25/09. ⚠️ **O diagnóstico
+mudou desde então, e foi dito ao dono:** a CNN já está provada idêntica nos dois
+lados (`scripts/conferir_runtime_inferencia.py`, contra referência versionada). O
+que diverge é a **política** e, sobretudo, o **sorteador** - Mersenne Twister do
+Python contra o xorshift do Dart, ⛔ mesma semente e sequências diferentes.
+
+⚠️ **Risco técnico a enfrentar na tarefa:** o `tflite_flutter` é pacote
+**Flutter**; um servidor de lances em Dart puro precisa abrir a
+`libtensorflowlite_c` por **FFI**, e ela passa a ser mais um artefato da imagem do
+job, com trava própria - como a base de finais das damas.
+
+**Alternativa rejeitada pelo dono:** reimplementar em Python o `Random` do Dart e
+deixar a política onde está. É bem menor, e mantém **duas escritas da mesma
+regra** - que é exatamente a forma dos três episódios.
+
+**Decisão 2 - a bancada de paridade**, ideia do dono: o servidor roda N partidas
+de autoplay guardando a semente, o aplicativo roda as mesmas, e **100% dos lances**
+são comparados - nos dois jogos e em todas as modalidades.
+
+⚠️ **O que foi acrescentado à ideia:**
+
+1. ⛔ **A prova é um TESTE**, com o arquivo de partidas versionado nas duas
+   pontas, como os vetores de verificação. Cadeado que depende de alguém abrir uma
+   tela envelhece.
+2. ⚠️ **A tela é o complemento, onde o teste ⛔ alcança:** o Pontinhos precisa do
+   TFLite (plugin nativo - conferido que **nenhum teste do aplicativo roda a CNN
+   hoje**) e o Rust só existe no aparelho.
+3. ⛔ **Os níveis fracos entram na varredura** - os três episódios moraram neles,
+   e foi um cadeado só do Magno que deixou a semente passar.
+4. ⚠️ **Quando divergirem, quem cede é o SERVIDOR.**
+5. ⚠️ **A semente vem pelo caminho do desafio**, e ⛔ de uma semente própria da
+   bancada: senão ela prova um caminho que o desafio ⛔ percorre.
+
+⚠️ **E a bancada responde uma pergunta aberta desde a parte 2 da investigação:**
+se Dart e Rust divergirem sob o teto real de 288 mil nós, **dois aparelhos já
+divergem hoje**, sem o servidor entrar na história - e o único cadeado que os
+compara roda **sem teto e sem relógio**, a única condição em que isso ⛔ aparece.
+
+➡️ Tarefas **T091** (o Pontinhos em Dart), **T092** (o formato, o gerador e o
+teste) e **T092a** (a tela do aparelho), em
+`arena-sagaz-frontend/specs/009-desafio-do-dia/tasks.md`. Decisões do dono em
+`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zj.
+

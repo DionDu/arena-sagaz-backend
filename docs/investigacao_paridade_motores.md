@@ -666,3 +666,28 @@ Nada disto muda um desafio **já gravado**. No `des`, dos 8 dias publicados:
 | magno | damas | 2 | ✅ jogável (não sorteia) |
 | pita | damas | 2 | ⛔ não jogável — **conserta regerando** |
 | cacau · tex | pontinhos | 4 | ⛔ não jogável — **e regerar não basta** |
+
+### ✅ O caminho decidido pelo dono, na mesma conversa
+
+1. ⛔ **O Pontinhos leva o motor Dart ao servidor**, com a corrente de travas
+   inteira - *"É preciso todas as travas para que não corremos o risco de ter uma
+   versão compilada diferente da do App."* ⚠️ Ele ⛔ escolheu a alternativa menor
+   (reimplementar o `Random` do Dart em Python), que manteria duas escritas da
+   mesma regra. **T091.**
+2. ⛔ **Nasce a bancada de paridade:** o servidor roda N partidas de autoplay
+   guardando a semente, o aplicativo roda as mesmas, e **100% dos lances** são
+   comparados - nos dois jogos e em todas as modalidades. **T092 e T092a.**
+
+⚠️ **E é isto que fecha a lacuna que este diário descreve há três partes.** As
+travas de hoje comparam SHA-256 de **arquivo**: elas provam que o código é o mesmo
+nos dois lados, e **nenhuma delas olha para os argumentos** com que esse código é
+chamado. Os três episódios - o relógio, o teto e a semente - foram todos
+argumentos.
+
+⚠️ **A bancada também responde a pergunta aberta na parte 2:** se Dart e Rust
+divergirem sob o teto real de 288 mil nós, dois **aparelhos** já divergem hoje,
+sem o servidor entrar na história.
+
+Decisões em `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zj; histórico em
+`docs/historico_decisoes.md`, entrada `2026-09-26 (7)`.
+
