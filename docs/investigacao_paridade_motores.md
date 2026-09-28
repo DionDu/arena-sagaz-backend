@@ -673,10 +673,10 @@ Nada disto muda um desafio **já gravado**. No `des`, dos 8 dias publicados:
    inteira - *"É preciso todas as travas para que não corremos o risco de ter uma
    versão compilada diferente da do App."* ⚠️ Ele ⛔ escolheu a alternativa menor
    (reimplementar o `Random` do Dart em Python), que manteria duas escritas da
-   mesma regra. **T091.**
+   mesma regra. **T093.**
 2. ⛔ **Nasce a bancada de paridade:** o servidor roda N partidas de autoplay
    guardando a semente, o aplicativo roda as mesmas, e **100% dos lances** são
-   comparados - nos dois jogos e em todas as modalidades. **T092 e T092a.**
+   comparados - nos dois jogos e em todas as modalidades. **T094 e T094a.**
 
 ⚠️ **E é isto que fecha a lacuna que este diário descreve há três partes.** As
 travas de hoje comparam SHA-256 de **arquivo**: elas provam que o código é o mesmo

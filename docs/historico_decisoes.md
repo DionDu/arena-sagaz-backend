@@ -7063,8 +7063,8 @@ se Dart e Rust divergirem sob o teto real de 288 mil nós, **dois aparelhos já
 divergem hoje**, sem o servidor entrar na história - e o único cadeado que os
 compara roda **sem teto e sem relógio**, a única condição em que isso ⛔ aparece.
 
-➡️ Tarefas **T091** (o Pontinhos em Dart), **T092** (o formato, o gerador e o
-teste) e **T092a** (a tela do aparelho), em
+➡️ Tarefas **T093** (o Pontinhos em Dart), **T094** (o formato, o gerador e o
+teste) e **T094a** (a tela do aparelho), em
 `arena-sagaz-frontend/specs/009-desafio-do-dia/tasks.md`. Decisões do dono em
 `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zj.
 
