@@ -7068,3 +7068,63 @@ teste) e **T094a** (a tela do aparelho), em
 `arena-sagaz-frontend/specs/009-desafio-do-dia/tasks.md`. Decisões do dono em
 `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zj.
 
+
+## 2026-09-28 — A bancada de paridade está no ar, e os dois motores jogam idêntico (T094)
+
+**Contexto.** A decisão 2 de 26/09 (a entrada acima) virou código. O servidor
+joga partidas inteiras de CPU contra CPU, guarda a semente-mestra e **todos** os
+lances, e o aplicativo reproduz cada uma delas em `flutter test`.
+
+| peça | onde |
+|---|---|
+| o gerador | `scripts/gerar_vetores_paridade_motores.py` |
+| o arquivo, duas cópias byte-idênticas | `contratos/vetores-paridade-motores.json` e `specs/009-desafio-do-dia/contracts/vetores-paridade-motores.json` |
+| o contrato, em prosa | `specs/009-desafio-do-dia/contracts/vetores-paridade-motores.md` |
+| a forma e o envelhecimento | `tests/unitarios/test_vetores_paridade_motores.py` |
+| quem reproduz os lances | `test/modulos/jogos/damas/paridade_da_bancada_test.dart` |
+
+✅ **O resultado da primeira rodada: 40 partidas, 3.381 meios-lances, as quatro
+modalidades vezes os quatro níveis - lance a lance e nó a nó, sem uma
+divergência.** É a primeira vez que existe prova automática de que o motor do
+aparelho e o do servidor **jogam** igual; as travas de antes provavam que eles
+**são** o mesmo código.
+
+⚠️ **O que esta bancada olha e nenhuma outra olhava: os ARGUMENTOS.** Os três
+episódios (o relógio e o teto da camada, em 25/09; a semente, em 26/09) foram o
+mesmo código recebendo argumentos diferentes, e a corrente de SHA-256 de arquivo
+não tem como enxergar isso. Aqui há dois caminhos: um grupo compara os números do
+nível campo a campo contra o `niveisPorIdentificador` do aplicativo (o defeito
+**pelo nome**), e as partidas comparam lance e nós (o defeito **pelo sintoma**,
+inclusive quando o argumento que diverge é um em que ninguém pensou).
+
+**Decisões minhas, tomadas na implementação e registradas no contrato:**
+
+1. ⛔ **O Sagaz joga UMA partida por modalidade, e não três.** Ele tem `ruido=0`
+   e `chance_de_errar=0`: não consulta o sorteador, e a semente não muda um lance.
+   ⚠️ **Medido em 28/09**, na brasileira, com as sementes `697571591` e `12345`:
+   os 30 lances e os 30 números de nós saíram idênticos. É o mesmo fato que
+   tornou o defeito da semente **invisível contra o Magno** em 26/09 - e guardar
+   a mesma partida três vezes engordaria o arquivo sem acrescentar comparação.
+2. ⚠️ **O teto do Sagaz é 30 meios-lances, e é custo - não cobertura.** Cada
+   lance dele são 288 mil nós, ~0,43 s dos dois lados; uma partida inteira em
+   cada modalidade acrescentaria dezenas de minutos à suíte que o dono roda o dia
+   inteiro, e ⛔ cadeado que ninguém aguenta rodar é cadeado desligado. O que o
+   Sagaz acrescenta é a **busca funda**, que diverge na abertura quando diverge -
+   foram os dois primeiros episódios, e os dois apareceram ali. Os níveis fracos
+   jogam partidas inteiras (até 160 meios-lances), três sementes cada.
+3. ⚠️ **O número de nós entra na comparação, junto do lance.** Dois motores podem
+   escolher o mesmo lance parando em pontos diferentes da busca; foi comparando
+   nós que o defeito do relógio apareceu. E o `motivoDaParada` entra na mensagem
+   de falha: *"esta máquina é lenta demais para o orçamento"* é um diagnóstico
+   diferente de *"os dois motores discordam"*.
+4. ⚠️ **O documento carrega o SHA-256 dos fontes do motor**, e o `pytest` o
+   confere contra o espelho. Sem isso, mexer no motor sem regerar deixaria a
+   bancada comparando o aplicativo de hoje com um adversário que já não existe -
+   e ela **passaria**, porque os dois lados mudaram juntos.
+
+⛔ **O que ela ainda não cobre:** o Pontinhos (o servidor ainda joga com política
+e sorteador próprios - é a **T093**), a CNN no aplicativo e o motor Rust (não há
+TFLite nem binário nativo em `flutter test` - é a **T094a**, a tela do `des`).
+
+⚠️ **Regerar leva ~90 s** e é obrigatório sempre que o motor mudar; o comando
+está no cabeçalho do gerador e no contrato.

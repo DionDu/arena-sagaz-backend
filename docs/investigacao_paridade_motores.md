@@ -691,3 +691,37 @@ sem o servidor entrar na história.
 Decisões em `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zj; histórico em
 `docs/historico_decisoes.md`, entrada `2026-09-26 (7)`.
 
+
+---
+
+## ✅ PARTE 4 — a bancada está no ar, e as damas jogam idêntico (28/09/2026)
+
+A **T094** fechou. O servidor jogou 40 partidas inteiras de CPU contra CPU - as
+quatro modalidades vezes os quatro níveis -, guardou a semente-mestra e os
+3.381 meios-lances, e o aplicativo reproduziu todas em `flutter test`:
+
+    lance a lance e nó a nó, sem uma divergência.
+
+⚠️ **É a primeira prova automática de que os dois motores JOGAM igual.** Tudo o
+que existia até aqui provava que eles **são** o mesmo código - e os três
+episódios deste diário foram o mesmo código com argumentos diferentes.
+
+⚠️ **E a bancada olha para argumento por dois caminhos:** um grupo compara os
+números do nível campo a campo contra o `niveisPorIdentificador` do aplicativo (o
+defeito **pelo nome**) e as partidas comparam lance e **nós** (o defeito **pelo
+sintoma**, inclusive quando o argumento que diverge é um em que ninguém pensou).
+
+⚠️ **O que a parte 2 perguntou continua aberto:** o motor **Rust** não roda em
+`flutter test`, então esta bancada compara Dart contra Dart. Dart × Rust sob o
+teto real de 288 mil nós é a **T094a**, a tela do flavor `des` - e continua sendo
+o único ponto em que dois aparelhos podem divergir sem o servidor entrar na
+história.
+
+⚠️ **O Pontinhos também segue de fora**, e pelo motivo de sempre: o servidor
+ainda joga com a política e o sorteador dele (Mersenne Twister do Python ×
+xorshift do Dart). É a **T093**, e a bancada é quem vai prová-la quando ela
+chegar.
+
+O formato, as decisões e o comando de regeração estão em
+`arena-sagaz-frontend/specs/009-desafio-do-dia/contracts/vetores-paridade-motores.md`;
+o histórico, na entrada `2026-09-28` de `docs/historico_decisoes.md`.
