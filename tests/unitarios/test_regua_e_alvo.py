@@ -140,12 +140,12 @@ def test_toda_medicao_leva_o_CARIMBO() -> None:
         co_personagem_do_dia="magno",
         tentar=lambda p, e: e % 2 == 0,
         co_versao_perfil="perfil-abc12345",
-        co_versao_motor="damas-py-deadbeef",
+        co_versao_motor="damas-dart-deadbeef",
         nu_execucoes=4,
     )
     for medicao in medicoes:
         assert medicao.co_versao_perfil == "perfil-abc12345"
-        assert medicao.co_versao_motor == "damas-py-deadbeef"
+        assert medicao.co_versao_motor == "damas-dart-deadbeef"
 
 
 def test_o_padrao_de_execucoes_e_vinte() -> None:

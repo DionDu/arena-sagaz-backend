@@ -23,7 +23,7 @@ O QUE O CARIMBO CARREGA
     co_jogo           'pontinhos' | 'damas'
     co_modalidade     'brasileiras' nas damas; NULO no Pontinhos, que não tem
     co_nivel          o degrau da escada (cacau · pita · tex · sagaz)
-    co_versao_motor   'pontinhos-py-2.1.0' — quem gerou e calibrou
+    co_versao_motor   'pontinhos-dart-253790c3' — quem gerou e calibrou
     co_versao_perfil  'perfil-2026-09'     — com que régua
 
 Os nomes das chaves são os das colunas do `data-model.md` de propósito: quem lê
@@ -63,7 +63,7 @@ def _validar_versao(valor: str, campo: str) -> str:
     A forma exigida — minúsculas, dígitos, ponto, hífen e sublinhado — não é
     capricho: esses identificadores viram parte de chave única no banco
     (`un001_perfil`) e aparecem em log e painel. Maiúscula misturada faria
-    `Pontinhos-PY-2.1.0` e `pontinhos-py-2.1.0` conviverem como se fossem duas
+    `Pontinhos-DART-2.1.0` e `pontinhos-dart-2.1.0` conviverem como se fossem duas
     coisas.
     """
     if not valor:

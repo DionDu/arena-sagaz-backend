@@ -372,7 +372,7 @@ def _linha_de_exemplo() -> LinhaDeDesafio:
         nu_versao_catalogo=1,
         co_versao_minima="1.3.0",
         co_versao_perfil="perfil-abcd1234",
-        co_versao_motor="pontinhos-py-2.1.0",
+        co_versao_motor="pontinhos-dart-2.1.0",
         nu_teto_log=120,
     )
 
@@ -385,7 +385,7 @@ def _medicoes() -> list[Medicao]:
             nu_execucoes=20,
             nu_resolveu=14,
             co_versao_perfil="perfil-abcd1234",
-            co_versao_motor="pontinhos-py-2.1.0",
+            co_versao_motor="pontinhos-dart-2.1.0",
         )
         for quem in ("cacau", "tex", "magno")
     ]

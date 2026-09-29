@@ -4,7 +4,7 @@
 O PROBLEMA — e ele e o mesmo do perfil, um degrau abaixo
 ═══════════════════════════════════════════════════════════════════════════
 
-`desafio.tb001_desafio.co_versao_motor` guarda `damas-py-2f8e15cd`. Os oito
+`desafio.tb001_desafio.co_versao_motor` guarda `damas-dart-2f8e15cd`. Os oito
 digitos sao o comeco de um SHA-256 da lista de hashes dos arquivos do motor
 dentro do espelho — quer dizer: ⛔ **eles nao se invertem, e nada no banco diz de
 que arquivos sairam.**
@@ -29,7 +29,7 @@ cruzavam:
 
     o aparelho reporta  →  `dart_1.4.0|rust_0.4.0`  (`partida.tb001_partida` e
                                                      `tb007_desafio_impedido`)
-    o servidor guarda   →  `damas-py-2f8e15cd`      (`desafio.tb001_desafio`)
+    o servidor guarda   →  `damas-dart-2f8e15cd`    (`desafio.tb001_desafio`)
 
 Uma e versao semantica de dois motores; a outra e um hash de um terceiro. A
 pergunta *"por que este desafio nao coube no aparelho desta pessoa?"* precisa das
@@ -40,18 +40,26 @@ registros** de `desafio_dia.tb007_desafio_impedido` — `[{co_jogo, co_motor,
 co_versao}]`, sob a chave `motores`, com `"versao": 1`. As duas colunas se abrem
 com o mesmo `jsonb_to_recordset` e se comparam sem tradutor no meio.
 
-⚠️ **O que a lista do servidor diz, e por que sao DOIS registros por jogo:**
+⚠️ **O que a lista do servidor diz, jogo a jogo** (a forma de 29/09/2026,
+T095 — antes dela as damas declaravam `python` e o Pontinhos ⛔ declarava o Dart):
 
-    damas      → `python`      = o port do laboratorio que de fato jogou
-                 `contrato`    = `contrato_damas.json`, que o aplicativo carrega
-                                 IGUAL — e e ele a metade compartilhada
-    pontinhos  → `tflite`      = o modelo que decide o lance
-                 `codificacao` = o contrato de codificacao, tambem byte-identico
-                                 no aplicativo
+    damas      → `dart`              = o motor compilado, que escolhe o lance
+                 `resumo_do_carimbo` = o SHA-256 dos fontes Dart, carimbado no
+                                       executavel e identico no aplicativo
+                 `contrato`          = `contrato_damas.json`, que o aplicativo
+                                       carrega IGUAL
+    pontinhos  → `dart`              = o motor compilado: tensor, politica,
+                                       sorteador
+                 `resumo_do_carimbo` = o mesmo cadeado, para o motor do Pontinhos
+                 `tflite`            = os pesos que produzem a softmax
+                 `codificacao`       = o contrato de codificacao, byte-identico
+                                       no aplicativo
 
-⚠️ **O contrato entra na lista de proposito.** O port Python e o Dart do
-aparelho sao implementacoes diferentes e ⛔ **nao tem numero em comum**; o que os
-dois lados obedecem — e onde a comparacao e possivel — e o contrato.
+⚠️ **O contrato entra na lista de proposito, e o carimbo entrou depois.** Ate
+25/09/2026 o servidor jogava com um port Python e o aparelho com Dart: duas
+implementacoes **sem numero em comum**, e o unico terreno de comparacao era o
+contrato que as duas obedecem. Hoje e o **mesmo codigo** nos dois lados, e por
+isso a lista declara o `resumo_do_carimbo`: a comparacao deixou de ser indireta.
 
 ═══════════════════════════════════════════════════════════════════════════
 ⚠️ ESTE ARQUIVO NAO INVENTA VERSAO NENHUMA
@@ -81,6 +89,8 @@ from pathlib import Path
 from typing import Any
 
 from motores.damas import contrato_damas
+from motores.damas import jogador_dart as jogador_dart_damas
+from motores.pontinhos import jogador_dart_pontinhos
 from motores.pontinhos import motor_pontinhos
 
 #: A versao do formato de `js_motores` e de `js_arquivos`.
@@ -89,6 +99,15 @@ from motores.pontinhos import motor_pontinhos
 #: permite mudar a forma da lista sem que quem le precise adivinhar qual esta
 #: lendo.
 VERSAO_DO_FORMATO = 1
+
+#: Quantos digitos do resumo do motor Dart entram em `js_motores`.
+#:
+#: ⚠️ **Dezesseis, e a mesma largura do `.tflite` da linha de baixo** — sao
+#: identificadores de diagnostico, e nao chaves: dezesseis digitos ja tornam a
+#: colisao acidental impossivel na pratica e a linha continua legivel a olho nu.
+#: O resumo inteiro tem 64, e e ele que o executavel carimba e a abertura do
+#: processo confere; quem precisa dele por inteiro o tem no proprio binario.
+DIGITOS_DO_RESUMO_DART = 16
 
 #: O manifesto e UM so para os dois jogos — ele descreve o espelho inteiro.
 #:
@@ -111,15 +130,36 @@ def _sha256_do_arquivo(caminho: Path) -> str:
 def _motores_das_damas() -> list[dict[str, str]]:
     """Os registros do jogador de damas, no vocabulario da `tb007`.
 
-    O `co_versao` do `python` e o resumo **inteiro** (`damas-py-<8 hex>`), e nao
+    O `co_versao` do `dart` e o resumo **inteiro** (`damas-dart-<8 hex>`), e nao
     so os oito digitos: assim a lista se le sozinha, sem voltar a coluna
     `co_versao_motor` da mesma linha.
+
+    ⚠️ **O registro chamava-se `python` ate 29/09/2026 (T095)**, e o nome era
+    verdade ate 25/09: era o port Python quem escolhia o lance. Desde o motor
+    Dart, o Python das damas e **arbitro** — valida regras, ⛔ escolhe lance —, e
+    um registro chamado `python` mandaria quem investigasse um lance divergente
+    abrir o arquivo errado.
+
+    ⚠️ **E o `resumo_do_carimbo` e a metade que de fato se compara com o
+    aparelho.** O contrato ja era uma metade compartilhada (os dois lados o
+    obedecem); este e mais forte: e o SHA-256 dos **proprios fontes Dart**, o
+    mesmo numero que o executavel carimba, que a abertura do processo confere e
+    que `paridade_motor_test.dart` exige igual no aplicativo. Com ele na linha, a
+    pergunta *"o servidor e o aparelho rodaram o mesmo motor?"* se responde
+    comparando dois hexadecimais.
     """
     return [
         {
             "co_jogo": "damas",
-            "co_motor": "python",
+            "co_motor": "dart",
             "co_versao": contrato_damas.versao_do_motor(),
+        },
+        {
+            "co_jogo": "damas",
+            "co_motor": "resumo_do_carimbo",
+            "co_versao": jogador_dart_damas.resumo_dos_fontes()[
+                :DIGITOS_DO_RESUMO_DART
+            ],
         },
         {
             "co_jogo": "damas",
@@ -135,6 +175,21 @@ def _motores_do_pontinhos() -> list[dict[str, str]]:
     ⚠️ O modelo e identificado pelo **SHA-256 do proprio `.tflite`** (16 digitos),
     e nao pelo nome do arquivo: o nome carrega a receita do treino e ja mudou
     varias vezes sem que os pesos mudassem — e o que decide o lance sao os pesos.
+
+    ⚠️ **Sao QUATRO registros desde 29/09/2026 (T095), e cada um responde por uma
+    peca do jogador**, que aqui e repartido entre dois processos:
+
+        dart               quem monta o tensor, renormaliza, ordena, aplica a
+                           politica e sorteia — o motor compilado
+        resumo_do_carimbo  o SHA-256 dos fontes Dart, que o executavel carimba e
+                           o aplicativo tem identico — a metade comparavel
+        tflite             os pesos que produzem a softmax
+        codificacao        o contrato que diz como o tabuleiro vira tensor
+
+    ⛔ **Ate hoje a lista ⛔ mencionava o Dart**, embora fosse ele quem escolhesse
+    o lance desde a T093: `js_motores` descrevia o modelo e o contrato, e o
+    decisor ficava de fora. E a mesma familia do prefixo `pontinhos-py-` — um
+    registro que envelheceu sem que nada denunciasse.
 
     Raises:
         FileNotFoundError: se nao houver `.tflite` no manifesto. ⛔ Falhar alto e
@@ -157,6 +212,18 @@ def _motores_do_pontinhos() -> list[dict[str, str]]:
             "  .venv\\Scripts\\python scripts\\espelhar_laboratorio.py"
         )
     return [
+        {
+            "co_jogo": "pontinhos",
+            "co_motor": "dart",
+            "co_versao": motor_pontinhos.versao_do_motor(),
+        },
+        {
+            "co_jogo": "pontinhos",
+            "co_motor": "resumo_do_carimbo",
+            "co_versao": jogador_dart_pontinhos.resumo_dos_fontes()[
+                :DIGITOS_DO_RESUMO_DART
+            ],
+        },
         {"co_jogo": "pontinhos", "co_motor": "tflite", "co_versao": modelo[:16]},
         {
             "co_jogo": "pontinhos",

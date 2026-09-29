@@ -287,10 +287,11 @@ def contrato_de_codificacao() -> dict:
 #: motivo que não é o delas. Quem prova que o binário saiu destes fontes é o
 #: carimbo, conferido na abertura do processo.
 #:
-#: ⚠️ **O prefixo `pontinhos-py-` ficou para trás**, e é a pendência que a T093
-#: deixa aberta: quem decide o lance é o Dart, e o "py" só descreve quem roda a
-#: inferência. Trocá-lo é decisão transversal (as damas têm `damas-py-` pelo
-#: mesmo motivo, desde 25/09/2026) e ⛔ é desta tarefa.
+#: ⚠️ **O prefixo virou `pontinhos-dart-` em 29/09/2026 (T095)**, e o porquê
+#: está na docstring de `versao_do_motor`, aqui embaixo: o "py" descrevia quem
+#: rodava a inferência, e não quem escolhe o lance. Era a pendência que a T093
+#: deixou aberta, e ela era transversal - as damas tinham `damas-py-` pelo mesmo
+#: motivo, desde 25/09/2026.
 #:
 #: ⛔ **Era uma variável local dentro de `versao_do_motor`**, e subiu para cá em
 #: 11/09/2026 (T049e): `desafio.tb904_motor` precisa listar exatamente estes
@@ -336,15 +337,43 @@ def versao_do_motor() -> str:
     escrito à mão: o que define este jogador é a `.tflite` mais o código de
     codificação, e os dois estão no manifesto. Trocar o modelo e esquecer de
     subir a versão deixaria medições novas indistinguíveis das velhas no banco.
+
+    ═══════════════════════════════════════════════════════════════════════════
+    ⚠️ O PREFIXO ERA `pontinhos-py-`, E MUDOU EM 29/09/2026 (T095)
+    ═══════════════════════════════════════════════════════════════════════════
+
+    O "py" nunca descreveu quem escolhe o lance aqui - descrevia quem roda a
+    **inferência**, que é outra coisa e continua em Python (`ai-edge-litert`).
+    Quem escolhe o lance, desde a T093, é o motor **Dart** compilado: ele monta o
+    tensor, renormaliza a saída, ordena o ranqueamento, aplica a política e
+    sorteia. É o mesmo código que joga no aparelho, byte a byte.
+
+    ⚠️ **E é por isso que o rótulo importava.** A pergunta que este carimbo
+    existe para responder é *"quem decidiu este lance?"*; `pontinhos-py-`
+    respondia com o nome da linguagem de quem **multiplica as matrizes** - e
+    mandava quem investigasse uma divergência procurar no arquivo errado.
+
+    ⛔ **A inferência não sumiu do registro**: ela tem entrada própria em
+    `desafio.tb904_motor.js_motores` (`co_motor: "tflite"`, o SHA-256 dos pesos),
+    ao lado do `dart`. O prefixo nomeia **um** produtor; a lista nomeia todos.
+
+    ⛔ **Nada é reescrito.** As linhas antigas continuam com `pontinhos-py-`, e
+    estão certas para a época delas - naqueles dias era mesmo o Python quem
+    escolhia o lance, e é esse o defeito que a T093 mediu (139 de 372 lances).
     """
     import hashlib
 
     # ⚠️ **A ordem é a dos HASHES, e não a dos caminhos** — ver a nota gêmea em
     # `contrato_damas.versao_do_motor`: mudá-la daria outro resumo sem que o
     # motor tivesse mudado.
+    #
+    # ⚠️ **O prefixo mudou, os 8 dígitos NÃO.** A conta continua a mesma, para
+    # que `pontinhos-py-<hex>` e `pontinhos-dart-<hex>` com os mesmos dígitos
+    # sejam reconhecivelmente o mesmo espelho - a troca de rótulo ⛔ se disfarça
+    # de troca de motor.
     hashes = sorted(arquivo["sha256"] for arquivo in arquivos_do_motor())
     digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
-    return f"pontinhos-py-{digesto[:8]}"
+    return f"pontinhos-dart-{digesto[:8]}"
 
 
 class MotorPontinhos:

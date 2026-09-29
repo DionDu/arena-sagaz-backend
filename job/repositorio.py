@@ -30,7 +30,7 @@ que e a parte cara. Gravar o perfil custa milissegundos e roda no comeco.
 
 **E o motor vem junto, pelo mesmo motivo.** Desde a migracao `0022` (T049e) ha a
 `fk002_motor`, composta para `(co_versao_motor, co_jogo)` em `tb904_motor` — a
-dimensao que torna `damas-py-2f8e15cd` decifravel. Sao duas linhas, uma por jogo,
+dimensao que torna `damas-dart-2f8e15cd` decifravel. Sao duas linhas, uma por jogo,
 e elas custam a leitura de um manifesto.
 
 **Por que o dia vem por ultimo.** Publicar o dia antes de copiar os feitos de

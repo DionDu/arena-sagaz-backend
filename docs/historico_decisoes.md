@@ -7214,9 +7214,10 @@ lance. ⛔ `motor_dart/bin/` e o `pubspec.yaml` ficaram de fora: eles constroem 
 executável, mas não definem o jogador - um comentário corrigido no compilador
 mudaria a versão de todos os desafios do dia.
 
-⏳ **Fica aberto o prefixo `pontinhos-py-`**: quem decide é o Dart, e o "py" só
+⏳ **Ficou aberto o prefixo `pontinhos-py-`**: quem decide é o Dart, e o "py" só
 descreve quem roda a inferência. É transversal (as damas têm `damas-py-` pelo
-mesmo motivo desde 25/09) e ⛔ é desta tarefa.
+mesmo motivo desde 25/09) e ⛔ era desta tarefa. ✅ **Fechado no dia seguinte, em
+29/09/2026 (T095)** - ver a entrada abaixo.
 
 ### A prova
 
@@ -7246,3 +7247,120 @@ imagem Linux, com a softmax gravada - medindo **só** o binário compilado ali.
   gerou eles batem; depois de um checkout com `core.autocrlf=true` de um lado só,
   as duas cópias deixariam de bater por um motivo que não tem nada a ver com o
   conteúdo.
+
+
+---
+
+## 2026-09-29 — O carimbo do motor para de dizer "py" (T095)
+
+**Contexto.** O dono leu a pendência que a T093 deixou registrada e mandou
+fechá-la: *"o prefixo `co_versao_motor`: `pontinhos-py-` e `damas-py-` dizem
+'py', e quem joga é o Dart nos dois"*.
+
+### O que o rótulo afirmava, e desde quando era falso
+
+`desafio.tb001_desafio.co_versao_motor` é a resposta à pergunta *"quem decidiu
+este lance?"* - é para isso que ele foi criado, em 26/08/2026, quando se
+descobriu que recalibrar sem ele apaga a evidência de como o número saiu.
+
+O "py" foi honesto enquanto durou:
+
+| quando | quem escolhia o lance no servidor | o carimbo dizia |
+|---|---|---|
+| até 25/09/2026 | o port **Python** do motor de damas | `damas-py-` ✅ |
+| 25/09 → 28/09 | o motor **Dart** compilado (T091) | `damas-py-` ⛔ |
+| até 28/09/2026 | o port **Python** da política do Pontinhos | `pontinhos-py-` ✅ |
+| desde 28/09 | o motor **Dart** compilado (T093) | `pontinhos-py-` ⛔ |
+
+⚠️ **E o defeito de um rótulo que envelhece é que ele ⛔ dá erro.** A linha
+continua válida, o `INSERT` passa, o painel mostra o desafio. O preço se paga
+meses depois, quando alguém investiga uma divergência de lance: `damas-py-` manda
+abrir `motores/damas/motor_damas.py`, que desde 25/09 ⛔ escolhe lance nenhum -
+ele virou **árbitro**, valida regras. É a mesma família do comentário
+desatualizado, que o `CLAUDE.md` chama de *"pior que nenhum"*.
+
+### A decisão
+
+**`damas-py-` → `damas-dart-`** e **`pontinhos-py-` → `pontinhos-dart-`**.
+
+⚠️ **Os 8 dígitos ⛔ mudaram: a conta é a mesma.** Foi deliberado. Assim
+`damas-py-99ff17e7` e `damas-dart-99ff17e7` são reconhecivelmente **o mesmo
+espelho**, e a troca de rótulo ⛔ se disfarça de troca de motor - que é
+exatamente o que o comentário de `versao_do_motor` sempre advertiu contra.
+
+⛔ **Nada foi reescrito no banco.** As linhas antigas continuam com `-py-`, e
+estão **certas para a época delas**: naqueles dias era mesmo o Python quem
+escolhia o lance - e, no Pontinhos, é esse justamente o defeito que a T093 mediu
+(139 de 372 meios-lances divergentes). Reescrevê-las apagaria a evidência que a
+coluna existe para guardar.
+
+⚠️ **Consequência operacional, e ela é desejada:** o job grava uma linha nova em
+`desafio.tb904_motor` na primeira execução, e o `motores_novos` do relatório sai
+diferente de zero - *"este job mediu com um motor que nunca tinha medido"*. Não é
+verdade sobre o motor (ele não mudou), mas é verdade sobre o **carimbo**, e é
+assim que se lê.
+
+### O segundo achado: a lista ⛔ mencionava o Dart
+
+Investigando o prefixo apareceu um defeito da mesma família em `js_motores`, a
+lista que fecha o par de diagnóstico com o aparelho:
+
+| jogo | o que a lista declarava | o que faltava |
+|---|---|---|
+| damas | `python` + `contrato` | o `python` ⛔ joga desde 25/09 |
+| pontinhos | `tflite` + `codificacao` | ⛔ **o decisor não estava na lista** |
+
+⚠️ **No Pontinhos, quem escolhe o lance simplesmente não aparecia** - desde que a
+T093 o instalou, um dia antes. A lista descrevia os pesos e o contrato, e o motor
+compilado ficava de fora.
+
+**A forma nova**, e cada registro responde por uma peça:
+
+    damas      → dart               o motor compilado, que escolhe o lance
+                 resumo_do_carimbo  o SHA-256 dos fontes Dart
+                 contrato           contrato_damas.json
+    pontinhos  → dart               tensor, política, sorteador
+                 resumo_do_carimbo  o mesmo cadeado, para o motor do Pontinhos
+                 tflite             os pesos que produzem a softmax
+                 codificacao        o contrato de codificação
+
+⚠️ **O `resumo_do_carimbo` é a peça que vale mais, e é nova.** Até 25/09 o
+servidor e o aparelho eram implementações diferentes, **sem número em comum**: a
+única metade comparável era o contrato que ambos obedecem. Hoje é o **mesmo
+código**, e esse resumo existe em três lugares ao mesmo tempo - carimbado dentro
+do executável, conferido na abertura do processo, e exigido idêntico no
+aplicativo pelos testes de paridade. Com ele na linha, *"o servidor e o aparelho
+rodaram o mesmo motor?"* se responde comparando dois hexadecimais.
+
+### Os cadeados
+
+- 🔒 `test_TODO_jogo_declara_o_motor_DART_que_escolheu_o_lance`
+- 🔒 `test_nenhum_registro_chama_o_decisor_de_PYTHON` - o port Python continua no
+  repositório, arbitrando, e é a coisa mais natural do mundo alguém reescrever
+  `python` aqui ao mexer na lista. O nome do caso diz o que ele impede.
+- 🔒 `test_o_resumo_do_carimbo_e_o_MESMO_que_o_executavel_confere`
+
+⚠️ **Os três foram provados contra uma mutação de controle** antes de valer: com
+`dart` renomeado de volta para `python` e o resumo trocado por um literal, os
+três falham. Um cadeado que não se testou pode estar verde por não alcançar nada.
+
+### ⏳ O que NÃO entrou, e por quê
+
+⚠️ **As damas e o Pontinhos filtram o manifesto com critérios diferentes**, e
+isto apareceu ao medir o carimbo:
+
+| jogo | o que entra no `co_versao_motor` |
+|---|---|
+| damas | `jogos/jogo_damas/` **inteiro**, inclusive `motor_dart/bin/` |
+| pontinhos | `motor/`, `motor_dart/lib/`, `modelos/`, `ia_mappings/` - ⛔ o `bin/` |
+
+O corte do Pontinhos é o deliberado (T093): `bin/` constrói o executável, mas ⛔
+define o jogador - *"um comentário corrigido no compilador mudaria a versão de
+todos os desafios do dia"*. O mesmo argumento vale para as damas, e lá o `bin/`
+está dentro.
+
+⛔ **Não foi corrigido nesta tarefa, e é decisão.** Mudar o filtro muda o
+`co_versao_motor` das damas **sem que um byte do motor mude** - é uma segunda
+mudança, com argumento próprio, e juntá-la a esta tornaria impossível dizer,
+olhando o histórico, qual das duas mudou o quê. Fica registrada como pendência
+nomeada, para o dono decidir.

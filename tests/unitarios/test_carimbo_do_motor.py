@@ -20,7 +20,7 @@ def carimbo_de_damas(**trocas) -> Carimbo:
     base = dict(
         co_jogo="damas",
         co_nivel=NivelDeMotor.SAGAZ,
-        co_versao_motor="damas-py-1.4.0",
+        co_versao_motor="damas-dart-1.4.0",
         co_versao_perfil="perfil-2026-09",
         co_modalidade="brasileiras",
     )
@@ -37,7 +37,7 @@ def test_carimbo_vira_exatamente_as_colunas_do_banco():
         "co_jogo": "damas",
         "co_modalidade": "brasileiras",
         "co_nivel": "sagaz",
-        "co_versao_motor": "damas-py-1.4.0",
+        "co_versao_motor": "damas-dart-1.4.0",
         "co_versao_perfil": "perfil-2026-09",
     }
 
@@ -58,7 +58,7 @@ def test_pontinhos_nao_tem_modalidade_e_ela_sai_nula():
     carimbo = Carimbo(
         co_jogo="pontinhos",
         co_nivel=NivelDeMotor.TEX,
-        co_versao_motor="pontinhos-py-2.1.0",
+        co_versao_motor="pontinhos-dart-2.1.0",
         co_versao_perfil="perfil-2026-09",
     )
     assert carimbo.para_colunas()["co_modalidade"] is None
@@ -95,7 +95,7 @@ def test_versao_longa_demais_para_a_coluna_e_recusada(campo):
 
 
 def test_versao_com_maiuscula_e_recusada():
-    """`Damas-PY-1.4.0` e `damas-py-1.4.0` conviveriam como se fossem duas."""
+    """`Damas-DART-1.4.0` e `damas-dart-1.4.0` conviveriam como se fossem duas."""
     with pytest.raises(ValueError, match="forma esperada"):
         carimbo_de_damas(co_versao_motor="Damas-PY-1.4.0")
 
@@ -127,7 +127,7 @@ def test_carimbo_e_imutavel():
     """Um carimbo alterável depois de emitido não provaria nada."""
     carimbo = carimbo_de_damas()
     with pytest.raises(Exception):
-        carimbo.co_versao_motor = "damas-py-9.9.9"  # type: ignore[misc]
+        carimbo.co_versao_motor = "damas-dart-9.9.9"  # type: ignore[misc]
 
 
 def test_com_nivel_devolve_outro_carimbo_e_preserva_o_resto():
@@ -164,7 +164,7 @@ def test_o_carimbo_nao_conhece_desafio():
 
 def test_representacao_legivel_para_log():
     assert str(carimbo_de_damas()) == (
-        "damas/brasileiras nível=sagaz motor=damas-py-1.4.0 perfil=perfil-2026-09"
+        "damas/brasileiras nível=sagaz motor=damas-dart-1.4.0 perfil=perfil-2026-09"
     )
 
 
@@ -172,7 +172,7 @@ def test_representacao_legivel_omite_modalidade_quando_nao_ha():
     carimbo = Carimbo(
         co_jogo="pontinhos",
         co_nivel=NivelDeMotor.CACAU,
-        co_versao_motor="pontinhos-py-2.1.0",
+        co_versao_motor="pontinhos-dart-2.1.0",
         co_versao_perfil="perfil-2026-09",
     )
     assert "/" not in str(carimbo)

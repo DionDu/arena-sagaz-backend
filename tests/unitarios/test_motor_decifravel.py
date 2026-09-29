@@ -29,6 +29,8 @@ import pytest
 from job import motor as motor_mod
 from job import repositorio as repositorio_mod
 from motores.damas import contrato_damas
+from motores.damas import jogador_dart as jogador_dart_damas
+from motores.pontinhos import jogador_dart_pontinhos
 from motores.pontinhos import motor_pontinhos
 from tests.unitarios.fakes_desafio import FakeSessaoSQL
 from tests.unitarios.leitura_de_migracao import sql_da_migracao, tabelas_do_sql
@@ -36,8 +38,13 @@ from tests.unitarios.leitura_de_migracao import sql_da_migracao, tabelas_do_sql
 RAIZ = Path(__file__).resolve().parents[2]
 MIGRACAO = RAIZ / "migrations" / "versions" / "0022_motor_decifravel.py"
 
-#: O prefixo de cada jogo no carimbo — `damas-py-<8 hex>`.
-PREFIXO_ESPERADO = {"damas": "damas-py-", "pontinhos": "pontinhos-py-"}
+#: O prefixo de cada jogo no carimbo — `damas-dart-<8 hex>`.
+#:
+#: ⚠️ **Era `-py-` ate 29/09/2026 (T095).** Quem escolhe o lance nos dois jogos e
+#: o motor Dart compilado; o Python das damas virou arbitro em 25/09 e o do
+#: Pontinhos so roda a inferencia. Os 8 digitos ⛔ mudaram — a conta e a mesma —,
+#: de modo que `damas-py-99ff17e7` e `damas-dart-99ff17e7` sao o mesmo espelho.
+PREFIXO_ESPERADO = {"damas": "damas-dart-", "pontinhos": "pontinhos-dart-"}
 
 
 @pytest.fixture(scope="module")
@@ -156,8 +163,8 @@ def test_os_dois_motores_expoem_a_lista_QUE_ELES_MESMOS_resumem() -> None:
     carimbo que o proprio motor publica.
     """
     for modulo, prefixo in (
-        (contrato_damas, "damas-py-"),
-        (motor_pontinhos, "pontinhos-py-"),
+        (contrato_damas, "damas-dart-"),
+        (motor_pontinhos, "pontinhos-dart-"),
     ):
         hashes = sorted(a["sha256"] for a in modulo.arquivos_do_motor())
         digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
@@ -233,8 +240,13 @@ def test_a_lista_do_servidor_declara_o_CONTRATO_que_o_aplicativo_carrega(
     """⚠️ E o contrato a metade compartilhada — o resto nao tem numero em comum.
 
     O port Python do servidor e o Dart do aparelho sao implementacoes diferentes;
-    ⛔ comparar `damas-py-2f8e15cd` com `dart_1.4.0` nao responde nada. O que os
+    ⛔ comparar `damas-py-2f8e15cd` com `dart_1.4.0` nao respondia nada. O que os
     dois lados obedecem, byte a byte, e o contrato.
+
+    ⚠️ **Desde 29/09/2026 (T095) ha uma metade melhor ao lado desta**, e ela ⛔
+    substitui o contrato: o `resumo_do_carimbo`, conferido pelo teste seguinte.
+    O contrato continua na lista porque responde por outra coisa — a FORMA do
+    dado, que sobrevive a troca de motor.
     """
     esperado = {
         "damas": contrato_damas.versao_do_contrato(),
@@ -247,6 +259,95 @@ def test_a_lista_do_servidor_declara_o_CONTRATO_que_o_aplicativo_carrega(
         }
         declarada = versoes.get("contrato") or versoes.get("codificacao")
         assert declarada == esperado[linha["co_jogo"]]
+
+
+def test_TODO_jogo_declara_o_motor_DART_que_escolheu_o_lance(linhas) -> None:
+    """🔒 Quem decide o lance aparece na lista — nos DOIS jogos (T095).
+
+    ⛔ **Ate 29/09/2026 nenhum dos dois o declarava.** As damas declaravam
+    `python`, que desde 25/09 ⛔ escolhe lance nenhum (virou arbitro), e o
+    Pontinhos declarava so o modelo e a codificacao — o decisor ficava de fora da
+    lista desde que a T093 o instalou.
+
+    ⚠️ **O sintoma de um registro desses envelhecer e nada acontecer:** a linha
+    continua valida, o `INSERT` passa, e a resposta a *"quem decidiu este lance?"*
+    aponta para o arquivo errado meses depois, quando ninguem lembra.
+
+    O `co_versao` do registro e o proprio `co_versao_motor` da linha, inteiro:
+    assim a lista se le sozinha, sem voltar a coluna ao lado.
+    """
+    for linha in linhas:
+        registros = {
+            registro["co_motor"]: registro["co_versao"]
+            for registro in linha["js_motores"]["motores"]
+        }
+        assert "dart" in registros, (
+            f"o jogo {linha['co_jogo']!r} ⛔ declara o motor `dart` em "
+            "`js_motores`, e e ele quem escolhe o lance desde a T093."
+        )
+        assert registros["dart"] == linha["co_versao_motor"]
+
+
+def test_nenhum_registro_chama_o_decisor_de_PYTHON(linhas) -> None:
+    """🔒 O rotulo que mentia ⛔ volta por descuido.
+
+    ⚠️ **Este caso existe por causa de uma reincidencia previsivel:** o port
+    Python das damas continua no repositorio, arbitrando, e e a coisa mais
+    natural do mundo alguem reescrever aqui o registro `python` ao mexer na
+    lista. O nome do caso diz o que ele impede.
+
+    ⛔ **Nao e proibicao de a palavra existir** — e de ela nomear um *motor* na
+    lista de quem produziu o lance.
+    """
+    for linha in linhas:
+        nomes = {registro["co_motor"] for registro in linha["js_motores"]["motores"]}
+        assert "python" not in nomes, (
+            f"o jogo {linha['co_jogo']!r} voltou a declarar um motor `python`. "
+            "Quem escolhe o lance nos dois jogos e o motor Dart compilado; o "
+            "Python das damas e ARBITRO e o do Pontinhos roda a inferencia."
+        )
+
+
+def test_o_resumo_do_carimbo_e_o_MESMO_que_o_executavel_confere(linhas) -> None:
+    """🔒 A metade que se compara com o aparelho sem tradutor no meio (T095).
+
+    ⚠️ **E o cadeado mais forte da lista, e vale explicar por que.** O
+    `co_versao_motor` resume o **espelho** — arquivos que so o servidor tem. O
+    `resumo_do_carimbo` resume os **fontes Dart**, e esse numero existe em tres
+    lugares ao mesmo tempo: carimbado dentro do executavel (o compilador o poe
+    la), conferido na abertura do processo, e exigido identico no aplicativo por
+    `paridade_motor_test.dart` / `paridade_motor_pontinhos_test.dart`.
+
+    Com ele na linha do banco, *"o servidor e o aparelho rodaram o mesmo
+    motor?"* se responde comparando dois hexadecimais — sem Git, sem refazer
+    conta e sem depender da formula de hoje.
+
+    ⛔ **Se este caso falhar, ⛔ conserte o numero esperado:** ou o espelho esta
+    velho (`scripts/espelhar_laboratorio.py`), ou a lista deixou de sair da mesma
+    funcao que o processo usa — que e a segunda fonte da verdade que este
+    modulo inteiro existe para impedir.
+    """
+    esperado = {
+        "damas": jogador_dart_damas.resumo_dos_fontes(),
+        "pontinhos": jogador_dart_pontinhos.resumo_dos_fontes(),
+    }
+    for linha in linhas:
+        registros = {
+            registro["co_motor"]: registro["co_versao"]
+            for registro in linha["js_motores"]["motores"]
+        }
+        declarado = registros.get("resumo_do_carimbo")
+        assert declarado is not None, (
+            f"o jogo {linha['co_jogo']!r} ⛔ declara `resumo_do_carimbo`."
+        )
+        inteiro = esperado[linha["co_jogo"]]
+        assert declarado == inteiro[: len(declarado)], (
+            f"o resumo declarado para {linha['co_jogo']!r} ⛔ e prefixo do "
+            f"resumo dos fontes Dart.\n"
+            f"  na linha:   {declarado}\n"
+            f"  nos fontes: {inteiro}"
+        )
+        assert len(declarado) == motor_mod.DIGITOS_DO_RESUMO_DART
 
 
 def test_o_carimbo_CABE_na_coluna(linhas) -> None:

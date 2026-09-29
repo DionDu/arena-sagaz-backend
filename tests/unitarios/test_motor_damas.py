@@ -428,12 +428,12 @@ def test_o_carimbo_identifica_o_motor_que_jogou(motor):
 def test_a_versao_do_motor_sai_dos_hashes_do_espelho():
     """⚠️ E não de um número escrito à mão, que envelhece calado.
 
-    A forma `damas-py-<8 hex>` cabe nos 40 caracteres da coluna e respeita a
+    A forma `damas-dart-<8 hex>` cabe nos 40 caracteres da coluna e respeita a
     forma que o carimbo exige — minúsculas, dígitos, ponto, hífen, sublinhado.
     """
     versao = versao_do_motor()
-    assert versao.startswith("damas-py-")
-    assert len(versao) == len("damas-py-") + 8
+    assert versao.startswith("damas-dart-")
+    assert len(versao) == len("damas-dart-") + 8
     assert versao == versao.lower()
     # Se ela não coubesse na coluna, ou tivesse forma estranha, o carimbo recusa.
     Carimbo(

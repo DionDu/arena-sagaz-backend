@@ -519,9 +519,13 @@ diferença é que agora as duas portas funcionam, em vez de uma estar quebrada.
    adversário Pita levou **287 s** (2,7 s de geração, 285 s de régua), o que dá
    ~15 min por dia. ⛔ O custo de um dia de `damas_sobreviver` (que já levou 17 min
    antes) não foi refeito.
-3. ⚠️ **O `co_versao_motor` continua com prefixo `damas-py-`**, e agora ele é
+3. ✅ **O `co_versao_motor` continua com prefixo `damas-py-`**, e agora ele é
    duplamente mentiroso: o espelho tem 16 `.dart` dentro e quem joga é o Dart.
-   Trocar o prefixo é migração de dado, não só de código.
+   ~~Trocar o prefixo é migração de dado, não só de código.~~ **Feito em
+   29/09/2026 (T095)**, e a frase riscada estava errada: ⛔ **não houve migração
+   de dado nenhuma**. As linhas antigas ficam como estão - `damas-py-` é o
+   carimbo correto de quando o Python jogava -, e o carimbo novo entra na
+   dimensão pelo próprio job, como qualquer carimbo novo sempre entrou.
 4. ⚠️ **O risco não medido da parte 2 continua aberto:** se o Dart no aparelho não
    cumprir 288 mil nós dentro dos 10 s num celular modesto, o relógio morde no
    app também, e dois aparelhos divergem pelo mesmo mecanismo.
@@ -780,8 +784,15 @@ aparelho, que é a **T094a**.
 
 ### O que esta parte deixa aberto
 
-- ⏳ **O prefixo `co_versao_motor`**: `pontinhos-py-` e `damas-py-` dizem "py", e
-  quem joga é o Dart nos dois. É transversal, e ⛔ era desta tarefa.
+- ✅ **O prefixo `co_versao_motor`**: `pontinhos-py-` e `damas-py-` diziam "py",
+  e quem joga é o Dart nos dois. Era transversal, e ⛔ era desta tarefa -
+  **fechado em 29/09/2026 (T095)**: `damas-dart-` e `pontinhos-dart-`, com os 8
+  dígitos intactos, e a lista `js_motores` passou a declarar o motor Dart e o
+  `resumo_do_carimbo` (no Pontinhos ela ⛔ mencionava o decisor). Ver
+  `historico_decisoes.md`, 2026-09-29.
+- ⏳ **Herdado de lá, e ainda aberto:** as damas metem `motor_dart/bin/` no
+  `co_versao_motor` e o Pontinhos ⛔ - um comentário corrigido no compilador das
+  damas ainda muda a versão de todos os desafios do dia.
 - ⏳ **T094a** - a CNN (TFLite) e o motor **Rust** no aparelho, que nenhum
   `flutter test` alcança.
 

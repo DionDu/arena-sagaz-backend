@@ -434,7 +434,7 @@ def test_a_versao_do_motor_identifica_a_rede_e_a_codificacao():
     número escrito à mão, que envelhece calado.
     """
     versao = versao_do_motor()
-    assert versao.startswith("pontinhos-py-")
+    assert versao.startswith("pontinhos-dart-")
     assert versao == versao.lower()
     Carimbo(  # cabe na coluna e respeita a forma exigida
         co_jogo="pontinhos",

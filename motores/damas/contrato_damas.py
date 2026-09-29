@@ -158,7 +158,7 @@ def arquivos_do_motor() -> tuple[dict[str, str], ...]:
     ⚠️ **Esta função existe para que a lista seja UMA só** (T049e). Ela nasceu de
     dentro de `versao_do_motor`, que é quem já sabia quais arquivos entram no
     resumo; `desafio.tb904_motor` precisa da mesma lista para tornar o
-    `damas-py-<8 hex>` decifrável, e reescrevê-la lá seria a segunda fonte que
+    `damas-dart-<8 hex>` decifrável, e reescrevê-la lá seria a segunda fonte que
     divergiria no primeiro arquivo novo do motor — com o sintoma pior possível:
     a linha do banco diria que o resumo saiu de um conjunto, e o resumo teria
     saído de outro.
@@ -190,21 +190,47 @@ def versao_do_motor() -> str:
     versão, e as medições novas ficam indistinguíveis das velhas no banco. É
     exatamente a armadilha de `co_versao_motor` registrada em 26/08/2026.
 
-    A forma é `damas-py-<8 hex>`, onde os 8 dígitos são o começo do SHA-256 da
+    A forma é `damas-dart-<8 hex>`, onde os 8 dígitos são o começo do SHA-256 da
     **lista de hashes** dos arquivos do motor de damas dentro do espelho. Cabe
     nos 40 caracteres da coluna e respeita a forma que o carimbo exige.
+
+    ═══════════════════════════════════════════════════════════════════════════
+    ⚠️ O PREFIXO ERA `damas-py-`, E MUDOU EM 29/09/2026 (T095)
+    ═══════════════════════════════════════════════════════════════════════════
+
+    Ele nasceu quando **era verdade**: até 25/09/2026 quem escolhia o lance no
+    servidor era o port Python destes arquivos, e o "py" dizia exatamente isso.
+    Naquele dia o motor Dart entrou (`motores/damas/jogador_dart.py`), o port
+    Python virou **árbitro** - valida regras, ⛔ escolhe lance -, e o prefixo
+    passou a afirmar uma coisa falsa sobre toda linha nova do banco. No Pontinhos
+    o mesmo aconteceu três dias depois (T093).
+
+    ⚠️ **E o defeito de um rótulo errado é que ele não dá erro.** Quem lesse
+    `damas-py-99ff17e7` meses depois concluiria que aquele desafio foi decidido
+    por um código Python que **não decide nada** - e procuraria a explicação de
+    um lance no arquivo errado.
+
+    ⛔ **Nada é reescrito.** As linhas com o prefixo antigo continuam no banco,
+    corretas para a época delas: `damas-py-` **é** o carimbo de quando o Python
+    jogava. Quem quiser saber qual foi qual lê a dimensão `desafio.tb904_motor`,
+    que guarda a lista de arquivos de cada resumo.
     """
     import hashlib
 
     # ⚠️ **Ordenado pelos HASHES, e não pelos caminhos** — e a diferença não é
     # cosmética: é esta ordem que o resumo de 8 dígitos já publicado no banco
-    # usou. Trocá-la por `sorted(por caminho)` daria outro `damas-py-…` sem que
+    # usou. Trocá-la por `sorted(por caminho)` daria outro `damas-dart-…` sem que
     # um único byte do motor tivesse mudado, e as medições novas ficariam
     # indistinguíveis de motor novo. A lista de arquivos vem de
     # `arquivos_do_motor()` para não haver dois filtros a divergir (T049e).
+    #
+    # ⚠️ **O prefixo mudou, os 8 dígitos NÃO.** A conta é a mesma de antes, de
+    # propósito: assim `damas-py-99ff17e7` e `damas-dart-99ff17e7` são
+    # reconhecivelmente **o mesmo espelho**, e a troca de rótulo não se disfarça
+    # de troca de motor.
     hashes = sorted(arquivo["sha256"] for arquivo in arquivos_do_motor())
     digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
-    return f"damas-py-{digesto[:8]}"
+    return f"damas-dart-{digesto[:8]}"
 
 
 def versao_do_contrato() -> str:

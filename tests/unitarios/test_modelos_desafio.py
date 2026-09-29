@@ -350,7 +350,7 @@ def test_a_taxa_da_regua_e_calculada_e_nao_guardada() -> None:
         nu_execucoes=20,
         nu_resolveu=14,
         co_versao_perfil="perfil-2026-09",
-        co_versao_motor="pontinhos-py-abcdef12",
+        co_versao_motor="pontinhos-dart-abcdef12",
         dh_medicao=datetime(2026, 9, 9, tzinfo=timezone.utc),
     )
     assert medicao.taxa == pytest.approx(0.7)
@@ -373,7 +373,7 @@ def test_personagem_fora_da_lista_e_recusado() -> None:
             nu_execucoes=20,
             nu_resolveu=14,
             co_versao_perfil="perfil-2026-09",
-            co_versao_motor="pontinhos-py-abcdef12",
+            co_versao_motor="pontinhos-dart-abcdef12",
             dh_medicao=datetime(2026, 9, 9, tzinfo=timezone.utc),
         )
 

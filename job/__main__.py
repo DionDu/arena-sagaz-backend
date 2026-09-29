@@ -203,6 +203,13 @@ class Relatorio:
     #: Versoes de motor que ja estao em desafios publicados e **nao existem na
     #: dimensao** — `["damas/damas-py-2f8e15cd"]`.
     #:
+    #: ⚠️ **Em 29/09/2026 (T095) o exemplo acima deixou de ser hipotetico**: o
+    #: prefixo passou de `-py-` a `-dart-`, e todo desafio publicado ANTES daquele
+    #: dia carrega a forma antiga. Eles ⛔ sao orfaos — a linha de dimensao de cada
+    #: um foi gravada quando ele era vigente, e ⛔ some. Aparecer aqui continua
+    #: significando o que sempre significou: alguem publicou com um motor que
+    #: nunca foi declarado.
+    #:
     #: ⛔ **Nao entra no `codigo_de_saida`**, e a razao e a mesma de
     #: `fora_da_banda`: e uma pendencia herdada da migracao `0022`, que nao
     #: quebra a execucao de hoje. O que ela faz e adiantar uma falha que so
