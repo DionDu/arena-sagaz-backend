@@ -4,15 +4,23 @@
 O PIPELINE, DE PONTA A PONTA
 ═══════════════════════════════════════════════════════════════════════════
 
-    matriz da partida {-1, 0, 1, 8}
-      → partida_para_dataset  → {0, 1, 8, 9}      (as regras do contrato)
-      → extrair_canais        → (4, 3, 12) em {0, 1}   (o código do laboratório)
+    sequência de lances
+      → MOTOR DART: partidaParaDataset + extrairCanais → (4, 3, 12) em {0, 1}
       → tensor (1, 4, 3, 12) float32
       → ai-edge-litert
       → 31 neurônios, um por traço possível
+      → MOTOR DART: renormaliza sobre os disponíveis e ordena
 
-É exatamente o que `oraculo_cnn_io.dart` faz no aparelho, com a mesma `.tflite` e
-o mesmo `mapeamento_pequeno.json` — que viajam no espelho justamente para isso.
+⚠️ **As duas pontas são o MOTOR DART desde a T093 (28/09/2026)** — o mesmo
+código, byte a byte, que o aplicativo embarca, compilado. Antes disso as duas
+existiam também em Python, aqui, e a de baixo divergia: o servidor desempatava a
+ordenação por rótulo e o aplicativo não. Ver `jogador_dart_pontinhos.py`.
+
+O miolo — a inferência — é o `ai-edge-litert` deste backend, com a mesma
+`.tflite` e o mesmo `mapeamento_pequeno.json` que viajam no espelho. ⚠️ **É a
+única peça que já tinha prova de paridade** com o runtime do aplicativo
+(`scripts/conferir_runtime_inferencia.py`, portão do build da imagem do job), e é
+por isso que ela ficou onde estava.
 
 ⚠️ **RF-DES-018b não diz "um modelo equivalente": diz o mesmo.** Um `.tflite`
 diferente, ainda que treinado igual, daria outro jogador — e o desafio calibrado
@@ -52,6 +60,7 @@ import numpy as np
 
 from motores.nucleo.carimbo import Carimbo
 from motores.nucleo.papeis import LimiteDeBusca, NivelDeMotor, Veredito
+from motores.pontinhos import jogador_dart_pontinhos
 
 # `parents[2]` sobe de `motores/pontinhos/este_arquivo.py` para a raiz do backend.
 RAIZ_BACKEND = Path(__file__).resolve().parents[2]
@@ -78,9 +87,11 @@ CANAIS = 12
 if str(ESPELHO) not in sys.path:
     sys.path.insert(0, str(ESPELHO))
 
-from jogos.jogo_pontinhos.motor.analisador_estrutural_pontinhos import (  # noqa: E402
-    extrair_canais,
-)
+# ⚠️ `extrair_canais` ⛔ e mais importado daqui: quem monta o tensor e o motor
+# Dart (T093). O `EstadoTabuleiro` fica - ele e o ARBITRO deste lado (traços
+# livres, placar, fim de partida), e e o mesmo codigo que gerou o dataset de
+# treino. ⚠️ Que ele e o Dart concordam lance a lance e o que
+# `test_arbitro_pontinhos_concorda_com_o_dart.py` confere, partida inteira.
 from jogos.jogo_pontinhos.motor.tabuleiro_pontinhos import (  # noqa: E402
     EstadoTabuleiro,
 )
@@ -104,7 +115,8 @@ def partida_para_dataset(matriz: np.ndarray) -> np.ndarray:
     ⛔ **não** se reescreve é `extrair_canais`, com a BFS no grafo dual.
 
     As outras duas cópias destas mesmas regras são
-    `partidaParaDataset` em `encoding_cnn.dart` (o aplicativo) e
+    `partidaParaDataset` em `encoding_cnn_pontinhos.dart` (o motor Dart, que o
+    aplicativo embarca e o servidor compila) e
     `_partida_para_dataset` no simulador do laboratório. As três citam o
     contrato, e `test_motor_pontinhos.py` compara esta com a do laboratório
     quando ele está no disco.
@@ -261,17 +273,35 @@ def contrato_de_codificacao() -> dict:
 
 #: Os prefixos do manifesto que definem o jogador do Pontinhos.
 #:
-#: ⚠️ **São TRÊS porque o jogador é três coisas**: o código que codifica o
-#: tabuleiro (`jogos/jogo_pontinhos/`), o modelo que decide (`modelos/`) e o
-#: mapeamento que traduz o neurônio de saída em traço (`ia_mappings/`). Trocar
-#: qualquer um dos três muda o lance escolhido — e é por isso que os três entram
-#: no resumo.
+#: ⚠️ **São QUATRO porque o jogador é quatro coisas**: as regras do tabuleiro
+#: (`jogo_pontinhos/motor/`), o **motor Dart** que monta o tensor e aplica a
+#: política (`jogo_pontinhos/motor_dart/lib/`, desde a T093), o modelo que decide
+#: (`modelos/`) e o mapeamento que traduz o neurônio de saída em traço
+#: (`ia_mappings/`). Trocar qualquer um dos quatro muda o lance escolhido — e é
+#: por isso que os quatro entram no resumo.
+#:
+#: ⛔ **`motor_dart/bin/` e o `pubspec.yaml` NÃO entram**, e o corte é
+#: deliberado: eles constroem o executável, mas ⛔ definem o jogador. Um
+#: comentário corrigido no compilador mudaria o `co_versao_motor` de todos os
+#: desafios do dia, e duas épocas iguais ficariam indistinguíveis no banco por um
+#: motivo que não é o delas. Quem prova que o binário saiu destes fontes é o
+#: carimbo, conferido na abertura do processo.
+#:
+#: ⚠️ **O prefixo `pontinhos-py-` ficou para trás**, e é a pendência que a T093
+#: deixa aberta: quem decide o lance é o Dart, e o "py" só descreve quem roda a
+#: inferência. Trocá-lo é decisão transversal (as damas têm `damas-py-` pelo
+#: mesmo motivo, desde 25/09/2026) e ⛔ é desta tarefa.
 #:
 #: ⛔ **Era uma variável local dentro de `versao_do_motor`**, e subiu para cá em
 #: 11/09/2026 (T049e): `desafio.tb904_motor` precisa listar exatamente estes
 #: arquivos, e um segundo filtro escrito lá divergiria deste no dia em que um
 #: quarto prefixo entrasse.
-PREFIXOS_DO_MOTOR = ("jogos/jogo_pontinhos/", "modelos/", "ia_mappings/")
+PREFIXOS_DO_MOTOR = (
+    "jogos/jogo_pontinhos/motor/",
+    "jogos/jogo_pontinhos/motor_dart/lib/",
+    "modelos/",
+    "ia_mappings/",
+)
 
 
 def arquivos_do_motor() -> tuple[dict[str, str], ...]:
@@ -375,8 +405,14 @@ class MotorPontinhos:
         """Os traços disponíveis com a probabilidade da rede, do maior ao menor.
 
         As probabilidades são **renormalizadas sobre os disponíveis**, para que
-        somem 1 — é sobre essa distribuição que a política de cada nível decide,
-        e é o que `oraculo_cnn_io.dart` faz no aparelho.
+        somem 1 — é sobre essa distribuição que a política de cada nível decide.
+
+        ⚠️ **Quem renormaliza e ORDENA é o motor Dart** (T093, 28/09/2026), e
+        não este arquivo. A ordem não é cosmética: é sobre ela que a política
+        sorteia, e enquanto os dois lados ordenavam por conta própria eles
+        divergiam - o servidor desempatava por rótulo e o aplicativo não.
+        Chamar o Dart aqui é o que faz "o topo" ser o mesmo conjunto dos dois
+        lados.
 
         Raises:
             ValueError: se a partida já acabou.
@@ -385,38 +421,55 @@ class MotorPontinhos:
         if not disponiveis:
             raise ValueError("a partida já acabou: não há traço a ranquear.")
 
-        probabilidades = self._inferir(estado)
-        rotulos = _rotulos()
+        return jogador_dart_pontinhos.jogador_compartilhado().ranquear(
+            lances=estado.lances,
+            softmax=self.softmax(estado),
+            mapeamento=self.mapeamento_de_rotulos,
+        )
 
-        def prob_de(rotulo: str) -> float:
-            indice = rotulos.get(rotulo)
-            if indice is None or indice >= len(probabilidades):
-                return 0.0
-            return float(probabilidades[indice])
+    @property
+    def mapeamento_de_rotulos(self) -> dict[str, int]:
+        """Rótulo do traço → índice do neurônio de saída, lido do espelho.
 
-        soma = sum(prob_de(r) for r in disponiveis)
-        if soma > 0:
-            ranqueados = [(r, prob_de(r) / soma) for r in disponiveis]
-        else:
-            # A rede não pôs peso em nenhum traço livre. Distribuir igualmente é
-            # o que o aplicativo faz, e mantém a soma em 1 — devolver zeros faria
-            # a política sortear sobre uma distribuição vazia.
-            uniforme = 1.0 / len(disponiveis)
-            ranqueados = [(r, uniforme) for r in disponiveis]
+        ⚠️ Público porque **a política precisa dele para falar com o motor
+        Dart**: é ele que traduz os 31 números da rede em traços, e o Dart o
+        recebe em cada pedido - sem estado guardado entre chamadas, para a
+        resposta não depender da ordem em que os pedidos chegaram.
+        """
+        return _rotulos()
 
-        # Ordem estável: pela probabilidade, e pelo rótulo em caso de empate. Sem
-        # o segundo critério, dois traços com a mesma nota trocariam de lugar
-        # entre execuções, e a calibração deixaria de ser reprodutível.
-        ranqueados.sort(key=lambda par: (-par[1], par[0]))
-        return ranqueados
+    def softmax(self, estado: EstadoPontinhos) -> list[float]:
+        """A saída CRUA da rede para esta partida - os 31 neurônios.
+
+        ⚠️ **É a fronteira com o motor Dart**: ele monta o tensor, isto aqui
+        infere, e ele decide. Quem quiser o ranqueamento já pronto chama
+        [ranquear].
+        """
+        return [float(p) for p in self._inferir(estado)]
 
     def _inferir(self, estado: EstadoPontinhos) -> np.ndarray:
-        """Roda a CNN e devolve os 31 neurônios crus (a softmax do modelo)."""
-        matriz_dataset = partida_para_dataset(estado.tabuleiro.matriz)
-        canais = extrair_canais(matriz_dataset)  # (4, 3, 12) em {0, 1}
+        """Roda a CNN e devolve os 31 neurônios crus (a softmax do modelo).
 
-        # `[None]` acrescenta a dimensão de lote: (4,3,12) → (1,4,3,12).
-        tensor = np.asarray(canais, dtype=np.float32)[None]
+        ⚠️ **O TENSOR VEM DO MOTOR DART** desde a T093 (28/09/2026), e não de
+        `extrair_canais` aqui. Eram duas escritas da mesma conta - a do aparelho
+        e a daqui -, e a extração dos 12 canais tem BFS no grafo dual das caixas:
+        o tipo de código que uma segunda escrita erra em silêncio, com o tensor
+        saindo plausível e a rede respondendo outra coisa.
+
+        ⚠️ **A INFERÊNCIA continua aqui**, e é decisão: ela é a única peça do
+        Pontinhos que já tinha prova de paridade com o aplicativo
+        (`scripts/conferir_runtime_inferencia.py`, portão do build da imagem do
+        job). O porquê inteiro está em `jogador_dart_pontinhos.py`.
+        """
+        do_motor = jogador_dart_pontinhos.jogador_compartilhado().canais(
+            estado.lances
+        )
+        # O motor entrega os 144 valores achatados, na ordem (r, c, k). O
+        # `reshape` com o 1 na frente acrescenta a dimensão de lote que o modelo
+        # espera: (1, 4, 3, 12).
+        tensor = np.asarray(do_motor["tensor"], dtype=np.float32).reshape(
+            1, LINHAS, COLUNAS, CANAIS
+        )
 
         interp = _interpretador()
         interp.set_tensor(interp.get_input_details()[0]["index"], tensor)

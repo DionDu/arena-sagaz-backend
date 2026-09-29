@@ -725,3 +725,63 @@ chegar.
 O formato, as decisões e o comando de regeração estão em
 `arena-sagaz-frontend/specs/009-desafio-do-dia/contracts/vetores-paridade-motores.md`;
 o histórico, na entrada `2026-09-28` de `docs/historico_decisoes.md`.
+
+---
+
+## ✅ PARTE 5 — o Pontinhos entra, e o defeito dele era 37% dos lances (28/09/2026)
+
+A investigação nasceu nas damas, mas a pergunta sempre foi do hub: *"os dois
+motores jogam idêntico?"*. Para o **Pontinhos** a resposta era ⛔ - e de um jeito
+pior, porque ⛔ dava erro nenhum.
+
+### O que divergia
+
+A CNN já estava provada idêntica nos dois lados desde a T001
+(`scripts/conferir_runtime_inferencia.py`, portão do build). O que divergia era o
+que se faz com os números dela:
+
+| o quê | por quê |
+|---|---|
+| o **sorteador** | `random.Random` é o Mersenne Twister; o `Random` do Dart é um xorshift. ⛔ Mesma semente, sequências diferentes |
+| a **ordem** do ranqueamento | o servidor desempatava por rótulo (`key=(-p, rótulo)`); o aplicativo ordena só pela nota - e é sobre essa ordem que a política sorteia |
+
+### O número
+
+> **139 dos 372 meios-lances da bancada (37%) divergiriam, e 11 das 12 partidas
+> se separavam já no lance 1.**
+
+⚠️ **Nas damas a divergência grita**: o gabarito não bate e o lance recusado
+aparece. No Pontinhos o lance sai plausível, a partida corre até o fim, e a única
+evidência seria o gabarito não ser seguível lance a lance contra Cacau, Pita ou
+Tex - o que ninguém tinha conferido.
+
+### A correção, e a fronteira escolhida
+
+O motor Dart do Pontinhos foi para o servidor, com a corrente inteira (T093). A
+fronteira ficou nos **números da rede**: o Dart monta o tensor dos 12 canais, o
+`ai-edge-litert` daqui roda o modelo, e o Dart renormaliza, ordena e decide.
+
+⛔ **O FFI para a `libtensorflowlite_c` foi recusado, com motivo:** ele traria um
+**terceiro** runtime (Linux x86-64, dentro da imagem), diferente tanto do
+`ai-edge-litert` quanto do que o aparelho Android carrega - compraria paridade de
+inferência nenhuma, e ainda acrescentaria um blob binário à imagem, com trava
+própria para manter. A peça que já tinha prova ficou onde estava; a que não tinha
+foi para o Dart.
+
+### A prova
+
+12 partidas, 372 meios-lances, os 4 níveis × 3 sementes-mestras, reproduzidos
+pelo aplicativo **lance a lance e `co_acao` a `co_acao`, sem uma divergência**
+(`contracts/vetores-paridade-pontinhos.md`).
+
+⚠️ **A softmax de cada lance viaja no arquivo**, e é o que torna a bancada
+possível: em `flutter test` ⛔ há TFLite. O que fica de fora é nomeado - a CNN no
+aparelho, que é a **T094a**.
+
+### O que esta parte deixa aberto
+
+- ⏳ **O prefixo `co_versao_motor`**: `pontinhos-py-` e `damas-py-` dizem "py", e
+  quem joga é o Dart nos dois. É transversal, e ⛔ era desta tarefa.
+- ⏳ **T094a** - a CNN (TFLite) e o motor **Rust** no aparelho, que nenhum
+  `flutter test` alcança.
+

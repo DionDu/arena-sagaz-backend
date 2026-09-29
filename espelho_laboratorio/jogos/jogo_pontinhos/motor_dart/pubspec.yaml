@@ -1,0 +1,59 @@
+# O motor do Jogo dos Pontinhos em Dart, como pacote (T093, 28/09/2026).
+#
+# ── Por que ele nasceu, e por que nasceu AQUI ────────────────────────────────
+#
+# O código que decide o lance do Pontinhos existia em dois lugares: em Dart,
+# dentro do aplicativo (`lib/modulos/jogos/pontinhos/logica/`), e em Python, no
+# servidor (`motores/pontinhos/`). Duas escritas da mesma regra divergem - e
+# divergiram: a ordem das listas sorteadas e, sobretudo, o **sorteador** (o
+# Mersenne Twister do Python contra o xorshift do Dart, que com a mesma semente
+# dao sequencias diferentes).
+#
+# ⚠️ **E a divergencia do Pontinhos e pior que a das damas**, porque nao da erro:
+# o lance sai plausivel, a partida corre ate o fim, e a unica evidencia e o
+# gabarito do desafio nao bater com o que a pessoa joga no aparelho.
+#
+# A decisao do dono, em 26/09/2026 (`docs/DECISOES-do-dono.md` §8zj item 1), foi
+# a mesma que as damas tomaram um dia antes: **levar o Dart para dentro do
+# servidor**, com a corrente de travas inteira. Entao o codigo sobe do aplicativo
+# para ca, o aplicativo passa a embarcar uma copia byte-identica, e o servidor
+# joga com este mesmo pacote compilado.
+#
+# ── A corrente ───────────────────────────────────────────────────────────────
+#
+#   app        == laboratorio  `paridade_motor_pontinhos_test.dart`, SHA-256 dos
+#                              cinco arquivos de `lib/`
+#   executavel == laboratorio  `bin/compilar_servidor_de_lances_pontinhos.dart`,
+#                              que carimba o resumo dentro do binario
+#   espelho    == laboratorio  `scripts/espelhar_laboratorio.py` + o manifesto
+#   ───────────────────────────────────────────────────────────────────────────
+#   logo, executavel == app
+name: motor_pontinhos
+description: >-
+  O motor do Jogo dos Pontinhos (regras do tabuleiro, os 12 canais da CNN e a
+  politica de dificuldade) em Dart puro - o codigo que roda no aparelho. A
+  inferencia ⛔ mora aqui: este pacote recebe a saida da rede e decide.
+publish_to: none
+version: 0.1.0
+
+environment:
+  # Sem limite superior, pelo mesmo motivo do `motor_damas`: este pacote nao usa
+  # nada de bleeding edge, e travar a versao so criaria atrito com o Flutter do
+  # aplicativo que embarca a copia.
+  sdk: ^3.0.0
+
+# ⛔ **Nenhuma dependencia, e e para continuar assim.** Os arquivos de `lib/`
+# entram dentro do aplicativo da Arena Sagaz; cada dependencia nova aqui vira uma
+# dependencia nova la.
+dependencies:
+
+dev_dependencies:
+  lints: ^5.0.0
+  # Só para `bin/compilar_servidor_de_lances_pontinhos.dart`, que carimba no
+  # executável o SHA-256 dos arquivos de `lib/`.
+  #
+  # ⚠️ **Nao fere a regra de "nenhuma dependencia" acima**, e a diferenca e
+  # estrutural: o que entra no aplicativo sao os arquivos de `lib/`, copiados um
+  # a um. `bin/` ⛔ e copiado, e `dev_dependencies` ⛔ viaja para quem consome o
+  # pacote.
+  crypto: ^3.0.0

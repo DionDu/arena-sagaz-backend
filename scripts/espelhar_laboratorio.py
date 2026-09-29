@@ -140,14 +140,14 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     # a regua sao jogados pelo executavel do motor Dart, e nao pelo port Python.
     # Um executavel e opaco - olhando para ele, ninguem sabe de que fontes veio.
     #
-    # O executavel carrega um carimbo com o SHA-256 destes quinze arquivos
+    # O executavel carrega um carimbo com o SHA-256 destes dezesseis arquivos
     # (gravado por `motor_dart/bin/compilar_servidor_de_lances.dart`), e o
     # backend recalcula o mesmo resumo a partir DESTAS copias na abertura do
     # processo. Divergiu, recusa a conversa.
     #
     # ⚠️ **E o que fecha a corrente ate o aparelho:** `paridade_motor_test.dart`
-    # ja prova, por SHA-256, que os quinze arquivos do app sao byte-identicos aos
-    # do laboratorio. Com o executavel preso aos mesmos quinze, o motor do
+    # ja prova, por SHA-256, que os dezesseis arquivos do app sao byte-identicos
+    # aos do laboratorio. Com o executavel preso aos mesmos dezesseis, o motor do
     # servidor e o motor do aparelho sao o mesmo codigo, e nao "a mesma versao".
     "jogos/jogo_damas/motor_dart/lib/avaliacao_damas.dart",
     "jogos/jogo_damas/motor_dart/lib/avaliacao_treinada_damas.dart",
@@ -185,6 +185,35 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     "jogos/jogo_damas/motor_dart/pubspec.yaml",
     "jogos/jogo_damas/motor_dart/bin/servidor_de_lances_damas.dart",
     "jogos/jogo_damas/motor_dart/bin/compilar_servidor_de_lances.dart",
+    # ── O MOTOR DART DO PONTINHOS (T093, 28/09/2026) ───────────────────────
+    #
+    # ⛔ **A mesma corrente das damas, pelo mesmo motivo.** Ate 28/09/2026 a
+    # politica de dificuldade do Pontinhos existia duas vezes - em Dart, no
+    # aplicativo, e em Python, em `motores/pontinhos/politica.py` -, e as duas
+    # divergiam no sorteador (Mersenne Twister × xorshift: mesma semente,
+    # sequencias diferentes) e na ordem das listas sorteadas.
+    #
+    # ⚠️ **E aqui a divergencia ⛔ dava erro**: o lance saia plausivel, a partida
+    # corria ate o fim, e a unica evidencia seria o gabarito do desafio nao ser
+    # seguivel lance a lance contra Cacau, Pita ou Tex.
+    #
+    # Os cinco arquivos de `lib/` sao os que o executavel carimba e os que o
+    # aplicativo embarca (`paridade_motor_pontinhos_test.dart`); o `pubspec` e os
+    # dois de `bin/` sao o que a imagem do job precisa para compilar o binario
+    # Linux ela mesma, com o mesmo programa que compila na maquina do dono.
+    #
+    # ⛔ **A INFERENCIA nao esta aqui, e nao e esquecimento**: a CNN continua
+    # rodando no `ai-edge-litert` deste backend, que ja tem prova de paridade
+    # contra o runtime do aplicativo (`conferir_runtime_inferencia.py`, portao do
+    # build). O que atravessa a fronteira sao os numeros da rede.
+    "jogos/jogo_pontinhos/motor_dart/lib/analise_tabuleiro_pontinhos.dart",
+    "jogos/jogo_pontinhos/motor_dart/lib/dificuldade_pontinhos.dart",
+    "jogos/jogo_pontinhos/motor_dart/lib/encoding_cnn_pontinhos.dart",
+    "jogos/jogo_pontinhos/motor_dart/lib/politica_dificuldade_pontinhos.dart",
+    "jogos/jogo_pontinhos/motor_dart/lib/tabuleiro_pontinhos.dart",
+    "jogos/jogo_pontinhos/motor_dart/pubspec.yaml",
+    "jogos/jogo_pontinhos/motor_dart/bin/servidor_de_lances_pontinhos.dart",
+    "jogos/jogo_pontinhos/motor_dart/bin/compilar_servidor_de_lances_pontinhos.dart",
 )
 
 
@@ -195,8 +224,9 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
 # ⚠️ **A fonte da verdade de cada jogo está num lugar diferente, e isso é
 # deliberado** (R-20). No damas, a política de dificuldade vive no Python do
 # laboratório e o contrato é **gerado** dela. No Pontinhos, ela vive em **Dart**,
-# no enum `Dificuldade` de `lib/modulos/jogos/pontinhos/logica/modelos.dart` — o
-# aplicativo é a origem, e o contrato é a declaração dela.
+# no enum `Dificuldade` do **motor Dart** (`jogo_pontinhos/motor_dart/lib/
+# dificuldade_pontinhos.dart`, que o aplicativo embarca byte a byte desde a
+# T093) — o aplicativo é a origem, e o contrato é a declaração dela.
 #
 # Então o espelho tem duas origens. ⛔ Não "uniformize": fingir que o Pontinhos
 # vem do laboratório criaria uma segunda fonte de números de dificuldade, que é

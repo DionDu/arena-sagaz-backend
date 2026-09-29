@@ -123,6 +123,9 @@ def conferir_o_motor() -> None:
     executavel (carimbado com o SHA-256 dos fontes) e a base de finais que o
     aplicativo embarca.
 
+    ⚠️ **E desde 28/09/2026 (T093) sao DOIS motores**: o Pontinhos tambem decide
+    com um executavel Dart carimbado, e ele e conferido aqui pelo mesmo motivo.
+
     ⛔ **Faltando qualquer uma, o job falha - e falha bem.** O que nao pode
     acontecer e descobrir isso no meio da geracao do quarto dia, depois de
     quarenta minutos de regua. Aqui custa dois segundos, e a mensagem de cada
@@ -133,6 +136,7 @@ def conferir_o_motor() -> None:
     """
     from motores.damas.jogador_dart import JogadorDart, pasta_da_base_de_finais
     from motores.damas.motor_damas import motor_de_busca_escolhido
+    from motores.pontinhos.jogador_dart_pontinhos import JogadorDartPontinhos
 
     escolhido = motor_de_busca_escolhido()
     if escolhido != "dart":
@@ -153,6 +157,16 @@ def conferir_o_motor() -> None:
     for co_modalidade in ("brasileira", "anglo", "portuguesa", "casa"):
         pasta_da_base_de_finais(co_modalidade)
     print("[rodar_job_local] base de finais: as quatro modalidades no lugar")
+
+    # ⚠️ **SAO DOIS MOTORES desde a T093 (28/09/2026).** O Pontinhos tambem
+    # decide com o Dart compilado, e a fila do dia tem candidatos dos dois jogos:
+    # descobrir que falta o executavel do segundo depois de quarenta minutos de
+    # regua de damas e descobrir tarde.
+    with JogadorDartPontinhos() as jogador:
+        print(
+            f"[rodar_job_local] motor do Pontinhos: dart, resumo "
+            f"{jogador.resumo_do_motor[:16]} (a trava passou)"
+        )
 
 
 def main() -> int:

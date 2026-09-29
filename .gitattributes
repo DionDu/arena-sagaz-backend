@@ -67,3 +67,16 @@ contratos/catalogo_feitos.json -text
 # linha faria as duas divergirem por um motivo que não tem nada a ver com o
 # conteúdo.
 contratos/vetores-verificacao-desafio.json -text
+
+# ⚠️ AS BANCADAS DE PARIDADE (T093/T094, 28/09/2026) - mesma disciplina, mesmo
+# motivo: duas copias comparadas por SHA-256, uma em cada repositorio
+# (`test_vetores_paridade_motores.py` e `test_vetores_paridade_pontinhos.py`).
+#
+# ⛔ **A regra faltou quando a bancada de damas nasceu**, e o defeito e do tipo
+# que so aparece num clone novo: quem gera os dois arquivos escreve LF nos dois,
+# entao na maquina de quem gerou eles batem. Depois de um checkout com
+# `core.autocrlf=true` de um lado so - um iMac, um CI, um `git config`
+# diferente -, as duas copias deixariam de bater por um motivo que nao tem nada
+# a ver com o conteudo.
+contratos/vetores-paridade-motores.json -text
+contratos/vetores-paridade-pontinhos.json -text

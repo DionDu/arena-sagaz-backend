@@ -74,3 +74,5 @@ requirements.txt
 # o `pub get` tem de resolver DENTRO da imagem, e nao herdar um lock do Windows.
 espelho_laboratorio/jogos/jogo_damas/motor_dart/.dart_tool/
 espelho_laboratorio/jogos/jogo_damas/motor_dart/pubspec.lock
+espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/.dart_tool/
+espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/pubspec.lock

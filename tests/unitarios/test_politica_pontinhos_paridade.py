@@ -25,7 +25,7 @@ está neste repositório.
 """
 
 import ast
-import random
+import re
 from pathlib import Path
 
 import pytest
@@ -36,11 +36,11 @@ from motores.pontinhos.motor_pontinhos import (
     MotorPontinhos,
     estado_inicial,
 )
+from motores.pontinhos.jogador_dart_pontinhos import FONTES_DO_MOTOR_DART
 from motores.pontinhos.politica import (
     CASAS_DO_DESEMPATE,
     AcaoCpu,
     _CHAVE_DO_CONTRATO_POR_NIVEL,
-    _separar_topo,
     JogadorPontinhos,
     capturas_disponiveis,
     carregar_contrato,
@@ -150,31 +150,34 @@ def test_o_desempate_arredonda_a_tres_casas():
     que a rede considera praticamente idêntico ao melhor (0,4001 contra 0,4004)
     contaria como "pior", e a CPU "erraria" escolhendo um lance tão bom quanto o
     argmax — o que não é erro nenhum.
+
+    ⚠️ **Quem APLICA o número é o motor Dart desde a T093**, e por isso este caso
+    o confere no fonte espelhado, e não numa função daqui. Um número declarado de
+    um lado e aplicado do outro, sem ninguém comparar, é a definição de
+    comentário que envelhece calado.
     """
     assert CASAS_DO_DESEMPATE == 3
 
-    # 0,4004 e 0,4001 arredondam para 0,400: os dois são topo.
-    topo, resto = _separar_topo([("A", 0.4004), ("B", 0.4001), ("C", 0.2)])
-    assert set(topo) == {"A", "B"}
-    assert resto == ["C"]
+    fonte = (FONTES_DO_MOTOR_DART / "politica_dificuldade_pontinhos.dart").read_text(
+        encoding="utf-8"
+    )
+    achado = re.search(r"const int casasDoDesempate = (\d+);", fonte)
+    assert achado, (
+        "não achei `casasDoDesempate` em politica_dificuldade_pontinhos.dart. "
+        "Ele foi renomeado? Este cadeado precisa acompanhar."
+    )
+    assert int(achado.group(1)) == CASAS_DO_DESEMPATE, (
+        f"o motor arredonda a {achado.group(1)} casas e este backend declara "
+        f"{CASAS_DO_DESEMPATE}. Os dois falam do MESMO número - o que separa o "
+        f"topo do resto, e portanto o que conta como erro de propósito."
+    )
 
 
-def test_o_topo_nunca_e_vazio():
-    """Se estivesse, a fase tática não teria o que jogar ao acertar."""
-    topo, resto = _separar_topo([("A", 0.5)])
-    assert topo == ["A"]
-    assert resto == []
-
-
-def test_quando_todos_empatam_no_topo_nao_ha_como_errar(motor):
-    """⚠️ O ε não tem o que fazer: qualquer escolha é ótima.
-
-    Sem esta guarda, um `epsilon` alto sortearia numa lista vazia e quebraria a
-    partida — num caso raro, que só apareceria em produção.
-    """
-    topo, resto = _separar_topo([("A", 0.5), ("B", 0.5)])
-    assert resto == []
-    assert set(topo) == {"A", "B"}
+# ⚠️ **A separação do topo em si é conferida do lado Dart**, em
+# `test/jogos/pontinhos/oraculo_test.dart`, com rankings sintéticos: é lá que dá
+# para construir "todos empatados no topo" e "um lance só", que a CNN real nunca
+# entrega de encomenda. Os casos que moravam aqui testavam uma função Python que
+# ⛔ decide mais nada.
 
 
 # ── 3. As três fases, portadas na ordem certa ──────────────────────────────
@@ -191,9 +194,10 @@ def test_o_magno_NUNCA_fecha_caixa_pela_fase_gulosa(motor):
     estado = EstadoPontinhos(lances=("H_0_1", "V_1_0", "V_1_2"))
     assert capturas_disponiveis(motor, estado) == ["H_2_1"]
 
-    sorteio = random.Random(1)
-    for _ in range(20):
-        decisao = escolher_lance(motor, estado, NivelDeMotor.SAGAZ, sorteio)
+    # ⚠️ Uma semente NOVA a cada volta, e não um sorteador de vida longa: quem
+    # sorteia agora é o motor Dart, e a semente é o que atravessa a fronteira.
+    for i in range(20):
+        decisao = escolher_lance(motor, estado, NivelDeMotor.SAGAZ, semente=1 + i)
         assert decisao.co_acao != AcaoCpu.CAPTURA_GULOSA
 
 
@@ -209,9 +213,8 @@ def test_os_outros_tres_SEMPRE_fecham_caixa_de_graca(motor, nivel):
     dificuldade — e ainda quebraria o turno extra que encadeia a cadeia inteira.
     """
     estado = EstadoPontinhos(lances=("H_0_1", "V_1_0", "V_1_2"))
-    sorteio = random.Random(7)
-    for _ in range(20):
-        decisao = escolher_lance(motor, estado, nivel, sorteio)
+    for i in range(20):
+        decisao = escolher_lance(motor, estado, nivel, semente=7 + i)
         assert decisao.co_acao == AcaoCpu.CAPTURA_GULOSA
         assert decisao.lance == "H_2_1"
 
@@ -223,15 +226,14 @@ def test_so_o_magno_sorteia_a_abertura(motor):
     traço. No desafio, isso seria um dia igual ao outro.
     """
     vazio = estado_inicial()
-    sorteio = random.Random(3)
 
     assert (
-        escolher_lance(motor, vazio, NivelDeMotor.SAGAZ, sorteio).co_acao
+        escolher_lance(motor, vazio, NivelDeMotor.SAGAZ, semente=3).co_acao
         == AcaoCpu.CNN_ABERTURA_ALEATORIA
     )
     # Os outros três não passam por lá: o epsilon deles já dá variedade.
     for nivel in (NivelDeMotor.CACAU, NivelDeMotor.PITA, NivelDeMotor.TEX):
-        acao = escolher_lance(motor, vazio, nivel, random.Random(3)).co_acao
+        acao = escolher_lance(motor, vazio, nivel, semente=3).co_acao
         assert acao != AcaoCpu.CNN_ABERTURA_ALEATORIA
 
 
@@ -239,7 +241,7 @@ def test_o_magno_nao_sorteia_quando_NAO_foi_ele_quem_abriu(motor):
     """Se o oponente abriu, o Magno segue rede e argmax, como sempre."""
     depois_da_abertura = EstadoPontinhos(lances=("H_0_1",))
     acao = escolher_lance(
-        motor, depois_da_abertura, NivelDeMotor.SAGAZ, random.Random(3)
+        motor, depois_da_abertura, NivelDeMotor.SAGAZ, semente=3
     ).co_acao
     assert acao in (AcaoCpu.CNN_ARGMAX_ABSOLUTO, AcaoCpu.CNN_ARGMAX_DESEMPATADO)
 
@@ -247,9 +249,8 @@ def test_o_magno_nao_sorteia_quando_NAO_foi_ele_quem_abriu(motor):
 def test_o_magno_nunca_erra_de_proposito(motor):
     """Epsilon 0. É a reputação do Magno, e ela é ativo do produto."""
     estado = EstadoPontinhos(lances=("H_0_1", "H_0_3"))
-    sorteio = random.Random(11)
-    for _ in range(30):
-        decisao = escolher_lance(motor, estado, NivelDeMotor.SAGAZ, sorteio)
+    for i in range(30):
+        decisao = escolher_lance(motor, estado, NivelDeMotor.SAGAZ, semente=11 + i)
         assert decisao.co_acao != AcaoCpu.CNN_EPSILON_ALEATORIO
 
 
@@ -262,12 +263,10 @@ def test_a_cacau_erra_perto_dos_oitenta_por_cento_das_jogadas_taticas(motor):
     """
     # Uma posição sem captura de graça, para que a fase A não roube a decisão.
     estado = EstadoPontinhos(lances=("H_0_1", "H_0_3"))
-    sorteio = random.Random(2026)
-
     erros = sum(
-        escolher_lance(motor, estado, NivelDeMotor.CACAU, sorteio).co_acao
+        escolher_lance(motor, estado, NivelDeMotor.CACAU, semente=2026 + i).co_acao
         == AcaoCpu.CNN_EPSILON_ALEATORIO
-        for _ in range(400)
+        for i in range(400)
     )
     proporcao = erros / 400
     esperado = parametros_do_nivel(NivelDeMotor.CACAU).epsilon
@@ -286,11 +285,10 @@ def test_a_escada_de_erro_cai_do_cacau_ao_magno(motor):
     estado = EstadoPontinhos(lances=("H_0_1", "H_0_3"))
     proporcoes = []
     for nivel in NivelDeMotor:
-        sorteio = random.Random(99)
         erros = sum(
-            escolher_lance(motor, estado, nivel, sorteio).co_acao
+            escolher_lance(motor, estado, nivel, semente=99 + i).co_acao
             == AcaoCpu.CNN_EPSILON_ALEATORIO
-            for _ in range(200)
+            for i in range(200)
         )
         proporcoes.append(erros / 200)
 
@@ -331,12 +329,13 @@ def test_toda_decisao_sai_com_um_codigo_de_acao_conhecido(motor):
         for nome, valor in vars(AcaoCpu).items()
         if not nome.startswith("_") and isinstance(valor, str)
     }
-    sorteio = random.Random(5)
     estado = estado_inicial()
+    semente = 5
     while motor.lances_legais(estado):
-        decisao = escolher_lance(motor, estado, NivelDeMotor.PITA, sorteio)
+        decisao = escolher_lance(motor, estado, NivelDeMotor.PITA, semente=semente)
         assert decisao.co_acao in conhecidos
         estado = motor.aplicar(estado, decisao.lance)
+        semente += 1  # semente por lance, como o job deriva
 
 
 # ── 5. Reprodutibilidade ───────────────────────────────────────────────────

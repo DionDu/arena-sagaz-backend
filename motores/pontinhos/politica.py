@@ -31,20 +31,41 @@ AS TRÊS FASES, NA ORDEM EM QUE O APLICATIVO AS APLICA
     FASE A — gulosa        Cacau/Pita/Tex: fecha caixa de graça sem ver a CNN
     FASE B — tática        todos: ε-greedy sobre o ranqueamento da rede
 
-É um porte fiel de `escolherLance`, em `oraculo.dart`. ⛔ Divergir dele em
-qualquer detalhe — a ordem das fases, o arredondamento do empate, o que conta
-como "topo" — faria o servidor medir um jogador que o aparelho não tem.
+⚠️ **E QUEM AS APLICA ⛔ É MAIS ESTE ARQUIVO, desde a T093 (28/09/2026).** As
+três fases moram no motor Dart, em `politica_dificuldade_pontinhos.dart`, e é ele
+- compilado, byte-idêntico ao que o aplicativo embarca - que decide. Este módulo
+ficou com o que é **do servidor**: ler o contrato, traduzir o vocabulário dos
+personagens para o do contrato, e vestir a decisão nos papéis da camada.
+
+═══════════════════════════════════════════════════════════════════════════
+⛔ POR QUE O PORTE PYTHON SAIU
+═══════════════════════════════════════════════════════════════════════════
+
+Ele era um porte fiel de `escolherLance` — e mesmo assim os dois jogavam
+diferente, por duas razões que nenhum "porte fiel" resolve:
+
+  1. ⛔ **O SORTEADOR.** `random.Random` é o Mersenne Twister; o `Random` do Dart
+     é um xorshift. **Mesma semente, sequências diferentes** — então nem a
+     semente publicada do desafio (RF-DES-210) fazia os dois jogarem a mesma
+     partida.
+  2. ⚠️ **A ORDEM das listas sorteadas.** O `topo` e o `resto` saem do
+     ranqueamento, e o servidor o ordenava com desempate por rótulo enquanto o
+     aplicativo ordena só pela nota.
+
+⚠️ E o defeito ⛔ dava erro: o lance saía plausível, a partida corria até o fim, e
+a única evidência seria o gabarito não ser seguível lance a lance contra Cacau,
+Pita ou Tex. Decisão do dono em 26/09/2026, `docs/DECISOES-do-dono.md` §8zj.
 """
 
 from __future__ import annotations
 
 import functools
 import json
-import random
 from dataclasses import dataclass
 from pathlib import Path
 
 from motores.nucleo.papeis import NivelDeMotor
+from motores.pontinhos import jogador_dart_pontinhos
 from motores.pontinhos.motor_pontinhos import (
     ESPELHO,
     EstadoPontinhos,
@@ -62,6 +83,12 @@ CAMINHO_DO_CONTRATO = ESPELHO / "contrato_dificuldade_pontinhos.json"
 # ⚠️ Sem o arredondamento, um lance que a rede considera praticamente idêntico ao
 # melhor (0,4001 contra 0,4004) contaria como "pior", e a CPU "erraria"
 # escolhendo um lance tão bom quanto o argmax — o que não é erro nenhum.
+#
+# ⚠️ **Quem APLICA este número é o motor Dart** (`casasDoDesempate`, em
+# `politica_dificuldade_pontinhos.dart`), desde a T093. Ele fica declarado aqui
+# porque o servidor precisa dele para explicar o que fez, e 🔒
+# `test_politica_pontinhos_paridade.py` o confere contra o fonte espelhado - um
+# número solto que ninguém confere é a definição de comentário que envelhece.
 CASAS_DO_DESEMPATE = 3
 
 
@@ -172,40 +199,23 @@ def parametros_do_nivel(nivel: NivelDeMotor) -> ParametrosDeNivel:
 def capturas_disponiveis(
     motor: MotorPontinhos, estado: EstadoPontinhos
 ) -> list[str]:
-    """Os traços que fecham **pelo menos uma caixa agora**.
+    """Os traços que fecham **pelo menos uma caixa agora**, em ordem canônica.
 
-    ⚠️ A conta é feita **jogando o lance num estado novo** e olhando o placar, e
-    não inspecionando a matriz por fora. É o mesmo resultado, e evita reescrever
-    a regra de "caixa fechada" — que é do laboratório, e ⛔ não se reimplementa.
+    ⚠️ **A resposta vem do motor Dart** (T093), e não de uma conta feita aqui: é
+    sobre esta lista que a Fase A sorteia, e a ORDEM dela é parte do
+    comportamento. Duas listas com as mesmas capturas em ordens diferentes
+    escolhem lances diferentes com a mesma semente.
+
+    ⚠️ O `motor` entra na assinatura e ⛔ é usado: ele fica porque quem chama tem
+    um árbitro na mão, e tirá-lo obrigaria a mexer em todos os chamadores para
+    ganhar nada. O estado do Pontinhos é a **sequência de lances**, e é só o que
+    o motor Dart precisa.
     """
-    capturas = []
-    antes = sum(estado.placar.values())
-    for lance in motor.lances_legais(estado):
-        if sum(motor.aplicar(estado, lance).placar.values()) > antes:
-            capturas.append(lance)
-    return capturas
-
-
-def _separar_topo(
-    ranqueados: list[tuple[str, float]],
-) -> tuple[list[str], list[str]]:
-    """Parte o ranqueamento em (topo, resto).
-
-    O **topo** é o melhor lance e todos os que empatam com ele depois de
-    arredondar a `CASAS_DO_DESEMPATE`; o resto é o restante. ⚠️ O topo nunca é
-    vazio — se estivesse, a fase tática não teria o que jogar quando acertasse.
-    """
-    def arredondar(valor: float) -> float:
-        fator = 10.0**CASAS_DO_DESEMPATE
-        # `round(x * 1000) / 1000` — a mesma conta que o Dart faz com
-        # `roundToDouble`, e de propósito: dois arredondamentos diferentes
-        # separariam o topo de formas diferentes nos dois lados.
-        return round(valor * fator) / fator
-
-    maximo = max(arredondar(p) for _, p in ranqueados)
-    topo = [rotulo for rotulo, p in ranqueados if arredondar(p) == maximo]
-    resto = [rotulo for rotulo, p in ranqueados if arredondar(p) != maximo]
-    return topo, resto
+    return list(
+        jogador_dart_pontinhos.jogador_compartilhado().canais(estado.lances)[
+            "capturas"
+        ]
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,84 +235,41 @@ def escolher_lance(
     motor: MotorPontinhos,
     estado: EstadoPontinhos,
     nivel: NivelDeMotor,
-    sorteio: random.Random | None = None,
+    semente: int | None = None,
 ) -> Decisao:
-    """Aplica a política do nível sobre o ranqueamento da rede.
+    """O lance daquele nível, decidido **pelo motor do aparelho**.
 
-    Porte fiel de `escolherLance` (`oraculo.dart`), fase por fase.
+    O caminho é: o motor Dart monta o tensor, a CNN daqui responde, e o motor
+    Dart aplica a política sobre a resposta - as três fases, o arredondamento do
+    empate e o sorteio, tudo do outro lado da fronteira.
 
     Args:
-        sorteio: a fonte de acaso. ⚠️ **Entra por parâmetro**, e nunca é o
-            `random` global: uma calibração precisa ser reprodutível, e o estado
-            global faz uma chamada influenciar a seguinte.
+        semente: a fonte de acaso **daquele lance**. ⚠️ **Substituiu o
+            `random.Random` que este arquivo recebia** (T093): quem sorteia é o
+            Dart, e um objeto de sorteio do Python ⛔ atravessa a fronteira. É a
+            mesma semente que o desafio publica, derivada por
+            `job/semente.semente_do_lance` - e é isso que faz a partida do
+            gabarito ser a partida que a pessoa joga.
+
+            `None` = sem semente: o motor sorteia do nada, e duas chamadas da
+            mesma posição podem divergir. ⛔ Serve para calibração.
 
     Raises:
-        ValueError: se a partida já acabou.
+        ValueError: se a partida já acabou, ou se o motor recusar o estado.
     """
-    sorteio = sorteio or random.Random()
     parametros = parametros_do_nivel(nivel)
-    disponiveis = motor.lances_legais(estado)
-    if not disponiveis:
+    if not motor.lances_legais(estado):
         raise ValueError("a partida já acabou: não há lance a escolher.")
 
-    # ── FASE 0 (abertura): só o Magno, e só quando ELE abre ────────────────
-    #
-    # POR QUE existe: num tabuleiro virgem a rede é determinística, e com
-    # `epsilon == 0` o Magno abriria TODA partida com o mesmo traço — previsível
-    # para quem joga, e, no desafio, um dia igual ao outro.
-    #
-    # POR QUE é seguro: no tabuleiro vazio os 31 traços são equivalentes por
-    # simetria, então sortear não o enfraquece. E o encoding **não** é
-    # canonicalizado (não há rotação nem espelhamento antes da inferência), logo
-    # o traço sorteado é diretamente jogável.
-    #
-    # Os outros três não passam por aqui porque o `epsilon` deles já dá variedade.
-    if nivel is NivelDeMotor.SAGAZ and not estado.lances:
-        return Decisao(
-            lance=sorteio.choice(disponiveis),
-            co_acao=AcaoCpu.CNN_ABERTURA_ALEATORIA,
-        )
-
-    # ── FASE A (gulosa): fecha caixa de graça sem pensar ───────────────────
-    #
-    # Capturar caixa aberta não é habilidade, é instinto: todo iniciante faz.
-    # Sabotar isso com o `epsilon` faria a CPU ignorar caixa de graça na cara
-    # dela, o que parece DEFEITO e não dificuldade — e ainda quebraria o turno
-    # extra que encadeia a captura da cadeia inteira.
-    #
-    # ⚠️ O Magno é o único que NÃO passa aqui, e é isso que o deixa livre para o
-    # sacrifício da dupla-cruz: abrir mão das duas últimas caixas de uma cadeia
-    # para manter o turno. É a jogada mestre que os outros três nunca fazem.
-    if parametros.usa_captura_gulosa:
-        capturas = capturas_disponiveis(motor, estado)
-        if capturas:
-            return Decisao(
-                lance=sorteio.choice(capturas), co_acao=AcaoCpu.CAPTURA_GULOSA
-            )
-
-    # ── FASE B (tática): ε-greedy sobre o ranqueamento ─────────────────────
-    ranqueados = motor.ranquear(estado)
-    topo, resto = _separar_topo(ranqueados)
-
-    # `random()` devolve um número em [0,1). Cair abaixo do epsilon é errar de
-    # propósito. Com epsilon 0 (Magno) a condição é sempre falsa.
-    vai_errar = sorteio.random() < parametros.epsilon
-
-    # ⚠️ Se TODOS os lances empatam no topo, não existe "fora do topo" para
-    # errar — qualquer escolha é ótima, e o ε não tem o que fazer.
-    if vai_errar and resto:
-        return Decisao(
-            lance=sorteio.choice(resto), co_acao=AcaoCpu.CNN_EPSILON_ALEATORIO
-        )
-
-    return Decisao(
-        lance=sorteio.choice(topo),
-        co_acao=(
-            AcaoCpu.CNN_ARGMAX_DESEMPATADO
-            if len(topo) > 1
-            else AcaoCpu.CNN_ARGMAX_ABSOLUTO
-        ),
+    resposta = jogador_dart_pontinhos.jogador_compartilhado().decidir(
+        lances=estado.lances,
+        nivel_do_contrato=parametros.chave,
+        # A softmax crua da rede - a única parte do caminho que é Python.
+        softmax=motor.softmax(estado),
+        mapeamento=motor.mapeamento_de_rotulos,
+        semente=semente,
     )
+    return Decisao(lance=resposta["lance"], co_acao=resposta["co_acao"])
 
 
 class JogadorPontinhos:
@@ -349,12 +316,11 @@ class JogadorPontinhos:
     ) -> str:
         """O lance daquele nível. Com semente, é reprodutível.
 
-        ⚠️ A semente cria uma fonte de acaso **própria desta consulta**. Sem ela,
-        duas calibrações da mesma posição divergiriam, e a régua deixaria de
-        significar alguma coisa.
+        ⚠️ A semente cria uma fonte de acaso **própria daquele lance**, do outro
+        lado da fronteira. Sem ela, duas calibrações da mesma posição
+        divergiriam, e a régua deixaria de significar alguma coisa.
         """
-        sorteio = random.Random(semente) if semente is not None else None
-        decisao = escolher_lance(self._motor, estado, nivel, sorteio)
+        decisao = escolher_lance(self._motor, estado, nivel, semente)
         if limite is not None and hasattr(limite, "contar_no"):
             limite.contar_no(1)
         return decisao.lance
@@ -366,5 +332,4 @@ class JogadorPontinhos:
         semente: int | None = None,
     ) -> Decisao:
         """Como `escolher_lance`, mas devolvendo também o `co_acao`."""
-        sorteio = random.Random(semente) if semente is not None else None
-        return escolher_lance(self._motor, estado, nivel, sorteio)
+        return escolher_lance(self._motor, estado, nivel, semente)

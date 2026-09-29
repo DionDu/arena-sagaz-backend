@@ -49,7 +49,11 @@
 # imagem final. O que atravessa é um executável autocontido de alguns megabytes.
 FROM dart:stable AS motor
 
-WORKDIR /motor
+# ⚠️ **São DOIS motores desde a T093 (28/09/2026)**, um por jogo, e cada um no
+# seu diretório: são pacotes Dart independentes, com `pubspec` próprio e resumo
+# próprio. Um `pub get` na raiz dos dois resolveria um lock só para os dois
+# pacotes, e o carimbo passaria a cobrir uma pasta que não é a dele.
+WORKDIR /motor/damas
 
 # Só o pacote do motor, que veio no espelho: `pubspec.yaml`, `lib/` e `bin/`.
 #
@@ -69,6 +73,22 @@ RUN dart pub get
 # compila. Rodar `dart compile` direto pularia o carimbo, e o executável abriria
 # a conversa afirmando um resumo velho.
 RUN dart run bin/compilar_servidor_de_lances.dart
+
+# ── O MOTOR DO PONTINHOS (T093, 28/09/2026) ─────────────────────────────────
+#
+# ⛔ **Mesma corrente, mesmo motivo.** Até 28/09/2026 o servidor decidia os
+# lances do Pontinhos com um porte em Python da política, e os dois divergiam no
+# sorteador (Mersenne Twister × xorshift: mesma semente, sequências diferentes) e
+# na ordem das listas sorteadas. Medido: **37% dos meios-lances** da bancada
+# divergiriam, e 11 das 12 partidas se separavam já no lance 1.
+#
+# ⚠️ **A inferência ⛔ vem para cá**: a CNN continua rodando no `ai-edge-litert`
+# do estágio 2, que já tem prova de paridade com o runtime do aplicativo. O que
+# este binário faz é montar o tensor e **decidir** sobre a resposta da rede.
+WORKDIR /motor/pontinhos
+COPY espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/ ./
+RUN dart pub get
+RUN dart run bin/compilar_servidor_de_lances_pontinhos.dart
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -119,8 +139,13 @@ COPY . .
 # primeiro. ⛔ Sem ela, ele procuraria o laboratório vizinho — que só existe na
 # máquina do dono — e falharia com uma mensagem sobre compilar, dentro de uma
 # imagem onde compilar já foi feito.
-COPY --from=motor /motor/bin/servidor_de_lances_damas /usr/local/bin/servidor_de_lances_damas
+COPY --from=motor /motor/damas/bin/servidor_de_lances_damas /usr/local/bin/servidor_de_lances_damas
 ENV MOTOR_DART_DAMAS=/usr/local/bin/servidor_de_lances_damas
+
+# O irmão do Pontinhos, com a variável que
+# `motores/pontinhos/jogador_dart_pontinhos.py` consulta primeiro (T093).
+COPY --from=motor /motor/pontinhos/bin/servidor_de_lances_pontinhos /usr/local/bin/servidor_de_lances_pontinhos
+ENV MOTOR_DART_PONTINHOS=/usr/local/bin/servidor_de_lances_pontinhos
 
 # ── 3. O PORTÃO DE BUILD (T001) ──────────────────────────────────────────────
 # ⚠️ ESTA LINHA É A ÚNICA EXECUÇÃO EM `linux/amd64` QUE O PROJETO TEM.
@@ -161,6 +186,19 @@ RUN python scripts/conferir_runtime_inferencia.py --runtime litert
 # adversário que não é o adversário da pessoa, e nada no dado denunciaria. Foi
 # exatamente esse o defeito de 25/09/2026.
 RUN python scripts/conferir_motor_dart.py
+
+# ── 3c. O PORTÃO DO MOTOR DO PONTINHOS (T093, 28/09/2026) ────────────────────
+#
+# O terceiro irmão. Ele refaz, dentro desta imagem, as **12 partidas inteiras**
+# da bancada de paridade (`contratos/vetores-paridade-pontinhos.json`) e compara
+# o traço **e** o `co_acao` de cada um dos 372 meios-lances.
+#
+# ⛔ **E ele ⛔ roda a CNN, de propósito.** A softmax de cada lance viaja no
+# arquivo, e é ela que alimenta a decisão: assim este portão mede **só** o
+# binário Dart compilado acima. Quem pergunta "esta imagem infere igual ao
+# aplicativo?" é o portão 3, que tem referência própria — misturar os dois faria
+# uma falha de inferência aparecer como falha de política, e vice-versa.
+RUN python scripts/conferir_motor_dart_pontinhos.py
 
 # ── 4. Usuário sem privilégios ───────────────────────────────────────────────
 # Defesa em profundidade (MEL-01), a mesma do `Dockerfile` da API: se um dia

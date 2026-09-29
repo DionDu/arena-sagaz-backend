@@ -253,6 +253,46 @@
       "tamanho_bytes": 6268
     },
     {
+      "caminho": "jogos/jogo_pontinhos/motor_dart/lib/analise_tabuleiro_pontinhos.dart",
+      "sha256": "529b35aaf3cf6c10c85ffdc8bc666ba0248f659698e109c3b8e4a40000520a3d",
+      "tamanho_bytes": 3136
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor_dart/lib/dificuldade_pontinhos.dart",
+      "sha256": "7a2ec3a94f59793bb8a5cc13d976ae331751e14dea9c4b754bc910cc2c177df3",
+      "tamanho_bytes": 8154
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor_dart/lib/encoding_cnn_pontinhos.dart",
+      "sha256": "b3f7d8e8707ccca16ea7acaa1e9a2ce26d7567399454ddf8360326e7aa2cdfb3",
+      "tamanho_bytes": 10761
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor_dart/lib/politica_dificuldade_pontinhos.dart",
+      "sha256": "e67edd766762e22b3b7323a33d8195f356f5e7b434d7d35a7711a395275f0425",
+      "tamanho_bytes": 14204
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor_dart/lib/tabuleiro_pontinhos.dart",
+      "sha256": "619f05f8b0dc9cb0033e9ce5dd1088ecd111324aca159697a0a0615ea8aa4390",
+      "tamanho_bytes": 10663
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor_dart/pubspec.yaml",
+      "sha256": "f4b10aa19596538b19a3f6a0d1dba12844294284b53a219dcd6e14bc26f43563",
+      "tamanho_bytes": 3238
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor_dart/bin/servidor_de_lances_pontinhos.dart",
+      "sha256": "f8bbe957798ffb164fc5a8436ba73137868e6bb799d66de582aa1c9625095313",
+      "tamanho_bytes": 14662
+    },
+    {
+      "caminho": "jogos/jogo_pontinhos/motor_dart/bin/compilar_servidor_de_lances_pontinhos.dart",
+      "sha256": "7d0ccdea1bf432fc08fcd06b0773c0bb304f31056d2de62644ca461405e03685",
+      "tamanho_bytes": 6480
+    },
+    {
       "caminho": "contrato_dificuldade_pontinhos.json",
       "sha256": "0971d48f329419d6f71aa11de7aaa9e384c20bc1a15bda58eddf78ade0591c74",
       "tamanho_bytes": 7203

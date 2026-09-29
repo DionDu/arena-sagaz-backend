@@ -28,7 +28,8 @@ COMO ELE PROVA ISSO
 
 1. Monta N tensores de entrada **deterministicos** - gerados por semente fixa,
    no dominio {0.0, 1.0} e na forma (1, 4, 3, 12) que o modelo de 12 canais
-   espera (ver `encoding_cnn.dart` do app e `analisador_estrutural_pontinhos.py`
+   espera (ver `encoding_cnn_pontinhos.dart` do motor Dart e
+   `analisador_estrutural_pontinhos.py`
    do laboratorio). Semente fixa significa que qualquer maquina, em qualquer
    sistema operacional, monta **exatamente** os mesmos tensores.
 2. Roda a inferencia com o runtime escolhido em `--runtime`.
@@ -105,7 +106,7 @@ ARQUIVO_REFERENCIA = RAIZ_BACKEND / "scripts" / "referencia_runtime_inferencia.j
 # ── O que se espera do modelo pequeno ───────────────────────────────────────
 # 4x3 caixas, 12 canais na entrada; 31 tracos possiveis na saida. Os numeros vem
 # de `contrato_codificacao_pontinhos.json` (`dimensoes_por_tamanho.pequeno`) e de
-# `encoding_cnn.dart` (kLinhas / kColunas / kCanais).
+# `encoding_cnn_pontinhos.dart` (kLinhas / kColunas / kCanais).
 FORMA_ENTRADA = (1, 4, 3, 12)
 NEURONIOS_SAIDA = 31
 

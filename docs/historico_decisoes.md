@@ -7128,3 +7128,121 @@ TFLite nem binário nativo em `flutter test` - é a **T094a**, a tela do `des`).
 
 ⚠️ **Regerar leva ~90 s** e é obrigatório sempre que o motor mudar; o comando
 está no cabeçalho do gerador e no contrato.
+
+---
+
+## 2026-09-28 (2) — O Pontinhos passa a DECIDIR com o motor Dart, e o defeito era 37% dos lances (T093)
+
+**Contexto.** A decisão do dono de 26/09/2026 (`arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8zj item 1): *"Com relação ao pontinhos, vamos levar o Dart pra dentro do
+servidor como foi feito com Damas. É preciso todas as travas para que não
+corremos o risco de ter uma versão compilada diferente da do App."*
+
+Até aqui a política de dificuldade do Pontinhos existia **duas vezes**: em Dart,
+no aplicativo (`logica/oraculo.dart`), e em Python, no servidor
+(`motores/pontinhos/politica.py`). O porte era fiel, linha a linha.
+
+### ⛔ O defeito, medido
+
+Duas coisas que nenhum porte fiel resolve:
+
+1. ⛔ **O SORTEADOR.** `random.Random` é o Mersenne Twister; o `Random` do Dart é
+   um xorshift. **Mesma semente, sequências diferentes** - então nem a semente
+   publicada do desafio (RF-DES-210) fazia os dois jogarem a mesma partida.
+2. ⚠️ **A ORDEM das listas sorteadas.** O `topo` e o `resto` saem do
+   ranqueamento, e o servidor o ordenava com desempate por rótulo
+   (`key=(-p, rótulo)`) enquanto o aplicativo ordena só pela nota.
+
+> **Medido em 28/09/2026, sobre a bancada de paridade: 139 dos 372 meios-lances
+> (37%) divergiriam, e 11 das 12 partidas se separavam já no lance 1.**
+
+⚠️ **E nada disso dava erro.** Nas damas a divergência aparece - o gabarito não
+bate e o lance recusado grita. No Pontinhos o lance sai plausível, a partida
+corre até o fim, e a única evidência seria o gabarito do Desafio do Dia não ser
+seguível lance a lance contra Cacau, Pita ou Tex.
+
+### A decisão: a fronteira fica nos NÚMEROS DA REDE
+
+O motor Dart do Pontinhos nasceu em `ia/jogos/jogo_pontinhos/motor_dart/`, com
+cinco arquivos em `lib/` - o tabuleiro, a análise estrutural, os 12 canais, o
+enum `Dificuldade` e a política. O aplicativo embarca a cópia byte-idêntica; o
+servidor decide com o executável carimbado.
+
+⚠️ **A inferência ⛔ atravessou, e é decisão.** O diálogo por lance é: o Dart
+monta o tensor (12 canais) → o `ai-edge-litert` daqui roda a rede → o Dart
+renormaliza, ordena e decide. Três razões, em ordem de peso:
+
+1. ⚠️ **A inferência é a única peça do Pontinhos que JÁ TINHA prova de
+   paridade** - `scripts/conferir_runtime_inferencia.py` compara os dois runtimes
+   contra referência versionada, e é portão do build desde a T001. O que **não**
+   tinha prova - política, ordenação e sorteador - é exatamente o que passou
+   para o Dart.
+2. ⛔ **O FFI para a `libtensorflowlite_c` foi considerado e NÃO feito.** O
+   `tflite_flutter` é pacote Flutter e não compila em Dart puro; abrir a
+   biblioteca C por FFI traria um **terceiro** runtime (Linux x86-64, dentro da
+   imagem), diferente tanto do `ai-edge-litert` quanto do que o aparelho Android
+   carrega. Ou seja: ⛔ compraria paridade de inferência nenhuma, e ainda
+   acrescentaria um artefato binário à imagem, com trava própria para manter.
+   ⚠️ **É a alternativa que a T093 antecipava como "o risco técnico a
+   enfrentar"**, e ela fica registrada como recusada, com o motivo.
+3. ⚠️ A `.tflite` e o mapeamento já viajam no espelho e já entram no
+   `co_versao_motor`.
+
+**Alternativa que o dono já havia recusado, e continua recusada:** reimplementar
+em Python o `Random` do Dart e deixar a política onde estava. Menor, e mantém
+duas escritas da mesma regra - a forma de todos os episódios.
+
+### A corrente de travas, inteira
+
+    app        == laboratório   `paridade_motor_pontinhos_test.dart` (SHA-256 dos 5)
+    espelho    == laboratório   `scripts/espelhar_laboratorio.py` + o manifesto
+    executável == espelho       `jogador_dart_pontinhos.py`, na abertura
+    ───────────────────────────────────────────────────────────────────────
+    logo, executável == app
+
+⚠️ **A fronteira comum saiu para `motores/nucleo/processo_dart.py`.** Subir o
+processo, conferir protocolo e carimbo, mandar pedido e encerrar é o mesmo dos
+dois jogos - e ⛔ a trava de identidade ⛔ pode existir duas vezes, que é o
+defeito que ela existe para impedir. `motores/damas/jogador_dart.py` passou a
+herdar dela, com a API pública intacta.
+
+### O que mudou de valor no banco
+
+⚠️ **O `co_versao_motor` do Pontinhos mudou**, e está certo: os cinco arquivos
+do motor Dart entraram em `PREFIXOS_DO_MOTOR`, porque agora **eles** decidem o
+lance. ⛔ `motor_dart/bin/` e o `pubspec.yaml` ficaram de fora: eles constroem o
+executável, mas não definem o jogador - um comentário corrigido no compilador
+mudaria a versão de todos os desafios do dia.
+
+⏳ **Fica aberto o prefixo `pontinhos-py-`**: quem decide é o Dart, e o "py" só
+descreve quem roda a inferência. É transversal (as damas têm `damas-py-` pelo
+mesmo motivo desde 25/09) e ⛔ é desta tarefa.
+
+### A prova
+
+A **bancada de paridade do Pontinhos**: 12 partidas (4 níveis × 3
+sementes-mestras), 372 meios-lances, reproduzidos pelo aplicativo lance a lance e
+`co_acao` a `co_acao`, **sem uma divergência**.
+
+⚠️ **A softmax de cada lance viaja no arquivo**, e é o que torna a bancada
+possível: em `flutter test` ⛔ há TFLite. Com os 31 números gravados, o teste
+reproduz tudo o que a T093 mudou sem inferir nada. O contrato em prosa está em
+`arena-sagaz-frontend/specs/009-desafio-do-dia/contracts/vetores-paridade-pontinhos.md`.
+
+E o **terceiro portão** entrou no `Dockerfile.job`
+(`scripts/conferir_motor_dart_pontinhos.py`): ele refaz as 12 partidas dentro da
+imagem Linux, com a softmax gravada - medindo **só** o binário compilado ali.
+
+### Dois cadeados que nasceram junto
+
+- 🔒 `test_arbitro_pontinhos_concorda_com_o_dart.py` - o árbitro Python (o
+  `EstadoTabuleiro` do laboratório, que ficou porque é o mesmo código que gerou o
+  dataset de treino) e o motor Dart contam a mesma partida: traços disponíveis
+  **e na mesma ordem**, vez, placar, fim de partida e o tensor dos 12 canais, em
+  12 partidas inteiras.
+- ⚠️ **As duas bancadas ganharam regra de fim de linha** (`-text`) nos dois
+  repositórios. ⛔ **Ela faltava desde a T094**, e o defeito só apareceria num
+  clone novo: quem gera os arquivos escreve LF nos dois, então na máquina de quem
+  gerou eles batem; depois de um checkout com `core.autocrlf=true` de um lado só,
+  as duas cópias deixariam de bater por um motivo que não tem nada a ver com o
+  conteúdo.

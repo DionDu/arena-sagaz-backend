@@ -246,6 +246,72 @@ def test_o_portao_do_motor_esta_no_build() -> None:
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O MOTOR DO PONTINHOS DENTRO DA IMAGEM (T093, 28/09/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Os irmaos dos quatro casos acima, e existem pela mesma razao que o `CLAUDE.md`
+# chama de "jogo novo entra nos cadeados": um cadeado com a lista escrita a mao
+# fica verde e cego no dia em que o segundo jogo chega. O Pontinhos chegou.
+#
+# ⚠️ E aqui o defeito ⛔ da erro: o lance sai plausivel, a partida corre ate o
+# fim, e a unica evidencia seria o gabarito nao ser seguivel lance a lance contra
+# Cacau, Pita ou Tex.
+
+
+def test_o_estagio_do_motor_compila_TAMBEM_o_do_pontinhos() -> None:
+    """🔒 O mesmo estagio `dart:stable`, com o programa que CARIMBA.
+
+    ⛔ Um `dart compile exe` no lugar produziria um executavel que compila, roda
+    e **abre a conversa afirmando um resumo velho** - e a trava de identidade do
+    `jogador_dart_pontinhos.py` passaria a proteger nada.
+    """
+    compila = [
+        ln
+        for ln in linhas_de_instrucao(DOCKERFILE_JOB)
+        if ln.startswith("RUN ") and "dart " in ln
+    ]
+    assert any("compilar_servidor_de_lances_pontinhos.dart" in ln for ln in compila), (
+        "o estagio do motor deixou de compilar o motor do Pontinhos. "
+        f"Comandos `dart` encontrados: {compila}"
+    )
+
+
+def test_o_executavel_do_pontinhos_atravessa_e_a_variavel_o_aponta() -> None:
+    """🔒 O binario chega a imagem final, e o backend sabe onde ele esta.
+
+    ⚠️ Sem o `ENV MOTOR_DART_PONTINHOS` o backend procuraria o laboratorio
+    vizinho, que ⛔ existe na nuvem - e a mensagem de erro mandaria compilar,
+    dentro de uma imagem onde compilar ja foi feito.
+    """
+    instrucoes = " ".join(linhas_de_instrucao(DOCKERFILE_JOB))
+    assert "servidor_de_lances_pontinhos /usr/local/bin/" in instrucoes, (
+        "o executavel do Pontinhos ⛔ atravessa para a imagem final."
+    )
+    assert "MOTOR_DART_PONTINHOS=" in instrucoes, (
+        "falta o `ENV MOTOR_DART_PONTINHOS` apontando para o binario."
+    )
+
+
+def test_o_portao_do_motor_do_pontinhos_esta_no_build() -> None:
+    """🔒 A linha que impede a imagem de DECIDIR diferente do aplicativo.
+
+    Ele refaz as 12 partidas da bancada de paridade aqui dentro, com a softmax
+    gravada no arquivo - entao mede **so** o binario Dart desta imagem, e ⛔ a
+    rede (essa e a pergunta do portao do runtime de inferencia, que roda antes).
+    """
+    portao = [
+        ln
+        for ln in linhas_de_instrucao(DOCKERFILE_JOB)
+        if ln.startswith("RUN ") and "conferir_motor_dart_pontinhos.py" in ln
+    ]
+    assert portao, (
+        "o Dockerfile.job perdeu o portao do motor do Pontinhos. Sem ele, uma "
+        "imagem que decide diferente do aparelho chega ao Railway sem nada "
+        "acusar."
+    )
+
+
 def test_o_job_instala_o_requirements_dele_e_nao_o_da_api() -> None:
     """Um `requirements` por imagem - a licao do `ipython` que nao cabia em 3.11."""
     instrucoes = " ".join(linhas_de_instrucao(DOCKERFILE_JOB))

@@ -68,15 +68,42 @@ errado — e eles já estariam no banco, indistinguíveis dos bons.
 from __future__ import annotations
 
 import functools
-import hashlib
 import json
 import os
-import subprocess
 import threading
 from pathlib import Path
 from typing import Any
 
 from motores.nucleo import recursos_por_thread
+from motores.nucleo.processo_dart import (
+    MotorDartDivergente,
+    MotorDartIndisponivel,
+    ProcessoDart,
+    sha256_do_arquivo,
+)
+from motores.nucleo.processo_dart import (
+    caminho_do_executavel as _caminho_do_executavel,
+)
+from motores.nucleo.processo_dart import resumo_dos_fontes as _resumo_dos_fontes
+
+# ⚠️ As duas excecoes e o `sha256_do_arquivo` sao **reexportados**: quem os
+# importava daqui continua importando daqui. Eles desceram para
+# `motores/nucleo/processo_dart.py` na T093 (28/09/2026), quando o Pontinhos
+# passou a ter a mesma fronteira - e ⛔ a trava de identidade ⛔ pode existir duas
+# vezes, que e justamente o defeito que ela existe para impedir.
+__all__ = [
+    "MotorDartDivergente",
+    "MotorDartIndisponivel",
+    "BaseDeFinaisIndisponivel",
+    "JogadorDart",
+    "caminho_do_executavel",
+    "jogador_compartilhado",
+    "pasta_da_base_de_finais",
+    "resumo_dos_fontes",
+]
+
+#: Mantido pelo nome antigo (privado) porque `job/` e os testes o conhecem assim.
+_sha256_do_arquivo = sha256_do_arquivo
 
 RAIZ = Path(__file__).resolve().parents[2]
 
@@ -133,91 +160,44 @@ BASE_NO_ESPELHO = RAIZ / "espelho_laboratorio" / "base_finais_damas"
 #: laboratório tem `brasileira_5` no disco, e usá-la aqui seria outro adversário.
 PECAS_NA_BASE = 4
 
-
-class MotorDartIndisponivel(RuntimeError):
-    """Não há executável utilizável — e a mensagem diz como fazer um."""
-
-
-class MotorDartDivergente(RuntimeError):
-    """O executável não saiu dos fontes que este backend tem.
-
-    ⛔ **Não é aviso, é recusa.** Gerar desafios com um motor que não é o do
-    aparelho é o defeito que este módulo existe para impedir.
-    """
-
-
-def _sha256_do_arquivo(caminho: Path) -> str:
-    """O SHA-256 de um arquivo, em hexadecimal.
-
-    ⚠️ Lê em **bytes**: ler como texto passaria pela tradução de fim de linha do
-    Windows, e o hash descreveria algo que não está no disco.
-    """
-    return hashlib.sha256(caminho.read_bytes()).hexdigest()
+#: O que dizer a quem tem um executavel ausente ou divergente.
+#:
+#: ⚠️ **Escrita uma vez, usada nas duas recusas** (nao ha binario · o binario nao
+#: e destes fontes): as duas se consertam do mesmo jeito, e duas receitas
+#: parecidas envelhecem em ritmos diferentes.
+RECEITA_DE_CONSERTO = (
+    "Recompile o motor e espelhe de novo:\n"
+    "  cd ..\\ia\\jogos\\jogo_damas\\motor_dart\n"
+    "  dart run bin\\compilar_servidor_de_lances.dart\n"
+    "  cd ..\\..\\..\\..\\arena-sagaz-backend\n"
+    "  .venv\\Scripts\\python scripts\\espelhar_laboratorio.py"
+)
 
 
 def resumo_dos_fontes(pasta: Path = FONTES_DO_MOTOR_DART) -> str:
-    """O resumo dos fontes Dart — a MESMA fórmula do lado Dart.
+    """O resumo dos fontes Dart do motor de DAMAS.
 
-    ⚠️ **A fórmula está escrita duas vezes**, aqui e em
-    `motor_dart/bin/compilar_servidor_de_lances.dart`, e não há como evitar: são
-    linguagens diferentes conferindo uma à outra. O que impede as duas de
-    divergirem em silêncio é que **divergir é justamente o que elas detectam** —
-    uma fórmula mudada de um lado só faz a abertura falhar na hora.
-
-    A ordem é alfabética por nome, e o material é `nome:hash` por linha.
+    ⚠️ **A conta mora em `motores/nucleo/processo_dart.py`**, e e a mesma que o
+    Pontinhos usa - uma segunda escrita da formula daria dois jeitos de estar
+    certo. Aqui so se fixa a pasta de onde ela le.
     """
-    if not pasta.is_dir():
-        raise MotorDartIndisponivel(
-            f"não achei os fontes do motor Dart em {pasta}.\n"
-            "Rode, na máquina do dono:\n"
-            "  .venv\\Scripts\\python scripts\\espelhar_laboratorio.py"
-        )
-    hashes = {
-        arquivo.name: _sha256_do_arquivo(arquivo)
-        for arquivo in sorted(pasta.glob("*.dart"), key=lambda a: a.name)
-    }
-    material = "\n".join(f"{nome}:{hash_}" for nome, hash_ in hashes.items())
-    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+    return _resumo_dos_fontes(pasta)
 
 
 def caminho_do_executavel() -> Path:
-    """Onde está o executável do motor Dart.
+    """Onde esta o executavel do motor Dart de damas.
 
-    A ordem de procura, e cada degrau tem um motivo:
-
-      1. `MOTOR_DART_DAMAS` no ambiente — é como a máquina de outra pessoa (ou um
-         contêiner) aponta para o binário dela sem editar código;
-      2. o laboratório vizinho — o caso normal na máquina do dono, onde os três
-         repositórios moram lado a lado.
+    A ordem de procura (a variavel de ambiente, depois o laboratorio vizinho) e
+    o porque de cada degrau estao em `motores/nucleo/processo_dart.py`.
 
     Raises:
         MotorDartIndisponivel: com a receita de como compilar.
     """
-    do_ambiente = os.environ.get("MOTOR_DART_DAMAS")
-    if do_ambiente:
-        caminho = Path(do_ambiente)
-        if caminho.is_file():
-            return caminho
-        raise MotorDartIndisponivel(
-            f"MOTOR_DART_DAMAS aponta para {caminho}, que não existe."
-        )
-
-    nome = (
-        "servidor_de_lances_damas.exe"
-        if os.name == "nt"
-        else "servidor_de_lances_damas"
-    )
-    vizinho = (
-        RAIZ.parent / "ia" / "jogos" / "jogo_damas" / "motor_dart" / "bin" / nome
-    )
-    if vizinho.is_file():
-        return vizinho
-
-    raise MotorDartIndisponivel(
-        f"não achei o motor Dart compilado (procurei em {vizinho}).\n"
-        "Rode, na máquina do dono:\n"
-        "  cd ..\\ia\\jogos\\jogo_damas\\motor_dart\n"
-        "  dart run bin\\compilar_servidor_de_lances.dart"
+    return _caminho_do_executavel(
+        variavel_de_ambiente="MOTOR_DART_DAMAS",
+        nome_do_binario="servidor_de_lances_damas",
+        vizinho=RAIZ.parent / "ia" / "jogos" / "jogo_damas" / "motor_dart" / "bin",
+        receita=RECEITA_DE_CONSERTO,
     )
 
 
@@ -283,12 +263,14 @@ def pasta_da_base_de_finais(co_modalidade: str) -> Path:
     return pasta
 
 
-class JogadorDart:
-    """Um processo do motor Dart, vivo, respondendo a pedidos de lance.
+class JogadorDart(ProcessoDart):
+    """Um processo do motor Dart de DAMAS, vivo, respondendo a pedidos de lance.
 
-    ⚠️ **O processo fica vivo de propósito.** A régua mede 20 execuções por
-    mascote, e uma partida tem dezenas de lances: subir um processo por lance
-    pagaria a partida do executável milhares de vezes.
+    ⚠️ **Tudo o que e fronteira** - subir o processo, conferir o protocolo e o
+    carimbo dos fontes, mandar um pedido, encerrar - mora em
+    `motores/nucleo/processo_dart.py`, e e o mesmo codigo que o Pontinhos usa
+    desde a T093. O que sobra aqui e o que e de damas: os parametros do nivel, a
+    base de finais e o formato do pedido.
 
     Use como contexto, para o processo ser encerrado mesmo se algo estourar::
 
@@ -297,107 +279,14 @@ class JogadorDart:
     """
 
     def __init__(self, caminho: Path | None = None) -> None:
-        self._caminho = caminho or caminho_do_executavel()
-        self._processo = subprocess.Popen(
-            [str(self._caminho)],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            # ⛔ O stderr fica SEPARADO. Juntá-lo ao stdout misturaria um aviso
-            # solto do runtime do Dart com as respostas JSON, e o cliente leria
-            # lixo no lugar de um lance.
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            bufsize=1,
+        super().__init__(
+            caminho=caminho or caminho_do_executavel(),
+            fontes=FONTES_DO_MOTOR_DART,
+            versao_do_protocolo=VERSAO_DO_PROTOCOLO,
+            receita_de_conserto=RECEITA_DE_CONSERTO,
         )
-        self._abertura = self._conferir_a_abertura()
-
-    # ── A trava ──────────────────────────────────────────────────────────────
-
-    def _conferir_a_abertura(self) -> dict[str, Any]:
-        """Lê a linha de apresentação e recusa um executável que não seja o nosso."""
-        linha = self._processo.stdout.readline()  # type: ignore[union-attr]
-        if not linha:
-            erro = self._processo.stderr.read()  # type: ignore[union-attr]
-            raise MotorDartIndisponivel(
-                f"o motor Dart em {self._caminho} não respondeu na abertura.\n{erro}"
-            )
-        abertura = json.loads(linha)
-
-        if abertura.get("versao_do_protocolo") != VERSAO_DO_PROTOCOLO:
-            raise MotorDartDivergente(
-                f"o executável fala o protocolo {abertura.get('versao_do_protocolo')} "
-                f"e este backend fala o {VERSAO_DO_PROTOCOLO}. Recompile o motor."
-            )
-
-        esperado = resumo_dos_fontes()
-        recebido = abertura.get("resumo_do_motor")
-        if recebido != esperado:
-            # ⚠️ A mensagem nomeia **quais** arquivos divergiram. "O resumo não
-            # bate" manda procurar em dezesseis arquivos; o nome manda direto ao que
-            # mudou — e costuma responder sozinho se falta recompilar ou falta
-            # espelhar.
-            do_exe: dict[str, str] = abertura.get("arquivos_do_motor", {})
-            daqui = {
-                arquivo.name: _sha256_do_arquivo(arquivo)
-                for arquivo in sorted(FONTES_DO_MOTOR_DART.glob("*.dart"))
-            }
-            diferentes = sorted(
-                nome
-                for nome in set(do_exe) | set(daqui)
-                if do_exe.get(nome) != daqui.get(nome)
-            )
-            raise MotorDartDivergente(
-                f"o executável em {self._caminho} não saiu dos fontes deste "
-                f"backend.\n"
-                f"  divergem: {', '.join(diferentes) or '(a lista de arquivos)'}\n"
-                f"  esperado: {esperado[:16]}\n"
-                f"  recebido: {str(recebido)[:16]}\n"
-                "Recompile o motor e espelhe de novo:\n"
-                "  cd ..\\ia\\jogos\\jogo_damas\\motor_dart\n"
-                "  dart run bin\\compilar_servidor_de_lances.dart\n"
-                "  cd ..\\..\\..\\..\\arena-sagaz-backend\n"
-                "  .venv\\Scripts\\python scripts\\espelhar_laboratorio.py"
-            )
-        return abertura
-
-    @property
-    def resumo_do_motor(self) -> str:
-        """O resumo dos fontes com que este executável foi compilado.
-
-        ⚠️ Serve para ir ao BANCO, junto do desafio: é o que responde, meses
-        depois, *"este gabarito saiu de que motor?"* sem depender do Git.
-        """
-        return self._abertura["resumo_do_motor"]
-
-    @property
-    def morreu(self) -> bool:
-        """O processo saiu (por erro, ou porque alguém o encerrou).
-
-        ⚠️ Serve ao processo compartilhado: um motor morto precisa ser
-        substituído, e não reusado até o pedido seguinte estourar com
-        `MotorDartIndisponivel` no meio de uma medição de horas.
-        """
-        return self._processo.poll() is not None
 
     # ── O uso ────────────────────────────────────────────────────────────────
-
-    def pedir(self, pedido: dict[str, Any]) -> dict[str, Any]:
-        """Manda um pedido e devolve a resposta decodificada."""
-        if self._processo.poll() is not None:
-            raise MotorDartIndisponivel(
-                f"o motor Dart morreu (código {self._processo.returncode}). "
-                f"stderr: {self._processo.stderr.read()}"  # type: ignore[union-attr]
-            )
-        self._processo.stdin.write(json.dumps(pedido) + "\n")  # type: ignore[union-attr]
-        self._processo.stdin.flush()  # type: ignore[union-attr]
-        linha = self._processo.stdout.readline()  # type: ignore[union-attr]
-        if not linha:
-            raise MotorDartIndisponivel(
-                "o motor Dart não respondeu ao pedido. "
-                f"stderr: {self._processo.stderr.read()}"  # type: ignore[union-attr]
-            )
-        return json.loads(linha)
 
     def escolher_lance(
         self,
@@ -456,22 +345,6 @@ class JogadorDart:
             raise ValueError(f"o motor Dart recusou: {resposta['erro']}")
         return resposta
 
-    # ── O fim ────────────────────────────────────────────────────────────────
-
-    def encerrar(self) -> None:
-        """Fecha a entrada e espera o processo sair."""
-        if self._processo.poll() is None:
-            try:
-                self._processo.stdin.close()  # type: ignore[union-attr]
-                self._processo.wait(timeout=5)
-            except Exception:
-                self._processo.kill()
-
-    def __enter__(self) -> "JogadorDart":
-        return self
-
-    def __exit__(self, *_) -> None:
-        self.encerrar()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
