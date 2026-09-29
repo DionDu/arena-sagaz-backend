@@ -793,6 +793,15 @@ aparelho, que é a **T094a**.
 - ⏳ **Herdado de lá, e ainda aberto:** as damas metem `motor_dart/bin/` no
   `co_versao_motor` e o Pontinhos ⛔ - um comentário corrigido no compilador das
   damas ainda muda a versão de todos os desafios do dia.
-- ⏳ **T094a** - a CNN (TFLite) e o motor **Rust** no aparelho, que nenhum
-  `flutter test` alcança.
+- ✅ **T094a** - a CNN (TFLite) e o motor **Rust** no aparelho, que nenhum
+  `flutter test` alcança. **Implementada em 29/09/2026**: a tela
+  `/bancada-paridade` do flavor `des` roda as mesmas partidas destes arquivos
+  com o `.tflite` do APK e com o motor nativo, e para na primeira divergência
+  com a posição, a semente e o lance de cada lado.
+  ⚠️ **Ela responde uma pergunta que o portão do build ⛔ responde:** lá se
+  comparam dois runtimes **Linux x86-64**; na tela, o do servidor contra o
+  **TFLite ARM** do aparelho. Por isso o **pior desvio** aparece sempre, e não
+  só quando reprova.
+  ⏳ **Falta a medição em si** - a tela existe, e o número que ela produz num
+  aparelho de verdade ainda não foi lido.
 
