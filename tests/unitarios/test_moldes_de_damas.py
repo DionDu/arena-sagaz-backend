@@ -33,6 +33,7 @@ from job.moldes_de_damas import (
     moldes_triviais,
     objetivo_no_primeiro_lance,
 )
+from job.editorial import EDITORIAL
 from job.tipos_de_desafio import RECEITAS, receita_de
 from motores.damas.motor_damas import EstadoDamas, MotorDamas
 
@@ -91,9 +92,46 @@ PISO_DE_MOLDES = {
 }
 
 
+#: Os acervos PROPRIOS de variante (`Publicacao.moldes`), com um rotulo legivel.
+#:
+#: ⚠️ **Tambem perguntados ao editorial, e nunca escritos aqui** - pela mesma
+#: razao de `TIPOS`: a variante que ganhar acervo amanha ja entra conferida.
+#:
+#: ⛔ **Existem desde 30/09/2026** (decisao do dono: separar o acervo por
+#: variante). Antes disso todo molde morava na receita, e `moldes()` abaixo lia
+#: so de la - um acervo de variante teria entrado sem conferencia nenhuma, que e
+#: exatamente o defeito que a lista de `TIPOS` ja teve.
+ACERVOS_PROPRIOS: tuple[tuple[str, str, tuple[str, ...]], ...] = tuple(
+    (f"{co_tipo} {dict(publicacao.parametros)}", co_tipo, publicacao.moldes)
+    for co_tipo, publicacoes in EDITORIAL.items()
+    for publicacao in publicacoes
+    if publicacao.moldes is not None
+)
+
+#: Piso de moldes por acervo PROPRIO, pela mesma regra de `PISO_DE_MOLDES`: uma
+#: fracao (~75%) que pega um pedaco da lista apagado por acidente, e ⛔ nao o
+#: tamanho do acervo.
+PISO_DO_ACERVO_PROPRIO = {
+    "damas_capturar_multipla {'pecas': 2, 'lances': 8}": 80,
+}
+
+
 def moldes(co_tipo: str) -> tuple[str, ...]:
-    """Os moldes daquele tipo, como o gerador os ve."""
-    return tuple(receita_de(co_tipo).moldes)
+    """TODOS os moldes que o gerador pode sortear para aquele tipo.
+
+    ⚠️ **O acervo da receita MAIS o de cada variante que tem o seu.** E o que o
+    jogador pode receber sob aquele tipo, e e sobre isso que os cadeados deste
+    arquivo perguntam: posicao legal, molde trivial, FEN repetida - dentro do
+    tipo e entre tipos. Uma FEN que aparece na receita e numa variante do mesmo
+    tipo acusa como repetida, e deve: e o mesmo tabuleiro em dois dias.
+    """
+    proprios = tuple(
+        fen
+        for _rotulo, dono, acervo in ACERVOS_PROPRIOS
+        if dono == co_tipo
+        for fen in acervo
+    )
+    return tuple(receita_de(co_tipo).moldes) + proprios
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -160,10 +198,58 @@ def test_ha_moldes_SUFICIENTES_para_a_fila_nao_repetir(co_tipo) -> None:
     ⚠️ **Com quatro moldes a fila repetiu a mesma FEN em sete dias no `des`** (com
     sementes diferentes), e foi esse relato que abriu T049g.
     """
-    assert len(moldes(co_tipo)) >= PISO_DE_MOLDES[co_tipo], (
-        f"{co_tipo} tem {len(moldes(co_tipo))} moldes, e o piso e "
+    # ⚠️ O piso do TIPO e cobrado so do acervo da RECEITA: somar os acervos
+    # proprios deixaria a receita perder dois tercos da lista sem nada acusar.
+    da_receita = len(receita_de(co_tipo).moldes)
+    assert da_receita >= PISO_DE_MOLDES[co_tipo], (
+        f"{co_tipo} tem {da_receita} moldes na receita, e o piso e "
         f"{PISO_DE_MOLDES[co_tipo]}"
     )
+
+
+@pytest.mark.parametrize(
+    "rotulo, acervo", [(rotulo, acervo) for rotulo, _t, acervo in ACERVOS_PROPRIOS]
+)
+def test_cada_acervo_PROPRIO_tem_moldes_suficientes(rotulo, acervo) -> None:
+    """🔒 O mesmo piso, para o acervo de cada variante que tem o seu.
+
+    ⛔ **E todo acervo proprio precisa de um piso escrito.** Sem a linha em
+    `PISO_DO_ACERVO_PROPRIO` este caso falha, e e de proposito: o acervo novo
+    que entrasse sem piso ficaria sem cadeado nenhum contra a lista apagada.
+    """
+    assert rotulo in PISO_DO_ACERVO_PROPRIO, (
+        f"o acervo proprio de {rotulo} nao tem piso em PISO_DO_ACERVO_PROPRIO"
+    )
+    assert len(acervo) >= PISO_DO_ACERVO_PROPRIO[rotulo], (
+        f"{rotulo} tem {len(acervo)} moldes, e o piso e "
+        f"{PISO_DO_ACERVO_PROPRIO[rotulo]}"
+    )
+
+
+def test_acervo_PROPRIO_so_existe_em_tipo_que_USA_molde() -> None:
+    """🔒 ⛔ O Pontinhos ignoraria a lista calado.
+
+    ⚠️ O gerador so le `moldes` no ramo das damas; o Pontinhos parte de uma
+    posicao de autoplay. Um acervo declarado numa variante de Pontinhos seria
+    aceito pelo editorial, medido por ninguem e usado por nada - e quem o
+    escreveu acreditaria que ele estava valendo.
+    """
+    for rotulo, co_tipo, acervo in ACERVOS_PROPRIOS:
+        assert receita_de(co_tipo).moldes, (
+            f"{rotulo}: acervo proprio num tipo sem moldes na receita - o gerador "
+            "nao o leria"
+        )
+        assert acervo, f"{rotulo}: acervo proprio VAZIO; use `None` para herdar"
+
+
+def test_o_catalogo_TEM_ao_menos_um_acervo_proprio() -> None:
+    """🔒 O controle: sem ele os dois casos acima passariam com a lista vazia.
+
+    ⚠️ Se um dia o `damas_capturar_multipla {pecas: 2}` voltar ao acervo da
+    receita, este caso falha - e quem mudou decide, de proposito, se os cadeados
+    de acervo proprio ainda tem o que guardar.
+    """
+    assert ACERVOS_PROPRIOS, "nenhuma variante tem acervo proprio"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

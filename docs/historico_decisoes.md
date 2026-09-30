@@ -6903,6 +6903,10 @@ critério 6 do dono (*"de preferência muitos lances"*).
 
 ### ⏳ A única pendência, e ela é decisão de produto
 
+✅ **DECIDIDA em 30/09/2026: o dono escolheu separar o acervo por variante.** O
+que foi feito está na entrada 2026-09-30 (2); o texto abaixo é o registro da
+pendência como ela estava.
+
 **`damas_capturar_multipla` `{pecas: 2, lances: 8}` ficou fora da faixa**, com
 `nu_minimo_de_meios_lances=0` escrito e o motivo ao lado. Os 87 moldes do tipo
 foram caçados para o alvo antigo (`pecas: 2, lances: 4`) e anotam **4 a 7**
@@ -7364,3 +7368,137 @@ está dentro.
 mudança, com argumento próprio, e juntá-la a esta tornaria impossível dizer,
 olhando o histórico, qual das duas mudou o quê. Fica registrada como pendência
 nomeada, para o dono decidir.
+
+---
+
+## 2026-09-30 — A bancada de paridade rodou no APARELHO, e confere nos dois jogos (T094a)
+
+**Contexto.** A T094 provou em `flutter test` que o motor Dart do aplicativo e o
+do servidor jogam igual; ela ⛔ alcançava as duas peças que só existem no
+aparelho: a **CNN do Pontinhos** (TFLite, plugin nativo) e o **motor Rust das
+damas**. A tela `/bancada-paridade` do flavor `des` (T094a) roda as mesmas
+partidas de `contratos/vetores-paridade-motores.json` no aparelho. O dono a rodou
+num iPhone em 30/09/2026 e mandou as capturas.
+
+| jogo | o que conferiu | resultado |
+|---|---|---|
+| Pontinhos | 12 partidas, **372 de 372** lances; a softmax número a número contra a do `ai-edge-litert` do servidor | ✅ confere lance a lance · pior desvio **1,07e-6** (tolerância 1e-5) |
+| damas | 40 partidas, **3.381 de 3.381** lances, lance e nós; as quatro modalidades vezes os quatro níveis | ✅ confere lance a lance · respondeu o Dart em 3.261, o **Rust em 120** |
+
+✅ **Fecha a pergunta que a T094a deixou aberta.** Se Dart e Rust divergissem sob
+o teto real de 288 mil nós, dois aparelhos já divergiriam entre si, sem o
+servidor entrar na história; o único cadeado que os comparava
+(`conferir_equivalencia_com_rust.dart`) roda sem teto e sem relógio. Não
+divergem.
+
+⚠️ **Os 120 do Rust são exatamente as partidas do Sagaz** - 4 modalidades vezes o
+teto de 30 meios-lances da bancada (decisão 2 da entrada de 28/09). É o Rust que
+joga o Magno onde há biblioteca nativa, e a conta fechar confirma que ele
+respondeu a todos esses lances, e não só a alguns. ✅ E é a primeira prova de que
+o motor Rust **carrega e joga no iOS**: até aqui o `build_ios.sh` estava escrito
+e o lado iOS do portão nativo nunca tinha sido visto rodando.
+
+⚠️ **O desvio de 1,07e-6 é a distância entre a rede no ARM do aparelho e no
+x86-64 do servidor**, e fica dez vezes abaixo da tolerância de
+`conferir_runtime_inferencia.py`. Ele não mudou lance nenhum.
+
+⛔ **O que continua sem prova de aparelho:** o Android. O dono não tem Android
+físico (a bancada de nós das damas já usou o Samsung RTL, onde só há a tela), e
+esta rodada foi no iOS. O motor Rust do Android tem o portão do Gradle desde
+01/09, mas a paridade sob teto real só foi vista no iPhone.
+
+---
+
+## 2026-09-30 (2) — O acervo de moldes passa a ser POR VARIANTE, e a captura de duas entra na faixa
+
+**Contexto.** A entrada 2026-09-26 (5) deixou uma pendência de produto: a
+variante `{pecas: 2, lances: 8}` do `damas_capturar_multipla` era a única de
+damas fora da faixa do hub, porque o acervo era da **receita** e servia às duas
+variantes do tipo. Os 87 moldes dele anotam de 4 a 7 meios-lances; na faixa, a
+maratona dá 237 moldes para duas peças e 2 para três. Três saídas estavam na
+mesa. **O dono escolheu, em 30/09/2026: "separe o acervo por variante".**
+
+### A decisão
+
+`Publicacao` ganhou o campo `moldes: tuple[str, ...] | None = None`. ⚠️ **`None`
+é o caminho normal** - a variante usa o acervo da receita, e nada muda para as
+outras 25 variantes do editorial. Quem declara acervo próprio o substitui
+inteiro; não há soma com o da receita.
+
+O caminho, peça a peça:
+
+| peça | o que mudou |
+|---|---|
+| `job/editorial.py` | o campo, e a variante de duas peças apontando para o acervo dela |
+| `job/tipos_de_desafio.py` | `MOLDES_DA_CAPTURA_DE_DUAS_EM_OITO`, 105 FENs, no fim do arquivo - todo molde do projeto mora ali |
+| `job/gerador.py` | `gerar_candidatos(..., moldes=None)`; ⛔ lista vazia **recusa alto**, porque `_preparar_damas` trataria "sem moldes" como "parta da posição inicial" sem erro |
+| `job/__main__.py` | repassa `moldes=publicacao.moldes` |
+| `scripts/medir_variantes_do_editorial.py` | a `Candidata` carrega o acervo, e o alvo novo `no-ar:<tipo>` mede o editorial de **um** tipo |
+
+### O acervo da variante: 105 moldes, e por quê
+
+Do diário `maratona_damas_capturar_multipla.jsonl`, o mesmo critério da troca do
+sacrifício em 26/09:
+
+    706  cumprem `pecas=2` em 3+ das 4 modalidades
+    198  distância média de 9 a 15 meios-lances
+    109  não estão no acervo de OUTRO tipo        (89 saíram)
+    105  não estão no acervo da RECEITA do tipo   (4 saíram)
+
+⚠️ **15, e não 20.** A faixa do hub vai a 20, mas a frase desta variante promete
+*"em até 8 lances"*, e o 8º lance de quem resolve é o meio-lance 15; o teto de
+busca dela é 16. Um molde que só cumpre em 17 seria recusado pela própria janela,
+todo dia em que fosse sorteado. ⛔ Alargar a frase para caber os 237 seria mudar a
+tarefa, e isso não foi pedido.
+
+⚠️ **As 89 colisões cedem deste lado** pela regra de
+`test_nenhum_molde_APARECE_NOS_DOIS_tipos`: o acervo mais novo cede. E os 4 que já
+estavam na receita saíram pela mesma razão dentro do tipo - a de três peças os
+publica, e seria o mesmo tabuleiro em dois dias.
+
+Nenhum dos 105 é trivial (objetivo no lance 1) nem ilegal, nas quatro
+modalidades. Distribuição (meios-lances, média das modalidades): 9: 12 · 10: 25 ·
+11: 12 · 12: 25 · 13: 9 · 14: 19 · 15: 3. São 43 que resolvem nas quatro
+modalidades.
+
+✅ **Com acervo próprio o piso volta a valer:** a variante perdeu o
+`nu_minimo_de_meios_lances=0` e herda o 9 do padrão. `test_toda_variante_FORA_da_
+faixa_declara_o_zero_explicitamente` perdeu a exceção dela e agora só admite o
+Pontinhos - ⛔ uma exceção que ninguém usa é porta aberta para a próxima.
+
+### Os cadeados
+
+- `test_moldes_de_damas.py` passou a perguntar ao **editorial** também: os
+  acervos próprios entram nas conferências de posição legal, molde trivial e FEN
+  repetida (dentro do tipo **e** entre tipos), e cada um tem piso próprio (80 para
+  este). ⚠️ Sem isso o acervo novo teria entrado sem conferência nenhuma - o
+  mesmo defeito que a lista de `TIPOS` escrita à mão já teve em 17/09.
+- `test_acervo_por_variante.py`, novo: o acervo chega ao `_preparar_damas`, a
+  lista vazia recusa, o medidor o repassa, o alvo `no-ar:<tipo>` funciona.
+- `test_o_ACERVO_de_cada_variante_chega_a_geracao`, no teste do job: um espião
+  confere, chamada a chamada, que o acervo recebido é o da publicação sorteada, e
+  só passa se a variante de acervo próprio saiu ao menos uma vez.
+- ✅ **Vistos mordendo**, com cópia dos arquivos antes: sem a linha do job,
+  reprovam os dois casos do job; com o gerador lendo só a receita, reprovam o da
+  substituição e o da lista vazia.
+
+### Alternativas consideradas
+
+| alternativa | por que não |
+|---|---|
+| Aposentar a `{pecas: 2}` | Deixa a de três peças sozinha, e ela é `NO LIMITE` |
+| Deixá-la fora da faixa | Um desafio curto continuaria possível nos dias dela - o defeito que o dono cobrou em 16/09 |
+| Mover `moldes` da `Receita` para a `Publicacao` (todas) | Obrigaria a repetir o mesmo acervo em cada variante de cada tipo; o `None` que herda dá o mesmo resultado sem copiar as 1.943 FENs das receitas |
+| Alargar a frase para `lances: 10`, teto 20, e usar os 237 | Muda a tarefa publicada; a decisão do dono foi sobre o acervo, e não sobre a frase |
+
+### ⏳ O que falta: medir
+
+⛔ **Esta variante ainda não foi medida com o acervo novo.** A régua que roda hoje
+(`no-ar --com-regua`, lançada antes desta mudança) mede o acervo antigo e o piso
+zero, e a linha dela para esta variante já nasce desatualizada. O comando para
+depois que ela terminar:
+
+    .venv\Scripts\python -u scripts\medir_variantes_do_editorial.py no-ar:damas_capturar_multipla --com-regua
+
+O que olhar: o veredito da `{pecas: 2, lances: 8}` e o número do **dia mais
+fraco**. `NO LIMITE` ou `SEM DESAFIO` pede leitura antes do próximo passo.

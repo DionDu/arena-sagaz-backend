@@ -1108,6 +1108,58 @@ async def test_os_PARAMETROS_mudam_ao_longo_da_fila() -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_o_ACERVO_de_cada_variante_chega_a_geracao() -> None:
+    """🔒 O acervo proprio da variante (30/09/2026) sai do editorial e chega la.
+
+    ⛔ **O mesmo congelamento silencioso do caso acima, noutro campo.** Um job que
+    nao repassasse `moldes` publicaria a variante `{pecas: 2}` do
+    `damas_capturar_multipla` com o acervo da receita - posicoes de 4 a 7
+    meios-lances, abaixo do piso - e o dia sairia sem candidato, sem nada
+    apontar para o acervo.
+
+    ⚠️ **Cada chamada e conferida contra a publicacao que ela gerou**, e o caso
+    so passa se a variante de acervo proprio tiver sido sorteada ao menos uma
+    vez - senao ele estaria provando so o `None`.
+    """
+    chamadas: list[dict[str, Any]] = []
+
+    def gerar_espiao(*a: Any, **kwargs: Any) -> list[Candidato]:
+        chamadas.append(kwargs)
+        return _gerar_um(*a, **kwargs)
+
+    # ⚠️ Ate 400 dias, parando no primeiro em que a variante de acervo proprio
+    # sair: o odometro das damas roda devagar (um dia de damas a cada dois, e
+    # varios tipos no rodizio), e um numero fixo pequeno a deixaria de fora.
+    for n in range(400):
+        await _rodar(
+            _sessao_feliz(),
+            gerar=gerar_espiao,
+            dt_hoje=date(2026, 9, 20) + timedelta(days=n),
+        )
+        if any(c.get("moldes") is not None for c in chamadas):
+            break
+
+    assert chamadas, "a geracao nem chegou a ser chamada"
+    for kwargs in chamadas:
+        assert "moldes" in kwargs, "o job nao repassou `moldes` a geracao"
+        # A publicacao que tem estes parametros, em algum tipo do editorial.
+        donas = [
+            publicacao
+            for publicacoes in EDITORIAL.values()
+            for publicacao in publicacoes
+            if dict(publicacao.parametros) == dict(kwargs["parametros"])
+        ]
+        assert any(p.moldes == kwargs["moldes"] for p in donas), (
+            f"a geracao de {dict(kwargs['parametros'])} recebeu um acervo que "
+            "nenhuma publicacao com esses parametros declara"
+        )
+    assert any(c["moldes"] is not None for c in chamadas), (
+        "em 400 dias a variante de acervo proprio nunca foi sorteada: o caso "
+        "provou so o caminho do `None`"
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # O RELOGIO DA EXECUCAO, E O ENCERRAMENTO QUE CUSTA DINHEIRO (12/09/2026)
 # ═══════════════════════════════════════════════════════════════════════════

@@ -50,6 +50,9 @@ from .medidas_de_saida import (
     linha_de_faixa,
     linha_so_medida,
 )
+# ⚠️ O unico acervo POR VARIANTE de hoje. As FENs moram em `tipos_de_desafio.py`
+# com todos os outros moldes, e o editorial so aponta para elas.
+from .tipos_de_desafio import MOLDES_DA_CAPTURA_DE_DUAS_EM_OITO
 
 #: A versao do aplicativo que estreia o Desafio do Dia.
 #:
@@ -258,6 +261,22 @@ class Publicacao:
     #: continua jogando no nivel dele, com a semente publicada. O que muda e de
     #: qual lista o rodizio do dia sorteia.
     co_personagens: tuple[str, ...] | None = None
+
+    #: O acervo de moldes PROPRIO desta variante. `None` = o da receita.
+    #:
+    #: ⚠️ **`None` e o caminho normal**, e nao uma ausencia: a variante que so
+    #: troca um numero da mesma tarefa usa o acervo da receita
+    #: (`tipos_de_desafio.Receita.moldes`), e nada muda para ela.
+    #:
+    #: ⛔ **Existe porque um acervo so nem sempre serve as variantes de um tipo**
+    #: (decisao do dono, 30/09/2026). No `damas_capturar_multipla`, na faixa de 9 a
+    #: 20 meios-lances, a maratona deu 237 moldes para duas pecas e 2 para tres:
+    #: o acervo que alonga uma variante esvazia a outra.
+    #:
+    #: ⚠️ **So vale para tipo que usa molde** (as damas). O Pontinhos parte de
+    #: autoplay e ignoraria a lista calado - por isso ha cadeado recusando acervo
+    #: proprio em tipo cuja receita nao tem moldes.
+    moldes: tuple[str, ...] | None = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1514,26 +1533,30 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_damas_captura,
             nu_maximo_de_meios_lances=16,
-            # ⛔ **A UNICA VARIANTE DE DAMAS QUE FICOU FORA DA FAIXA DO HUB
-            # (26/09/2026), e o motivo e o acervo COMPARTILHADO.**
+            # ✅ **ENTROU NA FAIXA DO HUB EM 30/09/2026, com ACERVO PROPRIO.**
             #
-            # ⚠️ **O acervo e da RECEITA, e nao da variante:** os 87 moldes de
-            # `tipos_de_desafio.py` servem as duas publicacoes deste tipo. Eles
-            # foram cacados para o alvo antigo (`pecas: 2, lances: 4`) e as
-            # distancias anotadas neles vao de **4 a 7 meios-lances** — abaixo do
-            # piso de 9. ⛔ Com o piso ligado aqui, esta variante deixaria de
-            # gerar nos dias em que o odometro caisse nela.
+            # ⚠️ **Ate aqui ela era a unica variante de damas fora da faixa**, com
+            # `nu_minimo_de_meios_lances=0` escrito: o acervo era o da RECEITA,
+            # compartilhado com a de tres pecas, e os 87 moldes dele foram cacados
+            # para o alvo antigo (`pecas: 2, lances: 4`) - anotam de 4 a 7
+            # meios-lances, abaixo do piso de 9. Trocar o acervo da receita pelos
+            # moldes da maratona resolveria esta e quebraria a de tres pecas (237
+            # moldes na faixa para duas pecas, 2 para tres).
             #
-            # ⛔ **E trocar o acervo pelos moldes da maratona resolveria ESTA e
-            # quebraria a de tres pecas:** na faixa 9-20 a maratona da **237**
-            # moldes para `pecas=2` e **2** para `pecas=3`. Um acervo so nao serve
-            # as duas.
+            # ✅ **O dono escolheu separar o acervo por variante** (30/09/2026,
+            # `docs/historico_decisoes.md`, 2026-09-26 (5) e 2026-09-30). Esta
+            # variante leva os 105 moldes da maratona que cabem de 9 a 15
+            # meios-lances - a janela da frase *"em ate 8 lances"* -, e a de tres
+            # pecas continua no acervo da receita, que mede 13,8.
             #
-            # ⏳ **A decisao e do dono**, e as opcoes estao no
-            # `docs/historico_decisoes.md`, 2026-09-26 (5): aposentar esta
-            # variante, separar o acervo por variante (mudanca de estrutura) ou
-            # deixa-la fora da faixa como esta.
-            nu_minimo_de_meios_lances=0,
+            # ⚠️ **Por isso o piso deixou de ser escrito aqui:** ela herda o 9 do
+            # padrao, como toda variante de damas.
+            #
+            # ⏳ **Ainda NAO medida com o acervo novo.** Quem responde *"gera
+            # candidato todo dia?"* e `scripts/medir_variantes_do_editorial.py
+            # no-ar:damas_capturar_multipla --com-regua` - processo longo, comando
+            # do dono.
+            moldes=MOLDES_DA_CAPTURA_DE_DUAS_EM_OITO,
         ),
         Publicacao(
             # ⚠️ **TRES pecas, a tarefa mais longa de todo o catalogo** — 13,8

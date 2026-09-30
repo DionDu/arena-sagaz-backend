@@ -66,11 +66,16 @@ def test_o_padrao_TEM_a_faixa_do_hub() -> None:
 def test_toda_variante_FORA_da_faixa_declara_o_zero_explicitamente() -> None:
     """🔒 Ficar fora da faixa e escolha escrita, e ⛔ nunca heranca por distracao.
 
-    ⚠️ **Sao duas as excecoes de hoje, e as duas tem motivo no editorial:** o
-    Pontinhos inteiro (decisao do dono em 26/09 — *"deixe os Pontinhos da forma
-    que esta hoje... o tabuleiro ainda e pequeno"*, e `SEM_PISO_NO_PONTINHOS`) e a
-    variante `{pecas: 2}` do `damas_capturar_multipla`, cujo acervo e
-    compartilhado com a de tres pecas.
+    ⚠️ **A excecao de hoje e UMA, e tem motivo no editorial:** o Pontinhos
+    inteiro (decisao do dono em 26/09 — *"deixe os Pontinhos da forma que esta
+    hoje... o tabuleiro ainda e pequeno"*, e `SEM_PISO_NO_PONTINHOS`).
+
+    ✅ **Eram duas ate 30/09/2026.** A variante `{pecas: 2}` do
+    `damas_capturar_multipla` ficava fora porque o acervo era compartilhado com a
+    de tres pecas; ela ganhou acervo proprio (decisao do dono) e herda o piso do
+    padrao. ⛔ Por isso a excecao dela saiu daqui, e nao ficou "por seguranca":
+    uma excecao que ninguem usa e a porta aberta para a proxima variante voltar a
+    ficar fora da faixa sem ninguem notar.
 
     ⛔ **O que este teste impede e o silencio**, e nao o zero: enquanto o padrao
     era zero, uma variante sem piso era indistinguivel de uma variante esquecida.
@@ -84,10 +89,7 @@ def test_toda_variante_FORA_da_faixa_declara_o_zero_explicitamente() -> None:
             assert editorial_mod.MINIMO_DE_MEIOS_LANCES_PADRAO != 0, (
                 "o padrao voltou a ser zero: este teste perdeu o sentido"
             )
-            assert co_tipo.startswith("pontinhos_") or (
-                co_tipo == "damas_capturar_multipla"
-                and dict(publicacao.parametros).get("pecas") == 2
-            ), (
+            assert co_tipo.startswith("pontinhos_"), (
                 f"{co_tipo} {dict(publicacao.parametros)} esta fora da faixa do hub "
                 "sem ser uma das excecoes registradas no editorial"
             )

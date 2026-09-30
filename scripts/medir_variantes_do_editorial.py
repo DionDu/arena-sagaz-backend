@@ -144,6 +144,9 @@ class Candidata:
         nu_minimo_de_meios_lances: o PISO de meios-lances do gabarito. `None`
             herda; `0` e um piso legitimo (desligado), e e por isso que o valor
             que herda e `None`, e nao zero.
+        moldes: o acervo PROPRIO da variante (`Publicacao.moldes`). `None` usa
+            o da receita. ⚠️ Medir com o acervo da receita uma variante que tem
+            o seu descreveria uma execucao que o job nao faz (30/09/2026).
 
     ⛔ **Os dois botoes precisam ser POR CANDIDATA, e descobrir isso custou uma
     execucao.** Ate 12/09/2026 eles saiam sempre da publicacao no ar, o que estava
@@ -158,6 +161,7 @@ class Candidata:
     nu_lances_de_preparo: int | None = None
     nu_maximo_de_meios_lances: int | None = None
     nu_minimo_de_meios_lances: int | None = None
+    moldes: tuple[str, ...] | None = None
 
 
 #: As variantes a medir, por tipo. ⚠️ **A primeira de cada lista e a que esta no
@@ -705,6 +709,15 @@ def medir(
                 # ⚠️ A mesma restricao da publicacao no ar: medir contra um
                 # adversario que o tipo nao publica descreveria outra execucao.
                 personagens_possiveis=publicacao.co_personagens,
+                # ⚠️ O acervo da candidata, se ela declarou um; senao, o da
+                # publicacao no ar - que e `None` (o da receita) quase sempre.
+                # ⛔ `getattr`, e nao o campo direto: as candidatas em estudo
+                # de `EM_AVALIACAO` podem ser de outra forma.
+                moldes=(
+                    publicacao.moldes
+                    if getattr(candidata, "moldes", None) is None
+                    else candidata.moldes
+                ),
                 # ⚠️ `None` para tudo o que ja esta no ar - e ai o gerador
                 # escolhe o tipo pelo dia e **exige o vetor**, como sempre.
                 receita_em_avaliacao=em_avaliacao,
@@ -797,6 +810,20 @@ ALVOS_NO_AR: Mapping[str, str | None] = {
     f"{ALVO_NO_AR}-pontinhos": "pontinhos",
 }
 
+#: O alvo que le o editorial de UM tipo so: `no-ar:damas_capturar_multipla`.
+#:
+#: ⚠️ **Existe por preco, como os dois de cima** (30/09/2026). O alvo com o nome
+#: do tipo, sem prefixo, mede as candidatas de ESTUDO (`A_MEDIR`), e nao as
+#: publicadas; para remedir uma variante que acabou de mudar no editorial, a
+#: unica saida era `no-ar-damas`, que custa ~3h para reimprimir oito linhas ja
+#: decididas.
+PREFIXO_NO_AR_DE_UM_TIPO = f"{ALVO_NO_AR}:"
+
+
+def e_alvo_no_ar(alvo: str) -> bool:
+    """O alvo le o EDITORIAL (o publicado), e nao a tabela de estudo?"""
+    return alvo in ALVOS_NO_AR or alvo.startswith(PREFIXO_NO_AR_DE_UM_TIPO)
+
 
 def candidatas_do_editorial(co_tipo: str) -> tuple["Candidata", ...]:
     """As variantes publicadas daquele tipo, com os botoes de cada uma.
@@ -810,6 +837,7 @@ def candidatas_do_editorial(co_tipo: str) -> tuple["Candidata", ...]:
             nu_lances_de_preparo=publicacao.nu_lances_de_preparo,
             nu_maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
             nu_minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
+            moldes=publicacao.moldes,
         )
         for publicacao in editorial_mod.variantes_de(co_tipo)
     )
@@ -845,6 +873,16 @@ def tipos_do_alvo(alvo: str) -> list[str]:
 
     # ⚠️ **Os tipos saem de `RECEITAS`, e nao de `A_MEDIR`** — e e esse o ponto
     # do alvo: medir o que esta no ar, inclusive o que a tabela paralela esqueceu.
+    if alvo.startswith(PREFIXO_NO_AR_DE_UM_TIPO):
+        co_tipo = alvo[len(PREFIXO_NO_AR_DE_UM_TIPO):]
+        # ⛔ Tipo sem variante publicada devolve vazio, e quem chama sai com 2 -
+        # um nome digitado errado nao pode virar uma rodada que nao mede nada.
+        if co_tipo in tipos_de_desafio_mod.RECEITAS and editorial_mod.variantes_de(
+            co_tipo
+        ):
+            return [co_tipo]
+        return []
+
     if alvo in ALVOS_NO_AR:
         # ⚠️ `no-ar-damas` e `no-ar-pontinhos` existem por PRECO, e nao por
         # arrumacao: a rodada com regua das variantes de damas custa ~2h e a das
@@ -1022,7 +1060,7 @@ def principal(argumentos: Sequence[str]) -> int:
         print(
             "   Use um JOGO (pontinhos · damas), `todos`, `em-avaliacao`, um "
             "TIPO, ou o que esta PUBLICADO: `no-ar` · `no-ar-damas` · "
-            "`no-ar-pontinhos`:"
+            "`no-ar-pontinhos` · `no-ar:<tipo>`:"
         )
         for co_tipo in A_MEDIR:
             print(f"     {co_tipo}")
@@ -1047,7 +1085,7 @@ def principal(argumentos: Sequence[str]) -> int:
         # editorial, com os botoes de cada publicacao (ver `ALVO_NO_AR`).
         candidatas = (
             candidatas_do_editorial(co_tipo)
-            if alvo in ALVOS_NO_AR
+            if e_alvo_no_ar(alvo)
             else tabela[co_tipo]
         )
         if so_botao_proprio:

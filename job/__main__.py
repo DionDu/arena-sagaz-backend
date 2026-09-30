@@ -475,6 +475,9 @@ async def cobrir_um_dia(
         # ⚠️ **Nem todo tipo cabe contra todo adversario** - ver o campo no
         # editorial. `None` mantem o rodizio dos quatro.
         personagens_possiveis=publicacao.co_personagens,
+        # ⚠️ **O acervo da VARIANTE, quando ela tem um** (30/09/2026). `None`
+        # herda o da receita - ver `editorial.Publicacao.moldes`.
+        moldes=publicacao.moldes,
     )
     if not candidatos:
         return await _tentar_reprisar(

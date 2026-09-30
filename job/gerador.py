@@ -789,6 +789,7 @@ def gerar_candidatos(
     minimo_de_meios_lances: int = 0,
     personagens_possiveis: Sequence[str] | None = None,
     receita_em_avaliacao: Receita | None = None,
+    moldes: Sequence[str] | None = None,
 ) -> list[Candidato]:
     """Gera candidatos para um dia.
 
@@ -826,6 +827,13 @@ def gerar_candidatos(
             para o script de medicao poder perguntar *"este tipo daria desafio?"*
             antes de o dono aprova-lo. ⛔ **Nao serve para publicar** — ver o
             bloco abaixo. `None` e o caminho normal, e e o unico que o job usa.
+        moldes: o acervo PROPRIO da variante (`Publicacao.moldes`). `None` usa
+            o da receita, que e o caminho de toda variante que so troca um
+            numero da mesma tarefa.
+            ⛔ **Existe porque um acervo so nem sempre serve as variantes de um
+            tipo** (decisao do dono, 30/09/2026): no `damas_capturar_multipla`,
+            o acervo que alonga a de duas pecas esvazia a de tres. So as damas
+            leem este argumento - o Pontinhos parte de autoplay.
 
     Returns:
         Os candidatos encontrados. Pode vir menos que `quantos` — e pode vir
@@ -875,6 +883,20 @@ def gerar_candidatos(
         exigir_vetor(co_tipo)
 
     co_personagem = escolher_personagem(dt_dia, possiveis=personagens_possiveis)
+
+    # ⚠️ **O acervo da variante, se ela tiver um; senao, o da receita.**
+    # ⛔ `is None`, e nao `or`: com `or`, uma lista vazia passada por engano
+    # viraria o acervo da receita calada, e a variante publicaria posicoes
+    # escolhidas para outra tarefa.
+    acervo = receita.moldes if moldes is None else tuple(moldes)
+    # ⛔ **E a lista vazia recusa aqui, alto.** `_preparar_damas` trata "sem
+    # moldes" como "parta da posicao inicial" - o caminho legitimo de um tipo sem
+    # acervo -, entao o engano passaria por ele sem erro nenhum.
+    if moldes is not None and not acervo:
+        raise ValueError(
+            f"{co_tipo}: a variante declarou um acervo proprio VAZIO. Use `None` "
+            "para herdar o da receita."
+        )
 
     # ⚠️ **Quem procura a solucao pode nao ser o Sagaz** — ver `SOLUCIONADOR_POR_TIPO`.
     solucionador = SOLUCIONADOR_POR_TIPO.get(co_tipo)
@@ -948,7 +970,7 @@ def gerar_candidatos(
             base = _preparar_damas(
                 sorteio,
                 lances_de_preparo,
-                moldes=receita.moldes,
+                moldes=acervo,
                 co_modalidade=co_modalidade,
             )
             # ── ⛔ ESTA POSICAO SE RESOLVE NO PRIMEIRO TOQUE? ────────────
