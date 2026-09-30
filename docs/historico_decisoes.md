@@ -7560,6 +7560,11 @@ Pontinhos - ⛔ uma exceção que ninguém usa é porta aberta para a próxima.
 | Mover `moldes` da `Receita` para a `Publicacao` (todas) | Obrigaria a repetir o mesmo acervo em cada variante de cada tipo; o `None` que herda dá o mesmo resultado sem copiar as 1.943 FENs das receitas |
 | Alargar a frase para `lances: 10`, teto 20, e usar os 237 | Muda a tarefa publicada; a decisão do dono foi sobre o acervo, e não sobre a frase |
 
+### ✅ MEDIDA no mesmo dia - ver 2026-09-30 (3)
+
+APERTADO `[3, 2, 3]`, solução **12,8** meios-lances. O texto abaixo fica como
+estava quando a medição ainda faltava.
+
 ### ⏳ O que falta: medir
 
 ⛔ **Esta variante ainda não foi medida com o acervo novo.** A régua que roda hoje
@@ -7571,3 +7576,91 @@ depois que ela terminar:
 
 O que olhar: o veredito da `{pecas: 2, lances: 8}` e o número do **dia mais
 fraco**. `NO LIMITE` ou `SEM DESAFIO` pede leitura antes do próximo passo.
+
+---
+
+## 2026-09-30 (3) — A régua do catálogo inteiro, a captura de duas medida, e a de TRES peças sai do ar
+
+**Contexto.** Duas medições com régua no mesmo dia, ambas do dono:
+
+- `no-ar --com-regua` (11:40 às 13:23, 26 variantes, 6.159 s) - lançada **antes**
+  da entrada 2026-09-30 (2), então a linha da `{pecas: 2}` mede o acervo antigo.
+  Log: `logs/regua-no-ar-2026-09-30.log`.
+- `no-ar:damas_capturar_multipla --com-regua` (1.067 s), depois do acervo novo.
+  Log: `logs/regua-captura-acervo-novo.log`.
+
+### O catálogo, na régua de 30/09
+
+| resultado | quantas | quais |
+|---|---|---|
+| ✅ FOLGA | 16 | sacrifício ×3 · cadeia longa ×2 · fechar caixas ×3 · não entregar · paciência · economia 5/8 e 4/6 · chegar ao placar acima do guloso ×2 · sobreviver 8/2 · troca favorável 4/2 |
+| ⚠️ APERTADO | 5 | chegar ao placar 5, 6 e 7 caixas · economia 5/7 · sobreviver 8/1 |
+| ⚠️ NO LIMITE | 3 | coroar 8 e 10 lances · troca favorável 5/2 |
+| ⛔ SEM DESAFIO | 1 | captura `{pecas: 3, lances: 10}` |
+
+(A 26ª é a `{pecas: 2}` com o acervo antigo, que não conta: solução 5,9, abaixo
+do piso.) ⏳ **Os três NO LIMITE continuam publicando** e ficam para leitura
+própria: o coroar tem piso 12 e descarta muito, e a troca 5/2 teve um dia com
+um candidato só.
+
+### A captura de duas com o acervo novo: fica
+
+| | acervo da receita (manhã) | acervo próprio (tarde) |
+|---|---|---|
+| veredito | FOLGA `[3, 3, 3]` | ⚠️ APERTADO `[3, 2, 3]` |
+| solução média | 5,9 meios-lances | **12,8** meios-lances |
+| dias na escada | 1 de 3 | 1 de 3 |
+| os dias fora erram por | 0,05 e 0,05, **fácil demais** (Tex 10 de 10) | 0,03 e 0,15, **difícil** |
+
+⚠️ **A tarefa mais que dobrou, e a calibração não piorou em contagem**: continua
+1 dia de 3 na escada, com o erro trocando de lado. APERTADO publica. É o
+critério 6 do dono (§8k-0, *"de preferência muitos lances"*) sem violar o 4.
+
+### ⛔ A de TRES peças sai do ar
+
+Entrou em 14/09 como NO LIMITE `[3, 1, 1]` com 13,8 meios-lances, numa medição
+**sem régua e sem piso**. A primeira com os dois reprovou nos dois critérios:
+
+    SEM DESAFIO   dias [1, 0, 1]   solução 11,0   NENHUM dia na escada
+    01/10: Tex 2 de 10, Magno 2 de 10      05/10: os três, 0 de 10
+
+**Decisão (minha, pela delegação do dono de 12/09, §8k-0):** aposentar a variante.
+O critério dele pede desafio *"resolvível, não muito difícil"*, e ela publicaria,
+nos dias em que gerasse, um desafio que nem o Magno resolve - e nos outros, dia
+descoberto até a reprise.
+
+⛔ **O acervo próprio não a salva**, como salvou a de duas: a maratona, em 4.881
+FENs reais, achou **2** moldes de três peças na faixa do hub, e o acervo da
+receita é 96% de moldes curtos que o piso descarta. A volta dela depende de uma
+pescaria **dirigida** a três peças, e não de outra rodada da maratona.
+
+⚠️ **Nada se perde:** o código dela está no Git e a candidata continua em
+`A_MEDIR`, no medidor, com a nota de que precisa de `moldes=...` para medir outro
+acervo. O tipo fica com uma variante só; o rodízio de variantes (`escolher_variante`)
+passa a devolver sempre a 0 para ele.
+
+### ⛔ O defeito do medidor que esta medição achou
+
+Na segunda rodada **o mesmo FEN apareceu nas duas variantes no mesmo dia**, e ele
+é do acervo novo. `medir()` herdava da **variante 0** todo botão que a candidata
+não declarasse - e fazia o mesmo com o acervo. A variante 0 deste tipo é a de duas
+peças, com acervo próprio: a de três foi medida com os moldes da de duas. O job
+nunca teve esse defeito (ele passa `publicacao.moldes` de cada publicação).
+
+⚠️ **Por isso a medição que vale para a de três é a da manhã**, feita antes da
+mudança. A da tarde (`[1, 0, 3]`, 13,0) descreve uma execução que não existe.
+
+✅ Corrigido: `moldes=getattr(candidata, "moldes", None)`, com `None` significando
+a receita - o que o docstring da `Candidata` já dizia. ⛔ **O caso que eu tinha
+escrito lia a FONTE, e travava justamente a linha errada.** Virou um caso de
+comportamento: duas candidatas no mesmo tipo (uma sem acervo, outra com um acervo
+diferente do da variante 0), e um espião na geração que confere o que chega.
+Visto mordendo: com a herança da variante 0 de volta, ele reprova.
+
+### Alternativas consideradas
+
+| alternativa | por que não |
+|---|---|
+| Manter a de três em SEM DESAFIO | Publica desafio que ninguém resolve, e deixa dia descoberto - os dois defeitos que o critério do dono proíbe |
+| Tirar o piso só dela | Volta o desafio de 3 meios-lances, o defeito cobrado em 16/09 |
+| Remedir antes de decidir | A amostra é pequena, mas os dois defeitos têm causa estrutural (2 moldes na faixa em 4.881), e uma remedição com o mesmo acervo mede a mesma coisa |

@@ -1552,34 +1552,36 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # ⚠️ **Por isso o piso deixou de ser escrito aqui:** ela herda o 9 do
             # padrao, como toda variante de damas.
             #
-            # ⏳ **Ainda NAO medida com o acervo novo.** Quem responde *"gera
-            # candidato todo dia?"* e `scripts/medir_variantes_do_editorial.py
-            # no-ar:damas_capturar_multipla --com-regua` - processo longo, comando
-            # do dono.
+            # ✅ **MEDIDA com o acervo novo em 30/09/2026** (com regua, dias
+            # 01, 03 e 05/10): ⚠️ APERTADO, dias `[3, 2, 3]`, solucao media
+            # **12,8 meios-lances** - era 5,9 com o acervo da receita, na mesma
+            # manha. A tarefa mais que dobrou, e a escada continua em 1 dia de 3,
+            # como antes; os dias fora dela agora erram para o lado DIFICIL
+            # (0,03 e 0,15), e nao mais para o facil.
             moldes=MOLDES_DA_CAPTURA_DE_DUAS_EM_OITO,
         ),
-        Publicacao(
-            # ⚠️ **TRES pecas, a tarefa mais longa de todo o catalogo** — 13,8
-            # meios-lances, contra os 6,0 a 22,0 do Pontinhos e os 3,0 a 11,3 das
-            # outras variantes de damas.
-            #
-            # ⛔ **Entra em NO LIMITE, e isso e decisao consciente.** O dia mais
-            # fraco da 1 de 3, mas os dias sao `[3, 1, 1]` — melhores que os
-            # `[1, 1, 1]` da versao de teto 16. ⚠️ **NO LIMITE publica**; o risco
-            # e o dia descoberto, e o contrapeso e que este tipo agora tem DUAS
-            # variantes, entao o odometro nao depende so dela.
-            #
-            # ⚠️ **E o preco esta medido:** 923 s para 3 dias, ou ~5 min por dia
-            # de damas — contra o teto de ~27 min/dia da §8k-8.
-            parametros={"pecas": 3, "lances": 10},
-            ic_chegada_encerra_partida=False,
-            medidas=_medidas_do_damas_captura,
-            nu_maximo_de_meios_lances=20,
-            # ✅ **Herda o piso de 9 do padrao, e a medicao acima e a prova:** a
-            # solucao dela mede **13,8 meios-lances**, a mais longa do catalogo.
-            # ⚠️ Por isso a faixa do hub (26/09) nao pediu nada desta variante —
-            # ela ja estava dentro, com o acervo que tem.
-        ),
+        # ── ⛔ APOSENTADA EM 30/09/2026: `{pecas: 3, lances: 10}`, teto 20 ───────
+        #
+        # Entrou em 14/09 como NO LIMITE `[3, 1, 1]`, 13,8 meios-lances - uma
+        # medicao SEM regua e SEM piso. ⛔ **A primeira medicao com os dois a
+        # reprovou nos dois criterios** (`logs/regua-no-ar-2026-09-30.log`):
+        #
+        #     SEM DESAFIO   dias [1, 0, 1]   solucao 11,0   NENHUM dia na escada
+        #     01/10: magno resolveu 2 de 10   05/10: magno resolveu 0 de 10
+        #
+        # ⚠️ **Falta de candidato e excesso de dificuldade ao mesmo tempo.** O
+        # acervo da receita tem 96% de moldes curtos para tres pecas, que o piso
+        # de 9 descarta; os que sobram sao os que nem o Magno resolve. O criterio
+        # do dono de 12/09 (§8k-0) pede desafio *"resolvivel, nao muito dificil"*.
+        #
+        # ⛔ **E o acervo proprio nao salva esta variante**, como salvou a de duas:
+        # a maratona do gerador, em 4.881 FENs reais, achou **2** moldes de tres
+        # pecas na faixa do hub. Nao ha o que pescar ali.
+        #
+        # ⚠️ **O codigo dela nao se perde:** continua em `A_MEDIR`, no medidor
+        # (`scripts/medir_variantes_do_editorial.py`), e volta com um acervo
+        # proprio de tres pecas - que precisa de uma pescaria dirigida, e nao da
+        # maratona. Detalhe em `docs/historico_decisoes.md`, 2026-09-30 (3).
     ),
     # ═══════════════════════════════════════════════════════════════════════
     # OS DOIS TIPOS NOVOS DE DAMAS — MEDIDOS COM REGUA EM 16/09/2026

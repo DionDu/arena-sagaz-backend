@@ -150,15 +150,48 @@ def test_as_candidatas_do_editorial_levam_o_ACERVO_de_cada_variante() -> None:
         assert candidata.moldes == publicacao.moldes
 
 
-def test_o_MEDIDOR_repassa_o_acervo_a_geracao() -> None:
-    """🔒 E o acervo da candidata chega a `gerar_candidatos`.
+def test_o_MEDIDOR_entrega_a_cada_variante_o_acervo_DELA(monkeypatch) -> None:
+    """🔒 Cada variante chega a `gerar_candidatos` com o acervo que o job usa.
 
-    ⛔ Sem isto a candidata carregaria o acervo e a medicao usaria o da receita -
-    a variante sairia aprovada (ou recusada) por posicoes que nunca publica.
+    ⛔ **Este caso substitui um que lia a fonte, e que travava o defeito.** Ele
+    conferia a linha `if getattr(candidata, "moldes", None) is None`, que caia no
+    acervo da VARIANTE 0 quando a candidata nao declarava o seu. No
+    `damas_capturar_multipla` a variante 0 e a de duas pecas, com acervo proprio:
+    em 30/09/2026 a de TRES pecas foi medida com os moldes da de duas, e o mesmo
+    FEN apareceu nas duas variantes no mesmo dia. O caso de fonte passava.
+
+    Agora a geracao e trocada por um espiao que anota o acervo e devolve nenhum
+    candidato (o medidor segue, e a linha sai SEM DESAFIO - o que nao importa).
+
+    ⚠️ **As candidatas sao escritas aqui, e nao lidas do editorial:** a de tres
+    pecas foi aposentada no mesmo dia, e o tipo ficou com uma variante so. O
+    defeito precisa das duas formas no MESMO tipo, com a variante 0 carregando
+    acervo proprio: uma candidata sem acervo (tem de chegar `None`) e uma com
+    outro acervo (tem de chegar o dela, e nao o da variante 0).
     """
-    fonte = Path("scripts/medir_variantes_do_editorial.py").read_text(encoding="utf-8")
-    assert 'if getattr(candidata, "moldes", None) is None' in fonte
-    assert "moldes=(" in fonte
+    # ⚠️ O tipo tem de ser um cuja variante 0 TEM acervo proprio - senao herdar
+    # da variante 0 daria `None` por coincidencia, e o caso passaria com o defeito.
+    co_tipo = "damas_capturar_multipla"
+    assert variantes_de(co_tipo)[0].moldes is not None
+    outro_acervo = ("W:W21,22,23:B9,10,11",)
+    candidatas = (
+        MEDIDOR.Candidata({"pecas": 2, "lances": 8}),
+        MEDIDOR.Candidata({"pecas": 2, "lances": 8}, moldes=outro_acervo),
+    )
+    vistos: list[tuple[str, ...] | None] = []
+
+    def espiao(_dia, *, moldes=None, **_resto):
+        vistos.append(moldes)
+        return []
+
+    monkeypatch.setattr(MEDIDOR.gerador_mod, "gerar_candidatos", espiao)
+    MEDIDOR.medir(co_tipo, candidatas)
+
+    # As candidatas sao medidas em ordem, um dia de cada vez: primeiro todos os
+    # dias da candidata sem acervo, depois todos os da que tem.
+    dias = len(vistos) // 2
+    assert dias > 0, "o medidor nao chamou a geracao nenhuma vez"
+    assert vistos == [None] * dias + [outro_acervo] * dias
 
 
 def test_o_alvo_no_ar_de_UM_tipo_mede_o_editorial_dele() -> None:

@@ -403,6 +403,11 @@ A_MEDIR: dict[str, tuple[Candidata, ...]] = {
         # as outras) e a unica que ampliaria o tipo, que hoje e uma so.
         Candidata({"pecas": 3, "lances": 8}, nu_maximo_de_meios_lances=16),
         Candidata({"pecas": 3, "lances": 10}, nu_maximo_de_meios_lances=20),
+        # ⛔ **A de 10 lances foi ao ar em 14/09 e SAIU em 30/09/2026**: a
+        # primeira medicao com regua e piso deu SEM DESAFIO, sem dia nenhum na
+        # escada (ver o editorial). ⚠️ Ela continua aqui para voltar a ser medida
+        # no dia em que houver um acervo proprio de TRES pecas - com
+        # `moldes=...` nesta linha, porque `None` aqui mede o acervo da receita.
         # ⚠️ **O controle**: a variante de DUAS pecas com o mesmo teto maior. Sem
         # ela, uma melhora em `{pecas: 3}` poderia ser do teto beneficiando tudo,
         # e nao da tarefa de tres pecas passando a caber.
@@ -709,15 +714,16 @@ def medir(
                 # ⚠️ A mesma restricao da publicacao no ar: medir contra um
                 # adversario que o tipo nao publica descreveria outra execucao.
                 personagens_possiveis=publicacao.co_personagens,
-                # ⚠️ O acervo da candidata, se ela declarou um; senao, o da
-                # publicacao no ar - que e `None` (o da receita) quase sempre.
-                # ⛔ `getattr`, e nao o campo direto: as candidatas em estudo
+                # ⚠️ O acervo da candidata, e so dele: `None` quer dizer o da
+                # RECEITA, exatamente como no job (`Publicacao.moldes`).
+                # ⛔ **Nunca "herdar da publicacao no ar", como os outros
+                # botoes.** `publicacao` aqui e a VARIANTE 0 do tipo, e a
+                # variante 0 do `damas_capturar_multipla` tem acervo proprio:
+                # herdar dela fez a de TRES pecas ser medida em 30/09/2026 com
+                # os moldes da de DUAS - uma execucao que o job nao faz.
+                # ⚠️ `getattr`, e nao o campo direto: as candidatas em estudo
                 # de `EM_AVALIACAO` podem ser de outra forma.
-                moldes=(
-                    publicacao.moldes
-                    if getattr(candidata, "moldes", None) is None
-                    else candidata.moldes
-                ),
+                moldes=getattr(candidata, "moldes", None),
                 # ⚠️ `None` para tudo o que ja esta no ar - e ai o gerador
                 # escolhe o tipo pelo dia e **exige o vetor**, como sempre.
                 receita_em_avaliacao=em_avaliacao,
