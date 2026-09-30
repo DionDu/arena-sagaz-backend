@@ -1368,6 +1368,60 @@ class RepositorioSincronizacao:
         # mesma verdade, que é justamente a origem do defeito que isto conserta.
         return (seq, ultimo, total_dias)
 
+    async def vitorias_por_jogo(self, id_usuario: str) -> dict[str, int]:
+        """Quantas vitórias a pessoa tem **em cada jogo**, derivadas do log.
+
+        ⚠️ **Por que isto existe** (30/09/2026, T098). O total de vitórias
+        (``nu_vitorias``) é coluna aqui e chega a qualquer aparelho novo; o
+        detalhe por jogo morava só no rascunho local do app
+        (``js_estado_local``), que não sobe para o servidor. Numa instalação
+        nova o total chegava **sem carimbo de jogo**, e o app adivinhava por
+        subtração - *"o que está no total e não está atribuído a jogo nenhum só
+        pode ser do Pontinhos"*, verdade em 08/2026, quando havia um jogo só.
+        Foi assim que a conta do dono, com 11 vitórias no Pontinhos e 104 no
+        total, recebeu a conquista de **100 vitórias no Pontinhos** ao vencer uma
+        partida de damas. O conserto é o carimbo viajar junto com o número.
+
+        ⚠️ **Derivado a cada leitura, sem coluna nova** - o mesmo molde do
+        ``nu_dias_jogados`` (13/08/2026), e pela mesma razão: guardá-lo criaria
+        uma segunda cópia da mesma verdade, que é justamente a origem do defeito
+        que isto conserta.
+
+        Os filtros, um a um:
+
+        * ``co_modo = 'vs_cpu'`` - deixa de fora o **desafio** (ele não
+          incrementa vitórias no app: as telas saem antes de avaliar conquistas,
+          e o dono precisou disso em ``docs/DECISOES-do-dono.md`` §8k-9) e o
+          **pvp_local** (que nunca pagou XP nem contou vitória - duas pessoas no
+          mesmo aparelho combinariam o vencedor). Não filtramos por
+          ``ic_pontua``: ele já é consequência do modo, e depender dele aqui
+          criaria uma segunda regra para a mesma coisa.
+        * ``co_status = 'concluida'`` - o mesmo recorte de [recalcular_chama].
+          Contra a CPU a partida só sobe terminada, mas ``co_resultado`` é
+          derivado do placar: uma linha em andamento com o humano à frente
+          contaria como vitória, e o filtro fecha essa porta antes de ela existir.
+        * ``co_resultado = 'venceu_j1'`` - contra a CPU **o humano é sempre o
+          J1** (regra canônica do projeto: J1 = azul = humano).
+
+        Devolve ``{}`` para quem ainda não venceu nada - e o app lê o mapa vazio
+        como "o servidor não conhece vitória nenhuma", nunca como "apague o que
+        você tem": lá a adoção é por GREATEST, chave a chave."""
+        resultado = await self.sessao.execute(
+            text(
+                """
+                SELECT co_jogo, count(*) AS nu
+                  FROM partida.vw001_partida
+                 WHERE id_usuario = :id
+                   AND co_modo = 'vs_cpu'
+                   AND co_status = 'concluida'
+                   AND co_resultado = 'venceu_j1'
+                 GROUP BY co_jogo
+                """
+            ),
+            {"id": id_usuario},
+        )
+        return {linha[0]: int(linha[1]) for linha in resultado.all()}
+
     async def obter_progressao(self, id_usuario: str) -> dict[str, Any]:
         """Progressão atual (com nu_nivel/co_patente calculados pela VIEW) +
         a lista de conquistas. É o que o app PUXA para reconciliar o banco local
@@ -1378,6 +1432,11 @@ class RepositorioSincronizacao:
         [recalcular_chama]) para todo mundo se auto-corrigir na próxima leitura —
         inclusive retroativamente."""
         conquistas = await self._conquistas_de(id_usuario)
+        # O detalhe por jogo é derivado do LOG, e o log existe mesmo quando a
+        # linha de progressão ainda não existe (partida de desafio com a
+        # resolução na fila, por exemplo). Por isso ele é lido aqui, antes do
+        # desvio de "usuário sem linha", e vai nas duas saídas.
+        por_jogo = await self.vitorias_por_jogo(id_usuario)
         resultado = await self.sessao.execute(
             text(
                 "SELECT * FROM progressao.vw001_progressao_usuario "
@@ -1397,6 +1456,7 @@ class RepositorioSincronizacao:
                 "dt_ultimo_dia_jogado": None,
                 # Sem linha de progressão = sem partida que pontua = zero dias.
                 "nu_dias_jogados": 0,
+                "vitorias_por_jogo": por_jogo,
                 "nu_nivel": 1,
                 "co_patente": "aprendiz",
                 "conquistas": conquistas,
@@ -1411,6 +1471,11 @@ class RepositorioSincronizacao:
         # ignoram, como manda a diretriz de versionamento da API. Vai sempre —
         # inclusive zero — para o app não ter de distinguir "ausente" de "zero".
         saida["nu_dias_jogados"] = total_dias
+        # `vitorias_por_jogo` é campo ADITIVO (30/09/2026, T098), pelo mesmo
+        # contrato: app antigo em campo ignora o que não conhece, e app novo
+        # falando com servidor antigo lê a AUSÊNCIA como "não sei" - nunca como
+        # "zero em tudo". Vai sempre, inclusive vazio.
+        saida["vitorias_por_jogo"] = por_jogo
         if ultimo is not None:
             saida["nu_sequencia_atual"] = seq
             saida["dt_ultimo_dia_jogado"] = ultimo

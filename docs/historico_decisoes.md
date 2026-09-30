@@ -21,6 +21,75 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-09-30 — `vitorias_por_jogo`: o CARIMBO DO JOGO passa a viajar com o número
+
+**Contexto.** O dono venceu uma partida de **damas** e recebeu a conquista
+*"100 vitórias no Pontinhos"*, tendo **11** vitórias reais no Pontinhos. Provado
+no `des`: a conquista foi carimbada no mesmo microssegundo em que aquela partida
+de damas terminou.
+
+**O defeito é do lado do app, mas a raiz é uma assimetria daqui**, e é a mesma
+forma do `nu_dias_jogados` (13/08/2026):
+
+| | o total de vitórias | o detalhe por jogo |
+|---|---|---|
+| onde mora | `nu_vitorias`, coluna no servidor | dentro de `js_estado_local`, **só no aparelho** |
+| viaja para um aparelho novo? | **sim** | **não** |
+| reconstrução | acumulada por evento | **não existia** |
+
+O log tem `co_jogo` em **cada** partida desde sempre, e ninguém perguntava. Numa
+instalação nova o total chegava sem carimbo nenhum, e o app adivinhava por
+subtração - *"o que não está atribuído a jogo nenhum só pode ser do Pontinhos"*,
+verdade em 08/2026, quando havia um jogo só, falsa com três jogos e o desafio.
+
+**Decisão.** `obter_progressao` passa a devolver `vitorias_por_jogo`, um mapa
+`{co_jogo: n}` **derivado do log a cada leitura** - sem coluna nova, sem migração,
+campo **aditivo** que apps antigos ignoram. É literalmente o molde do
+`nu_dias_jogados`, e pelo mesmo motivo: guardar o número criaria uma segunda cópia
+da mesma verdade, que é a origem do defeito que isto conserta.
+
+```sql
+SELECT co_jogo, count(*) FROM partida.vw001_partida
+ WHERE id_usuario = :id
+   AND co_modo = 'vs_cpu' AND co_status = 'concluida'
+   AND co_resultado = 'venceu_j1'
+ GROUP BY co_jogo
+```
+
+**Os filtros, e por que cada um.** `co_modo = 'vs_cpu'` tira o **desafio** (que
+não incrementa vitórias no app - decisão do dono, §8k-9 do `DECISOES-do-dono.md`
+do frontend) e o **pvp_local** (que nunca pagou XP nem contou vitória);
+`co_status = 'concluida'` repete o recorte de `recalcular_chama`, porque
+`co_resultado` é **derivado do placar** pela VIEW e uma partida aberta com o
+humano à frente já se parece com vitória; `co_resultado = 'venceu_j1'` porque
+contra a CPU o humano é sempre o J1. ⚠️ **Não** se filtra por `ic_pontua`: ele já
+é consequência do modo, e depender dele criaria uma segunda regra para a mesma
+coisa.
+
+**Medido na conta do relato (`des`, 30/09/2026):** `{velha: 42, pontinhos: 11,
+damas: 9}` - contra `nu_vitorias = 104`. E o filtro de modo tira 2 desafios
+vencidos no Pontinhos e 5 nas damas, que é a prova de que ele não é decorativo.
+
+**Alternativas consideradas.** (a) *Uma coluna por jogo, ou uma tabela de
+contadores* - rejeitada: é a segunda cópia da verdade outra vez, e obrigaria
+migração a cada jogo novo. (b) *O app subir o mapa dele no `js_estado_local`* -
+rejeitada: o rascunho é de cálculo local por desenho, e subi-lo faria o servidor
+confiar no aparelho justamente no número que o aparelho erra. (c) *Reparar os
+contadores já gravados* - fora de questão: o projeto não reescreve histórico, e
+não há o que reparar (medição no `prd` em 30/09: nenhuma conquista de vitórias
+sem lastro no log).
+
+**Cadeados.** `tests/unitarios/test_vitorias_por_jogo.py` - 7 casos que rodam o
+**SQL de verdade**, num SQLite de memória com o schema `partida` anexado por
+`ATTACH`. Uma sessão falsa provaria só que linhas viram dicionário e deixaria
+passar exatamente a mutação que importa, a de alguém apagar um `AND`. Os três
+filtros foram **provados por mutação** antes de valerem.
+
+**Do outro lado:** `arena-sagaz-frontend/specs/009-desafio-do-dia/CONSERTO-vitorias-por-jogo.md`
+(o dossiê completo) e a T098.
+
+---
+
 ## 2026-09-17 — O acervo do `damas_coroar` deixa de ser truncado, e três cadeados cegos aparecem
 
 **Contexto.** A pescaria de teto 26 que o dono rodou na máquina dele terminou:
