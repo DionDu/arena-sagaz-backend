@@ -139,8 +139,17 @@ def montar_plano(
     dt_hoje: date,
     dias_ja_publicados: Iterable[date],
     dt_proxima_execucao: date | None = None,
+    dias: Sequence[date] | None = None,
 ) -> list[PlanoDoDia]:
     """O plano da execucao: que dias cobrir e quais ja estao prontos.
+
+    Args:
+        dias: os dias que a execucao ja decidiu cobrir. ⛔ **Quem ja calculou
+            a janela a passa aqui**, e o plano nao a recalcula: ate 02/10/2026
+            o job calculava os dias com `DESAFIO_DIAS_A_COBRIR` (14, pedido no
+            painel), e este plano recalculava com o padrao (7). O log dizia
+            "fila esticada: 14 dia(s)" e logo depois "dia 7/7". `None` mantem
+            o calculo de `dias_a_cobrir`.
 
     ⚠️ **Os dias ja publicados NAO sao pulados em silencio** — eles entram no
     plano marcados. E o que permite ao log dizer *"cobri 7 dias, 5 ja estavam
@@ -148,12 +157,9 @@ def montar_plano(
     cheia" de "job nao fez nada".
     """
     publicados = set(dias_ja_publicados)
-    return [
-        PlanoDoDia(dt_dia=dia, ja_publicado=dia in publicados)
-        for dia in dias_a_cobrir(
-            dt_hoje=dt_hoje, dt_proxima_execucao=dt_proxima_execucao
-        )
-    ]
+    if dias is None:
+        dias = dias_a_cobrir(dt_hoje=dt_hoje, dt_proxima_execucao=dt_proxima_execucao)
+    return [PlanoDoDia(dt_dia=dia, ja_publicado=dia in publicados) for dia in dias]
 
 
 def versao_do_catalogo() -> int:

@@ -7761,3 +7761,28 @@ nunca cortar um traço. A variante chega às três portas do desenho - a posiç�
 do dia, a fita do gabarito e o raio-x (`_SQL_RAIO_X` passou a trazer
 `d.co_variante`) -, e as três mutações (tirar a variante de cada chamada) foram
 pegas.
+
+**Correção no mesmo dia: a geração de 14 dias gerava 7, e a compactação nunca
+gravou.** O dono pediu 14 dias no painel e nada novo apareceu. Eram dois
+defeitos, e o segundo era antigo (desde a T049k, 16/09/2026):
+
+1. `montar_plano` **recalculava a janela** com o padrão (7) em vez de receber a
+   que o job já tinha calculado com `DESAFIO_DIAS_A_COBRIR` (14). O log dizia
+   "fila esticada: 14 dia(s)" e logo depois "dia 7/7". Agora o plano recebe os
+   mesmos `dias`. Isso expôs um terceiro defeito, que ficava escondido: a
+   variável aceitava de 1 a 30 dias, e `conferir_plano` recusa menos que
+   `DIAS_MINIMOS` (7); o piso da variável passou a ser 7.
+2. `mover_o_dia` **não confirmava o `UPDATE`**, e o `rollback` com que
+   `cobrir_um_dia` solta a conexão antes da geração (T049j) o desfazia. Em
+   cadeia: o log anunciava "08/10 → 04/10"; o plano, lido dentro da transação,
+   via 08/10 livre e gerava para ele; o rollback devolvia o desafio a 08/10; a
+   gravação do novo batia no `un001_dia`. Resultado no `des`: 04/10 vazio, e
+   dois desafios aprovados **sem dia** (`177831d2`, `f3d483a8`), um por execução.
+   A compactação só chegava ao banco nas execuções sem nada a gerar, em que o
+   `commit` da auditoria a levava junto. Agora cada movimento se confirma
+   sozinho (é válido isolado: um aprovado descendo para um dia vazio).
+
+Cadeados em `test_principal_do_job.py` (o primeiro fim de transação depois do
+`UPDATE` é `commit`; 14 dias pedidos geram 14; a variável fora de 7..30 cai no
+padrão) e `test_saida_do_job.py` (o plano usa os dias que recebe). As três
+mutações - tirar o `commit`, tirar `dias=dias`, voltar o piso a 1 - foram pegas.

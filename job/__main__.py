@@ -170,10 +170,15 @@ def dias_a_cobrir_configurados() -> Optional[int]:
             file=sys.stderr,
         )
         return None
-    if quantos < 1 or quantos > gravacao_mod.DIAS_MAXIMOS:
+    # ⚠️ **O piso e o `DIAS_MINIMOS`, e nao 1**: `conferir_plano` recusa plano
+    # mais curto que a folga, e um "3" aqui derrubaria a execucao. Ate
+    # 02/10/2026 isso ficava escondido, porque o plano ignorava este numero e
+    # recalculava 7 dias (ver `montar_plano`).
+    if quantos < gravacao_mod.DIAS_MINIMOS or quantos > gravacao_mod.DIAS_MAXIMOS:
         print(
-            f"⚠️ [job] {ENV_DIAS_A_COBRIR}={quantos} fora de 1.."
-            f"{gravacao_mod.DIAS_MAXIMOS} — usando a folga padrao.",
+            f"⚠️ [job] {ENV_DIAS_A_COBRIR}={quantos} fora de "
+            f"{gravacao_mod.DIAS_MINIMOS}..{gravacao_mod.DIAS_MAXIMOS} — usando "
+            "a folga padrao.",
             file=sys.stderr,
         )
         return None
@@ -463,6 +468,10 @@ async def cobrir_um_dia(
     # ultimo `commit`, e o verbo diz isso. Um `commit` aqui gravaria, sem querer,
     # qualquer escrita que alguem viesse a acrescentar acima — e um `commit`
     # silencioso e pior que um `rollback` explicito.
+    #
+    # ⛔ **E por isso toda escrita anterior tem de se confirmar sozinha.** Ate
+    # 02/10/2026 a compactacao da fila (`mover_o_dia`) nao confirmava, e era
+    # este `rollback` que a desfazia - ver a docstring de `mover_o_dia`.
     #
     # ⚠️ A pergunta "ja foi publicado?" continua **nao sendo atomica** com o
     # `INSERT`, e nunca foi: entre as duas ha a geracao inteira. Este job roda uma
@@ -889,8 +898,10 @@ async def executar(
     publicados = await repositorio.dias_publicados(
         dt_inicio=dias[0], dt_fim=dias[-1]
     )
+    # ⛔ Os MESMOS `dias` da compactacao e da leitura acima: recalcular aqui
+    # ignorava o `DESAFIO_DIAS_A_COBRIR` (ver a docstring de `montar_plano`).
     plano = gravacao_mod.montar_plano(
-        dt_hoje=dt_hoje, dias_ja_publicados=publicados
+        dt_hoje=dt_hoje, dias_ja_publicados=publicados, dias=dias
     )
     gravacao_mod.conferir_plano(plano)
 

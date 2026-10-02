@@ -434,3 +434,18 @@ def test_o_carimbo_do_catalogo_sai_do_MANIFESTO() -> None:
     versao = versao_do_catalogo()
     assert isinstance(versao, int)
     assert versao >= 1
+
+
+def test_o_plano_USA_os_dias_que_recebe_sem_recalcular() -> None:
+    """🔒 ⛔ A janela calculada uma vez vale para o plano (02/10/2026).
+
+    Quem pediu 14 dias (`DESAFIO_DIAS_A_COBRIR`) passava os 14 a compactacao e
+    via o plano recalcular 7.
+    """
+    hoje = date(2026, 10, 2)
+    dias = [hoje + timedelta(days=n) for n in range(14)]
+    plano = montar_plano(dt_hoje=hoje, dias_ja_publicados=[hoje], dias=dias)
+
+    assert [p.dt_dia for p in plano] == dias
+    assert sum(1 for p in plano if p.precisa_gerar) == 13
+    conferir_plano(plano)

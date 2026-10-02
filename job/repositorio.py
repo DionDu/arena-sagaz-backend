@@ -561,6 +561,20 @@ class RepositorioDoJob:
         normal disso e uma corrida: outra execucao ja moveu ou publicou aquele
         dia. ⛔ Derrubar o job por causa de uma corrida que o banco ja resolveu
         custaria a fila inteira daquela noite.
+
+        ⛔ **O movimento e CONFIRMADO aqui, com `commit`.** Ate 02/10/2026 ele
+        ficava pendente na transacao, e o `rollback` com que `cobrir_um_dia`
+        solta a conexao antes da geracao (T049j) o desfazia em silencio. O
+        estrago era em cadeia, e o dono o viu no painel (*"os novos desafios
+        nao estao sendo gerados"*):
+          · o log dizia "fila compactada: 08/10 → 04/10", e o banco nao mudava;
+          · o plano, lido ainda dentro da transacao, via 08/10 livre e gerava
+            para ele;
+          · o rollback devolvia o desafio a 08/10, e a gravacao do novo batia
+            no `un001_dia`. O desafio gerado ficava aprovado e sem dia, e 04/10
+            continuava vazio.
+        Cada movimento e valido sozinho (um aprovado descendo para um dia
+        vazio), entao confirmar um por um nao deixa a fila em estado torto.
         """
         resultado = await self.sessao.execute(
             text(SQL_MOVER_O_DIA),
@@ -571,7 +585,10 @@ class RepositorioDoJob:
                 "dt_hoje": dt_hoje,
             },
         )
-        return resultado.first() is not None
+        moveu = resultado.first() is not None
+        if moveu:
+            await self.sessao.commit()
+        return moveu
 
     async def tipos_recentes(
         self, *, co_jogo: str, dt_inicio: date, dt_fim: date

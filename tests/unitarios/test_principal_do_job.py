@@ -1453,3 +1453,69 @@ async def test_a_CORRIDA_no_movimento_nao_derruba_o_job() -> None:
 
     assert relatorio.remanejados == []
     assert relatorio.gerados > 0, "o job parou em vez de seguir para a geração"
+
+
+@pytest.mark.asyncio
+async def test_o_MOVIMENTO_e_confirmado_antes_do_rollback_da_geracao() -> None:
+    """🔒 ⛔ O movimento sobrevive ao `rollback` que solta a conexao (T049j).
+
+    ⚠️ Relato do dono, 02/10/2026: *"os novos desafios nao estao sendo
+    gerados"*. O log dizia "fila compactada: 08/10 → 04/10", e o banco nao
+    mudava: o `UPDATE` ficava pendente, e o `rollback` de `cobrir_um_dia` o
+    desfazia. O desafio gerado para 08/10 batia no `un001_dia` e ficava sem
+    dia. O que se trava aqui e a ORDEM: depois do `UPDATE`, o primeiro fim de
+    transacao e um `commit`, e nao um `rollback`.
+    """
+    hoje = date(2026, 9, 20)
+    sessao = _sessao_com_fila(
+        [
+            {
+                "dt_dia": hoje + timedelta(days=5),
+                "id_desafio_dia": "longe",
+                "co_tipo_desafio": "damas_sacrificio",
+                "co_curadoria": "aprovado",
+            }
+        ]
+    )
+    await _rodar(sessao, dt_hoje=hoje)
+
+    linha = sessao.linha_do_tempo
+    movimento = next(
+        i for i, passo in enumerate(linha) if TRECHO_DO_MOVIMENTO in passo
+    )
+    # O primeiro `commit` ou `rollback` depois do movimento.
+    fim = next(passo for passo in linha[movimento + 1 :] if passo in ("commit", "rollback"))
+    assert fim == "commit", "o rollback da geracao desfaria o movimento"
+
+
+@pytest.mark.asyncio
+async def test_DESAFIO_DIAS_A_COBRIR_vale_para_o_PLANO_inteiro(monkeypatch) -> None:
+    """🔒 ⛔ Pedir 14 dias no painel gera 14, e nao 7.
+
+    ⚠️ Ate 02/10/2026 a compactacao e a leitura usavam os 14 dias, e
+    `montar_plano` recalculava a janela com o padrao: o log dizia "fila
+    esticada: 14 dia(s)" e logo depois "dia 7/7".
+    """
+    monkeypatch.setenv(principal_mod.ENV_DIAS_A_COBRIR, "14")
+    hoje = date(2026, 9, 20)
+    relatorio = await _rodar(_sessao_com_fila([]), dt_hoje=hoje)
+
+    assert relatorio.dias_no_plano == 14
+    assert relatorio.gerados == 14
+
+
+@pytest.mark.parametrize("bruto", ["3", "6", "31", "catorze"])
+def test_DIAS_A_COBRIR_fora_da_folga_cai_no_PADRAO(monkeypatch, bruto) -> None:
+    """🔒 Abaixo de `DIAS_MINIMOS` o plano seria recusado por `conferir_plano`.
+
+    ⚠️ Avisa e usa o padrao, em vez de derrubar a execucao inteira.
+    """
+    monkeypatch.setenv(principal_mod.ENV_DIAS_A_COBRIR, bruto)
+    assert principal_mod.dias_a_cobrir_configurados() is None
+
+
+@pytest.mark.parametrize("bruto, esperado", [("7", 7), (" 14 ", 14), ("30", 30)])
+def test_DIAS_A_COBRIR_dentro_da_folga_e_aceito(monkeypatch, bruto, esperado) -> None:
+    """🔒 Os extremos da folga valem, e o espaco em volta e tolerado."""
+    monkeypatch.setenv(principal_mod.ENV_DIAS_A_COBRIR, bruto)
+    assert principal_mod.dias_a_cobrir_configurados() == esperado
