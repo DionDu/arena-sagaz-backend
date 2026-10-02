@@ -7664,3 +7664,38 @@ Visto mordendo: com a herança da variante 0 de volta, ele reprova.
 | Manter a de três em SEM DESAFIO | Publica desafio que ninguém resolve, e deixa dia descoberto - os dois defeitos que o critério do dono proíbe |
 | Tirar o piso só dela | Volta o desafio de 3 meios-lances, o defeito cobrado em 16/09 |
 | Remedir antes de decidir | A amostra é pequena, mas os dois defeitos têm causa estrutural (2 moldes na faixa em 4.881), e uma remedição com o mesmo acervo mede a mesma coisa |
+
+---
+
+## 2026-10-02 — O consolo do Desafio do Dia é PISO, e não soma (T082b)
+
+**Contexto.** Desde a T082 (22/09) cada evento do dia creditava
+`min(valor, 30 - já creditado)`: o consolo de 10 **somava** com a resolução, e o teto
+de 30 cortava o dia. O dono reabriu a regra ao ver a mesma partida pagar 27 de
+primeira e 30 na segunda tentativa (10 + 25, cortado) - falhar de propósito pagava
+mais (`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zp).
+
+**Decisão.** O dia vale o **maior** evento. `api/desafios/credito_do_dia.py` passa a
+creditar `max(0, min(valor, teto) - max(0, já creditado))`: cada evento só põe o que
+falta para o dia chegar ao valor dele. Consolo e depois resolução de 27 dão 10 + 17;
+a ordem inversa dá 27 + 0; a linha `ajuste` (negativa, sem âncora) é -10 nas duas, e
+o extrato continua fechando com a conta. O `nu_xp` da resolução não muda.
+
+- **Sem migração**: o formato das linhas é o mesmo; só o valor do `ajuste` muda de
+  motivo. Linhas `ajuste` gravadas antes de 02/10 no `des` são cortes do teto antigo.
+- **Quem resolve fica sempre acima de quem só tentou**: o `nu_xp` tem piso de 18
+  (`ge=XP_PISO_POR_RESOLVER`) e 18 > 10. Cadeados:
+  `test_o_dia_fecha_na_PONTUACAO_em_qualquer_ordem` (18 a 30) e
+  `test_falhar_antes_NUNCA_paga_mais_que_resolver_de_primeira`.
+- `scripts/conferir_credito_do_dia_t082.py` foi ajustado e passa 7 de 7 no `des`. O
+  caso (c) agora compara a conta com o `nu_xp` **gravado**: o servidor viu as duas
+  falhas e recalculou a nota com 3 tentativas (24, não os 27 do corpo, T085zf) - o
+  corte em 30 da regra antiga escondia essa diferença.
+
+**Alternativas consideradas.**
+
+| alternativa | por que não |
+|---|---|
+| Manter a soma (§8o) | Paga mais a quem falha antes; foi o motivo de reabrir |
+| Consolo só para quem termina o dia sem resolver | Exigiria um evento de "fim do dia" no servidor, que o app não manda; o piso dá o mesmo total sem ele |
+| Descontar o consolo da pontuação | Quem resolvesse com 18 depois de falhar ficaria com 8, abaixo de quem só tentou |

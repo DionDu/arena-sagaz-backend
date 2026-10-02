@@ -4,33 +4,45 @@
 O QUE ESTE ARQUIVO DECIDE, EM UMA FRASE
 ═══════════════════════════════════════════════════════════════════════════
 
-Quanto de um XP **ja pontuado** entra na conta da pessoa hoje — e quanto o teto
-de 30/dia do Desafio do Dia corta (RF-DES-047, RF-DES-181).
+Quanto de um XP **ja pontuado** entra na conta da pessoa hoje — e quanto vira a
+linha de `ajuste`, negativa, para o extrato fechar com a conta.
 
 ═══════════════════════════════════════════════════════════════════════════
-⚠️ O TETO E DA COLECAO, E NUNCA DO DESAFIO (RF-DES-155)
+⚠️ O DIA VALE O MAIOR DOS SEUS EVENTOS (o consolo e PISO, e nao soma)
 ═══════════════════════════════════════════════════════════════════════════
 
-A resolucao pontua de 18 a 30 e **nao tem teto nenhum**: o `nu_xp` gravado em
-`tb003_resolucao` e o que o quadro ordena, e ele nunca e cortado. O teto de 30 e
-atributo do **Desafio do Dia**, a colecao — e por isso ele e aplicado aqui, no
-credito, e entra no extrato como uma linha de `ajuste` **negativa**. E o que
-deixa a tela dizer *"voce fez 37, o teto do dia cortou 7"* em vez de esconder a
-conta.
+Decisao do dono em 02/10/2026 (`arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8zp). Um dia tem no maximo dois eventos que creditam: o **consolo** de 10 da
+primeira falha (RF-DES-041) e a **resolucao**, de 18 a 30. O que entra na conta
+e o **maior** deles — e nunca a soma:
 
-O caso que o teto existe para cortar e um so, e acontece todo dia: a pessoa
-tenta, falha (+10 de consolo, RF-DES-041), tenta de novo e resolve (18 a 30).
-Sem o teto, o mesmo desafio pagaria ate 40 a quem errou e 30 a quem acertou de
-primeira — errar de proposito viraria estrategia.
+* so tentou: 10;
+* resolveu de primeira com 27: 27;
+* falhou, e depois resolveu com 25: 10 na falha, mais 15 na resolucao = 25.
+
+Ate 02/10/2026 os dois SOMAVAM, cortados num teto de 30 (§8o). O dono achou
+injusto, com razao: a mesma partida resolvida de primeira punha 27 na conta, e
+resolvida na segunda tentativa punha 30 — falhar de proposito pagava mais.
+
+⚠️ **E quem resolve fica sempre acima de quem so tentou**, por mais tentativas
+que gaste: a pontuacao tem piso de 18 por construcao (`18 + 12 x Q`, `Q >= 0`),
+e 18 > 10.
+
+A resolucao continua pontuando de 18 a 30 e **nao e alterada**: o `nu_xp` de
+`tb003_resolucao` e o que o quadro ordena. O que a regra muda e so o credito, e
+o que o extrato mostra a mais (o consolo ja contado) vira a linha de `ajuste`.
+
+O teto de 30 por dia (RF-DES-047) continua aqui como parametro: e atributo da
+colecao, e hoje nada o alcanca (a pontuacao vai ate 30).
 
 ═══════════════════════════════════════════════════════════════════════════
 ⚠️ A CONTA NAO DEPENDE DA ORDEM DE CHEGADA
 ═══════════════════════════════════════════════════════════════════════════
 
 A fila do aparelho nao garante que o consolo chegue antes da resolucao. Por
-isso cada credito e `min(valor, espaco que sobra no dia)`: consolo e depois
-resolucao dao `10 + 20`, resolucao e depois consolo dao `27 + 3` — e o dia
-fecha em 30 nos dois casos.
+isso cada evento credita **so o que falta para chegar ao valor dele**:
+`max(0, valor - ja_creditado)`. Consolo e depois resolucao de 25 dao `10 + 15`;
+resolucao e depois consolo dao `25 + 0` — e o dia fecha em 25 nos dois casos.
 
 Puro de proposito: sem banco, sem rede. Recebe inteiros, devolve inteiros.
 """
@@ -49,8 +61,11 @@ class CreditoDoDia:
     Atributos:
         valor: o XP que o evento **pontuou** — 10 no consolo, 18 a 30 na
             resolucao. ⛔ Nunca cortado: e ele que o quadro e o extrato mostram.
-        corte: quanto o teto do dia tirou dele, sempre >= 0. ⚠️ Vira a linha de
-            `ajuste` com o sinal trocado — e so existe linha quando e > 0.
+        corte: quanto dele nao entrou na conta, sempre >= 0 — o que ja estava
+            creditado no dia (o consolo, quando a resolucao chega depois dele;
+            a resolucao inteira, quando o consolo chega depois dela). ⚠️ Vira
+            a linha de `ajuste` com o sinal trocado, e so existe linha quando
+            e > 0.
     """
 
     valor: int
@@ -65,7 +80,7 @@ class CreditoDoDia:
 def credito_do_dia(
     *, ja_creditado: int, valor: int, teto: int = XP_TETO_DO_DIA
 ) -> CreditoDoDia:
-    """Quanto de [valor] cabe no dia, dado o que ja entrou.
+    """Quanto de [valor] entra no dia, dado o que ja entrou: o que falta.
 
     Args:
         ja_creditado: o que o Desafio do Dia ja pos na conta **neste dia**,
@@ -75,22 +90,25 @@ def credito_do_dia(
             que a conta segue o teto, e nao um `30` escrito nela.
 
     Returns:
-        O valor intacto e o corte que o teto impoe.
+        O valor intacto e o corte: o que dele ja estava creditado.
 
     Raises:
         ValueError: valor negativo. ⚠️ E defeito de quem chamou: nenhum evento
             do dia pontua negativo (o consolo e constante, e a resolucao ja
             passou pelo piso de 18 no modelo do envio).
 
-    ⚠️ **Um dia que ja passou do teto NAO e recusado**: ele credita zero. So
-    chega aqui com a soma do dia montada errado — e esta funcao roda dentro da
-    rota do envio, onde recusar faria o outbox do aparelho tentar de novo ate
-    desistir, por um defeito que nao e da pessoa. Zero e a resposta que nunca
-    paga acima do teto.
+    ⚠️ **Um evento que chega com o dia ja acima do valor dele NAO e recusado**:
+    ele credita zero. E o caminho normal do consolo que chega depois da
+    resolucao, e e tambem o de uma soma do dia montada errado — e esta funcao
+    roda dentro da rota do envio, onde recusar faria o outbox do aparelho tentar
+    de novo ate desistir, por um defeito que nao e da pessoa.
     """
     if valor < 0:
         raise ValueError(f"um evento do dia nao pontua negativo; veio {valor}")
-    # Os dois `max(0, ...)`: um `ja_creditado` negativo nao abre espaco acima do
-    # teto, e um acima do teto nao deixa o espaco negativo.
-    espaco = max(0, teto - max(0, ja_creditado))
-    return CreditoDoDia(valor=valor, corte=max(0, valor - espaco))
+    # O dia vale o MAIOR evento (preso no teto da colecao): este evento so
+    # credita o que falta para o dia chegar ao valor dele. `max(0, ...)` por
+    # fora: um evento menor que o ja creditado entra com zero, e nunca tira XP.
+    # O `max(0, ja_creditado)` de dentro: uma soma negativa (defeito) nao faz o
+    # evento pagar acima do proprio valor.
+    creditado = max(0, min(valor, teto) - max(0, ja_creditado))
+    return CreditoDoDia(valor=valor, corte=valor - creditado)

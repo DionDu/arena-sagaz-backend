@@ -15,10 +15,14 @@ As condicoes, numa conta nova que ⛔ joga partida comum nenhuma:
 
   (a) a conta nasce, e ha dois dias com desafio resolvivel no `des`;
   (b) **a primeira falha paga 10**, e a segunda ⛔ paga nada (RF-DES-041);
-  (c) **resolver depois de falhar fecha o dia em 30**: a resolucao guarda 27, o
-      ajuste tira 7, a conta ganha 20 (RF-DES-047/181);
+  (c) **resolver depois de falhar fecha o dia na PONTUACAO**: o ajuste tira os
+      10 do consolo, e a conta fica com o `nu_xp` gravado na resolucao - o
+      consolo e piso, e nao soma (DECISOES-do-dono §8zp, 02/10/2026; ate ali
+      era 10 + 27 cortado em 30). ⚠️ O `nu_xp` NAO e o 27 do corpo: o servidor
+      viu as duas falhas antes e recalcula a nota com 3 tentativas (T085zf);
   (d) **o reenvio ⛔ credita de novo**;
-  (e) **a ordem inversa fecha igual**: resolver antes e falhar depois da 27 + 3;
+  (e) **a ordem inversa fecha igual**: resolver antes e falhar depois da 27 + 0,
+      com o mesmo ajuste de -10;
   (f) **a chama conta os dois dias de desafio** (RF-DES-048), numa conta sem
       partida que pontue - antes da T082 ela sairia zero;
   (g) nada ficou no `des`.
@@ -84,9 +88,9 @@ OFFSET_MINUTOS = -180
 
 C_CONTA = "(a) a conta nasce, e ha dias para resolver"
 C_CONSOLO = "(b) a primeira falha paga 10, a segunda nada"
-C_TETO = "(c) falhar e depois resolver fecha o dia em 30"
+C_TETO = "(c) falhar e depois resolver fecha o dia na pontuacao gravada"
 C_REENVIO = "(d) o reenvio nao credita de novo"
-C_ORDEM = "(e) a ordem inversa fecha nos mesmos 30"
+C_ORDEM = "(e) a ordem inversa fecha nos mesmos 27"
 C_CHAMA = "(f) a chama conta os dias de desafio"
 C_RASTRO = "(g) nada ficou no `des`"
 
@@ -328,15 +332,17 @@ async def _creditar(
     linhas = await linhas_do_dia(conexao, id_usuario, dia_a["id_desafio_dia"])
     ok = (
         s3 == 200
-        and xp_3 == 30
-        and linhas["nu_xp"] == PONTUACAO
-        and linhas["ajuste"] == -7
+        # ⚠️ Contra o `nu_xp` GRAVADO, e nao o do corpo: o servidor recalcula
+        # a nota com as tentativas que ele viu (T085zf), e ela sai menor.
+        and xp_3 == linhas["nu_xp"]
+        and 18 <= linhas["nu_xp"] <= PONTUACAO
+        and linhas["ajuste"] == -10
     )
     relatorio.anotar(
         C_TETO,
         ok,
         f"a resolucao guardou {linhas['nu_xp']}, o ajuste somou {linhas['ajuste']}, "
-        f"e a conta foi a {xp_3}: 10 + 27 - 7"
+        f"e a conta foi a {xp_3}: 10 + {linhas['nu_xp']} - 10"
         if ok
         else f"⛔ status {s3}, xp {xp_3}, linhas {linhas}",
     )
@@ -366,14 +372,14 @@ async def _creditar(
     linhas = await linhas_do_dia(conexao, id_usuario, dia_b["id_desafio_dia"])
     ok = (
         (s6, s7) == (200, 200)
-        and (xp_5 - xp_4, xp_6 - xp_5) == (27, 3)
-        and linhas["ajuste"] == -7
+        and (xp_5 - xp_4, xp_6 - xp_5) == (27, 0)
+        and linhas["ajuste"] == -10
     )
     relatorio.anotar(
         C_ORDEM,
         ok,
         f"{dia_b['dt_dia']}: +{xp_5 - xp_4} pela resolucao, +{xp_6 - xp_5} pelo "
-        f"consolo, ajuste {linhas['ajuste']} - o dia fechou em 30"
+        f"consolo, ajuste {linhas['ajuste']} - o dia fechou em 27"
         if ok
         else f"⛔ status {s6}/{s7}, ganhos {xp_5 - xp_4}/{xp_6 - xp_5}, {linhas}",
     )

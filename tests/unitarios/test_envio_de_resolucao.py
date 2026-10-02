@@ -1074,8 +1074,11 @@ def test_o_grau_da_dica_e_1_ou_2():
 #
 # Ate 22/09/2026 o servidor gravava o extrato e ⛔ nunca somava nada em
 # `nu_xp_total`: a pessoa via "+27 XP" na tela e o ranking nao mudava. Estes
-# casos provam o credito, o consolo uma vez por dia e o teto de 30 como linha de
-# ajuste - e que a conta do dia fecha igual em qualquer ordem de chegada.
+# casos provam o credito, o consolo uma vez por dia e a linha de ajuste - e que a
+# conta do dia fecha igual em qualquer ordem de chegada.
+#
+# ⚠️ Desde 02/10/2026 o consolo e PISO, e nao soma (DECISOES-do-dono §8zp, no
+# frontend): o dia vale o MAIOR evento. Ate ali, 10 + 27 cortado em 30.
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -1184,11 +1187,12 @@ async def test_a_SEGUNDA_falha_do_dia_nao_paga_nada():
 
 
 @pytest.mark.asyncio
-async def test_falhar_e_depois_resolver_fecha_o_dia_em_30_com_AJUSTE():
-    """🔒 O caso de ouro do `data-model.md`: 10 + 27 - 7 = 30.
+async def test_falhar_e_depois_resolver_fecha_o_dia_na_PONTUACAO_com_AJUSTE():
+    """🔒 O caso de ouro do `data-model.md`: 10 + 27 - 10 = 27.
 
-    ⚠️ O `nu_xp` da resolucao continua 27 - e o que o quadro ordena. O teto e da
-    colecao e mora no credito, ⛔ na pontuacao (RF-DES-155).
+    ⚠️ O `nu_xp` da resolucao continua 27 - e o que o quadro ordena. A
+    resolucao credita so o que falta (17), e o ajuste tira os 10 do consolo,
+    que ja estao dentro da pontuacao.
     """
     repo = RepoFalso(partida=_partida())
     servico = ServicoEnvio(repo)
@@ -1200,21 +1204,21 @@ async def test_falhar_e_depois_resolver_fecha_o_dia_em_30_com_AJUSTE():
         id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=27)
     )
 
-    assert repo.creditos == [10, 20]
-    assert resultado.xp_creditado == 20
+    assert repo.creditos == [10, 17]
+    assert resultado.xp_creditado == 17
     assert repo.resolucoes[0]["nu_xp"] == 27
     [(ajuste, ancoras)] = _linhas_do_tipo(repo, XP_AJUSTE)
-    assert ajuste.vr_xp == Decimal(-7)
+    assert ajuste.vr_xp == Decimal(-10)
     # ⚠️ O ajuste e do DIA: nem resolucao, nem tentativa.
     assert ancoras["id_resolucao"] is None and ancoras["id_tentativa"] is None
 
 
 @pytest.mark.asyncio
 async def test_a_ORDEM_de_chegada_nao_muda_a_conta_do_dia():
-    """⚠️ A fila do aparelho ⛔ garante ordem: resolucao antes, consolo depois.
+    """⚠️ A fila do aparelho nao garante ordem: resolucao antes, consolo depois.
 
-    27 entra inteiro, e o consolo so cabe 3 - o dia fecha nos mesmos 30 e com o
-    mesmo ajuste de -7.
+    27 entra inteiro, e o consolo entra com zero - o dia fecha nos mesmos 27 e
+    com o mesmo ajuste de -10.
     """
     repo = RepoFalso(partida=_partida())
     servico = ServicoEnvio(repo)
@@ -1226,10 +1230,10 @@ async def test_a_ORDEM_de_chegada_nao_muda_a_conta_do_dia():
         id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
     )
 
-    assert repo.creditos == [27, 3]
-    assert sum(repo.creditos) == 30
+    assert repo.creditos == [27, 0]
+    assert sum(repo.creditos) == 27
     [(ajuste, _)] = _linhas_do_tipo(repo, XP_AJUSTE)
-    assert ajuste.vr_xp == Decimal(-7)
+    assert ajuste.vr_xp == Decimal(-10)
 
 
 @pytest.mark.asyncio
@@ -1247,9 +1251,10 @@ async def test_o_reenvio_da_resolucao_NAO_credita_de_novo():
 
 @pytest.mark.asyncio
 async def test_um_dia_JA_CHEIO_grava_o_consolo_e_o_corte_inteiro():
-    """⚠️ O extrato continua dizendo a verdade: tentou (+10), e o teto cortou tudo.
+    """⚠️ O extrato continua dizendo a verdade: tentou (+10), e o ajuste tira tudo.
 
-    E o caso de quem resolveu com 30 em outro aparelho e falhou neste depois.
+    E o caso de quem resolveu com 30 em outro aparelho e falhou neste depois: o
+    dia ja vale mais que o consolo.
     """
     repo = RepoFalso(partida=_partida(), ja_creditado=30)
 
@@ -1278,21 +1283,54 @@ async def test_o_credito_entra_na_MESMA_transacao_do_extrato():
 
 
 @pytest.mark.parametrize(
-    ("ja_creditado", "valor", "corte"),
+    ("ja_creditado", "valor", "creditado"),
     [
-        (0, 30, 0),  # a resolucao perfeita de primeira
-        (10, 20, 0),  # consolo e resolucao que cabem EXATO
-        (10, 21, 1),  # um ponto alem: a fronteira do corte
-        (10, 27, 7),  # o exemplo do data-model
-        (27, 10, 7),  # a mesma conta, na ordem inversa
-        (30, 10, 10),  # o dia ja cheio corta tudo
+        (0, 30, 30),  # a resolucao perfeita de primeira
+        (0, 18, 18),  # a pior resolucao de primeira: inteira
+        (0, 10, 10),  # a primeira falha: o consolo inteiro
+        (10, 27, 17),  # o exemplo do data-model: so o que falta
+        (10, 18, 8),  # o piso depois de falhar - ainda positivo
+        (27, 10, 0),  # o consolo depois da resolucao: nada a somar
+        (30, 10, 0),  # o dia que ja vale mais que o consolo
     ],
 )
-def test_credito_do_dia_corta_so_o_que_passa_do_teto(ja_creditado, valor, corte):
+def test_credito_do_dia_credita_so_o_que_falta_para_o_valor(
+    ja_creditado, valor, creditado
+):
     credito = credito_do_dia(ja_creditado=ja_creditado, valor=valor)
-    assert credito.corte == corte
-    assert credito.valor == valor, "⛔ o valor pontuado nunca e cortado"
-    assert credito.creditado == valor - corte
+    assert credito.creditado == creditado
+    assert credito.valor == valor, "⛔ o valor pontuado nunca e alterado"
+    assert credito.corte == valor - creditado
+
+
+@pytest.mark.parametrize("pontuacao", range(18, 31))
+def test_o_dia_fecha_na_PONTUACAO_em_qualquer_ordem(pontuacao):
+    """🔒 O consolo e piso: falhar antes ou depois da resolucao da o mesmo dia.
+
+    E o dia de quem resolveu nunca fica abaixo do de quem so tentou (10) - o
+    pedido do dono, para a pontuacao inteira de 18 a 30.
+    """
+    consolo_antes = credito_do_dia(ja_creditado=0, valor=10).creditado
+    resolucao_depois = credito_do_dia(
+        ja_creditado=consolo_antes, valor=pontuacao
+    ).creditado
+    resolucao_antes = credito_do_dia(ja_creditado=0, valor=pontuacao).creditado
+    consolo_depois = credito_do_dia(
+        ja_creditado=resolucao_antes, valor=10
+    ).creditado
+
+    assert consolo_antes + resolucao_depois == pontuacao
+    assert resolucao_antes + consolo_depois == pontuacao
+    assert pontuacao > 10
+
+
+def test_falhar_antes_NUNCA_paga_mais_que_resolver_de_primeira():
+    """🔒 A queixa do dono (02/10/2026): na soma, 10 + 25 cortado dava 30, e a
+    mesma partida de primeira dava 27. Com o piso, a de primeira vence."""
+    de_primeira = credito_do_dia(ja_creditado=0, valor=27).creditado
+    consolo = credito_do_dia(ja_creditado=0, valor=10).creditado
+    na_segunda = consolo + credito_do_dia(ja_creditado=consolo, valor=25).creditado
+    assert (de_primeira, na_segunda) == (27, 25)
 
 
 def test_um_dia_ACIMA_do_teto_credita_zero_e_nao_recusa():
@@ -1304,6 +1342,8 @@ def test_um_dia_ACIMA_do_teto_credita_zero_e_nao_recusa():
 def test_o_teto_e_o_do_PARAMETRO_e_nao_um_30_escrito_na_conta():
     """🔒 O teto e da colecao (RF-DES-155); um torneio pode ter outro."""
     assert credito_do_dia(ja_creditado=0, valor=30, teto=25).corte == 5
+    # O teto vale mesmo com o dia ja comecado: 10 + o que falta para 25.
+    assert credito_do_dia(ja_creditado=10, valor=30, teto=25).creditado == 15
 
 
 def test_valor_negativo_e_defeito_de_quem_chamou():

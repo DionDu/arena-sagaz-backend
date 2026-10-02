@@ -211,7 +211,7 @@ class ServicoEnvio:
         )
 
         # ⚠️ **Lido ANTES de gravar a resolucao**: depois dela, a soma do dia ja a
-        # incluiria, e o teto cortaria a resolucao contra ela mesma.
+        # incluiria, e a resolucao seria descontada dela mesma.
         ja_creditado, _ = await self.repo.creditado_no_dia(
             id_desafio_dia=envio.id_desafio_dia, id_usuario=id_usuario
         )
@@ -280,8 +280,10 @@ class ServicoEnvio:
         """O consolo de quem tentou e nao resolveu - uma vez por dia (RF-DES-041).
 
         Returns:
-            O que entrou na conta: 10, menos o que o teto cortar; zero quando o
-            consolo do dia ja estava la.
+            O que entrou na conta: 10 quando ele e o primeiro evento do dia;
+            zero quando o consolo do dia ja estava la, ou quando a resolucao
+            chegou antes (o consolo e piso, e nao soma - DECISOES-do-dono
+            §8zp, no frontend).
 
         ⚠️ **"Ja existe consolo hoje?" e a guarda, e ⛔ "esta tentativa e nova?"**:
         `gravar_tentativa` devolve `escreveu=True` tambem quando o reenvio
@@ -322,14 +324,19 @@ class ServicoEnvio:
     async def _creditar(
         self, *, valor: int, ja_creditado: int, id_desafio_dia: UUID, id_usuario: str
     ) -> int:
-        """Aplica o teto do dia, grava o ajuste se houver corte, e soma na conta.
+        """Credita o que falta para o dia chegar a [valor], grava o ajuste do
+        resto, e soma na conta.
+
+        ⚠️ **O dia vale o MAIOR evento** (consolo de 10 ou pontuacao de 18 a
+        30), e nunca a soma - ver `credito_do_dia.py`.
 
         Returns:
             O que entrou em `nu_xp_total`.
 
         ⚠️ **O ajuste nao tem ancora** (`id_resolucao` e `id_tentativa` nulos):
         ele e do DIA, e ⛔ de um evento - e o `data-model.md` que manda, e e o que
-        deixa a soma do dia fechar em 30 venha o consolo antes ou depois.
+        deixa a soma do dia fechar no mesmo numero venha o consolo antes ou
+        depois.
         """
         credito = credito_do_dia(ja_creditado=ja_creditado, valor=valor)
         if credito.corte > 0:
