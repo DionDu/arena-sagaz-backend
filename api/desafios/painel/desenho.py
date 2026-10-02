@@ -93,6 +93,24 @@ def _cor_clara_do_jogador(jogador: int) -> str:
 # rotulo pela primeira vez, e ele produz um desenho plausivel e errado — que e o
 # pior tipo.
 
+#: O tamanho de cada variante do Pontinhos, em CAIXAS: `(linhas, colunas)`.
+#:
+#: ⚠️ **E copia da tabela `TAMANHOS` do motor do laboratorio**
+#: (`espelho_laboratorio/jogos/jogo_pontinhos/motor/tabuleiro_pontinhos.py`),
+#: e `test_painel_gestao.py` confere as duas. Copia, e nao `import`, porque o
+#: modulo do motor importa numpy, e a imagem da API nao o instala.
+#:
+#: ⛔ **Ate 02/10/2026 o tamanho era DEDUZIDO dos tracos ja marcados** (o maior
+#: indice usado). Numa posicao em que nenhum traco da ultima fileira estava
+#: marcado, o painel desenhava o 4x3 como 3x3, sem erro nenhum; o dono viu
+#: *"esta faltando 1 fileira de caixas"*. A deducao continua como piso: variante
+#: desconhecida nunca sai menor do que os tracos que ela usa.
+TAMANHOS_DO_PONTINHOS: dict[str, tuple[int, int]] = {
+    "pequeno": (4, 3),  # retrato: 4 linhas de caixas, 3 colunas
+    "medio": (5, 4),
+    "grande": (7, 5),
+}
+
 
 def _coordenadas_do_traco(rotulo: str) -> tuple[int, int, int, int]:
     """As duas pontas de um traco, em coordenadas de **ponto** (x, y).
@@ -181,12 +199,15 @@ def pontinhos(
     lado_px: int = 46,
     numerar: bool = False,
     destaque: str | None = None,
+    co_variante: str | None = None,
 ) -> str:
     """Desenha a posicao de Pontinhos: pontos, tracos e caixas ja fechadas.
 
     Args:
         posicao: o `js_posicao_inicial` do formato `sequencia_lances`.
         lado_px: quanto vale um passo entre dois pontos, em pixels.
+        co_variante: o tamanho do tabuleiro (`pequeno`, ...), a coluna
+            `co_variante` do desafio. E ela que diz quantas caixas ha.
         numerar: escreve o **rotulo de cada traco livre** (`V_3_4`, `H_0_1`)
             sobre a grade. ⚠️ **E o que torna a fita do gabarito legivel**: sem
             isso, `V_3_4` no JSON e uma linha de texto que nao aponta para lugar
@@ -199,20 +220,28 @@ def pontinhos(
     Returns:
         Um `<svg>` pronto para ir no HTML.
 
-    ⚠️ O tamanho sai da **propria sequencia** (o maior indice usado), e nao de uma
-    constante `4x3`: no dia em que um tabuleiro maior entrar no catalogo, o painel
-    o desenha sem uma linha de mudanca — e um `LINHAS = 4` escrito aqui o
-    desenharia cortado, sem erro nenhum.
+    ⚠️ O tamanho sai da **variante** (`TAMANHOS_DO_PONTINHOS`). Os tracos
+    marcados entram so como piso, para variante desconhecida: deduzir o tamanho
+    deles cortava a ultima fileira sempre que nenhum traco dela estava marcado.
     """
     lances = [l for l in (posicao.get("lances") or []) if isinstance(l, Mapping)]
     rotulos = [l.get("lance") for l in lances if isinstance(l.get("lance"), str)]
-    if not rotulos:
+    if not rotulos and co_variante not in TAMANHOS_DO_PONTINHOS:
+        # Sem tracos e sem variante conhecida nao ha de onde tirar o tamanho.
         return _svg_vazio("posicao sem lances (tabuleiro limpo)")
 
-    # O maior x e o maior y usados por qualquer ponta de traco dizem o tamanho.
+    # O maior x e o maior y usados por qualquer ponta de traco: o PISO.
+    # (`default=0` cobre o tabuleiro limpo de variante conhecida.)
     pontas = [_coordenadas_do_traco(r) for r in rotulos]
-    max_x = max(max(p[0], p[2]) for p in pontas)
-    max_y = max(max(p[1], p[3]) for p in pontas)
+    max_x = max((max(p[0], p[2]) for p in pontas), default=0)
+    max_y = max((max(p[1], p[3]) for p in pontas), default=0)
+    # O tamanho declarado pela variante. Em indices de PONTO, o tabuleiro de
+    # `linhas x colunas` caixas vai de 0 a `colunas` no x e de 0 a `linhas` no y
+    # (ha um ponto a mais que caixas em cada direcao).
+    if co_variante in TAMANHOS_DO_PONTINHOS:
+        linhas, colunas = TAMANHOS_DO_PONTINHOS[co_variante]
+        max_x = max(max_x, colunas)
+        max_y = max(max_y, linhas)
 
     margem = 14
     largura = max_x * lado_px + 2 * margem
@@ -711,12 +740,15 @@ def posicao(
     numerar: bool = False,
     destaque: Any = None,
     maior: bool = False,
+    co_variante: str | None = None,
 ) -> str:
     """Desenha a posicao inicial no formato que ela declarar.
 
     Args:
         co_formato: `sequencia_lances` ou `fen`.
         js_posicao_inicial: o JSON gravado na coluna.
+        co_variante: a variante do desafio; no Pontinhos, o tamanho do
+            tabuleiro (as damas ainda jogam todas em 8x8 e a ignoram).
 
     Returns:
         O `<svg>`, ou um aviso desenhado quando o formato e desconhecido.
@@ -733,6 +765,7 @@ def posicao(
             lado_px=58 if maior else 46,
             numerar=numerar,
             destaque=destaque if isinstance(destaque, str) else None,
+            co_variante=co_variante,
         )
     if co_formato == "fen":
         return damas(
@@ -795,6 +828,7 @@ def _quadros(
     fens_depois: Optional[list[Optional[str]]],
     n_chave: Any,
     rotulos: tuple[str, str],
+    co_variante: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Os quadros de uma sequencia de lances — gabarito ou partida de alguem.
 
@@ -807,6 +841,9 @@ def _quadros(
             partida, que nao tem "proximo" de onde ler).
         n_chave: o numero do lance que cumpre o objetivo (1-based).
         rotulos: `(lado de quem resolve, o outro)`.
+        co_variante: o tamanho do tabuleiro do Pontinhos. ⚠️ Todos os quadros
+            saem do MESMO tamanho; deduzido de cada um, o quadro de cedo
+            (menos tracos) sairia menor que o do fim.
 
     Returns:
         Os quadros, cada um `{"n", "tipo", "titulo", "lance", "jogador",
@@ -891,7 +928,11 @@ def _quadros(
                 "chave": False,
                 "errou_de_proposito": False,
                 "svg": posicao(
-                    co_formato, js_posicao_inicial, numerar=True, maior=True
+                    co_formato,
+                    js_posicao_inicial,
+                    numerar=True,
+                    maior=True,
+                    co_variante=co_variante,
                 ),
             }
         ]
@@ -912,6 +953,7 @@ def _quadros(
                 lado_px=58,
                 numerar=True,
                 destaque=quadro["lance"],
+                co_variante=co_variante,
             )
             quadros.append(quadro)
         return quadros
@@ -923,8 +965,12 @@ def fita_da_solucao(
     co_formato: str,
     js_posicao_inicial: Mapping[str, Any] | None,
     js_solucao: Mapping[str, Any] | None,
+    *,
+    co_variante: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Os quadros da solucao de referencia (o gabarito).
+
+    `co_variante` e a do desafio: no Pontinhos, o tamanho do tabuleiro.
 
     Returns:
         Os quadros (ver `_quadros`). ⛔ **Lista vazia quando nao da para montar**
@@ -961,6 +1007,7 @@ def fita_da_solucao(
         fens_depois=fens_depois,
         n_chave=js_solucao.get("lance_chave"),
         rotulos=ROTULOS_DO_GABARITO,
+        co_variante=co_variante,
     )
 
 
@@ -970,6 +1017,7 @@ def fita_da_partida(
     lances_do_log: Sequence[Mapping[str, Any]],
     *,
     nu_lance_cumpre_desafio: Optional[int] = None,
+    co_variante: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Os quadros da partida de UMA pessoa — o raio-x do painel (02/10/2026).
 
@@ -982,6 +1030,7 @@ def fita_da_partida(
             primeiro que a pessoa fez), e o jogador vem como 1/2 — o 2 e o
             `-1` do vocabulario do gabarito.
         nu_lance_cumpre_desafio: o lance em que o objetivo foi cumprido.
+        co_variante: a variante do desafio (o tamanho, no Pontinhos).
 
     ⚠️ **Nas damas a FEN de DEPOIS de um lance e a de ANTES do seguinte** —
     o log so guarda a de antes. O ultimo lance fica sem "depois", e por isso
@@ -1017,4 +1066,5 @@ def fita_da_partida(
         fens_depois=fens_depois,
         n_chave=nu_lance_cumpre_desafio,
         rotulos=ROTULOS_DA_PARTIDA,
+        co_variante=co_variante,
     )

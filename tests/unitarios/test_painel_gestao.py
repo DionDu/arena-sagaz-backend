@@ -20,7 +20,8 @@ nasceu em 02/10/2026:
   4. a partida de uma pessoa (o raio-x);
   5. o dia jogado na tela;
   6. ⛔ a guarda de dia jogado (descartar, mover, tirar do calendario);
-  7. as rotas novas.
+  7. as rotas novas;
+  8. o tamanho do tabuleiro do Pontinhos, que vem da variante.
 """
 
 from __future__ import annotations
@@ -635,3 +636,134 @@ def test_as_opcoes_de_geracao_incluem_21_e_28_DENTRO_do_teto_do_job() -> None:
     """
     assert execucao_do_job.DIAS_OFERECIDOS == (7, 14, 21, 28)
     assert max(execucao_do_job.DIAS_OFERECIDOS) <= DIAS_MAXIMOS
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8. O tamanho do tabuleiro do Pontinhos vem da VARIANTE
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ Relato do dono, 02/10/2026, num desafio de 04/10: *"o tabuleiro do jogo
+# dos pontinhos esta incompleto. Esta faltando 1 fileira de caixas"*. O desafio
+# estava certo; o desenho deduzia o tamanho do maior traco ja marcado, e nenhum
+# traco da ultima fileira estava marcado. O 4x3 saia como 3x3.
+
+#: Uma posicao do 4x3 com tracos so nas tres fileiras de cima, como a do relato.
+#: O maior traco, `H_6_3`, fica na linha de pontos 3: deduzido dele, o tabuleiro
+#: teria 3 fileiras de caixas, e nao 4.
+POSICAO_SEM_A_ULTIMA_FILEIRA = {
+    "lances": [
+        {"n": 1, "lance": "V_1_0", "jogador": 1},
+        {"n": 2, "lance": "H_2_1", "jogador": -1},
+        {"n": 3, "lance": "V_5_6", "jogador": 1},
+        {"n": 4, "lance": "H_6_3", "jogador": -1},
+    ],
+    "vez_de": 1,
+}
+
+
+def _pontos(svg: str) -> int:
+    """Quantos pontos o desenho tem: no Pontinhos, os `<circle>` sao so eles."""
+    return svg.count("<circle")
+
+
+def test_a_tabela_de_tamanhos_e_a_MESMA_do_motor() -> None:
+    """🔒 A copia do painel confere com a `TAMANHOS` do laboratorio.
+
+    ⚠️ Lida pelo texto do arquivo (`ast`), e nao por `import`: o modulo do
+    motor importa numpy, e o que se confere aqui e so a tabela.
+    """
+    import ast
+    from pathlib import Path
+
+    fonte = (
+        Path(__file__).resolve().parents[2]
+        / "espelho_laboratorio/jogos/jogo_pontinhos/motor/tabuleiro_pontinhos.py"
+    ).read_text(encoding="utf-8")
+    # Acha a atribuicao `TAMANHOS = {...}` e avalia so o literal do dicionario.
+    arvore = ast.parse(fonte)
+    tabela = next(
+        ast.literal_eval(no.value)
+        for no in arvore.body
+        if isinstance(no, ast.Assign)
+        and any(getattr(alvo, "id", None) == "TAMANHOS" for alvo in no.targets)
+    )
+    assert desenho.TAMANHOS_DO_PONTINHOS == tabela
+
+
+def test_o_PEQUENO_tem_a_ultima_fileira_mesmo_sem_traco_nela() -> None:
+    """🔒 O relato do dono: 4 linhas x 3 colunas de caixas = 5 x 4 pontos."""
+    svg = desenho.pontinhos(POSICAO_SEM_A_ULTIMA_FILEIRA, co_variante="pequeno")
+    assert _pontos(svg) == 5 * 4
+    # Sem a variante, o desenho cai no piso (os tracos usados): 4 x 4 pontos.
+    # E o desenho de antes, e fica aqui para provar que o caso o reproduz.
+    assert _pontos(desenho.pontinhos(POSICAO_SEM_A_ULTIMA_FILEIRA)) == 4 * 4
+
+
+def test_variante_DESCONHECIDA_nunca_corta_os_tracos_usados() -> None:
+    """🔒 O piso continua: um traco fora do tamanho declarado aparece inteiro."""
+    svg = desenho.pontinhos(POSICAO_SEM_A_ULTIMA_FILEIRA, co_variante="gigante")
+    assert _pontos(svg) == 4 * 4
+
+
+def test_a_FITA_do_gabarito_tem_todos_os_quadros_do_mesmo_tamanho() -> None:
+    """🔒 Cada quadro do tamanho da variante, e nao do que ja foi jogado nele."""
+    solucao = {
+        "lances": [
+            {"lance": "H_2_5", "jogador": 1},
+            {"lance": "H_8_1", "jogador": -1},
+        ],
+        "lance_chave": 2,
+    }
+    quadros = desenho.fita_da_solucao(
+        "sequencia_lances",
+        POSICAO_SEM_A_ULTIMA_FILEIRA,
+        solucao,
+        co_variante="pequeno",
+    )
+    assert [q["tipo"] for q in quadros] == ["inicio", "lance", "lance"]
+    assert {_pontos(q["svg"]) for q in quadros} == {5 * 4}
+    # E as rotulos dos tracos livres da ultima fileira estao la, para o dono
+    # ler o gabarito: `H_8_3` e a base da caixa do meio, embaixo.
+    assert ">H_8_3<" in quadros[0]["svg"]
+
+
+def test_o_RAIO_X_desenha_com_a_variante() -> None:
+    """🔒 A partida de uma pessoa sai do tamanho do desafio que ela jogou."""
+    raio = RaioX(
+        id_tentativa=uuid4(),
+        id_usuario=uuid4(),
+        co_usuario="abc123",
+        no_exibicao="Fulana",
+        nu_sequencia=1,
+        ic_resolveu=False,
+        nu_tempo_ms=10_000,
+        dh_inicio=None,
+        co_formato_posicao="sequencia_lances",
+        js_posicao_inicial=POSICAO_SEM_A_ULTIMA_FILEIRA,
+        co_variante="pequeno",
+        lances=({"nu_ordem": 1, "nu_jogador": 1, "co_lance": "H_2_5"},),
+    )
+    html = pagina.render_raio_x(raio)
+    # Dois quadros (inicio + 1 lance), cada um com 20 pontos.
+    assert _pontos(html) == 2 * 5 * 4
+
+
+def test_o_CARTAO_do_dia_desenha_a_posicao_e_a_fita_com_a_variante() -> None:
+    """🔒 A miniatura grande e cada quadro do gabarito: todos com 5 x 4 pontos."""
+    item = _desafio(
+        co_jogo="pontinhos",
+        co_modalidade=None,
+        co_variante="pequeno",
+        co_formato_posicao="sequencia_lances",
+        js_posicao_inicial=POSICAO_SEM_A_ULTIMA_FILEIRA,
+        js_solucao={"lances": [{"lance": "H_2_5", "jogador": 1}], "lance_chave": 1},
+        nu_lances_solucao=1,
+    )
+    html = pagina.render_detalhe(
+        pagina.DetalheDoDia(dt_dia=HOJE, desafio=item),
+        dt_hoje=HOJE,
+        dt_sugerida=HOJE + timedelta(days=1),
+    )
+    # Tres desenhos: a miniatura, o quadro "inicio" e o do lance 1.
+    assert html.count("<svg") == 3
+    assert _pontos(html) == 3 * 5 * 4

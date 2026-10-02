@@ -7747,3 +7747,17 @@ de curadoria virasse um painel de gestão (`arena-sagaz-frontend/docs/DECISOES-d
 | Alternância só pelo jogo, como em 16/09 | O dono pediu jogo, modalidade **e** personagem; com tudo aprovado, sobra doador |
 | Painel em Flutter Web ou pelo Claude Design | Ferramenta interna de uma pessoa; o dono dispensou o Claude Design |
 | Aprovar os candidatos antigos por migração | Seria publicar conteúdo por `UPDATE` de deploy; o botão deixa a decisão na tela |
+
+**Correção no mesmo dia: o tabuleiro do Pontinhos saía com uma fileira a menos.**
+O dono abriu o desafio de 04/10 e viu o 4x3 desenhado como 3x3. O desafio estava
+certo (o motor joga com `LINHAS, COLUNAS = 4, 3`); o defeito era do
+`desenho.pontinhos`, que **deduzia o tamanho do maior traço já marcado** - e
+nenhum traço da última fileira estava marcado. Agora o tamanho vem da
+`co_variante` do desafio, por `TAMANHOS_DO_PONTINHOS`, cópia da `TAMANHOS` do
+motor do laboratório (cópia e não `import`, porque o módulo importa numpy e a
+imagem da API não o instala; `test_painel_gestao.py` lê a tabela do espelho com
+`ast` e compara). A dedução ficou só como **piso**, para variante desconhecida
+nunca cortar um traço. A variante chega às três portas do desenho - a posição
+do dia, a fita do gabarito e o raio-x (`_SQL_RAIO_X` passou a trazer
+`d.co_variante`) -, e as três mutações (tirar a variante de cada chamada) foram
+pegas.

@@ -198,6 +198,9 @@ class RaioX:
     dh_inicio: Optional[datetime]
     co_formato_posicao: str
     js_posicao_inicial: dict[str, Any]
+    #: A variante do desafio: no Pontinhos, o TAMANHO do tabuleiro, sem o qual
+    #: o desenho deduziria o tamanho dos tracos e podia cortar uma fileira.
+    co_variante: Optional[str] = None
     id_resolucao: Optional[UUID] = None
     nu_xp: Optional[int] = None
     nu_lance_cumpre_desafio: Optional[int] = None
@@ -380,7 +383,8 @@ SELECT t.id_tentativa,
        u.co_usuario,
        u.no_exibicao,
        d.co_formato_posicao,
-       d.js_posicao_inicial
+       d.js_posicao_inicial,
+       d.co_variante
   FROM {VW_TENTATIVA} t
   LEFT JOIN {VW_RESOLUCAO} r
     ON r.id_tentativa = t.id_tentativa
@@ -545,6 +549,7 @@ class EstatisticasDoDia:
             dh_inicio=c.get("dh_inicio"),
             co_formato_posicao=c["co_formato_posicao"],
             js_posicao_inicial=c.get("js_posicao_inicial") or {},
+            co_variante=c.get("co_variante"),
             id_resolucao=c.get("id_resolucao"),
             nu_xp=c.get("nu_xp"),
             nu_lance_cumpre_desafio=c.get("nu_lance_cumpre_desafio"),

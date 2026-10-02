@@ -618,7 +618,10 @@ def _fita_da_solucao(item: DesafioNoPainel) -> str:
     meia solucao.
     """
     quadros = desenho.fita_da_solucao(
-        item.co_formato_posicao, item.js_posicao_inicial, item.js_solucao
+        item.co_formato_posicao,
+        item.js_posicao_inicial,
+        item.js_solucao,
+        co_variante=item.co_variante,
     )
     if not quadros:
         return (
@@ -723,7 +726,7 @@ def _cartao_do_desafio(
     return (
         '<article class="cartao">'
         f'<div class="tabuleiro">'
-        f"{desenho.posicao(item.co_formato_posicao, item.js_posicao_inicial, numerar=True, maior=True)}"
+        f"{desenho.posicao(item.co_formato_posicao, item.js_posicao_inicial, numerar=True, maior=True, co_variante=item.co_variante)}"
         "</div>"
         '<div class="corpo">'
         f"<h2 class=\"titulo-desafio\">{_txt(item.no_tipo_desafio)}</h2>"
@@ -1104,6 +1107,7 @@ def render_raio_x(raio: Optional[RaioX]) -> str:
         raio.js_posicao_inicial,
         raio.lances,
         nu_lance_cumpre_desafio=raio.nu_lance_cumpre_desafio,
+        co_variante=raio.co_variante,
     )
     if quadros:
         partes.append(
