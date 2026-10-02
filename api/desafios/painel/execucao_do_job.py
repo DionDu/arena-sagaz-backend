@@ -41,10 +41,11 @@ execucao. ⚠️ **Thread, e nao `asyncio.create_task`:** o job e trabalho de CP
 `asyncio.run` proprio la dentro; uma corrotina no mesmo laco travaria o servidor
 por vinte minutos sem atender mais ninguem.
 
-⚠️ **E o painel nao tem JavaScript** (decisao de `pagina.py`), entao nao ha
-atualizacao automatica: a pagina diz que esta rodando, e o dono recarrega quando
-quiser. Para uma tarefa de vinte minutos isso e suficiente, e mantem a
-propriedade de que *"o que esta na tela e o que esta no banco"*.
+⚠️ **Desde 02/10/2026 a pagina acompanha sozinha** (o dono liberou JavaScript
+leve no painel): ela pergunta `como_dicionario()` de tempos em tempos e, quando a
+execucao termina, **recarrega inteira** — o estado intermediario nunca e
+desenhado por script, e a propriedade *"o que esta na tela e o que esta no
+banco"* continua valendo.
 """
 
 from __future__ import annotations
@@ -60,8 +61,13 @@ from typing import Callable, Optional
 ENV_PODE_GERAR = "PAINEL_PODE_GERAR"
 
 #: Quantos dias o botao oferece. ⚠️ Lista curta de propósito: um campo livre
-#: convidaria a pedir 30 dias num clique, e o job leva minutos **por dia**.
-DIAS_OFERECIDOS = (7, 14)
+#: convidaria a pedir qualquer numero num clique, e o job leva minutos **por dia**.
+#:
+#: ⚠️ **21 e 28 entraram em 02/10/2026**, a pedido do dono (*"Quero mais opcoes
+#: de gerar desafios alem dos 14 dias (ex: 21, 28 dias)"*). O teto continua sendo
+#: o `gravacao.DIAS_MAXIMOS` (30): o job recusa por conta propria o que passar
+#: dele, e 28 e o maior multiplo de semana que cabe.
+DIAS_OFERECIDOS = (7, 14, 21, 28)
 
 
 def pode_gerar() -> bool:
@@ -119,6 +125,22 @@ class EstadoDaExecucao:
             f"({duracao:.0f} min, {self.nu_dias} dia(s), saida "
             f"{self.codigo_de_saida})"
         )
+
+    def como_dicionario(self) -> dict[str, object]:
+        """O estado em forma de JSON, para a pagina acompanhar sem recarregar.
+
+        ⚠️ **Existe desde 02/10/2026**, quando o painel ganhou JavaScript leve
+        (decisao do dono): a pagina pergunta isto de tempos em tempos enquanto
+        `rodando` e verdadeiro, e recarrega sozinha quando a execucao termina —
+        e so entao, para o que esta na tela continuar sendo o que esta no banco.
+        """
+        return {
+            "rodando": self.rodando,
+            "resumo": self.resumo,
+            "nu_dias": self.nu_dias,
+            "codigo_de_saida": self.codigo_de_saida,
+            "erro": self.erro,
+        }
 
 
 #: O estado da execucao deste processo. Um so, porque o job tambem e um so.

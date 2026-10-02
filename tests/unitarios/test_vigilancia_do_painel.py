@@ -269,17 +269,20 @@ async def test_a_pagina_traz_as_duas_secoes_juntas():
     """
     from api.desafios.painel import pagina
 
+    # ⚠️ Desde 02/10/2026 a pagina e o painel de GESTAO: as duas secoes moram na
+    # lateral, ao lado do calendario, e continuam na mesma visita.
     html = pagina.render(
-        fila=[],
+        dt_hoje=HOJE,
+        detalhe=pagina.DetalheDoDia(dt_dia=HOJE, desafio=None),
+        calendario=(),
         estado_da_fila=await Vigilancia(_sessao(_dias(2))).estado_da_fila(
             dt_hoje=HOJE
         ),
         contagem=ContagemDeAuditoria(pendente=5),
         divergencias=[],
-        dt_hoje=HOJE,
     )
 
-    assert "Vigilancia &mdash; a fila" in html
-    assert "Vigilancia &mdash; divergencias de julgamento" in html
-    assert "FILA CRITICA" in html
+    assert "<h2>A fila</h2>" in html
+    assert "<h2>Divergencias de julgamento</h2>" in html
+    assert "Fila critica" in html
     assert "O avaliador de resolucoes nao rodou ainda" in html

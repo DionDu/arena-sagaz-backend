@@ -38,17 +38,27 @@ dia para depois adiaria conteudo ja aprovado sem ninguem pedir.
 publicado uma vez so"*), e reescrever a data de um dia vivido apagaria a historia
 de quem o resolveu.
 
-⛔ **Nao decide sozinho o que e "semelhante".** Hoje semelhante e **o mesmo tipo**
-— `damas_coroar` ao lado de `damas_coroar`. ⚠️ Nao e o mesmo **jogo**: com dois
-jogos no ar, proibir jogos iguais em dias consecutivos tornaria quase toda
-compactacao impossivel, e o remedio seria pior que a doenca.
+⛔ **Nao decide sozinho o que e "semelhante".** Quem decide e
+`job/vizinhanca.py`, a mesma regra que a geracao usa.
+
+⚠️ **E a regra MUDOU em 02/10/2026.** Ate ali semelhante era so **o mesmo tipo**,
+e este cabecalho dizia que proibir o mesmo jogo *"tornaria quase toda
+compactacao impossivel"*. Era verdade quando so o que o dono aprovava a mao
+podia descer. ⚠️ **Com os desafios nascendo pre-aprovados** (decisao do dono,
+`DECISOES-do-dono.md` §8zk do app), a fila inteira e doadora, e o dono pediu
+explicitamente: *"sempre precisa garantir a alternancia de jogos/modalidades/
+personagens do desafio de um dia para o outro"*. Agora conflitam, entre dias
+consecutivos: o mesmo **jogo**, o mesmo **personagem**, a mesma **modalidade**
+e o mesmo **tipo**.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Iterable, Optional, Sequence
+
+from .vizinhanca import Ocupante, Vizinhanca
 
 
 @dataclass(frozen=True)
@@ -60,12 +70,27 @@ class LinhaDaFila:
         id_desafio_dia: a chave da linha de `desafio_dia.tb001_desafio_dia`.
         co_tipo_desafio: o tipo, que e o insumo da variabilidade.
         co_curadoria: `aprovado` · `candidato` · `descartado`.
+        co_jogo, co_modalidade, co_personagem: o resto do que a alternancia
+            compara (02/10/2026). ⚠️ `None` desliga **aquela** comparacao, e nao
+            a regra inteira — ver `vizinhanca.conflita`.
     """
 
     dt_dia: date
     id_desafio_dia: object
     co_tipo_desafio: str
     co_curadoria: str
+    co_jogo: Optional[str] = None
+    co_modalidade: Optional[str] = None
+    co_personagem: Optional[str] = None
+
+    def ocupante(self) -> Ocupante:
+        """O desafio desta linha, no vocabulario da regra de vizinhanca."""
+        return Ocupante(
+            co_jogo=self.co_jogo,
+            co_personagem=self.co_personagem,
+            co_modalidade=self.co_modalidade,
+            co_tipo_desafio=self.co_tipo_desafio,
+        )
 
 
 @dataclass(frozen=True)
@@ -94,11 +119,12 @@ OCUPAM_O_DIA = frozenset({"aprovado", "candidato"})
 PODEM_DESCER = frozenset({"aprovado"})
 
 
-def _vizinhos(dia: date, por_dia: dict[date, str]) -> tuple[Optional[str], Optional[str]]:
-    """Os tipos do dia anterior e do seguinte, quando existem."""
-    from datetime import timedelta
-
-    return (por_dia.get(dia - timedelta(days=1)), por_dia.get(dia + timedelta(days=1)))
+def _vizinhos(dia: date, por_dia: dict[date, Ocupante]) -> Vizinhanca:
+    """Os desafios do dia anterior e do seguinte, quando existem."""
+    um_dia = timedelta(days=1)
+    return Vizinhanca(
+        anterior=por_dia.get(dia - um_dia), seguinte=por_dia.get(dia + um_dia)
+    )
 
 
 def remanejar(
@@ -133,8 +159,8 @@ def remanejar(
         return []
 
     # ⛔ Nada antes de hoje entra na conta, nem como buraco nem como doador.
-    ocupados: dict[date, str] = {
-        linha.dt_dia: linha.co_tipo_desafio
+    ocupados: dict[date, Ocupante] = {
+        linha.dt_dia: linha.ocupante()
         for linha in fila
         if linha.co_curadoria in OCUPAM_O_DIA
     }
@@ -156,9 +182,13 @@ def remanejar(
                 # ainda mais tarde, entao nada mais sera encontrado.
                 break
             doador = doadores[dt_doador]
-            anterior, seguinte = _vizinhos(buraco, ocupados)
-            if doador.co_tipo_desafio in (anterior, seguinte):
-                # Semelhante demais para este buraco — tenta o proximo doador.
+            # ⚠️ O doador sai do lugar dele ANTES de ser comparado: quando o
+            # buraco e vizinho do proprio doador (D+1 vazio, doador em D+2), ele
+            # conflitaria consigo mesmo e nunca desceria um dia.
+            sem_o_doador = {d: o for d, o in ocupados.items() if d != dt_doador}
+            if not _vizinhos(buraco, sem_o_doador).aceita(doador.ocupante()):
+                # Parecido demais com um vizinho do buraco (jogo, personagem,
+                # modalidade ou tipo) — tenta o proximo doador.
                 continue
 
             mudancas.append(
@@ -170,7 +200,7 @@ def remanejar(
                 )
             )
             # ⚠️ O estado anda junto: o buraco fecha e o dia do doador abre.
-            ocupados[buraco] = doador.co_tipo_desafio
+            ocupados[buraco] = doador.ocupante()
             del ocupados[dt_doador]
             del doadores[dt_doador]
             break

@@ -42,7 +42,7 @@ contrario do que os jogadores vao ver.
 from __future__ import annotations
 
 from html import escape
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 # ── A paleta, espelhada de `lib/core/tema/app_colors.dart` ───────────────────
 AZUL_J1 = "#2A6F8E"
@@ -56,6 +56,7 @@ MADEIRA_ESC = "#5E3D22"
 TINTA = "#2B2218"
 TINTA_SUAVE = "#6E6052"
 OURO = "#D9A441"
+CREME = "#FBF8F1"
 
 #: Lado do tabuleiro de damas, em casas. As quatro modalidades que o aplicativo
 #: tem jogam em 8x8; a internacional (10x10) entraria aqui **com o numero vindo
@@ -406,12 +407,88 @@ def casas_do_lance(notacao: str) -> tuple[int, ...]:
     return tuple(numeros)
 
 
+def _centro_da_casa(casa: int, *, margem: int, lado_px: int) -> tuple[float, float]:
+    """O pixel do centro de uma casa jogavel (1..32)."""
+    linha, coluna = _linha_coluna(casa)
+    return (
+        margem + coluna * lado_px + lado_px / 2,
+        margem + linha * lado_px + lado_px / 2,
+    )
+
+
+def capturadas_no_lance(fen_antes: str, fen_depois: str) -> list[int]:
+    """As casas das pecas que o lance comeu, pela DIFERENCA entre as duas FENs.
+
+    Args:
+        fen_antes: a posicao antes do lance (a vez e de quem joga).
+        fen_depois: a posicao depois dele.
+
+    Returns:
+        As casas do adversario de quem jogou que estavam ocupadas antes e vazias
+        depois, em ordem crescente.
+
+    ⚠️ **Isto nao e regra de damas, e por isso pode morar aqui.** Quem decidiu o
+    que foi comido foi o motor, quando gravou a FEN de depois; este codigo so
+    compara duas fotografias. ⛔ Calcular a captura a partir do lance seria a
+    segunda implementacao das regras que o topo deste modulo proibe.
+    """
+    vez, antes = _ler_fen(fen_antes)
+    _, depois = _ler_fen(fen_depois)
+    return sorted(
+        casa for casa, (cor, _) in antes.items() if cor != vez and casa not in depois
+    )
+
+
+def ordem_das_capturas(
+    trajeto: Sequence[int], condenadas: Sequence[int]
+) -> dict[int, Optional[int]]:
+    """Em que ordem cada peca condenada foi comida, seguindo o trajeto.
+
+    Args:
+        trajeto: as casas do lance, na ordem (`26x19x12x3` → `26, 19, 12, 3`).
+        condenadas: as casas comidas (`capturadas_no_lance`).
+
+    Returns:
+        `{casa: ordem}`, com a ordem comecando em 1. ⚠️ **`None` quando a peca
+        nao esta em nenhum trecho do trajeto** — o que acontece se a notacao so
+        trouxer origem e destino de uma captura multipla. A peca continua
+        marcada como condenada; so o numero fica de fora, em vez de inventado.
+
+    ⚠️ E so geometria: a peca comida no trecho `a → b` esta na mesma diagonal,
+    estritamente entre as duas casas. E o numero que o app desenha sobre a
+    condenada (`TabuleiroDamasWidget.condenadas`), para quem le saber por onde
+    a peca passou.
+    """
+    ordem: dict[int, Optional[int]] = {casa: None for casa in condenadas}
+    proxima = 1
+    for origem, destino in zip(trajeto, trajeto[1:]):
+        try:
+            l1, c1 = _linha_coluna(origem)
+            l2, c2 = _linha_coluna(destino)
+        except ValueError:
+            continue
+        dl, dc = l2 - l1, c2 - c1
+        # So trecho em diagonal tem "casas entre": |dl| == |dc|.
+        if dl == 0 or abs(dl) != abs(dc):
+            continue
+        passo_l, passo_c = dl // abs(dl), dc // abs(dc)
+        for k in range(1, abs(dl)):
+            l, c = l1 + k * passo_l, c1 + k * passo_c
+            for casa in condenadas:
+                if ordem[casa] is None and _linha_coluna(casa) == (l, c):
+                    ordem[casa] = proxima
+                    proxima += 1
+    return ordem
+
+
 def damas(
     posicao: Mapping[str, Any],
     *,
     lado_px: int = 30,
     numerar: bool = False,
     destaque: Sequence[int] = (),
+    trajeto: Sequence[int] = (),
+    condenadas: Mapping[int, Optional[int]] | None = None,
 ) -> str:
     """Desenha a posicao de damas a partir da FEN.
 
@@ -423,6 +500,14 @@ def damas(
             dizer alguma coisa para quem ja tem a numeracao na cabeca, e a
             curadoria e feita exatamente por quem ainda nao tem.
         destaque: casas a acender (as do lance recem-jogado).
+        trajeto: as casas do lance que VAI ser jogado, na ordem. Desenha o
+            caminho tracejado, um anel na peca que sai e um fantasma tracejado
+            onde ela pousa — o mesmo vocabulario do replay e do "voltar
+            jogada" no app (pedido do dono, 02/10/2026). ⚠️ A posicao
+            desenhada e a de ANTES do lance: e nela que o trajeto faz sentido.
+        condenadas: `{casa: ordem}` das pecas que o lance come
+            (`capturadas_no_lance` + `ordem_das_capturas`). Ganham um × e o
+            numero da ordem; `None` = sem numero.
 
     Returns:
         Um `<svg>` pronto para ir no HTML.
@@ -512,6 +597,87 @@ def damas(
                 f'fill="none" stroke="{OURO}" stroke-width="2.5"/>'
             )
 
+    # 5) As CONDENADAS: um × sobre a peca e, quando se sabe, a ordem da captura.
+    #    ⚠️ O × vai por cima das pecas e por baixo do trajeto, para o caminho
+    #    continuar legivel quando passa ao lado. ⚠️ Os SELOS com a ordem vao por
+    #    ULTIMO (lista `selos`, desenhada no passo 7): numa captura em linha
+    #    reta o tracejado atravessa a diagonal de todas as condenadas, e
+    #    desenhado depois ele cobria os numeros 1 e 2 — visto no painel em
+    #    02/10/2026, no `26x19x12x3`.
+    selos: list[str] = []
+    for casa, ordem in sorted((condenadas or {}).items()):
+        try:
+            cx, cy = _centro_da_casa(casa, margem=margem, lado_px=lado_px)
+        except ValueError:
+            continue
+        braco = raio * 0.62
+        for sinal in (1, -1):
+            # Duas linhas cruzadas: (−b,−b)→(b,b) e (−b,b)→(b,−b).
+            partes.append(
+                f'<line x1="{cx - braco:.1f}" y1="{cy - sinal * braco:.1f}" '
+                f'x2="{cx + braco:.1f}" y2="{cy + sinal * braco:.1f}" '
+                f'stroke="{CREME}" stroke-width="3" stroke-linecap="round"/>'
+            )
+        if ordem is not None:
+            # O numero da ordem num circulo pequeno no canto da casa.
+            bx, by = cx + lado_px * 0.3, cy - lado_px * 0.3
+            selos.append(
+                f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="{lado_px * 0.2:.1f}" '
+                f'fill="{TINTA}"/>'
+                f'<text x="{bx:.1f}" y="{by + lado_px * 0.08:.1f}" '
+                f'text-anchor="middle" font-size="{lado_px * 0.26:.0f}" '
+                f'font-weight="700" fill="{CREME}">{ordem}</text>'
+            )
+
+    # 6) O TRAJETO do lance: anel na origem, caminho tracejado com seta e um
+    #    fantasma tracejado onde a peca pousa.
+    pontos: list[tuple[float, float]] = []
+    for casa in trajeto:
+        try:
+            pontos.append(_centro_da_casa(casa, margem=margem, lado_px=lado_px))
+        except ValueError:
+            pontos = []
+            break
+    if len(pontos) >= 2:
+        (ox, oy), (dx, dy) = pontos[0], pontos[-1]
+        partes.append(
+            f'<circle cx="{ox:.1f}" cy="{oy:.1f}" r="{raio + 3:.1f}" fill="none" '
+            f'stroke="{OURO}" stroke-width="3"/>'
+        )
+        caminho = " ".join(f"{x:.1f},{y:.1f}" for x, y in pontos)
+        # O contorno claro por baixo do tracejado e o que o mantem visivel
+        # sobre as casas escuras e sobre as pecas vermelhas.
+        partes.append(
+            f'<polyline points="{caminho}" fill="none" stroke="{CREME}" '
+            f'stroke-width="5" stroke-linejoin="round" stroke-linecap="round" '
+            f'opacity="0.85"/>'
+            f'<polyline points="{caminho}" fill="none" stroke="{MADEIRA_ESC}" '
+            f'stroke-width="2.5" stroke-dasharray="6 4" stroke-linejoin="round" '
+            f'stroke-linecap="round"/>'
+        )
+        # A ponta da seta: um triangulo apontando na direcao do ultimo trecho.
+        (px1, py1) = pontos[-2]
+        comprimento = max(((dx - px1) ** 2 + (dy - py1) ** 2) ** 0.5, 1.0)
+        ux, uy = (dx - px1) / comprimento, (dy - py1) / comprimento
+        ponta_x, ponta_y = dx - ux * raio * 0.9, dy - uy * raio * 0.9
+        base = lado_px * 0.22
+        # `(-uy, ux)` e a perpendicular do trecho: abre a base do triangulo.
+        partes.append(
+            f'<polygon points="{ponta_x:.1f},{ponta_y:.1f} '
+            f'{ponta_x - ux * base - uy * base * 0.7:.1f},'
+            f'{ponta_y - uy * base + ux * base * 0.7:.1f} '
+            f'{ponta_x - ux * base + uy * base * 0.7:.1f},'
+            f'{ponta_y - uy * base - ux * base * 0.7:.1f}" '
+            f'fill="{MADEIRA_ESC}"/>'
+        )
+        partes.append(
+            f'<circle cx="{dx:.1f}" cy="{dy:.1f}" r="{raio:.1f}" fill="none" '
+            f'stroke="{MADEIRA_ESC}" stroke-width="2" stroke-dasharray="4 3"/>'
+        )
+
+    # 7) Os selos da ordem de captura, por cima de tudo (ver o passo 5).
+    partes.extend(selos)
+
     partes.append("</svg>")
     return "".join(partes)
 
@@ -598,6 +764,159 @@ def posicao(
 #     concatenacao dos lances iniciais com os k primeiros do gabarito. ⚠️ Nenhuma
 #     regra e aplicada: quem decide a posse das caixas ja e `_donos_das_caixas`,
 #     que desenha a posicao inicial desde o primeiro dia.
+#
+# ⚠️ **E desde 02/10/2026 as damas mostram o LANCE, e nao so o resultado**
+# (pedido do dono: *"Se no jogo da Dama voce conseguir exibir no tabuleiro o
+# tracejado do lance e as pecas condenadas, como mostra nos replay e no poder
+# voltar jogada, me ajudaria demais"*). Cada quadro de damas e a posicao de
+# ANTES do lance, com o trajeto tracejado e as condenadas marcadas; o ultimo
+# quadro e a posicao final. As condenadas saem da diferenca entre a FEN de
+# antes e a de depois (`capturadas_no_lance`) — fotografias que o motor
+# gravou, e nenhuma regra e recalculada aqui.
+#
+# ⚠️ **A mesma fita desenha a partida de quem jogou** (o raio-x do painel):
+# o log das damas grava a FEN de antes de cada lance (`co_fen_antes`), e o do
+# Pontinhos grava a sequencia de tracos. `fita_da_partida` so traduz o log
+# para o vocabulario do gabarito.
+
+
+#: Os rotulos de cada lado, no gabarito: quem resolve e "voce".
+ROTULOS_DO_GABARITO = ("voce", "adversario")
+
+#: E na partida de alguem: a pessoa e a CPU.
+ROTULOS_DA_PARTIDA = ("jogador", "CPU")
+
+
+def _quadros(
+    co_formato: str,
+    js_posicao_inicial: Mapping[str, Any],
+    lances: list[Mapping[str, Any]],
+    *,
+    fens_depois: Optional[list[Optional[str]]],
+    n_chave: Any,
+    rotulos: tuple[str, str],
+) -> list[dict[str, Any]]:
+    """Os quadros de uma sequencia de lances — gabarito ou partida de alguem.
+
+    Args:
+        co_formato: `fen` ou `sequencia_lances`.
+        js_posicao_inicial: a posicao publicada do desafio.
+        lances: `[{"lance", "jogador" (+1/-1), "co_acao"?}]`, na ordem.
+        fens_depois: so nas damas — a FEN depois de cada lance, alinhada com
+            `lances`. `None` num item = nao se sabe (o ultimo lance de uma
+            partida, que nao tem "proximo" de onde ler).
+        n_chave: o numero do lance que cumpre o objetivo (1-based).
+        rotulos: `(lado de quem resolve, o outro)`.
+
+    Returns:
+        Os quadros, cada um `{"n", "tipo", "titulo", "lance", "jogador",
+        "de_quem", "chave", "errou_de_proposito", "svg"}` — `tipo` e
+        `inicio`, `lance` ou `final`.
+    """
+    # ⚠️ QUEM RESOLVE O DESAFIO E QUEM JOGA PRIMEIRO — a mesma definicao que o
+    # julgamento usa (`julgar(..., jogador=vez_de)`). Ver a nota historica de
+    # 11/09/2026: o painel chamou de "adversario" o primeiro lance da propria
+    # pessoa, porque o lado estava fixo em vez de vir de `vez_de`.
+    solucionador = js_posicao_inicial.get("vez_de")
+
+    def de_quem(jogador: Any) -> str:
+        if solucionador is None or jogador is None:
+            return "?"
+        return rotulos[0] if jogador == solucionador else rotulos[1]
+
+    def base(indice: int, lance: Mapping[str, Any]) -> dict[str, Any]:
+        """Os campos que todo quadro de lance tem, nos dois jogos."""
+        notacao = str(lance.get("lance", ""))
+        return {
+            "n": indice,
+            "tipo": "lance",
+            "titulo": notacao,
+            "lance": notacao,
+            "jogador": lance.get("jogador"),
+            "de_quem": de_quem(lance.get("jogador")),
+            "chave": indice == n_chave,
+            # ⚠️ A CPU jogou fora do melhor lance de proposito (o epsilon do
+            # nivel). Um desafio que so se resolve por causa disto e fragil.
+            "errou_de_proposito": lance.get("co_acao") == "cnn_epsilon_aleatorio",
+        }
+
+    if co_formato == "fen":
+        fen_inicial = js_posicao_inicial.get("fen")
+        if not isinstance(fen_inicial, str) or fens_depois is None:
+            return []
+        quadros: list[dict[str, Any]] = []
+        fen_antes: Optional[str] = fen_inicial
+        for indice, (lance, fen_depois) in enumerate(zip(lances, fens_depois), 1):
+            quadro = base(indice, lance)
+            trajeto = casas_do_lance(quadro["lance"])
+            condenadas: dict[int, Optional[int]] = {}
+            if fen_antes and fen_depois:
+                condenadas = ordem_das_capturas(
+                    trajeto, capturadas_no_lance(fen_antes, fen_depois)
+                )
+            quadro["svg"] = damas(
+                {"fen": fen_antes or ""},
+                numerar=True,
+                trajeto=trajeto,
+                condenadas=condenadas,
+            )
+            quadros.append(quadro)
+            fen_antes = fen_depois
+        # O quadro FINAL: a posicao depois do ultimo lance, quando se sabe.
+        if fen_antes:
+            quadros.append(
+                {
+                    "n": len(lances) + 1,
+                    "tipo": "final",
+                    "titulo": "posicao final",
+                    "lance": None,
+                    "jogador": None,
+                    "de_quem": None,
+                    "chave": False,
+                    "errou_de_proposito": False,
+                    "svg": damas({"fen": fen_antes}, numerar=True),
+                }
+            )
+        return quadros
+
+    if co_formato == "sequencia_lances":
+        quadros = [
+            {
+                "n": 0,
+                "tipo": "inicio",
+                "titulo": "posicao publicada",
+                "lance": None,
+                "jogador": None,
+                "de_quem": None,
+                "chave": False,
+                "errou_de_proposito": False,
+                "svg": posicao(
+                    co_formato, js_posicao_inicial, numerar=True, maior=True
+                ),
+            }
+        ]
+        iniciais = [
+            l
+            for l in (js_posicao_inicial.get("lances") or [])
+            if isinstance(l, Mapping)
+        ]
+        for indice, lance in enumerate(lances, start=1):
+            quadro = base(indice, lance)
+            # ⚠️ Nenhuma regra e aplicada: a posicao do Pontinhos E a lista de
+            # tracos, e quem decide a posse das caixas e `_donos_das_caixas`.
+            ate_aqui = iniciais + lances[:indice]
+            quadro["svg"] = pontinhos(
+                {**js_posicao_inicial, "lances": ate_aqui},
+                # Maior que a miniatura da fila porque leva texto: com 46 px os
+                # rotulos das arestas se encostam.
+                lado_px=58,
+                numerar=True,
+                destaque=quadro["lance"],
+            )
+            quadros.append(quadro)
+        return quadros
+
+    return []
 
 
 def fita_da_solucao(
@@ -605,16 +924,16 @@ def fita_da_solucao(
     js_posicao_inicial: Mapping[str, Any] | None,
     js_solucao: Mapping[str, Any] | None,
 ) -> list[dict[str, Any]]:
-    """Os quadros da solucao: o inicial e um por lance.
+    """Os quadros da solucao de referencia (o gabarito).
 
     Returns:
-        `[{"n", "titulo", "lance", "jogador", "chave", "svg"}]`, com o quadro 0
-        sendo a posicao publicada. ⛔ **Lista vazia quando nao da para montar** —
-        e quem chama explica o motivo ao dono, em vez de desenhar meia sequencia.
+        Os quadros (ver `_quadros`). ⛔ **Lista vazia quando nao da para montar**
+        — e quem chama explica o motivo ao dono, em vez de desenhar meia
+        sequencia.
 
-    ⚠️ **Desafio gerado antes de 11/09/2026 nao tem `posicoes`**, e o correto e
-    devolver vazio: uma sequencia com buraco desenharia um salto como se fosse um
-    lance, e a curadoria aprovaria uma solucao que nao existe.
+    ⚠️ **Desafio de damas gerado antes de 11/09/2026 nao tem `posicoes`**, e o
+    correto e devolver vazio: uma sequencia com buraco desenharia um salto como
+    se fosse um lance, e a curadoria aprovaria uma solucao que nao existe.
     """
     js_posicao_inicial = js_posicao_inicial or {}
     js_solucao = js_solucao or {}
@@ -622,43 +941,7 @@ def fita_da_solucao(
     if not lances:
         return []
 
-    n_chave = js_solucao.get("lance_chave")
-
-    # ── ⚠️ QUEM RESOLVE O DESAFIO E QUEM JOGA PRIMEIRO ───────────────────────
-    #
-    # E a mesma definicao que o julgamento usa (`julgar(..., jogador=vez_de)`),
-    # e ela **nao** e a mesma nos dois jogos: no Pontinhos a posicao publicada
-    # sai com `vez_de: 1` e nas damas saía com `vez_de: -1`.
-    #
-    # ⛔ Ate 11/09/2026 esta legenda dizia "voce" sempre que o lance era do
-    # jogador -1, e o resultado foi o painel chamar de *"adversario"* o primeiro
-    # lance do gabarito do Pontinhos — que e da propria pessoa. O dono
-    # estranhou, e estava certo: *"a solucao comeca com um lance do adversario.
-    # E garantido que o adversario fara essa jogada?"*. Ninguem ia fazer jogada
-    # nenhuma; era a dele.
-    solucionador = js_posicao_inicial.get("vez_de")
-
-    def de_quem(jogador: Any) -> str:
-        """O rotulo do lado, do ponto de vista de quem cura."""
-        if solucionador is None or jogador is None:
-            return "?"
-        return "voce" if jogador == solucionador else "adversario"
-
-    quadros: list[dict[str, Any]] = [
-        {
-            "n": 0,
-            "titulo": "posicao publicada",
-            "lance": None,
-            "jogador": None,
-            "de_quem": None,
-            "chave": False,
-            "errou_de_proposito": False,
-            "svg": posicao(
-                co_formato, js_posicao_inicial, numerar=True, maior=True
-            ),
-        }
-    ]
-
+    fens_depois: Optional[list[Optional[str]]] = None
     if co_formato == "fen":
         posicoes = {
             p.get("n"): p.get("fen")
@@ -667,56 +950,71 @@ def fita_da_solucao(
         }
         if len(posicoes) != len(lances):
             return []
-        for indice, lance in enumerate(lances, start=1):
-            notacao = str(lance.get("lance", ""))
-            quadros.append(
-                {
-                    "n": indice,
-                    "titulo": notacao,
-                    "lance": notacao,
-                    "jogador": lance.get("jogador"),
-                    "de_quem": de_quem(lance.get("jogador")),
-                    "chave": indice == n_chave,
-                    "errou_de_proposito": lance.get("co_acao")
-                    == "cnn_epsilon_aleatorio",
-                    "svg": damas(
-                        {"fen": posicoes[indice]},
-                        numerar=True,
-                        destaque=casas_do_lance(notacao),
-                    ),
-                }
-            )
-        return quadros
+        fens_depois = [posicoes.get(n) for n in range(1, len(lances) + 1)]
+        if any(f is None for f in fens_depois):
+            return []
 
-    if co_formato == "sequencia_lances":
-        iniciais = [
-            l
-            for l in (js_posicao_inicial.get("lances") or [])
-            if isinstance(l, Mapping)
-        ]
-        for indice, lance in enumerate(lances, start=1):
-            notacao = str(lance.get("lance", ""))
-            ate_aqui = iniciais + lances[:indice]
-            quadros.append(
-                {
-                    "n": indice,
-                    "titulo": notacao,
-                    "lance": notacao,
-                    "jogador": lance.get("jogador"),
-                    "de_quem": de_quem(lance.get("jogador")),
-                    "chave": indice == n_chave,
-                    "errou_de_proposito": lance.get("co_acao")
-                    == "cnn_epsilon_aleatorio",
-                    "svg": pontinhos(
-                        {**js_posicao_inicial, "lances": ate_aqui},
-                        # ⚠️ Maior que a miniatura da fila **porque leva texto**:
-                        # com 46 px os rotulos das arestas se encostam.
-                        lado_px=58,
-                        numerar=True,
-                        destaque=notacao,
-                    ),
-                }
-            )
-        return quadros
+    return _quadros(
+        co_formato,
+        js_posicao_inicial,
+        lances,
+        fens_depois=fens_depois,
+        n_chave=js_solucao.get("lance_chave"),
+        rotulos=ROTULOS_DO_GABARITO,
+    )
 
-    return []
+
+def fita_da_partida(
+    co_formato: str,
+    js_posicao_inicial: Mapping[str, Any] | None,
+    lances_do_log: Sequence[Mapping[str, Any]],
+    *,
+    nu_lance_cumpre_desafio: Optional[int] = None,
+) -> list[dict[str, Any]]:
+    """Os quadros da partida de UMA pessoa — o raio-x do painel (02/10/2026).
+
+    Args:
+        co_formato: o formato da posicao publicada.
+        js_posicao_inicial: a posicao publicada do desafio.
+        lances_do_log: as linhas de `quadro.SQL_LANCES`, em ordem:
+            `{"nu_ordem", "nu_jogador" (1 ou 2), "co_lance", "co_fen_antes"}`.
+            ⚠️ **O log comeca DEPOIS da posicao publicada** (o lance 1 e o
+            primeiro que a pessoa fez), e o jogador vem como 1/2 — o 2 e o
+            `-1` do vocabulario do gabarito.
+        nu_lance_cumpre_desafio: o lance em que o objetivo foi cumprido.
+
+    ⚠️ **Nas damas a FEN de DEPOIS de um lance e a de ANTES do seguinte** —
+    o log so guarda a de antes. O ultimo lance fica sem "depois", e por isso
+    sem condenadas marcadas e sem quadro final: o que nao se sabe nao se desenha.
+    """
+    js_posicao_inicial = js_posicao_inicial or {}
+    lances = [
+        {
+            "lance": linha.get("co_lance"),
+            "jogador": 1 if linha.get("nu_jogador") == 1 else -1,
+        }
+        for linha in lances_do_log
+        if linha.get("co_lance")
+    ]
+    if not lances:
+        return []
+
+    fens_depois: Optional[list[Optional[str]]] = None
+    if co_formato == "fen":
+        antes = [linha.get("co_fen_antes") for linha in lances_do_log if linha.get("co_lance")]
+        # O "depois" do lance k e o "antes" do lance k+1; o ultimo nao tem.
+        fens_depois = list(antes[1:]) + [None]
+        # ⚠️ Se o log trouxer a FEN de antes do primeiro lance, ela e a fonte
+        # mais fiel do inicio (a posicao publicada pode ter sido semeada
+        # noutra ordem de blocos); senao vale a publicada.
+        if antes and antes[0]:
+            js_posicao_inicial = {**js_posicao_inicial, "fen": antes[0]}
+
+    return _quadros(
+        co_formato,
+        js_posicao_inicial,
+        lances,
+        fens_depois=fens_depois,
+        n_chave=nu_lance_cumpre_desafio,
+        rotulos=ROTULOS_DA_PARTIDA,
+    )

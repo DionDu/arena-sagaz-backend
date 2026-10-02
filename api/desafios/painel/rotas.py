@@ -44,16 +44,19 @@ arquivo), e nem precisa: nao ha campo de arquivo neste painel.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from dataclasses import replace
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import parse_qsl, quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.desafios.painel import execucao_do_job, pagina
+from api.desafios.painel.datas import data_br, ler_data
+from api.desafios.painel.estatisticas import EstatisticasDoDia
 from api.desafios.painel.repositorio import RepositorioPainel
 from api.desafios.painel.seguranca import (
     NOME_DO_COOKIE,
@@ -162,12 +165,112 @@ def _data_do_formulario(campos: dict[str, str]) -> date:
         ) from None
 
 
-def _voltar(recado: str, *, erro: bool = False) -> RedirectResponse:
-    """Redireciona para a pagina, carregando o recado do que aconteceu."""
+def _voltar(
+    recado: str,
+    *,
+    erro: bool = False,
+    campos: Optional[dict[str, str]] = None,
+) -> RedirectResponse:
+    """Redireciona para a pagina, no MESMO dia (ou desafio) de onde a acao veio.
+
+    ⚠️ **Voltar para o dia e o que torna o calendario usavel** (02/10/2026):
+    sem isso, cada descarte jogaria o dono de volta a "hoje", e ele teria de
+    achar de novo no calendario o dia em que estava trabalhando.
+
+    ⚠️ Os dois campos de volta sao conferidos antes de entrar na URL — uma data
+    ISO valida e um UUID valido —, porque vem do formulario, isto e, de fora.
+    """
     destino = f"{pagina.BASE}?recado={quote(recado)}"
+    campos = campos or {}
+    dia = ler_data(campos.get("voltar"))
+    if dia is not None:
+        destino += f"&dia={dia.isoformat()}"
+    else:
+        try:
+            destino += f"&desafio={UUID((campos.get('voltar_desafio') or '').strip())}"
+        except ValueError:
+            pass
     if erro:
         destino += "&erro=1"
     return RedirectResponse(destino, status_code=303)
+
+
+def _janela_do_calendario(dt_hoje: date) -> tuple[date, date]:
+    """Do 1o dia do mes anterior ao ultimo dia do mes seguinte.
+
+    ⚠️ Le os tres meses sempre; quem decide se o anterior e o seguinte APARECEM
+    e `pagina.meses_a_mostrar` (so quando tem desafio neles).
+    """
+
+    def primeiro_dia(passo: int) -> date:
+        """O dia 1 do mes `passo` meses distante do corrente."""
+        # `mes - 1 + passo` vai de 0 a 11 dentro do ano; `divmod` devolve quantos
+        # anos andou e o mes resultante (dezembro + 1 = janeiro do ano seguinte).
+        anos, resto = divmod(dt_hoje.month - 1 + passo, 12)
+        return date(dt_hoje.year + anos, resto + 1, 1)
+
+    # O ultimo dia do mes seguinte e o dia 1 do mes depois dele, menos um dia.
+    return primeiro_dia(-1), primeiro_dia(2) - timedelta(days=1)
+
+
+async def _montar_detalhe(
+    sessao: AsyncSession,
+    *,
+    dt_hoje: date,
+    dia: Optional[str],
+    desafio: Optional[str],
+) -> pagina.DetalheDoDia:
+    """Le do banco tudo o que a area principal mostra.
+
+    Args:
+        dia: `?dia=` da URL (ISO ou `dd/mm/aaaa`); ausente = hoje.
+        desafio: `?desafio=` da URL — abre um desafio pelo id (o que esta sem
+            data). Tem precedencia sobre `dia`.
+
+    ⚠️ **As estatisticas so sao lidas para dia que JA COMECOU** (hoje ou antes):
+    um dia agendado nao tem tentativa, e sete consultas para responder "zero"
+    custariam a troca de dia sem mostrar nada.
+    """
+    repo = RepositorioPainel(sessao)
+    item = None
+    dt_dia: Optional[date] = None
+
+    id_desafio: Optional[UUID] = None
+    if desafio:
+        try:
+            id_desafio = UUID(desafio.strip())
+        except ValueError:
+            id_desafio = None
+    if id_desafio is not None:
+        item = await repo.desafio_por_id(id_desafio)
+        dt_dia = item.dt_dia if item else None
+    else:
+        dt_dia = ler_data(dia) or dt_hoje
+        item = await repo.desafio_do_dia(dt_dia)
+
+    detalhe = pagina.DetalheDoDia(dt_dia=dt_dia, desafio=item)
+    if (
+        item is not None
+        and item.id_desafio_dia is not None
+        and item.dt_dia is not None
+        and item.dt_dia <= dt_hoje
+    ):
+        est = EstatisticasDoDia(sessao)
+        detalhe = replace(
+            detalhe,
+            resumo=await est.resumo(id_desafio_dia=item.id_desafio_dia, dt_dia=item.dt_dia),
+            quadro=tuple(await est.quadro(item.id_desafio_dia)),
+            nao_resolveram=tuple(await est.nao_resolveram(item.id_desafio_dia)),
+        )
+    elif item is None and dt_dia is not None and dt_dia >= dt_hoje:
+        # Dia vazio daqui para a frente: oferece os aprovados da reserva.
+        detalhe = replace(detalhe, reserva=tuple(await repo.sem_dia("aprovado")))
+    return detalhe
+
+
+#: `no-store`: a pagina mostra o **gabarito** dos desafios que ainda vao ao ar,
+#: e um cache intermediario guardando isso seria spoiler servido a frio.
+SEM_CACHE = {"Cache-Control": "no-store"}
 
 
 @router.get("/desafios", response_class=HTMLResponse, include_in_schema=False)
@@ -176,8 +279,10 @@ async def ver_painel(
     sessao: AsyncSession = Depends(obter_sessao),
     recado: Optional[str] = None,
     erro: Optional[str] = None,
+    dia: Optional[str] = None,
+    desafio: Optional[str] = None,
 ) -> HTMLResponse:
-    """A pagina do painel: os avisos, as divergencias e a fila.
+    """A pagina do painel de gestao: a lateral e o dia aberto.
 
     ⚠️ **`include_in_schema=False`**: o painel nao entra no OpenAPI publico. Ele
     nao e contrato com aplicativo nenhum, e lista-lo em `/docs` seria anunciar a
@@ -201,19 +306,77 @@ async def ver_painel(
     dt_hoje = hoje_utc()
     repo = RepositorioPainel(sessao)
     vigia = Vigilancia(sessao)
+    de, ate = _janela_do_calendario(dt_hoje)
 
     html = pagina.render(
-        fila=await repo.fila(),
+        dt_hoje=dt_hoje,
+        detalhe=await _montar_detalhe(sessao, dt_hoje=dt_hoje, dia=dia, desafio=desafio),
+        calendario=await repo.calendario(dt_de=de, dt_ate=ate),
         estado_da_fila=await vigia.estado_da_fila(dt_hoje=dt_hoje),
         contagem=await vigia.contagem_de_auditoria(),
         divergencias=await vigia.divergencias(),
-        dt_hoje=dt_hoje,
+        candidatos=await repo.sem_dia("candidato"),
+        reserva=await repo.sem_dia("aprovado"),
+        descartados=await repo.sem_dia("descartado", limite=20),
         recado=recado,
         recado_e_erro=bool(erro),
     )
-    # `no-store`: a pagina mostra o **gabarito** dos desafios que ainda vao ao ar,
-    # e um cache intermediario guardando isso seria spoiler servido a frio.
-    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+    return HTMLResponse(html, headers=SEM_CACHE)
+
+
+@router.get("/desafios/fragmento", response_class=HTMLResponse, include_in_schema=False)
+async def ver_fragmento(
+    _: bool = Depends(exigir_curador),
+    sessao: AsyncSession = Depends(obter_sessao),
+    dia: Optional[str] = None,
+    desafio: Optional[str] = None,
+) -> HTMLResponse:
+    """So a area principal de um dia — o que o script troca ao clicar no calendario.
+
+    ⚠️ E `pagina.render_detalhe`, a MESMA funcao da pagina inteira: o dia aberto
+    por clique e o dia aberto por link nao podem divergir.
+    """
+    dt_hoje = hoje_utc()
+    vigia = Vigilancia(sessao)
+    estado = await vigia.estado_da_fila(dt_hoje=dt_hoje)
+    dt_sugerida = estado.buracos[0] if estado.buracos else dt_hoje
+    detalhe = await _montar_detalhe(sessao, dt_hoje=dt_hoje, dia=dia, desafio=desafio)
+    return HTMLResponse(
+        pagina.render_detalhe(detalhe, dt_hoje=dt_hoje, dt_sugerida=dt_sugerida),
+        headers=SEM_CACHE,
+    )
+
+
+@router.get(
+    "/desafios/raio-x/{id_tentativa}",
+    response_class=HTMLResponse,
+    include_in_schema=False,
+)
+async def ver_raio_x(
+    id_tentativa: str,
+    _: bool = Depends(exigir_curador),
+    sessao: AsyncSession = Depends(obter_sessao),
+    fragmento: Optional[str] = None,
+) -> HTMLResponse:
+    """O raio-x de uma tentativa: so o pedaco (para o script) ou a pagina inteira.
+
+    ⚠️ Id torto responde a pagina com "nao encontrada", e nao 500: o id vem da
+    URL, isto e, de fora.
+    """
+    try:
+        raio = await EstatisticasDoDia(sessao).raio_x(UUID(id_tentativa.strip()))
+    except ValueError:
+        raio = None
+    corpo = pagina.render_raio_x(raio)
+    if fragmento:
+        return HTMLResponse(corpo, headers=SEM_CACHE)
+    return HTMLResponse(pagina.pagina_avulsa("Raio-x da tentativa", corpo), headers=SEM_CACHE)
+
+
+@router.get("/desafios/geracao", include_in_schema=False)
+async def ver_geracao(_: bool = Depends(exigir_curador)) -> JSONResponse:
+    """O estado da geracao em JSON — o script pergunta enquanto ela roda."""
+    return JSONResponse(execucao_do_job.ESTADO.como_dicionario(), headers=SEM_CACHE)
 
 
 @router.post("/desafios/aprovar", include_in_schema=False)
@@ -222,13 +385,26 @@ async def aprovar(
     _autorizado: bool = Depends(exigir_curador),
     servico: ServicoCuradoria = Depends(obter_servico),
 ) -> RedirectResponse:
-    """Aprova um desafio — e so a partir daqui ele pode ir ao ar."""
+    """Aprova um desafio (um candidato antigo, ou um descartado reconsiderado)."""
+    campos: dict[str, str] = {}
     try:
-        id_desafio = _uuid_do_formulario(await campos_do_formulario(request))
+        campos = await campos_do_formulario(request)
+        id_desafio = _uuid_do_formulario(campos)
         resultado = await servico.aprovar(id_desafio)
     except ErroNegocio as erro:
-        return _voltar(erro.detalhe, erro=True)
+        return _voltar(erro.detalhe, erro=True, campos=campos)
     log.info("painel: desafio aprovado", extra={"id_desafio": str(id_desafio)})
+    return _voltar(resultado.mensagem, campos=campos)
+
+
+@router.post("/desafios/aprovar-candidatos", include_in_schema=False)
+async def aprovar_candidatos(
+    _autorizado: bool = Depends(exigir_curador),
+    servico: ServicoCuradoria = Depends(obter_servico),
+) -> RedirectResponse:
+    """Aprova de uma vez os candidatos de antes da pre-aprovacao (02/10/2026)."""
+    resultado = await servico.aprovar_candidatos()
+    log.info("painel: candidatos aprovados em lote")
     return _voltar(resultado.mensagem)
 
 
@@ -238,17 +414,22 @@ async def descartar(
     _autorizado: bool = Depends(exigir_curador),
     servico: ServicoCuradoria = Depends(obter_servico),
 ) -> RedirectResponse:
-    """Descarta com motivo. ⛔ **Nao apaga** (RF-DES-012c)."""
+    """Descarta com motivo. ⛔ **Nao apaga** (RF-DES-012c).
+
+    ⚠️ Desde 02/10/2026 e ESTE o ato de curadoria: o desafio nasce aprovado, e o
+    descarte abre o buraco que a proxima geracao tapa primeiro.
+    """
+    campos: dict[str, str] = {}
     try:
         campos = await campos_do_formulario(request)
         id_desafio = _uuid_do_formulario(campos)
         resultado = await servico.descartar(
-            id_desafio, motivo=campos.get("motivo", "")
+            id_desafio, motivo=campos.get("motivo", ""), dt_hoje=hoje_utc()
         )
     except ErroNegocio as erro:
-        return _voltar(erro.detalhe, erro=True)
+        return _voltar(erro.detalhe, erro=True, campos=campos)
     log.info("painel: desafio descartado", extra={"id_desafio": str(id_desafio)})
-    return _voltar(resultado.mensagem)
+    return _voltar(resultado.mensagem, campos=campos)
 
 
 @router.post("/desafios/agendar", include_in_schema=False)
@@ -258,19 +439,23 @@ async def agendar(
     servico: ServicoCuradoria = Depends(obter_servico),
 ) -> RedirectResponse:
     """Poe o desafio num dia, ou o move para outro."""
+    campos: dict[str, str] = {}
     try:
         campos = await campos_do_formulario(request)
         id_desafio = _uuid_do_formulario(campos)
         dt_dia = _data_do_formulario(campos)
     except ErroNegocio as erro:
-        return _voltar(erro.detalhe, erro=True)
+        return _voltar(erro.detalhe, erro=True, campos=campos)
 
+    # ⚠️ Depois de agendar, a pagina abre o dia de DESTINO — e la que o dono quer
+    # conferir o resultado.
+    destino = {**campos, "voltar": dt_dia.isoformat()}
     try:
         resultado = await servico.agendar(
             id_desafio, dt_dia=dt_dia, dt_hoje=hoje_utc()
         )
     except ErroNegocio as erro:
-        return _voltar(erro.detalhe, erro=True)
+        return _voltar(erro.detalhe, erro=True, campos=campos)
     except Exception as erro:  # noqa: BLE001
         # ⚠️ O caso concreto: `un001_dia` recusando um dia que ja tem dono. Ele
         # chega como `IntegrityError` do driver, e deixa-lo subir daria 500 numa
@@ -281,11 +466,12 @@ async def agendar(
             extra={"id_desafio": str(id_desafio), "detalhe": type(erro).__name__},
         )
         return _voltar(
-            f"Nao deu para agendar em {dt_dia.isoformat()}: aquele dia ja tem "
+            f"Nao deu para agendar em {data_br(dt_dia)}: aquele dia ja tem "
             "desafio. Tire o de la primeiro — um dia serve um desafio so.",
             erro=True,
+            campos=campos,
         )
-    return _voltar(resultado.mensagem)
+    return _voltar(resultado.mensagem, campos=destino)
 
 
 @router.post("/desafios/desagendar", include_in_schema=False)
@@ -295,12 +481,14 @@ async def desagendar(
     servico: ServicoCuradoria = Depends(obter_servico),
 ) -> RedirectResponse:
     """Tira o desafio do calendario, mantendo a aprovacao."""
+    campos: dict[str, str] = {}
     try:
-        id_desafio = _uuid_do_formulario(await campos_do_formulario(request))
-        resultado = await servico.desagendar(id_desafio)
+        campos = await campos_do_formulario(request)
+        id_desafio = _uuid_do_formulario(campos)
+        resultado = await servico.desagendar(id_desafio, dt_hoje=hoje_utc())
     except ErroNegocio as erro:
-        return _voltar(erro.detalhe, erro=True)
-    return _voltar(resultado.mensagem)
+        return _voltar(erro.detalhe, erro=True, campos=campos)
+    return _voltar(resultado.mensagem, campos=campos)
 
 
 @router.post("/desafios/gerar", include_in_schema=False)
@@ -312,16 +500,15 @@ async def gerar(
 
     ⚠️ **Pedido do dono em 16/09/2026**: *"O comando `rodar_job_local.py --dias
     14` eu nao vou conseguir memorizar. Ele precisava estar dentro do painel de
-    curadoria."*
+    curadoria."* E em 02/10/2026 as opcoes cresceram para 7, 14, 21 e 28 dias.
 
     ⛔ **A rota recusa quando `PAINEL_PODE_GERAR` esta desligada** — e nao apenas
     o botao some da tela. Esconder o botao sem fechar a rota e seguranca de
-    fachada, e esta rota dispara vinte minutos de CPU no processo que atende o
+    fachada, e esta rota dispara minutos de CPU no processo que atende o
     aplicativo.
 
-    ⚠️ **Volta na hora.** Quem espera e a thread; a pagina passa a mostrar o
-    estado da execucao, e o dono recarrega quando quiser (o painel nao tem
-    JavaScript, por decisao de `pagina.py`).
+    ⚠️ **Volta na hora.** Quem espera e a thread; a pagina acompanha pelo
+    `/geracao` e recarrega sozinha quando a execucao termina.
     """
     bruto = (campos.get("dias") or "").strip()
     try:
@@ -345,6 +532,6 @@ async def gerar(
         return _voltar(f"ja ha uma execucao em andamento — {erro}", erro=True)
 
     return _voltar(
-        f"geracao de {nu_dias} dia(s) comecou. "
-        "Recarregue a pagina daqui a alguns minutos."
+        f"Geracao de {nu_dias} dia(s) comecou. A pagina se atualiza sozinha "
+        "quando terminar."
     )

@@ -275,13 +275,15 @@ def test_o_INSERT_nao_carimba_o_que_o_BANCO_carimba() -> None:
         )
 
 
-def test_o_desafio_nasce_CANDIDATO() -> None:
-    """⛔ RF-DES-012a: nada vai ao ar sem o dono ver.
+def test_o_desafio_nasce_com_a_curadoria_do_PARAMETRO() -> None:
+    """⛔ O estado de nascimento vem do parametro, e nao de um literal no SQL.
 
-    O valor vem do parametro (`montar_linha` o fixa em `candidato`), e ⛔ **nao
-    ha `DEFAULT 'candidato'` na tabela** de proposito: um padrao faria a curadoria
-    virar opcional por acidente, e o primeiro esquecimento poria conteudo no ar
-    sem ninguem ter visto.
+    ⚠️ Ate 02/10/2026 este caso se chamava `nasce_CANDIDATO` (RF-DES-012a: nada
+    ia ao ar sem o dono ver). O dono decidiu que os desafios nascem
+    **pre-aprovados** (`DECISOES-do-dono.md` §8zk do app), e quem fixa isso e
+    `gravacao.LinhaDeDesafio` - travado em `test_vizinhanca.py`
+    (`test_o_desafio_nasce_APROVADO`). Aqui continua valendo o que sempre
+    valeu: o `INSERT` nao decide o estado sozinho.
     """
     assert ":co_curadoria" in SQL_INSERIR_DESAFIO
     assert "'aprovado'" not in SQL_INSERIR_DESAFIO

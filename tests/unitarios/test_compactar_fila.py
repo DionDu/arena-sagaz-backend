@@ -23,6 +23,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from job.compactar_fila import LinhaDaFila, remanejar, resumo
+from job.vizinhanca import conflita
 
 HOJE = date(2026, 9, 16)
 
@@ -37,13 +38,53 @@ def _plano(quantos: int = 7) -> list[date]:
     return [_dia(n) for n in range(quantos)]
 
 
-def _linha(quantos: int, co_tipo: str, co_curadoria: str = "aprovado") -> LinhaDaFila:
+def _linha(
+    quantos: int,
+    co_tipo: str,
+    co_curadoria: str = "aprovado",
+    *,
+    co_jogo: str | None = None,
+    co_personagem: str | None = None,
+    co_modalidade: str | None = None,
+) -> LinhaDaFila:
+    """Uma linha da fila em `HOJE + quantos`.
+
+    ⚠️ Jogo, personagem e modalidade ficam `None` por padrao: `None` desliga
+    **aquela** comparacao (`vizinhanca.conflita`), e e assim que os casos antigos,
+    escritos so com o tipo, continuam medindo so o tipo.
+    """
     return LinhaDaFila(
         dt_dia=_dia(quantos),
         id_desafio_dia=f"id-{quantos}",
         co_tipo_desafio=co_tipo,
         co_curadoria=co_curadoria,
+        co_jogo=co_jogo,
+        co_personagem=co_personagem,
+        co_modalidade=co_modalidade,
     )
+
+
+def _aplicar(fila: list[LinhaDaFila], mudancas) -> dict[date, LinhaDaFila]:
+    """A fila DEPOIS das mudancas, por dia — para conferir o resultado inteiro."""
+    por_id = {linha.id_desafio_dia: linha for linha in fila}
+    por_dia = {linha.dt_dia: linha for linha in fila}
+    for m in mudancas:
+        linha = por_id[m.id_desafio_dia]
+        del por_dia[m.dt_de]
+        por_dia[m.dt_para] = linha
+    return por_dia
+
+
+def _sem_vizinhos_parecidos(por_dia: dict[date, LinhaDaFila]) -> None:
+    """Nenhum par de dias consecutivos pode conflitar (`job/vizinhanca.py`)."""
+    for dia, linha in por_dia.items():
+        seguinte = por_dia.get(dia + timedelta(days=1))
+        if seguinte is None:
+            continue
+        assert not conflita(linha.ocupante(), seguinte.ocupante()), (
+            f"{dia} e {dia + timedelta(days=1)} ficaram parecidos: "
+            f"{linha.ocupante()} x {seguinte.ocupante()}"
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -99,9 +140,17 @@ def test_NAO_poe_o_mesmo_tipo_ao_lado_do_mesmo_tipo() -> None:
     ]
     mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
 
-    assert len(mudancas) == 1
-    assert mudancas[0].co_tipo_desafio == "pontinhos_paciencia"
-    assert mudancas[0].dt_de == _dia(4)
+    # O buraco de amanha recebe o UNICO doador que nao repete os vizinhos.
+    para_amanha = [m for m in mudancas if m.dt_para == _dia(1)]
+    assert len(para_amanha) == 1
+    assert para_amanha[0].co_tipo_desafio == "pontinhos_paciencia"
+    assert para_amanha[0].dt_de == _dia(4)
+    # ⚠️ E nenhuma mudanca, em lugar nenhum, encosta dois tipos iguais.
+    # (Ate 02/10/2026 este caso contava "uma mudanca so"; o `damas_coroar` de
+    # D+6 nao descia para D+5 porque conflitava CONSIGO MESMO no dia vizinho.
+    # A regra nova tira o doador do lugar antes de comparar - ver
+    # `test_o_doador_nao_conflita_CONSIGO_MESMO`.)
+    _sem_vizinhos_parecidos(_aplicar(fila, mudancas))
 
 
 def test_a_vizinhanca_e_RECALCULADA_a_cada_movimento() -> None:
@@ -215,3 +264,84 @@ def test_o_resumo_do_log_nomeia_o_que_MUDOU() -> None:
     assert "pontinhos_paciencia" in texto
     assert str(_dia(5)) in texto and str(_dia(1)) in texto
     assert resumo([]) == "nenhuma"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. A alternancia de jogo, personagem e modalidade (02/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ O dono, ao pedir que os desafios nascessem pre-aprovados: *"E claro que
+# sempre precisa garantir a alternancia de jogos/modalidades/personagens do
+# desafio de um dia para o outro"*. Ate ali a compactacao so olhava o tipo.
+
+
+def test_NAO_poe_o_mesmo_JOGO_em_dias_consecutivos() -> None:
+    """🔒 Buraco entre dois dias de damas: o doador de damas mais distante e
+    recusado, e quem desce e o de Pontinhos, mesmo estando mais perto."""
+    fila = [
+        _linha(0, "damas_coroar", co_jogo="damas"),
+        _linha(2, "damas_sacrificio", co_jogo="damas"),
+        _linha(4, "pontinhos_paciencia", co_jogo="pontinhos"),
+        _linha(6, "damas_sobreviver", co_jogo="damas"),
+    ]
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+
+    para_amanha = [m for m in mudancas if m.dt_para == _dia(1)]
+    assert [m.dt_de for m in para_amanha] == [_dia(4)]
+    _sem_vizinhos_parecidos(_aplicar(fila, mudancas))
+
+
+def test_NAO_poe_o_mesmo_PERSONAGEM_em_dias_consecutivos() -> None:
+    """🔒 Jogos alternando nao bastam: o Tex dois dias seguidos tambem e repeticao."""
+    fila = [
+        _linha(0, "pontinhos_paciencia", co_jogo="pontinhos", co_personagem="tex"),
+        _linha(2, "pontinhos_cadeia_longa", co_jogo="pontinhos", co_personagem="pita"),
+        _linha(4, "damas_coroar", co_jogo="damas", co_personagem="cacau"),
+        _linha(6, "damas_sacrificio", co_jogo="damas", co_personagem="tex"),
+    ]
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+
+    para_amanha = [m for m in mudancas if m.dt_para == _dia(1)]
+    # O de D+6 e o mais distante, mas e o Tex - o mesmo de hoje.
+    assert [m.dt_de for m in para_amanha] == [_dia(4)]
+    _sem_vizinhos_parecidos(_aplicar(fila, mudancas))
+
+
+def test_NAO_poe_a_mesma_MODALIDADE_em_dias_consecutivos() -> None:
+    """🔒 A modalidade so compara quando os DOIS dias tem uma."""
+    fila = [
+        _linha(0, "damas_coroar", co_modalidade="anglo"),
+        _linha(2, "damas_sacrificio", co_modalidade="casa"),
+        _linha(4, "damas_sobreviver", co_modalidade="portuguesa"),
+        _linha(6, "damas_capturar_multipla", co_modalidade="anglo"),
+    ]
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+
+    para_amanha = [m for m in mudancas if m.dt_para == _dia(1)]
+    assert [m.dt_de for m in para_amanha] == [_dia(4)]
+
+
+def test_sem_doador_compativel_o_buraco_fica_para_a_GERACAO() -> None:
+    """🔒 ⚠️ A regra vale mais que o buraco tapado agora: se todo doador repete
+    um vizinho, nada desce - e a geracao, que desvia dos vizinhos ao escolher
+    jogo e personagem, cobre o dia."""
+    fila = [
+        _linha(0, "damas_coroar", co_jogo="damas"),
+        _linha(2, "damas_sacrificio", co_jogo="damas"),
+        _linha(5, "damas_sobreviver", co_jogo="damas"),
+    ]
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    assert all(m.dt_para != _dia(1) for m in mudancas)
+
+
+def test_o_doador_nao_conflita_CONSIGO_MESMO() -> None:
+    """🔒 Buraco em D+5 e doador em D+6: o vizinho de cima do buraco E o doador.
+
+    ⚠️ Ate 02/10/2026 ele era comparado com o proprio lugar, conflitava consigo
+    mesmo e nunca descia um dia. Ele sai do lugar antes da comparacao.
+    """
+    fila = [_linha(n, f"tipo_{n}", co_jogo=("a" if n % 2 else "b")) for n in range(5)]
+    # D+4 e do jogo "b", entao o doador e do "a" - so o proprio lugar o barraria.
+    fila.append(_linha(6, "tipo_6", co_jogo="a"))
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    assert [(m.dt_de, m.dt_para) for m in mudancas] == [(_dia(6), _dia(5))]

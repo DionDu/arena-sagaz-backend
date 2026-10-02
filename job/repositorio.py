@@ -55,7 +55,7 @@ antes exigiria carregar o catalogo inteiro so para descobrir o mesmo.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Mapping, Optional, Sequence
 from uuid import UUID
 
@@ -70,6 +70,7 @@ from api.desafios.modelos_producao import (
 )
 
 from . import compactar_fila as compactar_mod
+from . import vizinhanca as vizinhanca_mod
 from .gravacao import SQL_PUBLICAR_O_DIA, LinhaDeDesafio
 from .regua import Medicao
 
@@ -156,10 +157,12 @@ SELECT DISTINCT d.co_versao_motor, d.co_jogo
 #: gravar no lugar errado no dia em que alguem acrescentasse coluna no meio —
 #: calado, se os tipos combinarem.
 #:
-#: ⛔ **`co_curadoria` vem do parametro e nasce `candidato`** (RF-DES-012a). Nao
-#: ha `DEFAULT 'candidato'` na tabela de proposito: um padrao faria a curadoria
-#: virar opcional por acidente, e o primeiro esquecimento poria conteudo no ar
-#: sem ninguem ter visto.
+#: ⛔ **`co_curadoria` vem do parametro**, e nao de um `DEFAULT` da tabela: quem
+#: decide em que estado o desafio nasce e `gravacao.LinhaDeDesafio`, num lugar
+#: so e com o motivo escrito ao lado. ⚠️ **Desde 02/10/2026 ele nasce
+#: `aprovado`** (decisao do dono, `DECISOES-do-dono.md` §8zk do app): a
+#: curadoria virou **revisao a posteriori** — o dono descarta o que achar ruim,
+#: e o descarte abre o buraco que a geracao seguinte tapa.
 SQL_INSERIR_DESAFIO = """
 INSERT INTO desafio.tb001_desafio
        (co_jogo, co_modalidade, co_variante,
@@ -243,15 +246,40 @@ SELECT dt_dia
 #: devolve so as datas, e a compactacao precisa saber **o tipo** (para nao encostar
 #: iguais) e **o estado da curadoria** (para nao mover um candidato nem tratar um
 #: descartado como dia cheio).
+#:
+#: ⚠️ **E desde 02/10/2026 traz jogo, modalidade e personagem**: a compactacao
+#: passou a proibir que dois dias seguidos repitam qualquer um dos tres
+#: (`job/vizinhanca.py`), e nao so o tipo.
 SQL_FILA_COM_CURADORIA = f"""
 SELECT dia.dt_dia,
        dia.id_desafio_dia,
        d.co_tipo_desafio,
-       d.co_curadoria
+       d.co_curadoria,
+       d.co_jogo,
+       d.co_modalidade,
+       d.co_personagem
   FROM {VW_DESAFIO_DIA} dia
   JOIN {VW_DESAFIO} d ON d.id_desafio = dia.id_desafio
  WHERE dia.dt_dia BETWEEN :dt_inicio AND :dt_fim
  ORDER BY dia.dt_dia
+"""
+
+#: Os desafios que moram no dia anterior e no seguinte — o insumo da
+#: alternancia na GERACAO (`job/vizinhanca.py`, 02/10/2026).
+#:
+#: ⚠️ **So `aprovado` e `candidato` contam como vizinho.** Um descartado que
+#: ainda tenha vinculo (anterior a regra que o desagenda) nao vai ao ar, e
+#: desviar dele seria restringir o dia por causa de um desafio que ninguem vera.
+SQL_VIZINHANCA = f"""
+SELECT dia.dt_dia,
+       d.co_jogo,
+       d.co_modalidade,
+       d.co_personagem,
+       d.co_tipo_desafio
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d ON d.id_desafio = dia.id_desafio
+ WHERE dia.dt_dia IN (:dt_anterior, :dt_seguinte)
+   AND d.co_curadoria IN ('aprovado', 'candidato')
 """
 
 #: Move um desafio ja aprovado para outra data.
@@ -492,9 +520,37 @@ class RepositorioDoJob:
                 id_desafio_dia=linha["id_desafio_dia"],
                 co_tipo_desafio=linha["co_tipo_desafio"],
                 co_curadoria=linha["co_curadoria"],
+                # `.get`: um duble de teste antigo pode nao trazer as tres
+                # colunas novas, e a ausencia so desliga aquela comparacao.
+                co_jogo=linha.get("co_jogo"),
+                co_modalidade=linha.get("co_modalidade"),
+                co_personagem=linha.get("co_personagem"),
             )
             for linha in resultado.mappings().all()
         ]
+
+    async def vizinhanca(self, dt_dia: date) -> "vizinhanca_mod.Vizinhanca":
+        """Os desafios do dia anterior e do seguinte, para a geracao desviar.
+
+        ⚠️ Uma consulta so para os dois dias — ver `SQL_VIZINHANCA`.
+        """
+        um_dia = timedelta(days=1)
+        resultado = await self.sessao.execute(
+            text(SQL_VIZINHANCA),
+            {"dt_anterior": dt_dia - um_dia, "dt_seguinte": dt_dia + um_dia},
+        )
+        por_dia: dict[date, vizinhanca_mod.Ocupante] = {}
+        for linha in resultado.mappings().all():
+            por_dia[linha["dt_dia"]] = vizinhanca_mod.Ocupante(
+                co_jogo=linha.get("co_jogo"),
+                co_personagem=linha.get("co_personagem"),
+                co_modalidade=linha.get("co_modalidade"),
+                co_tipo_desafio=linha.get("co_tipo_desafio"),
+            )
+        return vizinhanca_mod.Vizinhanca(
+            anterior=por_dia.get(dt_dia - um_dia),
+            seguinte=por_dia.get(dt_dia + um_dia),
+        )
 
     async def mover_o_dia(
         self, *, id_desafio_dia: Any, dt_para: date, dt_hoje: date
@@ -743,6 +799,7 @@ __all__ = [
     "SQL_INSERIR_FEITO",
     "SQL_INSERIR_MEDICAO",
     "SQL_TIPOS_RECENTES",
+    "SQL_VIZINHANCA",
     "GravacaoDoJobFalhou",
     "RepositorioDoJob",
 ]

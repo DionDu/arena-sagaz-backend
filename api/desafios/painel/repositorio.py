@@ -33,7 +33,12 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.desafios.modelos_evento import VW_DESAFIO_DIA, encerramento_do_dia
+from api.desafios.modelos_evento import (
+    VW_DESAFIO_DIA,
+    VW_RESOLUCAO,
+    VW_TENTATIVA,
+    encerramento_do_dia,
+)
 from api.desafios.modelos_producao import VW_DESAFIO, VW_MEDICAO_REGUA
 
 #: A tabela do desafio. ⚠️ **So a escrita a usa** — toda leitura passa por
@@ -51,6 +56,8 @@ TB_DESAFIO_DIA = "desafio_dia.tb001_desafio_dia"
 #: ja a importava deste modulo.
 __all__ = [
     "DesafioNoPainel",
+    "DiaNoCalendario",
+    "DesafioSemDia",
     "MedicaoNoPainel",
     "RepositorioPainel",
     "encerramento_do_dia",
@@ -114,6 +121,50 @@ class DesafioNoPainel:
     dh_geracao: datetime
     dt_dia: Optional[date]
     medicoes: tuple[MedicaoNoPainel, ...] = ()
+    #: O vinculo com o dia — e por ele que as estatisticas do dia sao lidas.
+    #: `None` quando o desafio esta sem data.
+    id_desafio_dia: Optional[UUID] = None
+
+
+@dataclass(frozen=True, slots=True)
+class DiaNoCalendario:
+    """Um dia do calendario do painel de gestao (02/10/2026).
+
+    ⚠️ **Leve de proposito**: o calendario mostra tres meses, e carregar o
+    gabarito e a posicao de noventa desafios para pintar noventa quadradinhos
+    seria ler do banco o que a tela nao usa. O detalhe de um dia vem por
+    `desafio_do_dia`, quando o dono clica nele.
+
+    Atributos:
+        qt_pessoas, qt_resolveram: quantas pessoas tentaram e quantas resolveram
+            — o calendario mostra o dia que ja foi jogado, e nao so o agendado.
+    """
+
+    dt_dia: date
+    id_desafio: UUID
+    co_curadoria: str
+    co_jogo: str
+    co_modalidade: Optional[str]
+    co_personagem: str
+    no_tipo_desafio: str
+    ic_reprise: bool
+    qt_pessoas: int = 0
+    qt_resolveram: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class DesafioSemDia:
+    """Um desafio que nao mora em dia nenhum: aprovado em reserva, candidato
+    antigo ou descartado — as tres listas da lateral do painel."""
+
+    id_desafio: UUID
+    co_jogo: str
+    co_modalidade: Optional[str]
+    co_personagem: str
+    no_tipo_desafio: str
+    co_curadoria: str
+    de_motivo_descarte: Optional[str]
+    dh_geracao: datetime
 
 
 #: A fila de curadoria: o que ainda espera decisao, mais o que ja foi decidido
@@ -127,8 +178,10 @@ class DesafioNoPainel:
 #: pela data agendada e depois pela geracao — o que vai ao ar antes aparece
 #: antes. `NULLS LAST` porque um candidato sem data nao e mais urgente que um
 #: agendado para amanha.
-_SQL_FILA = f"""
-SELECT d.id_desafio,
+#: As colunas que montam um `DesafioNoPainel` — escritas uma vez para as tres
+#: consultas que o devolvem (a fila, o dia e o identificador).
+_COLUNAS_DO_DESAFIO = """
+       d.id_desafio,
        d.co_jogo,
        d.co_modalidade,
        d.co_variante,
@@ -147,7 +200,12 @@ SELECT d.id_desafio,
        d.ic_reprise,
        d.id_desafio_origem,
        d.dh_geracao,
-       dia.dt_dia
+       dia.dt_dia,
+       dia.id_desafio_dia
+"""
+
+_SQL_FILA = f"""
+SELECT {_COLUNAS_DO_DESAFIO}
   FROM {VW_DESAFIO} d
   LEFT JOIN {VW_DESAFIO_DIA} dia
     ON dia.id_desafio = d.id_desafio
@@ -158,6 +216,99 @@ SELECT d.id_desafio,
           dia.dt_dia ASC NULLS LAST,
           d.dh_geracao ASC
  LIMIT :limite
+"""
+
+#: O desafio que mora num dia — o detalhe que o painel abre ao clicar no
+#: calendario (02/10/2026). ⚠️ Qualquer estado de curadoria: um descartado que
+#: ainda tenha vinculo (anterior a regra que o desagenda) tambem precisa ser
+#: visto, senao o dia pareceria vazio com uma linha la dentro.
+_SQL_DESAFIO_DO_DIA = f"""
+SELECT {_COLUNAS_DO_DESAFIO}
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d
+    ON d.id_desafio = dia.id_desafio
+ WHERE dia.dt_dia = :dt_dia
+"""
+
+#: Um desafio pelo identificador — para abrir o que esta SEM dia (reserva,
+#: candidato antigo, descartado) no mesmo detalhe.
+_SQL_DESAFIO_POR_ID = f"""
+SELECT {_COLUNAS_DO_DESAFIO}
+  FROM {VW_DESAFIO} d
+  LEFT JOIN {VW_DESAFIO_DIA} dia
+    ON dia.id_desafio = d.id_desafio
+ WHERE d.id_desafio = :id_desafio
+"""
+
+#: Os dias de uma janela, com o minimo para pintar o calendario.
+#:
+#: ⚠️ **As contagens vem por subconsulta correlacionada**, e nao por `JOIN` +
+#: `GROUP BY`: o `GROUP BY` teria de repetir as colunas do desafio, e a janela
+#: e de noventa dias — a subconsulta usa o indice de `id_desafio_dia` e custa o
+#: mesmo.
+_SQL_CALENDARIO = f"""
+SELECT dia.dt_dia,
+       d.id_desafio,
+       d.co_curadoria,
+       d.co_jogo,
+       d.co_modalidade,
+       d.co_personagem,
+       d.no_tipo_desafio,
+       d.ic_reprise,
+       (SELECT COUNT(DISTINCT t.id_usuario)
+          FROM {VW_TENTATIVA} t
+         WHERE t.id_desafio_dia = dia.id_desafio_dia) AS qt_pessoas,
+       (SELECT COUNT(DISTINCT r.id_usuario)
+          FROM {VW_RESOLUCAO} r
+         WHERE r.id_desafio_dia = dia.id_desafio_dia) AS qt_resolveram
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d
+    ON d.id_desafio = dia.id_desafio
+ WHERE dia.dt_dia BETWEEN :dt_de AND :dt_ate
+ ORDER BY dia.dt_dia
+"""
+
+#: Os desafios SEM dia num estado de curadoria, mais recentes primeiro.
+_SQL_SEM_DIA = f"""
+SELECT d.id_desafio,
+       d.co_jogo,
+       d.co_modalidade,
+       d.co_personagem,
+       d.no_tipo_desafio,
+       d.co_curadoria,
+       d.de_motivo_descarte,
+       d.dh_geracao
+  FROM {VW_DESAFIO} d
+  LEFT JOIN {VW_DESAFIO_DIA} dia
+    ON dia.id_desafio = d.id_desafio
+ WHERE d.co_curadoria = :co_curadoria
+   AND dia.id_desafio IS NULL
+ ORDER BY d.dh_geracao DESC
+ LIMIT :limite
+"""
+
+#: Em que dia o desafio mora e quantas tentativas ja recebeu — a guarda do
+#: descarte (`servico.descartar`): dia jogado nao se desagenda.
+_SQL_SITUACAO_NO_CALENDARIO = f"""
+SELECT dia.dt_dia,
+       (SELECT COUNT(*)
+          FROM {VW_TENTATIVA} t
+         WHERE t.id_desafio_dia = dia.id_desafio_dia) AS qt_tentativas
+  FROM {VW_DESAFIO_DIA} dia
+ WHERE dia.id_desafio = :id_desafio
+"""
+
+#: Aprova de uma vez todo `candidato` que sobrou de antes de 02/10/2026.
+#:
+#: ⚠️ **Existe para a transicao**: desde aquele dia nada nasce candidato, e os
+#: que ja estavam na fila continuariam ocupando dias sem ir ao ar — o aviso de
+#: "fila critica" que o dono viu com cinco desafios prontos na fila.
+_SQL_APROVAR_CANDIDATOS = f"""
+UPDATE {TB_DESAFIO}
+   SET co_curadoria = 'aprovado',
+       de_motivo_descarte = NULL
+ WHERE co_curadoria = 'candidato'
+RETURNING id_desafio
 """
 
 #: As medicoes da regua dos desafios que a fila trouxe.
@@ -294,6 +445,14 @@ class RepositorioPainel:
         if not linhas:
             return []
 
+        return await self._com_medicoes(linhas)
+
+    async def _com_medicoes(
+        self, linhas: list[dict[str, Any]]
+    ) -> list[DesafioNoPainel]:
+        """Pendura as medicoes da regua nas linhas — uma consulta para todas."""
+        if not linhas:
+            return []
         medicoes = await self._medicoes([linha["id_desafio"] for linha in linhas])
         return [
             DesafioNoPainel(
@@ -302,6 +461,54 @@ class RepositorioPainel:
             )
             for linha in linhas
         ]
+
+    async def desafio_do_dia(self, dt_dia: date) -> Optional[DesafioNoPainel]:
+        """O desafio que mora naquele dia, com a regua; `None` se o dia esta vazio."""
+        resultado = await self.sessao.execute(
+            text(_SQL_DESAFIO_DO_DIA), {"dt_dia": dt_dia}
+        )
+        linhas = [dict(m) for m in resultado.mappings().all()]
+        desafios = await self._com_medicoes(linhas)
+        return desafios[0] if desafios else None
+
+    async def desafio_por_id(self, id_desafio: UUID) -> Optional[DesafioNoPainel]:
+        """Um desafio qualquer, com ou sem dia."""
+        resultado = await self.sessao.execute(
+            text(_SQL_DESAFIO_POR_ID), {"id_desafio": id_desafio}
+        )
+        linhas = [dict(m) for m in resultado.mappings().all()]
+        desafios = await self._com_medicoes(linhas)
+        return desafios[0] if desafios else None
+
+    async def calendario(self, *, dt_de: date, dt_ate: date) -> list[DiaNoCalendario]:
+        """Os dias com desafio na janela, para pintar o calendario."""
+        resultado = await self.sessao.execute(
+            text(_SQL_CALENDARIO), {"dt_de": dt_de, "dt_ate": dt_ate}
+        )
+        return [
+            DiaNoCalendario(
+                dt_dia=m["dt_dia"],
+                id_desafio=m["id_desafio"],
+                co_curadoria=m["co_curadoria"],
+                co_jogo=m["co_jogo"],
+                co_modalidade=m["co_modalidade"],
+                co_personagem=m["co_personagem"],
+                no_tipo_desafio=m["no_tipo_desafio"],
+                ic_reprise=bool(m["ic_reprise"]),
+                qt_pessoas=int(m.get("qt_pessoas") or 0),
+                qt_resolveram=int(m.get("qt_resolveram") or 0),
+            )
+            for m in resultado.mappings().all()
+        ]
+
+    async def sem_dia(
+        self, co_curadoria: str, *, limite: int = 30
+    ) -> list[DesafioSemDia]:
+        """Os desafios sem data num estado (reserva, candidatos, descartados)."""
+        resultado = await self.sessao.execute(
+            text(_SQL_SEM_DIA), {"co_curadoria": co_curadoria, "limite": limite}
+        )
+        return [DesafioSemDia(**dict(m)) for m in resultado.mappings().all()]
 
     async def _medicoes(
         self, ids: list[UUID]
@@ -349,6 +556,23 @@ class RepositorioPainel:
             text(_SQL_APROVAR), {"id_desafio": id_desafio}
         )
         return resultado.first() is not None
+
+    async def situacao_no_calendario(
+        self, id_desafio: UUID
+    ) -> Optional[tuple[date, int]]:
+        """`(dia, tentativas)` do desafio; `None` quando ele nao tem dia."""
+        resultado = await self.sessao.execute(
+            text(_SQL_SITUACAO_NO_CALENDARIO), {"id_desafio": id_desafio}
+        )
+        linha = resultado.mappings().first()
+        if linha is None:
+            return None
+        return linha["dt_dia"], int(linha["qt_tentativas"] or 0)
+
+    async def aprovar_candidatos(self) -> int:
+        """Aprova todo candidato que restou. Devolve quantos mudaram."""
+        resultado = await self.sessao.execute(text(_SQL_APROVAR_CANDIDATOS))
+        return len(resultado.all())
 
     async def descartar(self, id_desafio: UUID, *, de_motivo: str) -> bool:
         """Descarta com motivo. Devolve `False` se o desafio nao existe."""

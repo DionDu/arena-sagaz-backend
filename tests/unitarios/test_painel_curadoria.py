@@ -143,6 +143,17 @@ class RepoFalso:
     async def quantos_aprovados_sem_dia(self) -> int:
         return self.reserva
 
+    async def situacao_no_calendario(self, id_desafio: UUID):
+        """`(dia, tentativas)` — a guarda de dia jogado (02/10/2026).
+
+        ⚠️ Nenhum caso deste arquivo tem tentativa: devolve so o dia, quando ha.
+        Os casos da guarda moram em `test_painel_gestao.py`.
+        """
+        alvo = next((d for d in self._fila if d.id_desafio == id_desafio), None)
+        if alvo is None or alvo.dt_dia is None:
+            return None
+        return alvo.dt_dia, 0
+
     async def confirmar(self) -> None:
         self.commits += 1
 
@@ -161,7 +172,11 @@ def _sessao_de_pagina() -> FakeSessaoSQL:
             # consultas tem `COUNT(*) AS qt`, e casar por esse pedaco faria a
             # contagem de auditoria receber a resposta da reserva.
             "GROUP BY co_auditoria": [],
-            "dia.id_desafio IS NULL": [{"qt": 0}],
+            # ⚠️ Desde 02/10/2026 ha DUAS consultas com `dia.id_desafio IS NULL`
+            # (a contagem da reserva e as listas sem data da lateral). O trecho
+            # inclui o literal `'aprovado'`, que so a contagem tem (as listas
+            # recebem o estado por parametro, `:co_curadoria`).
+            "WHERE d.co_curadoria = 'aprovado'": [{"qt": 0}],
         }
     )
 
@@ -217,7 +232,7 @@ def test_cabecalho_admin_abre_a_pagina(cliente):
         "/painel/desafios", headers={"X-Admin-Token": SEGREDO}
     )
     assert resposta.status_code == 200
-    assert "Curadoria do Desafio do Dia" in resposta.text
+    assert "Gestao do Desafio do Dia" in resposta.text
     # ⚠️ O gabarito aparece nesta pagina; ela nao pode ser guardada por cache.
     assert resposta.headers["cache-control"] == "no-store"
 
@@ -568,14 +583,24 @@ def test_a_fen_e_lida_nas_duas_ordens():
 
 
 def _pagina(fila, *, estado=None, contagem=None, divergencias=()) -> str:
-    """Renderiza a pagina com o minimo, para os casos de HTML."""
+    """Renderiza a pagina com o minimo, para os casos de HTML.
+
+    ⚠️ **Desde 02/10/2026 a pagina abre UM dia**, e nao a fila inteira: o
+    primeiro item da lista e o desafio aberto (lista vazia = dia vazio). Os casos
+    continuam travando o que travavam - o que aparece no cartao do desafio.
+    """
+    item = fila[0] if fila else None
     return pagina.render(
-        fila=fila,
+        dt_hoje=date(2026, 9, 10),
+        detalhe=pagina.DetalheDoDia(
+            dt_dia=(item.dt_dia if item else None) or date(2026, 9, 10),
+            desafio=item,
+        ),
+        calendario=(),
         estado_da_fila=estado
         or EstadoDaFila(dias_cobertos=7, reserva=3, buracos=()),
         contagem=contagem or ContagemDeAuditoria(),
         divergencias=divergencias,
-        dt_hoje=date(2026, 9, 10),
     )
 
 
@@ -622,10 +647,15 @@ def test_o_gabarito_nao_vaza_por_engano_no_html_escapado():
     assert "&lt;script&gt;" in html
 
 
-def test_fila_vazia_diz_o_que_fazer():
-    """Tela vazia sem explicacao e indistinguivel de tela quebrada."""
+def test_dia_vazio_diz_o_que_fazer():
+    """Tela vazia sem explicacao e indistinguivel de tela quebrada.
+
+    ⚠️ Era `fila_vazia` ate 02/10/2026; a pagina passou a abrir um dia, e o dia
+    sem desafio diz que a proxima geracao o tapa primeiro.
+    """
     html = _pagina([])
-    assert "Nenhum candidato na fila" in html
+    assert "Dia vazio" in html
+    assert "tapa os dias vazios mais proximos" in html
 
 
 def test_o_formulario_de_agendar_so_aparece_no_aprovado():
@@ -668,13 +698,20 @@ SOLUCAO_DE_DAMAS = {
 POSICAO_DE_DAMAS = {"fen": "B:W5,27,30:B14,18,20", "versao": 1, "vez_de": -1}
 
 
-def test_a_fita_de_damas_tem_um_quadro_POR_LANCE_mais_o_inicio() -> None:
-    """🔒 A contagem, que e o cadeado mais barato contra um quadro perdido."""
+def test_a_fita_de_damas_tem_um_quadro_POR_LANCE_mais_o_FINAL() -> None:
+    """🔒 A contagem, que e o cadeado mais barato contra um quadro perdido.
+
+    ⚠️ **Desde 02/10/2026 cada quadro de damas e a posicao de ANTES do lance**,
+    com o trajeto tracejado (pedido do dono). O primeiro ja mostra a posicao
+    publicada, e o "inicio" deu lugar a um quadro FINAL - a posicao depois do
+    ultimo lance, que antes era o ultimo quadro.
+    """
     from api.desafios.painel import desenho
 
     quadros = desenho.fita_da_solucao("fen", POSICAO_DE_DAMAS, SOLUCAO_DE_DAMAS)
-    assert [q["n"] for q in quadros] == [0, 1, 2]
-    assert quadros[0]["titulo"] == "posicao publicada"
+    assert [q["n"] for q in quadros] == [1, 2, 3]
+    assert [q["tipo"] for q in quadros] == ["lance", "lance", "final"]
+    assert quadros[-1]["titulo"] == "posicao final"
 
 
 def test_o_quadro_do_lance_CHAVE_vem_marcado() -> None:
@@ -687,7 +724,7 @@ def test_o_quadro_do_lance_CHAVE_vem_marcado() -> None:
     from api.desafios.painel import desenho
 
     quadros = desenho.fita_da_solucao("fen", POSICAO_DE_DAMAS, SOLUCAO_DE_DAMAS)
-    assert [q["chave"] for q in quadros] == [False, False, True]
+    assert [q["chave"] for q in quadros] == [False, True, False]
 
 
 def test_solucao_SEM_posicoes_nao_desenha_MEIA_sequencia() -> None:

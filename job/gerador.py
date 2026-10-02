@@ -59,6 +59,7 @@ from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicao_inicial as posicao_mod
 from . import semente as semente_mod
+from . import vizinhanca as vizinhanca_mod
 from .espelho_de_damas import com_as_brancas_a_jogar, com_o_adversario_a_jogar
 from .moldes_de_damas import material_de_quem_joga, objetivo_no_primeiro_lance
 from .perfil import NIVEL_POR_PERSONAGEM
@@ -235,16 +236,28 @@ class Candidato:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def escolher_jogo(dt_dia: date) -> str:
+def escolher_jogo(dt_dia: date, *, evitar: Sequence[str] = ()) -> str:
     """O jogo do dia, por rodizio simples sobre a data.
+
+    Args:
+        dt_dia: o dia.
+        evitar: os jogos dos dias vizinhos (`Vizinhanca.jogos`). Vazio = o
+            rodizio puro pela data, que e o caso de toda fila sem buraco.
 
     ⚠️ **Deterministico, e nao sorteado**: assim duas execucoes do job para o
     mesmo dia escolhem o mesmo jogo, e a idempotencia de T038 nao depende de
     sorte. E, como efeito colateral util, a fila fica previsivel para quem
     acompanha a curadoria.
+
+    ⚠️ **E desvia dos vizinhos desde 02/10/2026** (`job/vizinhanca.py`): com os
+    desafios nascendo pre-aprovados, a compactacao muda desafios de data, e a
+    paridade do dia deixa de garantir sozinha que ontem e hoje tem jogos
+    diferentes.
     """
     dias = (dt_dia - EPOCA_DO_RODIZIO).days
-    return JOGOS_DO_RODIZIO[dias % len(JOGOS_DO_RODIZIO)]
+    return vizinhanca_mod.preferir(
+        JOGOS_DO_RODIZIO, indice_do_rodizio=dias, evitar=evitar
+    )
 
 
 def escolher_tipo(co_jogo: str, dt_dia: date, *, tipos_recentes: Sequence[str] = ()) -> str:
@@ -292,7 +305,9 @@ def escolher_tipo(co_jogo: str, dt_dia: date, *, tipos_recentes: Sequence[str] =
     return frescos[vez_do_jogo % len(frescos)]
 
 
-def escolher_modalidade(co_jogo: str, dt_dia: date) -> str | None:
+def escolher_modalidade(
+    co_jogo: str, dt_dia: date, *, evitar: Sequence[str] = ()
+) -> str | None:
     """A modalidade do dia, ou `None` para jogo que nao tem.
 
     ⛔ **O contador NAO pode ser o mesmo do tipo, e essa e a licao de 10/09/2026.**
@@ -318,7 +333,13 @@ def escolher_modalidade(co_jogo: str, dt_dia: date) -> str | None:
     # dependesse disso mudaria de dono conforme a fila — deixando de ser
     # reproduzivel, que e o que a idempotencia de T038 precisa.
     quantos_tipos = max(1, len(tipos_do_jogo(co_jogo)))
-    return modalidades[(vez_do_jogo // quantos_tipos) % len(modalidades)]
+    # ⚠️ `evitar` sao as modalidades dos dias vizinhos (02/10/2026): o odometro
+    # escolhe, e `preferir` so anda um passo se a escolha repetiria o vizinho.
+    return vizinhanca_mod.preferir(
+        modalidades,
+        indice_do_rodizio=vez_do_jogo // quantos_tipos,
+        evitar=evitar,
+    )
 
 
 def escolher_variante(co_jogo: str, dt_dia: date, *, quantas_variantes: int) -> int:
@@ -387,13 +408,19 @@ def escolher_variante(co_jogo: str, dt_dia: date, *, quantas_variantes: int) -> 
 
 
 def escolher_personagem(
-    dt_dia: date, *, possiveis: Sequence[str] | None = None
+    dt_dia: date,
+    *,
+    possiveis: Sequence[str] | None = None,
+    evitar: Sequence[str] = (),
 ) -> str:
     """O adversario do dia, por rodizio.
 
     Args:
         dt_dia: o dia.
         possiveis: a lista a que este tipo se restringe. `None` = todos.
+        evitar: os personagens dos dias vizinhos. ⚠️ Com um `possiveis` de um
+            nome so, o desvio nao tem para onde ir e o rodizio vence — um tipo
+            que so cabe contra a Cacau continua so cabendo contra a Cacau.
 
     ⚠️ **O personagem e o nivel**, e por isso ele entra na frase: *"contra a
     Cacau"* e *"contra o Magno"* sao tarefas de tamanhos diferentes, mesmo com o
@@ -409,9 +436,9 @@ def escolher_personagem(
     trocar por sorteio faria duas execucoes do job para o mesmo dia escolherem
     adversarios diferentes, e a idempotencia depende de isso nao acontecer.
     """
-    escala = list(possiveis) if possiveis else PERSONAGENS
+    escala = list(possiveis) if possiveis else list(PERSONAGENS)
     dias = (dt_dia - EPOCA_DO_RODIZIO).days
-    return escala[dias % len(escala)]
+    return vizinhanca_mod.preferir(escala, indice_do_rodizio=dias, evitar=evitar)
 
 
 def nivel_do_personagem(co_personagem: str) -> NivelDeMotor:
@@ -790,6 +817,7 @@ def gerar_candidatos(
     personagens_possiveis: Sequence[str] | None = None,
     receita_em_avaliacao: Receita | None = None,
     moldes: Sequence[str] | None = None,
+    vizinhanca: "vizinhanca_mod.Vizinhanca | None" = None,
 ) -> list[Candidato]:
     """Gera candidatos para um dia.
 
@@ -834,6 +862,12 @@ def gerar_candidatos(
             tipo** (decisao do dono, 30/09/2026): no `damas_capturar_multipla`,
             o acervo que alonga a de duas pecas esvazia a de tres. So as damas
             leem este argumento - o Pontinhos parte de autoplay.
+        vizinhanca: os desafios que ja moram no dia anterior e no seguinte
+            (`job/vizinhanca.py`). O jogo, o personagem e a modalidade desviam
+            deles. ⛔ **Quem chama precisa passar a MESMA vizinhanca que usou
+            para escolher o jogo** — `cobrir_um_dia` escolhe jogo e tipo antes
+            de chamar, e os dois lados precisam concordar. `None` = rodizio puro
+            pela data.
 
     Returns:
         Os candidatos encontrados. Pode vir menos que `quantos` — e pode vir
@@ -845,6 +879,9 @@ def gerar_candidatos(
     # ⚠️ Importado aqui, e nao no topo, para manter `motores.juiz` fora da
     # superficie deste modulo: quem le o gerador nao precisa saber julgar.
     from motores.juiz import julgar_desafio
+
+    # Sem vizinhanca informada, nada a evitar: o rodizio pela data decide.
+    vizinhos = vizinhanca or vizinhanca_mod.Vizinhanca()
 
     # ── ⚠️ MEDIR VEM ANTES DE PUBLICAR, E POR ISSO ESTE RAMO EXISTE ─────────
     #
@@ -877,12 +914,14 @@ def gerar_candidatos(
             "⛔ Este candidato NAO e publicavel."
         )
     else:
-        co_jogo = escolher_jogo(dt_dia)
+        co_jogo = escolher_jogo(dt_dia, evitar=vizinhos.jogos)
         co_tipo = escolher_tipo(co_jogo, dt_dia, tipos_recentes=tipos_recentes)
         receita = receita_de(co_tipo)
         exigir_vetor(co_tipo)
 
-    co_personagem = escolher_personagem(dt_dia, possiveis=personagens_possiveis)
+    co_personagem = escolher_personagem(
+        dt_dia, possiveis=personagens_possiveis, evitar=vizinhos.personagens
+    )
 
     # ⚠️ **O acervo da variante, se ela tiver um; senao, o da receita.**
     # ⛔ `is None`, e nao `or`: com `or`, uma lista vazia passada por engano
@@ -966,7 +1005,10 @@ def gerar_candidatos(
             co_modalidade = None
             co_variante = "pequeno"
         else:
-            co_modalidade = escolher_modalidade(co_jogo, dt_dia) or "brasileira"
+            co_modalidade = (
+                escolher_modalidade(co_jogo, dt_dia, evitar=vizinhos.modalidades)
+                or "brasileira"
+            )
             base = _preparar_damas(
                 sorteio,
                 lances_de_preparo,

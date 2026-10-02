@@ -5,11 +5,16 @@ O QUE ELE E, EM UMA FRASE
 ═══════════════════════════════════════════════════════════════════════════
 
 Uma **pagina HTML servida pelo proprio backend**, protegida por token, onde o
-dono ve os candidatos gerados pelo job e decide: **aprovar**, **descartar** (com
-motivo) ou **agendar noutra data**.
+dono GERE o Desafio do Dia: um calendario com o status de cada dia e, ao clicar,
+o desafio daquele dia, como as pessoas foram nele (engajamento, quadro, raio-x) e
+as acoes de **descartar** (com motivo), **trocar a data** ou **tirar do
+calendario**.
 
-⛔ **Nada vai ao ar sem essa visita** (RF-DES-012a). O job grava tudo como
-`candidato`, e so `aprovado` e servido ao aplicativo.
+⚠️ **Desde 02/10/2026 o job grava os desafios ja `aprovado`**
+(`DECISOES-do-dono.md` §8zq do app): a curadoria virou revisao a posteriori, e o
+descarte e o ato que conta. Ate ali valia RF-DES-012a (*"nada vai ao ar sem essa
+visita"*), e o painel se chamava "curadoria". So `aprovado` continua sendo servido
+ao aplicativo.
 
 ═══════════════════════════════════════════════════════════════════════════
 POR QUE HTML CRU, E NAO UM APLICATIVO
@@ -34,7 +39,10 @@ AS PECAS, E POR QUE SAO SEPARADAS
 | `seguranca.py` | quem pode entrar | e a unica peca que le segredo; misturada com rota, a checagem viraria um `if` a se esquecer |
 | `repositorio.py` | o SQL, so ele | a leitura e sempre pela VIEW, e um lugar so torna isso conferivel |
 | `vigilancia.py` | as duas secoes de alerta (T040) | elas existem **sem** a fila de candidatos, e vao continuar existindo quando a fila estiver cheia |
-| `servico.py` | as regras da curadoria | descartar exige motivo, agendar exige aprovado — regra e regra, e nao formulario |
+| `servico.py` | as regras da curadoria | descartar exige motivo, agendar exige aprovado, dia jogado nao se mexe — regra e regra, e nao formulario |
+| `estatisticas.py` | como foi o dia (02/10/2026) | so leitura, e o XP e o gravado: a regra de credito mora em `credito_do_dia.py` |
+| `datas.py` | o formato brasileiro (02/10/2026) | um lugar so para formatar, para a data ISO nao vazar pela tela |
+| `desenho.py` | os tabuleiros em SVG | desenho, e nao julgamento: nao importa motor nenhum |
 | `pagina.py` | o HTML | trocar a aparencia nao pode obrigar a mexer em consulta |
 | `rotas.py` | as rotas HTTP | so amarra as pecas |
 

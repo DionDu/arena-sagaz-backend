@@ -33,8 +33,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Optional
 from uuid import UUID
 
+from api.desafios.painel.datas import data_br
 from api.desafios.painel.repositorio import RepositorioPainel
 from api.nucleo.excecoes import ErroNegocio
 
@@ -84,11 +86,77 @@ class ServicoCuradoria:
             ),
         )
 
-    async def descartar(self, id_desafio: UUID, *, motivo: str) -> ResultadoDaAcao:
-        """Descarta com motivo, e **tira do calendario** se estava agendado.
+    async def aprovar_candidatos(self) -> ResultadoDaAcao:
+        """Aprova de uma vez os candidatos que sobraram de antes de 02/10/2026.
+
+        ⚠️ **E a ponte da transicao para a pre-aprovacao**: desde aquele dia o job
+        so grava `aprovado`, e os candidatos antigos ficariam ocupando dias sem
+        ir ao ar ate alguem clicar um a um.
+        """
+        quantos = await self.repo.aprovar_candidatos()
+        await self.repo.confirmar()
+        return ResultadoDaAcao(
+            mudou=quantos > 0,
+            mensagem=(
+                f"{quantos} candidato(s) aprovado(s)."
+                if quantos
+                else "Nao havia candidato esperando."
+            ),
+        )
+
+    async def _exigir_dia_nao_jogado(
+        self, id_desafio: UUID, dt_hoje: date, *, ato: str
+    ) -> None:
+        """Recusa mexer no dia de um desafio que ja foi jogado (02/10/2026).
+
+        ⚠️ **O calendario do painel de gestao abre QUALQUER dia**, inclusive os
+        que ja foram ao ar — e as tres acoes que mexem no vinculo do dia
+        (descartar, trocar a data, tirar do calendario) passaram a estar a um
+        clique de um dia vivido:
+
+          · **descartar e tirar do calendario** apagam o vinculo, e
+            `tb002_tentativa` aponta para ele sem `ON DELETE`: o banco recusaria,
+            e o dono leria um erro 500;
+          · ⛔ **trocar a data e pior, porque o banco ACEITA**: o `UPDATE` move o
+            vinculo, e as tentativas de quem jogou passam a pertencer a outro
+            dia — o historico de cada pessoa mudaria de data sem nada acusar.
 
         Raises:
-            ErroNegocio: quando o motivo veio vazio (RF-DES-012c).
+            ErroNegocio: o dia ja passou, ou ja tem tentativa hoje.
+        """
+        situacao = await self.repo.situacao_no_calendario(id_desafio)
+        if situacao is None:
+            return
+        dt_dia, qt_tentativas = situacao
+        if dt_dia < dt_hoje:
+            raise ErroNegocio(
+                f"O desafio de {data_br(dt_dia)} ja foi ao ar. Nao da para "
+                f"{ato} um dia que passou: ele e a historia de quem jogou.",
+                "dia_ja_jogado",
+                status_http=400,
+            )
+        if qt_tentativas:
+            raise ErroNegocio(
+                f"{qt_tentativas} tentativa(s) ja foram feitas neste desafio hoje. "
+                f"Nao da para {ato} agora: tiraria o dia de quem esta jogando.",
+                "dia_ja_jogado",
+                status_http=400,
+            )
+
+    async def descartar(
+        self, id_desafio: UUID, *, motivo: str, dt_hoje: Optional[date] = None
+    ) -> ResultadoDaAcao:
+        """Descarta com motivo, e **tira do calendario** se estava agendado.
+
+        ⚠️ Desde 02/10/2026 o desafio nasce aprovado, e e ESTE o ato de
+        curadoria: o dia vira buraco, e a proxima geracao o tapa primeiro.
+
+        Args:
+            dt_hoje: o dia corrente em UTC. Quando vem, o descarte de um dia ja
+                jogado e recusado (ver o bloco abaixo).
+
+        Raises:
+            ErroNegocio: motivo vazio (RF-DES-012c), ou dia ja jogado.
         """
         motivo = (motivo or "").strip()
         if not motivo:
@@ -99,6 +167,12 @@ class ServicoCuradoria:
                 status_http=400,
             )
         motivo = motivo[:MAX_MOTIVO]
+
+        # ⛔ Dia ja jogado nao se descarta (ver `_exigir_dia_nao_jogado`). So
+        # quando `dt_hoje` vem: a rota sempre o passa; o parametro e opcional
+        # para os chamadores antigos, que nao abrem dia passado.
+        if dt_hoje is not None:
+            await self._exigir_dia_nao_jogado(id_desafio, dt_hoje, ato="descartar")
 
         # ⚠️ A ORDEM IMPORTA: desagendar primeiro deixaria uma janela em que o dia
         # esta livre e o desafio ainda aprovado. Descartar primeiro fecha a porta
@@ -140,14 +214,14 @@ class ServicoCuradoria:
         """
         if dt_dia < dt_hoje:
             raise ErroNegocio(
-                f"{dt_dia} ja passou. O desafio de um dia encerrado nao seria "
+                f"{data_br(dt_dia)} ja passou. O desafio de um dia encerrado nao seria "
                 "servido a ninguem.",
                 "dia_no_passado",
                 status_http=400,
             )
         if (dt_dia - dt_hoje).days > DIAS_MAXIMOS_A_FRENTE:
             raise ErroNegocio(
-                f"{dt_dia} esta a mais de {DIAS_MAXIMOS_A_FRENTE} dias. Aprovar "
+                f"{data_br(dt_dia)} esta a mais de {DIAS_MAXIMOS_A_FRENTE} dias. Aprovar "
                 "conteudo para daqui a meses e decidir sem saber o que estara "
                 "publicado junto.",
                 "dia_longe_demais",
@@ -171,19 +245,31 @@ class ServicoCuradoria:
                 status_http=400,
             )
 
+        # ⛔ Trocar a data de um dia jogado moveria as tentativas junto.
+        await self._exigir_dia_nao_jogado(id_desafio, dt_hoje, ato="trocar a data de")
+
         mudou = await self.repo.agendar(id_desafio, dt_dia=dt_dia)
         await self.repo.confirmar()
         return ResultadoDaAcao(
-            mudou=mudou, mensagem=f"Desafio agendado para {dt_dia.isoformat()}."
+            mudou=mudou, mensagem=f"Desafio agendado para {data_br(dt_dia)}."
         )
 
-    async def desagendar(self, id_desafio: UUID) -> ResultadoDaAcao:
+    async def desagendar(
+        self, id_desafio: UUID, *, dt_hoje: Optional[date] = None
+    ) -> ResultadoDaAcao:
         """Tira o desafio do calendario, mantendo a aprovacao.
 
         ⚠️ E o passo que **libera um dia ocupado**: sem ele, trocar dois desafios
         de data seria impossivel, porque `un001_dia` recusa o segundo enquanto o
         primeiro nao sai.
+
+        Args:
+            dt_hoje: quando vem, um dia ja jogado e recusado.
         """
+        if dt_hoje is not None:
+            await self._exigir_dia_nao_jogado(
+                id_desafio, dt_hoje, ato="tirar do calendario"
+            )
         mudou = await self.repo.desagendar(id_desafio)
         await self.repo.confirmar()
         return ResultadoDaAcao(

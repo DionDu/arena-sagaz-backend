@@ -29,7 +29,8 @@ e um dia sem produto.
     2  →  nem comecou (sem `DATABASE_URL`, banco fora, perfil nao gravou)
 
 ⛔ **Calibracao fora da banda NAO e quebra**, e nao sai com 1 — ela e observacao
-para a curadoria, e nada vai ao ar sem o dono aprovar. Medido em 10/09/2026:
+para a curadoria. ⚠️ Desde 02/10/2026 o desafio fora da banda **vai ao ar
+pre-aprovado** (§8zk), e o painel o marca para o dono olhar. Medido em 10/09/2026:
 seis dos sete dias de uma execucao saudavel ficavam fora da banda, e o painel
 ficaria vermelho todo dia. Sinal que dispara sempre e sinal que ninguem le.
 
@@ -47,8 +48,11 @@ reiniciar o job achando que nada tinha sido gravado.
 ⚠️ O QUE ESTE ARQUIVO NAO FAZ
 ═══════════════════════════════════════════════════════════════════════════
 
-⛔ **Nao aprova nada.** Tudo o que ele grava nasce `candidato` (RF-DES-012a);
-quem aprova e o dono, no painel de curadoria.
+⚠️ **Tudo o que ele grava nasce `aprovado`, desde 02/10/2026** (decisao do dono,
+`DECISOES-do-dono.md` §8zk do app). A curadoria virou revisao a posteriori: o
+dono descarta no painel o que achar ruim, o dia vira buraco, e a execucao
+seguinte tapa primeiro o buraco mais proximo — com a alternancia de jogo,
+modalidade e personagem garantida por `job/vizinhanca.py`.
 ⛔ **Nao fala HTTP.** Sem porta, sem rota, sem `healthcheckPath` — a conversa com
 a API acontece pelo Postgres (RF-DES-011a).
 """
@@ -280,9 +284,10 @@ class Relatorio:
         # vermelho nao vai significar nada.
         #
         # ⚠️ **E os dois casos nao tem o mesmo peso:** dia descoberto e o app
-        # mostrando dia vazio — quebra de produto. Fora da banda e um candidato
-        # mais facil que o alvo entrando na fila de **curadoria**, e ⛔ nada vai
-        # ao ar sem o dono aprovar (RF-DES-012a). E observacao, nao quebra.
+        # mostrando dia vazio — quebra de produto. Fora da banda e um desafio
+        # mais facil (ou mais dificil) que o alvo, que vai ao ar pre-aprovado
+        # desde 02/10/2026 e fica a um descarte do dono de sair. E observacao,
+        # nao quebra.
         #
         # ⚠️ Ele continua gritando no log e no resumo: adiar a decisao de
         # calibracao (decisao do dono, 10/09/2026 — so da para julgar jogando) e
@@ -334,8 +339,8 @@ class Relatorio:
             )
         if self.fora_da_banda:
             linhas.append(
-                f"⚠️ [job] FORA DA BANDA: {self.fora_da_banda}. Publicados como "
-                "candidato — a curadoria decide, mas a calibracao merece olhada."
+                f"⚠️ [job] FORA DA BANDA: {self.fora_da_banda}. Publicados "
+                "PRE-APROVADOS — confira no painel, e descarte o que nao servir."
             )
         if self.nao_cobertos:
             linhas.append(
@@ -392,7 +397,16 @@ async def cobrir_um_dia(
     # `alvo_para_a_regua` da enquanto nao ha volume de resolucoes reais.
     alvo = alvo or alvo_mod.alvo_para_a_regua()
 
-    co_jogo = gerador_mod.escolher_jogo(dt_dia)
+    # ── A VIZINHANCA: o que ontem e amanha ja usam (02/10/2026) ────────────
+    #
+    # ⚠️ **Lida UMA vez e passada as duas escolhas** — a do jogo aqui e a do
+    # personagem/modalidade dentro de `gerar`. Pela mesma razao da nota acima:
+    # se cada lado lesse a fila por conta propria, os dois poderiam discordar.
+    #
+    # ⚠️ E ela importa so quando o dia e um buraco **no meio** da fila: no fim
+    # da fila nao ha vizinho a frente, e o rodizio pela data decide sozinho.
+    vizinhos = await repositorio.vizinhanca(dt_dia)
+    co_jogo = gerador_mod.escolher_jogo(dt_dia, evitar=vizinhos.jogos)
     janela = timedelta(days=JANELA_DO_RODIZIO_EM_DIAS)
     recentes = await repositorio.tipos_recentes(
         co_jogo=co_jogo, dt_inicio=dt_dia - janela, dt_fim=dt_dia + janela
@@ -478,6 +492,8 @@ async def cobrir_um_dia(
         # ⚠️ **O acervo da VARIANTE, quando ela tem um** (30/09/2026). `None`
         # herda o da receita - ver `editorial.Publicacao.moldes`.
         moldes=publicacao.moldes,
+        # ⛔ **A MESMA vizinhanca que escolheu o jogo acima.**
+        vizinhanca=vizinhos,
     )
     if not candidatos:
         return await _tentar_reprisar(
@@ -633,10 +649,11 @@ async def cobrir_um_dia(
                 porque="nenhum candidato chegou a estado terminal",
             )
         # ⚠️ **Publica o menos pior, e GRITA.** A alternativa seria deixar o dia
-        # vazio, e ⛔ isso e pior: tudo nasce `candidato` (RF-DES-012a), entao
-        # nada disto vai ao ar sem o dono aprovar no painel. O que nao pode e a
-        # calibracao escorregar **em silencio** — por isso a linha no log e a
-        # contagem que leva a execucao a sair com 1.
+        # vazio, e ⛔ isso e pior: dia vazio e o unico defeito que a pessoa ve.
+        # ⚠️ Desde 02/10/2026 o desafio nasce aprovado (§8zk), entao o menos
+        # pior VAI AO AR a menos que o dono o descarte no painel. O que nao pode
+        # e a calibracao escorregar **em silencio** — por isso a linha no log e
+        # a lista `fora_da_banda` do relatorio.
         distancia, candidato, medicoes = reserva
         escolhido = (candidato, medicoes)
         # ⚠️ **`distancia` e o quanto FALTOU, e nao a taxa.** Ate 11/09/2026
@@ -657,8 +674,8 @@ async def cobrir_um_dia(
         )
         print(
             f"⚠️ [job] {dt_dia}: nenhum dos {len(candidatos)} candidatos coube na "
-            f"ESCADA (erro medio {distancia:.2f}). Publicando o mais proximo como "
-            f"CANDIDATO, para a curadoria decidir.\n"
+            f"ESCADA (erro medio {distancia:.2f}). Publicando o mais proximo "
+            f"(pre-aprovado); descarte no painel se nao servir.\n"
             f"           {escada}",
             file=sys.stderr,
         )

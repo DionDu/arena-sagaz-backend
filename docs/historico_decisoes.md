@@ -7699,3 +7699,51 @@ o extrato continua fechando com a conta. O `nu_xp` da resolução não muda.
 | Manter a soma (§8o) | Paga mais a quem falha antes; foi o motivo de reabrir |
 | Consolo só para quem termina o dia sem resolver | Exigiria um evento de "fim do dia" no servidor, que o app não manda; o piso dá o mesmo total sem ele |
 | Descontar o consolo da pontuação | Quem resolvesse com 18 depois de falhar ficaria com 8, abaixo de quem só tentou |
+
+## 2026-10-02 (2) — O desafio nasce APROVADO, a alternância vira regra, e a curadoria vira painel de GESTÃO
+
+**Contexto.** Até aqui o job gravava tudo como `candidato` (RF-DES-012a) e só o
+aprovado à mão ia ao ar. Na operação, o painel passava os dias em "fila crítica" com
+cinco candidatos prontos esperando um clique. O dono pediu a inversão, com duas
+condições: a geração seguinte tapa primeiro os buracos mais próximos, e dois dias
+seguidos nunca ficam parecidos (jogo, modalidade, personagem). E pediu que a página
+de curadoria virasse um painel de gestão (`arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8zq).
+
+**Decisão.**
+
+- `job/gravacao.py`: `LinhaDeDesafio.co_curadoria` nasce `aprovado`. O descarte é o
+  ato de curadoria; ele desagenda, e a execução seguinte cobre o dia.
+- `job/vizinhanca.py` (novo, puro): conflitam, entre dias consecutivos, o mesmo
+  **jogo**, **personagem**, **modalidade** ou **tipo**; `None` desliga só aquela
+  comparação. Consumido por `compactar_fila.remanejar` (o doador tem de caber entre
+  os vizinhos do buraco, e sai do próprio lugar antes de ser comparado) e por
+  `gerador.escolher_jogo/_modalidade/_personagem` (parâmetro `evitar`, que desvia do
+  rodízio pela data só quando ele repetiria um vizinho). `cobrir_um_dia` lê a
+  vizinhança **uma vez** (`RepositorioDoJob.vizinhanca`) e a passa às duas escolhas.
+- Painel (`api/desafios/painel/`): calendário + dia aberto, estatísticas do dia jogado
+  (`estatisticas.py`, só leitura pelas VIEWs; lances e extrato reaproveitados de
+  `quadro.py`), raio-x por **tentativa**, datas brasileiras (`datas.py`, Brasília como
+  UTC-3 fixo - `zoneinfo` exigiria `tzdata` no Windows), o lance das damas com
+  trajeto e condenadas (diferença entre FENs, sem regra de jogo), 7/14/21/28 dias,
+  JavaScript leve só de leitura, e `aprovar-candidatos` para a transição.
+- ⛔ `servico._exigir_dia_nao_jogado`: descartar, trocar a data e tirar do calendário
+  recusam dia que passou ou que tem tentativa hoje. Descartar/desagendar estourariam
+  na FK de `tb002_tentativa` (500); **trocar a data o banco aceitaria**, movendo as
+  tentativas de quem jogou para outro dia.
+
+- **Sem migração**: o `CHECK` de `co_curadoria` já aceitava `aprovado`.
+- Conferido no `des` (transação desfeita): as consultas novas rodam, e
+  `aprovar_candidatos` acharia os 5 candidatos que sobraram.
+- Cadeados: `test_vizinhanca.py`, a seção 5 de `test_compactar_fila.py`,
+  `test_painel_gestao.py` (duas mutações conferidas: tirar a guarda de trocar a data
+  e desenhar os selos de captura por baixo do tracejado - as duas pegas).
+
+**Alternativas consideradas.**
+
+| alternativa | por que não |
+|---|---|
+| Tapar o buraco no clique do descarte | O dono escolheu a próxima geração |
+| Alternância só pelo jogo, como em 16/09 | O dono pediu jogo, modalidade **e** personagem; com tudo aprovado, sobra doador |
+| Painel em Flutter Web ou pelo Claude Design | Ferramenta interna de uma pessoa; o dono dispensou o Claude Design |
+| Aprovar os candidatos antigos por migração | Seria publicar conteúdo por `UPDATE` de deploy; o botão deixa a decisão na tela |

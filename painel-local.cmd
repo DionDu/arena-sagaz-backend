@@ -58,7 +58,7 @@ if /i "%AMBIENTE%"=="prd" (
   echo.
   echo   ******************************************************************
   echo   *  PRODUCAO - os desafios gerados aqui vao para o banco real.     *
-  echo   *  Tudo nasce CANDIDATO e passa pela sua curadoria, mas confira.  *
+  echo   *  Tudo nasce APROVADO e vai ao ar: descarte o que nao servir.    *
   echo   ******************************************************************
   echo.
 ) else (

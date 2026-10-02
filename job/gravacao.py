@@ -208,7 +208,11 @@ class LinhaDeDesafio:
     co_versao_perfil: str
     co_versao_motor: str
     nu_teto_log: int
-    co_curadoria: str = "candidato"
+    #: ⚠️ **Nasce `aprovado` desde 02/10/2026** — ver a docstring de
+    #: [montar_linha]. O `candidato` continua valido no banco (e o que o dono
+    #: ainda tem na fila de antes da mudanca), so deixou de ser o estado de
+    #: nascimento.
+    co_curadoria: str = "aprovado"
 
 
 def montar_linha(
@@ -224,9 +228,23 @@ def montar_linha(
 ) -> LinhaDeDesafio:
     """Junta o candidato e as medidas numa linha pronta para gravar.
 
-    ⚠️ **Tudo nasce `candidato`** (RF-DES-012a): nada vai ao ar sem o dono ver. Um
-    padrao `aprovado` aqui faria a curadoria virar opcional por acidente — e a
-    primeira vez que alguem esquecesse de aprovar, o desafio iria ao ar sozinho.
+    ⚠️ **Tudo nasce `aprovado` desde 02/10/2026** — e isso e decisao do dono,
+    nao descuido (`DECISOES-do-dono.md` §8zk do app):
+
+    > *"Quero que os desafios gerados ja venham pre-aprovados. Eventualmente eu
+    > entrarei no painel de curadoria e vou ver os desafios, se eu encontrar
+    > algum que eu ache ruim eu vou descartar ele."*
+
+    ⛔ **Ate ali era o contrario** (RF-DES-012a: *"nada vai ao ar sem o dono
+    ver"*), e o custo apareceu na operacao: a fila so cobria o que ele tinha
+    tido tempo de aprovar, e o painel passava os dias em vermelho com cinco
+    candidatos prontos esperando um clique. A curadoria virou **revisao a
+    posteriori**: o descarte tira o desafio do calendario, e a geracao seguinte
+    tapa o buraco mais proximo primeiro (`job/vizinhanca.py`).
+
+    ⚠️ **O que continua protegendo a fila e o que vem ANTES daqui**: a prova de
+    termino, a regua e a recusa de repeticao. O que nao passa por elas nao vira
+    linha, aprovada ou nao.
 
     Raises:
         FraseDoFeitoNaoDeclarada: o tipo ⛔ declarou o que a frase de feito dele
