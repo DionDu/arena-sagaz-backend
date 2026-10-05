@@ -355,7 +355,7 @@ def test_a_taxa_medida_desloca_a_faixa():
 
 
 def test_o_xp_do_mascote_fica_na_faixa_do_desafio():
-    """18–30 e a faixa de **um** desafio, e o `ck001_xp` da migracao a exige."""
+    """12–30 e a faixa de **um** desafio, e o `ck001_xp` da migracao a exige."""
     for taxa in (0.0, 0.5, 1.0):
         for nome in PERSONAGENS:
             linha = linha_do_mascote(
@@ -365,7 +365,7 @@ def test_o_xp_do_mascote_fica_na_faixa_do_desafio():
                 nu_tempo_teto_ms=90_000,
                 taxa_medida=taxa,
             )
-            assert 18 <= linha.nu_xp <= 30
+            assert 12 <= linha.nu_xp <= 30
 
 
 def test_mascote_desconhecido_falha_alto():
@@ -1511,8 +1511,13 @@ async def _meu_replay(repo):
 
 @pytest.mark.asyncio
 async def test_quem_reagiu_traz_nome_tipo_e_a_POSICAO_do_quadro():
-    """⚠️ A posicao e a MESMA que a linha mostra no quadro - mascotes contam."""
-    ana = _jogador(nome="Ana", xp=28, tempo=41_880, uid="uid-ana")
+    """⚠️ A posicao e a MESMA que a linha mostra no quadro - mascotes contam.
+
+    ⚠️ A Ana pontua 16 de proposito: abaixo do piso do Tex (20) e do Magno (24),
+    os dois ficam acima dela **com qualquer sorteio**. Com 28 (ate a §8zs,
+    04/10/2026) o caso dependia do sorteio do desafio cair alto para o Magno.
+    """
+    ana = _jogador(nome="Ana", xp=16, tempo=41_880, uid="uid-ana")
     repo = _repo_com_reacoes(
         gente=[ana], reagiram=[_reagiu(uid="uid-ana", tipo="fogo", nome="Ana")]
     )

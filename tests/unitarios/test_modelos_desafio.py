@@ -29,6 +29,7 @@ import pytest
 
 from api.desafios import modelos_evento as ev
 from api.desafios import modelos_producao as prod
+from tests.unitarios.leitura_de_migracao import sql_do_upgrade
 
 RAIZ = Path(__file__).resolve().parents[2]
 MIG_DESAFIO = RAIZ / "migrations" / "versions" / "0018_schema_desafio.py"
@@ -186,19 +187,53 @@ def test_os_dois_tipos_com_feito_sao_os_do_check() -> None:
     )
 
 
-def test_o_piso_e_o_teto_batem_com_o_check_de_nu_xp() -> None:
-    """18 e 30 estao no `CHECK` da resolucao, e sao regra de produto.
+def _faixas_do_check_de_nu_xp() -> list[tuple[str, int, int]]:
+    """Toda definicao do `ck001_xp`, na ordem das migracoes: `(arquivo, min, max)`.
 
-    18 = piso por resolver (`XP = 18 + 12 x Q`, com `Q` em [0,1]).
-    30 = teto do dia, que e **da colecao** e entra como linha de ajuste.
+    ⚠️ **Le o `upgrade()` de cada migracao, e nao o arquivo inteiro.** A `0028`
+    trocou a regra (18..30 → 12..30), e o `downgrade()` dela recria a antiga:
+    lido o arquivo todo, a ultima ocorrencia seria a do downgrade.
     """
-    fonte = MIG_DESAFIO_DIA.read_text(encoding="utf-8")
-    casa = re.search(r"nu_xp\s+BETWEEN\s+(\d+)\s+AND\s+(\d+)", fonte)
-    assert casa, "o ck001_xp da resolucao nao foi encontrado"
-    assert (int(casa.group(1)), int(casa.group(2))) == (
-        ev.XP_PISO_POR_RESOLVER,
-        ev.XP_TETO_DO_DIA,
-    )
+    faixas: list[tuple[str, int, int]] = []
+    for arquivo in sorted((RAIZ / "migrations" / "versions").glob("[0-9]*.py")):
+        sql = sql_do_upgrade(arquivo)
+        for casa in re.finditer(r"nu_xp\s+BETWEEN\s+(\d+)\s+AND\s+(\d+)", sql):
+            faixas.append((arquivo.name, int(casa.group(1)), int(casa.group(2))))
+    return faixas
+
+
+def test_o_piso_e_o_teto_batem_com_o_check_de_nu_xp() -> None:
+    """12 e 30 estao no `CHECK` VIGENTE da resolucao, e sao regra de produto.
+
+    12 = piso por resolver (`XP = 12 + 18 x Q`, com `Q` em [0,1]; era 18 ate a
+    §8zs, 04/10/2026, e a `0028` trocou o `CHECK`).
+    30 = teto do dia, que e **da colecao** e entra como linha de ajuste.
+
+    ⚠️ Vigente = a ULTIMA migracao que define o `ck001_xp`. Ate 04/10/2026 este
+    caso lia so a `0019`, e uma migracao nova que trocasse a regra passaria por
+    ele sem ser vista.
+    """
+    faixas = _faixas_do_check_de_nu_xp()
+    assert faixas, "o ck001_xp da resolucao nao foi encontrado"
+    _, minimo, maximo = faixas[-1]
+    assert (minimo, maximo) == (ev.XP_PISO_POR_RESOLVER, ev.XP_TETO_DO_DIA)
+
+
+def test_cada_troca_do_check_de_nu_xp_so_ALARGA_a_faixa() -> None:
+    """🔒 A troca de `CHECK` passa pelo cadeado aditivo sem que ele leia a regra.
+
+    `test_migracoes_aditivas.py` aceita derrubar e recriar uma constraint de
+    mesmo nome, e diz na propria docstring que **nao le o conteudo**: uma regra
+    mais restritiva passaria por la. Aqui se exige que cada faixa nova contenha a
+    anterior - estreitar recusaria resolucoes ja gravadas (o `ADD` revalida a
+    tabela, e a migracao falharia no `prd`).
+    """
+    faixas = _faixas_do_check_de_nu_xp()
+    for (antes, min_a, max_a), (depois, min_d, max_d) in zip(faixas, faixas[1:]):
+        assert min_d <= min_a and max_d >= max_a, (
+            f"{depois} estreita o ck001_xp de {min_a}..{max_a} para "
+            f"{min_d}..{max_d} (definido antes em {antes})"
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -401,7 +436,7 @@ def test_a_linha_de_merito_sabe_que_e_de_feito() -> None:
 
 
 def test_o_xp_da_resolucao_fica_entre_o_piso_e_o_teto() -> None:
-    """Menos de 18 seria XP abaixo do piso de quem resolveu; mais de 30, do teto."""
+    """Menos de 12 seria XP abaixo do piso de quem resolveu; mais de 30, do teto."""
     from datetime import datetime, timezone
     from uuid import uuid4
 
@@ -417,6 +452,8 @@ def test_o_xp_da_resolucao_fica_entre_o_piso_e_o_teto() -> None:
         dh_resolucao=datetime(2026, 9, 9, tzinfo=timezone.utc),
     )
     assert ev.Resolucao(**comum, nu_xp=27).nu_xp == 27
-    for fora in (17, 31):
+    # O piso novo entra (era 18 ate a §8zs, 04/10/2026).
+    assert ev.Resolucao(**comum, nu_xp=12).nu_xp == 12
+    for fora in (11, 31):
         with pytest.raises(ValidationError):
             ev.Resolucao(**comum, nu_xp=fora)

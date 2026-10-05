@@ -684,17 +684,18 @@ def test_o_editorial_NAO_publica_tipo_sem_receita(co_tipo: str) -> None:
 def test_a_regua_de_tempo_reproduz_o_exemplo_do_DATA_MODEL() -> None:
     """🔒 O `data-model.md` foi PRE-VALIDADO pelo dono, e os numeros sao dele.
 
-    La, `nu_lances_solucao = 5` leva a `nu_tempo_piso_ms = 30000` e
-    `nu_tempo_teto_ms = 180000`. ⚠️ Este caso trava a constante que produz isso —
-    sem ele, `MILISSEGUNDOS_POR_LANCE_DO_GABARITO` viraria um numero que alguem
-    ajustaria sem saber que ha um documento aprovado do outro lado.
+    La, `nu_lances_solucao = 5` leva a `nu_tempo_piso_ms = 10000` e
+    `nu_tempo_teto_ms = 60000` (eram 30000 e 180000 ate a §8zs, 04/10/2026).
+    ⚠️ Este caso trava a constante que produz isso — sem ele,
+    `MILISSEGUNDOS_POR_LANCE_DO_GABARITO` viraria um numero que alguem ajustaria
+    sem saber que ha um documento aprovado do outro lado.
     """
     from job.medidas_de_saida import regua_de_tempo
 
     piso, teto = regua_de_tempo(
         nu_tempo_do_gabarito_ms=5 * principal_mod.MILISSEGUNDOS_POR_LANCE_DO_GABARITO
     )
-    assert (piso, teto) == (30_000, 180_000)
+    assert (piso, teto) == (10_000, 60_000)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

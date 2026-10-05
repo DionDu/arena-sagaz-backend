@@ -507,12 +507,14 @@ async def test_tentativa_que_falhou_nao_vira_resolucao():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_pontuacao_fora_de_18_30_e_dado_invalido():
+def test_pontuacao_fora_de_12_30_e_dado_invalido():
     """A faixa e de **um** desafio; o teto do dia e outra coisa (RF-DES-155)."""
     with pytest.raises(ValueError):
         _envio(pontuacao=31)
     with pytest.raises(ValueError):
-        _envio(pontuacao=17)
+        _envio(pontuacao=11)
+    # E o piso novo e aceito (era 18 ate a §8zs, 04/10/2026).
+    assert _envio(pontuacao=12).pontuacao == 12
 
 
 def test_qualidade_fora_de_0_1_e_dado_invalido():
@@ -703,13 +705,13 @@ def test_o_extrato_percorre_os_PESOS_e_nao_as_medidas():
 
 
 def test_a_linha_base_vale_o_piso_e_nao_aponta_para_feito():
-    """`XP = 18 + 12 x Q`: os 18 sao a linha `base`.
+    """`XP = 12 + 18 x Q`: os 12 sao a linha `base`.
 
     ⚠️ Ela nao tem `nu_feito`, e o `ck003_feito` da migracao exige que nao
     tenha.
     """
     base = _extrato()[0]
-    assert base.vr_xp == Decimal(18)
+    assert base.vr_xp == Decimal(12)
     assert base.nu_feito is None
 
 
@@ -743,7 +745,7 @@ def test_as_tres_de_sessao_NAO_apontam_para_feito():
 
 
 def test_os_pesos_de_uma_resolucao_somam_1000():
-    """⚠️ O cadeado barato: 0,30 + 0,20 + 0,25 + os 0,25 do merito repartidos.
+    """⚠️ O cadeado barato: 0,30 + 0,30 + 0,15 + os 0,25 do merito repartidos.
 
     Se a soma nao fechar em 1, `Q` deixa de poder chegar a 1 — e ninguem mais
     tiraria 30, sem que nada desse erro.
@@ -767,13 +769,14 @@ def test_o_peso_do_merito_e_RELATIVO_e_vira_um_quarto():
     """⚠️ `0,600` dentro do merito e `0,150` em `Q` (RF-DES-173).
 
     ⛔ Era este o segundo defeito: o peso relativo ia cru para a coluna, e a
-    linha valia `12 x 0,600 = 7,2` onde devia valer `12 x 0,150 = 1,8`.
+    linha valia `0,600` de `Q` onde devia valer `0,150` - hoje, com os 18 XP
+    moveis da §8zs, seria `10,8` no lugar de `2,7`.
     """
     merito = _extrato(medidas={"damas_coroadas": Decimal(2)})[4]
 
     assert merito.vr_peso == PESO_MERITO * Decimal("0.600")
     assert merito.vr_peso == Decimal("0.150")
-    assert merito.vr_xp == Decimal("1.800")
+    assert merito.vr_xp == Decimal("2.700")
 
 
 def test_as_tres_correm_ao_CONTRARIO_e_a_direcao_vem_da_dimensao():
@@ -789,7 +792,7 @@ def test_as_tres_correm_ao_CONTRARIO_e_a_direcao_vem_da_dimensao():
     pior = _extrato(nu_tentativas=1000, nu_tempo_ms=TETO_MS, nu_dicas=2)
     assert pior[2].vr_normalizado == Decimal(0)
     assert pior[3].vr_normalizado == Decimal(0)
-    assert pior[1].vr_normalizado < Decimal("0.01")
+    assert pior[1].vr_normalizado == Decimal(0)
 
     # A dimensao mandando ao contrario: a nota acompanha.
     invertida = _extrato(
@@ -800,11 +803,20 @@ def test_as_tres_correm_ao_CONTRARIO_e_a_direcao_vem_da_dimensao():
 
 def test_piorar_nunca_aumenta_a_nota():
     """A propriedade, sem numero esperado nenhum — ela sobrevive a afinacao dos
-    pesos em campo."""
+    pesos em campo.
+
+    ⚠️ **Da 4a tentativa em diante a nota PARA de cair** (§8zs: a parcela zera
+    ali), e por isso a comparacao e estrita ate a 4a e `<=` depois. Exigir `<` em
+    toda a lista reprovaria a regua que o dono escolheu.
+    """
     anterior = Decimal(2)
-    for tentativas in (1, 2, 3, 4, 8, 20):
+    for tentativas in (1, 2, 3, 4):
         q = qualidade_do_extrato(_extrato(nu_tentativas=tentativas))
         assert q < anterior
+        anterior = q
+    for tentativas in (8, 20):
+        q = qualidade_do_extrato(_extrato(nu_tentativas=tentativas))
+        assert q <= anterior
         anterior = q
 
     anterior = Decimal(2)
@@ -872,7 +884,7 @@ def test_peso_zero_vira_MEDIDA_e_peso_positivo_vira_MERITO():
 
 
 def test_q_cheio_paga_o_teto_de_30():
-    """A formula fechada: `Q = 1` leva a 18 + 12 = 30.
+    """A formula fechada: `Q = 1` leva a 12 + 18 = 30.
 
     ⚠️ **E agora exige as quatro parcelas cheias** — primeira tentativa, no
     piso do tempo, sem dica e com o merito completo. Antes do conserto, o merito
@@ -889,11 +901,13 @@ def test_q_cheio_paga_o_teto_de_30():
     assert sum(p.vr_xp for p in parcelas) == Decimal(30)
 
 
-def test_a_pior_resolucao_ainda_paga_o_piso_de_18():
+def test_a_pior_resolucao_ainda_paga_o_piso_de_12():
     """⚠️ Quem resolveu, resolveu (RF-DES-040).
 
-    `Q` nao chega a zero exato porque a parcela de tentativas e `1/n`; o total
-    arredonda para 18, que e o chao que o piso de 60% garante por construcao.
+    Com a regua da §8zs (04/10/2026) `Q` chega a **zero exato**: a parcela de
+    tentativas zera na 4a, o tempo passou do teto, as duas dicas foram gastas e o
+    merito saiu zero. O total e o piso, e o piso (12) continua acima dos 10 de
+    quem so tentou (§8zp).
     """
     parcelas = _extrato(
         nu_tentativas=30,
@@ -901,9 +915,8 @@ def test_a_pior_resolucao_ainda_paga_o_piso_de_18():
         nu_dicas=2,
         medidas={"material_do_adversario": Decimal(12)},
     )
-    total = sum(p.vr_xp for p in parcelas)
-    assert Decimal(18) <= total < Decimal("18.5")
-    assert round(total) == 18
+    assert qualidade_do_extrato(parcelas) == Decimal(0)
+    assert sum(p.vr_xp for p in parcelas) == Decimal(12)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -912,13 +925,17 @@ def test_a_pior_resolucao_ainda_paga_o_piso_de_18():
 
 
 def test_o_caso_de_ouro_do_data_model():
-    """*"Tentou, falhou, tentou de novo e resolveu em 74 s, sem dica, fechando as
+    """*"Tentou, falhou, tentou de novo e resolveu em 27 s, sem dica, fechando as
     4 caixas e acertando 3 lances otimos de 6."*
 
     ⚠️ **E o MESMO caso do teste do aplicativo** (`qualidade_test.dart`, grupo
     "o caso de ouro"). Os dois lados calculam a mesma resolucao e tem de chegar
     ao mesmo numero — e a auditoria de RF-DES-032 que depende disso. Se um dia
     divergirem, o alerta do painel acende com razao.
+
+    ⚠️ **Refeito em 04/10/2026** (§8zs): a regua do desafio de 5 lances desceu
+    de 30 s/180 s para 10 s/60 s, e o tempo do caso de 74 s para 27 s - 74 s
+    passaria do teto novo, e a parcela de tempo sairia zero, sem medir nada.
     """
     pesos = [
         {
@@ -951,31 +968,33 @@ def test_o_caso_de_ouro_do_data_model():
         },
         pesos=pesos,
         nu_tentativas=2,
-        nu_tempo_ms=74_000,
+        nu_tempo_ms=27_000,
         nu_dicas=0,
-        nu_tempo_piso_ms=30_000,
-        nu_tempo_teto_ms=180_000,
+        nu_tempo_piso_ms=10_000,
+        nu_tempo_teto_ms=60_000,
     )
 
     base, tentativas, tempo, dica, caixas, otimos = parcelas
 
-    assert base.vr_xp == Decimal(18)
-    assert tentativas.vr_normalizado == Decimal("0.5")
-    assert tentativas.vr_xp == Decimal("1.800")
-    # (180000 - 74000) / (180000 - 30000) = 0,70666...
-    assert round(tempo.vr_normalizado, 4) == Decimal("0.7067")
-    assert round(tempo.vr_xp, 3) == Decimal("1.696")
-    assert dica.vr_xp == Decimal("3.000")
+    assert base.vr_xp == Decimal(12)
+    # Na 2a tentativa: 1 - (2 - 1) / (4 - 1) = 2/3.
+    assert round(tentativas.vr_normalizado, 4) == Decimal("0.6667")
+    assert round(tentativas.vr_xp, 3) == Decimal("3.600")
+    # (60000 - 27000) / (60000 - 10000) = 0,66
+    assert tempo.vr_normalizado == Decimal("0.66")
+    assert round(tempo.vr_xp, 3) == Decimal("3.564")
+    assert dica.vr_xp == Decimal("2.700")
     assert caixas.vr_peso == Decimal("0.150")
-    assert caixas.vr_xp == Decimal("1.800")
+    assert caixas.vr_xp == Decimal("2.700")
     assert otimos.vr_peso == Decimal("0.100")
     assert otimos.vr_normalizado == Decimal("0.5")
-    assert otimos.vr_xp == Decimal("0.600")
+    assert otimos.vr_xp == Decimal("0.900")
 
-    # ⚠️ O arredondamento acontece UMA vez, no fim: parcela a parcela daria 28.
+    # ⚠️ O arredondamento acontece UMA vez, no fim: parcela a parcela daria
+    # 12 + 4 + 4 + 3 + 3 + 1 = 27.
     total = sum(p.vr_xp for p in parcelas)
-    assert round(total, 3) == Decimal("26.896")
-    assert round(total) == 27
+    assert round(total, 3) == Decimal("25.464")
+    assert round(total) == 25
 
 
 def test_fracao_sem_denominador_e_medida_invalida():
@@ -1358,11 +1377,12 @@ def test_valor_negativo_e_defeito_de_quem_chamou():
 # O caso do dono (26/09/2026): errar tres vezes com a conta, sair dela, resolver
 # como convidado - que comeca o dia do zero no aparelho - e entrar de novo. A
 # resolucao chega "de primeira e sem dica"; o servidor viu as tres. As contas
-# abaixo usam Q = 1 no envio, para o numero esperado sair a mao:
+# abaixo usam Q = 1 no envio, para o numero esperado sair a mao (regua da
+# §8zs, 04/10/2026 - `12 + 18 x Q`, tentativas zerando na 4a, dica pesando 0,15):
 #
-#   4 tentativas: q_tentativas = 1/4  → perde 12 x 0,30 x 0,75 = 2,7 → 27,3 → 27
-#   2 dicas:      q_dica = 0          → perde 12 x 0,25 x 1    = 3,0 → 27
-#   as duas:      30 - 2,7 - 3,0 = 24,3 → 24
+#   4 tentativas: q_tentativas = 0    → perde 18 x 0,30 x 1 = 5,4 → 24,6 → 25
+#   2 dicas:      q_dica = 0          → perde 18 x 0,15 x 1 = 2,7 → 27,3 → 27
+#   as duas:      30 - 5,4 - 2,7 = 21,9 → 22
 
 
 def _de_primeira(**trocas) -> EnvioDeResolucao:
@@ -1375,7 +1395,7 @@ def _de_primeira(**trocas) -> EnvioDeResolucao:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("no_servidor", "esperado"),
-    [((4, 0), 27), ((1, 2), 27), ((4, 2), 24)],
+    [((4, 0), 25), ((1, 2), 27), ((4, 2), 22)],
 )
 async def test_o_servidor_contou_MAIS_e_a_nota_desce(no_servidor, esperado):
     """A nota gravada, a creditada e a do quadro saem da contagem do servidor."""
@@ -1401,7 +1421,8 @@ async def test_o_EXTRATO_mostra_a_contagem_do_servidor():
 
     tentativas, _tempo, dica = repo.extratos[0][1:4]
     assert tentativas.vr_medida == Decimal(4)
-    assert tentativas.vr_normalizado == Decimal("0.25")
+    # Na 4a tentativa a parcela zera (§8zs); era 1/4 com a regua `1/n`.
+    assert tentativas.vr_normalizado == Decimal(0)
     assert dica.vr_medida == Decimal(2)
     assert dica.vr_normalizado == Decimal(0)
 
@@ -1427,7 +1448,7 @@ async def test_o_servidor_contou_MENOS_e_vale_o_envio():
 async def test_sessao_IGUAL_nao_refaz_a_conta_do_app():
     """⚠️ Quem jogou honesto fica com o numero da tela, ao pe da letra.
 
-    `qualidade=0.7325` daria `round(18 + 8,79) = 27`, e o envio diz 26: sem
+    `qualidade=0.7325` daria `round(12 + 13,185) = 25`, e o envio diz 26: sem
     contagem a mais, o servidor ⛔ recalcula - uma diferenca de arredondamento
     faria o quadro desmentir a tela de quem nao fez nada de errado.
     """
@@ -1508,12 +1529,12 @@ def _recontada(**trocas) -> int:
 
 
 def test_recontada_o_MEIO_arredonda_para_CIMA_como_o_dart():
-    """`Q = 0,5` e uma dica a mais: 18 + 6 - 1,5 = 22,5 → 23.
+    """`Q = 0,4` e duas dicas a mais: 12 + 7,2 - 2,7 = 16,5 → 17.
 
-    ⚠️ O `round()` do Python arredonda o meio para o PAR (22); o do Dart, para
-    longe do zero (23). A conta tem de dar o que o aplicativo daria.
+    ⚠️ O `round()` do Python arredonda o meio para o PAR (16); o do Dart, para
+    longe do zero (17). A conta tem de dar o que o aplicativo daria.
     """
-    assert _recontada(qualidade=Decimal("0.5"), dicas=1) == 23
+    assert _recontada(qualidade=Decimal("0.4"), dicas=2) == 17
 
 
 def test_recontada_o_TEMPO_nao_muda_a_nota():
@@ -1521,18 +1542,18 @@ def test_recontada_o_TEMPO_nao_muda_a_nota():
     no_piso = _recontada(tentativas=4, nu_tempo_ms=PISO_MS)
     no_teto = _recontada(tentativas=4, nu_tempo_ms=TETO_MS)
 
-    assert no_piso == no_teto == 27
+    assert no_piso == no_teto == 25
 
 
 def test_recontada_parte_da_contagem_do_APP_e_nao_da_primeira():
-    """O app ja contava 2; o servidor, 4: perde so a diferenca entre 1/2 e 1/4.
+    """O app ja contava 2; o servidor, 4: perde so a diferenca entre 2/3 e 0.
 
-    12 x 0,30 x (1/2 - 1/4) = 0,9 → 30 - 0,9 = 29,1 → 29. Partir de "1
-    tentativa" tiraria 2,7 e daria 27.
+    18 x 0,30 x (2/3 - 0) = 3,6 → 30 - 3,6 = 26,4 → 26. Partir de "1
+    tentativa" tiraria 5,4 e daria 25.
     """
-    assert _recontada(tentativas_do_app=2, tentativas=4) == 29
+    assert _recontada(tentativas_do_app=2, tentativas=4) == 26
 
 
-def test_recontada_nunca_desce_do_piso_de_18():
-    """Um envio incoerente (Q = 0 dizendo "de primeira") ⛔ sai com menos de 18."""
-    assert _recontada(qualidade=Decimal(0), tentativas=20, dicas=2) == 18
+def test_recontada_nunca_desce_do_piso_de_12():
+    """Um envio incoerente (Q = 0 dizendo "de primeira") nao sai com menos de 12."""
+    assert _recontada(qualidade=Decimal(0), tentativas=20, dicas=2) == 12

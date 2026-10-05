@@ -270,7 +270,7 @@ RETURNING id_desafio
 #: Os feitos de saida tambem sao copiados — sem eles a reprise nao teria como
 #: pagar XP, e `tb003_feito_desafio` e `NOT NULL` do lado do desafio.
 #:
-#: ⚠️ **Sem isto a reprise iria ao ar e pagaria so o piso de 18 XP.** Nada daria
+#: ⚠️ **Sem isto a reprise iria ao ar e pagaria so o piso de 12 XP.** Nada daria
 #: erro: o `INSERT` do desafio passaria, o aplicativo baixaria a linha, e a
 #: diferenca so apareceria no extrato de quem jogou — que ninguem confere.
 SQL_COPIAR_FEITOS = """

@@ -98,17 +98,23 @@ CODIGO_NEM_COMECOU = 2
 #: `editorial.MAXIMO_DE_MEIOS_LANCES_PADRAO`.
 MAXIMO_DE_MEIOS_LANCES = editorial_mod.MAXIMO_DE_MEIOS_LANCES_PADRAO
 
-#: Quanto tempo se supoe que uma pessoa leva por lance, em milissegundos.
+#: Quanto tempo se supoe que leva cada lance do gabarito, em milissegundos.
 #:
-#: ⚠️ **Nao e chute: e o numero que reproduz o exemplo do `data-model.md`.** La, o
-#: desafio de `nu_lances_solucao = 5` tem `nu_tempo_piso_ms = 30000` e
-#: `nu_tempo_teto_ms = 180000` — e 30000/5 = 6000, com o teto saindo da folga de
-#: 6x que `medidas_de_saida.regua_de_tempo` aplica. Derivar daqui mantem a regua
-#: de tempo igual a que o dono pre-validou.
+#: ⚠️ **E o numero que reproduz o exemplo do `data-model.md`.** La, o desafio de
+#: `nu_lances_solucao = 5` tem `nu_tempo_piso_ms = 10000` e
+#: `nu_tempo_teto_ms = 60000` — e 10000/5 = 2000, com o teto saindo da folga de
+#: 6x que `medidas_de_saida.regua_de_tempo` aplica.
+#:
+#: ⚠️ **Era 6000 ate 04/10/2026** (`DECISOES-do-dono.md` §8zs). O
+#: `nu_lances_solucao` conta os lances **dos dois lados** (o da pessoa e o da
+#: CPU), entao 6 s por lance davam ~12 s a cada jogada da pessoa antes de a
+#: parcela comecar a cair: nas 6 resolucoes do `des` o piso foi de 60 a 78 s, e
+#: as resolucoes levaram de 14 a 30 s (so uma passou do piso). A parcela de tempo
+#: saia cheia para quase todos, e nao separava ninguem.
 #:
 #: ⚠️ **O piso e o tempo do GABARITO jogado direto**, e nao o tempo esperado de
 #: quem resolve: ninguem resolve mais rapido que a propria solucao.
-MILISSEGUNDOS_POR_LANCE_DO_GABARITO = 6_000
+MILISSEGUNDOS_POR_LANCE_DO_GABARITO = 2_000
 
 #: Quantos dias para tras e para frente o rodizio olha.
 #:

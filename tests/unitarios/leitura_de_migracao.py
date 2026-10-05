@@ -66,7 +66,29 @@ def sql_da_migracao(caminho: Path) -> str:
     cadeado do sentinela `9999` reprovar a `0020` por causa de uma frase no
     cabecalho.
     """
+    return _sql_executado_em(ast.parse(caminho.read_text(encoding="utf-8")))
+
+
+def sql_do_upgrade(caminho: Path) -> str:
+    """So o SQL que o `upgrade()` executa - o `downgrade()` fica de fora.
+
+    ⚠️ **Existe desde a `0028` (04/10/2026)**, a primeira migracao que troca uma
+    REGRA ja conferida por cadeado (o `ck001_xp`). O `downgrade()` dela recria a
+    regra antiga, e ler o arquivo inteiro faria a ultima ocorrencia ser a do
+    downgrade - o cadeado conferiria a regra que o banco **nao** tem.
+
+    Raises:
+        ValueError: o arquivo nao tem `upgrade()` no nivel do modulo.
+    """
     arvore = ast.parse(caminho.read_text(encoding="utf-8"))
+    for no in arvore.body:
+        if isinstance(no, ast.FunctionDef) and no.name == "upgrade":
+            return _sql_executado_em(no)
+    raise ValueError(f"{caminho.name} nao tem uma funcao upgrade()")
+
+
+def _sql_executado_em(arvore: ast.AST) -> str:
+    """O SQL de toda chamada `.execute(...)` debaixo de [arvore], na ordem."""
     pedacos: list[str] = []
     for no in ast.walk(arvore):
         if not isinstance(no, ast.Call):

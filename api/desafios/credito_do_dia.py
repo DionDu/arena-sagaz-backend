@@ -13,7 +13,7 @@ linha de `ajuste`, negativa, para o extrato fechar com a conta.
 
 Decisao do dono em 02/10/2026 (`arena-sagaz-frontend/docs/DECISOES-do-dono.md`
 §8zp). Um dia tem no maximo dois eventos que creditam: o **consolo** de 10 da
-primeira falha (RF-DES-041) e a **resolucao**, de 18 a 30. O que entra na conta
+primeira falha (RF-DES-041) e a **resolucao**, de 12 a 30. O que entra na conta
 e o **maior** deles — e nunca a soma:
 
 * so tentou: 10;
@@ -25,10 +25,10 @@ injusto, com razao: a mesma partida resolvida de primeira punha 27 na conta, e
 resolvida na segunda tentativa punha 30 — falhar de proposito pagava mais.
 
 ⚠️ **E quem resolve fica sempre acima de quem so tentou**, por mais tentativas
-que gaste: a pontuacao tem piso de 18 por construcao (`18 + 12 x Q`, `Q >= 0`),
-e 18 > 10.
+que gaste: a pontuacao tem piso de 12 por construcao (`12 + 18 x Q`, `Q >= 0`),
+e 12 > 10.
 
-A resolucao continua pontuando de 18 a 30 e **nao e alterada**: o `nu_xp` de
+A resolucao continua pontuando de 12 a 30 e **nao e alterada**: o `nu_xp` de
 `tb003_resolucao` e o que o quadro ordena. O que a regra muda e so o credito, e
 o que o extrato mostra a mais (o consolo ja contado) vira a linha de `ajuste`.
 
@@ -59,7 +59,7 @@ class CreditoDoDia:
     """O que um evento do dia (consolo ou resolucao) poe na conta.
 
     Atributos:
-        valor: o XP que o evento **pontuou** — 10 no consolo, 18 a 30 na
+        valor: o XP que o evento **pontuou** — 10 no consolo, 12 a 30 na
             resolucao. ⛔ Nunca cortado: e ele que o quadro e o extrato mostram.
         corte: quanto dele nao entrou na conta, sempre >= 0 — o que ja estava
             creditado no dia (o consolo, quando a resolucao chega depois dele;
@@ -95,7 +95,7 @@ def credito_do_dia(
     Raises:
         ValueError: valor negativo. ⚠️ E defeito de quem chamou: nenhum evento
             do dia pontua negativo (o consolo e constante, e a resolucao ja
-            passou pelo piso de 18 no modelo do envio).
+            passou pelo piso de 12 no modelo do envio).
 
     ⚠️ **Um evento que chega com o dia ja acima do valor dele NAO e recusado**:
     ele credita zero. E o caminho normal do consolo que chega depois da

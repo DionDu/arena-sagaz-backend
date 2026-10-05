@@ -4,13 +4,14 @@
 A FORMULA, E ONDE CADA PEDACO MORA
 ═══════════════════════════════════════════════════════════════════════════
 
-    XP = 18 + 12 x Q
+    XP = 12 + 18 x Q
 
-    Q = 0,30 x q_tentativas + 0,20 x q_tempo + 0,25 x q_dica + 0,25 x q_merito
+    Q = 0,30 x q_tentativas + 0,30 x q_tempo + 0,15 x q_dica + 0,25 x q_merito
 
-  · **18** e o piso por resolver — vira a linha `base` do extrato;
+  · **12** e o piso por resolver — vira a linha `base` do extrato;
   · as **tres primeiras parcelas** saem da sessao (tentativas, tempo, dicas) e
-    tem peso fixo, aprovado pelo dono em 03/09/2026 (RF-DES-042);
+    tem peso fixo, aprovado pelo dono (RF-DES-042) e **rebalanceado em
+    04/10/2026** (`DECISOES-do-dono.md` §8zs);
   · **q_merito** e a soma dos feitos que aquele desafio pesa, e os pesos de
     `desafio.tb003_feito_desafio` sao **relativos dentro dos 0,25**: um `0,600`
     vira `0,150` na conta final (`data-model.md`, "o merito se abre mais uma
@@ -73,7 +74,7 @@ from api.desafios.modelos_evento import (
     XP_TETO_DO_DIA,
 )
 
-#: Quanto da nota `Q` vale, em XP. `18 + 12 x Q` chega a 30 com `Q = 1`.
+#: Quanto da nota `Q` vale, em XP. `12 + 18 x Q` chega a 30 com `Q = 1`.
 FAIXA_DE_Q = Decimal(XP_TETO_DO_DIA - XP_PISO_POR_RESOLVER)
 
 #: Os codigos de `tb901_tipo_xp_desafio` usados aqui.
@@ -84,16 +85,22 @@ TIPO_DICA = XP_DICA
 TIPO_MERITO = XP_MERITO
 TIPO_MEDIDA = XP_MEDIDA
 
-#: Os quatro pesos de `Q` (RF-DES-042), aprovados pelo dono em 03/09/2026.
+#: Os quatro pesos de `Q` (RF-DES-042), aprovados pelo dono em 03/09/2026 e
+#: rebalanceados em 04/10/2026 (§8zs).
 #:
-#: ⚠️ **`Decimal`, e a partir de texto**: somar `0.30 + 0.20 + 0.25 + 0.25` em
+#: ⚠️ **A dica pesava 0,25 e o tempo 0,20 ate 04/10/2026.** A dica e uma parcela
+#: que se ganha **sem fazer nada** (e so nao pedir), e o tempo saia cheio para
+#: quase todos; somadas, elas punham todo mundo no topo. Os 0,10 tirados da dica
+#: foram para o tempo, que separa quem jogou melhor.
+#:
+#: ⚠️ **`Decimal`, e a partir de texto**: somar `0.30 + 0.30 + 0.15 + 0.25` em
 #: ponto flutuante nao da `1.00`, e a soma e o que mantem `Q` dentro de [0, 1].
 #: ⚠️ Continuam **afinaveis em campo** — por isso sao constantes nomeadas, e nao
 #: numeros no meio da conta. Quem os mudar aqui muda no aplicativo tambem
 #: (`lib/core/desafios/qualidade.dart`): as duas contas precisam concordar.
 PESO_TENTATIVAS = Decimal("0.30")
-PESO_TEMPO = Decimal("0.20")
-PESO_DICA = Decimal("0.25")
+PESO_TEMPO = Decimal("0.30")
+PESO_DICA = Decimal("0.15")
 PESO_MERITO = Decimal("0.25")
 
 #: As chaves de sessao no catalogo de feitos. ⚠️ Elas **sao feitos declarados**,
@@ -104,6 +111,15 @@ FEITO_DICAS = "dicas_usadas"
 
 #: O teto de dicas de um desafio (RF-DES-052/057). Na 2a, a parcela zera.
 TETO_DE_DICAS = Decimal(2)
+
+#: Em que tentativa a parcela de tentativas chega a **zero** (§8zs, 04/10/2026).
+#:
+#: ⚠️ A regua e linear: 1a = nota cheia, 2a = 2/3, 3a = 1/3, 4a em diante = 0.
+#: Ate 04/10/2026 ela era `1/n`, que nunca zera - errar nove vezes custava 3 XP,
+#: e a 2a e a 3a tentativa davam a mesma pontuacao. O argumento antigo (*"onde
+#: zerar seria arbitrario"*) perdeu para o dado: a curva suave nao separava
+#: ninguem.
+TENTATIVAS_QUE_ZERAM_A_PARCELA = Decimal(4)
 
 
 class MedidaInvalida(ValueError):
@@ -269,14 +285,14 @@ def parcelas_de_sessao(
     piso = Decimal(nu_tempo_piso_ms)
     teto = Decimal(nu_tempo_teto_ms)
 
-    # ⚠️ A regua de tentativas e **hiperbolica de proposito**: tentar e
-    # ilimitado e gratis (RF-DES-050), entao uma faixa linear precisaria escolher
-    # onde a nota zera, e esse numero seria arbitrario - quem fizesse a 11a
-    # tentativa num teto de 10 teria a mesma nota de quem fez a 50a. `(n-1)/n` e
-    # a fracao de tentativas desperdicadas, e a nota sai `1/n`: a diferenca entre
-    # a 1a e a 2a pesa muito, entre a 19a e a 20a quase nada.
+    # A regua de tentativas e **linear ate a 4a** (§8zs): `(n-1)/3` das
+    # tentativas toleradas foram gastas, e o `_clamp` de [_aplicar_direcao] prende
+    # em 1 da 4a em diante. A nota sai 1 · 2/3 · 1/3 · 0. ⚠️ Era `(n-1)/n` (nota
+    # `1/n`) ate 04/10/2026 - ver [TENTATIVAS_QUE_ZERAM_A_PARCELA].
     q_tentativas = _aplicar_direcao(
-        (tentativas - 1) / tentativas, FEITO_TENTATIVAS, direcoes
+        (tentativas - 1) / (TENTATIVAS_QUE_ZERAM_A_PARCELA - 1),
+        FEITO_TENTATIVAS,
+        direcoes,
     )
     q_tempo = _aplicar_direcao((tempo - piso) / (teto - piso), FEITO_TEMPO, direcoes)
     q_dica = _aplicar_direcao(
@@ -506,7 +522,7 @@ def pontuacao_com_a_sessao_do_servidor(
     nu_tempo_teto_ms: int,
     direcoes: Mapping[str, str],
 ) -> int:
-    """A pontuacao de 18 a 30 com as tentativas e as dicas que o SERVIDOR contou.
+    """A pontuacao de 12 a 30 com as tentativas e as dicas que o SERVIDOR contou.
 
     ═══════════════════════════════════════════════════════════════════════
     ⚠️ POR QUE EXISTE (T085zf, 26/09/2026, `DECISOES-do-dono.md` §8zf)
@@ -536,8 +552,8 @@ def pontuacao_com_a_sessao_do_servidor(
         direcoes: `{co_feito: co_direcao}` das tres chaves de sessao.
 
     Returns:
-        `round(18 + 12 x Q')`, arredondado **para cima no meio** como o `round()`
-        do Dart (`lib/core/desafios/qualidade.dart`), preso em 18..30.
+        `round(12 + 18 x Q')`, arredondado **para cima no meio** como o `round()`
+        do Dart (`lib/core/desafios/qualidade.dart`), preso em 12..30.
 
     Raises:
         MedidaInvalida: os mesmos numeros impossiveis de [parcelas_de_sessao].

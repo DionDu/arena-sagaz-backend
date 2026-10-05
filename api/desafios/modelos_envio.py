@@ -108,7 +108,7 @@ class EnvioDeResolucao(BaseModel):
     #: audita depois; ⛔ nao a recalcula para decidir se aceita.
     qualidade: float = Field(ge=0.0, le=1.0)
 
-    #: ⚠️ **Sem teto aqui** (RF-DES-155): 18 a 30 e a faixa de **um** desafio. O
+    #: ⚠️ **Sem teto aqui** (RF-DES-155): 12 a 30 e a faixa de **um** desafio. O
     #: teto de 30/dia e da colecao, e entra como linha de `ajuste` negativa — nao
     #: como corte neste numero.
     #:
@@ -151,7 +151,7 @@ class EnvioDeResolucao(BaseModel):
         ⚠️ **Elas eram campos obrigatorios ate 17/09/2026**, e nesse formato
         descreviam so metade dos envios: a tentativa que falhou usa a mesma rota
         — e precisa usar, porque e ela que conta as tentativas para a parcela
-        `1/n` de `Q` — e nao tem nem lance que cumpriu, nem pontuacao de 18 a 30.
+        de tentativas de `Q` — e nao tem nem lance que cumpriu, nem pontuacao de 12 a 30.
 
         ⛔ **Recusa-la seria pior que aceitar um numero inutil**: o outbox do
         aplicativo trata 422 como dado impossivel e **remove** o evento, entao a

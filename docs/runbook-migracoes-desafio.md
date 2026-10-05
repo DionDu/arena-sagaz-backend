@@ -273,3 +273,34 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 **O que conferir depois:** o `conferir_migracao_desafio.py` sai com as colunas **na
 ordem** - desde a T085za ele lê também as colunas acrescentadas por `ALTER`, então a
 `tb003_resolucao` tem de terminar em `js_feito`.
+
+## ⏳ A `0028_piso_de_xp_do_desafio` — escrita em 04/10/2026, **aguardando o `des`**
+
+| migração | o que faz | risco |
+|---|---|---|
+| `0028_piso_de_xp_do_desafio` | troca o `ck001_xp` de `desafio_dia.tb003_resolucao`: `BETWEEN 18 AND 30` → `BETWEEN 12 AND 30` (derruba e recria com o mesmo nome, numa transação) | ⛔ **nenhuma linha muda**: a regra nova contém a antiga, e o `ADD CONSTRAINT` revalida a tabela inteira - se algo estivesse fora, a migração falharia em vez de passar |
+
+**Por que existe.** A pontuação do desafio passou a `12 + 18 x Q`
+(`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zs). ⚠️ **Ela vem ANTES do
+push do backend**: a API nova aceita 12..17 no modelo, e o `CHECK` antigo
+recusaria essas resoluções com erro 500 (o push é o deploy).
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python scripts\identificar_banco.py        # tem de dizer DES
+.venv\Scripts\python -m alembic current                  # esperado: 0027_retrato_da_resolucao
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m alembic current                  # esperado: 0028_piso_de_xp_do_desafio (head)
+```
+
+Leva segundos (a `tb003_resolucao` do `des` tem 6 linhas).
+
+**O que conferir depois** (só leitura - o `conferir_migracao_desafio.py` não lê o
+conteúdo deste `CHECK`):
+
+```powershell
+.venv\Scripts\python scripts\consultar_des.py "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck001_xp'"
+```
+
+Tem de sair `CHECK (((nu_xp >= 12) AND (nu_xp <= 30)))` - o Postgres guarda o
+`BETWEEN` assim.

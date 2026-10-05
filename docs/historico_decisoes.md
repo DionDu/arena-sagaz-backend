@@ -7786,3 +7786,45 @@ Cadeados em `test_principal_do_job.py` (o primeiro fim de transação depois do
 `UPDATE` é `commit`; 14 dias pedidos geram 14; a variável fora de 7..30 cai no
 padrão) e `test_saida_do_job.py` (o plano usa os dias que recebe). As três
 mutações - tirar o `commit`, tirar `dias=dias`, voltar o piso a 1 - foram pegas.
+
+## 2026-10-04 — A pontuação do desafio vai de 12 a 30, e a régua de tempo aperta (migração 0028)
+
+**Contexto.** O dono mostrou o print de uma resolução na 3ª tentativa, sem dica,
+valendo 28, e apontou que o quadro ia empatar no topo. A conta era
+`18 + 12 x Q`: só 12 XP moviam, a dica (3) se ganhava sem fazer nada e o tempo
+(2,4) saía cheio para quase todos. Quem não pedia dica ficava entre 26 e 30. As
+6 resoluções do `des` caíram entre 28 e 30.
+
+A causa do tempo era a régua: `MILISSEGUNDOS_POR_LANCE_DO_GABARITO = 6000` sobre
+um `nu_lances_solucao` que conta os **dois** lados dá ~12 s por jogada da pessoa
+antes de a parcela cair. O piso das 6 resoluções foi de 60 a 78 s; só uma passou
+dele.
+
+**Decisão** (`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zs):
+
+- `XP = 12 + 18 x Q` (`XP_PISO_POR_RESOLVER = 12`);
+- pesos de `Q`: tentativas 0,30 · tempo 0,30 · dica 0,15 · mérito 0,25;
+- tentativas linear até a 4ª (`TENTATIVAS_QUE_ZERAM_A_PARCELA = 4`), no lugar
+  de `1/n`;
+- régua de tempo a 2 s por lance do gabarito (teto continua 6x o piso);
+- faixas dos mascotes reescaladas por `12 + (x - 18) x 1,5`;
+- `ck001_xp` passa a `BETWEEN 12 AND 30` pela **`0028_piso_de_xp_do_desafio`**
+  (derruba e recria o `CHECK` de mesmo nome, como a `0020`; a regra nova contém
+  a antiga, então nenhuma linha gravada deixa de valer).
+
+**Alternativas.** Reponderar sem mexer no piso (12 XP móveis não abrem a faixa);
+ordenar o quadro por `Q` com decimais (recusado pelo dono - o quadro continua
+no XP inteiro, com o tempo de desempate).
+
+**Cadeados.** `test_o_piso_e_o_teto_batem_com_o_check_de_nu_xp` passou a ler o
+`CHECK` **vigente** - o `upgrade()` da última migração que o define, com o novo
+`sql_do_upgrade` de `leitura_de_migracao.py` (o `downgrade()` da `0028` recria a
+regra antiga, e ler o arquivo inteiro pegaria a errada). E
+`test_cada_troca_do_check_de_nu_xp_so_ALARGA_a_faixa` cobre o que o cadeado
+aditivo declara não ver: o conteúdo do `CHECK` trocado. O caso de ouro foi
+refeito nos dois lados (27 s numa régua de 10 s/60 s: 25,464 → 25).
+
+⚠️ **Ordem de publicação**: a `0028` entra no `des` **antes** do push - o
+Railway publica a cada push, e o código novo com o `CHECK` antigo recusaria com
+500 toda resolução abaixo de 18. ⚠️ Os desafios já gerados guardam a régua de
+tempo antiga; a nova vale para o que o job gerar daqui em diante.

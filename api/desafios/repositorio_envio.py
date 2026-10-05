@@ -239,7 +239,7 @@ SELECT COUNT(*) AS qt
 #: ⚠️ **E a linha que so a DICA criou nao conta, se nada a fechou**: a dica cria
 #: a tentativa no meio da partida, com tempo ZERO (`registrar_dica`); quem larga
 #: a partida depois ⛔ manda envio nenhum, e o aplicativo ⛔ conta a largada no
-#: `1/n` (`registrarAPartidaLargada`). Contar essa linha puniria quem jogou
+#: parcela de tentativas (`registrarAPartidaLargada`). Contar essa linha puniria quem jogou
 #: honesto. A tentativa fechada por envio tem o tempo da partida (> 0), ou
 #: resolveu; e a desta resolucao conta sempre.
 #:

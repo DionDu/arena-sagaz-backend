@@ -25,7 +25,7 @@ servidor pode estar a frente (a pessoa jogou em outro aparelho).
 A **dica** cria a linha da tentativa DURANTE a partida (`registrar_dica`: ela
 nasce `ic_resolveu = FALSE`, `nu_tempo_ms = 0`), antes de o envio da tentativa
 chegar. Se a pessoa larga a partida no meio, a linha fica - e a partida largada
-⛔ entra no `1/n` (`DECISOES-do-dono.md` §8q). Contar a linha crua faria o
+⛔ entra na parcela de tentativas (`DECISOES-do-dono.md` §8q). Contar a linha crua faria o
 aparelho novo achar uma tentativa a mais, e a nota da proxima resolucao cairia.
 
 Por isso a contagem tira a linha que **so a dica criou**: ⛔ resolvida, tempo

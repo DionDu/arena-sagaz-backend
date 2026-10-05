@@ -327,7 +327,7 @@ class ServicoEnvio:
         """Credita o que falta para o dia chegar a [valor], grava o ajuste do
         resto, e soma na conta.
 
-        ⚠️ **O dia vale o MAIOR evento** (consolo de 10 ou pontuacao de 18 a
+        ⚠️ **O dia vale o MAIOR evento** (consolo de 10 ou pontuacao de 12 a
         30), e nunca a soma - ver `credito_do_dia.py`.
 
         Returns:

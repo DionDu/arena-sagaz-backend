@@ -117,7 +117,12 @@ TIPOS_XP_COM_FEITO = (XP_MERITO, XP_MEDIDA)
 # O piso de XP por resolver, e o teto do dia. ⚠️ O teto e **da colecao** (o
 # Desafio do Dia), nunca do desafio: ele entra como linha de `ajuste`, negativa,
 # e nao como corte no `nu_xp` da resolucao.
-XP_PISO_POR_RESOLVER = 18
+#
+# ⚠️ **O piso era 18 ate 04/10/2026** (`DECISOES-do-dono.md` §8zs): com so 12 XP
+# moveis, quem nao pedia dica caia sempre entre 26 e 30, e o quadro empatava no
+# topo. Com 12, a nota `Q` move 18 XP - e 12 continua acima dos 10 de quem so
+# tentou (§8zp), que e a condicao que nao pode cair.
+XP_PISO_POR_RESOLVER = 12
 XP_TETO_DO_DIA = 30
 
 # Tentar e **nao** resolver vale isto, uma vez por dia (RF-DES-041). ⚠️ Nao e
@@ -186,7 +191,7 @@ class Resolucao(BaseModel):
     ponteiro para uma linha so, ele seria uma armadilha esperando o dia em que
     "voltar jogada" chegue ao desafio.
 
-    `nu_xp` fica entre 18 e 30: 18 e o piso por resolver, e o teto de 30/dia e da
+    `nu_xp` fica entre 12 e 30: 12 e o piso por resolver, e o teto de 30/dia e da
     colecao. O arredondamento acontece **uma vez**, no fim — as parcelas em
     `tb004_xp_desafio` tem casas decimais.
     """

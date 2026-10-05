@@ -94,7 +94,7 @@ class FaixaDoMascote:
     """A faixa de encenacao de um personagem.
 
     Atributos:
-        xp_min, xp_max: onde o XP dele cai, dentro dos 18–30 do desafio.
+        xp_min, xp_max: onde o XP dele cai, dentro dos 12–30 do desafio.
         fracao_tempo_min, fracao_tempo_max: que fatia da regua de tempo do
             desafio ele consome. ⚠️ **Nunca zero**: "nenhum instantaneo" e
             requisito, e um mascote com tempo 0 levaria a parcela cheia e
@@ -114,21 +114,26 @@ class FaixaDoMascote:
 #: degrau — e "voce passou o Tex" nunca surpreenderia. Com sobreposicao, um
 #: desafio pode ter o Tex acima do Magno, e isso e informacao: aquele desafio
 #: **e estranho para o Magno**.
+#:
+#: ⚠️ **Reescaladas em 04/10/2026** (§8zs), quando o piso por resolver desceu de
+#: 18 para 12: cada extremo foi levado por `12 + (x - 18) x 1,5`, que mantem o
+#: lugar relativo de cada personagem na regua (eram 18-22 · 20-25 · 23-28 ·
+#: 26-30). Sem isso, a Cacau ficaria grudada no topo da regua nova.
 FAIXAS: Mapping[str, FaixaDoMascote] = {
     "cacau": FaixaDoMascote(
-        xp_min=18, xp_max=22, fracao_tempo_min=0.70, fracao_tempo_max=0.95,
+        xp_min=12, xp_max=18, fracao_tempo_min=0.70, fracao_tempo_max=0.95,
         tentativas=3,
     ),
     "pita": FaixaDoMascote(
-        xp_min=20, xp_max=25, fracao_tempo_min=0.50, fracao_tempo_max=0.78,
+        xp_min=15, xp_max=22, fracao_tempo_min=0.50, fracao_tempo_max=0.78,
         tentativas=2,
     ),
     "tex": FaixaDoMascote(
-        xp_min=23, xp_max=28, fracao_tempo_min=0.30, fracao_tempo_max=0.58,
+        xp_min=20, xp_max=27, fracao_tempo_min=0.30, fracao_tempo_max=0.58,
         tentativas=2,
     ),
     "magno": FaixaDoMascote(
-        xp_min=26, xp_max=30, fracao_tempo_min=0.12, fracao_tempo_max=0.36,
+        xp_min=24, xp_max=30, fracao_tempo_min=0.12, fracao_tempo_max=0.36,
         tentativas=1,
     ),
 }
@@ -222,7 +227,7 @@ def linha_do_mascote(
         sorteio_xp = (sorteio_xp + taxa_medida) / 2
 
     nu_xp = faixa.xp_min + round(sorteio_xp * (faixa.xp_max - faixa.xp_min))
-    # ⚠️ A trava final: 18–30 e a faixa de **um** desafio, e o `ck001_xp` da
+    # ⚠️ A trava final: 12–30 e a faixa de **um** desafio, e o `ck001_xp` da
     # migracao a exige. Um arredondamento para fora seria recusado pelo banco se
     # esta linha algum dia fosse gravada.
     nu_xp = max(XP_PISO_POR_RESOLVER, min(XP_TETO_DO_DIA, nu_xp))
