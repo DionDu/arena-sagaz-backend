@@ -7828,3 +7828,48 @@ refeito nos dois lados (27 s numa régua de 10 s/60 s: 25,464 → 25).
 Railway publica a cada push, e o código novo com o `CHECK` antigo recusaria com
 500 toda resolução abaixo de 18. ⚠️ Os desafios já gerados guardam a régua de
 tempo antiga; a nova vale para o que o job gerar daqui em diante.
+
+## 2026-10-05 — As conquistas do Desafio do Dia: o servidor devolve os DIAS e credita o BÔNUS
+
+**Contexto.** O dono pediu seis conquistas próprias do desafio (1º, 10, 50 e 100
+resolvidos, semana completa e mês completo), com duas exigências: o total de
+desafios resolvidos **não pode viver só no aparelho** (logoff e outra conta no
+mesmo celular; a mesma conta em dois aparelhos) e **não se mistura com vitória
+em partida** (a §8k-9 de `arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+continua absoluta: desafio não incrementa vitórias nem credita conquista de
+jogo).
+
+**Decisão.**
+
+- `obter_progressao` ganha o campo **aditivo** `dias_desafio_resolvido`: a lista
+  ordenada de `AAAA-MM-DD`, o `dt_dia` (UTC) de cada desafio que a pessoa
+  resolveu, derivada de `desafio_dia.vw003_resolucao` ⨝ `vw001_desafio_dia`
+  (`RepositorioSincronizacao.dias_com_desafio_resolvido`). ⛔ Sem coluna nova e
+  sem migração - o mesmo molde do `nu_dias_jogados` e das `vitorias_por_jogo`.
+- O app conta a **união** desta lista com os dias que ele mesmo viu resolver.
+  Por isso **dias, e não contador**: unir dias é idempotente (o dia que está
+  nos dois lados conta uma vez); um contador somaria o mesmo dia duas vezes ou,
+  pelo `GREATEST`, perderia o dia resolvido no outro aparelho. E semana e mês
+  são perguntas sobre QUAIS dias.
+- O **bônus de XP** das seis é creditado **pelo servidor**, ao INSERIR a
+  conquista - no evento `conquista` (`gravar_conquista`, `xmax = 0`) e na
+  migração do convidado (`aplicar_merge_se_novo`, `RETURNING`), que roda antes
+  de a fila dele subir. O valor mora em
+  `api/sincronizacao/conquistas_do_desafio.py`, ⛔ nunca no evento. A
+  reconciliação ⛔ credita (o `GREATEST` dela já traz o bônus do aparelho). O SQL
+  é o `SQL_CREDITAR_NA_CONTA` da resolução, que cria a linha de quem só joga o
+  desafio.
+
+**Alternativas consideradas.** Sem bônus (só o selo) - recusada pelo dono, que
+quis o XP no ranking. Bônus como parcela da partida de desafio - ela sobe com
+`ic_pontua = FALSE` (o anti-farm), e abrir uma exceção ali misturaria os dois
+caminhos que a §8k-9 separa. Contador no servidor (`nu_desafios_resolvidos`) -
+ver acima: não une sem inflar.
+
+**Cadeados.** `tests/unitarios/test_conquistas_do_desafio.py`: a consulta dos
+dias roda de verdade (SQLite com o schema anexado); o crédito é provado por uma
+sessão que anota (paga na inserção, ⛔ no reenvio, ⛔ conquista de jogo, ⛔ na
+reconciliação); e `test_os_bonus_batem_com_o_catalogo_do_app` lê
+`lib/core/progressao/conquistas.dart` do app e compara os bônus código a código.
+A consulta foi conferida no `des` (somente leitura) em 05/10/2026: o dono tem 4
+dias resolvidos, de 30/09 a 04/10.

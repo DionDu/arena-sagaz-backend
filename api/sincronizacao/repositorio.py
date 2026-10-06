@@ -36,7 +36,9 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.desafios.repositorio_envio import SQL_CREDITAR_NA_CONTA
 from api.sincronizacao import dimensoes
+from api.sincronizacao.conquistas_do_desafio import bonus_da_conquista_do_desafio
 
 logger = logging.getLogger(__name__)
 
@@ -1082,7 +1084,7 @@ class RepositorioSincronizacao:
 
         # Conquistas: união (a chave única id_usuario+co_conquista evita duplicar).
         for co_conquista in r.get("conquistas", []) or []:
-            await self.sessao.execute(
+            resultado = await self.sessao.execute(
                 text(
                     """
                     INSERT INTO progressao.tb002_conquista_usuario
@@ -1090,11 +1092,47 @@ class RepositorioSincronizacao:
                        dh_desbloqueio)
                     VALUES (gen_random_uuid(), :id_usuario, :co_conquista, now())
                     ON CONFLICT (id_usuario, co_conquista) DO NOTHING
+                    RETURNING co_conquista
                     """
                 ),
                 {"id_usuario": id_usuario, "co_conquista": co_conquista},
             )
+            # ⚠️ **O bônus das conquistas do DESAFIO entra aqui também** (05/10/2026).
+            # A migração do convidado roda ANTES de a fila dele subir
+            # (`migrarConvidado` no app: merge, depois sincroniza): se só o evento
+            # creditasse, ele chegaria depois desta linha, acharia a conquista já
+            # gravada e não pagaria nada - e o bônus que o convidado viu na
+            # celebração nunca chegaria ao ranking. `RETURNING` só devolve linha
+            # numa inserção nova (`DO NOTHING` não devolve), então o crédito
+            # continua sendo um só, venha ela por onde vier.
+            if resultado.first() is not None:
+                await self._creditar_bonus_do_desafio(id_usuario, co_conquista)
         return True
+
+    async def _creditar_bonus_do_desafio(
+        self, id_usuario: str, co_conquista: object
+    ) -> None:
+        """Soma ao XP da conta o bônus de uma conquista do Desafio do Dia que
+        ACABOU de ser inserida - ver ``conquistas_do_desafio.py``.
+
+        Conquista de jogo dá bônus zero e não toca no banco: o bônus dela já veio
+        na partida (``co_tipo_xp = 'conquista'``), e somar aqui pagaria duas vezes.
+
+        ⚠️ **Só quem inseriu chama isto.** A reconciliação (``reconciliar_progressao``)
+        de propósito não chama: ela aplica ``GREATEST`` com o total do aparelho,
+        que JÁ inclui o bônus - somar depois disso passaria do número certo.
+
+        O SQL é o mesmo do crédito da resolução do desafio
+        (``SQL_CREDITAR_NA_CONTA``): ele cria a linha de progressão de quem só
+        joga o desafio e nunca pontuou numa partida - um ``UPDATE`` sozinho
+        perderia esse bônus em silêncio.
+        """
+        bonus = bonus_da_conquista_do_desafio(co_conquista)
+        if bonus <= 0:
+            return
+        await self.sessao.execute(
+            text(SQL_CREDITAR_NA_CONTA), {"id_usuario": id_usuario, "xp": bonus}
+        )
 
     # ── Evento de CONQUISTA (idempotente por id_usuario + co_conquista) ───────
 
@@ -1107,8 +1145,12 @@ class RepositorioSincronizacao:
     ) -> bool:
         """Grava UMA conquista desbloqueada. Idempotente pela chave natural
         ``(id_usuario, co_conquista)`` — reenviar o mesmo desbloqueio não duplica.
-        O XP da conquista NÃO entra aqui (já sobe nas parcelas de XP da partida);
-        esta linha é só o REGISTRO do desbloqueio. Devolve ``True`` se inseriu."""
+        Devolve ``True`` se inseriu.
+
+        O XP das conquistas **dos jogos** NÃO entra aqui: já sobe nas parcelas de
+        XP da partida. ⚠️ **As do Desafio do Dia são a exceção** (05/10/2026): não
+        há partida que carregue o bônus delas, e é na INSERÇÃO desta linha que o
+        servidor o credita - ver ``conquistas_do_desafio.py``."""
         conquista = payload.get("conquista") or {}
         # Conflito: mantém a MENOR data de desbloqueio (a PRIMEIRA vez que o humano
         # a atingiu, em qualquer aparelho) — não a primeira a CHEGAR ao servidor.
@@ -1133,7 +1175,15 @@ class RepositorioSincronizacao:
                 "dh": _dt(conquista.get("dh_desbloqueio")),
             },
         )
-        return bool(resultado.scalar())
+        inserido = bool(resultado.scalar())
+        # Só na inserção nova: o reenvio do mesmo evento (ou a mesma conquista
+        # vinda de um segundo aparelho) cai no `DO UPDATE` da data, devolve
+        # `inserido = False`, e não paga o bônus outra vez.
+        if inserido:
+            await self._creditar_bonus_do_desafio(
+                id_usuario, conquista.get("co_conquista")
+            )
+        return inserido
 
     # ── Reconciliação de progressão (fallback autoritativo — app é a verdade) ──
 
@@ -1422,6 +1472,58 @@ class RepositorioSincronizacao:
         )
         return {linha[0]: int(linha[1]) for linha in resultado.all()}
 
+    async def dias_com_desafio_resolvido(self, id_usuario: str) -> list[str]:
+        """Os dias (``AAAA-MM-DD``) em que a pessoa resolveu o Desafio do Dia,
+        em ordem crescente - a base das conquistas do desafio (05/10/2026).
+
+        ⚠️ **Por que DIAS, e não um contador.** O app junta esta lista com os dias
+        que ele mesmo viu resolver (uma resolução ainda na fila, um convidado) e
+        conta a UNIÃO. Unir conjuntos de dias é idempotente: o mesmo dia vindo do
+        servidor e do aparelho conta uma vez. Um contador não tem como saber se o
+        "+1" do aparelho já está no número do servidor - somaria duas vezes;
+        e o ``GREATEST`` dos contadores perderia o dia resolvido no OUTRO
+        aparelho. É também a lista que a "semana completa" e o "mês completo"
+        precisam: as duas são perguntas sobre QUAIS dias, não quantos.
+
+        ⚠️ **O dia é o do DESAFIO** (``dt_dia``, o dia UTC em que ele foi
+        publicado), e não o da resolução: o mesmo critério da fita da Home e do
+        histórico do mês, que o app desenha com estes mesmos dias.
+
+        ⚠️ **Derivado a cada leitura, sem coluna nova** - o mesmo molde do
+        ``nu_dias_jogados`` e das ``vitorias_por_jogo``: guardar o número criaria
+        uma segunda cópia da mesma verdade. A fonte é a resolução
+        (``un001_resolucao``: uma por pessoa por desafio), então ``DISTINCT`` só
+        protege contra uma reprise caindo no mesmo dia - que o ``un001_dia`` do
+        ``tb001_desafio_dia`` já proíbe.
+
+        ⚠️ **A auditoria não filtra** (``co_auditoria``): ela ``não pune
+        ninguém`` por decisão de projeto (ver a migração 0019) - uma resolução
+        marcada ``divergente`` continua resolvida até alguém investigar.
+
+        O tamanho cresce um dia por dia resolvido: três anos jogando todo dia são
+        ~1.100 datas, ~13 KB na resposta. Medido o custo, ficou a lista inteira:
+        qualquer recorte faria a contagem do Perfil depender de um número a mais
+        para ficar certa."""
+        resultado = await self.sessao.execute(
+            text(
+                """
+                SELECT DISTINCT d.dt_dia
+                  FROM desafio_dia.vw003_resolucao r
+                  JOIN desafio_dia.vw001_desafio_dia d
+                    ON d.id_desafio_dia = r.id_desafio_dia
+                 WHERE r.id_usuario = :id
+                 ORDER BY d.dt_dia
+                """
+            ),
+            {"id": id_usuario},
+        )
+        # O Postgres devolve `date`; o SQLite dos testes devolve o texto que foi
+        # gravado. `isoformat()` e `str` dão o mesmo `AAAA-MM-DD` nos dois.
+        return [
+            linha[0].isoformat() if isinstance(linha[0], date) else str(linha[0])
+            for linha in resultado.all()
+        ]
+
     async def obter_progressao(self, id_usuario: str) -> dict[str, Any]:
         """Progressão atual (com nu_nivel/co_patente calculados pela VIEW) +
         a lista de conquistas. É o que o app PUXA para reconciliar o banco local
@@ -1437,6 +1539,9 @@ class RepositorioSincronizacao:
         # resolução na fila, por exemplo). Por isso ele é lido aqui, antes do
         # desvio de "usuário sem linha", e vai nas duas saídas.
         por_jogo = await self.vitorias_por_jogo(id_usuario)
+        # Os dias com desafio resolvido, pelo mesmo motivo: a resolução existe
+        # mesmo para quem nunca pontuou numa partida (quem só joga o desafio).
+        dias_desafio = await self.dias_com_desafio_resolvido(id_usuario)
         resultado = await self.sessao.execute(
             text(
                 "SELECT * FROM progressao.vw001_progressao_usuario "
@@ -1457,6 +1562,7 @@ class RepositorioSincronizacao:
                 # Sem linha de progressão = sem partida que pontua = zero dias.
                 "nu_dias_jogados": 0,
                 "vitorias_por_jogo": por_jogo,
+                "dias_desafio_resolvido": dias_desafio,
                 "nu_nivel": 1,
                 "co_patente": "aprendiz",
                 "conquistas": conquistas,
@@ -1476,6 +1582,10 @@ class RepositorioSincronizacao:
         # falando com servidor antigo lê a AUSÊNCIA como "não sei" - nunca como
         # "zero em tudo". Vai sempre, inclusive vazio.
         saida["vitorias_por_jogo"] = por_jogo
+        # `dias_desafio_resolvido` é campo ADITIVO (05/10/2026), pelo mesmo
+        # contrato: app antigo ignora, e app novo lê a AUSÊNCIA como "não sei" -
+        # nunca como "nenhum dia". Vai sempre, inclusive vazio.
+        saida["dias_desafio_resolvido"] = dias_desafio
         if ultimo is not None:
             saida["nu_sequencia_atual"] = seq
             saida["dt_ultimo_dia_jogado"] = ultimo
