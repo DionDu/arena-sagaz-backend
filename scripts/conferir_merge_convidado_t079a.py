@@ -368,7 +368,13 @@ async def conferir() -> int:
     from api.main import app
     from api.nucleo.banco import engine as motor
     from api.nucleo.banco import obter_sessao
-    from api.nucleo.dependencias import usuario_atual
+    from fastapi import Depends, Header
+
+    from api.nucleo.dependencias import exigir_cabecalhos, usuario_atual
+    from api.nucleo.dependencias_conta_nuvem import (
+        usuario_autenticado,
+        usuario_opcional,
+    )
     from api.nucleo.seguranca_firebase import IdentidadeFirebase
 
     relatorio = Relatorio()
@@ -395,12 +401,50 @@ async def conferir() -> int:
             ) as sessao:
                 yield sessao
 
+        def identidade_do_script() -> IdentidadeFirebase:
+            """A identidade do convidado que vira conta, sem passar pelo Firebase."""
+            return IdentidadeFirebase(
+                uid=uid, provedor="google.com", nome="Convidado T079a"
+            )
+
+        # ⚠️ SEM anotacoes de tipo, de proposito: este arquivo usa
+        # `from __future__ import annotations`, que transforma toda anotacao em
+        # texto, e o FastAPI resolve esse texto no escopo do MODULO - onde
+        # `ContextoRequisicao` e os outros nao existem, porque sao importados aqui
+        # dentro, depois de a URL do banco ir para o ambiente. Os padroes
+        # (`Header`, `Depends`) bastam para o FastAPI saber o que injetar.
+        async def usuario_opcional_do_script(
+            authorization=Header(default=None),
+            contexto=Depends(exigir_cabecalhos),
+            sessao=Depends(obter_sessao),
+        ):
+            """A versao do script de `usuario_opcional`, com a MESMA regra.
+
+            Devolve o `UsuarioAutenticado` da conta, ou `None` para o convidado.
+
+            ⚠️ Por que substituir `usuario_atual` nao basta: `usuario_opcional`
+            (as rotas que aceitam convidado - `meu-mes`, `quadro`, `ranking`)
+            chama `usuario_atual` como FUNCAO, e nao por `Depends`, e o
+            `dependency_overrides` do FastAPI so troca o que passa por `Depends`.
+            Sem esta copia, a `meu-mes` tratava o script como convidado desde a
+            T085ze (26/09/2026), e a condicao (c) acusava os cinco dias faltando
+            com o produto certo - foi o que aconteceu em 06/10/2026.
+
+            A regra e a da funcao real: sem `Authorization: Bearer`, e convidado
+            (`None`); com ele, o dono e resolvido no banco pelo
+            `co_identidade_externa`, como em producao.
+            """
+            if not authorization or not authorization.lower().startswith("bearer "):
+                return None
+            return await usuario_autenticado(
+                identidade=identidade_do_script(), contexto=contexto, sessao=sessao
+            )
+
         app.dependency_overrides[obter_sessao] = sessao_dentro_da_transacao
         # ⚠️ So a verificacao do token e substituida; o dono continua sendo
         # resolvido no banco pelo `co_identidade_externa`.
-        app.dependency_overrides[usuario_atual] = lambda: IdentidadeFirebase(
-            uid=uid, provedor="google.com", nome="Convidado T079a"
-        )
+        app.dependency_overrides[usuario_atual] = identidade_do_script
+        app.dependency_overrides[usuario_opcional] = usuario_opcional_do_script
         try:
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -411,6 +455,7 @@ async def conferir() -> int:
         finally:
             app.dependency_overrides.pop(obter_sessao, None)
             app.dependency_overrides.pop(usuario_atual, None)
+            app.dependency_overrides.pop(usuario_opcional, None)
             await transacao.rollback()
 
     # ── (f) Nada ficou ──────────────────────────────────────────────────────
@@ -640,7 +685,13 @@ async def _migrar(cliente, conexao, relatorio: Relatorio, *, uid: str, agora) ->
         f"({ganho['parcelas'] / max(novos, 1):.0f} por resolucao nova)",
     )
 
-    r = await cliente.get("/v1/desafios/meu-mes")
+    # ⚠️ COM `Authorization`, como o app logado manda: desde a T085ze a rota
+    # aceita convidado, e sem o cabecalho ela responde 200 com todos os dias
+    # `resolvido: false` - que e o certo para o convidado, e o errado aqui. O
+    # valor do token nao importa: quem o verifica e `usuario_opcional_do_script`.
+    r = await cliente.get(
+        "/v1/desafios/meu-mes", headers={"Authorization": "Bearer t079a"}
+    )
     mes = r.json() if r.status_code == 200 else {}
     resolvidos_no_mes = {
         d.get("dia") for d in mes.get("dias", []) if d.get("resolvido")
