@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# IMAGEM DO BACKUP DIÁRIO DO BANCO DO `prd` (T101 da spec 009)
+#
+# Acorda pelo cron do Railway às 04:00 UTC, copia o banco, criptografa com a
+# senha do dono, envia ao Google Drive, apaga o que passou do prazo e TERMINA.
+# O fluxo e o porquê de cada passo: `backup/backup_do_banco.py`.
+#
+# ⚠️ "Terminar é sucesso." Sem porta e sem healthcheck; o serviço tem
+#    Restart Policy = NEVER (ver `railway.backup.json`, que é documentação do que
+#    tem de estar na UI do Railway).
+#
+# ⚠️ POR QUE A IMAGEM OFICIAL DO POSTGRES, E NÃO A DO PYTHON:
+#    o `pg_dump` tem de ser da MESMA versão maior do servidor (ou mais nova) - um
+#    `pg_dump` 17 recusa um Postgres 18. O `prd` roda Postgres 18.6 (lido em
+#    06/10/2026). Partindo de `postgres:18`, a versão certa vem de graça; se o
+#    banco do Railway subir para o 19, este número sobe junto (o teste
+#    `test_imagem_do_backup.py` diz onde).
+#
+# ⚠️ E POR QUE SÓ A BIBLIOTECA PADRÃO DO PYTHON: o pacote `backup/` não tem
+#    dependência nenhuma, então não há `pip install` - só o `python3` do Debian e o
+#    `gpg`, que vêm pelo `apt`.
+# ═══════════════════════════════════════════════════════════════════════════
+
+FROM postgres:18
+
+# `--no-install-recommends` instala só o pedido, sem os "recomendados" do Debian;
+# apagar as listas do apt no mesmo RUN deixa a imagem menor.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 gnupg ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY backup/ backup/
+
+# Roda com o usuário sem privilégio que a imagem do Postgres já traz. O backup
+# só precisa escrever na pasta temporária do sistema.
+USER postgres
+
+# A imagem do Postgres tem um ENTRYPOINT que prepara um SERVIDOR de banco; aqui
+# não há servidor nenhum, então ele é zerado e o comando roda direto.
+ENTRYPOINT []
+CMD ["python3", "-m", "backup.backup_do_banco"]
