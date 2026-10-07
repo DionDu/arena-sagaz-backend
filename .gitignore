@@ -94,3 +94,7 @@ logs/
 # faria o build falhar por um motivo que nao tem nada a ver com damas.
 espelho_laboratorio/jogos/jogo_damas/motor_dart/.dart_tool/
 espelho_laboratorio/jogos/jogo_damas/motor_dart/pubspec.lock
+# O mesmo vale, desde a T093 (28/09/2026), para o motor Dart do Pontinhos, que a
+# imagem do job tambem compila - e pelo mesmo motivo.
+espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/.dart_tool/
+espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/pubspec.lock
