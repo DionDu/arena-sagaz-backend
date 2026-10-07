@@ -257,6 +257,43 @@ def test_zero_reacao_NAO_gera_texto() -> None:
         texto_da_notificacao(0, "pt")
 
 
+@pytest.mark.parametrize(
+    ("idioma", "titulo", "uma", "duas"),
+    [
+        (
+            "pt",
+            "O seu desafio de ontem",
+            "1 pessoa reagiu à sua solução.",
+            "2 pessoas reagiram à sua solução.",
+        ),
+        (
+            "en",
+            "Your challenge from yesterday",
+            "1 person reacted to your solution.",
+            "2 people reacted to your solution.",
+        ),
+        (
+            "es",
+            "Tu desafío de ayer",
+            "1 persona reaccionó a tu solución.",
+            "2 personas reaccionaron a tu solución.",
+        ),
+    ],
+)
+def test_as_frases_saem_com_a_GRAFIA_certa(
+    idioma: str, titulo: str, uma: str, duas: str
+) -> None:
+    """🔒 O texto que a pessoa le, letra por letra, com acento.
+
+    ⚠️ **As frases esperadas estao escritas AQUI, e nao lidas de `FRASES`**: um
+    caso que compara a funcao com a propria constante passa com qualquer texto
+    dentro dela. Foi assim que *"reagiu a sua solucao"* e *"reacciono a tu
+    solucion"* chegaram a producao (22/09 a 07/10/2026) com a suite verde.
+    """
+    assert texto_da_notificacao(1, idioma) == (titulo, uma)
+    assert texto_da_notificacao(2, idioma) == (titulo, duas)
+
+
 def test_nenhuma_frase_usa_travessao_longo() -> None:
     """🔒 A mesma regra dos `.arb` (decisao do dono, 19/08/2026).
 

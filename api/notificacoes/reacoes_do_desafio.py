@@ -172,11 +172,19 @@ TIPO_DO_PUSH = "reacao_desafio"
 #: ⚠️ **Hifen comum, ⛔ nunca travessao longo** - a mesma regra dos `.arb` do
 #: aplicativo (decisao do dono, 19/08/2026). O texto aqui e lido pela pessoa
 #: exatamente como os de la.
+#:
+#: ⚠️ **Com acento, e escrito por extenso**: estas sao as unicas linhas deste
+#: arquivo que a pessoa le. Os comentarios daqui sao sem acento, e de 22/09 a
+#: 07/10/2026 esse estilo vazou para o texto - a notificacao saiu em producao
+#: como *"reagiu a sua solucao"* e *"reacciono a tu solucion"*. O arquivo e UTF-8
+#: (o padrao do Python 3) e o FCM leva JSON em UTF-8, entao o acento chega inteiro
+#: ao aparelho. Cadeado: `test_as_frases_saem_com_a_GRAFIA_certa`.
 FRASES: dict[str, dict[str, str]] = {
     "pt": {
         "titulo": "O seu desafio de ontem",
-        "uma": "1 pessoa reagiu a sua solucao.",
-        "varias": "{quantas} pessoas reagiram a sua solucao.",
+        # "à" com crase: "reagir a" + "a sua solução" (artigo feminino).
+        "uma": "1 pessoa reagiu à sua solução.",
+        "varias": "{quantas} pessoas reagiram à sua solução.",
     },
     "en": {
         "titulo": "Your challenge from yesterday",
@@ -184,9 +192,9 @@ FRASES: dict[str, dict[str, str]] = {
         "varias": "{quantas} people reacted to your solution.",
     },
     "es": {
-        "titulo": "Tu desafio de ayer",
-        "uma": "1 persona reacciono a tu solucion.",
-        "varias": "{quantas} personas reaccionaron a tu solucion.",
+        "titulo": "Tu desafío de ayer",
+        "uma": "1 persona reaccionó a tu solución.",
+        "varias": "{quantas} personas reaccionaron a tu solución.",
     },
 }
 
