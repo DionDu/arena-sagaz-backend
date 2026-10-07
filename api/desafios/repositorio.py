@@ -151,6 +151,10 @@ CONSULTAS_PUBLICAS = {
 #: ⚠️ Tres, e nao os 7 a 30 que o job mantem: o cache serve para atravessar uma
 #: viagem sem rede, e nao para o aparelho guardar o mes inteiro. Quanto menos
 #: futuro no aparelho, menos superficie para RF-DES-009 ser violada por engano.
+#:
+#: ⚠️ **Mudar este numero muda a TRAVA da curadoria** (07/10/2026): o que esta nos
+#: aparelhos nao sai do dia dele, e quem diz ate onde vai e `janela_baixada.py`,
+#: que le esta constante. Mais dias de cache = menos dias que o dono pode curar.
 DIAS_DE_CACHE = 3
 
 

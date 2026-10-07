@@ -19,7 +19,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -153,6 +153,10 @@ class RepoFalso:
         if alvo is None or alvo.dt_dia is None:
             return None
         return alvo.dt_dia, 0
+
+    async def fim_da_janela_baixada(self, dt_hoje: date) -> date:
+        """A janela sem buraco na fila: hoje + 3 (`DIAS_DE_CACHE`)."""
+        return dt_hoje + timedelta(days=3)
 
     async def confirmar(self) -> None:
         self.commits += 1
@@ -300,7 +304,9 @@ async def test_descartar_sem_motivo_e_recusado():
     alvo = _desafio()
     repo = RepoFalso([alvo])
     with pytest.raises(ErroNegocio) as erro:
-        await ServicoCuradoria(repo).descartar(alvo.id_desafio, motivo="   ")
+        await ServicoCuradoria(repo).descartar(
+            alvo.id_desafio, motivo="   ", dt_hoje=date(2026, 9, 10)
+        )
 
     assert erro.value.codigo == "motivo_ausente"
     assert repo.descartados == []  # ⛔ nao chegou ao banco
@@ -317,7 +323,10 @@ async def test_descartar_guarda_o_motivo_e_libera_o_dia():
     alvo = _desafio(co_curadoria="aprovado", dt_dia=date(2026, 9, 14))
     repo = RepoFalso([alvo])
     resultado = await ServicoCuradoria(repo).descartar(
-        alvo.id_desafio, motivo="posicao banal: a Cacau resolveu 20/20"
+        alvo.id_desafio,
+        motivo="posicao banal: a Cacau resolveu 20/20",
+        # 14/09 esta DEPOIS da janela baixada de 10/09 (vai ate 13/09).
+        dt_hoje=date(2026, 9, 10),
     )
 
     assert resultado.mudou is True
@@ -592,6 +601,7 @@ def _pagina(fila, *, estado=None, contagem=None, divergencias=()) -> str:
     item = fila[0] if fila else None
     return pagina.render(
         dt_hoje=date(2026, 9, 10),
+        dt_fim_janela_baixada=date(2026, 9, 13),
         detalhe=pagina.DetalheDoDia(
             dt_dia=(item.dt_dia if item else None) or date(2026, 9, 10),
             desafio=item,

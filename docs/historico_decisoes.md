@@ -7873,3 +7873,63 @@ reconciliação); e `test_os_bonus_batem_com_o_catalogo_do_app` lê
 `lib/core/progressao/conquistas.dart` do app e compara os bônus código a código.
 A consulta foi conferida no `des` (somente leitura) em 05/10/2026: o dono tem 4
 dias resolvidos, de 30/09 a 04/10.
+
+## 2026-10-07 — O que já está nos aparelhos não sai do dia dele: a janela baixada trava a curadoria
+
+**Contexto.** O app guarda o desafio de hoje e os dos próximos `DIAS_DE_CACHE` (3)
+dias para jogar sem rede (`/v1/desafios/proximos`). O dono perguntou o que
+acontece se ele substituir no servidor um desafio que um aparelho já guardou,
+enquanto esse aparelho está sem rede. A leitura do código deu dois defeitos
+silenciosos:
+
+- **Descartar** (`painel/servico.descartar`) apaga a linha de
+  `desafio_dia.tb001_desafio_dia`. O envio de quem resolveu sem rede chega com um
+  `id_desafio_dia` que não existe mais: `servico_envio` responde 400
+  (`vinculo_invalido`), o outbox do app o trata como dado impossível e o tira da
+  fila. Sem quadro e sem XP do desafio, e nada avisa a pessoa.
+- **Trocar a data** (`painel/servico.agendar`, ou a compactação do job) mantém o
+  `id_desafio_dia` e muda o `dt_dia`. O envio passa no `SQL_DIA_DO_DESAFIO` e é
+  aceito: a pessoa entra no quadro de um dia que não jogou.
+
+A guarda `_exigir_dia_nao_jogado` não pegava nenhum dos dois: ela conta as
+tentativas que o servidor tem, e as de quem está sem rede ainda estão no
+aparelho.
+
+**Decisão** (do dono: *"travar quaisquer formas de mexer em desafios dos próximos
+3 dias"*; registro em `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zx).
+
+- A regra mora em **`api/desafios/janela_baixada.py`**, lida pelo painel e pelo
+  job. A janela vai de hoje até o MAIOR entre `hoje + DIAS_DE_CACHE` e o último
+  dia que o `/proximos` entrega agora (`SQL_FIM_DOS_PROXIMOS`, com o mesmo filtro
+  e a mesma ordem do `SQL_PROXIMOS`). Com buraco na fila (amanhã vazio), o
+  `/proximos` entrega o D+4, e a conta simples o deixaria destravado.
+- **Painel:** `_exigir_fora_da_janela_baixada` recusa descartar, trocar a data e
+  tirar do calendário um desafio cujo dia está na janela (`dia_ja_baixado`, 400),
+  antes de qualquer escrita. O `dt_hoje` de `descartar` e `desagendar` deixou de
+  ser opcional. A página espelha a regra: no lugar dos botões, a nota 🔒 com a
+  data em que a curadoria volta a valer.
+- **Job:** `compactar_fila.remanejar` ganhou `dt_fim_janela_baixada` (obrigatório,
+  sem padrão): nenhum doador sai de dentro da janela. O `SQL_MOVER_O_DIA` ganhou a
+  mesma condição como rede do banco.
+- ⚠️ **Só a ORIGEM é travada.** Tapar um dia VAZIO da janela com um desafio de
+  fora dela (agendar da reserva, compactação, geração) continua permitido:
+  ninguém tem aquele dia guardado, e recusar deixaria um dia em branco no app.
+
+**Por que o fim de hoje basta**, se um aparelho pode ter sincronizado há dias: o
+fim da janela só anda para a frente. O que alguém baixou ontem estava entre os
+próximos de ontem, que hoje são passado, hoje, ou estão entre os próximos de hoje,
+desde que nada saia de dentro da janela, que é o que a regra garante.
+
+**Alternativas consideradas.** Avisar no app quando o envio volta 400 (a pessoa
+ao menos saberia): não conserta a troca de data, que é aceita, e transforma um
+erro de operação em mensagem para o usuário. Travar também o DESTINO (nenhum
+movimento para dentro da janela): deixaria em branco um dia que poderia ser
+tapado sem risco. Só registrar a regra no roteiro: depende de o dono lembrar dela
+a cada curadoria.
+
+**Cadeados.** `tests/unitarios/test_janela_baixada.py` (25 casos): a regra pura,
+o filtro igual ao do `/proximos`, o `MAX` de nada, a recusa das três ações de
+hoje a D+3, o D+4 livre, o buraco que estende a janela, tapar por dentro, a
+página, a compactação, a rede do `UPDATE` e as duas rotas que desenham o dia.
+Sete mutações (tirar cada guarda, a extensão pelo buraco, a rede do banco, o
+espelho da página, destravar hoje) foram todas pegas.

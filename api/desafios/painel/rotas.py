@@ -310,6 +310,7 @@ async def ver_painel(
 
     html = pagina.render(
         dt_hoje=dt_hoje,
+        dt_fim_janela_baixada=await repo.fim_da_janela_baixada(dt_hoje),
         detalhe=await _montar_detalhe(sessao, dt_hoje=dt_hoje, dia=dia, desafio=desafio),
         calendario=await repo.calendario(dt_de=de, dt_ate=ate),
         estado_da_fila=await vigia.estado_da_fila(dt_hoje=dt_hoje),
@@ -341,8 +342,14 @@ async def ver_fragmento(
     estado = await vigia.estado_da_fila(dt_hoje=dt_hoje)
     dt_sugerida = estado.buracos[0] if estado.buracos else dt_hoje
     detalhe = await _montar_detalhe(sessao, dt_hoje=dt_hoje, dia=dia, desafio=desafio)
+    dt_fim_janela = await RepositorioPainel(sessao).fim_da_janela_baixada(dt_hoje)
     return HTMLResponse(
-        pagina.render_detalhe(detalhe, dt_hoje=dt_hoje, dt_sugerida=dt_sugerida),
+        pagina.render_detalhe(
+            detalhe,
+            dt_hoje=dt_hoje,
+            dt_sugerida=dt_sugerida,
+            dt_fim_janela_baixada=dt_fim_janela,
+        ),
         headers=SEM_CACHE,
     )
 

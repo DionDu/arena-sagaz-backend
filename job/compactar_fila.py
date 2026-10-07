@@ -38,6 +38,13 @@ dia para depois adiaria conteudo ja aprovado sem ninguem pedir.
 publicado uma vez so"*), e reescrever a data de um dia vivido apagaria a historia
 de quem o resolveu.
 
+⛔ **Nao tira nada da JANELA BAIXADA** (07/10/2026, `api/desafios/janela_baixada.py`).
+O app guarda hoje e os proximos dias para jogar sem rede. Um desafio desses que
+descesse de data seria resolvido sem rede na data antiga e entraria no quadro da
+nova - o servidor aceita, porque o vinculo e o mesmo, e nada acusa. ⚠️ **O BURACO
+dentro da janela continua podendo ser tapado**, com um doador de FORA dela:
+ninguem tem aquele dia guardado, e tapa-lo evita um dia em branco no app.
+
 ⛔ **Nao decide sozinho o que e "semelhante".** Quem decide e
 `job/vizinhanca.py`, a mesma regra que a geracao usa.
 
@@ -132,6 +139,7 @@ def remanejar(
     *,
     dias_do_plano: Iterable[date],
     dt_hoje: date,
+    dt_fim_janela_baixada: date,
 ) -> list[Mudanca]:
     """Que desafios aprovados devem descer, e para onde.
 
@@ -139,6 +147,10 @@ def remanejar(
         fila: as linhas que existem hoje em `desafio_dia`, em qualquer ordem.
         dias_do_plano: os dias que esta execucao cobre (de hoje em diante).
         dt_hoje: o dia da execucao. ⛔ Nada anterior a ele e tocado.
+        dt_fim_janela_baixada: o ultimo dia que pode estar num aparelho
+            (`janela_baixada.fim_da_janela_baixada`). ⛔ Nenhum doador sai de
+            um dia ate ele, inclusive. ⚠️ Sem valor padrao, de proposito: um
+            chamador que o esquecesse moveria dia baixado sem nada acusar.
 
     Returns:
         As mudancas, na ordem em que devem ser aplicadas. Lista vazia quando nao
@@ -164,10 +176,14 @@ def remanejar(
         for linha in fila
         if linha.co_curadoria in OCUPAM_O_DIA
     }
+    # ⛔ O doador tem de estar DEPOIS da janela baixada: o que ja esta num
+    # aparelho nao muda de dia. O `max` mantem a regra antiga (nada de hoje para
+    # tras) mesmo se alguem passar uma janela que termina antes de hoje.
+    limite_do_doador = max(dt_hoje, dt_fim_janela_baixada)
     doadores: dict[date, LinhaDaFila] = {
         linha.dt_dia: linha
         for linha in fila
-        if linha.co_curadoria in PODEM_DESCER and linha.dt_dia > dt_hoje
+        if linha.co_curadoria in PODEM_DESCER and linha.dt_dia > limite_do_doador
     }
 
     buracos = [dia for dia in dias if dia >= dt_hoje and dia not in ocupados]

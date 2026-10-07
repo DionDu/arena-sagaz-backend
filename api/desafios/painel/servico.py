@@ -27,15 +27,19 @@ AS TRES REGRAS, E O QUE CADA UMA IMPEDE
 3. **Descartar tira do calendario.** Um descartado agendado e a mesma armadilha
    do item 2, chegando pelo outro lado: o dia continua ocupado (`un001_dia`
    impede outro desafio de entrar) e nada e servido.
+4. ⛔ **O que ja esta nos aparelhos nao sai do dia dele** (07/10/2026). O app
+   guarda hoje e os proximos dias para jogar sem rede; descartar ou mover um
+   desses faria o resultado de quem jogou sem rede ser recusado, ou cair no
+   quadro de outro dia. A regra e o porque estao em `api/desafios/janela_baixada.py`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
-from typing import Optional
+from datetime import date, timedelta
 from uuid import UUID
 
+from api.desafios.janela_baixada import DIAS_DE_CACHE, na_janela_baixada
 from api.desafios.painel.datas import data_br
 from api.desafios.painel.repositorio import RepositorioPainel
 from api.nucleo.excecoes import ErroNegocio
@@ -143,8 +147,45 @@ class ServicoCuradoria:
                 status_http=400,
             )
 
+    async def _exigir_fora_da_janela_baixada(
+        self, id_desafio: UUID, dt_hoje: date, *, ato: str
+    ) -> None:
+        """Recusa tirar do dia um desafio que ja pode estar num aparelho (07/10/2026).
+
+        ⚠️ **A guarda de cima nao pega este caso**: ela conta as tentativas que o
+        SERVIDOR tem, e as de quem resolveu sem rede ainda estao no aparelho.
+        Descartar faria o envio dela voltar recusado (o vinculo do dia sumiu);
+        trocar a data a poria no quadro de um dia que ela nao jogou. Nos dois casos,
+        sem nada avisar. O porque inteiro esta em `api/desafios/janela_baixada.py`.
+
+        ⚠️ **So a ORIGEM e conferida.** Por um desafio de fora num dia VAZIO da
+        janela continua permitido: ninguem tem aquele dia guardado, e recusar
+        deixaria o dia em branco no aplicativo.
+
+        Raises:
+            ErroNegocio: o desafio esta num dia entre hoje e o fim da janela.
+        """
+        situacao = await self.repo.situacao_no_calendario(id_desafio)
+        if situacao is None:
+            # Sem dia, nao esta em aparelho nenhum: o `/proximos` so entrega o
+            # que tem data.
+            return
+        dt_dia, _ = situacao
+        dt_fim = await self.repo.fim_da_janela_baixada(dt_hoje)
+        if na_janela_baixada(dt_dia, dt_hoje=dt_hoje, dt_fim=dt_fim):
+            raise ErroNegocio(
+                f"O desafio de {data_br(dt_dia)} ja pode estar guardado nos "
+                f"aparelhos: o app baixa hoje e os {DIAS_DE_CACHE} proximos dias "
+                f"para jogar sem rede. Nao da para {ato} ele - quem o resolvesse "
+                "sem rede perderia o resultado, ou entraria no quadro de outro "
+                f"dia. A curadoria vale de {data_br(dt_fim + timedelta(days=1))} "
+                "em diante.",
+                "dia_ja_baixado",
+                status_http=400,
+            )
+
     async def descartar(
-        self, id_desafio: UUID, *, motivo: str, dt_hoje: Optional[date] = None
+        self, id_desafio: UUID, *, motivo: str, dt_hoje: date
     ) -> ResultadoDaAcao:
         """Descarta com motivo, e **tira do calendario** se estava agendado.
 
@@ -152,11 +193,14 @@ class ServicoCuradoria:
         curadoria: o dia vira buraco, e a proxima geracao o tapa primeiro.
 
         Args:
-            dt_hoje: o dia corrente em UTC. Quando vem, o descarte de um dia ja
-                jogado e recusado (ver o bloco abaixo).
+            dt_hoje: o dia corrente em UTC. Recusa o descarte de um dia ja jogado
+                e o de um dia que ja esta nos aparelhos (ver o bloco abaixo).
+                ⚠️ Obrigatorio desde 07/10/2026: opcional, um chamador que o
+                esquecesse passaria pelas duas guardas sem nada acusar.
 
         Raises:
-            ErroNegocio: motivo vazio (RF-DES-012c), ou dia ja jogado.
+            ErroNegocio: motivo vazio (RF-DES-012c), dia ja jogado, ou dia ja
+                baixado.
         """
         motivo = (motivo or "").strip()
         if not motivo:
@@ -168,11 +212,10 @@ class ServicoCuradoria:
             )
         motivo = motivo[:MAX_MOTIVO]
 
-        # ⛔ Dia ja jogado nao se descarta (ver `_exigir_dia_nao_jogado`). So
-        # quando `dt_hoje` vem: a rota sempre o passa; o parametro e opcional
-        # para os chamadores antigos, que nao abrem dia passado.
-        if dt_hoje is not None:
-            await self._exigir_dia_nao_jogado(id_desafio, dt_hoje, ato="descartar")
+        # ⛔ Dia ja jogado nao se descarta (ver `_exigir_dia_nao_jogado`), nem o
+        # que ja esta nos aparelhos (ver `_exigir_fora_da_janela_baixada`).
+        await self._exigir_dia_nao_jogado(id_desafio, dt_hoje, ato="descartar")
+        await self._exigir_fora_da_janela_baixada(id_desafio, dt_hoje, ato="descartar")
 
         # ⚠️ A ORDEM IMPORTA: desagendar primeiro deixaria uma janela em que o dia
         # esta livre e o desafio ainda aprovado. Descartar primeiro fecha a porta
@@ -206,7 +249,10 @@ class ServicoCuradoria:
                 relogio do processo inteiro.
 
         Raises:
-            ErroNegocio: dia no passado, longe demais, ou desafio nao aprovado.
+            ErroNegocio: dia no passado, longe demais, desafio nao aprovado, ou
+                desafio que ja esta nos aparelhos (a ORIGEM; o destino vazio
+                dentro da janela continua aceito - ver
+                `_exigir_fora_da_janela_baixada`).
 
         ⚠️ **Hoje e aceito.** Agendar para o proprio dia e exatamente o que a fila
         curta exige quando o dono chega tarde — recusar seria transformar um
@@ -247,6 +293,11 @@ class ServicoCuradoria:
 
         # ⛔ Trocar a data de um dia jogado moveria as tentativas junto.
         await self._exigir_dia_nao_jogado(id_desafio, dt_hoje, ato="trocar a data de")
+        # ⛔ E o que ja esta nos aparelhos nao muda de dia: o envio de quem jogou
+        # sem rede seria ACEITO, no quadro do dia novo.
+        await self._exigir_fora_da_janela_baixada(
+            id_desafio, dt_hoje, ato="trocar a data de"
+        )
 
         mudou = await self.repo.agendar(id_desafio, dt_dia=dt_dia)
         await self.repo.confirmar()
@@ -254,9 +305,7 @@ class ServicoCuradoria:
             mudou=mudou, mensagem=f"Desafio agendado para {data_br(dt_dia)}."
         )
 
-    async def desagendar(
-        self, id_desafio: UUID, *, dt_hoje: Optional[date] = None
-    ) -> ResultadoDaAcao:
+    async def desagendar(self, id_desafio: UUID, *, dt_hoje: date) -> ResultadoDaAcao:
         """Tira o desafio do calendario, mantendo a aprovacao.
 
         ⚠️ E o passo que **libera um dia ocupado**: sem ele, trocar dois desafios
@@ -264,12 +313,14 @@ class ServicoCuradoria:
         primeiro nao sai.
 
         Args:
-            dt_hoje: quando vem, um dia ja jogado e recusado.
+            dt_hoje: o dia corrente em UTC. Um dia ja jogado e recusado, e um dia
+                que ja esta nos aparelhos tambem. ⚠️ Obrigatorio desde 07/10/2026,
+                pelo mesmo motivo de `descartar`.
         """
-        if dt_hoje is not None:
-            await self._exigir_dia_nao_jogado(
-                id_desafio, dt_hoje, ato="tirar do calendario"
-            )
+        await self._exigir_dia_nao_jogado(id_desafio, dt_hoje, ato="tirar do calendario")
+        await self._exigir_fora_da_janela_baixada(
+            id_desafio, dt_hoje, ato="tirar do calendario"
+        )
         mudou = await self.repo.desagendar(id_desafio)
         await self.repo.confirmar()
         return ResultadoDaAcao(

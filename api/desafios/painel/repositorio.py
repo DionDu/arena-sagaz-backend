@@ -39,6 +39,7 @@ from api.desafios.modelos_evento import (
     VW_TENTATIVA,
     encerramento_do_dia,
 )
+from api.desafios.janela_baixada import ler_fim_da_janela_baixada
 from api.desafios.modelos_producao import VW_DESAFIO, VW_MEDICAO_REGUA
 
 #: A tabela do desafio. ⚠️ **So a escrita a usa** — toda leitura passa por
@@ -568,6 +569,15 @@ class RepositorioPainel:
         if linha is None:
             return None
         return linha["dt_dia"], int(linha["qt_tentativas"] or 0)
+
+    async def fim_da_janela_baixada(self, dt_hoje: date) -> date:
+        """O ultimo dia cujo desafio pode estar num aparelho (07/10/2026).
+
+        ⚠️ A regra mora em `api/desafios/janela_baixada.py`, que o job tambem usa:
+        o painel e a compactacao da fila tem de concordar sobre onde a trava
+        termina.
+        """
+        return await ler_fim_da_janela_baixada(self.sessao, dt_hoje)
 
     async def aprovar_candidatos(self) -> int:
         """Aprova todo candidato que restou. Devolve quantos mudaram."""
