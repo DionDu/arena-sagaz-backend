@@ -29,12 +29,18 @@ escolhida pelo proprio script. ⛔ O que NAO e substituido e o `usuario_autentic
 parte que a condicao (c) quer provar. O que se pula e a assinatura do token, que e
 do Firebase e nao deste servidor.
 
-⚠️ **Ele ESCREVE no `des`** — e nao tem como nao escrever: a condicao (c) exige que
-`POST /v1/desafios/{id}/resolucao` responda com dado vindo do banco, e essa rota
-grava. ⛔ **So no `des`**, nunca no `prd`: a URL usada e sempre `DATABASE_URL_DES`,
-lida do catalogo fora do Git, e o script **confere o nome do banco** antes de
-escrever. O que ele grava sai depois com
-`ferramentas/consultas_sql/desafio_limpar_dias_futuros_DES.sql`.
+⚠️ **Ele ESCREVE no `des`, e DESFAZ o que escreveu** (desde 07/10/2026). A
+condicao (c) exige que `POST /v1/desafios/{id}/resolucao` responda com dado vindo
+do banco, e essa rota grava. A escrita roda numa transacao do script, as rotas
+commitam em *savepoint* dentro dela, e o `ROLLBACK` do fim apaga tudo; o ultimo
+passo confere, por uma conexao nova, que a partida do script nao existe.
+⛔ **So no `des`**, nunca no `prd`: a URL usada e sempre `DATABASE_URL_DES`, lida
+do catalogo fora do Git, e o script **confere os schemas do banco** antes de
+escrever.
+
+⚠️ Ate 06/10/2026 a partida e a resolucao de mentira FICAVAM no `des` (placar
+1x0, nenhum lance). A auditoria do job seguinte as marcou como `divergente`, e o
+job saiu com codigo 1 - foi assim que o rastro foi descoberto.
 
 ⛔ **Nunca imprime a URL nem a senha.** Mesma regra de `consultar_des.py`.
 
@@ -45,9 +51,11 @@ COMO SE USA
     .venv\\Scripts\\python scripts\\conferir_portao_t050.py
     .venv\\Scripts\\python scripts\\conferir_portao_t050.py --sem-escrita
 
-`--sem-escrita` roda so as duas leituras e a condicao (d); serve para reconferir o
-portao sem deixar linha nova no `des`. ⚠️ Nesse modo a condicao (c) fica
-**incompleta**, e o relatorio diz isso — nao a da por boa.
+`--sem-escrita` roda so as duas leituras e a condicao (d), sem nem abrir a
+transacao de escrita. Desde que a escrita passou a ser desfeita ele nao e mais
+necessario para proteger o `des`; serve para quando nem uma transacao desfeita e
+bem-vinda. ⚠️ Nesse modo a condicao (c) fica **incompleta**, e o relatorio diz
+isso — nao a da por boa.
 
 Saida: um relatorio por condicao, e codigo de saida 0 so quando as quatro fecham.
 """
@@ -662,16 +670,14 @@ async def _condicao_c_escrita(
     partida que o aplicativo ja enviou (`co_evento_partida`), e o servidor
     **segura** a resolucao que chega antes dela. Mandar so a resolucao provaria o
     409, nao a rota.
+
+    ⚠️ **E nada do que ela grava fica no `des`**: tudo roda numa transacao
+    desfeita no fim (ver o comentario logo abaixo da escolha da conta).
     """
-    from fastapi import Depends
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession
 
     from api.nucleo.banco import obter_sessao
-    from api.nucleo.dependencias import exigir_cabecalhos
-    from api.nucleo.dependencias_conta_nuvem import (
-        usuario_autenticado,
-        usuario_opcional,
-    )
 
     condicao = "(c) as tres leituras servem dado real"
 
@@ -706,209 +712,313 @@ async def _condicao_c_escrita(
         )
         return
 
-    # ⚠️ So a verificacao do token e substituida. `usuario_autenticado` continua
-    # indo ao banco pelo `co_identidade_externa` — e e essa ida que se quer provar.
-    app.dependency_overrides[usuario_atual] = lambda: IdentidadeFirebase(
-        uid=conta["co_identidade_externa"]
-    )
-    try:
-        # ⚠️ O `co_evento` e UUID, e nao um texto livre: a coluna e `uuid` no
-        # banco. Um prefixo legivel ("portao-t050-...") parece inofensivo e
-        # cai como `falha_processamento` — ⚠️ com 200 na resposta, porque o
-        # lote nao pode ser derrubado por um evento. Foi assim que este
-        # script errou na primeira execucao, em 16/09/2026.
-        co_evento = str(uuid.uuid4())
+    # ⚠️ **TUDO o que esta condicao grava e DESFEITO no fim** (desde 07/10/2026).
+    #
+    # Ate essa data a partida e a resolucao de mentira FICAVAM no `des`. Em
+    # 06/10/2026 o assistente rodou o script num roteiro que o chamava de "so
+    # leitura", e no dia seguinte a auditoria do job achou a resolucao sem
+    # nenhum lance no log: `divergentes: 1`, e o job saiu com codigo 1. A
+    # auditoria estava certa. O defeito era o script deixar rastro.
+    #
+    # Agora a prova roda numa **transacao do script**, e o `rollback` do
+    # `finally` desfaz tudo de uma vez - o mesmo padrao do
+    # `conferir_merge_convidado_t079a.py`. As rotas continuam gravando de
+    # verdade, com o `commit` delas: so que esse `commit` fecha um *savepoint*
+    # dentro da transacao do script, e nao a transacao.
+    #
+    # ⚠️ **A prova de que a rota COMMITA continua valendo.** Com
+    # `join_transaction_mode="create_savepoint"`, a sessao que fecha SEM `commit`
+    # volta ao savepoint e perde o que gravou; entao, se a leitura de volta (o
+    # passo 3) acha a linha, foi porque a rota commitou.
+    co_evento: str | None = None
+    async with motor.connect() as conexao:
+        transacao = await conexao.begin()
 
-        # ── 1. A partida, pelo outbox de sempre ─────────────────────────────
-        #
-        # ⚠️ `co_modo='desafio'` e `ic_pontua=False`: a resolucao e uma partida, e
-        # o anti-farm do `pvp_local` e o mesmo daqui. ⛔ Nao existe log de lances
-        # proprio do desafio.
-        evento = {
-            "co_evento": co_evento,
-            "co_tipo": "partida",
-            "payload": {
-                "partida": {
-                    "id_partida": str(uuid.uuid4()),
-                    "co_jogo": dia["co_jogo"],
-                    "co_variante": "pequeno",
-                    "co_modo": "desafio",
-                    "nu_placar_j1": 1,
-                    "nu_placar_j2": 0,
-                    "ic_pontua": False,
-                    "co_status": "concluida",
-                    "dh_inicio": datetime.now(timezone.utc).isoformat(),
-                },
-                "jogadas": [],
-                "xp": [],
-            },
-        }
-        r = await cliente.post(
-            "/v1/sincronizacao/eventos", json={"eventos": [evento]}
-        )
-        aceita = r.status_code == 200 and co_evento in r.json().get("aceitos", [])
-        relatorio.anotar(
-            condicao,
-            aceita,
-            f"a partida do desafio subiu pelo outbox ({r.status_code})"
-            if aceita
-            else f"⛔ a partida nao subiu: {r.status_code} {r.text[:200]}",
-        )
-        if not aceita:
-            return
+        async def sessao_dentro_da_transacao():
+            """A sessao de cada requisicao, presa a transacao do script.
 
-        # ── 2. A resolucao ──────────────────────────────────────────────────
-        envio: dict[str, Any] = {
-            "id_desafio_dia": str(dia["id_desafio_dia"]),
-            "veredito": "resolvido",
-            "tentativas": 1,
-            "tempo_ms": 48210,
-            "dicas_usadas": 0,
-            "qualidade": 0.7325,
-            "pontuacao": 26,
-            "co_evento_partida": co_evento,
-            "nu_lance_cumpre_desafio": 1,
-            # ⛔ MEDIDAS, nunca XP. Quem converte medida em nota e a colecao.
-            "feitos": [
-                {"chave": "tempo_ate_resolver", "valor": 48210},
-                {"chave": "tentativas", "valor": 1},
-            ],
-            "versao_catalogo_feitos": 1,
-            "resolvido_em": datetime.now(timezone.utc).isoformat(),
-            "origem": {"tipo": "conta"},
-        }
-        r = await cliente.post(
-            f"/v1/desafios/{dia['id_desafio']}/resolucao", json=envio
-        )
-        ok = r.status_code == 200 and r.json().get("aceita") is True
-        relatorio.anotar(
-            condicao,
-            ok,
-            f"POST /v1/desafios/{{id}}/resolucao → {r.status_code}, "
-            f"aceita={r.json().get('aceita') if r.status_code == 200 else '—'}"
-            if r.status_code == 200
-            else f"⛔ POST /resolucao: {r.status_code} {r.text[:300]}",
-        )
-        if not ok:
-            return
-        id_resolucao = r.json().get("id_resolucao")
+            O `commit()` da rota vira "libera o savepoint", e o `rollback()` dela,
+            "volta ao savepoint" - a transacao de fora continua aberta, e so o
+            script a encerra.
+            """
+            async with AsyncSession(
+                bind=conexao,
+                join_transaction_mode="create_savepoint",
+                expire_on_commit=False,
+            ) as sessao:
+                yield sessao
 
-        # ── 3. A linha existe MESMO no banco ────────────────────────────────
-        #
-        # ⚠️ `aceita: true` significa "recebi e gravei". Aqui se confere a segunda
-        # metade: que gravou. Uma rota que responde 200 sem gravar passaria em
-        # tudo acima.
-        async with motor.connect() as conexao:
-            gravada = (
-                await conexao.execute(
-                    text(
-                        "SELECT id_resolucao FROM desafio_dia.vw003_resolucao "
-                        " WHERE id_resolucao = :id"
-                    ),
-                    {"id": id_resolucao},
-                )
-            ).scalar()
-        relatorio.anotar(
-            condicao,
-            gravada is not None,
-            "a resolucao esta no banco, lida de volta pela view"
-            if gravada is not None
-            else "⛔ a rota respondeu 200 e a linha nao esta no banco",
+        app.dependency_overrides[obter_sessao] = sessao_dentro_da_transacao
+        # ⚠️ So a verificacao do token e substituida. `usuario_autenticado`
+        # continua indo ao banco pelo `co_identidade_externa` - e e essa ida que
+        # se quer provar.
+        app.dependency_overrides[usuario_atual] = lambda: IdentidadeFirebase(
+            uid=conta["co_identidade_externa"]
         )
-
-        # ── 4. Reenviar o MESMO evento nao duplica ──────────────────────────
-        #
-        # ⚠️ O aplicativo nao espera a resposta: o outbox reenvia. Sem
-        # idempotencia, cada reenvio viraria uma linha nova no quadro.
-        r2 = await cliente.post(
-            f"/v1/desafios/{dia['id_desafio']}/resolucao", json=envio
-        )
-        repetiu = (
-            r2.status_code == 200
-            and r2.json().get("id_resolucao") == id_resolucao
-        )
-        relatorio.anotar(
-            condicao,
-            repetiu,
-            "o reenvio devolveu a MESMA resolucao, sem duplicar"
-            if repetiu
-            else f"⛔ o reenvio criou outra linha: {r2.status_code} {r2.text[:200]}",
-        )
-
-        # ── 5. E o quadro passou a ter gente ────────────────────────────────
-        #
-        # ⚠️ **Esta e a prova que fecha o circulo:** o POST gravou, e a leitura
-        # que a tela faz ja enxerga o que ele gravou. Sem ela, o portao provaria
-        # duas rotas que nao se falam.
-        r3 = await cliente.get(f"/v1/desafios/{dia['id_desafio']}/quadro")
-        corpo = r3.json() if r3.status_code == 200 else {}
-        # ⛔ A linha de jogador expoe `id` e `nome`, nunca `co_usuario` nem
-        # e-mail — o quadro e publico, e o codigo da conta nao e dado de tela.
-        meu = [
-            linha
-            for linha in corpo.get("linhas", [])
-            if linha.get("sujeito") == "jogador"
-            and str(linha.get("id")) == str(conta["id_usuario"])
-        ]
-        relatorio.anotar(
-            condicao,
-            bool(meu),
-            f"quem resolveu aparece no quadro do dia (xp={meu[0].get('xp')}, "
-            f"nome={meu[0].get('nome')!r})"
-            if meu
-            else "⚠️ quem resolveu nao aparece no quadro — confira "
-            "`ic_visivel_placar` e `ic_idade_minima_declarada` da conta",
-        )
-        # ⚠️ **A chamada acima foi como CONVIDADO**, e por isso `minha_linha` veio
-        # `null`: o `usuario_opcional` le o cabecalho `Authorization` por conta
-        # propria, sem passar pelo `usuario_atual` que este script substituiu.
-        # ⛔ Isso nao e limitacao do teste — e a resposta certa para quem nao diz
-        # quem e, e vale a pena estar provada.
-        sem_dono = corpo.get("minha_linha") is None
-        relatorio.anotar(
-            condicao,
-            sem_dono,
-            "como convidado, `minha_linha` vem `null` (o quadro publico e o mesmo)"
-            if sem_dono
-            else f"⛔ o convidado recebeu `minha_linha` = {corpo.get('minha_linha')}",
-        )
-
-        # ── 6. E com dono, a propria posicao aparece ────────────────────────
-        #
-        # ⛔ Quem se escondeu do quadro continua vendo a **propria** linha:
-        # `ic_publico` esconde a pessoa dos outros, nunca dela mesma.
-        #
-        # ⚠️ O override abaixo troca so o caminho do token, e mantem a ida ao
-        # banco: ele chama o `usuario_autenticado` de verdade, que resolve o dono
-        # pelo `co_identidade_externa`. Substituir por um objeto pronto pularia
-        # justamente a parte que esta condicao quer provar.
-        async def _dono_pelo_banco(
-            contexto=Depends(exigir_cabecalhos),
-            sessao=Depends(obter_sessao),
-        ):
-            return await usuario_autenticado(
-                identidade=IdentidadeFirebase(uid=conta["co_identidade_externa"]),
-                contexto=contexto,
-                sessao=sessao,
-            )
-
-        app.dependency_overrides[usuario_opcional] = _dono_pelo_banco
         try:
-            r4 = await cliente.get(f"/v1/desafios/{dia['id_desafio']}/quadro")
-            minha = r4.json().get("minha_linha") if r4.status_code == 200 else None
+            co_evento = await _escrever_e_ler_de_volta(
+                cliente, relatorio, conexao, conta, dia, app, IdentidadeFirebase
+            )
         finally:
-            app.dependency_overrides.pop(usuario_opcional, None)
+            app.dependency_overrides.pop(obter_sessao, None)
+            app.dependency_overrides.pop(usuario_atual, None)
+            await transacao.rollback()
 
-        relatorio.anotar(
-            condicao,
-            isinstance(minha, dict) and minha.get("xp") is not None,
-            f"com a conta identificada, `minha_linha` traz a propria posicao "
-            f"({minha})"
-            if isinstance(minha, dict)
-            else f"⛔ `minha_linha` veio {minha!r} depois de a pessoa resolver",
+    # ── 7. E nada ficou ─────────────────────────────────────────────────────
+    #
+    # ⚠️ Por uma CONEXAO NOVA: a de cima enxergaria a propria transacao, e a
+    # pergunta e o que o resto do mundo (o job, o painel, o app) ve.
+    if co_evento is None:
+        return
+    async with motor.connect() as outra:
+        sobrou = (
+            await outra.execute(
+                text(
+                    "SELECT count(*) FROM partida.tb001_partida "
+                    " WHERE co_evento = :co_evento"
+                ),
+                {"co_evento": co_evento},
+            )
+        ).scalar_one()
+    # A partida e a raiz: a tentativa aponta para ela, e a resolucao para a
+    # tentativa. Sem a partida, as outras duas nao podem existir (chave
+    # estrangeira) - contar a raiz basta.
+    relatorio.anotar(
+        condicao,
+        sobrou == 0,
+        "depois do ROLLBACK a partida e a resolucao do script nao existem "
+        "(0 linhas) - o `des` ficou como estava"
+        if sobrou == 0
+        else f"⛔ a partida do script continua no `des` ({sobrou} linha)",
+    )
+
+
+async def _escrever_e_ler_de_volta(
+    cliente, relatorio: Relatorio, conexao, conta, dia, app, IdentidadeFirebase
+) -> str:
+    """Os seis passos da escrita, dentro da transacao que o chamador desfaz.
+
+    Args:
+        conexao: a conexao com a transacao do script aberta. ⚠️ A leitura de
+            volta (passo 3) e feita POR ELA: uma conexao nova nao enxergaria
+            nada, porque nada e commitado de verdade.
+
+    Returns:
+        O `co_evento` da partida enviada, para o chamador conferir que ela
+        sumiu depois do `rollback`.
+    """
+    from fastapi import Depends
+    from sqlalchemy import text
+
+    from api.nucleo.banco import obter_sessao
+    from api.nucleo.dependencias import exigir_cabecalhos
+    from api.nucleo.dependencias_conta_nuvem import (
+        usuario_autenticado,
+        usuario_opcional,
+    )
+
+    condicao = "(c) as tres leituras servem dado real"
+
+    # ⚠️ O `co_evento` e UUID, e nao um texto livre: a coluna e `uuid` no
+    # banco. Um prefixo legivel ("portao-t050-...") parece inofensivo e
+    # cai como `falha_processamento` — ⚠️ com 200 na resposta, porque o
+    # lote nao pode ser derrubado por um evento. Foi assim que este
+    # script errou na primeira execucao, em 16/09/2026.
+    co_evento = str(uuid.uuid4())
+
+    # ── 1. A partida, pelo outbox de sempre ─────────────────────────────
+    #
+    # ⚠️ `co_modo='desafio'` e `ic_pontua=False`: a resolucao e uma partida, e
+    # o anti-farm do `pvp_local` e o mesmo daqui. ⛔ Nao existe log de lances
+    # proprio do desafio.
+    evento = {
+        "co_evento": co_evento,
+        "co_tipo": "partida",
+        "payload": {
+            "partida": {
+                "id_partida": str(uuid.uuid4()),
+                "co_jogo": dia["co_jogo"],
+                "co_variante": "pequeno",
+                "co_modo": "desafio",
+                "nu_placar_j1": 1,
+                "nu_placar_j2": 0,
+                "ic_pontua": False,
+                "co_status": "concluida",
+                "dh_inicio": datetime.now(timezone.utc).isoformat(),
+            },
+            "jogadas": [],
+            "xp": [],
+        },
+    }
+    r = await cliente.post(
+        "/v1/sincronizacao/eventos", json={"eventos": [evento]}
+    )
+    aceita = r.status_code == 200 and co_evento in r.json().get("aceitos", [])
+    relatorio.anotar(
+        condicao,
+        aceita,
+        f"a partida do desafio subiu pelo outbox ({r.status_code})"
+        if aceita
+        else f"⛔ a partida nao subiu: {r.status_code} {r.text[:200]}",
+    )
+    if not aceita:
+        return co_evento
+
+    # ── 2. A resolucao ──────────────────────────────────────────────────
+    envio: dict[str, Any] = {
+        "id_desafio_dia": str(dia["id_desafio_dia"]),
+        "veredito": "resolvido",
+        "tentativas": 1,
+        "tempo_ms": 48210,
+        "dicas_usadas": 0,
+        "qualidade": 0.7325,
+        "pontuacao": 26,
+        "co_evento_partida": co_evento,
+        "nu_lance_cumpre_desafio": 1,
+        # ⛔ MEDIDAS, nunca XP. Quem converte medida em nota e a colecao.
+        "feitos": [
+            {"chave": "tempo_ate_resolver", "valor": 48210},
+            {"chave": "tentativas", "valor": 1},
+        ],
+        "versao_catalogo_feitos": 1,
+        "resolvido_em": datetime.now(timezone.utc).isoformat(),
+        "origem": {"tipo": "conta"},
+    }
+    r = await cliente.post(
+        f"/v1/desafios/{dia['id_desafio']}/resolucao", json=envio
+    )
+    ok = r.status_code == 200 and r.json().get("aceita") is True
+    relatorio.anotar(
+        condicao,
+        ok,
+        f"POST /v1/desafios/{{id}}/resolucao → {r.status_code}, "
+        f"aceita={r.json().get('aceita') if r.status_code == 200 else '—'}"
+        if r.status_code == 200
+        else f"⛔ POST /resolucao: {r.status_code} {r.text[:300]}",
+    )
+    if not ok:
+        return co_evento
+    id_resolucao = r.json().get("id_resolucao")
+
+    # ── 3. A linha existe MESMO no banco ────────────────────────────────
+    #
+    # ⚠️ `aceita: true` significa "recebi e gravei". Aqui se confere a segunda
+    # metade: que gravou. Uma rota que responde 200 sem gravar passaria em
+    # tudo acima.
+    #
+    # ⚠️ Lida pela `conexao` da transacao do script, e nao por uma nova: nada e
+    # commitado de verdade, entao so ela enxerga a linha. E a linha so esta la
+    # se a rota deu `commit` - sem ele, a sessao da rota voltaria ao savepoint
+    # ao fechar e levaria a linha junto.
+    gravada = (
+        await conexao.execute(
+            text(
+                "SELECT id_resolucao FROM desafio_dia.vw003_resolucao "
+                " WHERE id_resolucao = :id"
+            ),
+            {"id": id_resolucao},
         )
+    ).scalar()
+    relatorio.anotar(
+        condicao,
+        gravada is not None,
+        "a resolucao esta no banco, lida de volta pela view"
+        if gravada is not None
+        else "⛔ a rota respondeu 200 e a linha nao esta no banco",
+    )
+
+    # ── 4. Reenviar o MESMO evento nao duplica ──────────────────────────
+    #
+    # ⚠️ O aplicativo nao espera a resposta: o outbox reenvia. Sem
+    # idempotencia, cada reenvio viraria uma linha nova no quadro.
+    r2 = await cliente.post(
+        f"/v1/desafios/{dia['id_desafio']}/resolucao", json=envio
+    )
+    repetiu = (
+        r2.status_code == 200
+        and r2.json().get("id_resolucao") == id_resolucao
+    )
+    relatorio.anotar(
+        condicao,
+        repetiu,
+        "o reenvio devolveu a MESMA resolucao, sem duplicar"
+        if repetiu
+        else f"⛔ o reenvio criou outra linha: {r2.status_code} {r2.text[:200]}",
+    )
+
+    # ── 5. E o quadro passou a ter gente ────────────────────────────────
+    #
+    # ⚠️ **Esta e a prova que fecha o circulo:** o POST gravou, e a leitura
+    # que a tela faz ja enxerga o que ele gravou. Sem ela, o portao provaria
+    # duas rotas que nao se falam.
+    r3 = await cliente.get(f"/v1/desafios/{dia['id_desafio']}/quadro")
+    corpo = r3.json() if r3.status_code == 200 else {}
+    # ⛔ A linha de jogador expoe `id` e `nome`, nunca `co_usuario` nem
+    # e-mail — o quadro e publico, e o codigo da conta nao e dado de tela.
+    meu = [
+        linha
+        for linha in corpo.get("linhas", [])
+        if linha.get("sujeito") == "jogador"
+        and str(linha.get("id")) == str(conta["id_usuario"])
+    ]
+    relatorio.anotar(
+        condicao,
+        bool(meu),
+        f"quem resolveu aparece no quadro do dia (xp={meu[0].get('xp')}, "
+        f"nome={meu[0].get('nome')!r})"
+        if meu
+        else "⚠️ quem resolveu nao aparece no quadro — confira "
+        "`ic_visivel_placar` e `ic_idade_minima_declarada` da conta",
+    )
+    # ⚠️ **A chamada acima foi como CONVIDADO**, e por isso `minha_linha` veio
+    # `null`: o `usuario_opcional` le o cabecalho `Authorization` por conta
+    # propria, sem passar pelo `usuario_atual` que este script substituiu.
+    # ⛔ Isso nao e limitacao do teste — e a resposta certa para quem nao diz
+    # quem e, e vale a pena estar provada.
+    sem_dono = corpo.get("minha_linha") is None
+    relatorio.anotar(
+        condicao,
+        sem_dono,
+        "como convidado, `minha_linha` vem `null` (o quadro publico e o mesmo)"
+        if sem_dono
+        else f"⛔ o convidado recebeu `minha_linha` = {corpo.get('minha_linha')}",
+    )
+
+    # ── 6. E com dono, a propria posicao aparece ────────────────────────
+    #
+    # ⛔ Quem se escondeu do quadro continua vendo a **propria** linha:
+    # `ic_publico` esconde a pessoa dos outros, nunca dela mesma.
+    #
+    # ⚠️ O override abaixo troca so o caminho do token, e mantem a ida ao
+    # banco: ele chama o `usuario_autenticado` de verdade, que resolve o dono
+    # pelo `co_identidade_externa`. Substituir por um objeto pronto pularia
+    # justamente a parte que esta condicao quer provar.
+    async def _dono_pelo_banco(
+        contexto=Depends(exigir_cabecalhos),
+        sessao=Depends(obter_sessao),
+    ):
+        return await usuario_autenticado(
+            identidade=IdentidadeFirebase(uid=conta["co_identidade_externa"]),
+            contexto=contexto,
+            sessao=sessao,
+        )
+
+    app.dependency_overrides[usuario_opcional] = _dono_pelo_banco
+    try:
+        r4 = await cliente.get(f"/v1/desafios/{dia['id_desafio']}/quadro")
+        minha = r4.json().get("minha_linha") if r4.status_code == 200 else None
     finally:
-        app.dependency_overrides.pop(usuario_atual, None)
+        app.dependency_overrides.pop(usuario_opcional, None)
+
+    relatorio.anotar(
+        condicao,
+        isinstance(minha, dict) and minha.get("xp") is not None,
+        f"com a conta identificada, `minha_linha` traz a propria posicao "
+        f"({minha})"
+        if isinstance(minha, dict)
+        else f"⛔ `minha_linha` veio {minha!r} depois de a pessoa resolver",
+    )
+    return co_evento
 
 
 def main() -> int:
