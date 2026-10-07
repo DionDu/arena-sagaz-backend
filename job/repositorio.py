@@ -61,6 +61,7 @@ from uuid import UUID
 
 from sqlalchemy import text
 
+from api.desafios.janela_baixada import ler_fim_da_janela_baixada
 from api.desafios.modelos_evento import VW_DESAFIO_DIA, encerramento_do_dia
 from api.desafios.modelos_producao import (
     VW_CATALOGO_FEITO,
@@ -295,12 +296,17 @@ SELECT dia.dt_dia,
 #: ⚠️ **`WHERE dt_dia > :dt_hoje` e a rede do banco**, e nao confia na do Python:
 #: dia que ja foi ao ar nao se reescreve, e a regra vale mesmo que alguem chame
 #: esta consulta de outro lugar amanha.
+#:
+#: ⛔ **E `dt_dia > :dt_fim_janela_baixada` e a mesma rede para o que ja esta nos
+#: aparelhos** (07/10/2026, `api/desafios/janela_baixada.py`): um desafio guardado
+#: para jogar sem rede nao muda de dia.
 SQL_MOVER_O_DIA = """
 UPDATE desafio_dia.tb001_desafio_dia
    SET dt_dia          = :dt_para,
        dh_encerramento = :dh_encerramento
  WHERE id_desafio_dia  = :id_desafio_dia
    AND dt_dia          > :dt_hoje
+   AND dt_dia          > :dt_fim_janela_baixada
 RETURNING id_desafio_dia
 """
 
@@ -502,6 +508,14 @@ class RepositorioDoJob:
         )
         return [linha["dt_dia"] for linha in resultado.mappings().all()]
 
+    async def fim_da_janela_baixada(self, dt_hoje: date) -> date:
+        """O ultimo dia cujo desafio pode estar num aparelho (07/10/2026).
+
+        ⚠️ A mesma regra do painel (`api/desafios/janela_baixada.py`): os dois
+        lados que mexem na fila tem de concordar sobre onde a trava termina.
+        """
+        return await ler_fim_da_janela_baixada(self.sessao, dt_hoje)
+
     async def fila_com_curadoria(
         self, *, dt_inicio: date, dt_fim: date
     ) -> list["compactar_mod.LinhaDaFila"]:
@@ -553,7 +567,12 @@ class RepositorioDoJob:
         )
 
     async def mover_o_dia(
-        self, *, id_desafio_dia: Any, dt_para: date, dt_hoje: date
+        self,
+        *,
+        id_desafio_dia: Any,
+        dt_para: date,
+        dt_hoje: date,
+        dt_fim_janela_baixada: date,
     ) -> bool:
         """Move um desafio aprovado para outra data. Devolve se moveu.
 
@@ -583,6 +602,7 @@ class RepositorioDoJob:
                 "dt_para": dt_para,
                 "dh_encerramento": encerramento_do_dia(dt_para),
                 "dt_hoje": dt_hoje,
+                "dt_fim_janela_baixada": dt_fim_janela_baixada,
             },
         )
         moveu = resultado.first() is not None

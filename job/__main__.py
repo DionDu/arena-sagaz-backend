@@ -797,7 +797,16 @@ async def _compactar_a_fila(
     if not dias:
         return
     fila = await repositorio.fila_com_curadoria(dt_inicio=dias[0], dt_fim=dias[-1])
-    mudancas = compactar_mod.remanejar(fila, dias_do_plano=dias, dt_hoje=dt_hoje)
+    # ⛔ O que ja esta nos aparelhos nao desce de data (07/10/2026): ver
+    # `api/desafios/janela_baixada.py`. A janela e lida UMA vez, antes de mover:
+    # os movimentos so tiram de depois dela, entao nao a mudam.
+    dt_fim_janela = await repositorio.fim_da_janela_baixada(dt_hoje)
+    mudancas = compactar_mod.remanejar(
+        fila,
+        dias_do_plano=dias,
+        dt_hoje=dt_hoje,
+        dt_fim_janela_baixada=dt_fim_janela,
+    )
     if not mudancas:
         return
 
@@ -806,6 +815,7 @@ async def _compactar_a_fila(
             id_desafio_dia=mudanca.id_desafio_dia,
             dt_para=mudanca.dt_para,
             dt_hoje=dt_hoje,
+            dt_fim_janela_baixada=dt_fim_janela,
         )
         if moveu:
             relatorio.remanejados.append(str(mudanca))

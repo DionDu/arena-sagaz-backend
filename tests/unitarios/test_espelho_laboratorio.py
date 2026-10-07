@@ -110,10 +110,19 @@ def test_nenhum_arquivo_do_espelho_ficou_de_fora_do_manifesto():
     declarados = {d["caminho"] for d in _DECLARADOS}
     declarados.add("MANIFESTO_HASHES.json")  # ele não declara a si mesmo
 
+    # Ficam de fora os arquivos que uma FERRAMENTA gera na pasta, e que nem o
+    # `.gitignore` nem o `.dockerignore` deixam sair da máquina: o `__pycache__`
+    # do Python e, nos motores Dart, o `.dart_tool/` e o `pubspec.lock` que o
+    # analisador do editor cria sozinho ao abrir a pasta (`pub get`). Sem isso o
+    # teste falhava na máquina de quem só abriu o motor no editor, sem nada ter
+    # nascido dentro do espelho.
     no_disco = {
         p.relative_to(ESPELHO).as_posix()
         for p in ESPELHO.rglob("*")
-        if p.is_file() and "__pycache__" not in p.parts
+        if p.is_file()
+        and "__pycache__" not in p.parts
+        and ".dart_tool" not in p.parts
+        and p.name != "pubspec.lock"
     }
 
     sobrando = sorted(no_disco - declarados)

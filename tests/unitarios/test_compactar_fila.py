@@ -27,6 +27,13 @@ from job.vizinhanca import conflita
 
 HOJE = date(2026, 9, 16)
 
+#: Uma janela baixada que termina HOJE: nenhum dia futuro travado.
+#:
+#: ⚠️ Os casos deste arquivo medem as regras de antes de 07/10/2026 (buraco,
+#: doador, vizinhanca) e precisam de doadores em D+2 e D+3. A janela de verdade
+#: tem caso proprio, no fim do arquivo.
+SEM_JANELA = HOJE
+
 
 def _dia(quantos: int) -> date:
     """`_dia(1)` é amanhã."""
@@ -100,7 +107,7 @@ def test_o_aprovado_DISTANTE_desce_para_o_buraco_de_amanha() -> None:
         _linha(2, "pontinhos_paciencia"),
         _linha(5, "damas_sacrificio"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
 
     assert len(mudancas) == 1
     assert mudancas[0].dt_de == _dia(5)
@@ -116,7 +123,7 @@ def test_o_doador_e_o_MAIS_DISTANTE_e_nao_o_mais_proximo() -> None:
     buraco andaria um dia e continuaria urgente.
     """
     fila = [_linha(2, "damas_coroar"), _linha(6, "pontinhos_paciencia")]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
 
     assert mudancas[0].dt_de == _dia(6), "puxou o vizinho em vez do mais distante"
 
@@ -138,7 +145,7 @@ def test_NAO_poe_o_mesmo_tipo_ao_lado_do_mesmo_tipo() -> None:
         _linha(4, "pontinhos_paciencia"),
         _linha(6, "damas_coroar"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
 
     # O buraco de amanha recebe o UNICO doador que nao repete os vizinhos.
     para_amanha = [m for m in mudancas if m.dt_para == _dia(1)]
@@ -166,7 +173,7 @@ def test_a_vizinhanca_e_RECALCULADA_a_cada_movimento() -> None:
         _linha(5, "pontinhos_cadeia_longa"),
         _linha(6, "damas_coroar"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
 
     destinos = {m.dt_para: m.co_tipo_desafio for m in mudancas}
     if _dia(1) in destinos and _dia(2) in destinos:
@@ -183,7 +190,7 @@ def test_a_vizinhanca_e_RECALCULADA_a_cada_movimento() -> None:
 def test_o_CANDIDATO_nao_desce() -> None:
     """🔒 ⛔ Ele pode ser reprovado amanhã; adiantá-lo só adianta o problema."""
     fila = [_linha(0, "damas_coroar"), _linha(5, "damas_sacrificio", "candidato")]
-    assert remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE) == []
+    assert remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA) == []
 
 
 def test_o_dia_com_CANDIDATO_nao_e_buraco() -> None:
@@ -194,7 +201,7 @@ def test_o_dia_com_CANDIDATO_nao_e_buraco() -> None:
         _linha(1, "pontinhos_paciencia", "candidato"),
         _linha(5, "damas_sacrificio"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
     assert all(m.dt_para != _dia(1) for m in mudancas)
 
 
@@ -205,7 +212,7 @@ def test_o_DESCARTADO_deixa_o_dia_vago() -> None:
         _linha(1, "damas_sobreviver", "descartado"),
         _linha(5, "damas_sacrificio"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
     assert mudancas[0].dt_para == _dia(1)
 
 
@@ -216,7 +223,7 @@ def test_NUNCA_move_para_a_frente() -> None:
     conteúdo aprovado sem ninguém pedir - e ainda abriria um buraco em D+1.
     """
     fila = [_linha(n, f"tipo_{n}") for n in range(5)]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
     assert mudancas == []
 
 
@@ -232,7 +239,7 @@ def test_NAO_toca_no_passado() -> None:
         ),
         _linha(5, "pontinhos_paciencia"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
     assert all(m.id_desafio_dia != "antigo" for m in mudancas)
 
 
@@ -244,12 +251,12 @@ def test_NAO_toca_no_passado() -> None:
 def test_fila_CHEIA_nao_mexe_em_nada() -> None:
     """🔒 Sem buraco, nenhuma escrita - o caso comum, e o mais barato."""
     fila = [_linha(n, f"tipo_{n}") for n in range(7)]
-    assert remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE) == []
+    assert remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA) == []
 
 
 def test_fila_VAZIA_nao_inventa_movimento() -> None:
     """🔒 Sem doador não há o que mover: quem cobre é a geração."""
-    assert remanejar([], dias_do_plano=_plano(), dt_hoje=HOJE) == []
+    assert remanejar([], dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA) == []
 
 
 def test_o_resumo_do_log_nomeia_o_que_MUDOU() -> None:
@@ -259,7 +266,7 @@ def test_o_resumo_do_log_nomeia_o_que_MUDOU() -> None:
     duas datas, o dono confere a fila no painel sem abrir o banco.
     """
     fila = [_linha(0, "damas_coroar"), _linha(5, "pontinhos_paciencia")]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
     texto = resumo(mudancas)
     assert "pontinhos_paciencia" in texto
     assert str(_dia(5)) in texto and str(_dia(1)) in texto
@@ -284,7 +291,7 @@ def test_NAO_poe_o_mesmo_JOGO_em_dias_consecutivos() -> None:
         _linha(4, "pontinhos_paciencia", co_jogo="pontinhos"),
         _linha(6, "damas_sobreviver", co_jogo="damas"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
 
     para_amanha = [m for m in mudancas if m.dt_para == _dia(1)]
     assert [m.dt_de for m in para_amanha] == [_dia(4)]
@@ -299,7 +306,7 @@ def test_NAO_poe_o_mesmo_PERSONAGEM_em_dias_consecutivos() -> None:
         _linha(4, "damas_coroar", co_jogo="damas", co_personagem="cacau"),
         _linha(6, "damas_sacrificio", co_jogo="damas", co_personagem="tex"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
 
     para_amanha = [m for m in mudancas if m.dt_para == _dia(1)]
     # O de D+6 e o mais distante, mas e o Tex - o mesmo de hoje.
@@ -315,7 +322,7 @@ def test_NAO_poe_a_mesma_MODALIDADE_em_dias_consecutivos() -> None:
         _linha(4, "damas_sobreviver", co_modalidade="portuguesa"),
         _linha(6, "damas_capturar_multipla", co_modalidade="anglo"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
 
     para_amanha = [m for m in mudancas if m.dt_para == _dia(1)]
     assert [m.dt_de for m in para_amanha] == [_dia(4)]
@@ -330,7 +337,7 @@ def test_sem_doador_compativel_o_buraco_fica_para_a_GERACAO() -> None:
         _linha(2, "damas_sacrificio", co_jogo="damas"),
         _linha(5, "damas_sobreviver", co_jogo="damas"),
     ]
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
     assert all(m.dt_para != _dia(1) for m in mudancas)
 
 
@@ -343,5 +350,5 @@ def test_o_doador_nao_conflita_CONSIGO_MESMO() -> None:
     fila = [_linha(n, f"tipo_{n}", co_jogo=("a" if n % 2 else "b")) for n in range(5)]
     # D+4 e do jogo "b", entao o doador e do "a" - so o proprio lugar o barraria.
     fila.append(_linha(6, "tipo_6", co_jogo="a"))
-    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE)
+    mudancas = remanejar(fila, dias_do_plano=_plano(), dt_hoje=HOJE, dt_fim_janela_baixada=SEM_JANELA)
     assert [(m.dt_de, m.dt_para) for m in mudancas] == [(_dia(6), _dia(5))]

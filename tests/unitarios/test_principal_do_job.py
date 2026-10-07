@@ -1373,7 +1373,38 @@ async def test_o_job_MOVE_o_aprovado_distante_para_o_buraco() -> None:
     assert len(movimentos) == 1, "o job não moveu o desafio aprovado"
     assert movimentos[0]["id_desafio_dia"] == "longe"
     assert movimentos[0]["dt_para"] == hoje + timedelta(days=1)
+    # ⛔ A rede do banco recebe a janela baixada (07/10/2026). Sem desafio a frente
+    # na consulta de mentira, ela e a conta simples: hoje + 3.
+    assert movimentos[0]["dt_fim_janela_baixada"] == hoje + timedelta(days=3)
     assert relatorio.remanejados, "o remanejamento não entrou no relatório"
+
+
+@pytest.mark.asyncio
+async def test_o_job_NAO_tira_da_janela_baixada() -> None:
+    """🔒 ⛔ Amanhã vazio, D+3 aprovado: o D+3 já pode estar num aparelho, e não
+    desce (07/10/2026, `api/desafios/janela_baixada.py`). O buraco fica para a
+    geração, que põe ali um desafio que ninguém tem guardado."""
+    hoje = date(2026, 9, 20)
+    sessao = _sessao_com_fila(
+        [
+            {
+                "dt_dia": hoje,
+                "id_desafio_dia": "hoje",
+                "co_tipo_desafio": "pontinhos_paciencia",
+                "co_curadoria": "aprovado",
+            },
+            {
+                "dt_dia": hoje + timedelta(days=3),
+                "id_desafio_dia": "baixado",
+                "co_tipo_desafio": "damas_sacrificio",
+                "co_curadoria": "aprovado",
+            },
+        ]
+    )
+    relatorio = await _rodar(sessao, dt_hoje=hoje)
+
+    assert not sessao.sql_executado(TRECHO_DO_MOVIMENTO)
+    assert relatorio.remanejados == []
 
 
 @pytest.mark.asyncio

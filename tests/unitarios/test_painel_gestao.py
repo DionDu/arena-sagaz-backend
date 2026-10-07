@@ -58,6 +58,10 @@ from job.gravacao import DIAS_MAXIMOS
 from tests.unitarios.fakes_desafio import FakeSessaoSQL
 
 HOJE = date(2026, 10, 2)
+
+#: O fim da janela baixada sem buraco na fila: hoje + 3 (`DIAS_DE_CACHE`).
+#: ⚠️ Os dias ate ele nao oferecem descartar nem mover (07/10/2026).
+FIM_DA_JANELA = HOJE + timedelta(days=3)
 SEGREDO = "segredo-de-teste-da-gestao"
 
 
@@ -202,6 +206,7 @@ def test_cada_dia_e_um_LINK_que_abre_o_dia() -> None:
     """🔒 O clique funciona sem JavaScript: o dia e um link com a data ISO."""
     html = pagina.render(
         dt_hoje=HOJE,
+        dt_fim_janela_baixada=FIM_DA_JANELA,
         detalhe=pagina.DetalheDoDia(dt_dia=HOJE, desafio=None),
         calendario=[_dia_no_calendario(HOJE, qt_pessoas=3, qt_resolveram=2)],
         estado_da_fila=EstadoDaFila(1, 0, ()),
@@ -402,7 +407,12 @@ def _detalhe_jogado() -> pagina.DetalheDoDia:
 
 def test_o_dia_jogado_mostra_ENGAJAMENTO_com_o_denominador() -> None:
     """🔒 ⚠️ Taxa sem denominador nao e relatorio: 3 de 12, 2 de 3."""
-    html = pagina.render_detalhe(_detalhe_jogado(), dt_hoje=HOJE, dt_sugerida=HOJE)
+    html = pagina.render_detalhe(
+        _detalhe_jogado(),
+        dt_hoje=HOJE,
+        dt_sugerida=HOJE,
+        dt_fim_janela_baixada=FIM_DA_JANELA,
+    )
     assert "Como foi o dia" in html
     assert "25% de 12 que jogaram algo no dia" in html
     assert "2 de 3" in html
@@ -413,7 +423,12 @@ def test_o_dia_jogado_mostra_ENGAJAMENTO_com_o_denominador() -> None:
 
 def test_o_quadro_tem_TODO_mundo_e_marca_quem_esta_oculto_no_app() -> None:
     """🔒 O painel ve todos; o app nao. A marca evita confundir os dois."""
-    html = pagina.render_detalhe(_detalhe_jogado(), dt_hoje=HOJE, dt_sugerida=HOJE)
+    html = pagina.render_detalhe(
+        _detalhe_jogado(),
+        dt_hoje=HOJE,
+        dt_sugerida=HOJE,
+        dt_fim_janela_baixada=FIM_DA_JANELA,
+    )
     assert "Ana" in html and "Bia" in html
     assert html.count("oculto no app") == 1
     assert "Tentaram e nao resolveram" in html and "Caio" in html
@@ -423,22 +438,32 @@ def test_o_quadro_tem_TODO_mundo_e_marca_quem_esta_oculto_no_app() -> None:
 
 def test_dia_JOGADO_nao_oferece_descartar_nem_mover() -> None:
     """🔒 ⛔ Espelho de `_exigir_dia_nao_jogado`: hoje com tentativa conta."""
-    html = pagina.render_detalhe(_detalhe_jogado(), dt_hoje=HOJE, dt_sugerida=HOJE)
+    html = pagina.render_detalhe(
+        _detalhe_jogado(),
+        dt_hoje=HOJE,
+        dt_sugerida=HOJE,
+        dt_fim_janela_baixada=FIM_DA_JANELA,
+    )
     assert f"{pagina.BASE}/descartar" not in html
     assert f"{pagina.BASE}/agendar" not in html
     assert "Dia ja jogado nao se descarta" in html
 
 
 def test_dia_AGENDADO_oferece_descartar_e_volta_para_o_mesmo_dia() -> None:
-    """🔒 A acao leva o dia junto, para a pagina voltar a ele (`voltar`)."""
-    amanha = HOJE + timedelta(days=1)
+    """🔒 A acao leva o dia junto, para a pagina voltar a ele (`voltar`).
+
+    ⚠️ O dia e o PRIMEIRO depois da janela baixada (07/10/2026): ate ali o painel
+    nao oferece descartar - ver `test_janela_baixada.py`.
+    """
+    livre = FIM_DA_JANELA + timedelta(days=1)
     html = pagina.render_detalhe(
-        pagina.DetalheDoDia(dt_dia=amanha, desafio=_desafio(amanha)),
+        pagina.DetalheDoDia(dt_dia=livre, desafio=_desafio(livre)),
         dt_hoje=HOJE,
         dt_sugerida=HOJE,
+        dt_fim_janela_baixada=FIM_DA_JANELA,
     )
     assert f"{pagina.BASE}/descartar" in html
-    assert 'name="voltar" value="2026-10-03"' in html
+    assert 'name="voltar" value="2026-10-06"' in html
 
 
 def test_dia_VAZIO_oferece_a_reserva_para_agendar_ali() -> None:
@@ -459,6 +484,7 @@ def test_dia_VAZIO_oferece_a_reserva_para_agendar_ali() -> None:
         pagina.DetalheDoDia(dt_dia=HOJE, desafio=None, reserva=(reserva,)),
         dt_hoje=HOJE,
         dt_sugerida=HOJE,
+        dt_fim_janela_baixada=FIM_DA_JANELA,
     )
     assert "Dia vazio" in html
     assert "Agendar em 02/10" in html
@@ -487,6 +513,10 @@ class RepoDaGuarda:
 
     async def situacao_no_calendario(self, id_desafio: UUID):
         return None if self.dt_dia is None else (self.dt_dia, self.qt_tentativas)
+
+    async def fim_da_janela_baixada(self, dt_hoje: date) -> date:
+        """A janela sem buraco na fila: hoje + 3."""
+        return dt_hoje + timedelta(days=3)
 
     async def fila(self, *, estados=(), limite=60):
         return [self.alvo]
@@ -537,8 +567,12 @@ async def test_dia_JOGADO_recusa_as_tres_acoes(dt_dia: date, qt_tentativas: int)
 
 @pytest.mark.asyncio
 async def test_dia_AGENDADO_sem_tentativa_descarta_normalmente() -> None:
-    """🔒 A guarda nao pode travar o ato de curadoria do dia a dia."""
-    repo = RepoDaGuarda(HOJE + timedelta(days=2))
+    """🔒 A guarda nao pode travar o ato de curadoria do dia a dia.
+
+    ⚠️ O dia e o primeiro DEPOIS da janela baixada (07/10/2026): D+2 era o caso
+    ate ali, e hoje e recusado - ver `test_janela_baixada.py`.
+    """
+    repo = RepoDaGuarda(FIM_DA_JANELA + timedelta(days=1))
     servico = ServicoCuradoria(repo)  # type: ignore[arg-type]
     resultado = await servico.descartar(repo.alvo.id_desafio, motivo="facil", dt_hoje=HOJE)
     assert resultado.mudou
@@ -763,6 +797,7 @@ def test_o_CARTAO_do_dia_desenha_a_posicao_e_a_fita_com_a_variante() -> None:
         pagina.DetalheDoDia(dt_dia=HOJE, desafio=item),
         dt_hoje=HOJE,
         dt_sugerida=HOJE + timedelta(days=1),
+        dt_fim_janela_baixada=FIM_DA_JANELA,
     )
     # Tres desenhos: a miniatura, o quadro "inicio" e o do lance 1.
     assert html.count("<svg") == 3

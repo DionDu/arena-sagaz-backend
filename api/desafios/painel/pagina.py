@@ -67,6 +67,7 @@ from datetime import date, timedelta
 from html import escape
 from typing import Any, Iterable, Optional, Sequence
 
+from api.desafios.janela_baixada import na_janela_baixada
 from api.desafios.painel import desenho, execucao_do_job, frase_objetivo
 from api.desafios.painel.datas import (
     INICIAIS_DA_SEMANA,
@@ -639,7 +640,12 @@ def _fita_da_solucao(item: DesafioNoPainel) -> str:
 
 
 def _acoes(
-    item: DesafioNoPainel, *, dt_hoje: date, dt_sugerida: date, qt_tentativas: int = 0
+    item: DesafioNoPainel,
+    *,
+    dt_hoje: date,
+    dt_sugerida: date,
+    dt_fim_janela_baixada: date,
+    qt_tentativas: int = 0,
 ) -> str:
     """Os formularios de acao do desafio aberto.
 
@@ -664,6 +670,31 @@ def _acoes(
             '<p class="nota">Dia ja jogado nao se descarta nem se move: ele e a '
             "historia de quem jogou.</p>"
         )
+
+    # ⛔ O que ja esta nos aparelhos nao sai do dia dele (07/10/2026): espelho de
+    # `servico._exigir_fora_da_janela_baixada`, que e quem recusa de fato.
+    baixado = item.dt_dia is not None and na_janela_baixada(
+        item.dt_dia, dt_hoje=dt_hoje, dt_fim=dt_fim_janela_baixada
+    )
+    if baixado:
+        nota_baixado = (
+            '<p class="nota">&#128274; Este dia ja pode estar guardado nos aparelhos '
+            "(o app baixa hoje e os proximos dias para jogar sem rede): nao se "
+            "descarta, nao se move e nao sai do calendario. A curadoria vale de "
+            f"{_txt(data_br(dt_fim_janela_baixada + timedelta(days=1)))} em diante.</p>"
+        )
+        # ⚠️ Aprovar um CANDIDATO continua possivel: o `/proximos` nao o entrega,
+        # entao ele nao esta em aparelho nenhum, e aprova-lo so evita um dia em
+        # branco. (Desde 02/10/2026 nada nasce candidato; e o caso raro.)
+        if item.co_curadoria == "candidato":
+            return (
+                '<div class="caixa-acoes">'
+                f'<form class="acoes" method="post" action="{BASE}/aprovar">{oculto}'
+                '<button class="principal" type="submit">Aprovar</button></form>'
+                + nota_baixado
+                + "</div>"
+            )
+        return nota_baixado
 
     partes: list[str] = []
     if item.co_curadoria != "aprovado":
@@ -708,7 +739,12 @@ def _momento_do_dia(dt_dia: Optional[date], dt_hoje: date) -> str:
 
 
 def _cartao_do_desafio(
-    item: DesafioNoPainel, *, dt_hoje: date, dt_sugerida: date, qt_tentativas: int = 0
+    item: DesafioNoPainel,
+    *,
+    dt_hoje: date,
+    dt_sugerida: date,
+    dt_fim_janela_baixada: date,
+    qt_tentativas: int = 0,
 ) -> str:
     """O desafio aberto: o tabuleiro grande ao lado do que se decide sobre ele."""
     etiquetas = [
@@ -751,7 +787,11 @@ def _cartao_do_desafio(
         + "<h3>A regua (os mascotes, antes de ir ao ar)</h3>"
         + _regua(item)
         + _acoes(
-            item, dt_hoje=dt_hoje, dt_sugerida=dt_sugerida, qt_tentativas=qt_tentativas
+            item,
+            dt_hoje=dt_hoje,
+            dt_sugerida=dt_sugerida,
+            dt_fim_janela_baixada=dt_fim_janela_baixada,
+            qt_tentativas=qt_tentativas,
         )
         + "</div></article>"
     )
@@ -983,11 +1023,22 @@ def _dia_vazio(detalhe: DetalheDoDia, *, dt_hoje: date) -> str:
     return "".join(partes)
 
 
-def render_detalhe(detalhe: DetalheDoDia, *, dt_hoje: date, dt_sugerida: date) -> str:
+def render_detalhe(
+    detalhe: DetalheDoDia,
+    *,
+    dt_hoje: date,
+    dt_sugerida: date,
+    dt_fim_janela_baixada: date,
+) -> str:
     """A area principal: o dia (ou o desafio) aberto.
 
     ⚠️ **E o mesmo HTML na pagina inteira e no fragmento** que o script busca ao
     trocar de dia: uma funcao so, para as duas nunca divergirem.
+
+    Args:
+        dt_fim_janela_baixada: o ultimo dia que pode estar num aparelho
+            (`api/desafios/janela_baixada.py`). ⚠️ Sem valor padrao: esquecido,
+            o painel ofereceria botoes que o servico recusaria.
     """
     item = detalhe.desafio
     dia = detalhe.dt_dia or (item.dt_dia if item else None)
@@ -1021,6 +1072,7 @@ def render_detalhe(detalhe: DetalheDoDia, *, dt_hoje: date, dt_sugerida: date) -
             item,
             dt_hoje=dt_hoje,
             dt_sugerida=dt_sugerida,
+            dt_fim_janela_baixada=dt_fim_janela_baixada,
             qt_tentativas=detalhe.resumo.qt_tentativas if detalhe.resumo else 0,
         )
     )
@@ -1410,6 +1462,7 @@ _SCRIPT = """
 def render(
     *,
     dt_hoje: date,
+    dt_fim_janela_baixada: date,
     detalhe: DetalheDoDia,
     calendario: Sequence[DiaNoCalendario],
     estado_da_fila: EstadoDaFila,
@@ -1425,6 +1478,8 @@ def render(
 
     Args:
         dt_hoje: o dia corrente em UTC.
+        dt_fim_janela_baixada: o ultimo dia que pode estar num aparelho - os
+            dias ate ele nao oferecem descartar nem mover (07/10/2026).
         detalhe: o dia (ou desafio) aberto na area principal.
         calendario: os dias com desafio nos meses mostrados.
         estado_da_fila: a folga da fila (T040).
@@ -1476,7 +1531,7 @@ def render(
     </section>
   </aside>
   <main class="principal-area" id="detalhe">
-    {render_detalhe(detalhe, dt_hoje=dt_hoje, dt_sugerida=dt_sugerida)}
+    {render_detalhe(detalhe, dt_hoje=dt_hoje, dt_sugerida=dt_sugerida, dt_fim_janela_baixada=dt_fim_janela_baixada)}
   </main>
 </div>
 <script>{_SCRIPT}</script>

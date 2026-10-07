@@ -273,6 +273,7 @@ async def test_a_pagina_traz_as_duas_secoes_juntas():
     # lateral, ao lado do calendario, e continuam na mesma visita.
     html = pagina.render(
         dt_hoje=HOJE,
+        dt_fim_janela_baixada=HOJE + timedelta(days=3),
         detalhe=pagina.DetalheDoDia(dt_dia=HOJE, desafio=None),
         calendario=(),
         estado_da_fila=await Vigilancia(_sessao(_dias(2))).estado_da_fila(
