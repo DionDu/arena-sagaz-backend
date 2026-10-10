@@ -98,6 +98,28 @@ desde 04/08 — migração no banco errado não é um susto, é um incidente.
 > respondeu. Causa comum: a referência `${{Servico.DATABASE_URL}}` não resolve
 > porque o **nome do serviço** mudou.
 
+## Diretriz obrigatória — Objeto de banco novo só com o aval do dono
+
+Decisão do dono, reafirmada em 10/10/2026 (`arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8zzl), ao abrir o Quatro em Linha:
+
+> *"A parte de banco de dados você propõe os objetos e eu ratifico/retifico. Não
+> pode implementar nada de banco sem meu aval. Você deve se basear nos objetos,
+> nomenclaturas dos mesmos que já temos nas tabelas dos outros jogos."*
+
+- **O assistente PROPÕE** schema, tabela, coluna, tipo, chave, índice, restrição
+  e o id da revisão do Alembic - por escrito, antes de qualquer arquivo de
+  migração. **O dono ratifica ou retifica.**
+- ⛔ **Nenhuma migração, modelo SQLAlchemy ou DDL é escrito antes do aval** -
+  nem "só para testar no `des`".
+- **A proposta parte do que já existe** nos outros jogos: o molde é o schema do
+  jogo mais parecido (`jogo_damas` em `migrations/versions/0012_schema_jogo_damas.py`,
+  `jogo_velha` em `0011_schema_jogo_velha.py`), com os mesmos prefixos de coluna
+  (`id_`, `co_`, `nu_`, `qt_`, `no_`, `dh_`, `ic_`), a mesma numeração de tabela
+  (`tb001_partida`, `tb002_jogada`... e `tb9nn_` para os domínios) e a mesma forma
+  da extensão 1:1 da jogada. Nome novo, só onde nada existente serve,
+  e dito como tal na proposta.
+
 ## Diretriz obrigatória — Versionamento da API (apps em campo)
 
 O app mobile, depois de publicado, fica **congelado** no aparelho do usuário —
