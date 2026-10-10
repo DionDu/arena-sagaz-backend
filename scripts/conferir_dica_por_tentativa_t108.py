@@ -1,4 +1,4 @@
-"""AS DICAS NA `tb005` E O TETO POR TENTATIVA (T108 + T109) - medido contra o `des`.
+"""A DICA QUE O APP ENVIA E O TETO POR TENTATIVA (T108) - medido contra o `des`.
 
 ═══════════════════════════════════════════════════════════════════════════
 O QUE ESTE SCRIPT PROVA, E POR QUE SO O BANCO RESPONDE
@@ -6,26 +6,25 @@ O QUE ESTE SCRIPT PROVA, E POR QUE SO O BANCO RESPONDE
 
 Em 10/10/2026 a `desafio_dia.tb005_poder_consumido` tinha ZERO linhas no `prd`,
 com quatro dicas gastas em partidas de desafio (`DECISOES-do-dono.md` §8zzo). O
-app mandava cada dica com o `co_evento` da partida, e esse `co_evento` so nasce
-na 1a leva da gravacao: o envio desistia em silencio. Desde a T109 o SERVIDOR
-reconstroi as linhas a partir de `qt_usos_poder` da partida, ao gravar a
-tentativa. E desde a T108 o teto do botao e de 2 dicas por TENTATIVA.
+app 1.3.0 mandava cada dica com o `co_evento` da partida, e esse `co_evento` so
+nascia na 1a leva da gravacao: o envio desistia em silencio.
 
-Os testes unitarios provam a ordem e a chamada com um repositorio falso; o que
-so o Postgres responde e se o `INSERT ... SELECT generate_series` grava, se a
-VIEW enxerga, e se a contagem da sessao soma as tentativas.
-
-As condicoes, numa conta nova:
+⚠️ **O dono decidiu que a `tb005` e preenchida pelo APP**, como o desenho
+original previa (10/10/2026): *"o App joga o dado para sincronizacao com o
+servidor"*. ⛔ O servidor nao reconstroi dica a partir de `qt_usos_poder`. O
+conserto do app (T109) e criar o `co_evento` no INICIO da partida; o que o
+servidor precisa fazer, ele ja fazia - e este script prova, contra o Postgres de
+verdade, a sequencia que o app 1.3.1 vai produzir:
 
   (a) a conta nasce, e ha um dia com desafio resolvivel no `des`;
-  (b) **a tentativa que falhou, com 1 dica, deixa 1 linha** na `tb005` (grau 1);
-  (c) **a que resolveu, com 2 dicas, deixa 2 linhas** (graus 1 e 2) - 3 no dia;
-  (d) **o reenvio da resolucao nao duplica** (`ON CONFLICT DO NOTHING`);
-  (e) **a rota da dica recusa a 3a NA MESMA tentativa** (409 `teto_de_dicas`);
-  (f) **e aceita a 1a numa tentativa NOVA**, com o dia ja em 3 dicas (204);
-  (g) **o `meu-dia` devolve o total do dia** (4 dicas), que e o que vai para a
-      nota (§8zzo, decisao 2);
-  (h) nada ficou no `des`.
+  (b) **a dica que chega ANTES da partida recebe 409** - e o app reenvia;
+  (c) **depois da 1a leva, a mesma dica entra** (204) e vira a linha de grau 1;
+  (d) **a 2a da tentativa entra** (grau 2);
+  (e) **a 3a na MESMA tentativa e recusada** (409 `teto_de_dicas`, T108);
+  (f) **a resolucao dessa partida nao duplica nada** na `tb005`;
+  (g) **uma tentativa NOVA recomeca com as duas**, com o dia ja em 2;
+  (h) **o `meu-dia` devolve o total do dia** (3), que e o que vai para a nota;
+  (i) nada ficou no `des`.
 
 ═══════════════════════════════════════════════════════════════════════════
 ⛔ E NAO DEIXA NADA NO `des`
@@ -40,7 +39,7 @@ nova confere depois que a conta nao existe mais. ⛔ So o `des`, conferido por
 COMO SE USA
 ═══════════════════════════════════════════════════════════════════════════
 
-    .venv\\Scripts\\python scripts\\conferir_dicas_na_tb005_t109.py
+    .venv\\Scripts\\python scripts\\conferir_dica_por_tentativa_t108.py
 
 Leva menos de um minuto. Saida: um relatorio por condicao, com o numero de onde
 cada veredito saiu, e codigo de saida 0 so quando todas fecham.
@@ -66,7 +65,6 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # Reuso, e nao copia: os corpos que o aparelho manda e a escolha de dias
 # resolviveis sao os da T079a; a trava do ambiente e o relatorio, os do T050.
-from scripts.conferir_credito_do_dia_t082 import falha  # noqa: E402
 from scripts.conferir_merge_convidado_t079a import (  # noqa: E402
     envio_de_resolucao,
     escolher_dias,
@@ -81,15 +79,16 @@ from scripts.conferir_portao_t050 import (  # noqa: E402
 from scripts.identificar_banco import _nomear_ambiente  # noqa: E402
 
 C_CONTA = "(a) a conta nasce, e ha um dia para resolver"
-C_FALHA = "(b) a tentativa que falhou, com 1 dica, deixa 1 linha"
-C_RESOLVEU = "(c) a que resolveu, com 2 dicas, deixa 2 linhas"
-C_REENVIO = "(d) o reenvio nao duplica as linhas"
-C_TETO = "(e) a 3a dica na MESMA tentativa e recusada"
-C_NOVA = "(f) a 1a dica numa tentativa NOVA passa"
-C_MEU_DIA = "(g) o meu-dia devolve o total do dia"
-C_RASTRO = "(h) nada ficou no `des`"
+C_ANTES = "(b) a dica que chega ANTES da partida recebe 409"
+C_DEPOIS = "(c) depois da 1a leva, a mesma dica entra (grau 1)"
+C_SEGUNDA = "(d) a 2a da tentativa entra (grau 2)"
+C_TETO = "(e) a 3a na MESMA tentativa e recusada"
+C_RESOLUCAO = "(f) a resolucao nao duplica as linhas"
+C_NOVA = "(g) a tentativa NOVA recomeca com as duas"
+C_MEU_DIA = "(h) o meu-dia devolve o total do dia"
+C_RASTRO = "(i) nada ficou no `des`"
 
-#: As linhas da `tb005` da conta, por tentativa, pela VIEW.
+#: As linhas da `tb005` da conta, por partida, pela VIEW.
 #:
 #: ⚠️ `array_agg(... ORDER BY ...)` junta os graus de cada tentativa numa lista
 #: ordenada (`{1,2}`), para o relatorio mostrar exatamente o que foi gravado.
@@ -114,7 +113,7 @@ async def dicas_por_partida(conexao, id_usuario: Any) -> dict[str, list[int]]:
 
 
 async def conferir() -> int:
-    """Roda as oito condicoes e devolve o codigo de saida."""
+    """Roda as nove condicoes e devolve o codigo de saida."""
     url = url_do_des()
     ambiente, explicacao = _nomear_ambiente(url)
     if ambiente != "DES":
@@ -136,7 +135,7 @@ async def conferir() -> int:
     from api.nucleo.seguranca_firebase import IdentidadeFirebase
 
     relatorio = Relatorio()
-    uid = f"t109-{uuid.uuid4()}"
+    uid = f"t108-{uuid.uuid4()}"
     agora = datetime.now(timezone.utc)
 
     async with motor.connect() as conexao:
@@ -153,12 +152,12 @@ async def conferir() -> int:
 
         app.dependency_overrides[obter_sessao] = sessao_dentro_da_transacao
         app.dependency_overrides[usuario_atual] = lambda: IdentidadeFirebase(
-            uid=uid, provedor="google.com", nome="Conta T109"
+            uid=uid, provedor="google.com", nome="Conta T108"
         )
         try:
             async with AsyncClient(
                 transport=ASGITransport(app=app),
-                base_url="http://t109",
+                base_url="http://t108",
                 headers=CABECALHOS,
             ) as cliente:
                 await _dicas(cliente, conexao, relatorio, uid=uid, agora=agora)
@@ -192,14 +191,14 @@ async def conferir() -> int:
 async def _dicas(
     cliente, conexao, relatorio: Relatorio, *, uid: str, agora: datetime
 ) -> None:
-    """As condicoes (a) a (g), numa conta que so joga o desafio."""
+    """As condicoes (a) a (h), numa conta que so joga o desafio."""
     from sqlalchemy import text
 
     # ── (a) ──────────────────────────────────────────────────────────────────
     r = await cliente.post(
         "/v1/conta/sessao",
         json={
-            "no_exibicao": "Conta T109",
+            "no_exibicao": "Conta T108",
             "ic_idade_minima_declarada": True,
             "co_idioma_preferido": "pt",
         },
@@ -227,125 +226,121 @@ async def _dicas(
         return
     dia = dias[0]
 
-    async def subir_partida(*, minutos: int, dicas: int, em_andamento: bool = False):
-        """Sobe a partida de desafio pelo lote, com `qt_usos_poder` = [dicas].
+    def nova_partida(*, minutos: int) -> tuple[dict[str, Any], datetime]:
+        """O evento da 1a leva de uma partida de desafio, ainda sem subir.
 
-        Returns:
-            `(co_evento, id_partida, inicio)`.
+        ⚠️ O `co_evento` nasce AQUI, antes de qualquer envio - e o que o app
+        1.3.1 passa a fazer no inicio da partida (T109).
         """
         inicio = instante_no_dia(dia["dt_dia"], agora) - timedelta(minutes=minutos)
-        co_evento = str(uuid.uuid4())
         evento = evento_de_partida(
-            co_evento=co_evento, dia=dia, lote=str(uuid.uuid4()), inicio=inicio
+            co_evento=str(uuid.uuid4()),
+            dia=dia,
+            lote=str(uuid.uuid4()),
+            inicio=inicio,
         )
         partida = evento["payload"]["partida"]
-        # Partida de conta, e nao de convidado: sem lote.
+        # Partida de conta, e nao de convidado: sem lote. E a 1a leva de uma
+        # partida que ainda corre: sem fim.
         partida["co_lote_migracao"] = None
-        # ⚠️ O app so manda a chave quando ha uso (o payload dos jogos sem poder
-        # fica igual ao que ja esta em campo) - aqui sempre ha.
-        partida["qt_usos_poder"] = dicas
-        if em_andamento:
-            # A 1a leva de uma partida que ainda corre: sem fim.
-            partida["co_status"] = "em_andamento"
-            partida["dh_fim"] = None
+        partida["co_status"] = "em_andamento"
+        partida["dh_fim"] = None
+        return evento, inicio
+
+    async def subir(evento: dict[str, Any]) -> None:
+        """Sobe a leva pela sincronizacao, como o outbox."""
         await cliente.post("/v1/sincronizacao/eventos", json={"eventos": [evento]})
-        return co_evento, partida["id_partida"], inicio
 
-    async def enviar(envio) -> int:
-        """Manda o envio da tentativa e devolve o status HTTP."""
-        r = await cliente.post(f"/v1/desafios/{dia['id_desafio']}/resolucao", json=envio)
-        return r.status_code
+    async def dica(co_evento: str, grau: int) -> tuple[int, Any]:
+        """Manda a dica e devolve `(status, codigo de erro ou None)`."""
+        r = await cliente.post(
+            f"/v1/desafios/{dia['id_desafio']}/dica",
+            json={
+                "id_desafio_dia": str(dia["id_desafio_dia"]),
+                "co_evento_partida": co_evento,
+                "grau": grau,
+                "consumida_em": agora.isoformat(),
+            },
+        )
+        return r.status_code, (r.json().get("codigo") if r.status_code != 204 else None)
 
-    # ── (b) a falha, com 1 dica ──────────────────────────────────────────────
-    co_falha, id_falha, inicio = await subir_partida(minutos=40, dicas=1)
-    envio = envio_de_resolucao(
-        dia=dia,
-        co_evento_partida=co_falha,
-        pontuacao=10,
-        resolvido_em=inicio + timedelta(minutes=2),
-        origem={"tipo": "conta"},
+    # ── (b) a dica antes da partida ──────────────────────────────────────────
+    evento, inicio = nova_partida(minutos=30)
+    co_evento = evento["co_evento"]
+    id_partida = evento["payload"]["partida"]["id_partida"]
+    status, codigo = await dica(co_evento, 1)
+    relatorio.anotar(
+        C_ANTES,
+        status == 409 and codigo == "partida_ainda_nao_chegou",
+        f"status {status}, codigo {codigo!r} - o outbox do app reenvia",
     )
-    s1 = await enviar(falha(envio))
+
+    # ── (c) a mesma dica depois da 1a leva ───────────────────────────────────
+    await subir(evento)
+    status, _ = await dica(co_evento, 1)
     graus = await dicas_por_partida(conexao, id_usuario)
     relatorio.anotar(
-        C_FALHA,
-        s1 == 200 and graus.get(id_falha) == [1],
-        f"envio {s1}; graus gravados na tentativa: {graus.get(id_falha)}",
+        C_DEPOIS,
+        status == 204 and graus.get(id_partida) == [1],
+        f"status {status}; graus na tentativa: {graus.get(id_partida)}",
     )
 
-    # ── (c) a resolucao, com 2 dicas ─────────────────────────────────────────
-    co_ok, id_ok, inicio = await subir_partida(minutos=20, dicas=2)
-    envio_ok = envio_de_resolucao(
+    # ── (d) a 2a ─────────────────────────────────────────────────────────────
+    status, _ = await dica(co_evento, 2)
+    graus = await dicas_por_partida(conexao, id_usuario)
+    relatorio.anotar(
+        C_SEGUNDA,
+        status == 204 and graus.get(id_partida) == [1, 2],
+        f"status {status}; graus na tentativa: {graus.get(id_partida)}",
+    )
+
+    # ── (e) a 3a na mesma tentativa ──────────────────────────────────────────
+    status, codigo = await dica(co_evento, 2)
+    relatorio.anotar(
+        C_TETO,
+        status == 409 and codigo == "teto_de_dicas",
+        f"status {status}, codigo {codigo!r}",
+    )
+
+    # ── (f) a resolucao dessa partida ────────────────────────────────────────
+    envio = envio_de_resolucao(
         dia=dia,
-        co_evento_partida=co_ok,
+        co_evento_partida=co_evento,
         pontuacao=20,
         resolvido_em=inicio + timedelta(minutes=2),
         origem={"tipo": "conta"},
     )
-    # O que o app 1.4 manda: a 2a tentativa, com as 3 dicas do dia - e a nota
-    # ainda presa em 2 ate a T103.
-    envio_ok["tentativas"] = 2
-    envio_ok["dicas_usadas"] = 2
-    s2 = await enviar(envio_ok)
-    graus = await dicas_por_partida(conexao, id_usuario)
-    total = sum(len(g) for g in graus.values())
+    envio["dicas_usadas"] = 2
+    r = await cliente.post(f"/v1/desafios/{dia['id_desafio']}/resolucao", json=envio)
+    depois = await dicas_por_partida(conexao, id_usuario)
     relatorio.anotar(
-        C_RESOLVEU,
-        s2 == 200 and graus.get(id_ok) == [1, 2] and total == 3,
-        f"envio {s2}; graus na tentativa: {graus.get(id_ok)}; total no dia: {total}",
+        C_RESOLUCAO,
+        r.status_code == 200 and depois == graus,
+        f"resolucao {r.status_code}; linhas antes "
+        f"{sum(len(g) for g in graus.values())}, depois "
+        f"{sum(len(g) for g in depois.values())}",
     )
 
-    # ── (d) o reenvio ────────────────────────────────────────────────────────
-    s3 = await enviar(envio_ok)
-    graus_depois = await dicas_por_partida(conexao, id_usuario)
-    relatorio.anotar(
-        C_REENVIO,
-        s3 == 200 and graus_depois == graus,
-        f"reenvio {s3}; linhas antes {total}, depois "
-        f"{sum(len(g) for g in graus_depois.values())}",
-    )
-
-    # ── (e) a 3a dica na tentativa que ja tem 2 ──────────────────────────────
-    def corpo_da_dica(co_evento: str, grau: int) -> dict[str, Any]:
-        """O corpo de `POST /v1/desafios/{id}/dica`."""
-        return {
-            "id_desafio_dia": str(dia["id_desafio_dia"]),
-            "co_evento_partida": co_evento,
-            "grau": grau,
-            "consumida_em": agora.isoformat(),
-        }
-
-    r = await cliente.post(
-        f"/v1/desafios/{dia['id_desafio']}/dica", json=corpo_da_dica(co_ok, 2)
-    )
-    codigo = r.json().get("codigo") if r.status_code != 204 else None
-    relatorio.anotar(
-        C_TETO,
-        r.status_code == 409 and codigo == "teto_de_dicas",
-        f"status {r.status_code}, codigo {codigo!r}",
-    )
-
-    # ── (f) a 1a dica numa tentativa nova ────────────────────────────────────
-    co_nova, id_nova, _ = await subir_partida(minutos=5, dicas=0, em_andamento=True)
-    r = await cliente.post(
-        f"/v1/desafios/{dia['id_desafio']}/dica", json=corpo_da_dica(co_nova, 1)
-    )
+    # ── (g) uma tentativa nova ───────────────────────────────────────────────
+    evento_novo, _ = nova_partida(minutos=5)
+    await subir(evento_novo)
+    status, _ = await dica(evento_novo["co_evento"], 1)
+    id_nova = evento_novo["payload"]["partida"]["id_partida"]
     graus = await dicas_por_partida(conexao, id_usuario)
     relatorio.anotar(
         C_NOVA,
-        r.status_code == 204 and graus.get(id_nova) == [1],
-        f"status {r.status_code}; graus na tentativa nova: {graus.get(id_nova)}; "
-        f"o dia ja tinha 3",
+        status == 204 and graus.get(id_nova) == [1],
+        f"status {status}; graus na tentativa nova: {graus.get(id_nova)}; o dia "
+        "ja tinha 2",
     )
 
-    # ── (g) o meu-dia ────────────────────────────────────────────────────────
+    # ── (h) o meu-dia ────────────────────────────────────────────────────────
     r = await cliente.get(f"/v1/desafios/{dia['id_desafio']}/meu-dia")
-    corpo = r.json() if r.status_code == 200 else {}
-    dicas_do_dia = corpo.get("dicas")
+    dicas_do_dia = r.json().get("dicas") if r.status_code == 200 else None
     relatorio.anotar(
         C_MEU_DIA,
-        r.status_code == 200 and dicas_do_dia == 4,
-        f"status {r.status_code}; dicas no meu-dia: {dicas_do_dia!r} (esperado 4)",
+        r.status_code == 200 and dicas_do_dia == 3,
+        f"status {r.status_code}; dicas no meu-dia: {dicas_do_dia!r} (esperado 3)",
     )
 
 

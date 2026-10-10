@@ -7961,11 +7961,25 @@ e as tarefas em `arena-sagaz-frontend/specs/009-desafio-do-dia/tasks.md`, Phase 
   `0030`). Por vigência porque apontar desafios existentes seria `UPDATE`, e
   `test_migracoes_aditivas` não permite.
 - **Teto de 2 dicas por TENTATIVA** em `registrar_dica` (era por dia).
-- **A `tb005` tem de ser preenchida** (decisão do dono); proposta: pelo servidor, a
-  partir de `partida.qt_usos_poder`, ao gravar a tentativa.
+- **A `tb005` tem de ser preenchida** (decisão do dono). ⚠️ Proposta inicial: pelo
+  servidor, a partir de `partida.qt_usos_poder` - **implementada e DESFEITA no mesmo
+  dia**: o dono decidiu que ela é preenchida **pelo app**, como o desenho original
+  previa (*"Não quero gambiarra da tabela sendo preenchida com dados que já estão
+  sendo enviados para o servidor junto às tentativas/partidas"*). O conserto é no
+  app (o `co_evento` nasce no início da partida); a API só ganhou o teto por
+  tentativa. Prova no `des`: `scripts/conferir_dica_por_tentativa_t108.py`.
 - **A partida abandonada com ≥ 1 lance conta como tentativa**, sem consolo (veredito
   próprio no envio).
-- A resposta do `POST .../resolucao` passa a devolver o XP do servidor (aditivo).
+- A resposta do `POST .../resolucao` passa a devolver o XP do servidor (aditivo) -
+  confirmado pelo dono (R5), como a abandonada sem consolo (R3).
+- **A régua no banco (migração `0030_regua_da_nota`, aprovada pelo dono):** cabeçalho
+  `desafio_dia.tb904_regua_nota` (versão + `dt_inicio_vigencia`) e detalhe
+  `tb905_parcela_regua_nota`, **uma linha por parcela** (pedido do dono, para poder
+  ter mais ou menos parcelas), com `nu_tipo_xp` da `tb901` existente, peso, forma
+  (`linear` · `hiperbolica` · `merito`), `vr_x0` e `vr_escala` (escala = 1/k, exata).
+  Versão 1 (a régua de 04/10) desde 01/09/2026; versão 2 (a §8zzo) do **dia seguinte
+  à aplicação**, em UTC, calculado na própria migração. Versão do app: **1.3.1** nas
+  duas lojas (a revisão iOS da 1.3.1 foi cancelada pelo dono para levar isto).
 
 **Alternativas consideradas.** Manter o app como dono do número: toda mudança de
 fórmula deixaria versões antigas pontuando com a régua velha no mesmo quadro.

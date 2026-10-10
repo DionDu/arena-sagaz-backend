@@ -76,12 +76,8 @@ from api.desafios.modelos_producao import (
 #: ⚠️ **`id_usuario` entra na condicao.** Sem isso, alguem poderia amarrar a
 #: resolucao dele a uma partida de outra pessoa — e o replay do quadro passaria a
 #: mostrar a partida errada.
-#:
-#: ⚠️ **`qt_usos_poder` vem junto desde 10/10/2026** (T109, `DECISOES-do-dono.md`
-#: §8zzo): e dele que o servidor tira as dicas da tentativa para a
-#: `tb005_poder_consumido` - ver [SQL_GRAVAR_DICAS_DA_PARTIDA].
 SQL_PARTIDA_POR_EVENTO = """
-SELECT id_partida, co_status, co_modo, dh_inicio, dh_fim, qt_usos_poder
+SELECT id_partida, co_status, co_modo, dh_inicio, dh_fim
   FROM partida.vw001_partida
  WHERE co_evento = :co_evento
    AND id_usuario = :id_usuario
@@ -212,45 +208,6 @@ INSERT INTO {TB_PODER_CONSUMIDO}
 VALUES (:id_tentativa, 1, :nu_grau, :dh_consumo)
 ON CONFLICT (id_tentativa, nu_tipo_poder, nu_grau) DO NOTHING
 RETURNING id_poder_consumido
-"""
-
-#: As dicas da partida, gravadas pelo SERVIDOR (T109, `DECISOES-do-dono.md`
-#: §8zzo, 10/10/2026).
-#:
-#: ⚠️ **Por que o servidor, e nao o aplicativo.** O app mandava cada dica no meio
-#: da partida com o `co_evento` dela, e esse `co_evento` so nasce na 1a leva da
-#: gravacao (no instante do objetivo, ou no fim). Durante a partida ele era
-#: sempre nulo, e o envio desistia em silencio: a `tb005` chegou a 10/10/2026 com
-#: ZERO linhas no `prd`, com 4 dicas gastas. A partida, essa sim, chega com
-#: `qt_usos_poder` - entao o servidor reconstroi as linhas a partir dela, no
-#: unico ponto em que ele liga partida, tentativa e dia: a gravacao da tentativa.
-#: Vale para toda versao do app, inclusive a 1.3.0.
-#:
-#: Uma linha por dica: `nu_grau` de 1 ate a quantidade (`generate_series` gera a
-#: sequencia 1, 2, ... dentro do proprio SQL). ⚠️ **`LEAST(..., 2)`** porque o
-#: teto e de 2 por TENTATIVA (o `ck001_grau` so aceita 1 e 2): um numero podre
-#: do cliente gravaria as duas e pararia, em vez de derrubar a tentativa inteira
-#: com erro 500.
-#:
-#: ⚠️ **`dh_consumo` = o INICIO da partida, e e uma aproximacao**: o instante
-#: real de cada dica nao chega ao servidor. Para a unica conta que o usa (as
-#: dicas "ate a resolucao", em [SQL_SESSAO_NO_SERVIDOR]) a aproximacao da o
-#: mesmo resultado: a dica de uma tentativa conta para a resolucao que veio
-#: depois do inicio dela.
-#:
-#: ⚠️ **Os `CAST` sao necessarios**: num `INSERT ... SELECT`, o parametro na
-#: lista do `SELECT` chega ao Postgres sem tipo, e o driver (asyncpg) recusa o
-#: que nao sabe tipar.
-#:
-#: `ON CONFLICT DO NOTHING`: o reenvio da mesma tentativa, ou a dica que a rota
-#: antiga ja tinha gravado com o mesmo grau, nao duplica nada.
-SQL_GRAVAR_DICAS_DA_PARTIDA = f"""
-INSERT INTO {TB_PODER_CONSUMIDO}
-       (id_tentativa, nu_tipo_poder, nu_grau, dh_consumo)
-SELECT CAST(:id_tentativa AS UUID), 1, g.nu_grau,
-       CAST(:dh_consumo AS TIMESTAMPTZ)
-  FROM generate_series(1, LEAST(CAST(:qt_usos_poder AS INT), 2)) AS g(nu_grau)
-ON CONFLICT (id_tentativa, nu_tipo_poder, nu_grau) DO NOTHING
 """
 
 #: Quantas dicas ja foram gastas **nesta tentativa** (T108).
@@ -662,26 +619,6 @@ class RepositorioEnvio:
             },
         )
         return resultado.first() is not None
-
-    async def gravar_dicas_da_partida(
-        self, *, id_tentativa: UUID, qt_usos_poder: int, dh_consumo: datetime
-    ) -> None:
-        """Grava na `tb005` as dicas que a partida diz ter usado (T109).
-
-        A regra (e as aproximacoes dela) esta em [SQL_GRAVAR_DICAS_DA_PARTIDA].
-        ⚠️ Zero nao chega a ir ao banco: `generate_series(1, 0)` nao gera linha
-        nenhuma, mas a viagem seria gasta a toa na maioria das tentativas.
-        """
-        if qt_usos_poder <= 0:
-            return
-        await self.sessao.execute(
-            text(SQL_GRAVAR_DICAS_DA_PARTIDA),
-            {
-                "id_tentativa": id_tentativa,
-                "qt_usos_poder": qt_usos_poder,
-                "dh_consumo": dh_consumo,
-            },
-        )
 
     async def existe_no_catalogo(self, co_feito: str) -> bool:
         """A chave existe na dimensao `tb902_catalogo_feito`?

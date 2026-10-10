@@ -131,6 +131,10 @@ DIMENSOES_SO_DO_SERVIDOR = {
     "desafio.tb901_tipo_desafio": "o tipo do desafio: o job publica, o app le",
     "desafio.tb903_perfil_dificuldade": "com que numeros o job mediu a regua",
     "desafio.tb904_motor": "com que motor o job mediu (0022, T049e)",
+    # A regua da nota (0030, T102): escrita so por migracao, lida pelo servidor
+    # e servida ao app no desafio publicado. Nenhum codigo do app entra nela.
+    "desafio_dia.tb904_regua_nota": "a versao da regua: so migracao escreve",
+    "desafio_dia.tb905_parcela_regua_nota": "as parcelas da regua: so migracao escreve",
 }
 
 

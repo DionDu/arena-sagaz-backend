@@ -186,15 +186,6 @@ class ServicoEnvio:
             # tentativa** — a partida continua, o desafio nao.
             dh_fim=partida["dh_fim"] or envio.resolvido_em,
         )
-        # ⚠️ **As dicas desta tentativa vao para a `tb005` AQUI** (T109), antes
-        # de [_sessao_que_vale]: a contagem do servidor tem de incluir as desta
-        # tentativa. Vale para resolvida e para nao resolvida - as dicas de uma
-        # tentativa que falhou tambem entram na nota (§8zzo, decisao 2).
-        await self.repo.gravar_dicas_da_partida(
-            id_tentativa=id_tentativa,
-            qt_usos_poder=partida["qt_usos_poder"],
-            dh_consumo=partida["dh_inicio"],
-        )
 
         if not resolveu:
             # ⚠️ **Tentativa que falhou nao vira resolucao, e nao entra no
@@ -385,8 +376,7 @@ class ServicoEnvio:
         """`(tentativas, dicas)`: o MAIOR entre o do envio e o do servidor.
 
         ⚠️ As dicas ficam presas em [TETO_DE_DICAS] (2) **ate a T103**: com duas
-        por tentativa, o dia passa de 2 (a `tb005` agora e preenchida pelo
-        servidor, T109), e a parcela de hoje nao aceita 3. A regua sem teto da
+        por tentativa, o dia passa de 2, e a parcela de hoje nao aceita 3. A regua sem teto da
         §8zzo e que vai contar todas.
         """
         do_servidor = await self.repo.sessao_no_servidor(
@@ -531,10 +521,12 @@ class ServicoEnvio:
         (RF-DES-057), e quem errava depois de gastar as duas tinha de lembrar o
         que o app havia sugerido. O custo de pedir mais vai para a NOTA.
 
-        ⚠️ **Nenhum app em campo chega aqui hoje**: a 1.3.0 desistia antes de
-        enviar (o `co_evento` da partida ainda nao existia), e a `tb005` passou
-        a ser preenchida pelo proprio servidor ao gravar a tentativa (T109). A
-        rota fica, com a regra certa, para quem voltar a chama-la.
+        ⚠️ **E a UNICA porta da `tb005`** (decisao do dono, 10/10/2026, §8zzo):
+        o app envia cada dica para sincronizar, como o desenho original previa.
+        A 1.3.0 desistia antes de enviar, porque o `co_evento` da partida so
+        nascia na 1a leva; a 1.3.2 cria o `co_evento` no inicio da partida
+        (T109), e a dica que chega antes da partida recebe 409 e volta depois.
+        ⛔ O servidor nao reconstroi dica a partir de `qt_usos_poder`.
         """
         dia = await self.repo.dia_do_desafio(
             id_desafio_dia=envio.id_desafio_dia, id_desafio=id_desafio

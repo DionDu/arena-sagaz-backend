@@ -304,3 +304,32 @@ conteúdo deste `CHECK`):
 
 Tem de sair `CHECK (((nu_xp >= 12) AND (nu_xp <= 30)))` - o Postgres guarda o
 `BETWEEN` assim.
+
+## ⏳ A `0030_regua_da_nota` — escrita em 10/10/2026, **aguardando o `des`**
+
+| migração | o que faz | risco |
+|---|---|---|
+| `0030_regua_da_nota` | cria `desafio_dia.tb904_regua_nota` e `tb905_parcela_regua_nota`, as VIEWs `vw904`/`vw905`, e insere a versão 1 (desde 01/09/2026) e a versão 2 (do **dia seguinte**, em UTC) | ⛔ **nenhuma linha existente muda**: só tabelas novas. Provada no `des` em 10/10/2026 numa transação desfeita (8 parcelas, soma 1,000 nas duas versões, `CHECK` recusando curva incoerente) |
+
+**Por que existe.** A régua da nota sai do código e vai para o banco, por vigência
+(`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzo e §8zzq; o modelo em
+`specs/009-desafio-do-dia/data-model.md`).
+
+⚠️ **A data da versão 2 é a do dia da APLICAÇÃO + 1.** No `des`, aplicar já. No
+`prd`, aplicar **imediatamente antes** do deploy do backend da versão 1.3.1, e
+⛔ **não entre 20h30 e 21h de Brasília** (23h30-00h UTC): o deploy cairia no dia
+seguinte, e alguns minutos dele seriam pontuados pelo código antigo.
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python scripts\identificar_banco.py        # tem de dizer DES
+.venv\Scripts\python -m alembic current                  # esperado: 0029_ic_cpu_no_desafio
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m alembic current                  # esperado: 0030_regua_da_nota (head)
+.venv\Scripts\python scripts\conferir_migracao_desafio.py
+.venv\Scripts\python scripts\consultar_des.py "SELECT nu_versao_regua, co_tipo_xp, vr_peso, co_forma, vr_x0, vr_escala FROM desafio_dia.vw905_parcela_regua_nota ORDER BY 1, nu_tipo_xp"
+```
+
+Leva segundos. A última consulta tem de mostrar **8 linhas**: a versão 1 com
+0,300 / 0,300 / 0,150 / 0,250 (`linear`, a escala do tempo vazia) e a versão 2 com
+0,500 / 0,150 / 0,200 / 0,150 (`hiperbolica`).
