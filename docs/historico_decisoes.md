@@ -7933,3 +7933,46 @@ hoje a D+3, o D+4 livre, o buraco que estende a janela, tapar por dentro, a
 página, a compactação, a rede do `UPDATE` e as duas rotas que desenham o dia.
 Sete mutações (tirar cada guarda, a extensão pelo buraco, a rede do banco, o
 espelho da página, destravar hoje) foram todas pegas.
+
+## 2026-10-10 — O servidor é o dono do XP do DESAFIO, a nota perde os tetos, e a dica vira por tentativa
+
+**Contexto.** Relato de produção: a usuária @bk3hxjtv resolveu o desafio com 2
+dicas, e `desafio_dia.tb005_poder_consumido` estava vazia - de todo mundo, sempre.
+A causa é do app: a dica sai com o `co_evento` da partida, que só existe depois da
+1ª leva (no instante do objetivo), e o envio desiste em silêncio quando ele é nulo.
+O XP não foi afetado (vale a contagem que o app manda na resolução). A conversa que
+seguiu reformulou a nota. ⚠️ **O registro completo, com números, simulações e as
+citações do dono, está em `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzo**,
+e as tarefas em `arena-sagaz-frontend/specs/009-desafio-do-dia/tasks.md`, Phase 7
+(T102 a T115). Branch `dica-por-tentativa-xp-servidor` nos dois repositórios.
+
+**Decisão (o que toca a API).**
+- **O XP do desafio passa a ser calculado SEMPRE pelo servidor**, que prevalece
+  quando diverge. Hoje `_pontuacao_que_vale` devolve a pontuação do app quando a
+  sessão bate (`servico_envio.py`, citando a D-05). A D-05 fica **delimitada**: o
+  app tem a palavra final sobre **resolvido**; o número é do servidor. ⛔ O XP das
+  partidas normais não muda.
+- **Pesos 50/15/20/15** (tentativas · tempo · dicas · mérito; eram 30/30/15/25) e
+  **réguas sem teto** `q(x) = 1/(1 + k·(x − x₀))`: tentativas `1/n`, dicas
+  `2/(2+d)` sobre **todas as dicas de todas as tentativas**, tempo em múltiplos do
+  piso com `k = 0,5`. `nu_tempo_teto_ms` sai da nota.
+- **Pesos e constantes vêm com o desafio publicado** (campos aditivos), de uma
+  régua versionada por **vigência** (proposta; a modelagem vai ao dono antes da
+  `0030`). Por vigência porque apontar desafios existentes seria `UPDATE`, e
+  `test_migracoes_aditivas` não permite.
+- **Teto de 2 dicas por TENTATIVA** em `registrar_dica` (era por dia).
+- **A `tb005` tem de ser preenchida** (decisão do dono); proposta: pelo servidor, a
+  partir de `partida.qt_usos_poder`, ao gravar a tentativa.
+- **A partida abandonada com ≥ 1 lance conta como tentativa**, sem consolo (veredito
+  próprio no envio).
+- A resposta do `POST .../resolucao` passa a devolver o XP do servidor (aditivo).
+
+**Alternativas consideradas.** Manter o app como dono do número: toda mudança de
+fórmula deixaria versões antigas pontuando com a régua velha no mesmo quadro.
+Pesos 40/10/30/10: somavam 90% e empatavam de novo os dois casos reais (21,81 ×
+21,80). XP decimal no quadro: recusado pelo dono; o desempate já é pelo tempo.
+Contar só as dicas da tentativa que resolveu: recusado - a ajuda continua custando.
+
+**Motivo.** A régua de tentativas `(n − 1)/3` zerava na 4ª: 9 tentativas valiam o
+mesmo que 4, e @2smgkp2h (9 tentativas, 0 dica) empatou com @bk3hxjtv (2
+tentativas, 2 dicas) em 25. Com a régua nova: 22 e 23.
