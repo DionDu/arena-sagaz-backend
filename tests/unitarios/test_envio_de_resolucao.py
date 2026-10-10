@@ -11,7 +11,9 @@ O que estes casos protegem:
     objetivo nao perde o XP;
   · **as tres parcelas invertidas** — mais tempo, mais tentativas e mais dicas
     dao MENOS XP, e a direcao vem do catalogo;
-  · **o teto de duas dicas e por DESAFIO**, somando as tentativas do dia.
+  · **o teto de duas dicas e por TENTATIVA** (desde 10/10/2026, §8zzo);
+  · ⚠️ **a `tb005` e preenchida pelo SERVIDOR** a partir de `qt_usos_poder`
+    da partida (T109) - o envio da dica no meio da partida nunca chegava.
 """
 
 from __future__ import annotations
@@ -55,6 +57,7 @@ from api.desafios.servico_envio import (
     PartidaAindaNaoChegou,
     ServicoEnvio,
     TETO_DE_DICAS,
+    TETO_DE_DICAS_POR_TENTATIVA,
 )
 from api.nucleo.excecoes import ErroNegocio
 
@@ -215,6 +218,7 @@ class RepoFalso:
         # Cada soma em `nu_xp_total`, na ordem - zero inclusive, se alguem pedir.
         self.creditos: list[int] = []
         self.dicas: list[dict] = []
+        self.dicas_da_partida: list[dict] = []
         self.commits = 0
 
     async def dia_do_desafio(self, *, id_desafio_dia, id_desafio):
@@ -248,8 +252,15 @@ class RepoFalso:
     async def direcoes_de_sessao(self):
         return DIRECOES
 
-    async def dicas_ja_gastas(self, *, id_desafio_dia, id_usuario):
+    async def dicas_da_tentativa(self, *, id_tentativa):
+        # Quem pergunta tem de perguntar pela tentativa que acabou de gravar - e
+        # o que torna o teto POR TENTATIVA (T108).
+        self.tentativa_da_conta_de_dicas = id_tentativa
         return self._dicas_gastas
+
+    async def gravar_dicas_da_partida(self, **kwargs):
+        # As linhas que o servidor reconstroi da partida (T109), na ordem.
+        self.dicas_da_partida.append(kwargs)
 
     async def sessao_no_servidor(self, **kwargs):
         self.perguntas_da_sessao.append(kwargs)
@@ -299,14 +310,21 @@ class RepoFalso:
         self.commits += 1
 
 
-def _partida(co_status: str = "concluida", com_fim: bool = True) -> dict:
-    """Uma partida de desafio ja no log."""
+def _partida(
+    co_status: str = "concluida", com_fim: bool = True, qt_usos_poder: int = 0
+) -> dict:
+    """Uma partida de desafio ja no log.
+
+    `qt_usos_poder` e quantas dicas a partida diz ter usado - o numero de onde
+    o servidor tira as linhas da `tb005` (T109).
+    """
     return {
         "id_partida": uuid4(),
         "co_status": co_status,
         "co_modo": "desafio",
         "dh_inicio": AGORA,
         "dh_fim": AGORA if com_fim else None,
+        "qt_usos_poder": qt_usos_poder,
     }
 
 
@@ -1051,13 +1069,14 @@ async def test_a_dica_e_registrada_e_cria_a_tentativa_se_preciso():
 
 
 @pytest.mark.asyncio
-async def test_o_teto_de_duas_dicas_e_por_DESAFIO():
-    """⚠️ RF-DES-057, e a conta soma as tentativas do dia.
+async def test_o_teto_de_duas_dicas_e_por_TENTATIVA():
+    """⚠️ §8zzo, decisao 1 (10/10/2026): cada tentativa recomeca com as duas.
 
-    Fechar o aplicativo encerra a tentativa, nao o dia — um contador por
-    tentativa daria dicas infinitas a quem reabrisse.
+    A conta e feita pela tentativa que ACABOU de ser gravada - e conferir o
+    identificador perguntado e o que separa "por tentativa" de "por dia": um
+    repositorio que somasse o dia devolveria o mesmo numero neste caso.
     """
-    repo = RepoFalso(partida=_partida(), dicas_gastas=TETO_DE_DICAS)
+    repo = RepoFalso(partida=_partida(), dicas_gastas=TETO_DE_DICAS_POR_TENTATIVA)
 
     with pytest.raises(ErroNegocio) as erro:
         await ServicoEnvio(repo).registrar_dica(
@@ -1066,6 +1085,98 @@ async def test_o_teto_de_duas_dicas_e_por_DESAFIO():
 
     assert erro.value.codigo == "teto_de_dicas"
     assert repo.dicas == []
+    assert repo.tentativa_da_conta_de_dicas == repo.ultima_tentativa
+    # ⛔ E nada foi confirmado: a tentativa gravada antes da conta se desfaz.
+    assert repo.commits == 0
+
+
+@pytest.mark.asyncio
+async def test_a_dica_abaixo_do_teto_da_TENTATIVA_passa_mesmo_com_o_dia_cheio():
+    """Uma dica ja gasta nesta tentativa: a 2a passa.
+
+    ⚠️ Antes de 10/10/2026 a 2a tentativa de quem ja tinha gastado duas era
+    recusada; agora a conta so enxerga a tentativa.
+    """
+    repo = RepoFalso(partida=_partida(), dicas_gastas=1)
+
+    assert await ServicoEnvio(repo).registrar_dica(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_dica(grau=2)
+    )
+    assert repo.dicas[0]["nu_grau"] == 2
+    assert TETO_DE_DICAS_POR_TENTATIVA == 2
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5b. ⚠️ A `tb005` preenchida pelo SERVIDOR (T109, §8zzo)
+#
+# A `tb005_poder_consumido` chegou a 10/10/2026 com ZERO linhas no `prd`, com
+# quatro dicas gastas: o app mandava a dica com o `co_evento` da partida, que
+# so nasce na 1a leva. A partida chega com `qt_usos_poder`, e e dela que o
+# servidor tira as linhas.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_a_resolucao_grava_as_dicas_da_partida_na_tentativa():
+    """A Maria de 10/10: uma dica na tentativa que resolveu."""
+    partida = _partida(qt_usos_poder=1)
+    repo = RepoFalso(partida=partida)
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio()
+    )
+
+    assert repo.dicas_da_partida == [
+        {
+            "id_tentativa": repo.ultima_tentativa,
+            "qt_usos_poder": 1,
+            # A aproximacao documentada: o instante real nao chega ao servidor.
+            "dh_consumo": partida["dh_inicio"],
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_tentativa_que_FALHOU_tambem_grava_as_dicas():
+    """⚠️ A dica de quem errou tambem entra na nota (§8zzo, decisao 2) - e so
+    entra se estiver na `tb005`."""
+    repo = RepoFalso(partida=_partida(qt_usos_poder=2))
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO,
+        id_usuario=ID_USUARIO,
+        envio=_envio(veredito="tentativa"),
+    )
+
+    assert [d["qt_usos_poder"] for d in repo.dicas_da_partida] == [2]
+    assert repo.resolucoes == []
+
+
+@pytest.mark.asyncio
+async def test_as_dicas_da_partida_entram_ANTES_da_conta_da_sessao():
+    """⚠️ A ordem e a regra: a contagem do servidor tem de incluir as dicas
+    desta tentativa. Gravadas depois, a resolucao que trouxe a dica seria
+    pontuada sem ela."""
+    ordem: list[str] = []
+    repo = RepoFalso(partida=_partida(qt_usos_poder=1))
+    gravar, sessao = repo.gravar_dicas_da_partida, repo.sessao_no_servidor
+
+    async def gravar_anotando(**kwargs):
+        ordem.append("dicas")
+        return await gravar(**kwargs)
+
+    async def sessao_anotando(**kwargs):
+        ordem.append("sessao")
+        return await sessao(**kwargs)
+
+    repo.gravar_dicas_da_partida = gravar_anotando
+    repo.sessao_no_servidor = sessao_anotando
+
+    await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio()
+    )
+
+    assert ordem == ["dicas", "sessao"]
 
 
 @pytest.mark.asyncio

@@ -130,8 +130,11 @@ class RepositorioMeuDia:
         return int(resultado.scalar_one())
 
     async def dicas(self, *, id_desafio_dia: UUID, id_usuario: str) -> int:
-        """⚠️ A mesma conta do teto do envio (`SQL_DICAS_DO_DESAFIO`): uma so,
-        para o aparelho e o servidor ⛔ discordarem sobre quantas restam."""
+        """As dicas do DIA, somando as tentativas (`SQL_DICAS_DO_DESAFIO`).
+
+        ⚠️ Desde 10/10/2026 (`DECISOES-do-dono.md` §8zzo) este total e o que
+        entra na nota, e nao mais quantas dicas restam: o teto do botao e de 2
+        por TENTATIVA, e cada tentativa recomeca com as duas."""
         resultado = await self.sessao.execute(
             text(SQL_DICAS_DO_DESAFIO),
             {"id_desafio_dia": id_desafio_dia, "id_usuario": id_usuario},
