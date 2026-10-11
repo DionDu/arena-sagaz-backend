@@ -334,7 +334,7 @@ Leva segundos. A última consulta tem de mostrar **8 linhas**: a versão 1 com
 0,300 / 0,300 / 0,150 / 0,250 (`linear`, a escala do tempo vazia) e a versão 2 com
 0,500 / 0,150 / 0,200 / 0,150 (`hiperbolica`).
 
-## ⏳ `0031` e `0032` — o conserto da vigência da régua (aprovado em 11/10/2026), **escritas em 11/10, aguardando o `des`**
+## ⏳ `0031` e `0032` — o conserto da vigência da régua (aprovado em 11/10/2026): ✅ **no `des` em 11/10**, ⏳ **o `prd` em dois momentos**
 
 **Por que existem.** A `0030` entrou no `prd` em 11/10/2026 (01h03 UTC), antes do
 código que a lê, e pôs a **versão 2** da régua valendo desde **12/10/2026**. O dono
@@ -367,6 +367,11 @@ escritos à mão, a data fixa da 3, o `GREATEST` da 4, a linha do tempo do `prd`
 "sem o piso a versão 4 nunca valeria" e a cadeia das revisões).
 
 ### No `des`: as duas juntas
+
+✅ **Aplicadas pelo dono em 11/10/2026**: `0032_regua_nova_na_liberacao (head)`, 16 linhas,
+versão 2 em 2026-10-12, versão 3 em 2026-10-13 e versão 4 em **2026-10-14** - quem
+decidiu foi o piso (sem ele, a 4 cairia em 12/10, o mesmo dia da 2, e a `un001`
+recusaria).
 
 ```powershell
 cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
