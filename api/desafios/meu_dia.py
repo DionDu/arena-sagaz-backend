@@ -109,7 +109,8 @@ SELECT EXISTS (SELECT 1
 #: `nu_sequencia` fica de reserva para uma resolucao sem extrato - que ⛔ deve
 #: existir, mas um `NULL` aqui apagaria o "na 3a tentativa" da tela.
 SQL_RESOLUCAO_DO_DIA = f"""
-SELECT r.nu_xp,
+SELECT r.id_resolucao,
+       r.nu_xp,
        r.nu_tempo_ms,
        r.js_feito,
        t.nu_sequencia,
@@ -122,6 +123,24 @@ SELECT r.nu_xp,
     ON t.id_tentativa = r.id_tentativa
  WHERE r.id_desafio_dia = :id_desafio_dia
    AND r.id_usuario = :id_usuario
+"""
+
+
+#: As parcelas que o servidor gravou para a resolucao, uma por tipo (T111,
+#: `DECISOES-do-dono.md` §8zzs).
+#:
+#: ⚠️ **Sao as que SOMAM a pontuacao** (`pontuacao_do_extrato`): a `base` (12) e
+#: as quatro da regua. O merito tem uma linha POR FEITO, e por isso o `SUM` com
+#: `GROUP BY`; as linhas `medida` (peso zero), `consolo` e `ajuste` ficam de fora -
+#: nao entram na pontuacao. E o que deixa o aplicativo mostrar a conta do
+#: servidor, e nao a estimativa dele, quando os dois discordam.
+SQL_PARCELAS_DA_RESOLUCAO = f"""
+SELECT x.co_tipo_xp,
+       SUM(x.vr_xp) AS vr_xp
+  FROM {VW_XP_DESAFIO} x
+ WHERE x.id_resolucao = :id_resolucao
+   AND x.co_tipo_xp IN ('base', 'tentativas', 'tempo', 'dica', 'merito')
+ GROUP BY x.co_tipo_xp
 """
 
 
@@ -178,6 +197,19 @@ class RepositorioMeuDia:
         linha = resultado.mappings().first()
         return None if linha is None else dict(linha)
 
+    async def parcelas(self, *, id_resolucao: UUID) -> dict[str, Any]:
+        """As parcelas gravadas da resolucao - ver [SQL_PARCELAS_DA_RESOLUCAO].
+
+        `{co_tipo_xp: soma}`; vazio quando a resolucao nao tem extrato.
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_PARCELAS_DA_RESOLUCAO), {"id_resolucao": id_resolucao}
+        )
+        return {
+            linha["co_tipo_xp"]: linha["vr_xp"]
+            for linha in resultado.mappings().all()
+        }
+
 
 def _json(valor: Any) -> Optional[dict[str, Any]]:
     """O JSONB como `dict`. O driver ja o decodifica (como faz com
@@ -221,6 +253,7 @@ class ServicoMeuDia:
         primeira = None
         if resolucao is not None:
             n = resolucao["vr_tentativas"]
+            parcelas = await self.repo.parcelas(id_resolucao=resolucao["id_resolucao"])
             primeira = {
                 "na_tentativa": int(n) if n is not None else resolucao["nu_sequencia"],
                 "pontuacao": resolucao["nu_xp"],
@@ -228,6 +261,15 @@ class ServicoMeuDia:
                 # ⚠️ `None` e a resolucao anterior a `0027` - o aplicativo cai
                 # em "Objetivo cumprido", que continua verdadeiro.
                 "feito": _json(resolucao["js_feito"]),
+                # ⚠️ T111 (§8zzs): as parcelas do SERVIDOR, para o aplicativo
+                # trocar a conta estimada pela gravada. `float`, e nao
+                # `Decimal`: o Pydantic serializa `Decimal` como TEXTO no JSON.
+                # `None` quando nao ha extrato (nao deve acontecer).
+                "parcelas": (
+                    {tipo: float(xp) for tipo, xp in parcelas.items()}
+                    if parcelas
+                    else None
+                ),
             }
 
         return {

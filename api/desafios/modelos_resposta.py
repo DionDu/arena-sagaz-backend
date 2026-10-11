@@ -344,6 +344,12 @@ class PrimeiraResolucaoDoDia(BaseModel):
     #: ⚠️ `null` na resolucao anterior a `0027`: a tela cai em "Objetivo
     #: cumprido", que continua verdadeiro.
     feito: Optional[FeitoDaResolucao] = None
+    #: As parcelas que o servidor GRAVOU e que somam [pontuacao] (T111,
+    #: `DECISOES-do-dono.md` §8zzs): `{"base": 12.0, "tentativas": 9.0, ...}`,
+    #: pelo `co_tipo_xp`, com o merito somado. O aplicativo troca a conta que
+    #: ele estimou por esta, e o extrato continua fechando com o total.
+    #: ⚠️ Campo ADITIVO: a 1.3.0 o ignora.
+    parcelas: Optional[dict[str, float]] = None
 
 
 class MeuDia(BaseModel):

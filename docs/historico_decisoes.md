@@ -8096,3 +8096,30 @@ já estaria errado hoje.
 
 **Motivo.** O número que a pessoa vê na 1.3.0 e o que o servidor grava continuam o
 mesmo até a 1.3.1 chegar a ela. Passo a passo em `docs/runbook-migracoes-desafio.md`.
+
+## 2026-10-11 (3) — O `meu-dia` devolve as parcelas gravadas da resolução (T111)
+
+**Contexto.** O servidor é a fonte da verdade do XP do desafio (§8zzo, decisão 7), e o
+app mostra o número na hora como ESTIMATIVA. Perguntado sobre o que a tela de
+resultado faria com as parcelas quando o número do servidor viesse diferente, o dono
+pediu (§8zzs, no frontend): *"Não é possível que os dados do servidor desçam para o App
+e corrijam o dado 'errado', para que as parcelas corretas sejam exibidas?"*
+
+**Decisões técnicas:**
+
+- **`primeira.parcelas` no `meu-dia`** (aditivo): as linhas de `tb004_xp_desafio` da
+  resolução somadas por `co_tipo_xp` (`SQL_PARCELAS_DA_RESOLUCAO`, pela `vw004`), só
+  as que somam a pontuação: `base`, `tentativas`, `tempo`, `dica`, `merito` (o mérito
+  tem uma linha por feito). `medida`, `consolo` e `ajuste` ficam de fora.
+- **`float`, e não `Decimal`**, no corpo: o Pydantic serializa `Decimal` como texto no
+  JSON, e o app leria uma string onde espera número.
+- **Só no `meu-dia`, e não na resposta do `POST .../resolucao`**: o app relê o
+  `meu-dia` depois de subir a fila (com rede) e na próxima leitura (sem rede) - um
+  caminho só. A `pontuacao` da resposta (T105) continua lá, sem consumidor no app.
+
+**Alternativas consideradas.** Esconder as parcelas quando o total do servidor
+diferisse (a regra do hub em `detalhamento_xp.dart`): ficou só como reserva, para um
+servidor que não mande as parcelas. Mandar as parcelas também na resposta do envio:
+dois caminhos para o mesmo dado.
+
+**Motivo.** A tela de resultado mostra a conta, e a conta tem de ser a que valeu.

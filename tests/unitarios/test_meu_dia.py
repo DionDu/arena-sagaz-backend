@@ -9,7 +9,9 @@ O que estes casos protegem:
   · o retrato vem como veio, e `null` (resolucao anterior a `0027`) passa como
     `null` - a tela cai em "Objetivo cumprido";
   · ⚠️ **o consolo do dia vem dito** (T110): desde que a partida abandonada
-    conta como tentativa e nao paga consolo, o aparelho nao o deduz das tentativas.
+    conta como tentativa e nao paga consolo, o aparelho nao o deduz das tentativas;
+  · ⚠️ **as parcelas gravadas descem** (T111, §8zzs): o aparelho troca a conta
+    que estimou pela do servidor, e elas somam a pontuacao.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ import pytest
 
 from api.desafios.meu_dia import (
     SQL_DIA_DO_DESAFIO,
+    SQL_PARCELAS_DA_RESOLUCAO,
     SQL_RESOLUCAO_DO_DIA,
     SQL_TEM_CONSOLO,
     SQL_TENTATIVAS_FECHADAS,
@@ -33,6 +36,16 @@ from api.nucleo.excecoes import ErroNaoEncontrado
 EU = "uid-eu"
 ID_DESAFIO = uuid4()
 ID_DIA = uuid4()
+ID_RESOLUCAO = uuid4()
+
+#: As parcelas de uma resolucao de 26 XP, como o banco as soma (`NUMERIC`).
+PARCELAS = {
+    "base": Decimal("12.000"),
+    "tentativas": Decimal("5.000"),
+    "tempo": Decimal("2.700"),
+    "dica": Decimal("3.600"),
+    "merito": Decimal("2.900"),
+}
 
 RETRATO = {"medidas": {"caixas_fechadas": 4}, "janela_gasta": 2}
 
@@ -41,9 +54,17 @@ class RepoFalso:
     """Um `RepositorioMeuDia` de mentira - ele anota com quem falou."""
 
     def __init__(
-        self, *, dia=ID_DIA, tentativas=0, dicas=0, resolucao=None, consolo=False
+        self,
+        *,
+        dia=ID_DIA,
+        tentativas=0,
+        dicas=0,
+        resolucao=None,
+        consolo=False,
+        parcelas=None,
     ):
         self._dia = dia
+        self._parcelas = PARCELAS if parcelas is None else parcelas
         self._consolo = consolo
         self._tentativas = tentativas
         self._dicas = dicas
@@ -70,10 +91,15 @@ class RepoFalso:
         self.perguntas.append(("consolo", (id_desafio_dia, id_usuario)))
         return self._consolo
 
+    async def parcelas(self, *, id_resolucao):
+        self.perguntas.append(("parcelas", id_resolucao))
+        return self._parcelas
+
 
 def resolucao(**trocas) -> dict:
     """Uma linha de `SQL_RESOLUCAO_DO_DIA`, como o banco a devolve."""
     base = {
+        "id_resolucao": ID_RESOLUCAO,
         "nu_xp": 26,
         "nu_tempo_ms": 48210,
         "js_feito": RETRATO,
@@ -132,6 +158,13 @@ async def test_quem_resolveu_recebe_o_retrato_e_o_N_QUE_O_APP_MANDOU() -> None:
         "pontuacao": 26,
         "tempo_ms": 48210,
         "feito": RETRATO,
+        "parcelas": {
+            "base": 12.0,
+            "tentativas": 5.0,
+            "tempo": 2.7,
+            "dica": 3.6,
+            "merito": 2.9,
+        },
     }
     modelo = MeuDia(**corpo)
     assert modelo.primeira is not None
@@ -206,13 +239,60 @@ def test_o_consolo_e_a_linha_CONSOLO_do_extrato() -> None:
     assert "x.id_desafio_dia = :id_desafio_dia" in sql
 
 
+@pytest.mark.asyncio
+async def test_as_PARCELAS_da_resolucao_descem_e_somam_a_pontuacao() -> None:
+    """⚠️ T111: a pergunta e pela resolucao DESTA pessoa, e o JSON leva numero
+    (o Pydantic mandaria `Decimal` como texto)."""
+    repo = RepoFalso(resolucao=resolucao())
+    corpo = await ServicoMeuDia(repo).montar(id_desafio=ID_DESAFIO, id_usuario=EU)
+
+    assert ("parcelas", ID_RESOLUCAO) in repo.perguntas
+    parcelas = corpo["primeira"]["parcelas"]
+    assert all(isinstance(v, float) for v in parcelas.values())
+    # A soma e a pontuacao gravada - e o que faz o extrato do app fechar.
+    assert round(sum(parcelas.values())) == corpo["primeira"]["pontuacao"]
+    assert MeuDia(**corpo).model_dump(mode="json")["primeira"]["parcelas"] == parcelas
+
+
+@pytest.mark.asyncio
+async def test_sem_extrato_as_parcelas_vem_NULAS() -> None:
+    """Nao deve acontecer; e o aplicativo, sem elas, fica com a conta dele."""
+    repo = RepoFalso(resolucao=resolucao(), parcelas={})
+    corpo = await ServicoMeuDia(repo).montar(id_desafio=ID_DESAFIO, id_usuario=EU)
+    assert corpo["primeira"]["parcelas"] is None
+    MeuDia(**corpo)
+
+
+@pytest.mark.asyncio
+async def test_quem_nao_resolveu_NAO_pergunta_pelas_parcelas() -> None:
+    repo = RepoFalso(tentativas=2, consolo=True)
+    await ServicoMeuDia(repo).montar(id_desafio=ID_DESAFIO, id_usuario=EU)
+    assert "parcelas" not in {p for p, _ in repo.perguntas}
+
+
+def test_as_parcelas_sao_as_que_SOMAM_a_pontuacao() -> None:
+    """🔒 A base e as quatro da regua, com o merito somado por tipo. ⛔ `medida`,
+    `consolo` e `ajuste` nao entram na pontuacao, e somariam a mais."""
+    sql = " ".join(SQL_PARCELAS_DA_RESOLUCAO.split())
+    assert "x.id_resolucao = :id_resolucao" in sql
+    assert "('base', 'tentativas', 'tempo', 'dica', 'merito')" in sql
+    assert "GROUP BY x.co_tipo_xp" in sql
+    assert "SUM(x.vr_xp)" in sql
+
+
 def test_o_N_sai_da_parcela_de_TENTATIVAS() -> None:
     assert "x.co_tipo_xp = 'tentativas'" in SQL_RESOLUCAO_DO_DIA
 
 
 @pytest.mark.parametrize(
     "sql",
-    [SQL_DIA_DO_DESAFIO, SQL_TENTATIVAS_FECHADAS, SQL_RESOLUCAO_DO_DIA, SQL_TEM_CONSOLO],
+    [
+        SQL_DIA_DO_DESAFIO,
+        SQL_TENTATIVAS_FECHADAS,
+        SQL_RESOLUCAO_DO_DIA,
+        SQL_TEM_CONSOLO,
+        SQL_PARCELAS_DA_RESOLUCAO,
+    ],
 )
 def test_a_LEITURA_vai_a_VIEW(sql: str) -> None:
     """🔒 Convencao do projeto desde a `0001`: le-se pela VIEW."""
