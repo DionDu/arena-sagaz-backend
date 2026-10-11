@@ -35,6 +35,11 @@ ela nao merecia: **vale o aplicativo** (RF-DES-032, D-05). Discordancia vira
 alerta no painel, e a pessoa continua no quadro — quem viu *"resolvido!"* e
 depois nao se encontra no quadro nao conclui "fui pego"; conclui "esse aplicativo
 e bugado".
+
+⚠️ **O aplicativo vale para o VEREDITO, e nao mais para o numero** (10/10/2026,
+`DECISOES-do-dono.md` §8zzo, decisao 7): o XP do desafio e calculado pelo
+servidor com a regua do dia, e `pontuacao`/`qualidade` deste envio viraram
+estimativas, so conferidas no log.
 """
 
 from __future__ import annotations
@@ -102,12 +107,22 @@ class EnvioDeResolucao(BaseModel):
 
     tentativas: int = Field(ge=1)
     tempo_ms: int = Field(ge=0)
-    dicas_usadas: int = Field(ge=0, le=2)
+    #: TODAS as dicas do dia ate a resolucao (`DECISOES-do-dono.md` §8zzo,
+    #: decisao 2). ⚠️ **Sem teto desde 10/10/2026**: o teto de 2 passou a ser do
+    #: botao, por TENTATIVA, e quem errou duas vezes pode ter gastado 4. Ate ali
+    #: era `le=2`, e a 1.3.1 seria recusada (422 = descartada pela fila) ao
+    #: mandar a 3a dica do dia.
+    dicas_usadas: int = Field(ge=0)
 
-    #: `Q`, calculada **no aplicativo** (RF-DES-030). O servidor a guarda e a
-    #: audita depois; ⛔ nao a recalcula para decidir se aceita.
+    #: `Q`, calculada **no aplicativo** (RF-DES-030). ⚠️ **Informativa desde
+    #: 10/10/2026** (T103): o servidor recalcula a nota com a regua do dia, e e
+    #: a dele que vale para o XP. A do aplicativo so entra no log de divergencia.
     qualidade: float = Field(ge=0.0, le=1.0)
 
+    #: A pontuacao que o aplicativo ESTIMOU. ⚠️ **Informativa desde 10/10/2026**
+    #: (T103, §8zzo decisao 7): o XP gravado e creditado e o que o servidor
+    #: calcula, e a resposta o devolve (`RespostaDeResolucao.pontuacao`).
+    #:
     #: ⚠️ **Sem teto aqui** (RF-DES-155): 12 a 30 e a faixa de **um** desafio. O
     #: teto de 30/dia e da colecao, e entra como linha de `ajuste` negativa — nao
     #: como corte neste numero.
@@ -181,9 +196,13 @@ class EnvioDeResolucao(BaseModel):
 class RespostaDeResolucao(BaseModel):
     """O que a rota devolve.
 
-    ⚠️ **A resposta nao desmente o aplicativo.** `aceita: true` significa *"recebi
-    e gravei"*, e nao *"conferi"* — a validacao roda **fora do caminho da
-    requisicao** (RF-DES-036), em lote e com atraso. E auditoria, nao liberacao.
+    ⚠️ **A resposta nao desmente o veredito do aplicativo.** `aceita: true`
+    significa *"recebi e gravei"*, e nao *"conferi os lances"* — essa validacao
+    roda **fora do caminho da requisicao** (RF-DES-036), em lote e com atraso.
+
+    ⚠️ **Mas o NUMERO e do servidor desde 10/10/2026** (T105, §8zzo decisao 7):
+    [pontuacao] traz o XP que ele calculou e gravou, e o aplicativo troca a
+    estimativa por ele.
     """
 
     id_resolucao: Optional[UUID] = None
@@ -192,6 +211,15 @@ class RespostaDeResolucao(BaseModel):
     #: UUID de requisicao a inventar: a chave natural e `(desafio, pessoa)`, e ela
     #: e **exata** porque um desafio e publicado uma vez so (RF-DES-152).
     ja_existia: bool = False
+
+    #: O XP do desafio que o SERVIDOR calculou e gravou em `nu_xp`, de 12 a 30
+    #: (T105). ⚠️ **Tambem no reenvio** (`ja_existia: true`): a resposta devolve
+    #: o numero que ja estava gravado, e nao o recalcula - a primeira resolucao
+    #: e definitiva (RF-DES-004a).
+    #:
+    #: `None` quando o envio nao foi resolucao (tentativa que falhou).
+    #: ⚠️ Campo ADITIVO: a 1.3.0 o ignora.
+    pontuacao: Optional[int] = None
 
 
 class EnvioDeDica(BaseModel):

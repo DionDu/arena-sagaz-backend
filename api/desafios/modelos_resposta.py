@@ -130,6 +130,39 @@ class MedidaDeSaidaPublicada(BaseModel):
     sobre: Optional[str] = None
 
 
+class ParcelaDaReguaPublicada(BaseModel):
+    """Uma parcela da regua da nota, como o app a recebe (T104).
+
+    O detalhe esta em `api/desafios/regua_da_nota.py` e na migracao `0030`.
+    """
+
+    #: `tentativas` · `tempo` · `dica` · `merito` - o `co_tipo_xp` da `tb901`.
+    #: ⚠️ Parcela que o app nao conhece: ele nao estima (o servidor calcula
+    #: mesmo assim, e a resposta do envio traz o numero certo).
+    parcela: str
+    #: A fatia de `Q`. As de uma regua somam 1,000.
+    peso: float = Field(gt=0.0, le=1.0)
+    #: `linear` · `hiperbolica` · `merito`. ⚠️ Forma nova exige versao nova do
+    #: app (§8zzo, decisao 8); peso e constantes, nao.
+    forma: str
+    #: Ate onde a medida nao perde nada; `null` no merito.
+    x0: Optional[float] = None
+    #: Quanto piorar para zerar (linear) ou perder metade (hiperbolica); `null`
+    #: no merito e no tempo linear da versao 1 (a regua vai ate o teto).
+    escala: Optional[float] = None
+
+
+class ReguaNotaPublicada(BaseModel):
+    """A regua da nota que vale no dia deste desafio (T104, §8zzo decisao 8).
+
+    ⚠️ **E com ela que o app ESTIMA o XP na hora**; o numero que vale e o do
+    servidor, que usa a mesma versao (a de maior vigencia ate o `dt_dia`).
+    """
+
+    versao: int
+    parcelas: list[ParcelaDaReguaPublicada] = Field(min_length=1)
+
+
 class DesafioPublicado(BaseModel):
     """Um desafio como o aplicativo o recebe.
 
@@ -217,6 +250,14 @@ class DesafioPublicado(BaseModel):
     # job ja recusa publicar assim, e aqui a falta estoura na leitura em vez de
     # virar uma resposta plausivel com merito zero para todo mundo.
     medidas_de_saida: list[MedidaDeSaidaPublicada] = Field(min_length=1)
+
+    # ── A regua da nota (T104, §8zzo decisao 8) ──────────────────────────────
+    #
+    # ⚠️ **Os pesos e as curvas viajam com o desafio desde 10/10/2026**: mudar
+    # um numero e uma versao nova no banco, e nao uma versao nova do app.
+    # ⛔ **Obrigatoria, sem valor padrao** no servidor (RF-DES-223); a 1.3.0
+    # ignora o campo.
+    regua_nota: ReguaNotaPublicada
 
     encerra_em: datetime
     agora_no_servidor: datetime

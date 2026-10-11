@@ -36,6 +36,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.desafios.modelos_evento import VW_DESAFIO_DIA
 from api.desafios.modelos_producao import VW_DESAFIO, VW_FEITO_DESAFIO
+from api.desafios.regua_da_nota import (
+    SQL_REGUAS_DA_NOTA,
+    regua_para_publicar,
+    regua_vigente,
+    reguas_das_linhas,
+)
 
 #: As colunas que a resposta usa. ⛔ **`js_solucao` NAO esta aqui**, e essa e a
 #: ausencia mais importante deste arquivo: e o gabarito (RF-DES-076).
@@ -167,12 +173,18 @@ class RepositorioDesafio:
     async def _com_medidas(
         self, linhas: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        """Anexa `medidas_de_saida` a cada linha, num lugar so.
+        """Anexa `medidas_de_saida` e `regua_nota` a cada linha, num lugar so.
 
         ⚠️ **As tres leituras passam por aqui**, e e isso que impede uma delas de
         esquecer o campo: `publicacao.para_resposta` so le o que ja veio na
         linha, e uma rota que saltasse este metodo estouraria na montagem da
         resposta — que e onde o erro e visivel, e nao em campo.
+
+        ⚠️ **A regua da nota e a do DIA de cada desafio** (T104, §8zzo decisao
+        8): o `/proximos` pode trazer o dia da virada junto com os de antes, e
+        cada um leva a sua. A regra da vigencia e a mesma do envio
+        (`regua_da_nota.regua_vigente`) - e por isso a estimativa do app e o XP
+        do servidor usam a mesma versao.
         """
         if not linhas:
             return linhas
@@ -190,6 +202,20 @@ class RepositorioDesafio:
             # uma aqui: o modelo de resposta exige pelo menos uma, e um desafio
             # sem nenhuma e defeito de quem o publicou.
             linha["medidas_de_saida"] = por_desafio.get(linha["id_desafio"], [])
+
+        # Uma consulta so, para o lote: a tabela tem 4 linhas por versao.
+        # ⚠️ Nenhuma versao valendo no dia levanta `ReguaDaNotaInvalida` (500):
+        # ⛔ nao se publica um desafio sem regua, nem com uma inventada.
+        reguas = reguas_das_linhas(
+            dict(m)
+            for m in (
+                await self.sessao.execute(text(SQL_REGUAS_DA_NOTA))
+            ).mappings().all()
+        )
+        for linha in linhas:
+            linha["regua_nota"] = regua_para_publicar(
+                regua_vigente(reguas, linha["dt_dia"])
+            )
         return linhas
 
     async def de_hoje(

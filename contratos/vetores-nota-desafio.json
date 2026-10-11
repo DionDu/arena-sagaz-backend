@@ -1,0 +1,1261 @@
+{
+  "de_documento": "Vetores da nota do Desafio do Dia (T106, DECISOES-do-dono 8zzo). GERADO por scripts/gerar_vetores_nota.py - nao edite a mao. Os esperados saem da conta do SERVIDOR (extrato_xp.py), e o app (qualidade.dart) tem de chegar ao mesmo numero. Vetor nunca e apagado nem editado: corrigir e vetor NOVO.",
+  "versao": 1,
+  "vetores": [
+    {
+      "id": "v2-1a-sem-dica-no-piso",
+      "tentativas": 1,
+      "tempo_ms": 20000,
+      "dicas": 0,
+      "tempo_piso_ms": 20000,
+      "tempo_teto_ms": 120000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 4,
+        "caixas_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 1.0,
+          "tempo_ate_resolver": 1.0,
+          "dicas_usadas": 1.0,
+          "caixas_fechadas": 1.0,
+          "caixas_do_adversario": 1.0
+        },
+        "q": 1.0,
+        "pontuacao": 30
+      }
+    },
+    {
+      "id": "v2-1a-sem-dica-3x-o-piso",
+      "tentativas": 1,
+      "tempo_ms": 60000,
+      "dicas": 0,
+      "tempo_piso_ms": 20000,
+      "tempo_teto_ms": 120000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 4,
+        "caixas_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 1.0,
+          "tempo_ate_resolver": 0.5,
+          "dicas_usadas": 1.0,
+          "caixas_fechadas": 1.0,
+          "caixas_do_adversario": 1.0
+        },
+        "q": 0.925,
+        "pontuacao": 29
+      }
+    },
+    {
+      "id": "v2-1a-1-dica-2x-o-piso",
+      "tentativas": 1,
+      "tempo_ms": 40000,
+      "dicas": 1,
+      "tempo_piso_ms": 20000,
+      "tempo_teto_ms": 120000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 4,
+        "caixas_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 1.0,
+          "tempo_ate_resolver": 0.6666666667,
+          "dicas_usadas": 0.6666666667,
+          "caixas_fechadas": 1.0,
+          "caixas_do_adversario": 1.0
+        },
+        "q": 0.8833333333,
+        "pontuacao": 28
+      }
+    },
+    {
+      "id": "v2-2a-sem-dica-2x-o-piso",
+      "tentativas": 2,
+      "tempo_ms": 40000,
+      "dicas": 0,
+      "tempo_piso_ms": 20000,
+      "tempo_teto_ms": 120000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 4,
+        "caixas_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.5,
+          "tempo_ate_resolver": 0.6666666667,
+          "dicas_usadas": 1.0,
+          "caixas_fechadas": 1.0,
+          "caixas_do_adversario": 1.0
+        },
+        "q": 0.7,
+        "pontuacao": 25
+      }
+    },
+    {
+      "id": "v2-9-tentativas-no-piso",
+      "tentativas": 9,
+      "tempo_ms": 20000,
+      "dicas": 0,
+      "tempo_piso_ms": 20000,
+      "tempo_teto_ms": 120000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 4,
+        "caixas_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.1111111111,
+          "tempo_ate_resolver": 1.0,
+          "dicas_usadas": 1.0,
+          "caixas_fechadas": 1.0,
+          "caixas_do_adversario": 1.0
+        },
+        "q": 0.5555555556,
+        "pontuacao": 22
+      }
+    },
+    {
+      "id": "v2-4-tentativas-2-dicas-3x",
+      "tentativas": 4,
+      "tempo_ms": 60000,
+      "dicas": 2,
+      "tempo_piso_ms": 20000,
+      "tempo_teto_ms": 120000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 4,
+        "caixas_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.25,
+          "tempo_ate_resolver": 0.5,
+          "dicas_usadas": 0.5,
+          "caixas_fechadas": 1.0,
+          "caixas_do_adversario": 1.0
+        },
+        "q": 0.45,
+        "pontuacao": 20
+      }
+    },
+    {
+      "id": "v2-30-tentativas-10-dicas-20x",
+      "tentativas": 30,
+      "tempo_ms": 400000,
+      "dicas": 10,
+      "tempo_piso_ms": 20000,
+      "tempo_teto_ms": 120000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 4,
+        "caixas_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.0333333333,
+          "tempo_ate_resolver": 0.0952380952,
+          "dicas_usadas": 0.1666666667,
+          "caixas_fechadas": 1.0,
+          "caixas_do_adversario": 1.0
+        },
+        "q": 0.2142857143,
+        "pontuacao": 16
+      }
+    },
+    {
+      "id": "v2-fernando-9-tentativas-38s",
+      "tentativas": 9,
+      "tempo_ms": 38000,
+      "dicas": 0,
+      "tempo_piso_ms": 45918,
+      "tempo_teto_ms": 275508,
+      "medidas_de_saida": [
+        {
+          "chave": "damas_coroadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 2,
+          "sobre": null
+        },
+        {
+          "chave": "material_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 12,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "damas_coroadas": 2,
+        "material_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.1111111111,
+          "tempo_ate_resolver": 1.0,
+          "dicas_usadas": 1.0,
+          "damas_coroadas": 1.0,
+          "material_do_adversario": 1.0
+        },
+        "q": 0.5555555556,
+        "pontuacao": 22
+      }
+    },
+    {
+      "id": "v2-maria-2-tentativas-2-dicas-54s",
+      "tentativas": 2,
+      "tempo_ms": 54000,
+      "dicas": 2,
+      "tempo_piso_ms": 45918,
+      "tempo_teto_ms": 275508,
+      "medidas_de_saida": [
+        {
+          "chave": "damas_coroadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 2,
+          "sobre": null
+        },
+        {
+          "chave": "material_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 12,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "damas_coroadas": 2,
+        "material_do_adversario": 0.4
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.5,
+          "tempo_ate_resolver": 0.9191136732,
+          "dicas_usadas": 0.5,
+          "damas_coroadas": 1.0,
+          "material_do_adversario": 0.9666666667
+        },
+        "q": 0.635867051,
+        "pontuacao": 23
+      }
+    },
+    {
+      "id": "v2-abaixo-do-piso-e-teto-curto",
+      "tentativas": 3,
+      "tempo_ms": 5000,
+      "dicas": 3,
+      "tempo_piso_ms": 10000,
+      "tempo_teto_ms": 12000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 3,
+        "caixas_do_adversario": 1
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.3333333333,
+          "tempo_ate_resolver": 1.0,
+          "dicas_usadas": 0.4,
+          "caixas_fechadas": 0.75,
+          "caixas_do_adversario": 0.75
+        },
+        "q": 0.5091666667,
+        "pontuacao": 21
+      }
+    },
+    {
+      "id": "v2-merito-damas-fracao-e-marco",
+      "tentativas": 2,
+      "tempo_ms": 33000,
+      "dicas": 1,
+      "tempo_piso_ms": 15000,
+      "tempo_teto_ms": 90000,
+      "medidas_de_saida": [
+        {
+          "chave": "damas_coroadas",
+          "peso": 0.5,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 2,
+          "sobre": null
+        },
+        {
+          "chave": "capturas_extras",
+          "peso": 0.3,
+          "normalizacao": "fracao",
+          "minimo": null,
+          "maximo": null,
+          "sobre": "material_do_adversario"
+        },
+        {
+          "chave": "vitoria",
+          "peso": 0.2,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 1,
+          "sobre": null
+        },
+        {
+          "chave": "material_restante",
+          "peso": 0.0,
+          "normalizacao": "nenhuma",
+          "minimo": null,
+          "maximo": null,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "damas_coroadas": 1,
+        "capturas_extras": 2,
+        "material_do_adversario": 5,
+        "vitoria": 1,
+        "material_restante": 7
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.5,
+          "tempo_ate_resolver": 0.625,
+          "dicas_usadas": 0.6666666667,
+          "damas_coroadas": 0.5,
+          "capturas_extras": 0.4,
+          "vitoria": 1.0,
+          "material_restante": 0.0
+        },
+        "q": 0.5625833333,
+        "pontuacao": 22
+      }
+    },
+    {
+      "id": "v2-merito-zero-perdeu-tudo",
+      "tentativas": 5,
+      "tempo_ms": 150000,
+      "dicas": 4,
+      "tempo_piso_ms": 15000,
+      "tempo_teto_ms": 90000,
+      "medidas_de_saida": [
+        {
+          "chave": "damas_coroadas",
+          "peso": 0.5,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 2,
+          "sobre": null
+        },
+        {
+          "chave": "capturas_extras",
+          "peso": 0.3,
+          "normalizacao": "fracao",
+          "minimo": null,
+          "maximo": null,
+          "sobre": "material_do_adversario"
+        },
+        {
+          "chave": "vitoria",
+          "peso": 0.2,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 1,
+          "sobre": null
+        },
+        {
+          "chave": "material_restante",
+          "peso": 0.0,
+          "normalizacao": "nenhuma",
+          "minimo": null,
+          "maximo": null,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "damas_coroadas": 0,
+        "capturas_extras": 0,
+        "material_do_adversario": 8,
+        "vitoria": 0
+      },
+      "regua_nota": {
+        "versao": 2,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.5,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 1.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.15,
+            "forma": "hiperbolica",
+            "x0": 1.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.2,
+            "forma": "hiperbolica",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.15,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.2,
+          "tempo_ate_resolver": 0.1818181818,
+          "dicas_usadas": 0.3333333333,
+          "damas_coroadas": 0.0,
+          "capturas_extras": 0.0,
+          "vitoria": 0.0,
+          "material_restante": 0.0
+        },
+        "q": 0.1939393939,
+        "pontuacao": 15
+      }
+    },
+    {
+      "id": "v1-caso-de-ouro-do-data-model",
+      "tentativas": 2,
+      "tempo_ms": 27000,
+      "dicas": 0,
+      "tempo_piso_ms": 10000,
+      "tempo_teto_ms": 60000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "lances_otimos",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 6,
+          "sobre": null
+        },
+        {
+          "chave": "maior_cadeia_capturada",
+          "peso": 0.0,
+          "normalizacao": "nenhuma",
+          "minimo": null,
+          "maximo": null,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 4,
+        "lances_otimos": 3,
+        "maior_cadeia_capturada": 2
+      },
+      "regua_nota": {
+        "versao": 1,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.3,
+            "forma": "linear",
+            "x0": 1.0,
+            "escala": 3.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.3,
+            "forma": "linear",
+            "x0": 1.0,
+            "escala": null
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.15,
+            "forma": "linear",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.25,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.6666666667,
+          "tempo_ate_resolver": 0.66,
+          "dicas_usadas": 1.0,
+          "caixas_fechadas": 1.0,
+          "lances_otimos": 0.5,
+          "maior_cadeia_capturada": 0.0
+        },
+        "q": 0.748,
+        "pontuacao": 25
+      }
+    },
+    {
+      "id": "v1-3-tentativas-1-dica-meio-da-regua",
+      "tentativas": 3,
+      "tempo_ms": 48210,
+      "dicas": 1,
+      "tempo_piso_ms": 12000,
+      "tempo_teto_ms": 95000,
+      "medidas_de_saida": [
+        {
+          "chave": "damas_coroadas",
+          "peso": 0.5,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 2,
+          "sobre": null
+        },
+        {
+          "chave": "capturas_extras",
+          "peso": 0.3,
+          "normalizacao": "fracao",
+          "minimo": null,
+          "maximo": null,
+          "sobre": "material_do_adversario"
+        },
+        {
+          "chave": "vitoria",
+          "peso": 0.2,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 1,
+          "sobre": null
+        },
+        {
+          "chave": "material_restante",
+          "peso": 0.0,
+          "normalizacao": "nenhuma",
+          "minimo": null,
+          "maximo": null,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "damas_coroadas": 1,
+        "capturas_extras": 1,
+        "material_do_adversario": 4,
+        "vitoria": 1
+      },
+      "regua_nota": {
+        "versao": 1,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.3,
+            "forma": "linear",
+            "x0": 1.0,
+            "escala": 3.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.3,
+            "forma": "linear",
+            "x0": 1.0,
+            "escala": null
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.15,
+            "forma": "linear",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.25,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.3333333333,
+          "tempo_ate_resolver": 0.5637349398,
+          "dicas_usadas": 0.5,
+          "damas_coroadas": 0.5,
+          "capturas_extras": 0.25,
+          "vitoria": 1.0,
+          "material_restante": 0.0
+        },
+        "q": 0.4753704819,
+        "pontuacao": 21
+      }
+    },
+    {
+      "id": "v1-zera-na-4a-e-depois-do-teto",
+      "tentativas": 7,
+      "tempo_ms": 200000,
+      "dicas": 3,
+      "tempo_piso_ms": 12000,
+      "tempo_teto_ms": 95000,
+      "medidas_de_saida": [
+        {
+          "chave": "caixas_fechadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        },
+        {
+          "chave": "caixas_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 4,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "caixas_fechadas": 1,
+        "caixas_do_adversario": 3
+      },
+      "regua_nota": {
+        "versao": 1,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.3,
+            "forma": "linear",
+            "x0": 1.0,
+            "escala": 3.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.3,
+            "forma": "linear",
+            "x0": 1.0,
+            "escala": null
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.15,
+            "forma": "linear",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.25,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.0,
+          "tempo_ate_resolver": 0.0,
+          "dicas_usadas": 0.0,
+          "caixas_fechadas": 0.25,
+          "caixas_do_adversario": 0.25
+        },
+        "q": 0.0625,
+        "pontuacao": 13
+      }
+    },
+    {
+      "id": "v1-fernando-25",
+      "tentativas": 9,
+      "tempo_ms": 38000,
+      "dicas": 0,
+      "tempo_piso_ms": 45918,
+      "tempo_teto_ms": 275508,
+      "medidas_de_saida": [
+        {
+          "chave": "damas_coroadas",
+          "peso": 0.6,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 2,
+          "sobre": null
+        },
+        {
+          "chave": "material_do_adversario",
+          "peso": 0.4,
+          "normalizacao": "faixa",
+          "minimo": 0,
+          "maximo": 12,
+          "sobre": null
+        }
+      ],
+      "medidas": {
+        "damas_coroadas": 2,
+        "material_do_adversario": 0
+      },
+      "regua_nota": {
+        "versao": 1,
+        "parcelas": [
+          {
+            "parcela": "tentativas",
+            "peso": 0.3,
+            "forma": "linear",
+            "x0": 1.0,
+            "escala": 3.0
+          },
+          {
+            "parcela": "tempo",
+            "peso": 0.3,
+            "forma": "linear",
+            "x0": 1.0,
+            "escala": null
+          },
+          {
+            "parcela": "dica",
+            "peso": 0.15,
+            "forma": "linear",
+            "x0": 0.0,
+            "escala": 2.0
+          },
+          {
+            "parcela": "merito",
+            "peso": 0.25,
+            "forma": "merito",
+            "x0": null,
+            "escala": null
+          }
+        ]
+      },
+      "esperado": {
+        "normalizados": {
+          "tentativas": 0.0,
+          "tempo_ate_resolver": 1.0,
+          "dicas_usadas": 1.0,
+          "damas_coroadas": 1.0,
+          "material_do_adversario": 1.0
+        },
+        "q": 0.7,
+        "pontuacao": 25
+      }
+    }
+  ]
+}

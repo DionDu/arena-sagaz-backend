@@ -69,6 +69,9 @@ VW_NOTIFICACAO_REACAO = "desafio_dia.vw008_notificacao_reacao"
 VW_TIPO_XP = "desafio_dia.vw901_tipo_xp_desafio"
 VW_TIPO_PODER = "desafio_dia.vw902_tipo_poder"
 VW_TIPO_REACAO = "desafio_dia.vw903_tipo_reacao"
+#: A regua da nota, uma linha por parcela de cada versao, com a vigencia
+#: (`0030`, T102/T103). Quem a interpreta e `regua_da_nota.py`.
+VW_PARCELA_REGUA_NOTA = "desafio_dia.vw905_parcela_regua_nota"
 
 # ⚠️ Aqui as TABELAS ganham constante, ao contrario de `modelos_producao.py`: a
 # API **escreve** neste schema, pelo caminho de sincronizacao. Escrita e sempre

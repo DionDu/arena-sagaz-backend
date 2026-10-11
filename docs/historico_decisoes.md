@@ -7990,3 +7990,51 @@ Contar só as dicas da tentativa que resolveu: recusado - a ajuda continua custa
 **Motivo.** A régua de tentativas `(n − 1)/3` zerava na 4ª: 9 tentativas valiam o
 mesmo que 4, e @2smgkp2h (9 tentativas, 0 dica) empatou com @bk3hxjtv (2
 tentativas, 2 dicas) em 25. Com a régua nova: 22 e 23.
+
+## 2026-10-10 (2) — A nota do desafio lida da régua do banco (T103 a T106)
+
+**Contexto.** Com a `0030` no banco, faltava o código que a lê: o servidor como dono do
+XP do desafio (T103), a régua publicada com o desafio (T104), a resposta do envio com o
+número do servidor (T105) e a estimativa do app com a mesma régua (T106, no frontend).
+
+**Decisões técnicas** (dentro do que o dono decidiu na §8zzo/§8zzq do frontend):
+
+- **Um módulo só entende a régua**, `api/desafios/regua_da_nota.py`: agrupa as linhas da
+  `vw905` em versões (recusa a que não soma 1,000), escolhe a **vigente no `dt_dia` do
+  desafio** e aplica as curvas. O envio e a publicação usam a mesma função de vigência -
+  e por isso o servidor **lê todas as versões e escolhe em Python**, em vez de repetir a
+  regra num `WHERE`. A consulta mora no módulo porque dois repositórios a usam.
+- **O tempo é medido em múltiplos do piso** (`x = t / piso`), e a conta é feita em ms
+  com uma divisão só (`(t − x0·piso) / (escala·piso)`): a régua 1 dá exatamente o número
+  antigo `(t − piso)/(teto − piso)`, sem resíduo de duas divisões.
+- **A forma da curva é conferida ANTES da conta**: dentro de `x0` toda curva dá 1, e uma
+  forma desconhecida passaria calada na resolução perfeita. Achado pelo teste do app.
+- **A direção do catálogo virou conferência** nas três parcelas de sessão: as curvas só
+  descem, e um catálogo dizendo `maior_melhor` é conflito de dados (`MedidaInvalida`).
+  Até ali ela era aplicada (`1 − fração`).
+- **`pontuacao_do_extrato`** (soma do extrato, `ROUND_HALF_UP`, 12..30) substituiu
+  `pontuacao_com_a_sessao_do_servidor` (T085zf): o servidor recalcula sempre, então a
+  correção "só das contagens" deixou de existir. O extrato é montado **antes** de gravar
+  a resolução, porque o `nu_xp` é a soma dele.
+- **Divergência entre a estimativa do app e o servidor vai para o LOG**, e não para
+  `co_auditoria`: essa coluna é do avaliador de lances (`job/auditoria.py`) e diz se os
+  LANCES cumprem; uma estimativa diferente não é suspeita (sessões diferentes, ou a
+  1.3.0 com a régua antiga).
+- **Régua faltando é 500 (`ReguaDaNotaInvalida`), e nunca 400**: o app trata 400 como
+  "desista", e a pessoa perderia a resolução por um defeito do servidor.
+- **`dicas_usadas` sem `le=2`** no modelo do envio: com 2 dicas por tentativa, a 1.3.1
+  manda 3 ou 4, e o 422 faria a fila descartar a resolução.
+- **A resposta traz `pontuacao`** (aditivo): o `nu_xp` gravado, inclusive no reenvio.
+- **Vetores da nota** (`contratos/vetores-nota-desafio.json`, duas cópias, gerados por
+  `scripts/gerar_vetores_nota.py` com os `esperado` da conta do servidor): a régua vai
+  DENTRO de cada vetor, e o gerador recusa caso a menos de 0,000001 do meio do
+  arredondamento (Decimal × double). Dart e Python bateram nos 16 casos de primeira.
+
+**Alternativas consideradas.** Escolher a versão vigente no SQL (`ORDER BY ... LIMIT 1`):
+duplicaria a regra, que a publicação também precisa. Gravar a divergência em
+`co_auditoria`: misturaria dois significados numa coluna que o painel conta. Manter a
+direção aplicada pelo catálogo: as curvas novas não são "1 − fração", e a inversão
+ficaria escrita duas vezes.
+
+**Motivo.** O dono decidiu que o servidor é a fonte da verdade do XP do desafio e que os
+pesos e as constantes vêm do desafio publicado (§8zzo, decisões 7 e 8; R5 na §8zzq).

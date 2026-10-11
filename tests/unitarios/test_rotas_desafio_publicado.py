@@ -17,6 +17,8 @@ O que estes casos protegem:
     merito, e sem elas o aplicativo mede a sessao sozinho e fica sem regua para
     o que a pessoa fez **no jogo**; ⛔ **pelo menos uma**, e ⛔ **sem a direcao**,
     que ja esta declarada nos dois catalogos;
+  · ⚠️ **a regua da nota viaja** (T104, §8zzo decisao 8) - os pesos e as
+    curvas com que o app ESTIMA o XP, a versao vigente no DIA de cada desafio;
   · **a ordem das rotas**: `/{id}` casa com qualquer coisa e teria engolido
     `/hoje` e `/proximos` se viesse antes;
   · **"nao ha desafio hoje" e 404 com codigo**, e nao 200 com corpo vazio.
@@ -32,14 +34,23 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.desafios import repositorio as repo_desafio
-from api.desafios.modelos_resposta import MedidaDeSaidaPublicada
+from api.desafios.modelos_resposta import (
+    MedidaDeSaidaPublicada,
+    ParcelaDaReguaPublicada,
+)
 from api.desafios.publicacao import para_resposta
+from api.desafios.regua_da_nota import regua_para_publicar
 from api.desafios.rotas import obter_repositorio
 from api.main import app
 from api.nucleo.dependencias import (
     ContextoRequisicao,
     exigir_cabecalhos,
     usuario_atual_opcional,
+)
+from tests.unitarios.reguas_de_teste import (
+    LINHAS_DAS_REGUAS,
+    REGUA_V2,
+    VIGENCIA_V2,
 )
 
 AGORA = datetime(2026, 9, 10, 14, 22, 31, tzinfo=timezone.utc)
@@ -54,6 +65,7 @@ def _linha(
     ic_reprise: bool = False,
     id_desafio=None,
     medidas_de_saida=None,
+    regua_nota=None,
 ) -> dict:
     """Uma linha como as consultas de `repositorio.py` a devolvem.
 
@@ -140,6 +152,10 @@ def _linha(
                 "co_sobre": None,
             },
         ],
+        # ⚠️ A regua da nota do dia, como `_com_medidas` a anexa (T104).
+        "regua_nota": regua_nota
+        if regua_nota is not None
+        else regua_para_publicar(REGUA_V2),
     }
 
 
@@ -491,11 +507,11 @@ async def test_o_repositorio_ANEXA_as_medidas_a_cada_linha():
             "co_sobre": None,
         },
     ]
-    sessao = SessaoFalsa([medidas])
+    sessao = SessaoFalsa([medidas, LINHAS_DAS_REGUAS])
     repo = repo_desafio.RepositorioDesafio(sessao)
 
     linhas = await repo._com_medidas(
-        [{"id_desafio": id_a}, {"id_desafio": id_b}]
+        [{"id_desafio": id_a, "dt_dia": HOJE}, {"id_desafio": id_b, "dt_dia": HOJE}]
     )
 
     assert [m["co_feito"] for m in linhas[0]["medidas_de_saida"]] == [
@@ -504,8 +520,9 @@ async def test_o_repositorio_ANEXA_as_medidas_a_cada_linha():
     assert [m["co_feito"] for m in linhas[1]["medidas_de_saida"]] == [
         "caixas_fechadas"
     ]
-    # ⚠️ **Uma consulta so**, e nao uma por desafio.
-    assert len(sessao.comandos) == 1
+    # ⚠️ **Uma consulta para as medidas e uma para a regua** - e nao uma por
+    # desafio.
+    assert len(sessao.comandos) == 2
     assert sessao.comandos[0][1] == {"ids": [id_a, id_b]}
 
 
@@ -517,9 +534,9 @@ async def test_desafio_sem_medida_chega_com_lista_VAZIA_e_nao_inventada():
     e visivel. Inventar aqui faria a resposta sair **plausivel e errada**.
     """
     id_a = uuid4()
-    repo = repo_desafio.RepositorioDesafio(SessaoFalsa([[]]))
+    repo = repo_desafio.RepositorioDesafio(SessaoFalsa([[], LINHAS_DAS_REGUAS]))
 
-    linhas = await repo._com_medidas([{"id_desafio": id_a}])
+    linhas = await repo._com_medidas([{"id_desafio": id_a, "dt_dia": HOJE}])
 
     assert linhas[0]["medidas_de_saida"] == []
 
@@ -542,6 +559,76 @@ def test_as_tres_leituras_anexam_as_medidas(cliente):
     assert de_hoje["medidas_de_saida"]
     assert proximos["desafios"][0]["medidas_de_saida"]
     assert por_id["medidas_de_saida"]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A regua da nota (T104, §8zzo decisao 8)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_REGUA_DA_NOTA_viaja_com_o_desafio(cliente):
+    """⚠️ Os pesos e as curvas com que o app ESTIMA o XP na hora.
+
+    Mudar um peso passou a ser uma versao nova no banco, e nao uma versao nova
+    do app: e por isso que ela viaja com cada desafio.
+    """
+    app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(hoje=_linha())
+
+    regua = cliente.get("/v1/desafios/hoje").json()["regua_nota"]
+
+    assert regua["versao"] == 2
+    assert [p["parcela"] for p in regua["parcelas"]] == [
+        "tentativas",
+        "tempo",
+        "dica",
+        "merito",
+    ]
+    tentativas = regua["parcelas"][0]
+    assert (tentativas["peso"], tentativas["forma"]) == (0.5, "hiperbolica")
+    assert (tentativas["x0"], tentativas["escala"]) == (1.0, 1.0)
+    # O merito so leva o peso: cada medida dele tem a regua propria.
+    merito = regua["parcelas"][3]
+    assert merito["x0"] is None and merito["escala"] is None
+    assert sum(p["peso"] for p in regua["parcelas"]) == pytest.approx(1.0)
+
+
+def test_a_parcela_viaja_pelo_NOME_e_nao_pelo_numero_da_dimensao():
+    """⚠️ O app conhece as parcelas pelo nome; o `nu_tipo_xp` seria uma segunda
+    identidade para a mesma coisa (a mesma regra do `nu_feito`)."""
+    assert "nu_tipo_xp" not in ParcelaDaReguaPublicada.model_fields
+    assert "parcela" in ParcelaDaReguaPublicada.model_fields
+
+
+@pytest.mark.asyncio
+async def test_cada_desafio_leva_a_regua_do_DIA_dele():
+    """⚠️ O `/proximos` pode trazer o dia da virada junto com os de antes.
+
+    A vigencia e a do envio (`regua_vigente`): a estimativa do app e o XP do
+    servidor usam a mesma versao, desafio a desafio.
+    """
+    sessao = SessaoFalsa([[], LINHAS_DAS_REGUAS])
+    repo = repo_desafio.RepositorioDesafio(sessao)
+    vespera = date(2026, 10, 10)
+
+    linhas = await repo._com_medidas(
+        [
+            {"id_desafio": uuid4(), "dt_dia": vespera},
+            {"id_desafio": uuid4(), "dt_dia": VIGENCIA_V2},
+        ]
+    )
+
+    assert [linha["regua_nota"]["versao"] for linha in linhas] == [1, 2]
+
+
+def test_a_regua_da_nota_e_OBRIGATORIA(cliente):
+    """⛔ Sem valor padrao (RF-DES-223): uma leitura que esquecesse de anexa-la
+    estoura na montagem da resposta, e nao vira uma regua inventada."""
+    linha = _linha()
+    del linha["regua_nota"]
+    app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(hoje=linha)
+
+    with pytest.raises(KeyError):
+        cliente.get("/v1/desafios/hoje")
+
 
 def test_a_regua_e_OBRIGATORIA_e_a_falta_estoura_aqui(cliente):
     """⛔ **Nao ha valor padrao**, e e isso que este caso tranca.

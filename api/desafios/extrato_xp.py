@@ -6,16 +6,19 @@ A FORMULA, E ONDE CADA PEDACO MORA
 
     XP = 12 + 18 x Q
 
-    Q = 0,30 x q_tentativas + 0,30 x q_tempo + 0,15 x q_dica + 0,25 x q_merito
+    Q = p_tentativas x q_tentativas + p_tempo x q_tempo + p_dica x q_dica
+        + p_merito x q_merito
 
   · **12** e o piso por resolver — vira a linha `base` do extrato;
-  · as **tres primeiras parcelas** saem da sessao (tentativas, tempo, dicas) e
-    tem peso fixo, aprovado pelo dono (RF-DES-042) e **rebalanceado em
-    04/10/2026** (`DECISOES-do-dono.md` §8zs);
+  · ⚠️ **os pesos `p` e as curvas `q` das tres parcelas de sessao vem do BANCO
+    desde 10/10/2026** (T103, `DECISOES-do-dono.md` §8zzo): a regua da nota
+    vigente no dia do desafio (`regua_da_nota.py`, migracao `0030`). Versao 1:
+    30/30/15/25, lineares (a regua de 04/10/2026, §8zs); versao 2: 50/15/20/15,
+    hiperbolicas e sem teto. Ate ali eram constantes deste arquivo;
   · **q_merito** e a soma dos feitos que aquele desafio pesa, e os pesos de
-    `desafio.tb003_feito_desafio` sao **relativos dentro dos 0,25**: um `0,600`
-    vira `0,150` na conta final (`data-model.md`, "o merito se abre mais uma
-    vez");
+    `desafio.tb003_feito_desafio` sao **relativos dentro de `p_merito`**: um
+    `0,600` com o merito a 0,25 vira `0,150` na conta final (`data-model.md`,
+    "o merito se abre mais uma vez");
   · **`normalizado_i`** e a medida crua trazida a [0,1], e a **direcao** que a
     inverte vem de `desafio.tb902_catalogo_feito` — ⛔ nunca escrita duas vezes.
 
@@ -45,13 +48,13 @@ metade do valor desta feature.
 ═══════════════════════════════════════════════════════════════════════════
 
 As parcelas tem casas decimais, e arredondar cada uma faria a soma nao bater com
-o total. O arredondamento acontece **uma vez, no fim** — e mesmo assim o total
-gravado em `tb003_resolucao.nu_xp` e o que o **aplicativo** mandou, nao o que
-esta conta produz: vale o aplicativo (D-05).
+o total. O arredondamento acontece **uma vez, no fim** ([pontuacao_do_extrato]),
+e e esse o numero gravado em `tb003_resolucao.nu_xp`.
 
-⚠️ **A unica excecao sao as CONTAGENS** (T085zf): quando o servidor contou mais
-tentativas ou mais dicas que o aplicativo, o total desce so pelas duas parcelas
-de contagem - ver [pontuacao_com_a_sessao_do_servidor].
+⚠️ **Desde 10/10/2026 o XP do desafio e o do SERVIDOR** (§8zzo, decisao 7).
+Ate ali valia a pontuacao que o aplicativo mandava (a D-05 estendida ao
+numero), e esta conta so auditava. A D-05 continua valendo para **resolvido**:
+o veredito e do app; o numero, daqui.
 
 ⚠️ Somar `0.6 + 0.4` em ponto flutuante nao da `1.0`, e um teste que exige soma
 de pesos igual a 1,000 reprovaria por isso.
@@ -73,6 +76,7 @@ from api.desafios.modelos_evento import (
     XP_TENTATIVAS,
     XP_TETO_DO_DIA,
 )
+from api.desafios.regua_da_nota import ReguaDaNota, nota_da_curva
 
 #: Quanto da nota `Q` vale, em XP. `12 + 18 x Q` chega a 30 com `Q = 1`.
 FAIXA_DE_Q = Decimal(XP_TETO_DO_DIA - XP_PISO_POR_RESOLVER)
@@ -85,41 +89,17 @@ TIPO_DICA = XP_DICA
 TIPO_MERITO = XP_MERITO
 TIPO_MEDIDA = XP_MEDIDA
 
-#: Os quatro pesos de `Q` (RF-DES-042), aprovados pelo dono em 03/09/2026 e
-#: rebalanceados em 04/10/2026 (§8zs).
-#:
-#: ⚠️ **A dica pesava 0,25 e o tempo 0,20 ate 04/10/2026.** A dica e uma parcela
-#: que se ganha **sem fazer nada** (e so nao pedir), e o tempo saia cheio para
-#: quase todos; somadas, elas punham todo mundo no topo. Os 0,10 tirados da dica
-#: foram para o tempo, que separa quem jogou melhor.
-#:
-#: ⚠️ **`Decimal`, e a partir de texto**: somar `0.30 + 0.30 + 0.15 + 0.25` em
-#: ponto flutuante nao da `1.00`, e a soma e o que mantem `Q` dentro de [0, 1].
-#: ⚠️ Continuam **afinaveis em campo** — por isso sao constantes nomeadas, e nao
-#: numeros no meio da conta. Quem os mudar aqui muda no aplicativo tambem
-#: (`lib/core/desafios/qualidade.dart`): as duas contas precisam concordar.
-PESO_TENTATIVAS = Decimal("0.30")
-PESO_TEMPO = Decimal("0.30")
-PESO_DICA = Decimal("0.15")
-PESO_MERITO = Decimal("0.25")
+#: ⚠️ **Os pesos (`PESO_TENTATIVAS`, `PESO_TEMPO`, `PESO_DICA`, `PESO_MERITO`),
+#: o `TETO_DE_DICAS` e o `TENTATIVAS_QUE_ZERAM_A_PARCELA` sairam daqui em
+#: 10/10/2026 (T103)**: moram na regua da nota do banco (`0030`), por versao e
+#: com data de vigencia. Os numeros que eles tinham sao a VERSAO 1 de la, e o
+#: cadeado `test_regua_da_nota.py` confere que ela e a regua de 04/10/2026.
 
 #: As chaves de sessao no catalogo de feitos. ⚠️ Elas **sao feitos declarados**,
-#: como os outros — e e de la que sai a direcao que as inverte.
+#: como os outros — e e de la que sai a direcao delas.
 FEITO_TENTATIVAS = "tentativas"
 FEITO_TEMPO = "tempo_ate_resolver"
 FEITO_DICAS = "dicas_usadas"
-
-#: O teto de dicas de um desafio (RF-DES-052/057). Na 2a, a parcela zera.
-TETO_DE_DICAS = Decimal(2)
-
-#: Em que tentativa a parcela de tentativas chega a **zero** (§8zs, 04/10/2026).
-#:
-#: ⚠️ A regua e linear: 1a = nota cheia, 2a = 2/3, 3a = 1/3, 4a em diante = 0.
-#: Ate 04/10/2026 ela era `1/n`, que nunca zera - errar nove vezes custava 3 XP,
-#: e a 2a e a 3a tentativa davam a mesma pontuacao. O argumento antigo (*"onde
-#: zerar seria arbitrario"*) perdeu para o dado: a curva suave nao separava
-#: ninguem.
-TENTATIVAS_QUE_ZERAM_A_PARCELA = Decimal(4)
 
 
 class MedidaInvalida(ValueError):
@@ -227,6 +207,7 @@ def normalizar(
 
 def parcelas_de_sessao(
     *,
+    regua: ReguaDaNota,
     nu_tentativas: int,
     nu_tempo_ms: int,
     nu_dicas: int,
@@ -234,111 +215,126 @@ def parcelas_de_sessao(
     nu_tempo_teto_ms: int,
     direcoes: Mapping[str, str],
 ) -> list[ParcelaDeXp]:
-    """As tres parcelas que **nao** saem do tabuleiro: tentativas, tempo e dica.
-
-    Somadas elas valem 0,75 de `Q`, e sao o que faltava neste modulo ate
-    16/09/2026.
+    """As parcelas que **nao** saem do tabuleiro: tentativas, tempo e dica.
 
     Args:
+        regua: a regua da nota vigente no dia do desafio (`regua_da_nota.py`).
+            ⚠️ Uma parcela que a regua nao tem nao vira linha.
         nu_tentativas: quantas tentativas ate resolver, a bem-sucedida inclusa.
+            ⚠️ **Sem teto** desde a versao 2 (§8zzo): 9 tentativas custam mais
+            que 4, e 30 mais que 9.
         nu_tempo_ms: o tempo ate o **objetivo cair** (RF-DES-214), e nao ate o
             fim da partida - quem continua jogando depois de cumprir nao perde
             nota por isso.
-        nu_dicas: 0, 1 ou 2.
-        nu_tempo_piso_ms, nu_tempo_teto_ms: a regua **daquele desafio**.
+        nu_dicas: TODAS as dicas do dia ate a resolucao (§8zzo, decisao 2).
+            ⚠️ **Sem teto**: o teto de 2 e do botao, por tentativa; a nota conta
+            todas. Ate 10/10/2026 mais de 2 era recusado.
+        nu_tempo_piso_ms, nu_tempo_teto_ms: a regua de tempo **daquele
+            desafio**. ⚠️ O teto so entra no tempo LINEAR sem escala (versao
+            1); na versao 2 o tempo e medido em multiplos do piso e o teto sai
+            da nota.
         direcoes: `{co_feito: co_direcao}`, lido da dimensao.
 
     Raises:
-        MedidaInvalida: numeros impossiveis, regua degenerada, ou uma das tres
-            chaves faltando no catalogo.
+        MedidaInvalida: numeros impossiveis, regua de tempo degenerada, ou uma
+            das tres chaves faltando no catalogo (ou com outra direcao).
 
-    ⚠️ **Cada regua devolve "que fracao da regua foi percorrida"** - quanto
-    pior -, e quem transforma isso em nota e [_aplicar_direcao], lendo o
-    catalogo. ⛔ Escrever `1 - x` direto aqui seria escrever a direcao uma
-    segunda vez, e o dia em que as duas discordassem **ninguem perceberia**: uma
-    parcela invertida nao da erro, so paga mais a quem jogou pior.
-
-    ⚠️ **Espelha `lib/core/desafios/qualidade.dart`** (T055), e as duas contas
-    precisam dar o mesmo numero - e a auditoria de RF-DES-032 que depende disso.
+    ⚠️ **Espelha `lib/core/desafios/qualidade.dart`** (T106), que usa a mesma
+    regua para a ESTIMATIVA do app. Os vetores `contratos/vetores-nota-desafio.json`
+    rodam dos dois lados.
     """
     if nu_tentativas < 1:
-        # `1 / 0` daria infinito: nota cheia para quem nunca jogou.
+        # `x = 0` daria nota cheia a quem nunca jogou.
         raise MedidaInvalida(
             f"tentativas precisa ser >= 1 numa resolucao; veio {nu_tentativas}"
         )
     if nu_tempo_ms < 0:
         raise MedidaInvalida(f"tempo nao pode ser negativo; veio {nu_tempo_ms}")
-    if nu_dicas < 0 or nu_dicas > TETO_DE_DICAS:
+    if nu_dicas < 0:
+        raise MedidaInvalida(f"dicas nao pode ser negativo; veio {nu_dicas}")
+    if nu_tempo_piso_ms <= 0:
+        # O piso e a UNIDADE do tempo (`x = t / piso`): zero dividiria por zero.
         raise MedidaInvalida(
-            f"dicas precisa estar entre 0 e {TETO_DE_DICAS}; veio {nu_dicas}"
-        )
-    # A mesma condicao do `ck007_regua_tempo`: piso igual ao teto **dividiria
-    # por zero**; invertidos, a parcela pagaria mais a quem demorou mais.
-    if nu_tempo_piso_ms <= 0 or nu_tempo_teto_ms <= nu_tempo_piso_ms:
-        raise MedidaInvalida(
-            "a regua de tempo precisa de 0 < piso < teto; veio piso "
-            f"{nu_tempo_piso_ms} e teto {nu_tempo_teto_ms}"
+            f"a regua de tempo precisa de piso > 0; veio {nu_tempo_piso_ms}"
         )
 
-    tentativas = Decimal(nu_tentativas)
-    tempo = Decimal(nu_tempo_ms)
     piso = Decimal(nu_tempo_piso_ms)
-    teto = Decimal(nu_tempo_teto_ms)
-
-    # A regua de tentativas e **linear ate a 4a** (§8zs): `(n-1)/3` das
-    # tentativas toleradas foram gastas, e o `_clamp` de [_aplicar_direcao] prende
-    # em 1 da 4a em diante. A nota sai 1 · 2/3 · 1/3 · 0. ⚠️ Era `(n-1)/n` (nota
-    # `1/n`) ate 04/10/2026 - ver [TENTATIVAS_QUE_ZERAM_A_PARCELA].
-    q_tentativas = _aplicar_direcao(
-        (tentativas - 1) / (TENTATIVAS_QUE_ZERAM_A_PARCELA - 1),
-        FEITO_TENTATIVAS,
-        direcoes,
-    )
-    q_tempo = _aplicar_direcao((tempo - piso) / (teto - piso), FEITO_TEMPO, direcoes)
-    q_dica = _aplicar_direcao(
-        Decimal(nu_dicas) / TETO_DE_DICAS, FEITO_DICAS, direcoes
-    )
-
-    return [
-        ParcelaDeXp(
-            nu_tipo_xp=TIPO_TENTATIVAS,
-            # ⛔ `None` porque estas tres **nao sao linhas de feito** para o
-            # `ck003_feito`: so `merito` e `medida` apontam para um feito. Elas
-            # tem chave no catalogo (e de la vem a direcao), mas na tabela a
-            # coluna fica vazia, como o `data-model.md` mostra.
-            nu_feito=None,
-            vr_medida=tentativas,
-            vr_normalizado=q_tentativas,
-            vr_peso=PESO_TENTATIVAS,
-            vr_xp=FAIXA_DE_Q * PESO_TENTATIVAS * q_tentativas,
-        ),
-        ParcelaDeXp(
-            nu_tipo_xp=TIPO_TEMPO,
-            nu_feito=None,
-            vr_medida=tempo,
-            vr_normalizado=q_tempo,
-            vr_peso=PESO_TEMPO,
-            vr_xp=FAIXA_DE_Q * PESO_TEMPO * q_tempo,
-        ),
-        ParcelaDeXp(
-            nu_tipo_xp=TIPO_DICA,
-            nu_feito=None,
-            vr_medida=Decimal(nu_dicas),
-            vr_normalizado=q_dica,
-            vr_peso=PESO_DICA,
-            vr_xp=FAIXA_DE_Q * PESO_DICA * q_dica,
-        ),
+    # (tipo, chave no catalogo, medida crua, e o tempo?)
+    sessao = [
+        (TIPO_TENTATIVAS, FEITO_TENTATIVAS, Decimal(nu_tentativas), False),
+        (TIPO_TEMPO, FEITO_TEMPO, Decimal(nu_tempo_ms), True),
+        (TIPO_DICA, FEITO_DICAS, Decimal(nu_dicas), False),
     ]
 
+    parcelas = []
+    for tipo, co_feito, medida, e_tempo in sessao:
+        parcela = regua.parcela(tipo)
+        if parcela is None:
+            continue
+        _conferir_direcao(co_feito, direcoes)
+        # ⚠️ O tempo e medido em MULTIPLOS DO PISO: `x0` e a escala da regua
+        # estao nessa unidade, e a medida chega em ms - a unidade e o piso.
+        unidade = piso if e_tempo else Decimal(1)
+        # A escala vazia (so no tempo linear da versao 1) e "ate o teto do
+        # desafio", ja em ms.
+        escala_sem_valor = (
+            _escala_ate_o_teto(parcela.vr_x0, piso, nu_tempo_teto_ms)
+            if e_tempo and parcela.vr_escala is None
+            else None
+        )
+        q = nota_da_curva(
+            parcela, medida, unidade=unidade, escala_sem_valor=escala_sem_valor
+        )
+        parcelas.append(
+            ParcelaDeXp(
+                nu_tipo_xp=tipo,
+                # ⛔ `None` porque estas tres **nao sao linhas de feito** para o
+                # `ck003_feito`: so `merito` e `medida` apontam para um feito.
+                # Elas tem chave no catalogo (e de la vem a direcao), mas na
+                # tabela a coluna fica vazia, como o `data-model.md` mostra.
+                nu_feito=None,
+                vr_medida=medida,
+                vr_normalizado=q,
+                vr_peso=parcela.vr_peso,
+                vr_xp=FAIXA_DE_Q * parcela.vr_peso * q,
+            )
+        )
+    return parcelas
 
-def _aplicar_direcao(
-    fracao_percorrida: Decimal, co_feito: str, direcoes: Mapping[str, str]
+
+def _escala_ate_o_teto(
+    vr_x0: Optional[Decimal], piso: Decimal, nu_tempo_teto_ms: int
 ) -> Decimal:
-    """Transforma "quanto pior" na **nota**, lendo a direcao da dimensao.
+    """A escala do tempo linear sem escala na regua: do `x0` ate o teto, em ms.
 
     Raises:
-        MedidaInvalida: a chave nao esta no catalogo, ou a direcao dela nao serve
-            para uma regua (um marco nao tem gradacao).
+        MedidaInvalida: teto que nao fica acima do ponto de partida - a mesma
+            condicao do `ck007_regua_tempo` (`0 < piso < teto`). Igual ao piso
+            dividiria por zero; invertido, pagaria mais a quem demorou mais.
+    """
+    inicio = (vr_x0 if vr_x0 is not None else Decimal(1)) * piso
+    teto = Decimal(nu_tempo_teto_ms)
+    if teto <= inicio:
+        raise MedidaInvalida(
+            "a regua de tempo precisa de 0 < piso < teto; veio piso "
+            f"{piso} e teto {nu_tempo_teto_ms}"
+        )
+    return teto - inicio
+
+
+def _conferir_direcao(co_feito: str, direcoes: Mapping[str, str]) -> None:
+    """Confere que o catalogo diz o que a curva ja faz: **menor e melhor**.
+
+    Raises:
+        MedidaInvalida: a chave nao esta no catalogo, ou a direcao dela nao e
+            `menor_melhor`.
+
+    ⚠️ **Ate 10/10/2026 a direcao era APLICADA aqui** (`1 - fracao`). Com as
+    curvas da regua do banco ela ja vem dentro da forma: linear e hiperbolica
+    so descem. O catalogo continua sendo lido, agora como CONFERENCIA - um
+    catalogo dizendo `maior_melhor` para as tentativas e um dado em conflito com
+    a regua, e pagar o oposto do que um dos dois diz seria o defeito mais
+    silencioso do XP. ⛔ Melhor falhar alto.
     """
     co_direcao = direcoes.get(co_feito)
     if co_direcao is None:
@@ -346,16 +342,16 @@ def _aplicar_direcao(
             f"o feito {co_feito!r} nao esta no catalogo, e sem a direcao dele "
             "nao ha como saber para que lado a parcela corre"
         )
-    if co_direcao == "marco_atingido":
+    if co_direcao != "menor_melhor":
         raise MedidaInvalida(
-            f"{co_feito}: marco nao passa por regua - ou se atingiu, ou nao"
+            f"{co_feito}: o catalogo diz {co_direcao!r}, e as curvas da regua da "
+            "nota so descem (menor e melhor) - os dois dados estao em conflito"
         )
-    cortada = _clamp(fracao_percorrida)
-    return Decimal(1) - cortada if co_direcao == "menor_melhor" else cortada
 
 
 def montar_extrato(
     *,
+    regua: ReguaDaNota,
     medidas: Mapping[str, Decimal],
     pesos: Sequence[Mapping[str, Any]],
     nu_tentativas: int,
@@ -368,6 +364,8 @@ def montar_extrato(
     """O extrato inteiro: a `base`, as tres de sessao e uma linha por feito.
 
     Args:
+        regua: a regua da nota vigente no dia do desafio - os pesos e as
+            curvas (T103).
         medidas: `{co_feito: valor}` - o que o aplicativo mandou.
         pesos: as linhas de `desafio.vw003_feito_desafio` daquele desafio, ja com
             o catalogo resolvido (`co_feito`, `co_direcao`, `vr_peso`,
@@ -391,7 +389,8 @@ def montar_extrato(
     pessoa perderia XP sem que nada acusasse.
 
     ⚠️ **E os pesos do merito sao RELATIVOS** (RF-DES-173): eles somam 1,000
-    entre si, e cada um e multiplicado por [PESO_MERITO] aqui - num lugar so. E
+    entre si, e cada um e multiplicado pelo peso do merito DA REGUA aqui - num
+    lugar so. E
     por isso que a soma de `vr_peso` de uma resolucao inteira fecha em 1,000,
     com as tres de sessao juntas.
     """
@@ -408,6 +407,7 @@ def montar_extrato(
 
     parcelas.extend(
         parcelas_de_sessao(
+            regua=regua,
             nu_tentativas=nu_tentativas,
             nu_tempo_ms=nu_tempo_ms,
             nu_dicas=nu_dicas,
@@ -425,9 +425,9 @@ def montar_extrato(
         valor = Decimal(str(medidas.get(co_feito, 0)))
 
         # ⚠️ O peso **relativo** vira peso final aqui: `0,600` dentro do
-        # merito e `0,150` em `Q`.
+        # merito a 0,25 e `0,150` em `Q`.
         vr_relativo = Decimal(str(linha["vr_peso"]))
-        vr_peso = PESO_MERITO * vr_relativo
+        vr_peso = regua.peso_do_merito * vr_relativo
         normalizado = normalizar(
             valor,
             co_normalizacao=linha["co_normalizacao"],
@@ -480,9 +480,9 @@ def _denominador(
 def qualidade_do_extrato(parcelas: Sequence[ParcelaDeXp]) -> Decimal:
     """O `Q` que este extrato produz — a soma de `peso x normalizado`.
 
-    ⚠️ **Serve a AUDITORIA, e nao a decisao** (RF-DES-032, D-05). Se ele
-    discordar do `qualidade` que o aplicativo mandou, quem vale e o aplicativo; a
-    divergencia vira linha no painel de curadoria.
+    ⚠️ **Desde 10/10/2026 (T103) e ele que decide o XP do desafio**: a
+    pontuacao gravada e `12 + 18 x` este numero ([pontuacao_do_extrato]). A
+    `qualidade` que o aplicativo manda passou a ser informativa.
 
     ⚠️ **Ate 16/09/2026 este numero nao era `Q`**, e sim o merito sozinho: as
     tres parcelas de sessao nao eram geradas e o peso do merito ia cru. Ele
@@ -500,9 +500,9 @@ def qualidade_do_extrato(parcelas: Sequence[ParcelaDeXp]) -> Decimal:
 def soma_dos_pesos(parcelas: Sequence[ParcelaDeXp]) -> Decimal:
     """A soma de `vr_peso` de uma resolucao. Tem de dar `1,000`.
 
-    ⚠️ **E o cadeado barato de que o `data-model.md` fala**: 0,30 + 0,20 +
-    0,25 das tres de sessao, mais os 0,25 do merito repartidos entre as linhas
-    de feito. Se ela nao fechar em 1, `Q` deixou de poder chegar a 1 - e ninguem
+    ⚠️ **E o cadeado barato de que o `data-model.md` fala**: os pesos das tres
+    de sessao, mais o do merito repartido entre as linhas de feito (versao 2
+    da regua: 0,50 + 0,15 + 0,20 + 0,15). Se ela nao fechar em 1, `Q` deixou de poder chegar a 1 - e ninguem
     mais tiraria 30, sem que nada desse erro.
     """
     return sum(
@@ -510,76 +510,31 @@ def soma_dos_pesos(parcelas: Sequence[ParcelaDeXp]) -> Decimal:
     )
 
 
-def pontuacao_com_a_sessao_do_servidor(
-    *,
-    qualidade: Decimal,
-    tentativas_do_app: int,
-    dicas_do_app: int,
-    tentativas: int,
-    dicas: int,
-    nu_tempo_ms: int,
-    nu_tempo_piso_ms: int,
-    nu_tempo_teto_ms: int,
-    direcoes: Mapping[str, str],
-) -> int:
-    """A pontuacao de 12 a 30 com as tentativas e as dicas que o SERVIDOR contou.
+def pontuacao_do_extrato(parcelas: Sequence[ParcelaDeXp]) -> int:
+    """A pontuacao de 12 a 30 que o servidor grava: a soma do extrato, inteira.
 
     ═══════════════════════════════════════════════════════════════════════
-    ⚠️ POR QUE EXISTE (T085zf, 26/09/2026, `DECISOES-do-dono.md` §8zf)
+    ⚠️ O XP DO DESAFIO E ESTE NUMERO (T103, `DECISOES-do-dono.md` §8zzo)
     ═══════════════════════════════════════════════════════════════════════
 
-    O aplicativo calcula a nota com as tentativas e as dicas **que ele viu**.
-    Quem errou tres vezes com a conta, saiu dela e resolveu como convidado
-    manda, no login, uma resolucao "de primeira e sem dica": o convidado
-    comeca o dia do zero, porque no aparelho ele e outra pessoa. O servidor
-    sabia que era a quarta tentativa, e so gravava a contagem.
+    Ate 10/10/2026 valia a pontuacao que o aplicativo mandava, e o servidor so
+    a corrigia quando contava mais tentativas ou dicas (a antiga
+    `pontuacao_com_a_sessao_do_servidor`, T085zf). Agora o servidor e a fonte
+    da verdade **do XP do desafio** (decisao 7): ele recebe as medidas, conta a
+    sessao e aplica a regua do dia. A pontuacao do aplicativo vira ESTIMATIVA,
+    trocada por esta assim que a resposta chega (T105, T111).
 
-    ⚠️ **So as duas parcelas de CONTAGEM mudam.** Tempo e merito continuam os
-    do aplicativo (D-05: vale o aplicativo no julgamento); o que o servidor
-    corrige e um FATO que ele ve melhor - quantas vezes a pessoa tentou e
-    quantas dicas pagou no dia. Por isso a conta parte da `qualidade` que o
-    aplicativo mandou e tira dela so a diferenca dessas duas parcelas, em vez
-    de recalcular `Q` inteira: recalcular o merito aqui faria qualquer
-    divergencia de normalizacao virar XP diferente, que e o que D-05 proibe.
-
-    Args:
-        qualidade: o `Q` que o aplicativo mandou, em [0,1].
-        tentativas_do_app, dicas_do_app: o que o aplicativo usou na conta.
-        tentativas, dicas: o que vale agora - o MAIOR entre o do aplicativo e o
-            do servidor; quem escolhe e o servico.
-        nu_tempo_ms, nu_tempo_piso_ms, nu_tempo_teto_ms: so para montar as
-            parcelas de sessao; a de tempo e igual nos dois lados e se anula.
-        direcoes: `{co_feito: co_direcao}` das tres chaves de sessao.
+    ⚠️ **A soma e do extrato inteiro**: a linha `base` (12) mais as parcelas.
+    Somar aqui, e nao refazer `12 + 18 x Q` a parte, garante que o numero
+    gravado e o que o Raio-X mostra parcela a parcela.
 
     Returns:
-        `round(12 + 18 x Q')`, arredondado **para cima no meio** como o `round()`
-        do Dart (`lib/core/desafios/qualidade.dart`), preso em 12..30.
-
-    Raises:
-        MedidaInvalida: os mesmos numeros impossiveis de [parcelas_de_sessao].
+        A soma arredondada **para cima no meio** (`ROUND_HALF_UP`), como o
+        `round()` do Dart faz com numeros positivos, e presa em 12..30.
     """
-
-    def _contagem(n: int, d: int) -> Decimal:
-        """O XP das duas parcelas de contagem (tentativas + dica) com n e d."""
-        parcelas = parcelas_de_sessao(
-            nu_tentativas=n,
-            nu_tempo_ms=nu_tempo_ms,
-            nu_dicas=d,
-            nu_tempo_piso_ms=nu_tempo_piso_ms,
-            nu_tempo_teto_ms=nu_tempo_teto_ms,
-            direcoes=direcoes,
-        )
-        return sum(
-            (p.vr_xp for p in parcelas if p.nu_tipo_xp in (TIPO_TENTATIVAS, TIPO_DICA)),
-            Decimal(0),
-        )
-
-    # O que a pessoa perde por ter tentado e pedido mais do que o app sabia.
-    # ⚠️ Nunca negativo: o servico so pede esta conta com contagens MAIORES, e
-    # as duas reguas so descem quando a contagem sobe.
-    perda = _contagem(tentativas_do_app, dicas_do_app) - _contagem(tentativas, dicas)
-    bruto = Decimal(XP_PISO_POR_RESOLVER) + FAIXA_DE_Q * qualidade - perda
+    # As linhas `medida` (peso zero) entram com zero: nao mudam a soma.
+    bruto = sum((p.vr_xp for p in parcelas), Decimal(0))
     # `quantize(Decimal(1), ROUND_HALF_UP)`: arredonda para o inteiro, com o meio
-    # para cima - o `round()` do Dart faz o mesmo com numeros positivos.
+    # para cima.
     inteiro = int(bruto.quantize(Decimal(1), rounding=ROUND_HALF_UP))
     return max(XP_PISO_POR_RESOLVER, min(XP_TETO_DO_DIA, inteiro))

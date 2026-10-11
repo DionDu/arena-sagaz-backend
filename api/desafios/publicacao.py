@@ -26,6 +26,7 @@ from api.desafios.modelos_resposta import (
     DesafioPublicado,
     MedidaDeSaidaPublicada,
     ObjetivoPublicado,
+    ReguaNotaPublicada,
 )
 
 #: Os jogos em que `co_variante` significa **tamanho de tabuleiro**.
@@ -133,6 +134,10 @@ def para_resposta(
             )
             for m in linha["medidas_de_saida"]
         ],
+        # ⚠️ A regua da nota do DIA deste desafio, ja escolhida pela vigencia
+        # em `repositorio._com_medidas` (T104). Por chave, como as medidas: uma
+        # leitura que a esquecesse estoura aqui.
+        regua_nota=ReguaNotaPublicada.model_validate(linha["regua_nota"]),
         encerra_em=linha["dh_encerramento"],
         agora_no_servidor=agora,
         reprise=linha["ic_reprise"],

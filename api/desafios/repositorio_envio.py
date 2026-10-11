@@ -65,6 +65,7 @@ from api.desafios.extrato_xp import (
     FEITO_TEMPO,
     FEITO_TENTATIVAS,
 )
+from api.desafios.regua_da_nota import SQL_REGUAS_DA_NOTA
 from api.desafios.modelos_producao import (
     VW_CATALOGO_FEITO,
     VW_DESAFIO,
@@ -283,6 +284,14 @@ SELECT
       AND p.dh_consumo <= :ate) AS dicas
 """
 
+#: O XP que a resolucao JA gravada tem - o caminho do reenvio (T105): a
+#: resposta devolve o numero do servidor tambem quando a resolucao ja existia.
+SQL_XP_DA_RESOLUCAO = f"""
+SELECT nu_xp
+  FROM {VW_RESOLUCAO}
+ WHERE id_resolucao = :id_resolucao
+"""
+
 #: A chave de feito existe na dimensao? Usada so quando ela nao pesa no desafio.
 SQL_FEITO_NO_CATALOGO = f"""
 SELECT 1
@@ -293,8 +302,9 @@ SELECT 1
 #: O que o Desafio do Dia ja pos na conta da pessoa **neste dia** (T082).
 #:
 #: ⚠️ **A resolucao entra pelo `nu_xp` dela, e ⛔ nao pela soma das parcelas**:
-#: as parcelas tem casas decimais (`26,896`), e o que o aplicativo mostrou e o
-#: que a conta recebeu e o inteiro arredondado uma vez (`27`). Consolo e ajuste
+#: as parcelas tem casas decimais (`26,896`), e o que a conta recebeu e o
+#: inteiro arredondado uma vez (`27`) - desde a T103, o numero que o SERVIDOR
+#: calculou (`pontuacao_do_extrato`). Consolo e ajuste
 #: ja sao inteiros, gravados como `10,000` e `-7,000`.
 #:
 #: ⚠️ **Pelas VIEWs**, como toda leitura do projeto: `vw004_xp_desafio` ja traz o
@@ -409,6 +419,21 @@ class RepositorioEnvio:
             {"chaves": [FEITO_TENTATIVAS, FEITO_TEMPO, FEITO_DICAS]},
         )
         return {m["co_feito"]: m["co_direcao"] for m in resultado.mappings().all()}
+
+    async def linhas_das_reguas_da_nota(self) -> list[dict[str, Any]]:
+        """As linhas de todas as versoes da regua da nota (T103).
+
+        Quem as agrupa e escolhe a do dia e `regua_da_nota.py`.
+        """
+        resultado = await self.sessao.execute(text(SQL_REGUAS_DA_NOTA))
+        return [dict(m) for m in resultado.mappings().all()]
+
+    async def xp_da_resolucao(self, *, id_resolucao: UUID) -> int:
+        """O `nu_xp` gravado de uma resolucao que ja existia (T105)."""
+        resultado = await self.sessao.execute(
+            text(SQL_XP_DA_RESOLUCAO), {"id_resolucao": id_resolucao}
+        )
+        return int(resultado.scalar_one())
 
     async def dicas_da_tentativa(self, *, id_tentativa: UUID) -> int:
         """Quantas dicas a pessoa ja gastou **nesta tentativa** (T108)."""

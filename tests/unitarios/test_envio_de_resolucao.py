@@ -11,12 +11,15 @@ O que estes casos protegem:
     objetivo nao perde o XP;
   · **as tres parcelas invertidas** — mais tempo, mais tentativas e mais dicas
     dao MENOS XP, e a direcao vem do catalogo;
-  · **o teto de duas dicas e por TENTATIVA** (desde 10/10/2026, §8zzo).
+  · **o teto de duas dicas e por TENTATIVA** (desde 10/10/2026, §8zzo);
+  · ⚠️ **o XP do desafio e o do SERVIDOR** (T103, §8zzo decisao 7): calculado
+    com a regua da nota vigente no dia do desafio, e devolvido na resposta
+    (T105). A pontuacao do envio virou estimativa.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -24,14 +27,11 @@ import pytest
 
 from api.desafios.credito_do_dia import credito_do_dia
 from api.desafios.extrato_xp import (
-    PESO_DICA,
-    PESO_MERITO,
-    PESO_TEMPO,
-    PESO_TENTATIVAS,
     MedidaInvalida,
+    ParcelaDeXp,
     montar_extrato,
     normalizar,
-    pontuacao_com_a_sessao_do_servidor,
+    pontuacao_do_extrato,
     qualidade_do_extrato,
     soma_dos_pesos,
 )
@@ -51,13 +51,19 @@ from api.desafios.modelos_evento import (
     XP_TEMPO,
     XP_TENTATIVAS,
 )
+from api.desafios.regua_da_nota import ReguaDaNotaInvalida
 from api.desafios.servico_envio import (
     PartidaAindaNaoChegou,
     ServicoEnvio,
-    TETO_DE_DICAS,
     TETO_DE_DICAS_POR_TENTATIVA,
 )
 from api.nucleo.excecoes import ErroNegocio
+from tests.unitarios.reguas_de_teste import (
+    LINHAS_DAS_REGUAS,
+    REGUA_V1,
+    REGUA_V2,
+    VIGENCIA_V2,
+)
 
 AGORA = datetime(2026, 9, 10, 14, 23, 19, tzinfo=timezone.utc)
 ID_DESAFIO = uuid4()
@@ -110,13 +116,22 @@ DIRECOES = {
 }
 
 
+#: As duas versoes da regua da nota (as da `0030`, escritas a mao), em modulo
+#: de apoio porque a publicacao usa as mesmas.
+
+
 def _extrato(*, medidas=None, pesos=None, **trocas):
     """`montar_extrato` com a sessao ja preenchida na MELHOR resolucao.
 
     Primeira tentativa, no piso do tempo, sem dica: assim cada caso piora so o
     que esta medindo, em vez de repetir seis argumentos.
+
+    ⚠️ **A regua padrao e a VERSAO 1** (a de 04/10/2026): os casos desta secao
+    foram escritos para ela, e continuam provando que um dia antigo e pontuado
+    como os outros daquele dia. A versao 2 tem os casos dela, mais abaixo.
     """
     base = dict(
+        regua=REGUA_V1,
         medidas=medidas if medidas is not None else {},
         pesos=pesos if pesos is not None else _pesos(),
         nu_tentativas=1,
@@ -191,8 +206,18 @@ class RepoFalso:
         ja_creditado=0,
         tem_consolo=False,
         sessao_no_servidor=(0, 0),
+        dt_dia=AGORA.date(),
+        linhas_das_reguas=None,
+        xp_gravado=23,
     ) -> None:
         self._sem_regua = sem_regua
+        # O dia UTC do desafio: escolhe a versao da regua da nota (T103).
+        self._dt_dia = dt_dia
+        self._linhas_das_reguas = (
+            LINHAS_DAS_REGUAS if linhas_das_reguas is None else linhas_das_reguas
+        )
+        # O `nu_xp` da resolucao que JA existia, para o reenvio (T105).
+        self._xp_gravado = xp_gravado
         # `(tentativas, dicas)` que o servidor conta (T085zf). O padrao `(0, 0)`
         # e "o servidor sabe menos que o envio": o envio vale, como antes.
         self._sessao_no_servidor = sessao_no_servidor
@@ -223,7 +248,7 @@ class RepoFalso:
             return None
         return {
             "id_desafio_dia": id_desafio_dia,
-            "dt_dia": AGORA.date(),
+            "dt_dia": self._dt_dia,
             "id_desafio": id_desafio,
             "dh_encerramento": AGORA,
         }
@@ -248,6 +273,12 @@ class RepoFalso:
 
     async def direcoes_de_sessao(self):
         return DIRECOES
+
+    async def linhas_das_reguas_da_nota(self):
+        return self._linhas_das_reguas
+
+    async def xp_da_resolucao(self, *, id_resolucao):
+        return self._xp_gravado
 
     async def dicas_da_tentativa(self, *, id_tentativa):
         # Quem pergunta tem de perguntar pela tentativa que acabou de gravar - e
@@ -425,6 +456,8 @@ async def test_reenviar_responde_ja_existia_e_NAO_regrava_o_extrato():
     assert resultado.resposta.ja_existia is True
     assert resultado.resposta.aceita is True
     assert repo.extratos == []
+    # ⚠️ T105: a resposta leva o XP que JA estava gravado, e nao um recalculado.
+    assert resultado.resposta.pontuacao == 23
 
 
 @pytest.mark.asyncio
@@ -778,17 +811,24 @@ def test_o_peso_do_merito_e_RELATIVO_e_vira_um_quarto():
     """
     merito = _extrato(medidas={"damas_coroadas": Decimal(2)})[4]
 
-    assert merito.vr_peso == PESO_MERITO * Decimal("0.600")
+    assert merito.vr_peso == Decimal("0.250") * Decimal("0.600")
     assert merito.vr_peso == Decimal("0.150")
     assert merito.vr_xp == Decimal("2.700")
 
+    # ⚠️ E o peso do merito e o DA REGUA: na versao 2 ele vale 0,15, e o mesmo
+    # 0,600 vira 0,090 (T103).
+    na_v2 = _extrato(regua=REGUA_V2, medidas={"damas_coroadas": Decimal(2)})[4]
+    assert na_v2.vr_peso == Decimal("0.090")
 
-def test_as_tres_correm_ao_CONTRARIO_e_a_direcao_vem_da_dimensao():
+
+def test_as_tres_correm_ao_CONTRARIO_e_a_dimensao_tem_de_CONCORDAR():
     """⚠️ Mais tentativas, mais tempo e mais dicas dao MENOS XP.
 
-    ⛔ E a inversao vem de `co_direcao`, nunca de um `1 -` escrito na formula:
-    o caso troca a direcao na dimensao e a nota inverte junto. Uma parcela na
-    direcao errada nao daria erro nenhum.
+    ⚠️ **Desde 10/10/2026 (T103) a direcao esta dentro da CURVA** da regua do
+    banco (linear e hiperbolica so descem), e a dimensao virou conferencia: se
+    ela disser outra coisa, os dois dados estao em conflito e a conta falha
+    alto. Ate ali a dimensao invertia a nota, e o caso trocava a direcao para
+    ver a nota acompanhar.
     """
     melhor = _extrato()
     assert [p.vr_normalizado for p in melhor[1:4]] == [Decimal(1)] * 3
@@ -798,11 +838,9 @@ def test_as_tres_correm_ao_CONTRARIO_e_a_direcao_vem_da_dimensao():
     assert pior[3].vr_normalizado == Decimal(0)
     assert pior[1].vr_normalizado == Decimal(0)
 
-    # A dimensao mandando ao contrario: a nota acompanha.
-    invertida = _extrato(
-        nu_dicas=2, direcoes={**DIRECOES, "dicas_usadas": "maior_melhor"}
-    )
-    assert invertida[3].vr_normalizado == Decimal(1)
+    # A dimensao mandando ao contrario: ⛔ nao se escolhe um dos dois.
+    with pytest.raises(MedidaInvalida):
+        _extrato(nu_dicas=2, direcoes={**DIRECOES, "dicas_usadas": "maior_melhor"})
 
 
 def test_piorar_nunca_aumenta_a_nota():
@@ -853,15 +891,22 @@ def test_a_regua_de_tempo_e_do_DESAFIO():
     [
         {"nu_tentativas": 0},
         {"nu_tempo_ms": -1},
-        {"nu_dicas": 3},
+        {"nu_dicas": -1},
+        {"nu_tempo_piso_ms": 0},
         {"nu_tempo_piso_ms": 60_000, "nu_tempo_teto_ms": 60_000},
         {"nu_tempo_piso_ms": 60_000, "nu_tempo_teto_ms": 30_000},
         {"direcoes": {}},
+        {"direcoes": {**DIRECOES, "tentativas": "marco_atingido"}},
     ],
 )
 def test_numero_impossivel_de_sessao_e_medida_invalida(trocas):
-    """⚠️ Zero tentativas daria `1/0`; regua degenerada divide por zero; e sem
-    a direcao no catalogo nao ha como saber para que lado a parcela corre."""
+    """⚠️ Zero tentativas daria nota cheia a quem nao jogou; regua degenerada
+    divide por zero; e sem a direcao no catalogo (ou com outra) a regua e o
+    catalogo nao concordam.
+
+    ⚠️ **3 dicas deixou de ser impossivel em 10/10/2026** (§8zzo): o teto de 2
+    e do botao, por tentativa, e a nota conta todas as do dia.
+    """
     with pytest.raises(MedidaInvalida):
         _extrato(**trocas)
 
@@ -1001,6 +1046,159 @@ def test_o_caso_de_ouro_do_data_model():
     assert round(total) == 25
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# 4d. ⚠️ A REGUA 2 (§8zzo, T103): hiperbolica, sem teto, 50/15/20/15
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def _v2(**trocas):
+    """O extrato com a regua 2 e o merito CHEIO - so a sessao varia."""
+    base = dict(
+        regua=REGUA_V2,
+        medidas={"damas_coroadas": Decimal(2), "material_do_adversario": Decimal(0)},
+    )
+    base.update(trocas)
+    return _extrato(**base)
+
+
+@pytest.mark.parametrize(
+    ("trocas", "esperado"),
+    [
+        # 1a tentativa, sem dica, no piso: Q = 1.
+        ({}, 30),
+        # 3x o piso: tempo 2/(1+3) = 0,5 → perde 18 x 0,15 x 0,5 = 1,35 → 28,65.
+        ({"nu_tempo_ms": 3 * PISO_MS}, 29),
+        # 1 dica e 2x o piso: dica 2/3, tempo 2/3 → 30 - 1,2 - 0,9 = 27,9.
+        ({"nu_dicas": 1, "nu_tempo_ms": 2 * PISO_MS}, 28),
+        # 2a tentativa e 2x o piso: tentativas 1/2 → 30 - 4,5 - 0,9 = 24,6.
+        ({"nu_tentativas": 2, "nu_tempo_ms": 2 * PISO_MS}, 25),
+        # 9 tentativas: 1/9 → 30 - 9 x 0,5 x 8/9 = 22,0.
+        ({"nu_tentativas": 9}, 22),
+        # 4 tentativas, 2 dicas, 3x o piso: 12 + 18 x 0,45 = 20,1.
+        ({"nu_tentativas": 4, "nu_dicas": 2, "nu_tempo_ms": 3 * PISO_MS}, 20),
+        # 30 tentativas, 10 dicas, 20x o piso: 12 + 18 x 0,2143 = 15,86.
+        ({"nu_tentativas": 30, "nu_dicas": 10, "nu_tempo_ms": 20 * PISO_MS}, 16),
+    ],
+)
+def test_os_perfis_da_8zzo(trocas, esperado):
+    """🔒 A tabela de perfis que o dono viu ao aprovar a regua (§8zzo).
+
+    ⚠️ Os numeros estao escritos A MAO, com a conta no comentario: sao o limite
+    externo que a implementacao tem de alcancar.
+    """
+    assert pontuacao_do_extrato(_v2(**trocas)) == esperado
+
+
+def test_v2_as_curvas_tendem_a_zero_e_nunca_chegam_la():
+    """`1/n`, `2/(2+d)` e `2/(1+t/piso)`: a nota cai, e nunca zera.
+
+    ⚠️ E isto que a §8zzo pediu (*"quem tentar 30 vezes recebe a mesma parcela
+    de quem tentar 5?"*): com a regua 1, da 4a em diante tudo valia zero.
+    """
+    tent, tempo, dica = _v2(nu_tentativas=2, nu_dicas=2, nu_tempo_ms=3 * PISO_MS)[1:4]
+    assert tent.vr_normalizado == Decimal("0.5")
+    assert dica.vr_normalizado == Decimal("0.5")
+    assert tempo.vr_normalizado == Decimal("0.5")
+
+    anterior = Decimal(2)
+    for n in (1, 2, 4, 9, 30, 300):
+        q = _v2(nu_tentativas=n)[1].vr_normalizado
+        assert Decimal(0) < q < anterior
+        anterior = q
+
+    anterior = Decimal(2)
+    for d in (0, 1, 2, 4, 10):
+        q = _v2(nu_dicas=d)[3].vr_normalizado
+        assert Decimal(0) < q < anterior
+        anterior = q
+
+
+def test_v2_dentro_do_piso_o_tempo_e_cheio():
+    """Abaixo de `x0` (1x o piso), nota cheia - o resolver mais rapido que o
+    gabarito nao ganha mais que 1."""
+    assert _v2(nu_tempo_ms=PISO_MS // 2)[2].vr_normalizado == Decimal(1)
+
+
+def test_v2_o_TETO_do_desafio_sai_da_nota():
+    """⚠️ §8zzo: o `nu_tempo_teto_ms` deixa de entrar na nota (a coluna fica).
+
+    O mesmo tempo, com tetos diferentes, vale o mesmo - e um teto degenerado
+    nao derruba a conta, porque ninguem o le.
+    """
+    um = _v2(nu_tempo_ms=40_000, nu_tempo_teto_ms=TETO_MS)[2].vr_normalizado
+    outro = _v2(nu_tempo_ms=40_000, nu_tempo_teto_ms=PISO_MS)[2].vr_normalizado
+    assert um == outro
+
+
+def test_v2_Maria_23_e_Fernando_22():
+    """🔒 O empate que motivou a regua nova (desafio de 10/10/2026, `prd`).
+
+    Fernando: 9 tentativas, 0 dica, 38 s - dentro do piso, merito cheio.
+    Maria: 2 tentativas, 2 dicas, 54 s - 1,176x o piso, merito 4,44 de 4,50.
+    Com a regua 1 os dois tiravam 25.
+
+    ⚠️ O piso (45,9 s) e o merito sao os do desafio daquele dia, refeitos da
+    tabela da §8zzo; a conferencia com as linhas reais do banco e a T115.
+    """
+    piso = 45_918
+    fernando = _v2(
+        nu_tentativas=9, nu_dicas=0, nu_tempo_ms=38_000, nu_tempo_piso_ms=piso
+    )
+    # Merito 4,44/4,50: damas 2/2 (0,6) e material 0,4 x (1 - 0,4/12).
+    maria = _v2(
+        nu_tentativas=2,
+        nu_dicas=2,
+        nu_tempo_ms=54_000,
+        nu_tempo_piso_ms=piso,
+        medidas={
+            "damas_coroadas": Decimal(2),
+            "material_do_adversario": Decimal("0.4"),
+        },
+    )
+    assert pontuacao_do_extrato(fernando) == 22
+    assert pontuacao_do_extrato(maria) == 23
+
+
+def test_a_soma_dos_pesos_da_v2_tambem_fecha_em_1000():
+    """O cadeado barato vale para qualquer versao da regua."""
+    assert soma_dos_pesos(_v2()) == Decimal("1.000")
+
+
+# ── A pontuacao: a soma do extrato, inteira ───────────────────────────────────
+
+
+def _soma(*valores: str) -> list[ParcelaDeXp]:
+    """Parcelas so com XP - para medir o arredondamento sem regua nenhuma."""
+    return [
+        ParcelaDeXp(
+            nu_tipo_xp=XP_MERITO,
+            nu_feito=None,
+            vr_medida=None,
+            vr_normalizado=None,
+            vr_peso=None,
+            vr_xp=Decimal(v),
+        )
+        for v in valores
+    ]
+
+
+def test_o_MEIO_arredonda_para_CIMA_como_o_dart():
+    """12 + 4,5 = 16,5 → 17.
+
+    ⚠️ O `round()` do Python arredonda o meio para o PAR (16); o do Dart, para
+    longe do zero (17). A estimativa do app e o numero do servidor tem de
+    concordar tambem no meio.
+    """
+    assert pontuacao_do_extrato(_soma("12", "4.5")) == 17
+    assert pontuacao_do_extrato(_soma("12", "4.499")) == 16
+
+
+def test_a_pontuacao_fica_entre_12_e_30():
+    """A guarda dos extremos (o `ck001_xp` do banco recusaria fora deles)."""
+    assert pontuacao_do_extrato(_soma("11")) == 12
+    assert pontuacao_do_extrato(_soma("31")) == 30
+
+
 def test_fracao_sem_denominador_e_medida_invalida():
     """⚠️ O denominador e **outra medida da mesma partida**.
 
@@ -1126,6 +1324,27 @@ def test_o_grau_da_dica_e_1_ou_2():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+def _perfeito(**trocas) -> EnvioDeResolucao:
+    """A resolucao perfeita: 1a tentativa, sem dica, no piso, merito cheio.
+
+    ⚠️ O servidor calcula 30 nas DUAS reguas - e e por isso que os casos de
+    credito a usam: o numero e conhecido sem depender da versao.
+    """
+    base = dict(
+        tentativas=1,
+        dicas_usadas=0,
+        tempo_ms=PISO_MS,
+        qualidade=1.0,
+        pontuacao=30,
+        feitos=[
+            FeitoMedido(chave="damas_coroadas", valor=2),
+            FeitoMedido(chave="material_do_adversario", valor=0),
+        ],
+    )
+    base.update(trocas)
+    return _envio(**base)
+
+
 def _falha(**trocas) -> EnvioDeResolucao:
     """Uma tentativa que ⛔ resolveu, como o aplicativo a manda."""
     base = dict(
@@ -1148,17 +1367,26 @@ def _linhas_do_tipo(repo: RepoFalso, tipo: int) -> list[tuple]:
 
 
 @pytest.mark.asyncio
-async def test_resolver_de_primeira_credita_a_pontuacao_INTEIRA():
-    """O caso comum: sem consolo antes, 26 cabem nos 30 e ⛔ nao ha ajuste."""
+async def test_resolver_credita_a_pontuacao_do_SERVIDOR_inteira():
+    """O caso comum: sem consolo antes, a pontuacao cabe nos 30 e ⛔ nao ha
+    ajuste.
+
+    ⚠️ **E e a do SERVIDOR, e nao a do envio** (T103, §8zzo decisao 7). O envio
+    diz 26; com a regua 1 a conta e 12 + 1,8 (3 tentativas) + 3,044 (48,2 s
+    numa regua de 12 s a 95 s) + 1,35 (1 dica) + 1,35 + 1,8 (merito) = 21,34.
+    """
     repo = RepoFalso(partida=_partida())
 
     resultado = await ServicoEnvio(repo).registrar_resolucao(
         id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=26)
     )
 
-    assert resultado.xp_creditado == 26
-    assert repo.creditos == [26]
+    assert repo.resolucoes[0]["nu_xp"] == 21
+    assert resultado.xp_creditado == 21
+    assert repo.creditos == [21]
     assert _linhas_do_tipo(repo, XP_AJUSTE) == []
+    # T105: a resposta leva o numero do servidor, para o app trocar a estimativa.
+    assert resultado.resposta.pontuacao == 21
 
 
 @pytest.mark.asyncio
@@ -1167,7 +1395,7 @@ async def test_resolver_com_30_de_primeira_cabe_EXATO_no_teto():
     repo = RepoFalso(partida=_partida())
 
     resultado = await ServicoEnvio(repo).registrar_resolucao(
-        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=30)
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_perfeito()
     )
 
     assert resultado.xp_creditado == 30
@@ -1188,6 +1416,8 @@ async def test_a_primeira_falha_paga_o_consolo_ancorado_na_TENTATIVA():
 
     assert resultado.xp_creditado == 10
     assert repo.creditos == [10]
+    # ⚠️ T105: a falha nao tem pontuacao de resolucao a devolver.
+    assert resultado.resposta.pontuacao is None
     [(consolo, ancoras)] = _linhas_do_tipo(repo, XP_CONSOLO)
     assert consolo.vr_xp == Decimal(10) and consolo.nu_feito is None
     assert ancoras["id_tentativa"] == resultado.id_tentativa
@@ -1232,10 +1462,10 @@ async def test_a_SEGUNDA_falha_do_dia_nao_paga_nada():
 
 @pytest.mark.asyncio
 async def test_falhar_e_depois_resolver_fecha_o_dia_na_PONTUACAO_com_AJUSTE():
-    """🔒 O caso de ouro do `data-model.md`: 10 + 27 - 10 = 27.
+    """🔒 O caso de ouro do `data-model.md`: 10 + 30 - 10 = 30.
 
-    ⚠️ O `nu_xp` da resolucao continua 27 - e o que o quadro ordena. A
-    resolucao credita so o que falta (17), e o ajuste tira os 10 do consolo,
+    ⚠️ O `nu_xp` da resolucao continua 30 - e o que o quadro ordena. A
+    resolucao credita so o que falta (20), e o ajuste tira os 10 do consolo,
     que ja estao dentro da pontuacao.
     """
     repo = RepoFalso(partida=_partida())
@@ -1245,12 +1475,12 @@ async def test_falhar_e_depois_resolver_fecha_o_dia_na_PONTUACAO_com_AJUSTE():
         id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
     )
     resultado = await servico.registrar_resolucao(
-        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=27)
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_perfeito()
     )
 
-    assert repo.creditos == [10, 17]
-    assert resultado.xp_creditado == 17
-    assert repo.resolucoes[0]["nu_xp"] == 27
+    assert repo.creditos == [10, 20]
+    assert resultado.xp_creditado == 20
+    assert repo.resolucoes[0]["nu_xp"] == 30
     [(ajuste, ancoras)] = _linhas_do_tipo(repo, XP_AJUSTE)
     assert ajuste.vr_xp == Decimal(-10)
     # ⚠️ O ajuste e do DIA: nem resolucao, nem tentativa.
@@ -1261,21 +1491,21 @@ async def test_falhar_e_depois_resolver_fecha_o_dia_na_PONTUACAO_com_AJUSTE():
 async def test_a_ORDEM_de_chegada_nao_muda_a_conta_do_dia():
     """⚠️ A fila do aparelho nao garante ordem: resolucao antes, consolo depois.
 
-    27 entra inteiro, e o consolo entra com zero - o dia fecha nos mesmos 27 e
+    30 entra inteiro, e o consolo entra com zero - o dia fecha nos mesmos 30 e
     com o mesmo ajuste de -10.
     """
     repo = RepoFalso(partida=_partida())
     servico = ServicoEnvio(repo)
 
     await servico.registrar_resolucao(
-        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio(pontuacao=27)
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_perfeito()
     )
     await servico.registrar_resolucao(
         id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
     )
 
-    assert repo.creditos == [27, 0]
-    assert sum(repo.creditos) == 27
+    assert repo.creditos == [30, 0]
+    assert sum(repo.creditos) == 30
     [(ajuste, _)] = _linhas_do_tipo(repo, XP_AJUSTE)
     assert ajuste.vr_xp == Decimal(-10)
 
@@ -1402,8 +1632,8 @@ def test_valor_negativo_e_defeito_de_quem_chamou():
 # O caso do dono (26/09/2026): errar tres vezes com a conta, sair dela, resolver
 # como convidado - que comeca o dia do zero no aparelho - e entrar de novo. A
 # resolucao chega "de primeira e sem dica"; o servidor viu as tres. As contas
-# abaixo usam Q = 1 no envio, para o numero esperado sair a mao (regua da
-# §8zs, 04/10/2026 - `12 + 18 x Q`, tentativas zerando na 4a, dica pesando 0,15):
+# abaixo usam a resolucao PERFEITA no resto, para o numero esperado sair a mao
+# (regua 1, a da §8zs - `12 + 18 x Q`, tentativas zerando na 4a, dica a 0,15):
 #
 #   4 tentativas: q_tentativas = 0    → perde 18 x 0,30 x 1 = 5,4 → 24,6 → 25
 #   2 dicas:      q_dica = 0          → perde 18 x 0,15 x 1 = 2,7 → 27,3 → 27
@@ -1411,10 +1641,8 @@ def test_valor_negativo_e_defeito_de_quem_chamou():
 
 
 def _de_primeira(**trocas) -> EnvioDeResolucao:
-    """O envio do convidado: 1a tentativa, sem dica, Q cheio, 30 XP."""
-    base = dict(tentativas=1, dicas_usadas=0, qualidade=1.0, pontuacao=30)
-    base.update(trocas)
-    return _envio(**base)
+    """O envio do convidado: 1a tentativa, sem dica, tudo cheio, 30 XP."""
+    return _perfeito(**trocas)
 
 
 @pytest.mark.asyncio
@@ -1463,29 +1691,32 @@ async def test_o_servidor_contou_MENOS_e_vale_o_envio():
         envio=_envio(tentativas=3, dicas_usadas=1, pontuacao=26),
     )
 
-    assert repo.resolucoes[0]["nu_xp"] == 26
     tentativas, _tempo, dica = repo.extratos[0][1:4]
     assert tentativas.vr_medida == Decimal(3)
     assert dica.vr_medida == Decimal(1)
+    # A conta de [test_resolver_credita_a_pontuacao_do_SERVIDOR_inteira].
+    assert repo.resolucoes[0]["nu_xp"] == 21
 
 
 @pytest.mark.asyncio
-async def test_sessao_IGUAL_nao_refaz_a_conta_do_app():
-    """⚠️ Quem jogou honesto fica com o numero da tela, ao pe da letra.
+async def test_sessao_IGUAL_e_o_numero_continua_sendo_o_do_SERVIDOR():
+    """⚠️ **Mudou em 10/10/2026** (T103, §8zzo decisao 7).
 
-    `qualidade=0.7325` daria `round(12 + 13,185) = 25`, e o envio diz 26: sem
-    contagem a mais, o servidor ⛔ recalcula - uma diferenca de arredondamento
-    faria o quadro desmentir a tela de quem nao fez nada de errado.
+    Ate ali, com a sessao igual, o servidor gravava a pontuacao do envio ao pe
+    da letra - *"vale o aplicativo"*. Agora o XP do desafio e do servidor
+    sempre: o envio diz 26 e o servidor grava os 21 da regua, e a resposta leva
+    os 21 para a tela do app trocar a estimativa.
     """
     repo = RepoFalso(partida=_partida(), sessao_no_servidor=(3, 1))
 
-    await ServicoEnvio(repo).registrar_resolucao(
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
         id_desafio=ID_DESAFIO,
         id_usuario=ID_USUARIO,
         envio=_envio(tentativas=3, dicas_usadas=1, qualidade=0.7325, pontuacao=26),
     )
 
-    assert repo.resolucoes[0]["nu_xp"] == 26
+    assert repo.resolucoes[0]["nu_xp"] == 21
+    assert resultado.resposta.pontuacao == 21
 
 
 @pytest.mark.asyncio
@@ -1508,8 +1739,13 @@ async def test_a_pergunta_e_sobre_ESTA_tentativa_e_ate_a_resolucao():
 
 
 @pytest.mark.asyncio
-async def test_dicas_ACIMA_do_teto_no_servidor_ficam_no_teto():
-    """Duas dicas pedidas juntas podem passar as duas pela conta do teto."""
+async def test_dicas_ACIMA_de_2_contam_TODAS():
+    """⚠️ §8zzo, decisao 2: a nota conta todas as dicas de todas as tentativas.
+
+    Ate 10/10/2026 o total era preso em 2 (o teto era do dia). Com 2 por
+    tentativa, quem errou uma vez pode ter gastado 3 ou 4 - e o Raio-X diz 3.
+    Na regua 1 a parcela ja estava zerada em 2, entao a nota e a mesma: 27.
+    """
     repo = RepoFalso(partida=_partida(), sessao_no_servidor=(1, 3))
 
     await ServicoEnvio(repo).registrar_resolucao(
@@ -1517,7 +1753,13 @@ async def test_dicas_ACIMA_do_teto_no_servidor_ficam_no_teto():
     )
 
     assert repo.resolucoes[0]["nu_xp"] == 27
-    assert repo.extratos[0][3].vr_medida == Decimal(TETO_DE_DICAS)
+    assert repo.extratos[0][3].vr_medida == Decimal(3)
+
+
+def test_o_envio_aceita_mais_de_2_dicas():
+    """⚠️ Era `le=2` ate 10/10/2026: a 1.3.1 mandaria 3 e a fila descartaria o
+    envio (422 = dado impossivel), levando a resolucao junto."""
+    assert _envio(dicas_usadas=4).dicas_usadas == 4
 
 
 @pytest.mark.asyncio
@@ -1536,49 +1778,45 @@ async def test_o_REENVIO_com_contagem_maior_continua_sem_creditar():
     assert repo.extratos == []
 
 
-def _recontada(**trocas) -> int:
-    """`pontuacao_com_a_sessao_do_servidor` com a regua e as direcoes do arquivo."""
-    base = dict(
-        qualidade=Decimal(1),
-        tentativas_do_app=1,
-        dicas_do_app=0,
-        tentativas=1,
-        dicas=0,
-        nu_tempo_ms=PISO_MS,
-        nu_tempo_piso_ms=PISO_MS,
-        nu_tempo_teto_ms=TETO_MS,
-        direcoes=DIRECOES,
-    )
-    base.update(trocas)
-    return pontuacao_com_a_sessao_do_servidor(**base)
+# ═══════════════════════════════════════════════════════════════════════════
+# 10. ⚠️ A REGUA DA NOTA DO DIA (T103)
+# ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_recontada_o_MEIO_arredonda_para_CIMA_como_o_dart():
-    """`Q = 0,4` e duas dicas a mais: 12 + 7,2 - 2,7 = 16,5 → 17.
+@pytest.mark.asyncio
+async def test_o_dia_do_DESAFIO_escolhe_a_regua():
+    """A versao de maior vigencia ate o `dt_dia` - e nao a do relogio.
 
-    ⚠️ O `round()` do Python arredonda o meio para o PAR (16); o do Dart, para
-    longe do zero (17). A conta tem de dar o que o aplicativo daria.
+    O mesmo envio, num dia da regua 1 e num da regua 2: os pesos do extrato
+    mudam com o DIA do desafio.
     """
-    assert _recontada(qualidade=Decimal("0.4"), dicas=2) == 17
+    antes = RepoFalso(partida=_partida(), dt_dia=date(2026, 10, 10))
+    depois = RepoFalso(partida=_partida(), dt_dia=VIGENCIA_V2)
+
+    for repo in (antes, depois):
+        await ServicoEnvio(repo).registrar_resolucao(
+            id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio()
+        )
+
+    assert antes.extratos[0][1].vr_peso == Decimal("0.300")
+    assert depois.extratos[0][1].vr_peso == Decimal("0.500")
+    # E o numero muda junto: 3 tentativas custam mais na regua 2.
+    assert antes.resolucoes[0]["nu_xp"] != depois.resolucoes[0]["nu_xp"]
 
 
-def test_recontada_o_TEMPO_nao_muda_a_nota():
-    """O tempo e o mesmo dos dois lados: a parcela dele se anula."""
-    no_piso = _recontada(tentativas=4, nu_tempo_ms=PISO_MS)
-    no_teto = _recontada(tentativas=4, nu_tempo_ms=TETO_MS)
+@pytest.mark.asyncio
+async def test_sem_regua_para_o_dia_e_ERRO_DO_SERVIDOR_e_nao_400():
+    """⛔ Sem valor padrao (RF-DES-223) - e ⚠️ **sem 400**.
 
-    assert no_piso == no_teto == 25
-
-
-def test_recontada_parte_da_contagem_do_APP_e_nao_da_primeira():
-    """O app ja contava 2; o servidor, 4: perde so a diferenca entre 2/3 e 0.
-
-    18 x 0,30 x (2/3 - 0) = 3,6 → 30 - 3,6 = 26,4 → 26. Partir de "1
-    tentativa" tiraria 5,4 e daria 25.
+    O app trata 400 como "desista do envio": a pessoa perderia a resolucao por
+    um defeito que nao e dela. `ReguaDaNotaInvalida` vira 500, e a fila tenta de
+    novo depois do conserto. E nada fica gravado pela metade.
     """
-    assert _recontada(tentativas_do_app=2, tentativas=4) == 26
+    repo = RepoFalso(partida=_partida(), linhas_das_reguas=[])
 
+    with pytest.raises(ReguaDaNotaInvalida):
+        await ServicoEnvio(repo).registrar_resolucao(
+            id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio()
+        )
 
-def test_recontada_nunca_desce_do_piso_de_12():
-    """Um envio incoerente (Q = 0 dizendo "de primeira") nao sai com menos de 12."""
-    assert _recontada(qualidade=Decimal(0), tentativas=20, dicas=2) == 12
+    assert repo.resolucoes == [] and repo.commits == 0
