@@ -333,3 +333,33 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 Leva segundos. A última consulta tem de mostrar **8 linhas**: a versão 1 com
 0,300 / 0,300 / 0,150 / 0,250 (`linear`, a escala do tempo vazia) e a versão 2 com
 0,500 / 0,150 / 0,200 / 0,150 (`hiperbolica`).
+
+## ⏳ `0031` e `0032` — o conserto da vigência da régua (aprovado em 11/10/2026), AINDA NÃO ESCRITAS
+
+**Por que existem.** A `0030` entrou no `prd` em 11/10/2026 (01h03 UTC), antes do
+código que a lê, e pôs a **versão 2** da régua valendo desde **12/10/2026**. O dono
+decidiu que a régua nova vale a partir da **liberação da 1.3.1 nas lojas**
+(`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzr). As duas são aditivas, só
+com `INSERT` em `tb904`/`tb905` (⛔ sem `UPDATE` na versão 2: `test_migracoes_aditivas`
+proíbe, e a `un001_inicio_vigencia` não deixa repetir a data).
+
+| migração | o que insere | no `des` | no `prd` |
+|---|---|---|---|
+| `0031` | **versão 3** = os números da versão 1 (0,300 / 0,300 / 0,150 / 0,250, `linear`), a partir de **13/10/2026** (data fixa) | assim que escrita, para provar | **imediatamente antes do deploy do backend** (merge na `main`), que vem ANTES de mandar a 1.3.1 à revisão |
+| `0032` | **versão 4** = os números da versão 2 (0,500 / 0,150 / 0,200 / 0,150, `hiperbolica`), a partir do **dia seguinte à aplicação**, em UTC (calculado na migração, como na `0030`) | logo depois da `0031` - ⏳ ver a conferência abaixo | **aprovadas as duas lojas**: o dono aplica e libera a 1.3.1 em seguida. ⛔ Não entre 20h30 e 21h de Brasília |
+
+⚠️ **No `prd`, a `0031` sobe PELO NOME, nunca com `head`.** Quando ela for aplicada, o
+arquivo da `0032` já pode estar no repositório, e `alembic upgrade head` aplicaria as
+duas de uma vez - a régua nova valeria durante a revisão inteira. O comando será
+`alembic upgrade <revisão da 0031>`, conferido com `alembic current` antes e depois.
+A `0032`, na liberação, sobe com `head`.
+
+⏳ **Antes de escrever:** no `des` a `0030` também pôs a versão 2 valendo; a `0031`
+o devolveria à régua 1 a partir de 13/10. Conferir se a prova final da Phase 7 (T115:
+Maria 23 / Fernando 22 no `des`) foi calculada com a régua 1 ou com a 2, para decidir
+se a `0032` entra no `des` junto com a `0031` (o `des` testando a régua nova, que é a
+que a 1.3.1 vai usar) ou só depois da prova.
+
+⚠️ **As lojas precisam segurar a publicação** (App Store Connect: *"liberar esta
+versão manualmente"*; Google Play: *publicação gerenciada*), senão a aprovação
+publica a 1.3.1 antes da `0032`.
