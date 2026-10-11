@@ -8038,3 +8038,29 @@ ficaria escrita duas vezes.
 
 **Motivo.** O dono decidiu que o servidor é a fonte da verdade do XP do desafio e que os
 pesos e as constantes vêm do desafio publicado (§8zzo, decisões 7 e 8; R5 na §8zzq).
+
+## 2026-10-11 — A partida abandonada vira tentativa, sem consolo (T110)
+
+**Contexto.** O dono decidiu (§8zzo, decisão 5; R3 da §8zzq, no frontend) que a partida
+de desafio largada no meio, com pelo menos 1 lance, **conta como tentativa** e **não paga
+consolo**. Até a 1.3.0 ela era só a chama: o app gravava a partida `abandonada` pelo log
+e não mandava envio nenhum.
+
+**Decisões técnicas:**
+
+- **Veredito próprio, `abandonada`**, no `EnvioDeResolucao`. Com `tentativa`, o
+  servidor pagaria os 10 do consolo a quem saiu na primeira jogada. Em
+  `registrar_resolucao` ela grava a tentativa (o `DO UPDATE` completa, com o tempo
+  jogado, a linha que a dica tinha criado com tempo zero) e confirma - sem consolo, sem
+  resolução, sem crédito. A contagem de `SQL_SESSAO_NO_SERVIDOR` e do `meu-dia` já
+  contava a linha com `nu_tempo_ms > 0`, e não mudou.
+- **`meu-dia` ganhou `consolo`** (aditivo, `SQL_TEM_CONSOLO`, pela `vw004` e pelo
+  `co_tipo_xp`): o app não consegue mais deduzir o consolo de `tentativas`, porque
+  "fechou uma e não resolveu" deixou de querer dizer "ganhou os 10".
+
+**Alternativas consideradas.** Mandar a abandonada como `tentativa` com um campo extra:
+um servidor que ignorasse o campo pagaria o consolo. Deixar o app deduzir o consolo:
+ficaria errado no dia em que a pessoa larga e depois resolve.
+
+**Motivo.** Fechar a brecha de sair antes de perder, que com a parcela de tentativas a
+50% (régua 2) viraria estratégia, sem transformar sair em XP (§8q).

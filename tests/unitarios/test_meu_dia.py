@@ -7,7 +7,9 @@ O que estes casos protegem:
   · o "na N-a tentativa" e o `n` que o APLICATIVO mandou (a parcela
     `tentativas`), e ⛔ o `nu_sequencia`, que a linha da dica largada desloca;
   · o retrato vem como veio, e `null` (resolucao anterior a `0027`) passa como
-    `null` - a tela cai em "Objetivo cumprido".
+    `null` - a tela cai em "Objetivo cumprido";
+  · ⚠️ **o consolo do dia vem dito** (T110): desde que a partida abandonada
+    conta como tentativa e nao paga consolo, o aparelho nao o deduz das tentativas.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import pytest
 from api.desafios.meu_dia import (
     SQL_DIA_DO_DESAFIO,
     SQL_RESOLUCAO_DO_DIA,
+    SQL_TEM_CONSOLO,
     SQL_TENTATIVAS_FECHADAS,
     ServicoMeuDia,
 )
@@ -37,8 +40,11 @@ RETRATO = {"medidas": {"caixas_fechadas": 4}, "janela_gasta": 2}
 class RepoFalso:
     """Um `RepositorioMeuDia` de mentira - ele anota com quem falou."""
 
-    def __init__(self, *, dia=ID_DIA, tentativas=0, dicas=0, resolucao=None):
+    def __init__(
+        self, *, dia=ID_DIA, tentativas=0, dicas=0, resolucao=None, consolo=False
+    ):
         self._dia = dia
+        self._consolo = consolo
         self._tentativas = tentativas
         self._dicas = dicas
         self._resolucao = resolucao
@@ -59,6 +65,10 @@ class RepoFalso:
     async def resolucao(self, *, id_desafio_dia, id_usuario):
         self.perguntas.append(("resolucao", (id_desafio_dia, id_usuario)))
         return self._resolucao
+
+    async def tem_consolo(self, *, id_desafio_dia, id_usuario):
+        self.perguntas.append(("consolo", (id_desafio_dia, id_usuario)))
+        return self._consolo
 
 
 def resolucao(**trocas) -> dict:
@@ -84,6 +94,7 @@ async def test_quem_nao_jogou_recebe_o_dia_VAZIO() -> None:
         "dicas": 0,
         "resolveu": False,
         "primeira": None,
+        "consolo": False,
     }
     # E a forma bate com o contrato.
     MeuDia(**corpo)
@@ -94,7 +105,13 @@ async def test_a_pergunta_e_sobre_QUEM_pergunta() -> None:
     """⛔ O dia de outra pessoa ⛔ vaza: toda consulta leva o `id_usuario`."""
     repo = RepoFalso()
     await ServicoMeuDia(repo).montar(id_desafio=ID_DESAFIO, id_usuario=EU)
-    assert {p for p, _ in repo.perguntas} == {"dia", "tentativas", "dicas", "resolucao"}
+    assert {p for p, _ in repo.perguntas} == {
+        "dia",
+        "tentativas",
+        "dicas",
+        "resolucao",
+        "consolo",
+    }
     for pergunta, argumentos in repo.perguntas:
         if pergunta != "dia":
             assert argumentos == (ID_DIA, EU)
@@ -167,12 +184,35 @@ def test_a_linha_que_SO_A_DICA_criou_nao_conta() -> None:
     assert "AND NOT (" in sql
 
 
+@pytest.mark.asyncio
+async def test_o_CONSOLO_do_dia_vem_dito() -> None:
+    """⚠️ T110: 2 tentativas, nenhuma resolvida, e SEM consolo - as duas foram
+    abandonadas. O aparelho que deduzisse "tentou e nao resolveu = 10" erraria."""
+    sem = await ServicoMeuDia(RepoFalso(tentativas=2)).montar(
+        id_desafio=ID_DESAFIO, id_usuario=EU
+    )
+    com = await ServicoMeuDia(RepoFalso(tentativas=2, consolo=True)).montar(
+        id_desafio=ID_DESAFIO, id_usuario=EU
+    )
+    assert (sem["consolo"], com["consolo"]) == (False, True)
+    MeuDia(**com)
+
+
+def test_o_consolo_e_a_linha_CONSOLO_do_extrato() -> None:
+    """Pelo nome do tipo, na VIEW, da pessoa e do dia."""
+    sql = " ".join(SQL_TEM_CONSOLO.split())
+    assert "x.co_tipo_xp = 'consolo'" in sql
+    assert "x.id_usuario = :id_usuario" in sql
+    assert "x.id_desafio_dia = :id_desafio_dia" in sql
+
+
 def test_o_N_sai_da_parcela_de_TENTATIVAS() -> None:
     assert "x.co_tipo_xp = 'tentativas'" in SQL_RESOLUCAO_DO_DIA
 
 
 @pytest.mark.parametrize(
-    "sql", [SQL_DIA_DO_DESAFIO, SQL_TENTATIVAS_FECHADAS, SQL_RESOLUCAO_DO_DIA]
+    "sql",
+    [SQL_DIA_DO_DESAFIO, SQL_TENTATIVAS_FECHADAS, SQL_RESOLUCAO_DO_DIA, SQL_TEM_CONSOLO],
 )
 def test_a_LEITURA_vai_a_VIEW(sql: str) -> None:
     """🔒 Convencao do projeto desde a `0001`: le-se pela VIEW."""

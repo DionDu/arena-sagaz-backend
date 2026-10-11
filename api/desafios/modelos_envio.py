@@ -103,7 +103,15 @@ class EnvioDeResolucao(BaseModel):
     """
 
     id_desafio_dia: UUID
-    veredito: Literal["resolvido", "tentativa"]
+    #: `resolvido` · `tentativa` (jogou ate o fim sem cumprir; paga o consolo) ·
+    #: `abandonada` (largou no meio, com pelo menos 1 lance; T110).
+    #:
+    #: ⚠️ **`abandonada` desde 10/10/2026** (`DECISOES-do-dono.md` §8zzo, decisao
+    #: 5, e R3 da §8zzq): conta como TENTATIVA - fecha a brecha de sair antes de
+    #: perder, que com a parcela de tentativas a 50% viraria estrategia - e nao
+    #: paga consolo (§8q: *"sair na primeira jogada nao pode valer XP"*). Por isso
+    #: ela tem veredito proprio: com `tentativa`, o servidor pagaria os 10.
+    veredito: Literal["resolvido", "tentativa", "abandonada"]
 
     tentativas: int = Field(ge=1)
     tempo_ms: int = Field(ge=0)

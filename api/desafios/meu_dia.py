@@ -24,9 +24,14 @@ servidor pode estar a frente (a pessoa jogou em outro aparelho).
 
 A **dica** cria a linha da tentativa DURANTE a partida (`registrar_dica`: ela
 nasce `ic_resolveu = FALSE`, `nu_tempo_ms = 0`), antes de o envio da tentativa
-chegar. Se a pessoa larga a partida no meio, a linha fica - e a partida largada
-⛔ entra na parcela de tentativas (`DECISOES-do-dono.md` §8q). Contar a linha crua faria o
-aparelho novo achar uma tentativa a mais, e a nota da proxima resolucao cairia.
+chegar. Se a pessoa larga a partida no meio e o envio nunca vem (o app 1.3.0), a
+linha fica com tempo zero, e nao conta.
+
+⚠️ **Desde a 1.3.1 (T110, `DECISOES-do-dono.md` §8zzo decisao 5) a partida
+largada com pelo menos 1 lance CONTA como tentativa**: o app manda o envio com
+`veredito = "abandonada"` e o tempo jogado, o `DO UPDATE` completa a linha, e ela
+passa a contar como qualquer tentativa fechada. O que continua fora e a linha que
+SO a dica criou e nada fechou.
 
 Por isso a contagem tira a linha que **so a dica criou**: ⛔ resolvida, tempo
 zero, e com dica pendurada. O envio da tentativa (resolvida ou nao) sobrescreve
@@ -82,6 +87,20 @@ SELECT COUNT(*) AS qt
                    FROM {VW_PODER_CONSUMIDO} p
                   WHERE p.id_tentativa = t.id_tentativa)
    )
+"""
+
+#: O dia ja tem a linha de CONSOLO? (T110)
+#:
+#: ⚠️ **E o que o aparelho precisa para a conta do credito do dia**, e nao da para
+#: deduzir das tentativas desde que a abandonada conta como tentativa e nao paga
+#: consolo: "fechou uma tentativa e nao resolveu" deixou de querer dizer "ganhou
+#: os 10". Pela VIEW, pelo nome do tipo.
+SQL_TEM_CONSOLO = f"""
+SELECT EXISTS (SELECT 1
+                 FROM {VW_XP_DESAFIO} x
+                WHERE x.id_desafio_dia = :id_desafio_dia
+                  AND x.id_usuario = :id_usuario
+                  AND x.co_tipo_xp = 'consolo') AS tem
 """
 
 #: A resolucao da pessoa no dia, com o retrato e o `n` que entrou na nota.
@@ -141,6 +160,14 @@ class RepositorioMeuDia:
         )
         return int(resultado.scalar_one())
 
+    async def tem_consolo(self, *, id_desafio_dia: UUID, id_usuario: str) -> bool:
+        """Se o consolo do dia ja foi pago (T110) - ver [SQL_TEM_CONSOLO]."""
+        resultado = await self.sessao.execute(
+            text(SQL_TEM_CONSOLO),
+            {"id_desafio_dia": id_desafio_dia, "id_usuario": id_usuario},
+        )
+        return bool(resultado.scalar_one())
+
     async def resolucao(
         self, *, id_desafio_dia: UUID, id_usuario: str
     ) -> Optional[dict[str, Any]]:
@@ -187,6 +214,9 @@ class ServicoMeuDia:
         resolucao = await self.repo.resolucao(
             id_desafio_dia=id_desafio_dia, id_usuario=id_usuario
         )
+        consolo = await self.repo.tem_consolo(
+            id_desafio_dia=id_desafio_dia, id_usuario=id_usuario
+        )
 
         primeira = None
         if resolucao is not None:
@@ -206,4 +236,7 @@ class ServicoMeuDia:
             "dicas": dicas,
             "resolveu": primeira is not None,
             "primeira": primeira,
+            # ⚠️ T110: o aparelho nao deduz mais o consolo das tentativas (a
+            # abandonada conta e nao paga).
+            "consolo": consolo,
         }

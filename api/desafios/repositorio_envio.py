@@ -254,11 +254,14 @@ SELECT COUNT(*) AS qt
 #: fila antes, chega primeiro e ⛔ foi tentativa antes dela.
 #:
 #: ⚠️ **E a linha que so a DICA criou nao conta, se nada a fechou**: a dica cria
-#: a tentativa no meio da partida, com tempo ZERO (`registrar_dica`); quem larga
-#: a partida depois ⛔ manda envio nenhum, e o aplicativo ⛔ conta a largada no
-#: parcela de tentativas (`registrarAPartidaLargada`). Contar essa linha puniria quem jogou
-#: honesto. A tentativa fechada por envio tem o tempo da partida (> 0), ou
-#: resolveu; e a desta resolucao conta sempre.
+#: a tentativa no meio da partida, com tempo ZERO (`registrar_dica`). A tentativa
+#: fechada por envio tem o tempo da partida (> 0), ou resolveu; e a desta
+#: resolucao conta sempre.
+#:
+#: ⚠️ **Desde a 1.3.1 (T110) a partida LARGADA conta**: o app manda o envio com
+#: `veredito = "abandonada"` e o tempo jogado, e a linha passa a ter tempo > 0
+#: (§8zzo, decisao 5 - fechar a brecha de sair antes de perder). O que continua
+#: fora e a linha de quem largou na 1.3.0, que nao mandava envio nenhum.
 #:
 #: ⚠️ **Dicas ate o instante da resolucao** (`dh_consumo <= :ate`): a dica paga
 #: numa tentativa de depois ⛔ ajudou esta. E a mesma regra do aplicativo (o

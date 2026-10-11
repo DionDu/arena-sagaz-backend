@@ -196,13 +196,29 @@ class ServicoEnvio:
             dh_fim=partida["dh_fim"] or envio.resolvido_em,
         )
 
+        if envio.veredito == "abandonada":
+            # ⚠️ **A partida largada no meio conta como TENTATIVA, e nao paga
+            # nada** (T110, §8zzo decisao 5, R3). A linha gravada acima, com o
+            # tempo jogado (> 0), e o que a faz entrar na contagem de
+            # `SQL_SESSAO_NO_SERVIDOR` e do `meu-dia` - inclusive a que a dica
+            # tinha criado com tempo zero, que o `DO UPDATE` completa agora.
+            # ⛔ Sem consolo e sem credito: a chama do dia ja anda pela partida
+            # `abandonada` do log.
+            await self.repo.confirmar()
+            return ResultadoDoEnvio(
+                resposta=RespostaDeResolucao(aceita=True),
+                id_tentativa=id_tentativa,
+                parcelas_gravadas=0,
+                xp_creditado=0,
+            )
+
         if not resolveu:
             # ⚠️ **Tentativa que falhou nao vira resolucao, e nao entra no
             # quadro** (RF-DES-062): falhar e privado. A linha existe no banco
             # porque e ela que conta as tentativas para `Q`.
             #
             # ⚠️ **Mas ela paga o consolo** (RF-DES-041, T082) - uma vez por
-            # dia, e so a primeira que chegar.
+            # dia, e so a primeira que chegar. ⛔ A ABANDONADA nao chega aqui.
             creditado = await self._creditar_o_consolo(
                 id_desafio_dia=envio.id_desafio_dia,
                 id_usuario=id_usuario,

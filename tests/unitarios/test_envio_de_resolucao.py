@@ -1541,6 +1541,74 @@ async def test_um_dia_JA_CHEIO_grava_o_consolo_e_o_corte_inteiro():
     assert ajuste.vr_xp == Decimal(-10)
 
 
+# ── T110: a partida ABANDONADA conta como tentativa, e nao paga nada ────────────
+
+
+def _abandonada(**trocas) -> EnvioDeResolucao:
+    """A partida largada no meio, como a 1.3.1 a manda (veredito proprio)."""
+    base = dict(veredito="abandonada", tempo_ms=21_500)
+    base.update(trocas)
+    return _falha(**base)
+
+
+@pytest.mark.asyncio
+async def test_a_ABANDONADA_grava_a_tentativa_com_o_TEMPO_e_nao_paga_nada():
+    """⚠️ §8zzo decisao 5 e R3: conta como tentativa, sem consolo.
+
+    O tempo jogado (> 0) e o que faz a linha contar em `SQL_SESSAO_NO_SERVIDOR`
+    e no `meu-dia` - inclusive a que a dica tinha criado com tempo zero.
+    """
+    repo = RepoFalso(partida=_partida("abandonada"))
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_abandonada()
+    )
+
+    [tentativa] = repo.tentativas
+    assert tentativa["ic_resolveu"] is False
+    assert tentativa["nu_tempo_ms"] == 21_500
+    assert repo.extratos == [] and repo.creditos == []
+    assert resultado.xp_creditado == 0
+    assert resultado.resposta.pontuacao is None
+    assert repo.resolucoes == []
+    assert repo.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_a_ABANDONADA_nao_conta_como_o_consolo_do_dia():
+    """Depois de uma abandonada, a 1a falha de verdade ainda paga os 10."""
+    repo = RepoFalso(partida=_partida())
+    servico = ServicoEnvio(repo)
+
+    await servico.registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_abandonada()
+    )
+    resultado = await servico.registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_falha()
+    )
+
+    assert resultado.xp_creditado == 10
+    assert len(_linhas_do_tipo(repo, XP_CONSOLO)) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_ABANDONADA_antes_da_partida_tambem_e_segurada():
+    """O mesmo 409: o log da partida largada pode chegar depois do envio."""
+    repo = RepoFalso(partida=None)
+
+    with pytest.raises(PartidaAindaNaoChegou):
+        await ServicoEnvio(repo).registrar_resolucao(
+            id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_abandonada()
+        )
+
+
+def test_o_veredito_ABANDONADA_e_aceito_e_inventado_nao():
+    """⚠️ Era `resolvido | tentativa` ate a T110; um terceiro inventado e 422."""
+    assert _abandonada().veredito == "abandonada"
+    with pytest.raises(ValueError):
+        _falha(veredito="desistiu")
+
+
 @pytest.mark.asyncio
 async def test_o_credito_entra_na_MESMA_transacao_do_extrato():
     """⚠️ Um commit so: um extrato sem credito (ou o contrario) nao se conserta."""

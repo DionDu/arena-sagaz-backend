@@ -359,6 +359,12 @@ class MeuDia(BaseModel):
     dicas: int
     resolveu: bool
     primeira: Optional[PrimeiraResolucaoDoDia] = None
+    #: O consolo do dia (os 10 de quem tentou e nao resolveu) ja foi pago? (T110)
+    #:
+    #: ⚠️ Desde que a partida ABANDONADA conta como tentativa e nao paga consolo
+    #: (§8zzo, decisao 5), o aparelho nao consegue mais deduzir isso de
+    #: `tentativas`. Campo ADITIVO: a 1.3.0 o ignora.
+    consolo: bool = False
 
 
 class ResumoDoMes(BaseModel):
