@@ -8064,3 +8064,35 @@ ficaria errado no dia em que a pessoa larga e depois resolve.
 
 **Motivo.** Fechar a brecha de sair antes de perder, que com a parcela de tentativas a
 50% (régua 2) viraria estratégia, sem transformar sair em XP (§8q).
+
+## 2026-10-11 (2) — O conserto da vigência da régua: `0031` e `0032`
+
+**Contexto.** A `0030` entrou no `prd` em 11/10/2026, às 01h03 UTC, antes do código que
+a lê, e a data calculada ("o dia seguinte") pôs a versão 2 da régua valendo desde
+12/10. O dono decidiu (§8zzr, no frontend) que a régua nova vale da **liberação da
+1.3.1 nas lojas**, e não do deploy: entre um e outro a 1.3.0 continua em campo,
+estimando com os números da versão 1.
+
+**Decisões técnicas:**
+
+- **Duas migrações, só `INSERT`.** A `0031_regua_antiga_ate_liberar` insere a versão 3
+  (os números da 1) desde **13/10/2026**, data fixa: 12/10 já é da versão 2, e a
+  `un001_inicio_vigencia` não deixa repetir o dia. A `0032_regua_nova_na_liberacao`
+  insere a versão 4 (os números da 2) desde `GREATEST(amanhã em UTC, 14/10/2026)`.
+- **O piso de 14/10 na `0032`.** Aplicada antes de 13/10 (o `des`, onde as duas entram
+  juntas), sem o piso ela nasceria em 12/10, antes da versão 3; pela regra da
+  vigência, a 3 venceria para sempre, sem erro nenhum. Em 12/10 o `INSERT` bateria na
+  `un001`. No `prd` o piso não decide: a liberação vem dias depois.
+- **No `prd`, a `0031` sobe pelo NOME da revisão**: com a `0032` no repositório,
+  `upgrade head` aplicaria as duas. O deploy não roda migração (só `uvicorn`), então
+  ter a `0032` na `main` é seguro.
+- Os nomes cabem na `alembic_version.version_num` (`VARCHAR(32)`); um caso confere.
+
+**Alternativas consideradas.** `UPDATE` da vigência da versão 2: o cadeado de migração
+aditiva proíbe, e apagaria a história do banco. Uma migração só, com as versões 3 e 4:
+a 4 teria de nascer no dia do deploy, e não no da liberação, que depende da revisão
+da Apple. Deixar a data da `0032` sem piso e confiar na ordem de aplicação: o `des`
+já estaria errado hoje.
+
+**Motivo.** O número que a pessoa vê na 1.3.0 e o que o servidor grava continuam o
+mesmo até a 1.3.1 chegar a ela. Passo a passo em `docs/runbook-migracoes-desafio.md`.

@@ -305,7 +305,7 @@ conteúdo deste `CHECK`):
 Tem de sair `CHECK (((nu_xp >= 12) AND (nu_xp <= 30)))` - o Postgres guarda o
 `BETWEEN` assim.
 
-## ⏳ A `0030_regua_da_nota` — escrita em 10/10/2026, **aguardando o `des`**
+## ✅ A `0030_regua_da_nota` — escrita em 10/10/2026, aplicada no `des` e no `prd` (11/10, 01h03 UTC)
 
 | migração | o que faz | risco |
 |---|---|---|
@@ -334,7 +334,7 @@ Leva segundos. A última consulta tem de mostrar **8 linhas**: a versão 1 com
 0,300 / 0,300 / 0,150 / 0,250 (`linear`, a escala do tempo vazia) e a versão 2 com
 0,500 / 0,150 / 0,200 / 0,150 (`hiperbolica`).
 
-## ⏳ `0031` e `0032` — o conserto da vigência da régua (aprovado em 11/10/2026), AINDA NÃO ESCRITAS
+## ⏳ `0031` e `0032` — o conserto da vigência da régua (aprovado em 11/10/2026), **escritas em 11/10, aguardando o `des`**
 
 **Por que existem.** A `0030` entrou no `prd` em 11/10/2026 (01h03 UTC), antes do
 código que a lê, e pôs a **versão 2** da régua valendo desde **12/10/2026**. O dono
@@ -345,20 +345,73 @@ proíbe, e a `un001_inicio_vigencia` não deixa repetir a data).
 
 | migração | o que insere | no `des` | no `prd` |
 |---|---|---|---|
-| `0031` | **versão 3** = os números da versão 1 (0,300 / 0,300 / 0,150 / 0,250, `linear`), a partir de **13/10/2026** (data fixa) | assim que escrita, para provar | **imediatamente antes do deploy do backend** (merge na `main`), que vem ANTES de mandar a 1.3.1 à revisão |
-| `0032` | **versão 4** = os números da versão 2 (0,500 / 0,150 / 0,200 / 0,150, `hiperbolica`), a partir do **dia seguinte à aplicação**, em UTC (calculado na migração, como na `0030`) | logo depois da `0031` - ⏳ ver a conferência abaixo | **aprovadas as duas lojas**: o dono aplica e libera a 1.3.1 em seguida. ⛔ Não entre 20h30 e 21h de Brasília |
+| `0031_regua_antiga_ate_liberar` | **versão 3** = os números da versão 1 (0,300 / 0,300 / 0,150 / 0,250, `linear`), a partir de **13/10/2026** (data fixa) | junto com a `0032`, já | **imediatamente antes do deploy do backend** (merge na `main`), que vem ANTES de mandar a 1.3.1 à revisão |
+| `0032_regua_nova_na_liberacao` | **versão 4** = os números da versão 2 (0,500 / 0,150 / 0,200 / 0,150, `hiperbolica`), a partir de `GREATEST(amanhã em UTC, 14/10/2026)` | junto com a `0031`, já | **aprovadas as duas lojas**: o dono aplica e libera a 1.3.1 em seguida. ⛔ Não entre 20h30 e 21h de Brasília |
 
-⚠️ **No `prd`, a `0031` sobe PELO NOME, nunca com `head`.** Quando ela for aplicada, o
-arquivo da `0032` já pode estar no repositório, e `alembic upgrade head` aplicaria as
-duas de uma vez - a régua nova valeria durante a revisão inteira. O comando será
-`alembic upgrade <revisão da 0031>`, conferido com `alembic current` antes e depois.
-A `0032`, na liberação, sobe com `head`.
+⚠️ **O piso de 14/10 na data da `0032`.** Sem ele, aplicada em 11/10 ela nasceria em
+12/10, **antes** da versão 3 - e, pela regra (vale a de maior vigência ≤ o dia), a
+versão 3 venceria de 13/10 em diante para sempre, sem erro nenhum. Aplicada em 12/10,
+cairia em 13/10 e a `un001_inicio_vigencia` recusaria. No `prd` o piso nunca decide
+(a liberação vem dias depois); no `des`, sim.
 
-⏳ **Antes de escrever:** no `des` a `0030` também pôs a versão 2 valendo; a `0031`
-o devolveria à régua 1 a partir de 13/10. Conferir se a prova final da Phase 7 (T115:
-Maria 23 / Fernando 22 no `des`) foi calculada com a régua 1 ou com a 2, para decidir
-se a `0032` entra no `des` junto com a `0031` (o `des` testando a régua nova, que é a
-que a 1.3.1 vai usar) ou só depois da prova.
+✅ **A conferência que faltava (11/10):** o caso da T115 (Maria 23 × Fernando 22,
+`test_v2_Maria_23_e_Fernando_22`) é da **régua 2**. Por isso o `des` recebe as duas
+juntas e fica como o `prd` vai ficar depois da liberação: régua 1 até 13/10, régua 2
+de 14/10 em diante. ⚠️ O desafio da Maria e do Fernando é de **10/10**, e pela data a
+régua dele é a **1** em qualquer ambiente: a conferência da T115 no `des` tem de
+passar a régua 2 explicitamente (ou usar um desafio de 14/10 em diante), e não deixar
+a vigência escolher.
+
+Cadeado: `tests/unitarios/test_regua_da_nota.py` (as quatro versões com os números
+escritos à mão, a data fixa da 3, o `GREATEST` da 4, a linha do tempo do `prd`, o caso
+"sem o piso a versão 4 nunca valeria" e a cadeia das revisões).
+
+### No `des`: as duas juntas
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python scripts\identificar_banco.py        # tem de dizer DES
+.venv\Scripts\python -m alembic current                  # esperado: 0030_regua_da_nota
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m alembic current                  # esperado: 0032_regua_nova_na_liberacao (head)
+.venv\Scripts\python scripts\consultar_des.py "SELECT nu_versao_regua, dt_inicio_vigencia, co_tipo_xp, vr_peso, co_forma, vr_x0, vr_escala FROM desafio_dia.vw905_parcela_regua_nota ORDER BY 1, nu_tipo_xp"
+```
+
+Leva segundos. A consulta tem de mostrar **16 linhas**: as versões 1 e 3 com
+0,300 / 0,300 / 0,150 / 0,250 (`linear`), as 2 e 4 com 0,500 / 0,150 / 0,200 / 0,150
+(`hiperbolica`); a versão 3 em **2026-10-13** e a 4 em **2026-10-14** (o piso, se
+aplicada até 13/10).
+
+### No `prd`, em DOIS momentos
+
+⚠️ **Primeiro momento - a `0031`, PELO NOME, imediatamente antes do deploy.** O
+arquivo da `0032` já está no repositório, e `upgrade head` aplicaria as duas de uma
+vez - a régua nova valeria durante a revisão inteira das lojas.
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python scripts\identificar_banco.py        # tem de dizer PRD
+.venv\Scripts\python -m alembic current                  # esperado: 0030_regua_da_nota
+.venv\Scripts\python -m alembic upgrade 0031_regua_antiga_ate_liberar
+.venv\Scripts\python -m alembic current                  # esperado: 0031_regua_antiga_ate_liberar (SEM "(head)")
+```
+
+O `alembic current` sem o `(head)` é o sinal certo: falta a `0032`, de propósito.
+
+**Segundo momento - a `0032`, aprovadas as duas lojas**, imediatamente antes do
+clique de liberação (⛔ não entre 20h30 e 21h de Brasília):
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python scripts\identificar_banco.py        # tem de dizer PRD
+.venv\Scripts\python -m alembic current                  # esperado: 0031_regua_antiga_ate_liberar
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m alembic current                  # esperado: 0032_regua_nova_na_liberacao (head)
+```
+
+A conferência dos dois momentos é a mesma consulta do `des`, pelo
+`scripts\consultar_prd.py` (só leitura): 12 linhas depois do primeiro, 16 depois do
+segundo, e a versão 4 no **dia seguinte** à aplicação.
 
 ⚠️ **As lojas precisam segurar a publicação** (App Store Connect: *"liberar esta
 versão manualmente"*; Google Play: *publicação gerenciada*), senão a aprovação
