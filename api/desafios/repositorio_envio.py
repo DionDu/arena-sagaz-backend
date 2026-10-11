@@ -289,8 +289,14 @@ SELECT
 
 #: O XP que a resolucao JA gravada tem - o caminho do reenvio (T105): a
 #: resposta devolve o numero do servidor tambem quando a resolucao ja existia.
+#:
+#: ⚠️ **E a tentativa dela** (T112): e o que diz se o reenvio e da MESMA partida
+#: (a resposta do primeiro envio se perdeu, e o credito ja entrou por ele) ou de
+#: outra (o outro aparelho resolveu antes, e este envio nao creditou nada). A
+#: tentativa e unica por partida (`ON CONFLICT (id_partida)`), entao comparar as
+#: duas e comparar as partidas.
 SQL_XP_DA_RESOLUCAO = f"""
-SELECT nu_xp
+SELECT nu_xp, id_tentativa
   FROM {VW_RESOLUCAO}
  WHERE id_resolucao = :id_resolucao
 """
@@ -431,12 +437,18 @@ class RepositorioEnvio:
         resultado = await self.sessao.execute(text(SQL_REGUAS_DA_NOTA))
         return [dict(m) for m in resultado.mappings().all()]
 
-    async def xp_da_resolucao(self, *, id_resolucao: UUID) -> int:
-        """O `nu_xp` gravado de uma resolucao que ja existia (T105)."""
+    async def xp_da_resolucao(self, *, id_resolucao: UUID) -> tuple[int, UUID]:
+        """O `nu_xp` gravado de uma resolucao que ja existia (T105), e a tentativa
+        dela (T112).
+
+        Returns:
+            `(nu_xp, id_tentativa)`.
+        """
         resultado = await self.sessao.execute(
             text(SQL_XP_DA_RESOLUCAO), {"id_resolucao": id_resolucao}
         )
-        return int(resultado.scalar_one())
+        linha = resultado.mappings().one()
+        return int(linha["nu_xp"]), linha["id_tentativa"]
 
     async def dicas_da_tentativa(self, *, id_tentativa: UUID) -> int:
         """Quantas dicas a pessoa ja gastou **nesta tentativa** (T108)."""

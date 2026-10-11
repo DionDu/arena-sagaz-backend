@@ -8123,3 +8123,27 @@ servidor que não mande as parcelas. Mandar as parcelas também na resposta do e
 dois caminhos para o mesmo dado.
 
 **Motivo.** A tela de resultado mostra a conta, e a conta tem de ser a que valeu.
+
+## 2026-10-11 (4) — A resposta do envio diz se a resolução é DESTA partida (T112)
+
+**Contexto.** O aparelho credita o XP do desafio na hora, com a estimativa, e o
+servidor credita o número dele (§8zzo, decisão 7). Os dois se acertam por
+`GREATEST`, que nunca abaixa um total: uma estimativa maior que a do servidor
+ficava no aparelho para sempre e subia ao ranking na reconciliação seguinte. O
+aparelho passou a corrigir o total quando a resposta chega, e para isso precisa
+saber se o servidor creditou POR ESTE EVENTO.
+
+**Decisão.** `RespostaDeResolucao.desta_partida` (aditivo): `True` quando a
+resolução nasceu agora, ou quando o reenvio é da mesma partida (a tentativa da
+resolução gravada é a deste envio, e a tentativa é única por partida); `False`
+quando outra partida resolveu antes; `None` fora da resolução.
+`RepositorioEnvio.xp_da_resolucao` devolve `(nu_xp, id_tentativa)`.
+
+**Alternativas consideradas.** Só `ja_existia`: não separa o reenvio de quem
+perdeu a primeira resposta (o crédito entrou por ele) da resolução de outro
+aparelho (não creditou nada). Devolver o crédito exato do evento também no
+reenvio: o crédito de cada evento não é guardado (o `ajuste` é do dia, sem
+âncora), e reconstruí-lo exigiria mudança de schema.
+
+**Motivo.** É o mínimo que deixa o aparelho trocar a estimativa pelo crédito
+do servidor sem corrigir um crédito que não houve.

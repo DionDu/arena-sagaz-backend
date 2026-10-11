@@ -209,6 +209,7 @@ class RepoFalso:
         dt_dia=AGORA.date(),
         linhas_das_reguas=None,
         xp_gravado=23,
+        resolucao_desta_partida=True,
     ) -> None:
         self._sem_regua = sem_regua
         # O dia UTC do desafio: escolhe a versao da regua da nota (T103).
@@ -218,6 +219,10 @@ class RepoFalso:
         )
         # O `nu_xp` da resolucao que JA existia, para o reenvio (T105).
         self._xp_gravado = xp_gravado
+        # A resolucao que ja existia e a desta partida? (T112) `True` = o
+        # reenvio de quem perdeu a primeira resposta; `False` = outra partida
+        # resolveu antes. O padrao e o reenvio, o caminho mais comum.
+        self._resolucao_desta_partida = resolucao_desta_partida
         # `(tentativas, dicas)` que o servidor conta (T085zf). O padrao `(0, 0)`
         # e "o servidor sabe menos que o envio": o envio vale, como antes.
         self._sessao_no_servidor = sessao_no_servidor
@@ -278,7 +283,13 @@ class RepoFalso:
         return self._linhas_das_reguas
 
     async def xp_da_resolucao(self, *, id_resolucao):
-        return self._xp_gravado
+        # A tentativa da resolucao gravada (T112): a DESTA partida e a que o caso
+        # acabou de gravar (a tentativa e unica por partida); a de outra partida
+        # e qualquer outra.
+        tentativa = (
+            self.ultima_tentativa if self._resolucao_desta_partida else uuid4()
+        )
+        return self._xp_gravado, tentativa
 
     async def dicas_da_tentativa(self, *, id_tentativa):
         # Quem pergunta tem de perguntar pela tentativa que acabou de gravar - e
@@ -470,9 +481,50 @@ async def test_a_primeira_resolucao_grava_o_extrato():
     )
 
     assert resultado.resposta.ja_existia is False
+    # Nasceu agora: e desta partida (T112).
+    assert resultado.resposta.desta_partida is True
     # base + as tres de sessao + os dois feitos que o desafio pesa.
     assert resultado.parcelas_gravadas == 6
     assert repo.commits == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("da_mesma", [True, False])
+async def test_o_REENVIO_diz_se_a_resolucao_gravada_e_DESTA_partida(da_mesma):
+    """T112: os dois `ja_existia: true` sao coisas diferentes para o aparelho.
+
+    O reenvio da MESMA partida e de quem perdeu a primeira resposta: o credito
+    ja entrou por este evento, e o aparelho troca a estimativa pelo numero do
+    servidor. O de OUTRA partida (o outro aparelho resolveu antes) nao creditou
+    nada, e trocar ali corrigiria um credito que nao houve.
+    """
+    repo = RepoFalso(
+        partida=_partida(), resolucao_nova=False, resolucao_desta_partida=da_mesma
+    )
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO, id_usuario=ID_USUARIO, envio=_envio()
+    )
+
+    assert resultado.resposta.ja_existia is True
+    assert resultado.resposta.desta_partida is da_mesma
+    # Nos dois casos o reenvio nao credita (T082): quem muda e so o aparelho.
+    assert repo.creditos == []
+
+
+@pytest.mark.asyncio
+async def test_a_tentativa_que_FALHOU_nao_diz_de_que_partida():
+    """Sem resolucao, nao ha "resolucao desta partida": o campo fica `None`."""
+    repo = RepoFalso(partida=_partida())
+
+    resultado = await ServicoEnvio(repo).registrar_resolucao(
+        id_desafio=ID_DESAFIO,
+        id_usuario=ID_USUARIO,
+        envio=_envio(veredito="tentativa"),
+    )
+
+    assert resultado.resposta.desta_partida is None
+    assert resultado.resposta.pontuacao is None
 
 
 @pytest.mark.asyncio

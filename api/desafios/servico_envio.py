@@ -286,7 +286,9 @@ class ServicoEnvio:
             # ⚠️ **A resposta leva o XP GRAVADO, e nao o recalculado** (T105): a
             # primeira resolucao e definitiva (RF-DES-004a), e o reenvio pode ter
             # chegado depois de a sessao do servidor ter mudado.
-            gravado = await self.repo.xp_da_resolucao(id_resolucao=id_resolucao)
+            gravado, tentativa_gravada = await self.repo.xp_da_resolucao(
+                id_resolucao=id_resolucao
+            )
             await self.repo.confirmar()
             return ResultadoDoEnvio(
                 resposta=RespostaDeResolucao(
@@ -294,6 +296,11 @@ class ServicoEnvio:
                     aceita=True,
                     ja_existia=True,
                     pontuacao=gravado,
+                    # ⚠️ A mesma tentativa e a mesma partida (T112): e o reenvio
+                    # de quem nao recebeu a primeira resposta, e o credito ja
+                    # entrou por ele. Outra tentativa: outra partida resolveu
+                    # antes, e este envio nao creditou nada.
+                    desta_partida=tentativa_gravada == id_tentativa,
                 ),
                 id_tentativa=id_tentativa,
                 parcelas_gravadas=0,
@@ -324,6 +331,8 @@ class ServicoEnvio:
                 aceita=True,
                 ja_existia=False,
                 pontuacao=pontuacao,
+                # Nasceu agora, desta partida (T112).
+                desta_partida=True,
             ),
             id_tentativa=id_tentativa,
             parcelas_gravadas=len(parcelas),

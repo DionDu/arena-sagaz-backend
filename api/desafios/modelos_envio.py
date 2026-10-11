@@ -229,6 +229,19 @@ class RespostaDeResolucao(BaseModel):
     #: ⚠️ Campo ADITIVO: a 1.3.0 o ignora.
     pontuacao: Optional[int] = None
 
+    #: A resolucao gravada e a DESTA partida? (T112) `True` quando ela nasceu
+    #: agora, ou quando o reenvio e da mesma partida que a gravou; `False` quando
+    #: ela veio de outra partida (o outro aparelho resolveu antes). `None` quando
+    #: o envio nao foi resolucao.
+    #:
+    #: ⚠️ **E o que separa os dois `ja_existia: true`**, e o aplicativo precisa
+    #: separa-los: no reenvio da mesma partida (a resposta do primeiro envio se
+    #: perdeu) o credito JA entrou por este evento, e o aparelho troca a
+    #: estimativa por [pontuacao]; na resolucao de outra partida este envio nao
+    #: creditou nada, e trocar ali corrigiria um credito que nao houve.
+    #: ⚠️ Campo ADITIVO: a 1.3.0 o ignora.
+    desta_partida: Optional[bool] = None
+
 
 class EnvioDeDica(BaseModel):
     """O corpo de `POST /v1/desafios/{id_desafio}/dica`.
