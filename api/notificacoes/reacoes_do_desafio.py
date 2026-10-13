@@ -24,8 +24,29 @@ da chama, e duas notificacoes no mesmo minuto gastam as duas.
 
 RF-DES-074c: cada pessoa e notificada ao meio-dia **do seu proprio fuso**. Quem
 esta em Lisboa recebe quatro horas antes de quem esta em Sao Paulo. O disparo roda
-de hora em hora e atende os fusos em que **ja e meio-dia**, pela mesma
-`fusos_na_hora_local()` que o broadcast usa.
+de hora em hora e atende as pessoas para quem **ja e meio-dia**.
+
+⚠️ **O fuso e da PESSOA, e nao de cada aparelho** (decisao do dono,
+13/10/2026). O fuso dela e o do aparelho que ela usou **por ultimo** - o de
+`dh_atualizacao` mais recente na `tb005`, que o aplicativo renova a cada abertura.
+Ao meio-dia desse fuso a notificacao vai para **todos** os aparelhos dela.
+
+    O caso que derrubou a regra anterior (meio-dia de CADA aparelho): o dono
+    tinha um Android de teste esquecido desde 02/09, com o relogio em GMT. As
+    12:00 UTC (9h em Brasilia) era meio-dia para o Android, e so para ele; o
+    envio saia, a reserva da resolucao era gravada - e as 15:00 UTC, meio-dia do
+    iPhone, a pessoa nem aparecia mais como pendente. Por tres dias seguidos
+    o aviso foi para a gaveta, e o iPhone nunca foi tentado.
+
+A reserva e **uma por resolucao**; com o fuso de cada aparelho decidindo a hora,
+o primeiro relogio a chegar ao meio-dia gastava o aviso de todos os outros. O que
+o fuso protege e a **pessoa** de ser cutucada em hora ruim - e a pessoa esta onde
+esta o aparelho que ela acabou de usar.
+
+⚠️ **A janela tem repescagem** (das 11:30 as 14:30 locais): se o cron do Railway
+pular uma hora, a execucao seguinte ainda atende. Sem ela a hora perdida custava o
+aviso para sempre - no dia seguinte o *"ontem"* ja e outro desafio. Ver
+[na_janela_do_envio].
 
 ⚠️ **E aqui esta a armadilha que quase passou.** O desafio e do dia **UTC**
 (RF-DES-007), mas *"ontem"* e do calendario de **quem le a frase**. Usar
@@ -44,6 +65,14 @@ certo: ela resolveu o desafio de 4/out na noite local de 4/out, que comecou as
 notificacao sai, e quem esta a oeste ainda vai reagir depois. Essas reacoes ⛔ nao
 geram uma segunda notificacao (RF-DES-074b) - e por isso `qt_pessoa` fica
 gravado: e ele que explica *"a notificacao disse 3 e o quadro mostra 7"*.
+
+⚠️ **O titulo diz QUANDO a pessoa resolveu, no calendario dela** (decisao do
+dono, 13/10/2026). O desafio vira a meia-noite UTC - 21h em Brasilia. Quem
+resolve as 23:48 de 12/10 em Brasilia resolveu o desafio de **13/10**, e e
+avisado ao meio-dia de **14/10**: para ela foi **anteontem**, e o titulo antigo
+(*"O seu desafio de ontem"*) mentia. O titulo agora sai como *"resolvido hoje /
+ontem / anteontem"*, pela data local da resolucao no fuso atual da pessoa - ver
+[quando_foi_resolvido].
 
 ═══════════════════════════════════════════════════════════════════════════
 ⚠️ UMA POR DESAFIO, E QUEM GARANTE E O BANCO
@@ -99,7 +128,7 @@ navegacao no aparelho dos outros.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 from uuid import UUID
 
@@ -114,7 +143,6 @@ from api.desafios.modelos_evento import (
     VW_RESOLUCAO,
 )
 from api.desafios.quadro import CLAUSULA_APARECE_EM_PUBLICO
-from api.notificacoes.servico import fusos_na_hora_local
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. As constantes da regra
@@ -140,13 +168,24 @@ CATEGORIA_REACOES = "reacoes"
 #: A hora **local** em que a notificacao sai (RF-DES-074b).
 HORA_LOCAL_DO_ENVIO = 12
 
-#: A metade da janela aceita, em minutos.
+#: Quantos minutos ANTES do meio-dia a janela ja abre.
 #:
-#: ⚠️ **Tem de casar com a frequencia do cron**, que e de hora em hora: 30 minutos
-#: cobrem o dia inteiro sem repetir nem deixar buraco. ⛔ E sem ela os fusos de
-#: meia hora (India, Nepal, Terra Nova, Chatham) ⛔ nunca seriam atendidos - ver a
-#: docstring de `fusos_na_hora_local`.
+#: ⚠️ **Sem ela os fusos de meia hora** (India, Nepal, Terra Nova, Chatham) 
+#: nunca seriam atendidos na hora certa: o cron roda na hora cheia UTC, e em
+#: Terra Nova (-210) a execucao das 15:00 UTC cai as 11:30 locais.
 TOLERANCIA_EM_MINUTOS = 30
+
+#: Quantos minutos DEPOIS da primeira hora a janela continua aberta - a
+#: repescagem (decisao do dono, 13/10/2026: *"12h e o padrao, pode variar um
+#: pouco"*).
+#:
+#: ⚠️ **Por que ela existe:** com uma janela de uma hora so, uma execucao pulada
+#: pelo Railway custava o aviso **para sempre** - no dia seguinte o *"ontem"* ja
+#: e outro desafio. Com a repescagem a janela fica em [11:30, 14:30) locais:
+#: **tres** execucoes por fuso (12h, 13h e 14h nos fusos inteiros; 11:30, 12:30 e
+#: 13:30 nos de meia hora), e a reserva da `tb008` garante que so a primeira
+#: envia.
+MINUTOS_DE_REPESCAGEM = 120
 
 #: O idioma de reserva, quando o aparelho reporta um que ⛔ nao publicamos.
 #:
@@ -166,8 +205,12 @@ TIPO_DO_PUSH = "reacao_desafio"
 
 #: Titulo e corpo, por idioma. `{quantas}` e o unico substituivel.
 #:
-#: ⚠️ **Duas formas, e ⛔ nao uma com "(s)"**: *"1 pessoas reagiram"* e o tipo de
-#: frase que faz o produto parecer descuidado justamente no momento bom.
+#: ⚠️ **Tres titulos, um por "quando"** (decisao do dono, 13/10/2026): o titulo
+#: diz quando a pessoa **resolveu**, no calendario dela - ver
+#: [quando_foi_resolvido]. As chaves sao `titulo_` + [QUANDO_POR_DIAS].
+#:
+#: ⚠️ **Duas formas de corpo, e nao uma com "(s)"**: *"1 pessoas reagiram"* e
+#: o tipo de frase que faz o produto parecer descuidado justamente no momento bom.
 #:
 #: ⚠️ **Hifen comum, ⛔ nunca travessao longo** - a mesma regra dos `.arb` do
 #: aplicativo (decisao do dono, 19/08/2026). O texto aqui e lido pela pessoa
@@ -181,25 +224,41 @@ TIPO_DO_PUSH = "reacao_desafio"
 #: ao aparelho. Cadeado: `test_as_frases_saem_com_a_GRAFIA_certa`.
 FRASES: dict[str, dict[str, str]] = {
     "pt": {
-        "titulo": "O seu desafio de ontem",
+        "titulo_hoje": "O seu desafio resolvido hoje",
+        "titulo_ontem": "O seu desafio resolvido ontem",
+        "titulo_anteontem": "O seu desafio resolvido anteontem",
         # "à" com crase: "reagir a" + "a sua solução" (artigo feminino).
         "uma": "1 pessoa reagiu à sua solução.",
         "varias": "{quantas} pessoas reagiram à sua solução.",
     },
     "en": {
-        "titulo": "Your challenge from yesterday",
+        "titulo_hoje": "The challenge you solved today",
+        "titulo_ontem": "The challenge you solved yesterday",
+        "titulo_anteontem": "The challenge you solved the day before yesterday",
         "uma": "1 person reacted to your solution.",
         "varias": "{quantas} people reacted to your solution.",
     },
     "es": {
-        "titulo": "Tu desafío de ayer",
+        "titulo_hoje": "El desafío que resolviste hoy",
+        "titulo_ontem": "El desafío que resolviste ayer",
+        "titulo_anteontem": "El desafío que resolviste anteayer",
         "uma": "1 persona reaccionó a tu solución.",
         "varias": "{quantas} personas reaccionaron a tu solución.",
     },
 }
 
+#: `{dias desde a resolucao: chave do titulo}`.
+#:
+#: ⚠️ **So existem estes tres valores**, e por construcao, nao por sorte: a
+#: resolucao e do dia UTC `D`, cuja data LOCAL vai de `D-1` (fuso -12h) a `D+1`
+#: (fuso +14h); o aviso sai no dia local `D+1`. A distancia fica entre 0 e 2 - ver
+#: [quando_foi_resolvido], que ainda assim prende o valor nas pontas.
+QUANDO_POR_DIAS: dict[int, str] = {0: "hoje", 1: "ontem", 2: "anteontem"}
 
-def texto_da_notificacao(quantas: int, idioma: str) -> tuple[str, str]:
+
+def texto_da_notificacao(
+    quantas: int, idioma: str, quando: str
+) -> tuple[str, str]:
     """O `(titulo, corpo)` da notificacao, no idioma do aparelho.
 
     Args:
@@ -208,6 +267,8 @@ def texto_da_notificacao(quantas: int, idioma: str) -> tuple[str, str]:
             linhas e contar gente.
         idioma: o `co_idioma` do aparelho (`pt`, `en`, `es`). Desconhecido cai em
             [IDIOMA_DE_RESERVA].
+        quando: `hoje`, `ontem` ou `anteontem` - um valor de [QUANDO_POR_DIAS],
+            calculado por [quando_foi_resolvido].
 
     Returns:
         O par pronto para o FCM.
@@ -217,6 +278,9 @@ def texto_da_notificacao(quantas: int, idioma: str) -> tuple[str, str]:
             reacao ⛔ nao existe** - e o `ck001_pessoa` da `0026` diz o mesmo do
             lado do banco. Levantar aqui e o que impede um *"0 pessoas
             reagiram"* de chegar a alguem por causa de uma consulta mudada.
+        KeyError: se [quando] nao for um dos tres. Um titulo inexistente e
+            defeito nosso, e tem de sair como falha da pessoa no relatorio - 
+            nunca como notificacao com titulo vazio.
     """
     if quantas < 1:
         raise ValueError(
@@ -224,9 +288,10 @@ def texto_da_notificacao(quantas: int, idioma: str) -> tuple[str, str]:
             "ninguem sobre zero reacao."
         )
     frases = FRASES.get(idioma) or FRASES[IDIOMA_DE_RESERVA]
+    titulo = frases[f"titulo_{quando}"]
     if quantas == 1:
-        return frases["titulo"], frases["uma"]
-    return frases["titulo"], frases["varias"].format(quantas=quantas)
+        return titulo, frases["uma"]
+    return titulo, frases["varias"].format(quantas=quantas)
 
 
 def dados_do_push(id_desafio: UUID, quantas: int) -> dict[str, str]:
@@ -248,22 +313,52 @@ def dados_do_push(id_desafio: UUID, quantas: int) -> dict[str, str]:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def offsets_ao_meio_dia(agora_utc: datetime) -> list[int]:
-    """Os offsets em que o relogio local marca ~12h **neste instante**.
+#: Os offsets extremos que a API aceita no registro do aparelho
+#: (`api/notificacoes/modelos.py`: `ge=-840, le=840`).
+#:
+#: ⚠️ **O mundo real vai de -720 a +840**; a ponta de -840 so existe porque a
+#: validacao e simetrica. Usar a faixa da API, e nao a do mundo, e o que
+#: garante que nenhum fuso gravado fique fora de [dias_candidatos].
+OFFSET_MINIMO = -840
+OFFSET_MAXIMO = 840
 
-    Reusa `fusos_na_hora_local`, que o broadcast por fuso ja usava - a mesma
-    conta, uma implementacao so. Duas discordariam no primeiro fuso de meia hora.
+
+def _em_utc(instante: datetime) -> datetime:
+    """O mesmo instante, com o relogio em UTC.
+
+    ⚠️ **Sem fuso, o instante e lido COMO UTC** - e assim que o servidor grava
+    (`TIMESTAMPTZ`, e o `asyncpg` devolve com `tzinfo` UTC). A conversao existe
+    para o dia em que um instante chegar com outro `tzinfo`: somar o offset a um
+    horario que nao esta em UTC daria a data errada, calada.
     """
-    return fusos_na_hora_local(
-        HORA_LOCAL_DO_ENVIO,
-        agora_utc,
-        tolerancia_minutos=TOLERANCIA_EM_MINUTOS,
-    )
+    if instante.tzinfo is None:
+        return instante.replace(tzinfo=timezone.utc)
+    return instante.astimezone(timezone.utc)
 
 
-def dia_local(agora_utc: datetime, offset_minuto: int) -> date:
-    """A data que o calendario **daquele fuso** mostra neste instante."""
-    return (agora_utc + timedelta(minutes=offset_minuto)).date()
+def dia_local(instante: datetime, offset_minuto: int) -> date:
+    """A data que o calendario **daquele fuso** mostra naquele instante."""
+    return (_em_utc(instante) + timedelta(minutes=offset_minuto)).date()
+
+
+def minuto_local_do_dia(instante: datetime, offset_minuto: int) -> int:
+    """Quantos minutos se passaram desde a meia-noite **local** (0 a 1439)."""
+    local = _em_utc(instante) + timedelta(minutes=offset_minuto)
+    return local.hour * 60 + local.minute
+
+
+def na_janela_do_envio(agora_utc: datetime, offset_minuto: int) -> bool:
+    """O relogio daquele fuso esta entre 11:30 e 14:30 **neste instante**?
+
+    A janela e `[12h - TOLERANCIA, 12h + TOLERANCIA + REPESCAGEM)`, com o fim
+    **aberto**: as 14:30 em ponto ja esta fora. Ver [TOLERANCIA_EM_MINUTOS] (o
+    lado de antes, que atende os fusos de meia hora) e [MINUTOS_DE_REPESCAGEM]
+    (o lado de depois, que perdoa uma execucao pulada).
+    """
+    meio_dia = HORA_LOCAL_DO_ENVIO * 60
+    inicio = meio_dia - TOLERANCIA_EM_MINUTOS
+    fim = meio_dia + TOLERANCIA_EM_MINUTOS + MINUTOS_DE_REPESCAGEM
+    return inicio <= minuto_local_do_dia(agora_utc, offset_minuto) < fim
 
 
 def dia_do_desafio_a_notificar(agora_utc: datetime, offset_minuto: int) -> date:
@@ -276,32 +371,72 @@ def dia_do_desafio_a_notificar(agora_utc: datetime, offset_minuto: int) -> date:
     return dia_local(agora_utc, offset_minuto) - timedelta(days=1)
 
 
-def grupos_por_dia_alvo(agora_utc: datetime) -> dict[date, list[int]]:
-    """`{dia alvo: [offsets]}` para este instante.
+def dias_candidatos(agora_utc: datetime) -> list[date]:
+    """Todos os `dt_dia` que **algum** fuso pode querer neste instante.
 
-    ⚠️ **Agrupado, e ⛔ nao um dia so para a lista inteira** - e ⛔ isto ⛔ nao e
-    zelo teorico: **o mundo tem 26 horas de fusos**, entao ha instantes em que
-    dois offsets marcam meio-dia em **dias diferentes**.
+    ⚠️ **Mais de um, e isto nao e zelo teorico: o mundo tem 26 horas de
+    fusos**, entao ha instantes em que dois offsets marcam meio-dia em **dias
+    diferentes**:
 
         As 23:00 UTC de 22/09:
           · UTC+13 marca 12:00 de **23/09**  →  dia alvo 22/09
           · UTC-11 marca 12:00 de **22/09**  →  dia alvo 21/09
 
-    Os dois estao na mesma janela, e cada um precisa do **seu** dia. Calcular o
-    dia uma vez (por exemplo pelo offset 0) mandaria a metade deles o numero de
-    outro desafio - e ⛔ sem erro nenhum, porque a notificacao sai igual.
-
-    ⚠️ **Eu escrevi o contrario aqui na primeira versao** (*"com a hora alvo em 12h
-    todos caem no mesmo dia"*), e a prova por mutacao mostrou que ⛔ nao: a
-    mutacao que trocava o offset pelo 0 **sobreviveu**, porque ⛔ nenhum caso
-    olhava um instante com dois dias na janela.
+    A consulta traz os pendentes de todos esses dias, e quem decide **pessoa a
+    pessoa** se e a vez dela e [deve_avisar_agora], pelo fuso dela. Calcular um
+    dia so (por exemplo pelo offset 0) mandaria a metade deles o numero de outro
+    desafio - e sem erro nenhum, porque a notificacao sai igual.
     """
-    grupos: dict[date, list[int]] = {}
-    for offset in offsets_ao_meio_dia(agora_utc):
-        grupos.setdefault(
-            dia_do_desafio_a_notificar(agora_utc, offset), []
-        ).append(offset)
-    return grupos
+    primeiro = dia_do_desafio_a_notificar(agora_utc, OFFSET_MINIMO)
+    ultimo = dia_do_desafio_a_notificar(agora_utc, OFFSET_MAXIMO)
+    # `range` em dias: do mais a oeste ao mais a leste, sem buraco no meio.
+    return [
+        primeiro + timedelta(days=n) for n in range((ultimo - primeiro).days + 1)
+    ]
+
+
+def deve_avisar_agora(
+    agora_utc: datetime, offset_minuto: int, dt_dia: date
+) -> bool:
+    """E a vez desta pessoa, para o desafio deste dia?
+
+    As duas condicoes juntas, pelo fuso **atual** da pessoa:
+
+      · o relogio dela esta na janela do meio-dia ([na_janela_do_envio]); e
+      · o desafio e o de *"ontem"* para ela ([dia_do_desafio_a_notificar]).
+
+    ⚠️ **A segunda nao e redundante com a primeira.** Sem ela, a pessoa de
+    UTC-11 receberia as 23:00 UTC o desafio que a de UTC+13 esta esperando - os
+    dois dias vem na mesma consulta ([dias_candidatos]).
+    """
+    return na_janela_do_envio(
+        agora_utc, offset_minuto
+    ) and dt_dia == dia_do_desafio_a_notificar(agora_utc, offset_minuto)
+
+
+def quando_foi_resolvido(
+    agora_utc: datetime, offset_minuto: int, dh_resolucao: datetime
+) -> str:
+    """`hoje`, `ontem` ou `anteontem` - a resolucao no calendario de quem le.
+
+    A conta e a distancia, em dias **locais**, entre a data de hoje e a data da
+    resolucao - as duas pelo fuso **atual** da pessoa.
+
+    ⚠️ **Pelo fuso atual, e nao pelo de quando ela resolveu**: e o calendario que
+    ela tem na frente agora que da sentido a *"ontem"*. Quem viajou entre resolver
+    e ler pode ver a palavra mudar de um dia - e e o que um amigo diria olhando o
+    mesmo relogio.
+
+    ⚠️ **O valor e preso entre 0 e 2** pelas pontas de [QUANDO_POR_DIAS]. Pela
+    construcao do disparo ele nao sai dessa faixa; o prendedor e para um
+    `dh_resolucao` fora do esperado (uma resolucao corrigida a mao, por exemplo)
+    virar o titulo mais proximo, e nao uma notificacao perdida.
+    """
+    dias = (
+        dia_local(agora_utc, offset_minuto) - dia_local(dh_resolucao, offset_minuto)
+    ).days
+    # `min`/`max` prendem a distancia nas pontas do dicionario (0 e 2).
+    return QUANDO_POR_DIAS[max(0, min(2, dias))]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -337,38 +472,69 @@ EnviadorPorToken = Callable[[str, str, dict[str, str], str], str]
 # 5. As consultas
 # ═══════════════════════════════════════════════════════════════════════════
 
-#: Quem recebeu reacao no desafio daquele dia e ainda ⛔ nao foi avisado.
+#: Quem recebeu reacao num dos dias candidatos e ainda nao foi avisado - com o
+#: fuso ATUAL da pessoa.
+#:
+#: ⚠️ **O fuso atual vem de uma subconsulta, e nao de uma VIEW** (decisao do
+#: dono, 13/10/2026): so este disparo precisa dele, e objeto novo no banco
+#: exigiria migracao. `DISTINCT ON (id_usuario)` com `ORDER BY ... dh_atualizacao
+#: DESC` fica com **uma** linha por pessoa: a do aparelho que ela usou por ultimo.
+#: O `id_dispositivo` no fim da ordem so desempata dois aparelhos atualizados no
+#: mesmo instante, para a escolha nao variar de uma execucao para outra.
+#:
+#: ⚠️ **Aparelho sem fuso fica de fora da escolha** (`nu_offset_minuto IS NOT
+#: NULL`): versoes antigas do aplicativo nao informam o fuso. Vale o ultimo
+#: aparelho que **informou**; quem nunca informou nao entra na lista - como ja
+#: acontecia antes.
 #:
 #: ⚠️ **A visibilidade e a MESMA do quadro**, pela constante compartilhada: quem
 #: desligou `ic_visivel_placar` saiu do quadro (RF-DES-077), e avisa-la de uma
-#: contagem que ela ⛔ nao consegue ver seria contar em segredo - a T078 decidiu
+#: contagem que ela nao consegue ver seria contar em segredo - a T078 decidiu
 #: o mesmo do lado da tela.
 #:
-#: ⚠️ **A preferencia entra por `NOT EXISTS`, e ⛔ nao por `JOIN`**: a
+#: ⚠️ **A preferencia entra por `NOT EXISTS`, e nao por `JOIN`**: a
 #: `tb006_preferencia_notificacao` so tem linha para quem **mexeu** no
 #: interruptor. Um `JOIN` exigiria linha e silenciaria todo mundo que nunca
 #: abriu a tela de notificacoes - o padrao e ligado.
 #:
 #: ⚠️ **`LEFT JOIN` na reserva e `IS NULL`**: e a metade da regra de *"uma por
 #: desafio"* que sobrevive entre execucoes. A outra metade e o `UNIQUE`, e ela
-#: existe porque esta ⛔ nao aguenta duas execucoes ao mesmo tempo.
+#: existe porque esta nao aguenta duas execucoes ao mesmo tempo.
+#:
+#: ⚠️ **A consulta NAO decide se e a vez da pessoa** - ela traz os pendentes de
+#: todos os [dias_candidatos], e quem decide e [deve_avisar_agora], em Python.
+#: A conta do relogio local fica num lugar so, testavel sem banco.
 SQL_PENDENTES = f"""
+WITH fuso_atual AS (
+    SELECT DISTINCT ON (id_usuario)
+           id_usuario,
+           nu_offset_minuto
+      FROM conta.vw005_dispositivo_notificacao
+     WHERE id_usuario IS NOT NULL
+       AND nu_offset_minuto IS NOT NULL
+     ORDER BY id_usuario, dh_atualizacao DESC, id_dispositivo
+)
 SELECT r.id_resolucao,
        r.id_usuario,
        d.id_desafio,
+       d.dt_dia,
+       r.dh_resolucao,
+       f.nu_offset_minuto,
        COUNT(x.id_reacao) AS qt_pessoa
   FROM {VW_RESOLUCAO} r
   JOIN {VW_DESAFIO_DIA} d
     ON d.id_desafio_dia = r.id_desafio_dia
   JOIN {VW_REACAO} x
     ON x.id_resolucao = r.id_resolucao
+  JOIN fuso_atual f
+    ON f.id_usuario = r.id_usuario
   JOIN conta.tb001_usuario u
     ON u.id_usuario = r.id_usuario
   LEFT JOIN progressao.tb001_progressao_usuario g
     ON g.id_usuario = r.id_usuario
   LEFT JOIN {VW_NOTIFICACAO_REACAO} n
     ON n.id_resolucao = r.id_resolucao
- WHERE d.dt_dia = :dt_dia
+ WHERE d.dt_dia = ANY(:dias)
    AND n.id_notificacao_reacao IS NULL
    AND {CLAUSULA_APARECE_EM_PUBLICO}
    AND NOT EXISTS (
@@ -378,27 +544,31 @@ SELECT r.id_resolucao,
             AND p.co_categoria = :categoria
             AND NOT p.ic_ativo
        )
- GROUP BY r.id_resolucao, r.id_usuario, d.id_desafio
+ GROUP BY r.id_resolucao, r.id_usuario, d.id_desafio, d.dt_dia,
+          r.dh_resolucao, f.nu_offset_minuto
  ORDER BY r.id_resolucao
 """
 
-#: Os aparelhos daquela pessoa **cujo relogio esta na janela**.
+#: **Todos** os aparelhos daquela pessoa, sem filtro de fuso.
 #:
-#: ⚠️ **Filtrado pelo offset, e ⛔ nao todos os aparelhos dela.** Quem recebe e o
-#: aparelho, e o meio-dia e o do relogio dele (RF-DES-074c): mandar para o
-#: aparelho que ficou noutro fuso e acordar a pessoa de madrugada no tablet.
+#: ⚠️ **Sem filtro de fuso, de proposito** (decisao do dono, 13/10/2026). A
+#: regra anterior mandava so para os aparelhos cujo relogio estava ao meio-dia,
+#: e a reserva e uma por resolucao: o primeiro aparelho a chegar ao meio-dia
+#: gastava o aviso dos outros. A hora agora e decidida pelo fuso da **pessoa**
+#: ([SQL_PENDENTES]), e nessa hora todos os aparelhos dela recebem.
+#:
+#: ⚠️ **Inclui os registros velhos** (reinstalacoes, aparelhos aposentados). O
+#: FCM recusa os que morreram, e [TokenMorto] os apaga da `tb005` na mesma
+#: passada. Limitar aos atualizados nos ultimos N dias foi considerado e deixado
+#: de fora: seria mais uma regra para depurar quando um aviso nao chegar.
 #:
 #: ⚠️ **`id_usuario` casa por igualdade simples de proposito** - o token de
-#: convidado tem `id_usuario` nulo, e convidado ⛔ nao tem resolucao nem linha no
-#: quadro (RF-DES-084), entao ⛔ nao ha o que notificar.
-#:
-#: ⚠️ **Ordenado por `dh_atualizacao DESC`**: o primeiro e o aparelho em uso, e e
-#: o offset dele que vai para o registro do envio.
+#: convidado tem `id_usuario` nulo, e convidado nao tem resolucao nem linha no
+#: quadro (RF-DES-084), entao nao ha o que notificar.
 SQL_DISPOSITIVOS = """
-SELECT co_token_fcm, co_idioma, nu_offset_minuto
+SELECT co_token_fcm, co_idioma
   FROM conta.vw005_dispositivo_notificacao
  WHERE id_usuario = :id_usuario
-   AND nu_offset_minuto = ANY(:offsets)
  ORDER BY dh_atualizacao DESC
 """
 
@@ -431,34 +601,39 @@ DELETE FROM conta.tb005_dispositivo_notificacao
 
 @dataclass(frozen=True)
 class PessoaANotificar:
-    """Uma linha pendente: quem, de que desafio, e quantas pessoas reagiram."""
+    """Uma linha pendente: quem, de que desafio, quando resolveu e em que fuso esta."""
 
     id_resolucao: UUID
     id_usuario: UUID
     id_desafio: UUID
     qt_pessoa: int
+    #: O dia UTC do desafio (`dt_dia`) - e comparado com o *"ontem"* da pessoa.
+    dt_dia: date
+    #: Quando ela resolveu - e o que vira *"hoje / ontem / anteontem"* no titulo.
+    dh_resolucao: datetime
+    #: O fuso do aparelho que ela usou por ultimo (ver [SQL_PENDENTES]).
+    nu_offset_minuto: int
 
 
 @dataclass(frozen=True)
 class Aparelho:
-    """Um token na janela, com o idioma em que ele quer ler."""
+    """Um token da pessoa, com o idioma em que ele quer ler."""
 
     token: str
     idioma: str
-    offset_minuto: int
 
 
 class RepositorioNotificacaoDeReacao:
-    """As idas ao banco do disparo. ⛔ ⛔ Nao decide nada."""
+    """As idas ao banco do disparo. Nao decide nada."""
 
     def __init__(self, sessao: AsyncSession) -> None:
         self.sessao = sessao
 
-    async def pendentes(self, dt_dia: date) -> list[PessoaANotificar]:
-        """Quem recebeu reacao naquele dia e ainda ⛔ nao foi avisado."""
+    async def pendentes(self, dias: list[date]) -> list[PessoaANotificar]:
+        """Quem recebeu reacao num daqueles dias e ainda nao foi avisado."""
         resultado = await self.sessao.execute(
             text(SQL_PENDENTES),
-            {"dt_dia": dt_dia, "categoria": CATEGORIA_REACOES},
+            {"dias": dias, "categoria": CATEGORIA_REACOES},
         )
         return [
             PessoaANotificar(
@@ -466,24 +641,20 @@ class RepositorioNotificacaoDeReacao:
                 id_usuario=linha["id_usuario"],
                 id_desafio=linha["id_desafio"],
                 qt_pessoa=int(linha["qt_pessoa"]),
+                dt_dia=linha["dt_dia"],
+                dh_resolucao=linha["dh_resolucao"],
+                nu_offset_minuto=int(linha["nu_offset_minuto"]),
             )
             for linha in resultado.mappings().all()
         ]
 
-    async def dispositivos(
-        self, id_usuario: UUID, offsets: list[int]
-    ) -> list[Aparelho]:
-        """Os aparelhos daquela pessoa que estao na janela do meio-dia."""
+    async def dispositivos(self, id_usuario: UUID) -> list[Aparelho]:
+        """Todos os aparelhos daquela pessoa (ver [SQL_DISPOSITIVOS])."""
         resultado = await self.sessao.execute(
-            text(SQL_DISPOSITIVOS),
-            {"id_usuario": id_usuario, "offsets": offsets},
+            text(SQL_DISPOSITIVOS), {"id_usuario": id_usuario}
         )
         return [
-            Aparelho(
-                token=linha["co_token_fcm"],
-                idioma=linha["co_idioma"],
-                offset_minuto=int(linha["nu_offset_minuto"]),
-            )
+            Aparelho(token=linha["co_token_fcm"], idioma=linha["co_idioma"])
             for linha in resultado.mappings().all()
         ]
 
@@ -545,26 +716,33 @@ class RepositorioNotificacaoDeReacao:
 
 @dataclass
 class RelatorioDoDisparo:
-    """O que esta execucao fez - e o que ela ⛔ nao conseguiu fazer.
+    """O que esta execucao fez - e o que ela nao conseguiu fazer.
 
     ⚠️ **Os numeros sao separados de proposito**, como no relatorio do job:
-    *"atendi 3"* ⛔ nao distingue *"so havia 3"* de *"havia 40 e 37 falharam"*, e
+    *"atendi 3"* nao distingue *"so havia 3"* de *"havia 40 e 37 falharam"*, e
     as duas situacoes pedem reacoes opostas de quem le o log.
     """
 
-    #: Os fusos em que era meio-dia neste instante.
+    #: Os `dt_dia` consultados nesta execucao ([dias_candidatos]).
+    dias: list[str] = field(default_factory=list)
+
+    #: Os fusos das pessoas que **estavam na vez** nesta execucao.
     offsets: list[int] = field(default_factory=list)
 
-    #: `{dia alvo: quantas pessoas pendentes}` - o que a consulta achou.
-    pendentes_por_dia: dict[str, int] = field(default_factory=dict)
+    #: Pendentes na vez: fuso na janela e desafio de *"ontem"* para elas.
+    pendentes: int = 0
 
-    #: Notificacoes efetivamente aceitas pelo FCM (pessoas, ⛔ nao aparelhos).
+    #: Pendentes fora da vez - o meio-dia delas ainda nao chegou (ou ja passou).
+    #: ⚠️ Nao e erro: e quem a proxima hora vai atender.
+    aguardando: int = 0
+
+    #: Notificacoes efetivamente aceitas pelo FCM (pessoas, nao aparelhos).
     enviadas: int = 0
 
     #: Aparelhos que receberam - maior que [enviadas] quando alguem tem dois.
     aparelhos: int = 0
 
-    #: Pendentes sem nenhum aparelho na janela. ⚠️ ⛔ **Nao gasta a reserva.**
+    #: Pendentes sem nenhum aparelho. ⚠️ **Nao gasta a reserva.**
     sem_aparelho: int = 0
 
     #: Reservas perdidas para outra execucao (o `UNIQUE` funcionando).
@@ -576,13 +754,14 @@ class RelatorioDoDisparo:
     #: Pessoas em que **nenhum** aparelho aceitou - a reserva foi desfeita.
     nenhum_aceitou: int = 0
 
-    #: Erros inesperados, por pessoa. ⚠️ Um deles ⛔ nao derruba o resto.
+    #: Erros inesperados, por pessoa. ⚠️ Um deles nao derruba o resto.
     falhas: list[str] = field(default_factory=list)
 
     def resumo(self) -> str:
         """Uma linha para o log do Railway."""
         return (
-            f"fusos={self.offsets} pendentes={sum(self.pendentes_por_dia.values())} "
+            f"dias={self.dias} fusos={sorted(self.offsets)} "
+            f"pendentes={self.pendentes} aguardando={self.aguardando} "
             f"enviadas={self.enviadas} aparelhos={self.aparelhos} "
             f"sem_aparelho={self.sem_aparelho} ja_notificadas={self.ja_notificadas} "
             f"tokens_removidos={self.tokens_removidos} "
@@ -610,38 +789,45 @@ class ServicoNotificacaoDeReacao:
         """Faz a rodada deste instante e devolve o relatorio.
 
         Args:
-            agora_utc: o instante do servidor, em UTC. ⚠️ **Parametro, e ⛔ nao
+            agora_utc: o instante do servidor, em UTC. ⚠️ **Parametro, e nao
                 `datetime.now()` aqui dentro**: um relogio interno tornaria a
                 janela dos fusos impossivel de testar, e e justamente a conta que
                 erra silenciosamente.
 
         Returns:
-            O [RelatorioDoDisparo] - ⛔ nunca uma excecao por causa de **uma**
-            pessoa. Uma linha ruim (token esquisito, resposta estranha do FCM) ⛔
+            O [RelatorioDoDisparo] - nunca uma excecao por causa de **uma**
+            pessoa. Uma linha ruim (token esquisito, resposta estranha do FCM)
             nao pode cancelar as outras 39 notificacoes da hora.
         """
         relatorio = RelatorioDoDisparo()
-        for dia_alvo, offsets in grupos_por_dia_alvo(agora_utc).items():
-            relatorio.offsets.extend(offsets)
-            pendentes = await self.repo.pendentes(dia_alvo)
-            relatorio.pendentes_por_dia[dia_alvo.isoformat()] = len(pendentes)
-            for pessoa in pendentes:
-                await self._uma_pessoa(pessoa, offsets, agora_utc, relatorio)
+        dias = dias_candidatos(agora_utc)
+        relatorio.dias = [dia.isoformat() for dia in dias]
+        for pessoa in await self.repo.pendentes(dias):
+            # A vez e decidida pelo fuso da PESSOA (o do ultimo aparelho usado).
+            if not deve_avisar_agora(
+                agora_utc, pessoa.nu_offset_minuto, pessoa.dt_dia
+            ):
+                relatorio.aguardando += 1
+                continue
+            relatorio.pendentes += 1
+            if pessoa.nu_offset_minuto not in relatorio.offsets:
+                relatorio.offsets.append(pessoa.nu_offset_minuto)
+            await self._uma_pessoa(pessoa, agora_utc, relatorio)
         return relatorio
 
     async def _uma_pessoa(
         self,
         pessoa: PessoaANotificar,
-        offsets: list[int],
         agora_utc: datetime,
         relatorio: RelatorioDoDisparo,
     ) -> None:
         """Reserva, envia e conta - para uma pessoa, na ordem que importa."""
         try:
-            aparelhos = await self.repo.dispositivos(pessoa.id_usuario, offsets)
+            aparelhos = await self.repo.dispositivos(pessoa.id_usuario)
 
-            # ⛔ Sem aparelho na janela ⛔ nao se reserva: a linha queimaria a
-            # unica chance daquele dia sem ninguem receber nada.
+            # Sem aparelho nao se reserva: a linha queimaria a unica chance
+            # daquele dia sem ninguem receber nada. (A consulta de pendentes ja
+            # exige um aparelho com fuso; isto cobre o token apagado no meio.)
             if not aparelhos:
                 relatorio.sem_aparelho += 1
                 return
@@ -649,9 +835,8 @@ class ServicoNotificacaoDeReacao:
             reservou = await self.repo.reservar(
                 id_resolucao=pessoa.id_resolucao,
                 qt_pessoa=pessoa.qt_pessoa,
-                # ⚠️ O offset do aparelho **em uso** (o primeiro da ordem por
-                # `dh_atualizacao DESC`) - e a conta do meio-dia que valeu.
-                nu_offset_minuto=aparelhos[0].offset_minuto,
+                # ⚠️ O fuso da PESSOA - e a conta do meio-dia que valeu.
+                nu_offset_minuto=pessoa.nu_offset_minuto,
                 qt_dispositivo=len(aparelhos),
                 dh_envio=agora_utc,
             )
@@ -661,10 +846,10 @@ class ServicoNotificacaoDeReacao:
                 return
 
             # ⚠️ **Confirma a reserva ANTES de enviar.** Uma reserva ainda na
-            # transacao ⛔ nao impede nada: outra execucao ⛔ nao a ve.
+            # transacao nao impede nada: outra execucao nao a ve.
             await self.repo.confirmar()
 
-            aceitos = await self._entregar(pessoa, aparelhos, relatorio)
+            aceitos = await self._entregar(pessoa, aparelhos, agora_utc, relatorio)
 
             if aceitos:
                 relatorio.enviadas += 1
@@ -675,7 +860,7 @@ class ServicoNotificacaoDeReacao:
                 await self.repo.desfazer_reserva(pessoa.id_resolucao)
 
             await self.repo.confirmar()
-        except Exception as erro:  # noqa: BLE001 - uma pessoa ⛔ nao derruba a hora
+        except Exception as erro:  # noqa: BLE001 - uma pessoa nao derruba a hora
             relatorio.falhas.append(f"{pessoa.id_resolucao}: {erro}")
             await self.repo.desfazer()
 
@@ -683,6 +868,7 @@ class ServicoNotificacaoDeReacao:
         self,
         pessoa: PessoaANotificar,
         aparelhos: list[Aparelho],
+        agora_utc: datetime,
         relatorio: RelatorioDoDisparo,
     ) -> int:
         """Manda a mensagem a cada aparelho e devolve quantos aceitaram.
@@ -690,9 +876,16 @@ class ServicoNotificacaoDeReacao:
         ⚠️ **Token morto sai da base no mesmo instante** - e a faxina que o
         script fazia a mao, agora no unico momento em que a informacao existe.
         """
+        # O "hoje / ontem / anteontem" e da pessoa, e nao do aparelho: calcula
+        # uma vez, pelo fuso dela, e cada aparelho so troca o idioma.
+        quando = quando_foi_resolvido(
+            agora_utc, pessoa.nu_offset_minuto, pessoa.dh_resolucao
+        )
         aceitos = 0
         for aparelho in aparelhos:
-            titulo, corpo = texto_da_notificacao(pessoa.qt_pessoa, aparelho.idioma)
+            titulo, corpo = texto_da_notificacao(
+                pessoa.qt_pessoa, aparelho.idioma, quando
+            )
             try:
                 self._enviador(
                     titulo,

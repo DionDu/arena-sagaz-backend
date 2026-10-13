@@ -5,24 +5,26 @@
 O QUE ESTE ARQUIVO PROVA, EM TRES CAMADAS
 ═══════════════════════════════════════════════════════════════════════════
 
-  1. **as contas puras** - o texto nos tres idiomas e, sobretudo, qual dia e
-     *"ontem"* para quem esta em cada fuso;
-  2. **o servico**, com repositorio e enviador falsos - a ordem entre reservar,
-     confirmar e enviar, o token morto e o que ⛔ nao gasta a reserva;
+  1. **as contas puras** - o texto nos tres idiomas, qual dia e *"ontem"* para
+     quem esta em cada fuso, a janela do meio-dia e o *"hoje / ontem /
+     anteontem"* do titulo;
+  2. **o servico**, com repositorio e enviador falsos - a vez de cada pessoa
+     pelo fuso DELA, a ordem entre reservar, confirmar e enviar, o token morto e
+     o que nao gasta a reserva;
   3. **o SQL**, por leitura de texto - que a visibilidade e a MESMA do quadro e
-     que o filtro de fuso ⛔ nao saiu.
+     que o fuso vem do aparelho usado por ultimo.
 
-⚠️ **O duplo do repositorio HONRA os filtros que o SQL de verdade tem** (o dia e a
-lista de offsets). A T078 aprendeu isso na pele: um duplo que devolve tudo o que
-tem responde por perguntas que ⛔ nao foram feitas, e um caso passa com a regra
-errada.
+⚠️ **O duplo do repositorio HONRA os filtros que o SQL de verdade tem** (os dias
+pedidos e a reserva ja gravada). A T078 aprendeu isso na pele: um duplo que
+devolve tudo o que tem responde por perguntas que nao foram feitas, e um caso
+passa com a regra errada.
 """
 
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
@@ -33,6 +35,7 @@ from api.notificacoes.reacoes_do_desafio import (
     CATEGORIA_REACOES,
     FRASES,
     HORA_LOCAL_DO_ENVIO,
+    QUANDO_POR_DIAS,
     SQL_DISPOSITIVOS,
     SQL_PENDENTES,
     SQL_RESERVAR,
@@ -41,12 +44,31 @@ from api.notificacoes.reacoes_do_desafio import (
     ServicoNotificacaoDeReacao,
     TokenMorto,
     dados_do_push,
+    deve_avisar_agora,
     dia_do_desafio_a_notificar,
     dia_local,
-    grupos_por_dia_alvo,
-    offsets_ao_meio_dia,
+    dias_candidatos,
+    na_janela_do_envio,
+    quando_foi_resolvido,
     texto_da_notificacao,
 )
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Os instantes de referencia
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Um instante em que e **meio-dia em Brasilia** (UTC-3): 15:00 UTC.
+#:
+#: ⚠️ **Nao e `datetime.now()`.** Relogio injetado apontado para a data real nao
+#: mede nada (`memory/data-de-teste-igual-a-de-hoje`): o caso passaria para
+#: sempre, e a mutacao que trocasse a conta do dia sobreviveria.
+MEIO_DIA_EM_BRASILIA = datetime(2026, 9, 22, 15, 0, tzinfo=timezone.utc)
+
+#: O `dt_dia` que aquele instante notifica: 21/09, o dia **anterior** ao local.
+DIA_ALVO_EM_BRASILIA = date(2026, 9, 21)
+
+#: Uma resolucao das 15h de Brasilia de 21/09 - *"ontem"* ao meio-dia de 22/09.
+RESOLVIDO_ONTEM_EM_BRASILIA = datetime(2026, 9, 21, 18, 0, tzinfo=timezone.utc)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Os duplos
@@ -67,24 +89,27 @@ class ReservaFalsa:
 class RepoFalso:
     """Repositorio em memoria - e ele **aplica os filtros do SQL de verdade**.
 
-    ⚠️ **O `dia` e os `offsets` filtram**, porque e isso que as consultas fazem.
-    Um duplo que ignora o filtro e a razao pela qual quatro mutacoes sobreviveram
-    na T078: ele responde por linhas que a consulta ⛔ nao teria trazido.
+    ⚠️ **Os `dias` filtram**, porque e isso que a consulta faz. Um duplo que
+    ignora o filtro e a razao pela qual quatro mutacoes sobreviveram na T078: ele
+    responde por linhas que a consulta nao teria trazido.
+
+    ⚠️ **E os aparelhos NAO sao filtrados por fuso** - a consulta de verdade
+    tambem nao filtra mais (decisao do dono, 13/10/2026).
     """
 
     def __init__(
         self,
-        pendentes_por_dia: Optional[dict[date, list[PessoaANotificar]]] = None,
+        pendentes: Optional[list[PessoaANotificar]] = None,
         aparelhos: Optional[dict[UUID, list[Aparelho]]] = None,
         reservas: Optional[set[UUID]] = None,
         reservas_nao_vistas: Optional[set[UUID]] = None,
     ) -> None:
-        self._pendentes = pendentes_por_dia or {}
+        self._pendentes = pendentes or []
         self._aparelhos = aparelhos or {}
         #: Resolucoes **ja** notificadas antes desta rodada (outra execucao).
         self.reservadas: set[UUID] = reservas or set()
         #: ⚠️ **A CORRIDA**: linhas gravadas pela outra execucao **depois** de
-        #: esta ter lido os pendentes. A consulta ⛔ nao as ve (a leitura ja
+        #: esta ter lido os pendentes. A consulta nao as ve (a leitura ja
         #: passou), e quem as segura e o `ON CONFLICT` no momento de reservar -
         #: que e a unica defesa que existe contra duas execucoes ao mesmo tempo.
         self.reservadas.update(reservas_nao_vistas or set())
@@ -93,30 +118,30 @@ class RepoFalso:
         self.gravadas: list[ReservaFalsa] = []
         #: Tokens apagados da `tb005`.
         self.tokens_removidos: list[str] = []
-        #: ⚠️ **A ORDEM das operacoes** - e o que prova que o envio ⛔ nao
+        #: ⚠️ **A ORDEM das operacoes** - e o que prova que o envio nao
         #: acontece antes de a reserva estar confirmada.
         self.diario: list[str] = []
+        #: Os dias que o servico pediu, chamada a chamada.
+        self.dias_pedidos: list[list[date]] = []
 
-    async def pendentes(self, dt_dia: date) -> list[PessoaANotificar]:
-        self.diario.append(f"pendentes({dt_dia.isoformat()})")
-        # ⚠️ O SQL de verdade ja exclui quem tem linha de notificacao (o
-        # `LEFT JOIN ... IS NULL`); o duplo faz o mesmo.
+    async def pendentes(self, dias: list[date]) -> list[PessoaANotificar]:
+        self.diario.append("pendentes")
+        self.dias_pedidos.append(list(dias))
+        # ⚠️ O SQL de verdade so traz os dias pedidos e ja exclui quem tem linha
+        # de notificacao (o `LEFT JOIN ... IS NULL`); o duplo faz o mesmo.
         return [
             p
-            for p in self._pendentes.get(dt_dia, [])
-            if p.id_resolucao not in self.reservadas
-            or p.id_resolucao in self._invisiveis
+            for p in self._pendentes
+            if p.dt_dia in dias
+            and (
+                p.id_resolucao not in self.reservadas
+                or p.id_resolucao in self._invisiveis
+            )
         ]
 
-    async def dispositivos(
-        self, id_usuario: UUID, offsets: list[int]
-    ) -> list[Aparelho]:
+    async def dispositivos(self, id_usuario: UUID) -> list[Aparelho]:
         self.diario.append("dispositivos")
-        return [
-            a
-            for a in self._aparelhos.get(id_usuario, [])
-            if a.offset_minuto in offsets
-        ]
+        return list(self._aparelhos.get(id_usuario, []))
 
     async def reservar(
         self,
@@ -128,7 +153,7 @@ class RepoFalso:
         dh_envio: Any,
     ) -> bool:
         self.diario.append("reservar")
-        # O `ON CONFLICT DO NOTHING`: quem chegou depois ⛔ nao grava nada.
+        # O `ON CONFLICT DO NOTHING`: quem chegou depois nao grava nada.
         if id_resolucao in self.reservadas:
             return False
         self.reservadas.add(id_resolucao)
@@ -163,9 +188,9 @@ class RepoFalso:
 class EnviadorFalso:
     """Anota cada envio; `mortos` finge o `UNREGISTERED` do FCM.
 
-    ⚠️ Ele **⛔ nao monta mensagem do FCM nenhuma** - esse e o trabalho do
+    ⚠️ Ele **nao monta mensagem do FCM nenhuma** - esse e o trabalho do
     enviador real, e quem o cobre e `test_enviador_real_*`. A licao de
-    `memory/fonte-falsa-nao-tem-rota` vale aqui: o duplo ⛔ nao prova a rota.
+    `memory/fonte-falsa-nao-tem-rota` vale aqui: o duplo nao prova a rota.
     """
 
     mortos: set[str] = field(default_factory=set)
@@ -185,25 +210,23 @@ class EnviadorFalso:
         return f"id-{len(self.envios)}"
 
 
-def _pessoa(qt_pessoa: int = 3) -> PessoaANotificar:
-    """Uma linha pendente com identificadores novos."""
+def _pessoa(
+    qt_pessoa: int = 3,
+    *,
+    dt_dia: date = DIA_ALVO_EM_BRASILIA,
+    offset: int = -180,
+    dh_resolucao: datetime = RESOLVIDO_ONTEM_EM_BRASILIA,
+) -> PessoaANotificar:
+    """Uma linha pendente com identificadores novos - por padrao, em Brasilia."""
     return PessoaANotificar(
         id_resolucao=uuid4(),
         id_usuario=uuid4(),
         id_desafio=uuid4(),
         qt_pessoa=qt_pessoa,
+        dt_dia=dt_dia,
+        dh_resolucao=dh_resolucao,
+        nu_offset_minuto=offset,
     )
-
-
-#: Um instante em que e **meio-dia em Brasilia** (UTC-3): 15:00 UTC.
-#:
-#: ⚠️ **⛔ Nao e `datetime.now()`.** Relogio injetado apontado para a data real ⛔
-#: nao mede nada (`memory/data-de-teste-igual-a-de-hoje`): o caso passaria para
-#: sempre, e a mutacao que trocasse a conta do dia sobreviveria.
-MEIO_DIA_EM_BRASILIA = datetime(2026, 9, 22, 15, 0, tzinfo=timezone.utc)
-
-#: O `dt_dia` que aquele instante notifica: 21/09, o dia **anterior** ao local.
-DIA_ALVO_EM_BRASILIA = date(2026, 9, 21)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -214,8 +237,8 @@ DIA_ALVO_EM_BRASILIA = date(2026, 9, 21)
 @pytest.mark.parametrize("idioma", ["pt", "en", "es"])
 def test_o_texto_sai_nos_tres_idiomas(idioma: str) -> None:
     """Os tres idiomas do aplicativo respondem, e com o numero dentro."""
-    titulo, corpo = texto_da_notificacao(3, idioma)
-    assert titulo == FRASES[idioma]["titulo"]
+    titulo, corpo = texto_da_notificacao(3, idioma, "ontem")
+    assert titulo == FRASES[idioma]["titulo_ontem"]
     assert "3" in corpo
 
 
@@ -224,74 +247,101 @@ def test_uma_pessoa_tem_frase_PROPRIA(idioma: str) -> None:
     """🔒 Singular e plural sao frases diferentes.
 
     ⚠️ *"1 pessoas reagiram"* e o tipo de erro que faz o produto parecer
-    descuidado exatamente no momento bom - e ⛔ nenhum teste de idioma pegaria,
+    descuidado exatamente no momento bom - e nenhum teste de idioma pegaria,
     porque a chave existe nos tres.
     """
-    _, uma = texto_da_notificacao(1, idioma)
-    _, varias = texto_da_notificacao(2, idioma)
+    _, uma = texto_da_notificacao(1, idioma, "ontem")
+    _, varias = texto_da_notificacao(2, idioma, "ontem")
     assert uma != varias
-    # ⚠️ **E ⛔ nao basta serem diferentes**: com a condicao do singular trocada
+    # ⚠️ **E nao basta serem diferentes**: com a condicao do singular trocada
     # por `quantas == 0`, uma pessoa cairia no plural e as duas frases continuariam
-    # diferentes entre si (*"1 pessoas reagiram"* × *"2 pessoas reagiram"*). A
+    # diferentes entre si (*"1 pessoas reagiram"* x *"2 pessoas reagiram"*). A
     # mutacao sobreviveu assim. Cada uma tem de ser **a sua**.
     assert uma == FRASES[idioma]["uma"]
     assert varias == FRASES[idioma]["varias"].format(quantas=2)
     assert "1" in uma
-    # ⛔ O plural ⛔ nao pode ter ficado com o `{quantas}` sem substituir.
+    # O plural nao pode ter ficado com o `{quantas}` sem substituir.
     assert "{quantas}" not in varias
 
 
 def test_idioma_desconhecido_cai_no_INGLES() -> None:
     """Fallback igual ao do aplicativo - duas regras diferentes divergiriam."""
-    titulo, corpo = texto_da_notificacao(4, "fr")
-    assert (titulo, corpo) == texto_da_notificacao(4, "en")
+    titulo, corpo = texto_da_notificacao(4, "fr", "ontem")
+    assert (titulo, corpo) == texto_da_notificacao(4, "en", "ontem")
 
 
 def test_zero_reacao_NAO_gera_texto() -> None:
-    """⛔ *"0 pessoas reagiram"* ⛔ nao chega a ninguem.
+    """*"0 pessoas reagiram"* nao chega a ninguem.
 
     A guarda e a irma do `ck001_pessoa` da `0026`: se uma consulta mudada
     devolvesse zero, o banco recusaria a linha - e aqui a frase morre antes.
     """
     with pytest.raises(ValueError):
-        texto_da_notificacao(0, "pt")
+        texto_da_notificacao(0, "pt", "ontem")
+
+
+def test_quando_DESCONHECIDO_e_erro_e_nao_titulo_vazio() -> None:
+    """🔒 Um `quando` fora dos tres e defeito nosso, e tem de aparecer.
+
+    ⚠️ Com um `.get(..., "")` no lugar do indice, a notificacao sairia com o
+    titulo em branco - e o log diria sucesso. O `KeyError` vira falha da pessoa
+    no relatorio do disparo.
+    """
+    with pytest.raises(KeyError):
+        texto_da_notificacao(2, "pt", "semana passada")
 
 
 @pytest.mark.parametrize(
-    ("idioma", "titulo", "uma", "duas"),
+    ("idioma", "uma", "duas"),
     [
-        (
-            "pt",
-            "O seu desafio de ontem",
-            "1 pessoa reagiu à sua solução.",
-            "2 pessoas reagiram à sua solução.",
-        ),
-        (
-            "en",
-            "Your challenge from yesterday",
-            "1 person reacted to your solution.",
-            "2 people reacted to your solution.",
-        ),
-        (
-            "es",
-            "Tu desafío de ayer",
-            "1 persona reaccionó a tu solución.",
-            "2 personas reaccionaron a tu solución.",
-        ),
+        ("pt", "1 pessoa reagiu à sua solução.", "2 pessoas reagiram à sua solução."),
+        ("en", "1 person reacted to your solution.", "2 people reacted to your solution."),
+        ("es", "1 persona reaccionó a tu solución.", "2 personas reaccionaron a tu solución."),
     ],
 )
-def test_as_frases_saem_com_a_GRAFIA_certa(
-    idioma: str, titulo: str, uma: str, duas: str
-) -> None:
-    """🔒 O texto que a pessoa le, letra por letra, com acento.
+def test_as_frases_saem_com_a_GRAFIA_certa(idioma: str, uma: str, duas: str) -> None:
+    """🔒 O corpo que a pessoa le, letra por letra, com acento.
 
     ⚠️ **As frases esperadas estao escritas AQUI, e nao lidas de `FRASES`**: um
     caso que compara a funcao com a propria constante passa com qualquer texto
     dentro dela. Foi assim que *"reagiu a sua solucao"* e *"reacciono a tu
     solucion"* chegaram a producao (22/09 a 07/10/2026) com a suite verde.
     """
-    assert texto_da_notificacao(1, idioma) == (titulo, uma)
-    assert texto_da_notificacao(2, idioma) == (titulo, duas)
+    assert texto_da_notificacao(1, idioma, "ontem")[1] == uma
+    assert texto_da_notificacao(2, idioma, "ontem")[1] == duas
+
+
+@pytest.mark.parametrize(
+    ("idioma", "quando", "titulo"),
+    [
+        ("pt", "hoje", "O seu desafio resolvido hoje"),
+        ("pt", "ontem", "O seu desafio resolvido ontem"),
+        ("pt", "anteontem", "O seu desafio resolvido anteontem"),
+        ("en", "hoje", "The challenge you solved today"),
+        ("en", "ontem", "The challenge you solved yesterday"),
+        ("en", "anteontem", "The challenge you solved the day before yesterday"),
+        ("es", "hoje", "El desafío que resolviste hoy"),
+        ("es", "ontem", "El desafío que resolviste ayer"),
+        ("es", "anteontem", "El desafío que resolviste anteayer"),
+    ],
+)
+def test_os_titulos_saem_com_a_GRAFIA_certa(
+    idioma: str, quando: str, titulo: str
+) -> None:
+    """🔒 Os nove titulos (3 idiomas x 3 "quando"), escritos aqui por extenso.
+
+    Mesma razao do caso do corpo: comparar com `FRASES` passaria com qualquer
+    texto. E o titulo nao depende do numero - a pessoa le o mesmo com 1 ou 7.
+    """
+    assert texto_da_notificacao(1, idioma, quando)[0] == titulo
+    assert texto_da_notificacao(7, idioma, quando)[0] == titulo
+
+
+def test_cada_quando_tem_TITULO_nos_tres_idiomas() -> None:
+    """Todo valor de `QUANDO_POR_DIAS` tem a sua chave em todos os idiomas."""
+    for quando in QUANDO_POR_DIAS.values():
+        for idioma in FRASES:
+            assert f"titulo_{quando}" in FRASES[idioma], f"{idioma}.{quando}"
 
 
 def test_nenhuma_frase_usa_travessao_longo() -> None:
@@ -373,75 +423,191 @@ def test_em_UTC_MENOS_11_a_conta_tambem_fecha() -> None:
     assert dia_do_desafio_a_notificar(instante, -660) == date(2026, 9, 21)
 
 
-def test_a_janela_pega_o_fuso_certo_e_os_de_MEIA_HORA() -> None:
-    """Os offsets atendidos as 15:00 UTC sao os de ~12h locais.
+def test_a_janela_vai_das_11h30_as_14h30_LOCAIS() -> None:
+    """🔒 A janela, pelas duas pontas e pelos vizinhos de uma hora.
 
-    ⚠️ **O fuso de meia hora e o que denuncia a falta de tolerancia**: Terra Nova
-    (-210) marca 11:30 quando Brasilia marca 12:00, e sem a janela de 30 minutos
-    ⛔ nunca seria atendido - sem erro nenhum, para sempre.
+    As 15:00 UTC, cada offset esta num horario local diferente. Entram:
+
+      · -180 (Brasilia, 12:00), o caso comum;
+      · -210 (Terra Nova, 11:30) - a tolerancia de antes, sem a qual os fusos de
+        meia hora nunca seriam atendidos;
+      · -120 (13:00) e -60 (14:00) - a repescagem de uma execucao pulada.
+
+    E ficam de fora -240 (11:00, cedo demais) e 0 (15:00, tarde demais).
     """
-    offsets = offsets_ao_meio_dia(MEIO_DIA_EM_BRASILIA)
-    assert -180 in offsets
-    assert -210 in offsets
-    # ⛔ E ⛔ nao pega quem esta longe do meio-dia.
-    assert 0 not in offsets
-    assert 180 not in offsets
-    # ⚠️ **O vizinho de UMA hora e o que mede a largura da janela.** Com tres
-    # horas de diferenca qualquer tolerancia plausivel exclui; foi por isso que a
-    # mutacao que abria a janela para 90 minutos **sobreviveu**. UTC-2 marca 13h
-    # neste instante, e ⛔ nao pode ser atendido.
-    assert -120 not in offsets
-    assert -240 not in offsets
+    assert na_janela_do_envio(MEIO_DIA_EM_BRASILIA, -180)
+    assert na_janela_do_envio(MEIO_DIA_EM_BRASILIA, -210)
+    assert na_janela_do_envio(MEIO_DIA_EM_BRASILIA, -120)
+    assert na_janela_do_envio(MEIO_DIA_EM_BRASILIA, -60)
+    assert not na_janela_do_envio(MEIO_DIA_EM_BRASILIA, -240)
+    assert not na_janela_do_envio(MEIO_DIA_EM_BRASILIA, 0)
+    assert not na_janela_do_envio(MEIO_DIA_EM_BRASILIA, 180)
+
+
+def test_as_PONTAS_da_janela_minuto_a_minuto() -> None:
+    """🔒 11:30 entra e 11:29 nao; 14:29 entra e 14:30 nao (fim aberto).
+
+    ⚠️ **E o caso que segura a largura da janela.** Os vizinhos de uma hora do
+    caso anterior nao distinguem *"fecha as 14:30"* de *"fecha as 14:59"*; so a
+    borda de um minuto distingue.
+    """
+    em_brasilia = -180
+    # 14:30 UTC = 11:30 em Brasilia; 17:29 UTC = 14:29.
+    abre = datetime(2026, 9, 22, 14, 30, tzinfo=timezone.utc)
+    fecha = datetime(2026, 9, 22, 17, 30, tzinfo=timezone.utc)
+    um_minuto = timedelta(minutes=1)
+    assert na_janela_do_envio(abre, em_brasilia)
+    assert not na_janela_do_envio(abre - um_minuto, em_brasilia)
+    assert na_janela_do_envio(fecha - um_minuto, em_brasilia)
+    assert not na_janela_do_envio(fecha, em_brasilia)
+
+
+@pytest.mark.parametrize("offset", [-600, -210, -180, 0, 330, 345, 540, 780, 840])
+def test_cada_fuso_tem_TRES_chances_por_dia(offset: int) -> None:
+    """🔒 O cron roda nas horas cheias UTC; cada fuso cai na janela tres vezes.
+
+    ⚠️ **Tres, e nao uma**: e a repescagem. E **tres, e nao quatro**: uma
+    quarta chance seria a janela larga demais, chegando perto do lembrete da
+    chama das 19h (RF-DES-074b). Os fusos de meia hora (330, India) e de 45
+    minutos (345, Nepal) entram na conta - sao eles que testam a tolerancia.
+
+    O minuto `:02` imita o atraso real do Railway, que acorda o servico entre
+    :00 e :05.
+    """
+    execucoes = [
+        datetime(2026, 9, 22, 0, 2, tzinfo=timezone.utc) + timedelta(hours=h)
+        for h in range(24)
+    ]
+    chances = [e for e in execucoes if na_janela_do_envio(e, offset)]
+    assert len(chances) == 3
 
 
 def test_a_hora_alvo_e_MEIO_DIA_e_nao_19h() -> None:
     """🔒 RF-DES-074b: as 19h ela chegaria junto do lembrete da chama.
 
-    ⚠️ O numero entra **escrito** aqui, e ⛔ nao lido da constante: ler
+    ⚠️ O numero entra **escrito** aqui, e nao lido da constante: ler
     `HORA_LOCAL_DO_ENVIO` para conferi-la faria o caso passar com qualquer valor
     (`memory/teste-nao-se-mede-pela-propria-regua`). O 12 e decisao de produto, e
     o cadeado e contra troca-lo sem pensar.
     """
     assert HORA_LOCAL_DO_ENVIO == 12
     # E a janela de fato cai ao meio-dia: 15:00 UTC atende UTC-3.
-    assert -180 in offsets_ao_meio_dia(MEIO_DIA_EM_BRASILIA)
-    # ⛔ As 22:00 UTC, UTC-3 esta as 19h - e ⛔ nao e atendido.
-    assert -180 not in offsets_ao_meio_dia(
-        datetime(2026, 9, 22, 22, 0, tzinfo=timezone.utc)
+    assert na_janela_do_envio(MEIO_DIA_EM_BRASILIA, -180)
+    # As 22:00 UTC, UTC-3 esta as 19h - e nao e atendido.
+    assert not na_janela_do_envio(
+        datetime(2026, 9, 22, 22, 0, tzinfo=timezone.utc), -180
     )
 
 
-def test_os_grupos_saem_por_dia_alvo() -> None:
-    """Cada offset entra debaixo do **seu** dia alvo."""
-    grupos = grupos_por_dia_alvo(MEIO_DIA_EM_BRASILIA)
-    assert list(grupos) == [DIA_ALVO_EM_BRASILIA]
-    assert sorted(grupos[DIA_ALVO_EM_BRASILIA]) == sorted(
-        offsets_ao_meio_dia(MEIO_DIA_EM_BRASILIA)
-    )
+def test_os_dias_candidatos_cobrem_TODOS_os_fusos() -> None:
+    """🔒 Todo fuso que a API aceita acha o seu *"ontem"* entre os candidatos.
+
+    ⚠️ Se a lista ficasse curta, a pessoa da ponta do mundo nunca apareceria na
+    consulta - sem erro nenhum, porque a hora dela simplesmente ficaria vazia.
+    Por isso o caso varre as 24 horas de um dia e os offsets de -840 a +840.
+    """
+    for hora in range(24):
+        agora = datetime(2026, 9, 22, hora, 2, tzinfo=timezone.utc)
+        dias = dias_candidatos(agora)
+        for offset in range(-840, 841, 15):
+            assert dia_do_desafio_a_notificar(agora, offset) in dias
 
 
-def test_a_MESMA_janela_pode_ter_DOIS_dias_alvo() -> None:
-    """🔒 O mundo tem **26 horas de fusos** - e por isso o agrupamento existe.
+def test_a_MESMA_hora_pode_ter_DOIS_dias_alvo() -> None:
+    """🔒 O mundo tem **26 horas de fusos** - e por isso a vez e por pessoa.
 
     Às 23:00 UTC de 22/09, dois offsets marcam meio-dia em **dias diferentes**:
 
-      · UTC+13 esta as 12:00 de **23/09**  →  dia alvo 22/09
-      · UTC-11 esta as 12:00 de **22/09**  →  dia alvo 21/09
+      · UTC+13 esta as 12:00 de **23/09**  ->  dia alvo 22/09
+      · UTC-11 esta as 12:00 de **22/09**  ->  dia alvo 21/09
 
-    ⚠️ **Este caso nasceu de uma mutacao que sobreviveu**: trocar o offset por `0`
-    no calculo do dia deixava a suite verde, porque ⛔ nenhum caso olhava um
-    instante com dois dias na janela. E o comentario da funcao afirmava, errado,
-    que com o alvo em 12h isso ⛔ nao acontecia.
+    Os dois dias vem na mesma consulta, e cada pessoa so pode receber o **seu**.
+    ⚠️ **As duas trocas tem de falhar**: se uma delas passasse, a pessoa de
+    UTC-11 receberia o numero do desafio de outro dia, e a notificacao sairia
+    igual - sem erro nenhum.
     """
     instante = datetime(2026, 9, 22, 23, 0, tzinfo=timezone.utc)
-    grupos = grupos_por_dia_alvo(instante)
+    assert date(2026, 9, 21) in dias_candidatos(instante)
+    assert date(2026, 9, 22) in dias_candidatos(instante)
 
-    assert 780 in offsets_ao_meio_dia(instante)
-    assert -660 in offsets_ao_meio_dia(instante)
-    # ⛔ ⛔ Nao e um grupo so.
-    assert len(grupos) >= 2
-    assert 780 in grupos[date(2026, 9, 22)]
-    assert -660 in grupos[date(2026, 9, 21)]
+    assert deve_avisar_agora(instante, 780, date(2026, 9, 22))
+    assert deve_avisar_agora(instante, -660, date(2026, 9, 21))
+    # As trocas.
+    assert not deve_avisar_agora(instante, 780, date(2026, 9, 21))
+    assert not deve_avisar_agora(instante, -660, date(2026, 9, 22))
+
+
+def test_fora_da_janela_NAO_e_a_vez_mesmo_no_dia_certo() -> None:
+    """A outra metade de `deve_avisar_agora`: o dia certo nao basta."""
+    # 22:00 UTC = 19h em Brasilia; o dia alvo ainda e 21/09, mas a hora passou.
+    tarde = datetime(2026, 9, 22, 22, 0, tzinfo=timezone.utc)
+    assert dia_do_desafio_a_notificar(tarde, -180) == DIA_ALVO_EM_BRASILIA
+    assert not deve_avisar_agora(tarde, -180, DIA_ALVO_EM_BRASILIA)
+
+
+# ── O "hoje / ontem / anteontem" do titulo ──────────────────────────────────
+
+
+def test_resolveu_DEPOIS_das_21h_em_Brasilia_e_ANTEONTEM() -> None:
+    """🔒 O caso que pediu esta regra (13/10/2026), com as datas reais.
+
+    O dono resolveu as 23:48 de 12/10 em Brasilia - 02:48 UTC de **13/10**, ou
+    seja, o desafio de 13/10. O aviso sai ao meio-dia de **14/10**. Para ele
+    foi **anteontem**, e o titulo antigo dizia *"ontem"*.
+    """
+    resolucao = datetime(2026, 10, 13, 2, 48, tzinfo=timezone.utc)
+    meio_dia_de_14 = datetime(2026, 10, 14, 15, 0, tzinfo=timezone.utc)
+
+    assert deve_avisar_agora(meio_dia_de_14, -180, date(2026, 10, 13))
+    assert quando_foi_resolvido(meio_dia_de_14, -180, resolucao) == "anteontem"
+
+
+def test_resolveu_ANTES_das_21h_em_Brasilia_e_ONTEM() -> None:
+    """O caso comum: resolveu as 15h de 21/09, le ao meio-dia de 22/09."""
+    assert (
+        quando_foi_resolvido(MEIO_DIA_EM_BRASILIA, -180, RESOLVIDO_ONTEM_EM_BRASILIA)
+        == "ontem"
+    )
+
+
+def test_em_UTC_MAIS_13_pode_ser_HOJE() -> None:
+    """A ponta leste: o dia UTC 22/09 comeca as 13:00 locais de 22/09.
+
+    Quem resolve as 13:30 UTC de 22/09 esta as 02:30 de **23/09**, e e avisado
+    ao meio-dia de 23/09 (23:00 UTC de 22/09): resolveu **hoje**.
+    """
+    resolucao = datetime(2026, 9, 22, 13, 30, tzinfo=timezone.utc)
+    meio_dia_local = datetime(2026, 9, 22, 23, 0, tzinfo=timezone.utc)
+    assert quando_foi_resolvido(meio_dia_local, 780, resolucao) == "hoje"
+
+
+def test_o_quando_e_PRESO_nas_pontas() -> None:
+    """Fora de 0 a 2 dias vira o titulo mais proximo, e nao uma excecao.
+
+    ⚠️ Pela construcao do disparo isso nao acontece; o prendedor e para uma
+    resolucao corrigida a mao nao custar a notificacao.
+    """
+    agora = MEIO_DIA_EM_BRASILIA
+    cinco_dias_antes = agora - timedelta(days=5)
+    amanha = agora + timedelta(days=1)
+    assert quando_foi_resolvido(agora, -180, cinco_dias_antes) == "anteontem"
+    assert quando_foi_resolvido(agora, -180, amanha) == "hoje"
+
+
+def test_instante_em_OUTRO_fuso_e_convertido_antes_da_conta() -> None:
+    """🔒 O mesmo instante, escrito em UTC ou em -03:00, da o mesmo dia.
+
+    ⚠️ Somar o offset a um horario que nao esta em UTC daria a data errada,
+    calada. O `asyncpg` devolve em UTC hoje; o caso e para o dia em que nao
+    devolver. E o instante **sem fuso** e lido como UTC.
+    """
+    em_utc = datetime(2026, 10, 13, 2, 48, tzinfo=timezone.utc)
+    em_brasilia = em_utc.astimezone(timezone(timedelta(hours=-3)))
+    sem_fuso = em_utc.replace(tzinfo=None)
+
+    assert dia_local(em_brasilia, -180) == dia_local(em_utc, -180)
+    assert dia_local(sem_fuso, -180) == dia_local(em_utc, -180)
+    assert dia_local(em_utc, -180) == date(2026, 10, 12)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -458,8 +624,8 @@ async def test_o_caminho_comum_avisa_uma_vez_e_grava_o_retrato() -> None:
     """Uma pessoa, um aparelho: sai uma notificacao, e a linha guarda o retrato."""
     pessoa = _pessoa(qt_pessoa=3)
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
-        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt", -180)]},
+        pendentes=[pessoa],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt")]},
     )
     enviador = EnviadorFalso()
 
@@ -467,9 +633,12 @@ async def test_o_caminho_comum_avisa_uma_vez_e_grava_o_retrato() -> None:
 
     assert relatorio.enviadas == 1
     assert relatorio.aparelhos == 1
+    assert relatorio.pendentes == 1
+    assert relatorio.offsets == [-180]
     assert len(enviador.envios) == 1
     titulo, corpo, dados, token = enviador.envios[0]
     assert token == "tok-1"
+    assert titulo == "O seu desafio resolvido ontem"
     assert "3" in corpo
     assert dados["id_desafio"] == str(pessoa.id_desafio)
     # O retrato do envio, que e o que explica a diferenca com o quadro depois.
@@ -482,17 +651,100 @@ async def test_o_caminho_comum_avisa_uma_vez_e_grava_o_retrato() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_reserva_e_CONFIRMADA_antes_do_envio() -> None:
-    """🔒 A ordem: `reservar` → `confirmar` → enviar.
+async def test_aparelho_ESQUECIDO_noutro_fuso_nao_rouba_o_aviso() -> None:
+    """🔒 O defeito de 10 a 13/10/2026, reproduzido.
 
-    ⚠️ **Uma reserva ainda dentro da transacao ⛔ nao impede nada**: a outra
-    execucao ⛔ nao a ve. Enviar antes de confirmar abriria a janela em que as
+    O dono usa um iPhone em Brasilia e tinha um Android de teste esquecido desde
+    02/09, com o relogio em GMT. Na regra antiga, as 12:00 UTC (meio-dia do
+    Android) o aviso saia so para o Android e a reserva era gravada; as 15:00
+    UTC o iPhone nem era tentado. Por tres dias o aviso foi para a gaveta.
+
+    Agora o fuso e o da **pessoa** (o do aparelho usado por ultimo, -180):
+
+      · as 12:00 UTC (9h em Brasilia) ela **aguarda**, e nada e reservado;
+      · as 15:00 UTC sai o aviso, para **os dois** aparelhos.
+    """
+    pessoa = _pessoa(offset=-180)
+    repo = RepoFalso(
+        pendentes=[pessoa],
+        aparelhos={
+            pessoa.id_usuario: [
+                Aparelho("tok-iphone", "pt"),
+                Aparelho("tok-android-gmt", "en"),
+            ]
+        },
+    )
+    enviador = EnviadorFalso()
+    servico = _servico(repo, enviador)
+
+    # 12:00 UTC: meio-dia do Android, 9h da pessoa.
+    as_9h = await servico.disparar(datetime(2026, 9, 22, 12, 0, tzinfo=timezone.utc))
+    assert as_9h.aguardando == 1
+    assert as_9h.enviadas == 0
+    assert repo.gravadas == []
+    assert "reservar" not in repo.diario
+
+    # 15:00 UTC: meio-dia da pessoa.
+    ao_meio_dia = await servico.disparar(MEIO_DIA_EM_BRASILIA)
+    assert ao_meio_dia.enviadas == 1
+    assert ao_meio_dia.aparelhos == 2
+    assert {t for _, _, _, t in enviador.envios} == {"tok-iphone", "tok-android-gmt"}
+    assert repo.gravadas[0].nu_offset_minuto == -180
+    assert repo.gravadas[0].qt_dispositivo == 2
+
+
+@pytest.mark.asyncio
+async def test_a_hora_PULADA_e_repescada_na_seguinte() -> None:
+    """Se o cron nao rodou ao meio-dia, a execucao das 13h ainda avisa."""
+    pessoa = _pessoa()
+    repo = RepoFalso(
+        pendentes=[pessoa],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt")]},
+    )
+    enviador = EnviadorFalso()
+
+    # 16:00 UTC = 13h em Brasilia; nenhuma execucao rodou ao meio-dia.
+    relatorio = await _servico(repo, enviador).disparar(
+        datetime(2026, 9, 22, 16, 0, tzinfo=timezone.utc)
+    )
+
+    assert relatorio.enviadas == 1
+    # E o titulo continua *"ontem"*: a hora mudou, o dia nao.
+    assert enviador.envios[0][0] == "O seu desafio resolvido ontem"
+
+
+@pytest.mark.asyncio
+async def test_o_titulo_diz_ANTEONTEM_para_quem_resolveu_depois_das_21h() -> None:
+    """🔒 O caso do dono, de ponta a ponta pelo servico (ver o caso puro)."""
+    pessoa = _pessoa(
+        dt_dia=date(2026, 10, 13),
+        dh_resolucao=datetime(2026, 10, 13, 2, 48, tzinfo=timezone.utc),
+    )
+    repo = RepoFalso(
+        pendentes=[pessoa],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt")]},
+    )
+    enviador = EnviadorFalso()
+
+    await _servico(repo, enviador).disparar(
+        datetime(2026, 10, 14, 15, 0, tzinfo=timezone.utc)
+    )
+
+    assert enviador.envios[0][0] == "O seu desafio resolvido anteontem"
+
+
+@pytest.mark.asyncio
+async def test_a_reserva_e_CONFIRMADA_antes_do_envio() -> None:
+    """🔒 A ordem: `reservar` -> `confirmar` -> enviar.
+
+    ⚠️ **Uma reserva ainda dentro da transacao nao impede nada**: a outra
+    execucao nao a ve. Enviar antes de confirmar abriria a janela em que as
     duas mandam a mesma notificacao - e o log das duas diria sucesso.
     """
     pessoa = _pessoa()
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
-        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt", -180)]},
+        pendentes=[pessoa],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt")]},
     )
     enviador = EnviadorFalso()
 
@@ -513,16 +765,16 @@ async def test_a_reserva_e_CONFIRMADA_antes_do_envio() -> None:
 async def test_cada_aparelho_le_no_SEU_idioma() -> None:
     """Dois aparelhos da mesma pessoa, idiomas diferentes, textos diferentes.
 
-    ⚠️ O idioma e do **aparelho** (`co_idioma` da `tb005`), e ⛔ nao da conta -
+    ⚠️ O idioma e do **aparelho** (`co_idioma` da `tb005`), e nao da conta -
     quem usa o telefone em portugues e o tablet em ingles le cada um no seu.
     """
     pessoa = _pessoa(qt_pessoa=2)
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
+        pendentes=[pessoa],
         aparelhos={
             pessoa.id_usuario: [
-                Aparelho("tok-pt", "pt", -180),
-                Aparelho("tok-en", "en", -180),
+                Aparelho("tok-pt", "pt"),
+                Aparelho("tok-en", "en"),
             ]
         },
     )
@@ -534,41 +786,59 @@ async def test_cada_aparelho_le_no_SEU_idioma() -> None:
     assert relatorio.enviadas == 1
     assert relatorio.aparelhos == 2
     corpos = {token: corpo for _, corpo, _, token in enviador.envios}
-    assert corpos["tok-pt"] != corpos["tok-en"]
     assert corpos["tok-pt"] == FRASES["pt"]["varias"].format(quantas=2)
     assert corpos["tok-en"] == FRASES["en"]["varias"].format(quantas=2)
 
 
 @pytest.mark.asyncio
-async def test_o_offset_gravado_e_o_do_aparelho_EM_USO() -> None:
-    """🔒 Dois aparelhos, dois fusos na janela: vale o **primeiro** da ordem.
+async def test_o_offset_gravado_e_o_da_PESSOA() -> None:
+    """🔒 O `nu_offset_minuto` gravado e o fuso que decidiu a hora.
 
-    ⚠️ A consulta ordena por `dh_atualizacao DESC`, entao `aparelhos[0]` e o
-    aparelho que a pessoa usou por ultimo - o telefone, e ⛔ nao o tablet
-    esquecido numa gaveta noutro fuso. O `nu_offset_minuto` existe para se
-    reconferir a conta do meio-dia; gravar o do aparelho parado responderia pela
-    conta errada.
-
-    ⚠️ **Este caso nasceu de uma mutacao que sobreviveu** (`aparelhos[-1]`): com um
-    aparelho so, o primeiro e o ultimo sao o mesmo - a funcao estava certa por
-    acidente (`memory/funcao-certa-por-acidente`).
+    Ele existe para se reconferir a conta do meio-dia depois. Uma pessoa em
+    Terra Nova (-210) e avisada as 15:00 UTC (11:30 dela), e o registro tem de
+    dizer -210 - e nao o -180 de quem divide a mesma execucao.
     """
-    pessoa = _pessoa()
+    em_brasilia = _pessoa(offset=-180)
+    em_terra_nova = _pessoa(offset=-210)
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
+        pendentes=[em_brasilia, em_terra_nova],
         aparelhos={
-            pessoa.id_usuario: [
-                # O duplo devolve na ordem em que estao, como o `ORDER BY` faria.
-                Aparelho("tok-telefone", "pt", -180),
-                Aparelho("tok-tablet", "pt", -210),
-            ]
+            em_brasilia.id_usuario: [Aparelho("tok-br", "pt")],
+            em_terra_nova.id_usuario: [Aparelho("tok-tn", "en")],
         },
     )
     enviador = EnviadorFalso()
 
-    await _servico(repo, enviador).disparar(MEIO_DIA_EM_BRASILIA)
+    relatorio = await _servico(repo, enviador).disparar(MEIO_DIA_EM_BRASILIA)
 
-    assert repo.gravadas[0].nu_offset_minuto == -180
+    por_resolucao = {g.id_resolucao: g.nu_offset_minuto for g in repo.gravadas}
+    assert por_resolucao[em_brasilia.id_resolucao] == -180
+    assert por_resolucao[em_terra_nova.id_resolucao] == -210
+    assert sorted(relatorio.offsets) == [-210, -180]
+
+
+@pytest.mark.asyncio
+async def test_fora_da_vez_a_pessoa_AGUARDA_sem_gastar_nada() -> None:
+    """Pendente cujo meio-dia ainda nao chegou: nem aparelho e consultado.
+
+    ⚠️ **Nao e erro e nao gasta a reserva**: e quem a proxima hora atende. O
+    relatorio conta a parte (`aguardando`), para a linha do log nao confundir
+    *"ninguem para avisar"* com *"gente esperando a hora dela"*.
+    """
+    pessoa = _pessoa(offset=180)
+    repo = RepoFalso(
+        pendentes=[pessoa],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-longe", "pt")]},
+    )
+    enviador = EnviadorFalso()
+
+    relatorio = await _servico(repo, enviador).disparar(MEIO_DIA_EM_BRASILIA)
+
+    assert relatorio.aguardando == 1
+    assert relatorio.pendentes == 0
+    assert enviador.envios == []
+    assert "dispositivos" not in repo.diario
+    assert "reservar" not in repo.diario
 
 
 @pytest.mark.asyncio
@@ -581,8 +851,8 @@ async def test_quem_JA_foi_avisado_nao_e_avisado_de_novo() -> None:
     """
     pessoa = _pessoa()
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
-        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt", -180)]},
+        pendentes=[pessoa],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt")]},
         # A outra execucao gravou DEPOIS de esta ler os pendentes: a linha ainda
         # aparece na consulta, e quem a segura e o `ON CONFLICT`.
         reservas_nao_vistas={pessoa.id_resolucao},
@@ -590,8 +860,8 @@ async def test_quem_JA_foi_avisado_nao_e_avisado_de_novo() -> None:
     enviador = EnviadorFalso()
 
     # ⚠️ O cenario so vale se a linha **chegou** ao servico: sem isto, o caso
-    # provaria a consulta (que e o outro teste) e ⛔ nao a reserva perdida.
-    assert await repo.pendentes(DIA_ALVO_EM_BRASILIA) == [pessoa]
+    # provaria a consulta (que e o outro teste) e nao a reserva perdida.
+    assert await repo.pendentes([DIA_ALVO_EM_BRASILIA]) == [pessoa]
 
     relatorio = await _servico(repo, enviador).disparar(MEIO_DIA_EM_BRASILIA)
 
@@ -602,28 +872,21 @@ async def test_quem_JA_foi_avisado_nao_e_avisado_de_novo() -> None:
 
 @pytest.mark.asyncio
 async def test_reacao_TARDIA_nao_gera_uma_segunda() -> None:
-    """🔒 A consulta ⛔ nao traz quem ja tem linha de notificacao.
+    """🔒 A consulta nao traz quem ja tem linha de notificacao.
 
     ⚠️ E o caso que a tabela existe para cobrir: mais gente reagiu depois do
-    envio, e a contagem mudou. ⛔ **⛔ Nao se compara numero** - se comparasse,
-    cada pessoa nova renderia uma notificacao.
+    envio, e a contagem mudou. **Nao se compara numero** - se comparasse, cada
+    pessoa nova renderia uma notificacao.
     """
     pessoa = _pessoa(qt_pessoa=3)
+    # A rodada seguinte ve a MESMA pessoa com mais reacoes...
+    maior = replace(pessoa, qt_pessoa=7)
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
-        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt", -180)]},
+        pendentes=[maior],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt")]},
         reservas={pessoa.id_resolucao},
     )
     enviador = EnviadorFalso()
-
-    # A rodada seguinte ve a MESMA pessoa com mais reacoes...
-    maior = PessoaANotificar(
-        id_resolucao=pessoa.id_resolucao,
-        id_usuario=pessoa.id_usuario,
-        id_desafio=pessoa.id_desafio,
-        qt_pessoa=7,
-    )
-    repo._pendentes[DIA_ALVO_EM_BRASILIA] = [maior]  # noqa: SLF001 - duplo
 
     relatorio = await _servico(repo, enviador).disparar(MEIO_DIA_EM_BRASILIA)
 
@@ -632,19 +895,15 @@ async def test_reacao_TARDIA_nao_gera_uma_segunda() -> None:
 
 
 @pytest.mark.asyncio
-async def test_sem_aparelho_na_janela_a_reserva_NAO_e_gasta() -> None:
-    """⛔ ⛔ Nao se queima a chance do dia de quem ⛔ nao tem onde receber.
+async def test_sem_aparelho_nenhum_a_reserva_NAO_e_gasta() -> None:
+    """Nao se queima a chance do dia de quem nao tem onde receber.
 
-    ⚠️ O aparelho existe, mas esta **noutro fuso** - la ⛔ nao e meio-dia. Se a
-    reserva fosse gravada agora, a hora em que o relogio dele chegasse ao
-    meio-dia encontraria a linha pronta e ⛔ nao enviaria nada.
+    A consulta de pendentes ja exige um aparelho com fuso; este caso cobre o
+    token apagado entre as duas consultas (o FCM o recusou para outra pessoa da
+    mesma conta, por exemplo).
     """
     pessoa = _pessoa()
-    repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
-        # +180: do outro lado do mundo em relacao a janela de -180/-210.
-        aparelhos={pessoa.id_usuario: [Aparelho("tok-longe", "pt", 180)]},
-    )
+    repo = RepoFalso(pendentes=[pessoa], aparelhos={})
     enviador = EnviadorFalso()
 
     relatorio = await _servico(repo, enviador).disparar(MEIO_DIA_EM_BRASILIA)
@@ -657,7 +916,7 @@ async def test_sem_aparelho_na_janela_a_reserva_NAO_e_gasta() -> None:
 
 @pytest.mark.asyncio
 async def test_token_MORTO_sai_da_base_e_devolve_a_chance() -> None:
-    """Token morto e o caso comum - e ele ⛔ nao pode gastar o dia da pessoa.
+    """Token morto e o caso comum - e ele nao pode gastar o dia da pessoa.
 
     ⚠️ **Duas coisas num caso so, e elas sao inseparaveis:** o token sai da
     `tb005` (a faxina que o script fazia a mao) e a reserva e **desfeita**, porque
@@ -666,8 +925,8 @@ async def test_token_MORTO_sai_da_base_e_devolve_a_chance() -> None:
     """
     pessoa = _pessoa()
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
-        aparelhos={pessoa.id_usuario: [Aparelho("tok-morto", "pt", -180)]},
+        pendentes=[pessoa],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-morto", "pt")]},
     )
     enviador = EnviadorFalso(mortos={"tok-morto"})
 
@@ -677,7 +936,7 @@ async def test_token_MORTO_sai_da_base_e_devolve_a_chance() -> None:
     assert repo.tokens_removidos == ["tok-morto"]
     assert relatorio.nenhum_aceitou == 1
     assert relatorio.enviadas == 0
-    # A chance voltou: ⛔ nao sobrou linha nenhuma.
+    # A chance voltou: nao sobrou linha nenhuma.
     assert repo.gravadas == []
     assert pessoa.id_resolucao not in repo.reservadas
 
@@ -692,11 +951,11 @@ async def test_um_aparelho_morto_entre_dois_NAO_desfaz_a_reserva() -> None:
     """
     pessoa = _pessoa()
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [pessoa]},
+        pendentes=[pessoa],
         aparelhos={
             pessoa.id_usuario: [
-                Aparelho("tok-morto", "pt", -180),
-                Aparelho("tok-vivo", "pt", -180),
+                Aparelho("tok-morto", "pt"),
+                Aparelho("tok-vivo", "pt"),
             ]
         },
     )
@@ -709,7 +968,7 @@ async def test_um_aparelho_morto_entre_dois_NAO_desfaz_a_reserva() -> None:
     assert relatorio.tokens_removidos == 1
     assert relatorio.nenhum_aceitou == 0
     assert len(repo.gravadas) == 1
-    # ⚠️ `qt_dispositivo` e o que foi **enderecado** (2), e ⛔ nao o que aceitou.
+    # ⚠️ `qt_dispositivo` e o que foi **enderecado** (2), e nao o que aceitou.
     assert repo.gravadas[0].qt_dispositivo == 2
 
 
@@ -718,15 +977,14 @@ async def test_uma_pessoa_ruim_NAO_derruba_as_outras() -> None:
     """Um estouro inesperado vira linha no relatorio, e a hora continua.
 
     ⚠️ Sem isso, um token esquisito no meio da lista cancelaria as notificacoes
-    de todo mundo que viesse depois - e a proxima execucao ⛔ nao as recuperaria,
-    porque a janela do meio-dia daquelas pessoas ja teria passado.
+    de todo mundo que viesse depois.
     """
     ruim, boa = _pessoa(), _pessoa()
     repo = RepoFalso(
-        pendentes_por_dia={DIA_ALVO_EM_BRASILIA: [ruim, boa]},
+        pendentes=[ruim, boa],
         aparelhos={
-            ruim.id_usuario: [Aparelho("tok-explode", "pt", -180)],
-            boa.id_usuario: [Aparelho("tok-boa", "pt", -180)],
+            ruim.id_usuario: [Aparelho("tok-explode", "pt")],
+            boa.id_usuario: [Aparelho("tok-boa", "pt")],
         },
     )
     enviador = EnviadorFalso(explode={"tok-explode"})
@@ -741,37 +999,64 @@ async def test_uma_pessoa_ruim_NAO_derruba_as_outras() -> None:
 
 @pytest.mark.asyncio
 async def test_hora_sem_ninguem_e_sucesso_silencioso() -> None:
-    """A maior parte das execucoes ⛔ nao acha ninguem, e isso ⛔ nao e erro."""
+    """A maior parte das execucoes nao acha ninguem, e isso nao e erro."""
     repo = RepoFalso()
     enviador = EnviadorFalso()
 
     relatorio = await _servico(repo, enviador).disparar(MEIO_DIA_EM_BRASILIA)
 
     assert relatorio.enviadas == 0
+    assert relatorio.pendentes == 0
     assert relatorio.falhas == []
     assert enviador.envios == []
-    # ⚠️ Mas ela **olhou**: o dia alvo aparece no relatorio, e ⛔ nao um vazio.
-    assert relatorio.pendentes_por_dia == {DIA_ALVO_EM_BRASILIA.isoformat(): 0}
+    # ⚠️ Mas ela **olhou**: os dias consultados aparecem no relatorio.
+    assert DIA_ALVO_EM_BRASILIA.isoformat() in relatorio.dias
 
 
 @pytest.mark.asyncio
-async def test_o_dia_ERRADO_nao_traz_ninguem() -> None:
-    """🔒 O duplo honra o filtro de dia - e e ele que prova a conta do "ontem".
+async def test_o_servico_pede_os_dias_CANDIDATOS_numa_consulta_so() -> None:
+    """🔒 Uma ida ao banco por hora, com todos os dias que algum fuso quer."""
+    repo = RepoFalso()
 
-    A pessoa esta pendente em **21/09**; se o servico pedisse o dia de hoje (ou
-    `hoje_utc - 1` de outro fuso), este caso encontraria a lista vazia.
+    await _servico(repo, EnviadorFalso()).disparar(MEIO_DIA_EM_BRASILIA)
+
+    assert repo.dias_pedidos == [dias_candidatos(MEIO_DIA_EM_BRASILIA)]
+
+
+@pytest.mark.asyncio
+async def test_o_dia_ERRADO_para_a_pessoa_nao_e_avisado() -> None:
+    """🔒 A pessoa vem na consulta, mas o desafio nao e o *"ontem"* DELA.
+
+    Ao meio-dia de 22/09 em Brasilia o *"ontem"* e 21/09. O desafio de 22/09
+    tambem esta entre os candidatos (e o *"ontem"* de quem esta muito a leste) -
+    e para esta pessoa ele tem de esperar o dia seguinte.
     """
-    pessoa = _pessoa()
+    pessoa = _pessoa(dt_dia=date(2026, 9, 22))
     repo = RepoFalso(
-        pendentes_por_dia={date(2026, 9, 20): [pessoa]},
-        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt", -180)]},
+        pendentes=[pessoa],
+        aparelhos={pessoa.id_usuario: [Aparelho("tok-1", "pt")]},
     )
     enviador = EnviadorFalso()
 
     relatorio = await _servico(repo, enviador).disparar(MEIO_DIA_EM_BRASILIA)
 
+    assert date(2026, 9, 22) in repo.dias_pedidos[0]
+    assert relatorio.aguardando == 1
     assert relatorio.enviadas == 0
-    assert f"pendentes({DIA_ALVO_EM_BRASILIA.isoformat()})" in repo.diario
+
+
+def test_o_resumo_do_log_tem_os_campos_NOVOS() -> None:
+    """A linha do Railway diz os dias, os fusos e quem aguarda."""
+    from api.notificacoes.reacoes_do_desafio import RelatorioDoDisparo
+
+    relatorio = RelatorioDoDisparo(
+        dias=["2026-09-21"], offsets=[-180, -210], pendentes=2, aguardando=5
+    )
+    linha = relatorio.resumo()
+    assert "dias=['2026-09-21']" in linha
+    assert "fusos=[-210, -180]" in linha
+    assert "pendentes=2" in linha
+    assert "aguardando=5" in linha
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -822,15 +1107,29 @@ def test_quem_JA_tem_notificacao_sai_da_consulta() -> None:
     assert "n.id_notificacao_reacao IS NULL" in SQL_PENDENTES
 
 
-def test_a_consulta_de_aparelhos_FILTRA_pelo_fuso() -> None:
-    """🔒 Sem o filtro, o aparelho de outro fuso e acordado de madrugada.
+def test_a_consulta_de_aparelhos_NAO_filtra_pelo_fuso() -> None:
+    """🔒 Na hora da pessoa, TODOS os aparelhos dela recebem.
 
-    ⚠️ E o defeito que a RF-DES-074c nomeia, na sua forma menor: a pessoa certa,
-    o aparelho errado.
+    ⚠️ O filtro por fuso de cada aparelho era o defeito: com a reserva uma por
+    resolucao, o primeiro relogio a chegar ao meio-dia gastava o aviso dos
+    outros (13/10/2026).
     """
-    assert "nu_offset_minuto = ANY(:offsets)" in SQL_DISPOSITIVOS
-    # E a ordem que faz `aparelhos[0]` ser o aparelho em uso.
-    assert "ORDER BY dh_atualizacao DESC" in SQL_DISPOSITIVOS
+    assert "nu_offset_minuto" not in SQL_DISPOSITIVOS
+    assert "id_usuario = :id_usuario" in SQL_DISPOSITIVOS
+
+
+def test_o_fuso_e_o_do_aparelho_usado_POR_ULTIMO() -> None:
+    """🔒 Uma linha por pessoa, a mais recente, e so entre quem informou fuso."""
+    assert "DISTINCT ON (id_usuario)" in SQL_PENDENTES
+    assert "ORDER BY id_usuario, dh_atualizacao DESC" in SQL_PENDENTES
+    assert "nu_offset_minuto IS NOT NULL" in SQL_PENDENTES
+    assert "JOIN fuso_atual f" in SQL_PENDENTES
+
+
+def test_a_consulta_traz_TODOS_os_dias_candidatos() -> None:
+    """Uma lista de dias, e nao um dia so - ver `dias_candidatos`."""
+    assert "d.dt_dia = ANY(:dias)" in SQL_PENDENTES
+    assert ":dt_dia" not in SQL_PENDENTES
 
 
 def test_a_reserva_e_um_INSERT_que_nao_atualiza_nada() -> None:
@@ -1304,30 +1603,55 @@ async def test_a_reserva_real_devolve_VERDADE_quando_gravou() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_consulta_real_leva_o_dia_e_a_CATEGORIA() -> None:
-    """🔒 O `:categoria` sai da constante, e ⛔ não fica sem valor.
+async def test_a_consulta_real_leva_os_DIAS_e_a_CATEGORIA() -> None:
+    """🔒 O `:categoria` sai da constante, e os dias viajam como lista.
 
-    ⚠️ Um parametro nomeado que ⛔ nao recebe valor levanta erro **no banco**, e
-    ⛔ nao aqui - ou seja, so na primeira execucao real, de hora em hora, num
+    ⚠️ Um parametro nomeado que nao recebe valor levanta erro **no banco**, e
+    nao aqui - ou seja, so na primeira execucao real, de hora em hora, num
     processo que ninguem esta olhando.
     """
     sessao = SessaoFalsa(ResultadoFalso(linhas=[]))
+    dias = [date(2026, 9, 21), date(2026, 9, 22)]
 
-    await _repo_real(sessao).pendentes(DIA_ALVO_EM_BRASILIA)
+    await _repo_real(sessao).pendentes(dias)
 
     _, parametros = sessao.chamadas[0]
-    assert parametros["dt_dia"] == DIA_ALVO_EM_BRASILIA
+    assert parametros["dias"] == dias
     assert parametros["categoria"] == CATEGORIA_REACOES
 
 
 @pytest.mark.asyncio
-async def test_a_consulta_real_de_aparelhos_leva_a_LISTA_de_offsets() -> None:
-    """A lista viaja como parametro - ⛔ nunca interpolada no texto do SQL."""
-    sessao = SessaoFalsa(ResultadoFalso(linhas=[]))
+async def test_a_consulta_real_monta_a_pessoa_com_FUSO_DIA_e_RESOLUCAO() -> None:
+    """As tres colunas novas chegam a `PessoaANotificar` com o nome certo."""
+    linha = {
+        "id_resolucao": uuid4(),
+        "id_usuario": uuid4(),
+        "id_desafio": uuid4(),
+        "qt_pessoa": 3,
+        "dt_dia": DIA_ALVO_EM_BRASILIA,
+        "dh_resolucao": RESOLVIDO_ONTEM_EM_BRASILIA,
+        "nu_offset_minuto": -180,
+    }
+    sessao = SessaoFalsa(ResultadoFalso(linhas=[linha]))
+
+    [pessoa] = await _repo_real(sessao).pendentes([DIA_ALVO_EM_BRASILIA])
+
+    assert pessoa.dt_dia == DIA_ALVO_EM_BRASILIA
+    assert pessoa.dh_resolucao == RESOLVIDO_ONTEM_EM_BRASILIA
+    assert pessoa.nu_offset_minuto == -180
+    assert pessoa.qt_pessoa == 3
+
+
+@pytest.mark.asyncio
+async def test_a_consulta_real_de_aparelhos_leva_so_a_PESSOA() -> None:
+    """Sem lista de offsets: a consulta so precisa saber de quem e."""
+    sessao = SessaoFalsa(
+        ResultadoFalso(linhas=[{"co_token_fcm": "tok-1", "co_idioma": "pt"}])
+    )
     id_usuario = uuid4()
 
-    await _repo_real(sessao).dispositivos(id_usuario, [-180, -210])
+    aparelhos = await _repo_real(sessao).dispositivos(id_usuario)
 
     _, parametros = sessao.chamadas[0]
-    assert parametros["id_usuario"] == id_usuario
-    assert parametros["offsets"] == [-180, -210]
+    assert parametros == {"id_usuario": id_usuario}
+    assert aparelhos == [Aparelho(token="tok-1", idioma="pt")]

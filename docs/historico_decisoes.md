@@ -8147,3 +8147,62 @@ reenvio: o crédito de cada evento não é guardado (o `ajuste` é do dia, sem
 
 **Motivo.** É o mínimo que deixa o aparelho trocar a estimativa pelo crédito
 do servidor sem corrigir um crédito que não houve.
+
+## 2026-10-13 — Notificação de reações: o fuso é da PESSOA, e o aviso vai para todos os aparelhos
+
+**Contexto.** O dono teve 1, 2 e 3 reações nos desafios de 10, 11 e 12/10 e não
+recebeu nenhum aviso no iPhone. O log do Railway estava verde (`falhas=0`). A
+`tb008_notificacao_reacao` mostrou os quatro envios da conta às 9h de Brasília,
+com `nu_offset_minuto = 0` e `qt_dispositivo = 1`. A causa estava na
+`tb005`: um Android de teste com relógio em GMT, registrado na conta em 02/09 e
+nunca mais aberto. O FCM continua aceitando esse token (só recusa depois de
+desinstalação ou de ~270 dias parado).
+
+A regra da T079 (RF-DES-074c) usava o meio-dia **de cada aparelho**, mas a
+reserva é **uma por resolução** (`un001_notificacao_reacao`). Às 12:00 UTC era
+meio-dia só para o Android: o envio saía para ele e a reserva era gravada. Às
+15:00 UTC, meio-dia do iPhone, a resolução já não aparecia como pendente, e o
+iPhone nunca era tentado. O primeiro relógio a chegar ao meio-dia gastava o
+aviso de todos os outros aparelhos da pessoa.
+
+**Decisão** (do dono, nesta data):
+
+1. **O fuso é o da pessoa**: o do aparelho com `dh_atualizacao` mais recente
+   que informou fuso. Vem de uma subconsulta (`DISTINCT ON (id_usuario)`) dentro
+   de `SQL_PENDENTES`, e não de uma VIEW: só este disparo usa o dado, e objeto
+   novo no banco exigiria migração.
+2. **Na hora da pessoa, todos os aparelhos dela recebem**, cada um no seu
+   idioma. Os tokens mortos são recusados pelo FCM e apagados na mesma passada.
+3. **A janela ganhou repescagem**: de 11:30 a 14:30 locais, três execuções por
+   fuso. Antes, uma hora pulada pelo cron custava o aviso para sempre, porque no
+   dia seguinte o "ontem" já é outro desafio. A reserva continua garantindo um
+   aviso só.
+4. **O título diz quando a pessoa resolveu**: "O seu desafio resolvido hoje /
+   ontem / anteontem" (en: "The challenge you solved…"; es: "El desafío que
+   resolviste…"). O desafio vira à meia-noite UTC, 21h em Brasília: quem resolve
+   às 23:48 de 12/10 resolveu o desafio de 13/10 e é avisado em 14/10, e para
+   essa pessoa foi anteontem. A conta usa a data local da resolução no fuso atual
+   da pessoa.
+
+A consulta passou a trazer os pendentes de todos os `dt_dia` que algum fuso pode
+querer (`dias_candidatos`), e quem decide se é a vez de cada pessoa é
+`deve_avisar_agora`, em Python. O log do Railway mudou de forma:
+`dias=[…] fusos=[…] pendentes=N aguardando=M …`, em que `aguardando` conta os
+pendentes cuja hora ainda não chegou.
+
+**Alternativas consideradas.**
+- *Reserva por aparelho*, cada um ao meio-dia do próprio relógio: muda a
+  `tb008` (unicidade e coluna nova) e manda à mesma pessoa avisos em horas
+  diferentes. O que o fuso protege é a pessoa, não o aparelho.
+- *Mandar só aos aparelhos atualizados nos últimos N dias*, para evitar aviso
+  duplicado num iPhone reinstalado: deixado de fora a pedido do dono, por ser
+  mais uma regra a depurar quando um aviso não chegar. Volta se aparecer
+  duplicata.
+- *Manter a janela de uma hora*: descartada pelo risco de execução pulada.
+
+**Motivo.** O fuso existe para não cutucar a pessoa em hora ruim, e a pessoa
+está onde está o aparelho que ela acabou de usar. Um aparelho esquecido não pode
+decidir a hora nem gastar o aviso dos outros.
+
+**Operação.** Precisa de deploy do serviço de notificações no Railway (ele usa a
+imagem da API). Os avisos já enviados não são reenviados: estão na `tb008`.
