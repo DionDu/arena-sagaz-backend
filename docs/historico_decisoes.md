@@ -8206,3 +8206,40 @@ decidir a hora nem gastar o aviso dos outros.
 
 **Operação.** Precisa de deploy do serviço de notificações no Railway (ele usa a
 imagem da API). Os avisos já enviados não são reenviados: estão na `tb008`.
+
+## 2026-10-14 — O schema `jogo_quatro` e o ingestor do Quatro em Linha (T076, T077 da spec 010)
+
+**Contexto.** O 4º jogo do hub grava a partida e a jogada genéricas como os
+outros, e o que é só dele num schema próprio. O desenho foi validado pelo dono no
+`data-model.md` §2 da spec 010 (13/10/2026, folha de aval da T003), sem
+retificação nos itens do log.
+
+**Decisão.**
+1. **A `0033_schema_jogo_quatro`** cria três dimensões (a ação da CPU, o motivo
+   de parada da busca, o TIPO do lance), a extensão 1:1 da partida
+   (`co_lances_iniciais` como sequência de lances, quem abriu, a preferência do
+   "quem começa") e a da jogada (`{tipo, coluna}` + a telemetria anulável), com
+   as cinco views. Só acrescenta. Os números das dimensões repetem os dos outros
+   schemas para os mesmos significados.
+2. **O ingestor** (`_gravar_partida_quatro`, `_gravar_jogada_quatro`) traduz os
+   três códigos pelas dimensões **do Quatro** (`acao_quatro`,
+   `motivo_parada_quatro`, `tipo_lance_quatro`), e o desconhecido vai ao 9999
+   com a string crua em `js_extra`. Dois cuidados que as damas não precisavam:
+   `co_lances_iniciais` `None` vira `''` (a coluna é `NOT NULL DEFAULT ''`, e um
+   `None` explícito passaria por cima do default), e o tipo de lance AUSENTE vai
+   ao 9999 em vez de estourar o `NOT NULL` com 500.
+3. **Dois cadeados novos.** `test_migracao_quatro_bate_com_data_model.py` lê o
+   `data-model.md` da spec 010 (que escreve as tabelas em markdown, e não em SQL
+   como o da 009) e compara colunas na ordem, `ck_quatro_*` e as linhas das
+   dimensões. `test_contrato_extensao_quatro.py` confere o que o ingestor grava
+   com uma sessão que anota os comandos, e que toda ação e todo motivo de parada
+   que o **motor do app** emite tem linha na `0033` (lido do código do motor, e
+   não de uma lista).
+
+**Alternativas consideradas.** Estender o cadeado da spec 009 para ler os dois
+documentos: descartado, porque os formatos são diferentes, e um leitor para os
+dois seria mais difícil de conferir que dois leitores curtos.
+
+**Operação.** A `0033` vai ao `des` antes do push (T078): o push do backend é
+deploy, e o `des` passa a acompanhar a branch `jogo-quatro` só depois de a
+migração estar aplicada (R-26 da spec 010).

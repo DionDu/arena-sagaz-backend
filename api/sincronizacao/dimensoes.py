@@ -77,6 +77,24 @@ _DIMENSOES: dict[str, tuple[str, str, str]] = {
         "co_motivo_parada_busca",
         "nu_motivo_parada_busca",
     ),
+    # ---- Quatro em Linha (spec 010 do app, migração 0033) ----
+    #
+    # São TRÊS: por que a CPU escolheu a coluna (`acao_quatro`), por que a busca
+    # parou (`motivo_parada_quatro`) e o TIPO do lance (`tipo_lance_quatro`, que
+    # é dimensão para o Pop Out entrar com um INSERT). ⚠️ Todas qualificadas
+    # pelo jogo, pelo motivo do aviso acima: procurar a ação do Quatro na tabela
+    # da velha mandaria tudo ao sentinela.
+    "acao_quatro": ("jogo_quatro.vw901_jogada_acao", "co_acao", "nu_acao"),
+    "motivo_parada_quatro": (
+        "jogo_quatro.vw902_motivo_parada_busca",
+        "co_motivo_parada_busca",
+        "nu_motivo_parada_busca",
+    ),
+    "tipo_lance_quatro": (
+        "jogo_quatro.vw903_tipo_lance",
+        "co_tipo_lance",
+        "nu_tipo_lance",
+    ),
     # ---- Genéricas (da partida, valem para qualquer jogo) ----
     "origem_decisao": (
         "partida.vw901_jogada_origem_decisao",

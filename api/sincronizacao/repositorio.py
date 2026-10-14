@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 # As chaves de extensao que ESTE backend sabe gravar. Tudo o que nao estiver
 # aqui e das chaves genericas da jogada e uma extensao de um jogo que ainda nao
 # existe deste lado.
-_EXTENSOES_CONHECIDAS = frozenset({"pontinhos", "velha", "damas"})
+_EXTENSOES_CONHECIDAS = frozenset({"pontinhos", "velha", "damas", "quatro"})
 
 # Quantas recusas o servidor aceita por partida.
 #
@@ -466,6 +466,11 @@ class RepositorioSincronizacao:
         if damas_da_partida:
             await self._gravar_partida_damas(id_partida, damas_da_partida)
 
+        # O Quatro em Linha (spec 010) é o segundo jogo com extensão de partida.
+        quatro_da_partida = partida.get("quatro")
+        if quatro_da_partida:
+            await self._gravar_partida_quatro(id_partida, quatro_da_partida)
+
         # Uma extensão de partida que não é nenhuma das conhecidas: registra e
         # segue. Mesma regra da jogada (V-5) — ignorar perde o detalhe, rejeitar
         # perderia a partida.
@@ -597,6 +602,10 @@ class RepositorioSincronizacao:
         damas = jogada.get("damas")
         if damas:
             await self._gravar_jogada_damas(jogada.get("id_jogada"), damas)
+
+        quatro = jogada.get("quatro")
+        if quatro:
+            await self._gravar_jogada_quatro(jogada.get("id_jogada"), quatro)
 
         # Uma extensão que não é nenhuma das conhecidas: registra e segue.
         _avisar_extensao_desconhecida(jogada)
@@ -923,6 +932,135 @@ class RepositorioSincronizacao:
                 # que busca nenhuma aconteceu.
                 "qt_consultas_base": damas.get("qt_consultas_base"),
                 "qt_acertos_base": damas.get("qt_acertos_base"),
+                "js_extra": json.dumps(js_extra) if js_extra is not None else None,
+            },
+        )
+
+    async def _gravar_partida_quatro(self, id_partida: Any, quatro: dict) -> None:
+        """Extensao de PARTIDA do Quatro em Linha (spec 010, RF-QTR-181).
+
+        Pelo mesmo motivo das damas: o replay precisa saber COM QUAL motor e
+        contrato a partida foi jogada, e DE ONDE ela partiu. A posicao inicial
+        vem como SEQUENCIA de lances (`co_lances_iniciais`, vazia numa partida
+        comum e a posicao publicada num desafio), e nao como desenho do
+        tabuleiro: ela diz tambem a ordem, e serve ao Pop Out sem mudar.
+
+        ⚠️ **Sem recusas** (as damas tem): a coluna cheia e recusa de interface,
+        e nao ha o que diagnosticar.
+        """
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO jogo_quatro.tb001_partida
+                  (id_partida, co_versao_motor, co_versao_contrato,
+                   co_lances_iniciais, nu_jogador_abertura,
+                   co_preferencia_abertura, nu_semente_partida, js_extra)
+                VALUES
+                  (:id_partida, :co_versao_motor, :co_versao_contrato,
+                   :co_lances_iniciais, :nu_jogador_abertura,
+                   :co_preferencia_abertura, :nu_semente_partida, :js_extra)
+                """
+            ),
+            {
+                "id_partida": id_partida,
+                # A mesma forma composta das damas (`dart_X[|rust_Y]`): o app ja
+                # manda com o prefixo, e a normalizacao so garante a regra.
+                "co_versao_motor": _versoes_do_motor(quatro.get("co_versao_motor")),
+                "co_versao_contrato": quatro.get("co_versao_contrato"),
+                # ⚠️ `or ""`: a coluna e `NOT NULL DEFAULT ''`, e um `None`
+                # explicito no payload passaria por cima do DEFAULT e estouraria
+                # o NOT NULL. Vazio e o que "partida comum" significa.
+                "co_lances_iniciais": quatro.get("co_lances_iniciais") or "",
+                # +1 / -1: quem fez o 1o lance. Num jogo resolvido, quem abre
+                # decide a partida - e o recorte de toda analise do Magno.
+                "nu_jogador_abertura": quatro.get("nu_jogador_abertura"),
+                # 'j1' | 'j2' | 'alternado': o que a pessoa escolheu no seletor.
+                "co_preferencia_abertura": quatro.get("co_preferencia_abertura"),
+                "nu_semente_partida": quatro.get("nu_semente_partida"),
+                # asyncpg quer uma STRING JSON para JSONB, e nao um dict.
+                "js_extra": (
+                    json.dumps(quatro["js_extra"])
+                    if quatro.get("js_extra") is not None
+                    else None
+                ),
+            },
+        )
+
+    async def _gravar_jogada_quatro(self, id_jogada: Any, quatro: dict) -> None:
+        """Extensao de JOGADA do Quatro em Linha: uma linha por lance (RF-QTR-181).
+
+        O lance e `{tipo, coluna}`: o tipo pela dimensao (hoje so `soltar`), a
+        coluna 1-based, como a pessoa le o tabuleiro.
+
+        ⚠️ **A telemetria chega `None` no lance do HUMANO e na jogada automatica
+        do relogio** (invariantes I-4 e I-6 do contrato do log), e as colunas sao
+        anulaveis de proposito: um zero gravado falsearia qualquer media.
+        """
+        # As TRES dimensoes sao do Quatro. Usar a de outro jogo faria todo
+        # codigo cair no sentinela, e a telemetria nasceria cega.
+        nu_tipo, tipo_desconhecido = await dimensoes.resolver(
+            self.sessao, "tipo_lance_quatro", quatro.get("co_tipo_lance")
+        )
+        nu_acao, acao_desconhecida = await dimensoes.resolver(
+            self.sessao, "acao_quatro", quatro.get("co_acao")
+        )
+        nu_motivo, motivo_desconhecido = await dimensoes.resolver(
+            self.sessao, "motivo_parada_quatro", quatro.get("co_motivo_parada_busca")
+        )
+
+        # Codigo fora da dimensao: a coluna guarda 9999, mas a string CRUA nao
+        # pode se perder - e a unica pista do que precisa ser cadastrado.
+        js_extra = quatro.get("js_extra")
+        crus = {
+            "co_tipo_lance_desconhecido": (tipo_desconhecido, "co_tipo_lance"),
+            "co_acao_desconhecido": (acao_desconhecida, "co_acao"),
+            "co_motivo_parada_busca_desconhecido": (
+                motivo_desconhecido,
+                "co_motivo_parada_busca",
+            ),
+        }
+        for chave, (desconhecido, campo) in crus.items():
+            if desconhecido:
+                js_extra = dict(js_extra) if isinstance(js_extra, dict) else {}
+                js_extra[chave] = quatro.get(campo)
+
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO jogo_quatro.tb002_jogada
+                  (id_jogada, co_jogador, nu_tipo_lance, nu_coluna, nu_acao,
+                   qt_nos_visitados, nu_profundidade_atingida,
+                   nu_motivo_parada_busca, nu_tempo_busca_ms, nu_avaliacao_j1,
+                   nu_semente, co_motor_busca, js_extra)
+                VALUES
+                  (:id_jogada, :co_jogador, :nu_tipo_lance, :nu_coluna, :nu_acao,
+                   :qt_nos_visitados, :nu_profundidade_atingida,
+                   :nu_motivo_parada_busca, :nu_tempo_busca_ms, :nu_avaliacao_j1,
+                   :nu_semente, :co_motor_busca, :js_extra)
+                """
+            ),
+            {
+                "id_jogada": id_jogada,
+                # +1 / -1: o SINAL, como nos outros jogos (o generico usa 1/2).
+                "co_jogador": quatro.get("co_jogador"),
+                # ⚠️ A coluna e NOT NULL. Um tipo AUSENTE (defeito do app) vira o
+                # sentinela em vez de estourar o NOT NULL com 500 e travar a fila
+                # do aparelho para sempre: a mesma assimetria da V-5.
+                "nu_tipo_lance": nu_tipo or dimensoes.NU_DESCONHECIDO,
+                "nu_coluna": quatro.get("nu_coluna"),
+                "nu_acao": nu_acao,
+                "qt_nos_visitados": quatro.get("qt_nos_visitados"),
+                "nu_profundidade_atingida": quatro.get("nu_profundidade_atingida"),
+                "nu_motivo_parada_busca": nu_motivo,
+                "nu_tempo_busca_ms": quatro.get("nu_tempo_busca_ms"),
+                # A nota da BUSCA, sempre no referencial do J1 (o app ja inverte
+                # quando quem busca e o J2).
+                "nu_avaliacao_j1": quatro.get("nu_avaliacao_j1"),
+                # Sem ela o replay do lance da CPU nao reproduz (o CHECK
+                # `ck_quatro_semente_da_cpu` cobra no banco).
+                "nu_semente": quatro.get("nu_semente"),
+                # Sem padrao, como nas damas: `None` e "este app nao disse".
+                "co_motor_busca": quatro.get("co_motor_busca"),
                 "js_extra": json.dumps(js_extra) if js_extra is not None else None,
             },
         )

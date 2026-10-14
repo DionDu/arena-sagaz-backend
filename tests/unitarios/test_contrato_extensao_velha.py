@@ -203,13 +203,14 @@ class TestC3AppNovoBackendAntigo:
         assert not caplog.records
 
     def test_as_extensoes_conhecidas_estao_declaradas(self):
-        """As tres que este backend sabe gravar hoje.
+        """As que este backend sabe gravar hoje (o Quatro em Linha entrou na
+        T077 da spec 010).
 
         ⚠️ Chamava-se `test_as_DUAS_extensoes...` ate 20/08/2026. O numero saiu
         do nome de proposito: um nome que conta itens envelhece a cada jogo novo,
         e renomear um teste a cada release perde o historico dele no CI.
         """
-        assert _EXTENSOES_CONHECIDAS == {"pontinhos", "velha", "damas"}
+        assert _EXTENSOES_CONHECIDAS == {"pontinhos", "velha", "damas", "quatro"}
 
 
 class TestC4CodigoDeAcaoDesconhecido:
