@@ -44,6 +44,11 @@ DATA_MODEL = (
     / "data-model.md"
 )
 MIGRACAO = RAIZ / "migrations" / "versions" / "0033_schema_jogo_quatro.py"
+#: As migracoes que so ACRESCENTAM linhas as dimensoes do schema, depois da
+#: 0033: as linhas delas contam junto (a 0034 traz os descuidos, §8zzzf).
+MIGRACOES_DE_LINHAS = (
+    RAIZ / "migrations" / "versions" / "0034_acoes_de_descuido_quatro.py",
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -115,9 +120,13 @@ def documento() -> dict[str, str]:
 
 @pytest.fixture(scope="module")
 def sql() -> str:
-    """O SQL do `upgrade()` da 0033, sem os comentarios `--`."""
-    assert MIGRACAO.is_file(), f"a migracao nao esta em {MIGRACAO}"
-    return sem_comentarios_sql(sql_do_upgrade(MIGRACAO))
+    """O SQL do `upgrade()` da 0033 e das que so acrescentam linhas, sem os
+    comentarios `--`, um depois do outro."""
+    partes = []
+    for migracao in (MIGRACAO, *MIGRACOES_DE_LINHAS):
+        assert migracao.is_file(), f"a migracao nao esta em {migracao}"
+        partes.append(sem_comentarios_sql(sql_do_upgrade(migracao)))
+    return "\n".join(partes)
 
 
 def _colunas_da_migracao(sql: str, tabela: str) -> list[tuple[str, str]]:
@@ -141,19 +150,26 @@ def _colunas_da_migracao(sql: str, tabela: str) -> list[tuple[str, str]]:
 
 
 def _linhas_do_insert(sql: str, tabela: str) -> list[tuple[int, str]]:
-    """`[(numero, codigo)]` do `INSERT` em [tabela]: as duas primeiras colunas."""
-    m = re.search(
+    """`[(numero, codigo)]` dos `INSERT` em [tabela], pelo numero: as duas
+    primeiras colunas.
+
+    Todos os `INSERT` contam (a 0033 povoa, a 0034 acrescenta), e a lista sai
+    ORDENADA pelo numero: a ordem em que as migracoes os escrevem nao e a do
+    documento (o sentinela 9999 veio na 0033, antes das linhas 7 a 9).
+    """
+    achados = re.findall(
         # Ate o PROXIMO comando: o SQL das chamadas vem junto, sem `;` entre
         # elas, e sem esse limite a leitura engoliria o INSERT seguinte.
         rf"INSERT INTO {re.escape(tabela)}\b.*?VALUES(.*?)(?=\s*(?:CREATE|INSERT)\b|\Z)",
         sql,
         flags=re.S,
     )
-    assert m, f"a migracao nao povoa {tabela}"
-    return [
+    assert achados, f"a migracao nao povoa {tabela}"
+    return sorted(
         (int(n), co)
-        for n, co in re.findall(r"\(\s*(\d+)\s*,\s*'([a-z_]+)'", m.group(1))
-    ]
+        for valores in achados
+        for n, co in re.findall(r"\(\s*(\d+)\s*,\s*'([a-z_]+)'", valores)
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -218,4 +234,4 @@ def test_as_linhas_das_dimensoes_batem(tabela: str, documento, sql) -> None:
     ]
     assert do_documento, f"o documento nao lista as linhas de {tabela}"
     assert (9999, "desconhecido") in do_documento
-    assert _linhas_do_insert(sql, tabela) == do_documento
+    assert _linhas_do_insert(sql, tabela) == sorted(do_documento)

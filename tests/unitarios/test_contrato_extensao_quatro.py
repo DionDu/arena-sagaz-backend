@@ -389,26 +389,41 @@ MOTOR_DO_APP = (
     / "motor"
 )
 MIGRACAO = RAIZ / "migrations" / "versions" / "0033_schema_jogo_quatro.py"
+#: As migracoes que acrescentam linhas as dimensoes depois da 0033 (a 0034
+#: traz os descuidos do personagem, §8zzzf).
+MIGRACOES_DE_LINHAS = (
+    RAIZ / "migrations" / "versions" / "0034_acoes_de_descuido_quatro.py",
+)
 
 
 def _codigos_da_migracao(tabela: str) -> set[str]:
-    texto = MIGRACAO.read_text(encoding="utf-8")
-    inicio = texto.index(f"INSERT INTO jogo_quatro.{tabela}")
-    fim = texto.index('"""', inicio)
-    return set(re.findall(r"\(\s*\d+\s*,\s*'([a-z_]+)'", texto[inicio:fim]))
+    """Os codigos de [tabela] em TODAS as migracoes que a povoam."""
+    codigos: set[str] = set()
+    for migracao in (MIGRACAO, *MIGRACOES_DE_LINHAS):
+        texto = migracao.read_text(encoding="utf-8")
+        marca = f"INSERT INTO jogo_quatro.{tabela}"
+        if marca not in texto:
+            continue
+        inicio = texto.index(marca)
+        fim = texto.index('"""', inicio)
+        codigos |= set(re.findall(r"\(\s*\d+\s*,\s*'([a-z_]+)'", texto[inicio:fim]))
+    return codigos
 
 
 def test_toda_acao_que_a_politica_devolve_esta_na_dimensao():
-    """A politica escreve a acao de tres jeitos (conferido em 14/10/2026): o
-    argumento de `motivo('...')`, o do `com(lance, '...')` (a vitoria imediata,
-    numa linha propria) e o bloqueio, devolvido direto por `motivo`."""
+    """A politica escreve a acao como o ULTIMO argumento de `com(lance, '...')`
+    ou de `escolhido(lance, '...')` (as vezes na linha seguinte, e com o lance
+    sendo ele mesmo uma chamada), e o bloqueio pelo ternario `bloqueou ? '...'`
+    (conferido em 14/10/2026, versao 1.1.0 do motor)."""
     fonte = (MOTOR_DO_APP / "politica_dificuldade_quatro.dart").read_text(
         encoding="utf-8"
     )
-    acoes = set(re.findall(r"motivo\('([a-z_]+)'\)", fonte))
-    acoes |= set(re.findall(r"^\s*'([a-z_]+)'\);", fonte, re.M))
+    # Um literal so de letras minusculas e `_` que FECHA uma chamada, depois
+    # de uma virgula: e assim que os codigos aparecem, e nenhum outro texto
+    # do arquivo tem essa forma (as mensagens de erro tem espaco).
+    acoes = set(re.findall(r",\s*'([a-z_]+)'\)", fonte))
     acoes |= set(re.findall(r"bloqueou \? '([a-z_]+)'", fonte))
-    # As seis de hoje tem de estar entre as achadas (a leitura nao pode falhar
+    # As nove de hoje tem de estar entre as achadas (a leitura nao pode falhar
     # em silencio).
     assert {
         "busca_melhor",
@@ -417,6 +432,9 @@ def test_toda_acao_que_a_politica_devolve_esta_na_dimensao():
         "vitoria_imediata",
         "bloqueio_imediato",
         "empate_sorteado",
+        "vitoria_perdida",
+        "bloqueio_perdido",
+        "jogou_sob_ameaca",
     } <= acoes
     assert acoes <= _codigos_da_migracao("tb901_jogada_acao")
 
