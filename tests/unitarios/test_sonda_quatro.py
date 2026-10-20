@@ -128,3 +128,95 @@ def test_o_nome_da_modalidade_nao_esta_escrito_no_codigo_do_jogo():
         "o nome da modalidade está escrito no código; leia-o do contrato "
         "(contrato_quatro.modalidades_declaradas()):\n  " + "\n  ".join(achados)
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A SONDA CRESCE (fase 4, T113): ela atravessa os feitos e o JUIZ do desafio
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# A sonda entra no juiz pela mesma porta da modalidade de verdade: o
+# `co_modalidade` que quem chama passa, o contrato e a família de regras. Se
+# fazê-la passar exigisse uma linha em `motores/juiz.py` ou em
+# `motores/quatro/feitos_quatro.py` que a citasse, seria o defeito que ela
+# existe para achar. E ela tem o que a de verdade não tem: o `tirar` (um lance
+# que não ocupa casa nova) e a largura PAR (sem coluna do meio).
+
+from motores.juiz import julgar_desafio  # noqa: E402
+from motores.nucleo.medidor_por_fita import CUMPRIU, NAO_CUMPRIU  # noqa: E402
+from motores.quatro import feitos_quatro as fq  # noqa: E402
+from motores.quatro.motor_quatro import ler_sequencia  # noqa: E402
+
+FITAS_DA_SONDA = [v for v in VETORES["fitas"] if v["modalidade"] == "sonda"]
+MEDIDAS_DA_SONDA = [v for v in VETORES["medidas"] if v["modalidade"] == "sonda"]
+
+
+def test_os_vetores_da_sonda_tem_o_tirar_e_derrotas():
+    """Controle: as fitas da sonda trazem o `tirar` e partidas perdidas."""
+    assert len(FITAS_DA_SONDA) >= 20 and len(MEDIDAS_DA_SONDA) >= 10
+    assert any("t" in v["fita"] for v in FITAS_DA_SONDA)
+    assert any(v["quatro_perdeu"] for v in FITAS_DA_SONDA)
+
+
+def test_os_feitos_da_sonda_batem_com_o_motor_dart(sonda):
+    """As medidas da fita, o predicado e as do fim, na sonda."""
+    divergencias = []
+    for v in FITAS_DA_SONDA:
+        iniciais, fita = ler_sequencia(v["lances_iniciais"]), ler_sequencia(v["fita"])
+        obtido = fq.medir(sonda, iniciais, fita)
+        esperado = {k: v[k] for k in ("lances_do_jogador", "lances_na_coluna_central", "ameacas_bloqueadas")}
+        recorte = {k: obtido[k] for k in esperado}
+        terminou = sonda.veredito(sonda.estado_de_sequencia(v["lances_iniciais"] + v["fita"])).acabou
+        resposta = fq.responder_predicados(sonda, iniciais, fita)["quatro_perdeu"]
+        if recorte != esperado or resposta != (v["quatro_perdeu"] if terminou else None):
+            divergencias.append(f"{v['lances_iniciais']}|{v['fita']}: {recorte} × {esperado}, {resposta}")
+    for v in MEDIDAS_DA_SONDA:
+        obtido = fq.medir(sonda, (), ler_sequencia(v["lances"]), jogador=1)
+        venceu = v["vencedor"] == 1
+        esperado = {
+            "pecas_encostadas": v["pecas_encostadas_j1"],
+            "pecas_encostadas_do_adversario": v["pecas_encostadas_j2"],
+            "maior_linha": v["maior_linha"] if venceu else 0,
+            "linhas_no_lance_final": v["linhas_no_lance_final"] if venceu else 0,
+        }
+        recorte = {k: obtido[k] for k in esperado}
+        if recorte != esperado:
+            divergencias.append(f"{v['lances']}: {recorte} × {esperado}")
+    assert not divergencias, "\n  ".join(divergencias[:5])
+
+
+def test_a_sonda_atravessa_o_juiz_com_uma_fita_que_tira(sonda):
+    """Uma fita da sonda com `tirar`, terminada sem derrota da pessoa, julgada
+    pelo "não perca": cumpre no último lance; cortada no meio, não cumpre."""
+    v = next(
+        f
+        for f in FITAS_DA_SONDA
+        if "t" in f["fita"]
+        and len(ler_sequencia(f["fita"])) >= 3
+        and sonda.veredito(sonda.estado_de_sequencia(f["lances_iniciais"] + f["fita"])).acabou
+        and not f["quatro_perdeu"]
+    )
+    vez = sonda.vez_de(sonda.estado_de_sequencia(v["lances_iniciais"]))
+    fita = [
+        {"n": i, "jogador": vez if i % 2 == 1 else -vez, "lance": lance}
+        for i, lance in enumerate(ler_sequencia(v["fita"]), start=1)
+    ]
+    chegada = {
+        "versao": 1,
+        "janela": {"tipo": "partida"},
+        "clausulas": [
+            {"tipo": "predicado", "chave": "quatro_perdeu", "comparador": "igual", "valor": False}
+        ],
+    }
+    args = dict(
+        co_jogo="quatro",
+        js_posicao_inicial=sonda.para_dado(sonda.estado_de_sequencia(v["lances_iniciais"])),
+        js_chegada=chegada,
+        jogador=vez,
+        co_modalidade="sonda",
+    )
+    inteira = julgar_desafio(fita=fita, **args)
+    assert inteira.veredito == CUMPRIU
+    assert inteira.nu_lance_cumpre_desafio == len(fita)
+    # A largura par: nenhum lance conta como coluna do meio.
+    assert inteira.feitos["lances_na_coluna_central"] == 0
+    assert julgar_desafio(fita=fita[:2], **args).veredito == NAO_CUMPRIU

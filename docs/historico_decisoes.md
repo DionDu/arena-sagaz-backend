@@ -8243,3 +8243,53 @@ dois seria mais difícil de conferir que dois leitores curtos.
 **Operação.** A `0033` vai ao `des` antes do push (T078): o push do backend é
 deploy, e o `des` passa a acompanhar a branch `jogo-quatro` só depois de a
 migração estar aplicada (R-26 da spec 010).
+
+## 2026-10-20 — O juiz do Quatro em Linha: predicado por prefixo e medidas da pessoa (T112 da spec 010)
+
+**Contexto.** O Quatro em Linha é o primeiro jogo cujos tipos de desafio usam
+**predicado** (`quatro_perdeu`, em "Segure o Magno", "A única coluna" e
+"Bloqueie as ameaças"). O avaliador de chegada já previa predicados, mas como
+respostas **fixas** para a fita inteira, e nenhum tipo em produção os usava. O
+juiz avalia a chegada a cada lance da pessoa e para no primeiro em que ela vale:
+com `quatro_perdeu = false` no meio da partida, "não perca" valeria no 1º lance,
+e quem abandonasse no 2º teria "segurado o Magno". É a armadilha do
+`damas_sobreviver` (§8k-10), que lá foi fechada com um piso de lances.
+
+**Decisão.**
+1. **Respostas de predicado por prefixo.** `julgar` (`motores/nucleo/
+   medidor_por_fita.py`) ganha `predicados_ate(quantos)`, irmã de `medir_ate`,
+   que vence as respostas fixas quando as duas respondem o mesmo nome. Genérica:
+   o núcleo continua sem conhecer jogo nenhum, e as chamadas antigas não mudam.
+2. **`quatro_perdeu` sem resposta (`None`) antes do fim.** `True` quando o
+   adversário venceu, `False` quando a partida terminou sem isso, e `None`
+   enquanto não terminou; `comparar(None, "igual", False)` é falso, então "não
+   perca" só vale no fim. O campo do motor (`perdeu`, nos vetores da T106)
+   continua booleano: o filtro é de quem responde o predicado.
+3. **As medidas do fim são da pessoa.** `vitoria_diagonal`,
+   `linhas_no_lance_final` e `maior_linha` valem 0 quando ela não venceu: a
+   linha de cinco do adversário não entra no extrato dela. Nas chegadas elas
+   sempre vêm com `vitoria`, então nenhum objetivo muda.
+4. **O juiz lê a posição pelo árbitro** (`MotorQuatro.de_dado`), e confere que
+   o jogador do desafio é quem tem a vez na posição publicada; o contrário é
+   dado inválido, e não "não cumpriu".
+
+5. **O lance do adversário que ENCERRA a partida também é avaliado** (T113,
+   achado pela modalidade-sonda). O `julgar` só olhava os lances da pessoa, e o
+   fim pode cair num lance do adversário: o empate que ele fecha na última casa,
+   ou (no Pop Out) a peça que ele tira e forma a linha de quem resolve. Sem
+   isso, quem segurou o Magno até o empate não cumpriria nunca. É uma porta
+   opcional, `terminou_ate(quantos)`, que só o Quatro passa: as damas e o
+   Pontinhos ficam com a regra de sempre (nenhum tipo deles em produção usa
+   cláusula que só vale no fim; as medidas deles mudam nos lances da pessoa).
+
+**Alternativas consideradas.** (a) Um piso de lances, como nas damas: no Quatro
+o número de lances até o fim não é conhecido na publicação. (b) Um predicado
+novo, `quatro_segurou` ("terminou e não perdeu"): mudaria o nome nos vetores da
+T106 e no motor espelhado, que carimba o executável, por um ganho que o `None`
+já dá. (c) Uma cláusula `OU` (vitória ou empate): fora do vocabulário fechado
+de propósito (a fronteira entre publicar dado e publicar código).
+
+**Consequência no app.** O acompanhamento do desafio (`lib/core/desafios/`)
+recebe os predicados do desafio como respostas fixas, e só avalia os lances da
+pessoa; o Quatro precisa das mesmas duas portas, o predicado por prefixo e o
+lance que encerra (T127, T129 da spec 010).

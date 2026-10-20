@@ -171,6 +171,8 @@ def julgar(
     jogador: int,
     medir_ate,
     predicados: Mapping[str, Any] | None = None,
+    predicados_ate=None,
+    terminou_ate=None,
 ) -> Julgamento:
     """Reproduz a fita e diz se o desafio foi cumprido.
 
@@ -184,6 +186,17 @@ def julgar(
             que carrega as regras do jogo, e por isso vem de fora: este arquivo
             nao conhece Pontinhos nem damas.
         predicados: as respostas dos predicados, quando a chegada os consulta.
+            São FIXAS: valem para a fita inteira.
+        predicados_ate: função `(quantos_lances) -> dict` com as respostas dos
+            predicados que MUDAM ao longo da partida, respondidas no mesmo
+            prefixo que `medir_ate` mede (T112 da spec 010: o `quatro_perdeu`
+            não tem resposta enquanto a partida não terminou). Vence as fixas
+            quando as duas respondem o mesmo nome. Vem de fora pelo mesmo motivo
+            de `medir_ate`: este arquivo não conhece jogo nenhum.
+        terminou_ate: função `(quantos_lances) -> bool`, "a partida acabou
+            neste prefixo?". Quando vem, o lance do ADVERSÁRIO que encerra a
+            partida também é avaliado (ver a nota no laço). Sem ela, o
+            comportamento é o de sempre: só os lances do jogador fecham a conta.
 
     ⚠️ **Mede-se lance a lance, e nao só no fim.** Duas razões, e as duas
     importam: (a) e assim que se descobre **em que lance** o objetivo caiu, que e
@@ -215,10 +228,23 @@ def julgar(
         medidas = medir_ate(quantos)
         # Só o lance do jogador do desafio pode fechar a conta: o adversário
         # jogando nao "cumpre" nada por ele.
-        if fita[quantos - 1]["jogador"] != jogador:
+        #
+        # ⚠️ **A exceção é o lance do adversário que ENCERRA a partida**, quando
+        # quem chama sabe dizer isso (`terminou_ate`). "Não perca" só tem
+        # resposta no fim, e o fim pode cair num lance do adversário: o empate
+        # que ele fecha na última casa, ou (no Pop Out) a peça que ele tira e
+        # forma a linha de quem resolve. Sem a exceção, quem segurou até o fim
+        # não cumpriria nunca. Achado pela modalidade-sonda (T113 da spec 010).
+        if fita[quantos - 1]["jogador"] != jogador and not (
+            terminou_ate is not None and terminou_ate(quantos)
+        ):
             continue
+        # As respostas deste prefixo: as fixas, e por cima as que mudam.
+        respostas = dict(predicados or {})
+        if predicados_ate is not None:
+            respostas.update(predicados_ate(quantos))
         try:
-            if avaliar(chegada, medidas, predicados):
+            if avaliar(chegada, medidas, respostas):
                 lance_que_cumpriu = quantos
                 feitos_na_janela = medidas
                 break

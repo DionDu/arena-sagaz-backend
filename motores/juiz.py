@@ -44,6 +44,8 @@ from .nucleo.chegada import LinhaDeChegada
 from .nucleo.medidor_por_fita import Julgamento, julgar
 from .pontinhos import feitos_pontinhos
 from .pontinhos.motor_pontinhos import EstadoPontinhos
+from .quatro import feitos_quatro
+from .quatro.motor_quatro import MotorQuatro
 
 
 class JogoDesconhecido(ValueError):
@@ -120,6 +122,49 @@ def _medidor_das_damas(
     return medir_ate
 
 
+def _medidor_do_quatro(
+    posicao: Mapping[str, Any],
+    fita: Sequence[Mapping[str, Any]],
+    jogador: int,
+    co_modalidade: str,
+):
+    """Devolve `(medir_ate, predicados_ate, terminou_ate)` do Quatro em Linha.
+
+    A posição inicial é uma **sequência de lances**, como no Pontinhos: no
+    Quatro a ordem dos lances é o próprio tabuleiro. Quem a lê é o árbitro
+    (`MotorQuatro.de_dado`, a forma que `para_dado` grava), que recusa o
+    formato de outro jogo.
+
+    ⚠️ **O predicado muda ao longo da partida** (`quatro_perdeu` não tem resposta
+    antes do fim), e por isso vai por prefixo, ao lado das medidas, e não nas
+    respostas fixas: ver `feitos_quatro.responder_predicados`. E pela mesma
+    razão o juiz precisa saber quando a partida ACABOU (`terminou_ate`): o fim
+    pode cair num lance do adversário, e é só no fim que "não perca" responde.
+    """
+    motor = MotorQuatro(co_modalidade)
+    # `de_dado` reproduz a posição agora: uma posição publicada inválida é
+    # defeito do DESAFIO, e precisa estourar antes de a fita de alguém ser
+    # julgada.
+    iniciais = motor.de_dado(posicao).lances
+
+    def lances_ate(quantos: int) -> list[str]:
+        return [l["lance"] for l in fita[:quantos]]
+
+    def medir_ate(quantos: int) -> dict[str, float]:
+        return feitos_quatro.medir(motor, iniciais, lances_ate(quantos), jogador=jogador)
+
+    def predicados_ate(quantos: int) -> dict[str, Any]:
+        return feitos_quatro.responder_predicados(motor, iniciais, lances_ate(quantos))
+
+    def terminou_ate(quantos: int) -> bool:
+        estado = motor.de_dado(posicao)
+        for lance in lances_ate(quantos):
+            estado = motor.aplicar(estado, lance)
+        return motor.veredito(estado).acabou
+
+    return medir_ate, predicados_ate, terminou_ate
+
+
 def julgar_desafio(
     *,
     co_jogo: str,
@@ -133,14 +178,16 @@ def julgar_desafio(
     """Julga uma tentativa: reproduz a fita e responde se o objetivo caiu.
 
     Args:
-        co_jogo: `pontinhos` ou `damas`.
+        co_jogo: `pontinhos`, `damas` ou `quatro`.
         js_posicao_inicial: a posição de onde a fita parte.
         js_chegada: a linha de chegada, no formato de `desafio.tb001_desafio`.
         fita: os lances, no vocabulário do log.
         jogador: de quem e o desafio. `+1` por padrão — o desafio e sempre de
             quem esta jogando, e o `-1` existe para os casos de damas em que a
             posição inicial põe a pessoa com as pretas.
-        co_modalidade: só para as damas.
+        co_modalidade: para as damas e o Quatro em Linha. ⚠️ O padrão
+            `brasileira` é das damas; o Quatro exige que quem chama a passe
+            (o juiz não escreve o nome de modalidade nenhuma do Quatro).
         predicados: as respostas dos predicados, quando a chegada os consulta.
 
     Returns:
@@ -152,10 +199,19 @@ def julgar_desafio(
     """
     chegada = LinhaDeChegada.de_dado(js_chegada)
 
+    # As respostas de predicado que mudam a cada lance; só o Quatro tem hoje.
+    predicados_ate = None
+    # "A partida acabou neste prefixo?"; só o Quatro responde hoje (ver o
+    # `julgar`: as damas e o Pontinhos ficam com a regra de sempre).
+    terminou_ate = None
     if co_jogo == "pontinhos":
         medir_ate = _medidor_do_pontinhos(js_posicao_inicial, fita, jogador)
     elif co_jogo == "damas":
         medir_ate = _medidor_das_damas(
+            js_posicao_inicial, fita, jogador, co_modalidade
+        )
+    elif co_jogo == "quatro":
+        medir_ate, predicados_ate, terminou_ate = _medidor_do_quatro(
             js_posicao_inicial, fita, jogador, co_modalidade
         )
     else:
@@ -170,4 +226,6 @@ def julgar_desafio(
         jogador=jogador,
         medir_ate=medir_ate,
         predicados=predicados,
+        predicados_ate=predicados_ate,
+        terminou_ate=terminou_ate,
     )
