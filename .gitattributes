@@ -83,3 +83,4 @@ contratos/vetores-paridade-pontinhos.json -text
 # E os do Quatro em Linha (spec 010, T106), gerados pelo motor Dart do
 # laboratorio e comparados com a copia da spec 010 do app.
 contratos/vetores-paridade-quatro.json -text
+contratos/bancada-paridade-quatro.json -text

@@ -1,0 +1,3099 @@
+{
+  "de_documento": "Bancada de paridade do Quatro em Linha (T111 da spec 010). GERADO por scripts/gerar_bancada_paridade_quatro.py - nao edite a mao. O aplicativo reproduz estas partidas em test/modulos/jogos/quatro/paridade_com_servidor_quatro_test.dart.",
+  "versao": 1,
+  "motor": {
+    "quatro": "f33b8f571c031169ee88828bd9df7b48613fc671372d201b7736ab8c70ef2a4c",
+    "contrato": "dc65bda71af3a780dbf92a9d206a4eeb00d858d314fc903848fccd27cdcb02f9"
+  },
+  "partidas": [
+    {
+      "id": "quatro-tradicional-cacau-vazio-697571591",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "cacau",
+      "nu_semente": 697571591,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "cacau",
+        "tetoDeNos": 33,
+        "epsilon": 0.4,
+        "percebe": {
+          "vencer": 0.97,
+          "bloquear": 0.25,
+          "nao_jogar_sob_ameaca": 0.1
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 1204523704,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1711475817,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 70944282,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 577896395,
+          "lance": "s5",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 1084848508,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 1591800621,
+          "lance": "s4",
+          "acao": "bloqueio_perdido",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 2098752734,
+          "lance": "s1",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s3s5s2s4s1",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-cacau-vazio-12345",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "cacau",
+      "nu_semente": 12345,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "cacau",
+        "tetoDeNos": 33,
+        "epsilon": 0.4,
+        "percebe": {
+          "vencer": 0.97,
+          "bloquear": 0.25,
+          "nao_jogar_sob_ameaca": 0.1
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 506964458,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1013916571,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 1520868684,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 2027820797,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 387289262,
+          "lance": "s5",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 894241375,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 1401193488,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 1908145601,
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 7,
+          "profundidade": 1,
+          "motivo": "decidido"
+        },
+        {
+          "n": 9,
+          "semente": 267614066,
+          "lance": "s6",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s4s4s5s4s3s2s6",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-cacau-vazio-4000000007",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "cacau",
+      "nu_semente": 4000000007,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "cacau",
+        "tetoDeNos": 33,
+        "epsilon": 0.4,
+        "percebe": {
+          "vencer": 0.97,
+          "bloquear": 0.25,
+          "nao_jogar_sob_ameaca": 0.1
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 211984824,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 718936937,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 1225889050,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 1732841163,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 92309628,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 599261741,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 1106213854,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 1613165967,
+          "lance": "s7",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 2120118080,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 479586545,
+          "lance": "s2",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 986538658,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 1493490771,
+          "lance": "s4",
+          "acao": "empate_sorteado",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 2000442884,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 359911349,
+          "lance": "s1",
+          "acao": "jogou_sob_ameaca",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 866863462,
+          "lance": "s1",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s3s3s3s3s3s3s7s4s2s2s4s2s1s1",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-cacau-publicada-697571591",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "cacau",
+      "nu_semente": 697571591,
+      "lances_iniciais": "s4s4s3s5s4s3",
+      "argumentos": {
+        "personagem": "cacau",
+        "tetoDeNos": 33,
+        "epsilon": 0.4,
+        "percebe": {
+          "vencer": 0.97,
+          "bloquear": 0.25,
+          "nao_jogar_sob_ameaca": 0.1
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 1204523704,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1711475817,
+          "lance": "s1",
+          "acao": "bloqueio_imediato",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 70944282,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 577896395,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 1084848508,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 1591800621,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 1,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 2098752734,
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 458221199,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 965173312,
+          "lance": "s5",
+          "acao": "bloqueio_imediato",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 1472125425,
+          "lance": "s5",
+          "acao": "bloqueio_imediato",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 1979077538,
+          "lance": "s6",
+          "acao": "jogou_sob_ameaca",
+          "nos": 33,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 338546003,
+          "lance": "s6",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s3s5s4s3s2s1s3s3s4s5s2s5s5s5s6s6",
+      "co_desfecho": "alinhou",
+      "vencedor": -1
+    },
+    {
+      "id": "quatro-tradicional-pita-vazio-697571591",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "pita",
+      "nu_semente": 697571591,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "pita",
+        "tetoDeNos": 310,
+        "epsilon": 0.2,
+        "percebe": {
+          "vencer": 0.995,
+          "bloquear": 0.75,
+          "nao_jogar_sob_ameaca": 0.2
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 1204523704,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1711475817,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 70944282,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 577896395,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 1084848508,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 38,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 6,
+          "semente": 1591800621,
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 7,
+          "profundidade": 1,
+          "motivo": "decidido"
+        },
+        {
+          "n": 7,
+          "semente": 2098752734,
+          "lance": "s6",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s3s3s5s2s6",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-pita-vazio-12345",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "pita",
+      "nu_semente": 12345,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "pita",
+        "tetoDeNos": 310,
+        "epsilon": 0.2,
+        "percebe": {
+          "vencer": 0.995,
+          "bloquear": 0.75,
+          "nao_jogar_sob_ameaca": 0.2
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 506964458,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1013916571,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 1520868684,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 2027820797,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 387289262,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 894241375,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 1401193488,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 1908145601,
+          "lance": "s1",
+          "acao": "bloqueio_imediato",
+          "nos": 310,
+          "profundidade": 4,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 267614066,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 774566179,
+          "lance": "s7",
+          "acao": "epsilon_aleatorio",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 1281518292,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 1788470405,
+          "lance": "s6",
+          "acao": "epsilon_aleatorio",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 147938870,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 654890983,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 2,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 1161843096,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 16,
+          "semente": 1668795209,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 17,
+          "semente": 28263674,
+          "lance": "s1",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 18,
+          "semente": 535215787,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 19,
+          "semente": 1042167900,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 34,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 20,
+          "semente": 1549120013,
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 7,
+          "profundidade": 1,
+          "motivo": "decidido"
+        },
+        {
+          "n": 21,
+          "semente": 2056072126,
+          "lance": "s3",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s3s5s4s4s2s1s2s7s4s6s6s5s5s5s1s3s2s2s3",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-pita-vazio-4000000007",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "pita",
+      "nu_semente": 4000000007,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "pita",
+        "tetoDeNos": 310,
+        "epsilon": 0.2,
+        "percebe": {
+          "vencer": 0.995,
+          "bloquear": 0.75,
+          "nao_jogar_sob_ameaca": 0.2
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 211984824,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 718936937,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 1225889050,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 1732841163,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 92309628,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 599261741,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 1106213854,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 1613165967,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 310,
+          "profundidade": 4,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 2120118080,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 479586545,
+          "lance": "s2",
+          "acao": "epsilon_aleatorio",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 986538658,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 1493490771,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 2000442884,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 359911349,
+          "lance": "s6",
+          "acao": "bloqueio_imediato",
+          "nos": 310,
+          "profundidade": 5,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 866863462,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 4,
+          "motivo": "nos"
+        },
+        {
+          "n": 16,
+          "semente": 1373815575,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 17,
+          "semente": 1880767688,
+          "lance": "s5",
+          "acao": "bloqueio_perdido",
+          "nos": 310,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 18,
+          "semente": 240236153,
+          "lance": "s3",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s5s3s4s4s6s7s6s2s4s3s6s6s2s3s5s3",
+      "co_desfecho": "alinhou",
+      "vencedor": -1
+    },
+    {
+      "id": "quatro-tradicional-pita-publicada-697571591",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "pita",
+      "nu_semente": 697571591,
+      "lances_iniciais": "s4s4s3s5s4s3",
+      "argumentos": {
+        "personagem": "pita",
+        "tetoDeNos": 310,
+        "epsilon": 0.2,
+        "percebe": {
+          "vencer": 0.995,
+          "bloquear": 0.75,
+          "nao_jogar_sob_ameaca": 0.2
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 1204523704,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1711475817,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 70944282,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 577896395,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 1084848508,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 1591800621,
+          "lance": "s4",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 3,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 2098752734,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 310,
+          "profundidade": 4,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 458221199,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 310,
+          "profundidade": 4,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 965173312,
+          "lance": "s1",
+          "acao": "epsilon_aleatorio",
+          "nos": 310,
+          "profundidade": 4,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 1472125425,
+          "lance": "s1",
+          "acao": "busca_melhor",
+          "nos": 227,
+          "profundidade": 4,
+          "motivo": "decidido"
+        },
+        {
+          "n": 11,
+          "semente": 1979077538,
+          "lance": "s4",
+          "acao": "bloqueio_perdido",
+          "nos": 42,
+          "profundidade": 3,
+          "motivo": "decidido"
+        },
+        {
+          "n": 12,
+          "semente": 338546003,
+          "lance": "s2",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s3s5s4s3s5s2s3s3s5s4s3s5s1s1s4s2",
+      "co_desfecho": "alinhou",
+      "vencedor": -1
+    },
+    {
+      "id": "quatro-tradicional-tex-vazio-697571591",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "tex",
+      "nu_semente": 697571591,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "tex",
+        "tetoDeNos": 8170,
+        "epsilon": 0.14,
+        "percebe": {
+          "vencer": 1.0,
+          "bloquear": 0.9,
+          "nao_jogar_sob_ameaca": 0.85
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 1204523704,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1711475817,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 70944282,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 577896395,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 1084848508,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 1591800621,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 2098752734,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 458221199,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 965173312,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 1472125425,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 1979077538,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 338546003,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 845498116,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 1352450229,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 1859402342,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 16,
+          "semente": 218870807,
+          "lance": "s7",
+          "acao": "epsilon_aleatorio",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 17,
+          "semente": 725822920,
+          "lance": "s1",
+          "acao": "epsilon_aleatorio",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 18,
+          "semente": 1232775033,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 19,
+          "semente": 1739727146,
+          "lance": "s2",
+          "acao": "epsilon_aleatorio",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 20,
+          "semente": 99195611,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 21,
+          "semente": 606147724,
+          "lance": "s5",
+          "acao": "epsilon_aleatorio",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 22,
+          "semente": 1113099837,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 23,
+          "semente": 1620051950,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 8170,
+          "profundidade": 10,
+          "motivo": "nos"
+        },
+        {
+          "n": 24,
+          "semente": 2127004063,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 13,
+          "motivo": "nos"
+        },
+        {
+          "n": 25,
+          "semente": 486472528,
+          "lance": "s6",
+          "acao": "epsilon_aleatorio",
+          "nos": 8170,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 26,
+          "semente": 993424641,
+          "lance": "s6",
+          "acao": "epsilon_aleatorio",
+          "nos": 87,
+          "profundidade": 4,
+          "motivo": "decidido"
+        },
+        {
+          "n": 27,
+          "semente": 1500376754,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 3729,
+          "profundidade": 13,
+          "motivo": "decidido"
+        },
+        {
+          "n": 28,
+          "semente": 2007328867,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 4405,
+          "profundidade": 12,
+          "motivo": "decidido"
+        },
+        {
+          "n": 29,
+          "semente": 366797332,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 3201,
+          "profundidade": 11,
+          "motivo": "decidido"
+        },
+        {
+          "n": 30,
+          "semente": 873749445,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 1857,
+          "profundidade": 10,
+          "motivo": "decidido"
+        },
+        {
+          "n": 31,
+          "semente": 1380701558,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 1029,
+          "profundidade": 9,
+          "motivo": "decidido"
+        },
+        {
+          "n": 32,
+          "semente": 1887653671,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 602,
+          "profundidade": 8,
+          "motivo": "decidido"
+        },
+        {
+          "n": 33,
+          "semente": 247122136,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 167,
+          "profundidade": 7,
+          "motivo": "decidido"
+        },
+        {
+          "n": 34,
+          "semente": 754074249,
+          "lance": "s7",
+          "acao": "epsilon_aleatorio",
+          "nos": 95,
+          "profundidade": 6,
+          "motivo": "decidido"
+        },
+        {
+          "n": 35,
+          "semente": 1261026362,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 10,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 36,
+          "semente": 1767978475,
+          "lance": "s4",
+          "acao": "bloqueio_imediato",
+          "nos": 2,
+          "profundidade": 1,
+          "motivo": "decidido"
+        },
+        {
+          "n": 37,
+          "semente": 127446940,
+          "lance": "s4",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s5s3s2s5s3s3s3s2s5s5s2s4s2s5s7s1s3s2s7s5s2s3s6s6s6s7s1s6s7s6s6s1s7s7s4s4",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-tex-vazio-12345",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "tex",
+      "nu_semente": 12345,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "tex",
+        "tetoDeNos": 8170,
+        "epsilon": 0.14,
+        "percebe": {
+          "vencer": 1.0,
+          "bloquear": 0.9,
+          "nao_jogar_sob_ameaca": 0.85
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 506964458,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1013916571,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 1520868684,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 2027820797,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 387289262,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 894241375,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 1401193488,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 1908145601,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 267614066,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 774566179,
+          "lance": "s7",
+          "acao": "bloqueio_perdido",
+          "nos": 8170,
+          "profundidade": 9,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 1281518292,
+          "lance": "s3",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s3s5s6s3s5s3s6s3s7s3",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-tex-vazio-4000000007",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "tex",
+      "nu_semente": 4000000007,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "tex",
+        "tetoDeNos": 8170,
+        "epsilon": 0.14,
+        "percebe": {
+          "vencer": 1.0,
+          "bloquear": 0.9,
+          "nao_jogar_sob_ameaca": 0.85
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 211984824,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 718936937,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 1225889050,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 1732841163,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 92309628,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 599261741,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 1106213854,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 6,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 1613165967,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 2120118080,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 479586545,
+          "lance": "s3",
+          "acao": "bloqueio_imediato",
+          "nos": 8170,
+          "profundidade": 9,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 986538658,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 1493490771,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 2000442884,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 10,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 359911349,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 10,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 866863462,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 8170,
+          "profundidade": 10,
+          "motivo": "nos"
+        },
+        {
+          "n": 16,
+          "semente": 1373815575,
+          "lance": "s4",
+          "acao": "bloqueio_perdido",
+          "nos": 8170,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 17,
+          "semente": 1880767688,
+          "lance": "s5",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s3s5s6s3s5s3s6s3s3s5s4s5s4s5s4s5",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-tex-publicada-697571591",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "tex",
+      "nu_semente": 697571591,
+      "lances_iniciais": "s4s4s3s5s4s3",
+      "argumentos": {
+        "personagem": "tex",
+        "tetoDeNos": 8170,
+        "epsilon": 0.14,
+        "percebe": {
+          "vencer": 1.0,
+          "bloquear": 0.9,
+          "nao_jogar_sob_ameaca": 0.85
+        },
+        "aberturaDoMagno": null
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 1204523704,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1711475817,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 70944282,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 577896395,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 1084848508,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 1591800621,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 2098752734,
+          "lance": "s7",
+          "acao": "epsilon_aleatorio",
+          "nos": 8170,
+          "profundidade": 9,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 458221199,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 965173312,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 8170,
+          "profundidade": 9,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 1472125425,
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 8170,
+          "profundidade": 10,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 1979077538,
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 8170,
+          "profundidade": 9,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 338546003,
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 845498116,
+          "lance": "s1",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 7,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 1352450229,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 1859402342,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 7285,
+          "profundidade": 9,
+          "motivo": "decidido"
+        },
+        {
+          "n": 16,
+          "semente": 218870807,
+          "lance": "s7",
+          "acao": "epsilon_aleatorio",
+          "nos": 5954,
+          "profundidade": 8,
+          "motivo": "decidido"
+        },
+        {
+          "n": 17,
+          "semente": 725822920,
+          "lance": "s7",
+          "acao": "epsilon_aleatorio",
+          "nos": 8170,
+          "profundidade": 8,
+          "motivo": "nos"
+        },
+        {
+          "n": 18,
+          "semente": 1232775033,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 1743,
+          "profundidade": 6,
+          "motivo": "decidido"
+        },
+        {
+          "n": 19,
+          "semente": 1739727146,
+          "lance": "s7",
+          "acao": "epsilon_aleatorio",
+          "nos": 561,
+          "profundidade": 5,
+          "motivo": "decidido"
+        },
+        {
+          "n": 20,
+          "semente": 99195611,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 28,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 21,
+          "semente": 606147724,
+          "lance": "s6",
+          "acao": "bloqueio_imediato",
+          "nos": 6,
+          "profundidade": 1,
+          "motivo": "decidido"
+        },
+        {
+          "n": 22,
+          "semente": 1113099837,
+          "lance": "s6",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s3s5s4s3s3s5s5s4s3s3s7s4s1s2s2s2s1s5s7s7s7s3s7s6s6s6",
+      "co_desfecho": "alinhou",
+      "vencedor": -1
+    },
+    {
+      "id": "quatro-tradicional-sagaz-vazio-697571591",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "sagaz",
+      "nu_semente": 697571591,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "magno",
+        "tetoDeNos": 216496,
+        "epsilon": 0.015,
+        "percebe": {
+          "vencer": 1.0,
+          "bloquear": 0.97,
+          "nao_jogar_sob_ameaca": 0.95
+        },
+        "aberturaDoMagno": {
+          "1": 0.005,
+          "2": 0.01,
+          "3": 0.06,
+          "4": 0.85,
+          "5": 0.06,
+          "6": 0.01,
+          "7": 0.005
+        }
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 1204523704,
+          "lance": "s4",
+          "acao": "abertura_sorteada",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1711475817,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 70944282,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 577896395,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 1084848508,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 10,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 1591800621,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 2098752734,
+          "lance": "s3",
+          "acao": "epsilon_aleatorio",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 458221199,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 965173312,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 13,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 1472125425,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 13,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 1979077538,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 338546003,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 845498116,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 1352450229,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 13,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 1859402342,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 16,
+          "semente": 218870807,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 17,
+          "motivo": "nos"
+        },
+        {
+          "n": 17,
+          "semente": 725822920,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 16,
+          "motivo": "nos"
+        },
+        {
+          "n": 18,
+          "semente": 1232775033,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 113233,
+          "profundidade": 16,
+          "motivo": "decidido"
+        },
+        {
+          "n": 19,
+          "semente": 1739727146,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 90965,
+          "profundidade": 15,
+          "motivo": "decidido"
+        },
+        {
+          "n": 20,
+          "semente": 99195611,
+          "lance": "s1",
+          "acao": "busca_melhor",
+          "nos": 54410,
+          "profundidade": 14,
+          "motivo": "decidido"
+        },
+        {
+          "n": 21,
+          "semente": 606147724,
+          "lance": "s4",
+          "acao": "empate_sorteado",
+          "nos": 40784,
+          "profundidade": 13,
+          "motivo": "decidido"
+        },
+        {
+          "n": 22,
+          "semente": 1113099837,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 13335,
+          "profundidade": 12,
+          "motivo": "decidido"
+        },
+        {
+          "n": 23,
+          "semente": 1620051950,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 6999,
+          "profundidade": 11,
+          "motivo": "decidido"
+        },
+        {
+          "n": 24,
+          "semente": 2127004063,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 3215,
+          "profundidade": 10,
+          "motivo": "decidido"
+        },
+        {
+          "n": 25,
+          "semente": 486472528,
+          "lance": "s2",
+          "acao": "jogou_sob_ameaca",
+          "nos": 2197,
+          "profundidade": 9,
+          "motivo": "decidido"
+        },
+        {
+          "n": 26,
+          "semente": 993424641,
+          "lance": "s2",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s4s4s3s5s3s3s3s5s4s2s5s3s2s5s5s5s1s1s4s3s6s6s2s2",
+      "co_desfecho": "alinhou",
+      "vencedor": -1
+    },
+    {
+      "id": "quatro-tradicional-sagaz-vazio-12345",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "sagaz",
+      "nu_semente": 12345,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "magno",
+        "tetoDeNos": 216496,
+        "epsilon": 0.015,
+        "percebe": {
+          "vencer": 1.0,
+          "bloquear": 0.97,
+          "nao_jogar_sob_ameaca": 0.95
+        },
+        "aberturaDoMagno": {
+          "1": 0.005,
+          "2": 0.01,
+          "3": 0.06,
+          "4": 0.85,
+          "5": 0.06,
+          "6": 0.01,
+          "7": 0.005
+        }
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 506964458,
+          "lance": "s4",
+          "acao": "abertura_sorteada",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1013916571,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 1520868684,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 2027820797,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 387289262,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 10,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 894241375,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 13,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 1401193488,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 1908145601,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 267614066,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 774566179,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 1281518292,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 1788470405,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 147938870,
+          "lance": "s1",
+          "acao": "bloqueio_imediato",
+          "nos": 216496,
+          "profundidade": 13,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 654890983,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 1161843096,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 13,
+          "motivo": "nos"
+        },
+        {
+          "n": 16,
+          "semente": 1668795209,
+          "lance": "s6",
+          "acao": "bloqueio_imediato",
+          "nos": 216496,
+          "profundidade": 17,
+          "motivo": "nos"
+        },
+        {
+          "n": 17,
+          "semente": 28263674,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 16,
+          "motivo": "nos"
+        },
+        {
+          "n": 18,
+          "semente": 535215787,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 16,
+          "motivo": "nos"
+        },
+        {
+          "n": 19,
+          "semente": 1042167900,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 15,
+          "motivo": "nos"
+        },
+        {
+          "n": 20,
+          "semente": 1549120013,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 15,
+          "motivo": "nos"
+        },
+        {
+          "n": 21,
+          "semente": 2056072126,
+          "lance": "s1",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 15,
+          "motivo": "nos"
+        },
+        {
+          "n": 22,
+          "semente": 415540591,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 17,
+          "motivo": "nos"
+        },
+        {
+          "n": 23,
+          "semente": 922492704,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 113988,
+          "profundidade": 17,
+          "motivo": "decidido"
+        },
+        {
+          "n": 24,
+          "semente": 1429444817,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 25480,
+          "profundidade": 16,
+          "motivo": "decidido"
+        },
+        {
+          "n": 25,
+          "semente": 1936396930,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 11262,
+          "profundidade": 15,
+          "motivo": "decidido"
+        },
+        {
+          "n": 26,
+          "semente": 295865395,
+          "lance": "s1",
+          "acao": "bloqueio_imediato",
+          "nos": 4494,
+          "profundidade": 14,
+          "motivo": "decidido"
+        },
+        {
+          "n": 27,
+          "semente": 802817508,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 5704,
+          "profundidade": 13,
+          "motivo": "decidido"
+        },
+        {
+          "n": 28,
+          "semente": 1309769621,
+          "lance": "s1",
+          "acao": "busca_melhor",
+          "nos": 2322,
+          "profundidade": 12,
+          "motivo": "decidido"
+        },
+        {
+          "n": 29,
+          "semente": 1816721734,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 1158,
+          "profundidade": 11,
+          "motivo": "decidido"
+        },
+        {
+          "n": 30,
+          "semente": 176190199,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 937,
+          "profundidade": 10,
+          "motivo": "decidido"
+        },
+        {
+          "n": 31,
+          "semente": 683142312,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 516,
+          "profundidade": 9,
+          "motivo": "decidido"
+        },
+        {
+          "n": 32,
+          "semente": 1190094425,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 419,
+          "profundidade": 8,
+          "motivo": "decidido"
+        },
+        {
+          "n": 33,
+          "semente": 1697046538,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 344,
+          "profundidade": 7,
+          "motivo": "decidido"
+        },
+        {
+          "n": 34,
+          "semente": 56515003,
+          "lance": "s5",
+          "acao": "bloqueio_imediato",
+          "nos": 124,
+          "profundidade": 6,
+          "motivo": "decidido"
+        },
+        {
+          "n": 35,
+          "semente": 563467116,
+          "lance": "s5",
+          "acao": "bloqueio_imediato",
+          "nos": 100,
+          "profundidade": 5,
+          "motivo": "decidido"
+        },
+        {
+          "n": 36,
+          "semente": 1070419229,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 80,
+          "profundidade": 4,
+          "motivo": "decidido"
+        },
+        {
+          "n": 37,
+          "semente": 1577371342,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 29,
+          "profundidade": 3,
+          "motivo": "decidido"
+        },
+        {
+          "n": 38,
+          "semente": 2084323455,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 14,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 39,
+          "semente": 443791920,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 2,
+          "profundidade": 1,
+          "motivo": "decidido"
+        },
+        {
+          "n": 40,
+          "semente": 950744033,
+          "lance": "s2",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s4s4s5s3s3s3s3s5s2s2s1s4s7s6s7s7s7s4s1s2s3s3s1s1s1s1s2s6s6s7s5s5s5s5s6s7s2s2",
+      "co_desfecho": "alinhou",
+      "vencedor": -1
+    },
+    {
+      "id": "quatro-tradicional-sagaz-vazio-4000000007",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "sagaz",
+      "nu_semente": 4000000007,
+      "lances_iniciais": "",
+      "argumentos": {
+        "personagem": "magno",
+        "tetoDeNos": 216496,
+        "epsilon": 0.015,
+        "percebe": {
+          "vencer": 1.0,
+          "bloquear": 0.97,
+          "nao_jogar_sob_ameaca": 0.95
+        },
+        "aberturaDoMagno": {
+          "1": 0.005,
+          "2": 0.01,
+          "3": 0.06,
+          "4": 0.85,
+          "5": 0.06,
+          "6": 0.01,
+          "7": 0.005
+        }
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 211984824,
+          "lance": "s4",
+          "acao": "abertura_sorteada",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 718936937,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 1225889050,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 1732841163,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 11,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 92309628,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 10,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 599261741,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 1106213854,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 1613165967,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 9,
+          "semente": 2120118080,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 10,
+          "semente": 479586545,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 11,
+          "semente": 986538658,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 12,
+          "semente": 1493490771,
+          "lance": "s4",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 13,
+          "semente": 2000442884,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 13,
+          "motivo": "nos"
+        },
+        {
+          "n": 14,
+          "semente": 359911349,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 15,
+          "motivo": "nos"
+        },
+        {
+          "n": 15,
+          "semente": 866863462,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 216496,
+          "profundidade": 15,
+          "motivo": "nos"
+        },
+        {
+          "n": 16,
+          "semente": 1373815575,
+          "lance": "s3",
+          "acao": "jogou_sob_ameaca",
+          "nos": 216496,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 17,
+          "semente": 1880767688,
+          "lance": "s3",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s4s4s3s5s5s5s5s3s6s4s4s6s7s3s3",
+      "co_desfecho": "alinhou",
+      "vencedor": 1
+    },
+    {
+      "id": "quatro-tradicional-sagaz-publicada-697571591",
+      "co_jogo": "quatro",
+      "co_modalidade": "tradicional",
+      "co_nivel": "sagaz",
+      "nu_semente": 697571591,
+      "lances_iniciais": "s4s4s3s5s4s3",
+      "argumentos": {
+        "personagem": "magno",
+        "tetoDeNos": 216496,
+        "epsilon": 0.015,
+        "percebe": {
+          "vencer": 1.0,
+          "bloquear": 0.97,
+          "nao_jogar_sob_ameaca": 0.95
+        },
+        "aberturaDoMagno": {
+          "1": 0.005,
+          "2": 0.01,
+          "3": 0.06,
+          "4": 0.85,
+          "5": 0.06,
+          "6": 0.01,
+          "7": 0.005
+        }
+      },
+      "lances": [
+        {
+          "n": 1,
+          "semente": 1204523704,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 12,
+          "motivo": "nos"
+        },
+        {
+          "n": 2,
+          "semente": 1711475817,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 3,
+          "semente": 70944282,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 14,
+          "motivo": "nos"
+        },
+        {
+          "n": 4,
+          "semente": 577896395,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 19,
+          "motivo": "nos"
+        },
+        {
+          "n": 5,
+          "semente": 1084848508,
+          "lance": "s3",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 18,
+          "motivo": "nos"
+        },
+        {
+          "n": 6,
+          "semente": 1591800621,
+          "lance": "s3",
+          "acao": "bloqueio_imediato",
+          "nos": 216496,
+          "profundidade": 20,
+          "motivo": "nos"
+        },
+        {
+          "n": 7,
+          "semente": 2098752734,
+          "lance": "s5",
+          "acao": "epsilon_aleatorio",
+          "nos": 216496,
+          "profundidade": 19,
+          "motivo": "nos"
+        },
+        {
+          "n": 8,
+          "semente": 458221199,
+          "lance": "s1",
+          "acao": "busca_melhor",
+          "nos": 152491,
+          "profundidade": 18,
+          "motivo": "decidido"
+        },
+        {
+          "n": 9,
+          "semente": 965173312,
+          "lance": "s4",
+          "acao": "empate_sorteado",
+          "nos": 115268,
+          "profundidade": 17,
+          "motivo": "decidido"
+        },
+        {
+          "n": 10,
+          "semente": 1472125425,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 71737,
+          "profundidade": 16,
+          "motivo": "decidido"
+        },
+        {
+          "n": 11,
+          "semente": 1979077538,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 39931,
+          "profundidade": 15,
+          "motivo": "decidido"
+        },
+        {
+          "n": 12,
+          "semente": 338546003,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 33994,
+          "profundidade": 14,
+          "motivo": "decidido"
+        },
+        {
+          "n": 13,
+          "semente": 845498116,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 15835,
+          "profundidade": 13,
+          "motivo": "decidido"
+        },
+        {
+          "n": 14,
+          "semente": 1352450229,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 13053,
+          "profundidade": 12,
+          "motivo": "decidido"
+        },
+        {
+          "n": 15,
+          "semente": 1859402342,
+          "lance": "s1",
+          "acao": "bloqueio_imediato",
+          "nos": 4759,
+          "profundidade": 11,
+          "motivo": "decidido"
+        },
+        {
+          "n": 16,
+          "semente": 218870807,
+          "lance": "s4",
+          "acao": "empate_sorteado",
+          "nos": 5329,
+          "profundidade": 10,
+          "motivo": "decidido"
+        },
+        {
+          "n": 17,
+          "semente": 725822920,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 2014,
+          "profundidade": 9,
+          "motivo": "decidido"
+        },
+        {
+          "n": 18,
+          "semente": 1232775033,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 934,
+          "profundidade": 8,
+          "motivo": "decidido"
+        },
+        {
+          "n": 19,
+          "semente": 1739727146,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 1140,
+          "profundidade": 7,
+          "motivo": "decidido"
+        },
+        {
+          "n": 20,
+          "semente": 99195611,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 475,
+          "profundidade": 6,
+          "motivo": "decidido"
+        },
+        {
+          "n": 21,
+          "semente": 606147724,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 210,
+          "profundidade": 5,
+          "motivo": "decidido"
+        },
+        {
+          "n": 22,
+          "semente": 1113099837,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 129,
+          "profundidade": 4,
+          "motivo": "decidido"
+        },
+        {
+          "n": 23,
+          "semente": 1620051950,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 36,
+          "profundidade": 3,
+          "motivo": "decidido"
+        },
+        {
+          "n": 24,
+          "semente": 2127004063,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 13,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 25,
+          "semente": 486472528,
+          "lance": "s2",
+          "acao": "jogou_sob_ameaca",
+          "nos": 2,
+          "profundidade": 1,
+          "motivo": "decidido"
+        },
+        {
+          "n": 26,
+          "semente": 993424641,
+          "lance": "s2",
+          "acao": "vitoria_imediata",
+          "nos": 0,
+          "profundidade": 1,
+          "motivo": "decidido"
+        }
+      ],
+      "co_lances_finais": "s4s4s3s5s4s3s3s4s3s5s3s3s5s1s4s1s7s5s7s1s1s4s7s7s5s1s7s1s7s5s2s2",
+      "co_desfecho": "alinhou",
+      "vencedor": -1
+    }
+  ]
+}
