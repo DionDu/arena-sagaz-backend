@@ -235,3 +235,58 @@ def test_as_linhas_das_dimensoes_batem(tabela: str, documento, sql) -> None:
     assert do_documento, f"o documento nao lista as linhas de {tabela}"
     assert (9999, "desconhecido") in do_documento
     assert _linhas_do_insert(sql, tabela) == sorted(do_documento)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A §3 do documento contra a 0035 (T114): os tipos e as medidas do desafio
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# As duas tabelas da §3 (`tb901_tipo_desafio` e `tb902_catalogo_feito`) foram
+# ratificadas pelo dono com os nomes de lá (T003, §8zzz). A migração tem de
+# trazer exatamente as mesmas linhas, na mesma ordem de colunas; uma letra a
+# mais num `co_` seria um tipo que o job não acha, sem erro nenhum.
+
+MIGRACAO_DO_DESAFIO = RAIZ / "migrations" / "versions" / "0035_desafio_quatro.py"
+
+
+def _linhas_md_da_secao_3(subsecao: str) -> list[list[str]]:
+    """As linhas de dados da tabela markdown da subseção `3.1` ou `3.2`.
+
+    Cada célula sai sem espaços e sem as crases (os ids vêm entre crases).
+    """
+    texto = DATA_MODEL.read_text(encoding="utf-8")
+    inicio = texto.index(f"### {subsecao} ")
+    fim = texto.index("\n### ", inicio + 1)
+    linhas = []
+    for linha in texto[inicio:fim].splitlines():
+        # Linha de dados: começa com `|` e a 1ª célula é um número.
+        celulas = [c.strip().strip("`") for c in linha.strip().strip("|").split("|")]
+        if linha.startswith("|") and celulas[0].isdigit():
+            linhas.append(celulas)
+    return linhas
+
+
+def _tuplas_do_insert(tabela: str) -> list[list[str]]:
+    """As tuplas do `INSERT INTO desafio.<tabela>` da 0035, como texto."""
+    fonte = MIGRACAO_DO_DESAFIO.read_text(encoding="utf-8")
+    corpo = re.search(rf"INSERT INTO desafio\.{tabela}.*?VALUES(.*?)\"\"\"", fonte, re.S)
+    assert corpo, f"a 0035 não tem o INSERT de {tabela}"
+    tuplas = []
+    for tupla in re.findall(r"\(\s*(\d+,[^()]*?)\)", corpo.group(1), re.S):
+        tuplas.append([v.strip().strip("'") for v in tupla.split(",")])
+    return tuplas
+
+
+@pytest.mark.parametrize(
+    "subsecao, tabela",
+    [("3.1", "tb901_tipo_desafio"), ("3.2", "tb902_catalogo_feito")],
+)
+def test_a_0035_traz_as_linhas_da_secao_3(subsecao: str, tabela: str) -> None:
+    documento = _linhas_md_da_secao_3(subsecao)
+    migracao = _tuplas_do_insert(tabela)
+    # Controle: os dez tipos e as sete medidas que o dono ratificou.
+    assert len(documento) == {"3.1": 10, "3.2": 7}[subsecao]
+    assert migracao == documento, (
+        f"a 0035 diverge do data-model §{subsecao}:\n  migração: {migracao}\n"
+        f"  documento: {documento}"
+    )

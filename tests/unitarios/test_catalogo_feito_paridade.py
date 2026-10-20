@@ -219,7 +219,8 @@ def test_o_sentinela_9999_esta_nos_dois() -> None:
 
 
 def test_a_numeracao_por_blocos_foi_respeitada() -> None:
-    """Comuns 1-9, Pontinhos 10-19, velha 20-29, damas 30-39, sessao 40-49.
+    """Comuns 1-9, Pontinhos 10-19, velha 20-29, damas 30-39, sessao 40-49,
+    Quatro em Linha 50-59 (T114 da spec 010: a 40 ja era das de sessao).
 
     ⚠️ Nao e organizacao por gosto: um `nu_feito` **nunca muda de significado**
     depois de gravado, entao numeracao corrida obrigaria a intercalar um jogo
@@ -233,6 +234,7 @@ def test_a_numeracao_por_blocos_foi_respeitada() -> None:
         "pontinhos": (10, 19),
         "velha": (20, 29),
         "damas": (30, 39),
+        "quatro": (50, 59),
     }
     fora: list[str] = []
     for numero, linha in _do_manifesto().items():

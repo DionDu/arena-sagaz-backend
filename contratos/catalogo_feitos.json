@@ -157,6 +157,69 @@
       "co_jogo": null
     },
     {
+      "nu_feito": 50,
+      "co_feito": "pecas_encostadas",
+      "no_feito": "Pecas encostadas",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "quatro"
+    },
+    {
+      "nu_feito": 51,
+      "co_feito": "pecas_encostadas_do_adversario",
+      "no_feito": "Pecas encostadas do adversario",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "quatro"
+    },
+    {
+      "nu_feito": 52,
+      "co_feito": "vitoria_diagonal",
+      "no_feito": "Venceu com uma diagonal",
+      "co_unidade": "marco",
+      "co_direcao": "marco_atingido",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "quatro"
+    },
+    {
+      "nu_feito": 53,
+      "co_feito": "linhas_no_lance_final",
+      "no_feito": "Linhas fechadas no lance final",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "quatro"
+    },
+    {
+      "nu_feito": 54,
+      "co_feito": "maior_linha",
+      "no_feito": "Maior linha",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "quatro"
+    },
+    {
+      "nu_feito": 55,
+      "co_feito": "lances_na_coluna_central",
+      "no_feito": "Lances na coluna do meio",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "quatro"
+    },
+    {
+      "nu_feito": 56,
+      "co_feito": "ameacas_bloqueadas",
+      "no_feito": "Ameacas bloqueadas",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "quatro"
+    },
+    {
       "nu_feito": 9999,
       "co_feito": "desconhecido",
       "no_feito": "Desconhecido",
