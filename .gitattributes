@@ -80,3 +80,6 @@ contratos/vetores-verificacao-desafio.json -text
 # a ver com o conteudo.
 contratos/vetores-paridade-motores.json -text
 contratos/vetores-paridade-pontinhos.json -text
+# E os do Quatro em Linha (spec 010, T106), gerados pelo motor Dart do
+# laboratorio e comparados com a copia da spec 010 do app.
+contratos/vetores-paridade-quatro.json -text
