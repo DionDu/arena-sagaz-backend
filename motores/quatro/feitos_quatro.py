@@ -42,6 +42,7 @@ resposta (`None`) enquanto ela não terminou**. Ver o porquê lá.
 
 from __future__ import annotations
 
+import functools
 from typing import Any, Iterable, Sequence
 
 from motores.quatro import contrato_quatro
@@ -86,10 +87,16 @@ def pecas_encostadas(
     return total
 
 
+@functools.lru_cache(maxsize=1 << 16)
 def casas_de_ameaca(
     dimensoes: contrato_quatro.DimensoesQuatro, tabuleiro: TabuleiroQuatro, jogador: int
 ) -> frozenset[Casa]:
     """As casas VAZIAS onde uma peça do [jogador] formaria uma linha.
+
+    ⚠️ Guardada por tabuleiro (`lru_cache`), pela mesma razão de
+    `motor_quatro._linhas_guardadas`: o juiz refaz a partida a cada lance da
+    régua, e a resposta de um tabuleiro imutável não muda (T117). O conjunto é
+    `frozenset`: ninguém altera a resposta guardada.
 
     Todas as casas vazias, e não só as jogáveis agora (`casasDeAmeacaQuatro` no
     Dart): quem pergunta "esta jogada bloqueou?" olha a casa que o lance ocupou,

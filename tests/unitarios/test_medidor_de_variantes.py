@@ -358,6 +358,9 @@ class _CandidatoFalso:
     """O minimo que `_linha_da_regua` toca num candidato."""
 
     def __init__(self, nome: str) -> None:
+        # ⚠️ Desde a T117 (spec 010) a linha da regua passa o jogo a regua, que
+        # decide por ele se mede em paralelo.
+        self.co_jogo = "damas"
         self.co_personagem = "pita"
         self.nu_semente = 1
         self.nome = nome

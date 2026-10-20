@@ -27,6 +27,11 @@ COMO RODAR
     .venv\\Scripts\\python -u scripts\\medir_variantes_do_editorial.py damas
     .venv\\Scripts\\python -u scripts\\medir_variantes_do_editorial.py damas_capturar_multipla
 
+⚠️ **Os tipos do Quatro, ainda FORA DO AR (T117)**, se medem pelo jogo ou pelo
+nome, com os botoes do `EDITORIAL_FORA_DO_AR`, e o selo de "em avaliacao":
+
+    .venv\\Scripts\\python -u scripts\\medir_variantes_do_editorial.py quatro --com-regua
+
 ⚠️ **O alvo pode ser um JOGO, `todos`, ou UM TIPO** (a terceira linha). O tipo
 existe porque a rodada `damas` inteira custa **80 minutos** (medido em
 12/09/2026): investigar um botao de um tipo nao deve pagar a medicao dos outros.
@@ -524,8 +529,34 @@ def receita_em_avaliacao_de(co_tipo: str):
     """
     from job import tipos_propostos
 
-    propostas = {**tipos_propostos.PROPOSTAS_PONTINHOS, **tipos_propostos.PROPOSTAS_DAMAS}
+    propostas = {
+        **tipos_propostos.PROPOSTAS_PONTINHOS,
+        **tipos_propostos.PROPOSTAS_DAMAS,
+        # ⚠️ Os dez do Quatro (T117) tambem sao "em avaliacao": tem receita
+        # escrita, mas ainda nao estao em `RECEITAS` (falta o vetor, a frase e
+        # esta regua). E a regua que decide quais sobem na T124b.
+        **tipos_de_desafio_mod.RECEITAS_FORA_DO_AR,
+    }
     return propostas.get(co_tipo)
+
+
+def candidatas_fora_do_ar(co_tipo: str) -> tuple["Candidata", ...]:
+    """As variantes de um tipo FORA DO AR, com os botoes do editorial dele.
+
+    ⚠️ Le `editorial.EDITORIAL_FORA_DO_AR` na hora, como `candidatas_do_editorial`
+    le o publicado: o palpite de preparo e teto de cada variante e o que se mede,
+    e copia-lo para ca daria duas fontes para o mesmo botao.
+    """
+    return tuple(
+        Candidata(
+            publicacao.parametros,
+            nu_lances_de_preparo=publicacao.nu_lances_de_preparo,
+            nu_maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
+            nu_minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
+            moldes=publicacao.moldes,
+        )
+        for publicacao in editorial_mod.EDITORIAL_FORA_DO_AR.get(co_tipo, ())
+    )
 
 
 def _dias_do_jogo(co_jogo: str, quantos: int) -> list[date]:
@@ -534,7 +565,14 @@ def _dias_do_jogo(co_jogo: str, quantos: int) -> list[date]:
     ⚠️ **Nao adianta medir num dia do outro jogo:** `gerar_candidatos` decide o
     jogo pela data, e pedir damas num dia de Pontinhos geraria Pontinhos com os
     parametros das damas — sem erro, e com um numero que nao quer dizer nada.
+
+    ⚠️ **Jogo FORA do rodizio (o Quatro, ate a T120) mede em dias seguidos.**
+    Ele nunca e o jogo do dia, e o laco abaixo nao terminaria; e nem precisa:
+    tipo em avaliacao vem com a receita, e `gerar_candidatos` tira o jogo dela,
+    e nao da data. O dia so muda a semente - e e isso que da posicoes diferentes.
     """
+    if co_jogo not in gerador_mod.JOGOS_DO_RODIZIO:
+        return [DIA_BASE + timedelta(days=passo) for passo in range(quantos)]
     dias: list[date] = []
     passo = 0
     while len(dias) < quantos:
@@ -637,7 +675,13 @@ def medir(
     # sao os padroes, que e exatamente a pergunta que a medicao responde -
     # *"com a geracao de sempre, este tipo da desafio?"*.
     em_avaliacao = receita_em_avaliacao_de(co_tipo)
-    if em_avaliacao is not None:
+    if em_avaliacao is not None and co_tipo in editorial_mod.EDITORIAL_FORA_DO_AR:
+        # ⚠️ **Tipo fora do ar COM editorial escrito** (o Quatro, T117): os
+        # botoes que valem sao os de la - a variante 0, como no caminho
+        # publicado -, porque e com eles que o tipo vai ao ar se passar.
+        receita = em_avaliacao
+        publicacao = editorial_mod.EDITORIAL_FORA_DO_AR[co_tipo][0]
+    elif em_avaliacao is not None:
         receita = em_avaliacao
         publicacao = editorial_mod.Publicacao(
             parametros={},
@@ -911,6 +955,17 @@ def tipos_do_alvo(alvo: str) -> list[str]:
             )
         ]
 
+    # ⚠️ **Os tipos FORA DO AR com editorial escrito (o Quatro, T117)**: o alvo
+    # e o JOGO (`quatro`) ou o tipo pelo nome. Nao entram no `todos`, pela mesma
+    # razao dos tipos em avaliacao: respondem outra pergunta, e custam.
+    fora_do_ar = tipos_de_desafio_mod.RECEITAS_FORA_DO_AR
+    if alvo in fora_do_ar:
+        return [alvo]
+    if alvo in {receita.co_jogo for receita in fora_do_ar.values()}:
+        return sorted(
+            co_tipo for co_tipo, receita in fora_do_ar.items() if receita.co_jogo == alvo
+        )
+
     tabela = {**A_MEDIR, **EM_AVALIACAO}
     return [
         co_tipo
@@ -997,6 +1052,11 @@ def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
         bancada = gerador_mod.bancada(candidato)
         medicoes = regua_mod.medir_candidato(
             co_personagem_do_dia=candidato.co_personagem,
+            # ⚠️ **O jogo decide o paralelismo, como no job** (T117). Sem ele a
+            # regua rodava em SERIE aqui ate para as damas e o Quatro, e o
+            # resultado era o mesmo, so que oito vezes mais lento: 55 s num
+            # candidato do Quatro que em paralelo leva poucos segundos.
+            co_jogo=candidato.co_jogo,
             tentar=regua_mod.tentativa_com_motor(
                 jogador=bancada.jogador,
                 estado_inicial=bancada.estado_inicial,
@@ -1064,7 +1124,7 @@ def principal(argumentos: Sequence[str]) -> int:
     if not tipos:
         print(f"⛔ nada a medir para {alvo!r}.")
         print(
-            "   Use um JOGO (pontinhos · damas), `todos`, `em-avaliacao`, um "
+            "   Use um JOGO (pontinhos · damas · quatro), `todos`, `em-avaliacao`, um "
             "TIPO, ou o que esta PUBLICADO: `no-ar` · `no-ar-damas` · "
             "`no-ar-pontinhos` · `no-ar:<tipo>`:"
         )
@@ -1089,11 +1149,13 @@ def principal(argumentos: Sequence[str]) -> int:
     for co_tipo in tipos:
         # ⛔ No alvo `no-ar` as candidatas **nao saem da tabela**: saem do
         # editorial, com os botoes de cada publicacao (ver `ALVO_NO_AR`).
-        candidatas = (
-            candidatas_do_editorial(co_tipo)
-            if e_alvo_no_ar(alvo)
-            else tabela[co_tipo]
-        )
+        if e_alvo_no_ar(alvo):
+            candidatas = candidatas_do_editorial(co_tipo)
+        elif co_tipo in tipos_de_desafio_mod.RECEITAS_FORA_DO_AR:
+            # ⚠️ Fora do ar: as variantes saem do `EDITORIAL_FORA_DO_AR` (T117).
+            candidatas = candidatas_fora_do_ar(co_tipo)
+        else:
+            candidatas = tabela[co_tipo]
         if so_botao_proprio:
             candidatas = tuple(so_as_de_botao_proprio(candidatas))
         por_tipo.append((co_tipo, tuple(candidatas)))

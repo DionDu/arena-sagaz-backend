@@ -2028,6 +2028,26 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
 #     geracao prova que nao se vence em 4), que e o piso. *"Em 3"* caberia em 5
 #     meios-lances, abaixo do piso, e nunca geraria candidato.
 #
+# ⚠️ **Os botoes de GERACAO (preparo e teto), escolhidos na T117** - palpite de
+# partida, tambem a medir:
+#
+#   · o PREPARO e o inicio de uma faixa de seis lances (`gerador.
+#     JANELA_DO_PREPARO_QUATRO`), sorteada das partidas Magno × Tex;
+#   · ⛔ **os tipos julgados no FIM da partida** - os tres de "nao perca"
+#     (Segure, Unica coluna, Bloqueie) e os que pedem uma FORMA de vencer
+#     (diagonal, golpe duplo, linha de cinco, encostadas, virada) - nao cabem
+#     no teto padrao de 20 meios-lances: o predicado `quatro_perdeu` so responde
+#     com a partida acabada, a vitoria vem quando vier, e de uma posicao com 10
+#     lances jogados ainda restam ate 32. Com 20, o gabarito muitas vezes nao
+#     chegaria ao fim, e o tipo sairia SEM DESAFIO por um botao, e nao por ele.
+#     O teto deles e `CASAS_DO_TRADICIONAL - preparo`: tudo o que pode faltar.
+#     Ficam de fora o `vencer_em_n` (a prova fixa a distancia em 9 ou 11
+#     meios-lances, e o teto padrao de 20 cobre) e o `sem_o_meio` (o teto e o
+#     da prova, 8 lances).
+
+#: As casas do tabuleiro da modalidade `tradicional` (7 x 6): o maximo de lances
+#: de uma partida, e portanto o que um teto "ate o fim" precisa cobrir.
+CASAS_DO_TRADICIONAL = 42
 # ⚠️ **Os tipos sem numero na frase tem `parametros` vazio**, e e verdade: em
 # *"segure o Magno"* nao ha o que variar alem da posicao. ⛔ O cadeado do
 # `EDITORIAL` que exige parametros (`test_principal_do_job.py`) precisa aprender
@@ -2044,7 +2064,9 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     "quatro_vencer_em_n": (
         Publicacao(
             # ⏳ a medir. Gabarito de 9 meios-lances: o piso da faixa do hub.
+            # Preparo 12: a vitoria forcada em 5 e coisa de meio de jogo.
             parametros={"lances": 5},
+            nu_lances_de_preparo=12,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro_vencer_em_n,
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2052,6 +2074,7 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
         Publicacao(
             # ⏳ a medir. 11 meios-lances; a rede da de cima.
             parametros={"lances": 6},
+            nu_lances_de_preparo=12,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro_vencer_em_n,
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2060,7 +2083,10 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     "quatro_segurar_magno": (
         Publicacao(
             # ⏳ a medir. ⛔ Contra o Magno e so ele: e o nome do tipo.
+            # Preparo 22: o empate so se PROVA com o fim ao alcance da busca.
             parametros={},
+            nu_lances_de_preparo=22,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 22,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2069,8 +2095,10 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_unica_coluna": (
         Publicacao(
-            # ⏳ a medir.
+            # ⏳ a medir. Preparo 14: cada coluna precisa de desfecho provado.
             parametros={},
+            nu_lances_de_preparo=14,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 14,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2078,8 +2106,10 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_vencer_diagonal": (
         Publicacao(
-            # ⏳ a medir.
+            # ⏳ a medir. Preparo 10: a diagonal precisa de tabuleiro livre.
             parametros={},
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("vitoria_diagonal"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2089,6 +2119,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
         Publicacao(
             # ⏳ a medir. Duas linhas com a mesma peca: o nome do tipo.
             parametros={"linhas": 2},
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("linhas_no_lance_final"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2098,6 +2130,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
         Publicacao(
             # ⏳ a medir. Cinco: um a mais que o alinhar da modalidade de hoje.
             parametros={"tamanho": 5},
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("maior_linha"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2107,6 +2141,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
         Publicacao(
             # ⏳ a medir. O alvo e o que ja esta encostado mais tres.
             parametros={CHAVE_A_MAIS_ENCOSTADAS: 3},
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("pecas_encostadas"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2115,8 +2151,10 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     "quatro_sem_o_meio": (
         Publicacao(
             # ⏳ a medir. So em modalidade de largura impar (quem recusa a par e
-            # a geracao, T116).
+            # a geracao, T116). O teto e o da prova: 8 lances (15 meios).
             parametros={},
+            nu_lances_de_preparo=12,
+            nu_maximo_de_meios_lances=15,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("lances_na_coluna_central"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2126,6 +2164,9 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
         Publicacao(
             # ⏳ a medir. Tres ameacas: o numero do enunciado aprovado (§8zzz).
             parametros={"ameacas": 3},
+            # Preparo 8: as ameacas a bloquear estao no resto da partida.
+            nu_lances_de_preparo=8,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 8,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("ameacas_bloqueadas"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2133,8 +2174,11 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_virada": (
         Publicacao(
-            # ⏳ a medir.
+            # ⏳ a medir. A prova nao limita a distancia da vitoria: o teto e
+            # o que resta do tabuleiro.
             parametros={},
+            nu_lances_de_preparo=12,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 12,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,

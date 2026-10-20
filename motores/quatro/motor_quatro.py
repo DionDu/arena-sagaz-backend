@@ -41,6 +41,7 @@ o azul) faz o 1º lance da sequência.
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
@@ -138,6 +139,31 @@ def linhas_alinhadas(
     cima (a ordem dos bits do bitboard de coluna-maior).
 
     Cinco ou mais em linha na mesma direção são UMA linha, com todas as casas.
+
+    ⚠️ **A resposta é guardada por tabuleiro** (`_linhas_guardadas`), e a lista
+    devolvida é uma cópia: quem a altera não altera a guardada.
+    """
+    return list(_linhas_guardadas(dimensoes, tabuleiro, jogador))
+
+
+#: Quantos tabuleiros `linhas_alinhadas` guarda. ⚠️ Cada entrada é um tabuleiro
+#: de 42 casas e uma tupla quase sempre vazia: ~100 mil cabem em poucas dezenas
+#: de MB, e a régua de um candidato não passa de algumas dezenas de milhares.
+TABULEIROS_GUARDADOS = 1 << 17
+
+
+@functools.lru_cache(maxsize=TABULEIROS_GUARDADOS)
+def _linhas_guardadas(
+    dimensoes: contrato_quatro.DimensoesQuatro, tabuleiro: TabuleiroQuatro, jogador: int
+) -> tuple[tuple[Casa, ...], ...]:
+    """O corpo de `linhas_alinhadas`, guardado por (dimensões, tabuleiro, jogador).
+
+    ⛔ **Existe por causa da régua (T117), e o número é medido.** O juiz do
+    desafio reproduz a partida desde a posição publicada para cada prefixo da
+    fita, e a régua julga a cada lance: o mesmo tabuleiro chega aqui centenas de
+    vezes. Sem a memória, três tentativas de um candidato levaram 35 s, 32 deles
+    nesta varredura (20/10/2026). `TabuleiroQuatro` e `DimensoesQuatro` são
+    valores imutáveis, então a mesma pergunta tem sempre a mesma resposta.
     """
     largura, altura, n = dimensoes.largura, dimensoes.altura, dimensoes.alinhar
     # Cada direção como (passo na coluna, passo na linha).
@@ -165,7 +191,7 @@ def linhas_alinhadas(
                     c, l = c + dc, l + dl
                 if len(casas) >= n:
                     linhas.append(tuple(casas))
-    return linhas
+    return tuple(linhas)
 
 
 class RegrasDeGravidadeQuatro:

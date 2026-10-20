@@ -53,13 +53,19 @@ from motores.pontinhos import cadeia_longa
 from motores.pontinhos import guloso as guloso_mod
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos
 from motores.pontinhos.politica import JogadorPontinhos
+from motores.quatro import contrato_quatro, feitos_quatro
+from motores.quatro.jogador_quatro import JogadorQuatro
+from motores.quatro.motor_quatro import EstadoQuatro
 
 from . import editorial as editorial_mod
 from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
+from . import posicoes_de_autoplay_quatro as autoplay_quatro_mod
 from . import posicao_inicial as posicao_mod
+from . import provas_quatro as provas_quatro_mod
 from . import semente as semente_mod
 from . import vizinhanca as vizinhanca_mod
+from .regua import vez_de
 from .espelho_de_damas import com_as_brancas_a_jogar, com_o_adversario_a_jogar
 from .moldes_de_damas import material_de_quem_joga, objetivo_no_primeiro_lance
 from .perfil import NIVEL_POR_PERSONAGEM
@@ -108,6 +114,15 @@ PERSONAGENS = ("cacau", "pita", "tex", "magno")
 MODALIDADES_POR_JOGO: dict[str, tuple[str, ...]] = {
     "pontinhos": (),
     "damas": ("brasileira", "anglo", "portuguesa", "casa"),
+    # ⚠️ As modalidades que o contrato declara E que tem acervo de autoplay
+    # (T117): lidas, e nao escritas aqui, porque modalidade e DADO (RF-QTR-020,
+    # cadeado em `test_sonda_quatro.py`). Modalidade nova do Quatro entra no
+    # rodizio no dia em que o arquivo de partidas dela chegar ao repositorio.
+    "quatro": tuple(
+        co_modalidade
+        for co_modalidade in contrato_quatro.modalidades_declaradas()
+        if autoplay_quatro_mod.caminho_do_acervo(co_modalidade).is_file()
+    ),
 }
 
 #: O ORCAMENTO de busca por lance, na geracao.
@@ -564,7 +579,16 @@ RECUSA_POR_JOGO = {"pontinhos": abertura_forcada.dependeu_de_erro}
 #: ⚠️ **Jogo ausente usa [TENTATIVAS_PADRAO]**, como em `RECUSA_POR_JOGO`: a
 #: ausencia da chave e a declaracao de que aquele jogo ainda nao foi calibrado,
 #: em vez de um `else` silencioso.
-TENTATIVAS_POR_JOGO = {"pontinhos": 20, "damas": 6}
+TENTATIVAS_POR_JOGO = {
+    "pontinhos": 20,
+    "damas": 6,
+    # ⚠️ Vinte, como o Pontinhos, pelo mesmo motivo: cada tentativa e barata.
+    # A prova (T116) custa ate ~1,5 s na Unica coluna e menos de 0,2 s na maioria
+    # dos tipos, e o lance do Magno no executavel sai em ~0,05 s. ⛔ E a prova
+    # RECUSA muito: um tipo como o Segure precisa de um empate PROVADO, que a
+    # maior parte das posicoes do autoplay (o Magno vence 80% delas) nao tem.
+    "quatro": 20,
+}
 
 #: Quantas tentativas para um jogo que nao esta em [TENTATIVAS_POR_JOGO].
 TENTATIVAS_PADRAO = 6
@@ -688,8 +712,9 @@ def _resolver(
     atual = estado
 
     # ⚠️ Quem resolve o desafio e quem joga **primeiro** — a mesma definicao que
-    # `julgar(..., jogador=js_posicao["vez_de"])` usa.
-    vez_do_solucionador = estado.vez_de
+    # `julgar(..., jogador=js_posicao["vez_de"])` usa. ⚠️ Lida por `vez_de`, que
+    # pergunta ao arbitro quando o estado nao a carrega (o Quatro, T117).
+    vez_do_solucionador = vez_de(jogador, estado)
 
     for numero in range(1, maximo_de_meios_lances + 1):
         # ⚠️ Um orcamento NOVO a cada lance. `para_o_proximo_lance()` existe para
@@ -699,9 +724,8 @@ def _resolver(
             nos_maximos=NOS_POR_LANCE_NA_GERACAO,
             segundos_maximos=SEGUNDOS_POR_LANCE_NA_GERACAO,
         ).iniciar()
-        nivel_do_lance = (
-            nivel if atual.vez_de == vez_do_solucionador else nivel_do_adversario
-        )
+        vez = vez_de(jogador, atual)
+        nivel_do_lance = nivel if vez == vez_do_solucionador else nivel_do_adversario
         co_acao: str | None = None
 
         # ── ⚠️ UM SOLUCIONADOR PROPRIO, quando o tipo pede ──────────────────
@@ -713,7 +737,7 @@ def _resolver(
         #
         # ⚠️ **E ele nao tem `co_acao`**: `cnn_epsilon_aleatorio` marca o erro de
         # proposito de um mascote, e quem resolve nao erra de proposito.
-        if solucionador is not None and atual.vez_de == vez_do_solucionador:
+        if solucionador is not None and vez == vez_do_solucionador:
             try:
                 lance = solucionador(getattr(jogador, "arbitro", jogador), atual)
             except ValueError:
@@ -729,7 +753,9 @@ def _resolver(
                 if hasattr(jogador, "decidir"):
                     # ⚠️ **`decidir` nao recebe orcamento, e nao e esquecimento:**
                     # no Pontinhos a escolha e uma inferencia da CNN, que nao tem no
-                    # para contar. O orcamento acima serve a busca das damas.
+                    # para contar; no Quatro o teto de nos e o do CONTRATO do
+                    # personagem (`JogadorQuatro`), o mesmo do aparelho. O
+                    # orcamento acima serve a busca das damas.
                     decisao = jogador.decidir(
                         atual,
                         nivel_do_lance,
@@ -749,7 +775,7 @@ def _resolver(
 
         passo: dict[str, Any] = {
             "n": numero,
-            "jogador": atual.vez_de,
+            "jogador": vez,
             "lance": lance,
         }
         if co_acao:
@@ -987,6 +1013,11 @@ def gerar_candidatos(
 
     encontrados: list[Candidato] = []
 
+    # Quem prova os tipos do Quatro (T116), aberto na primeira posicao do Quatro
+    # e reaproveitado nas outras tentativas: ele guarda as buscas por tabuleiro,
+    # e posicoes de partidas com a mesma abertura repetem perguntas.
+    provador: "provas_quatro_mod.ProvadorQuatro | None" = None
+
     for tentativa in range(tentativas_por_candidato * quantos):
         if len(encontrados) >= quantos:
             break
@@ -998,12 +1029,36 @@ def gerar_candidatos(
         )
         sorteio = random.Random(nu_semente)
 
+        # A continuacao do autoplay so existe no Quatro (a prova do bloquear a
+        # le); nos outros jogos fica vazia.
+        continuacao: tuple[str, ...] = ()
         if co_jogo == "pontinhos":
             base = _preparar_pontinhos(sorteio, lances_de_preparo)
             js_posicao = posicao_mod.do_pontinhos(list(base.lances))
             jogador = JogadorPontinhos()
             co_modalidade = None
             co_variante = "pequeno"
+        elif co_jogo == "quatro":
+            # ── O QUATRO EM LINHA (T117): posicao do autoplay Magno × Tex ────
+            co_modalidade = escolher_modalidade(
+                co_jogo, dt_dia, evitar=vizinhos.modalidades
+            )
+            base, continuacao = _preparar_quatro(sorteio, lances_de_preparo, co_modalidade)
+            jogador = JogadorQuatro(co_modalidade)
+            # ⚠️ A mesma recusa do lance 1 das damas: quem resolve vence no
+            # primeiro lance, e o desafio acabaria num toque - seja qual for o
+            # tipo, porque todos pedem a vitoria ou o fim da partida.
+            de_cara = vitoria_imediata_quatro(jogador.arbitro, base)
+            if de_cara is not None:
+                print(
+                    f"⚠️ [job] {dt_dia}: posicao descartada — o objetivo cai no "
+                    f"lance 1 ({co_modalidade}: {de_cara}). Lances {base.sequencia}"
+                )
+                continue
+            js_posicao = posicao_mod.do_quatro(list(base.lances), co_modalidade=co_modalidade)
+            # ⚠️ `co_variante` do Quatro E a modalidade: e o que o app grava no
+            # log da partida (`coVariante: estado.modalidade.id`), como nas damas.
+            co_variante = co_modalidade
         else:
             co_modalidade = (
                 escolher_modalidade(co_jogo, dt_dia, evitar=vizinhos.modalidades)
@@ -1114,6 +1169,37 @@ def gerar_candidatos(
                 # como **motivo**, e nao como silencio.
                 print(
                     f"⚠️ [job] {dt_dia}: posicao descartada — {erro}. FEN {base.fen}"
+                )
+                continue
+        elif co_jogo == "quatro":
+            # ⚠️ **No Quatro os parametros sempre passam pela posicao**: as
+            # encostadas de quem resolve (`E`) viram o piso da faixa das medidas
+            # de saida em todo tipo, e o alvo absoluto no `quatro_encostadas`
+            # (`pecas = E + a_mais`). A conta e a do medidor do desafio.
+            tabuleiro = jogador.arbitro.tabuleiro(base)
+            encostadas = feitos_quatro.pecas_encostadas(
+                jogador.arbitro.regras.dimensoes, tabuleiro, tabuleiro.vez
+            )
+            parametros_daqui = editorial_mod.parametros_efetivos(
+                parametros, encostadas=encostadas
+            )
+            # ── ⛔ A PROVA DO TIPO, ANTES DO GABARITO (T116) ─────────────────
+            #
+            # E a recusa mais barata e a mais dura: a busca diz se a posicao
+            # serve ao tipo (a vitoria em N e nao em N-1, o empate do Segure, a
+            # coluna unica...). Gerar o gabarito de uma posicao que nao serve
+            # gastaria a partida inteira do Magno para descarta-la depois.
+            if provador is None:
+                provador = provas_quatro_mod.ProvadorQuatro(
+                    co_modalidade, jogador.motor_dart
+                )
+            prova = provas_quatro_mod.provar(
+                co_tipo, provador, base, parametros_daqui, continuacao=continuacao
+            )
+            if not prova.passou:
+                print(
+                    f"⚠️ [job] {dt_dia}: posicao descartada — {co_tipo}: "
+                    f"{prova.motivo}. Lances {base.sequencia}"
                 )
                 continue
         else:
@@ -1234,6 +1320,47 @@ def gerar_candidatos(
         )
 
     return encontrados
+
+
+#: Quantos lances A MAIS que o preparo a posicao do Quatro pode ter (T117).
+#:
+#: ⚠️ **No Quatro o preparo e o INICIO de uma faixa**, e nao um numero exato:
+#: com um comprimento fixo a vez seria sempre do mesmo jogador (a paridade decide
+#: quem joga), e os prefixos de partidas com a mesma abertura seriam a mesma
+#: posicao. Seis lances dao as duas cores e ~seis vezes mais posicoes distintas.
+JANELA_DO_PREPARO_QUATRO = 6
+
+
+def _preparar_quatro(
+    sorteio: random.Random, lances_de_preparo: int, co_modalidade: str
+) -> tuple[EstadoQuatro, tuple[str, ...]]:
+    """A posicao de partida do Quatro e a continuacao do autoplay a partir dela.
+
+    Sorteada do acervo de partidas Magno × Tex (`posicoes_de_autoplay_quatro`),
+    com entre `lances_de_preparo` e `lances_de_preparo + JANELA_DO_PREPARO_QUATRO`
+    lances jogados. A continuacao e o que a prova do `quatro_bloquear` le.
+    """
+    posicao = autoplay_quatro_mod.sortear(
+        sorteio,
+        co_modalidade=co_modalidade,
+        minimo=lances_de_preparo,
+        maximo=lances_de_preparo + JANELA_DO_PREPARO_QUATRO,
+    )
+    return EstadoQuatro(co_modalidade, posicao.lances), posicao.continuacao
+
+
+def vitoria_imediata_quatro(arbitro, estado: EstadoQuatro) -> str | None:
+    """O lance com que quem tem a vez vence JA, ou `None` se nao houver.
+
+    ⚠️ Pelo arbitro, lance a lance, e nao pela busca: e a pergunta mais barata
+    que existe, e ela e feita antes da prova do tipo.
+    """
+    quem = arbitro.vez_de(estado)
+    for lance in arbitro.lances_legais(estado):
+        veredito = arbitro.veredito(arbitro.aplicar(estado, lance))
+        if veredito.acabou and veredito.vencedor == quem:
+            return lance
+    return None
 
 
 def _preparar_damas(
@@ -1414,6 +1541,13 @@ def bancada(candidato: Candidato) -> Bancada:
     if candidato.co_jogo == "pontinhos":
         jogador: Any = JogadorPontinhos()
         arbitro: Any = MotorPontinhos()
+    elif candidato.co_jogo == "quatro":
+        # ⚠️ No Quatro quem joga (o executavel) e quem arbitra (o `MotorQuatro`)
+        # sao dois objetos, como no Pontinhos; o jogador entrega o arbitro DA
+        # MESMA modalidade (T117). E o jogador e o mesmo para as threads da
+        # regua: cada uma fala com o seu processo (`JogadorQuatro.motor_dart`).
+        jogador = JogadorQuatro(candidato.co_modalidade)
+        arbitro = jogador.arbitro
     else:
         # Nas damas o mesmo objeto joga e arbitra — e isso e do motor, nao uma
         # escolha daqui.
@@ -1466,6 +1600,10 @@ def versao_do_motor_de(co_jogo: str) -> str:
         return versao_do_pontinhos()
     if co_jogo == "damas":
         return versao_das_damas()
+    if co_jogo == "quatro":
+        # O resumo dos fontes do motor no espelho (`quatro-dart-<sha>`), o
+        # mesmo que o executavel carimba e confere na abertura.
+        return contrato_quatro.versao_do_motor()
     raise SemCandidato(
         f"o jogo {co_jogo!r} nao esta no rodizio e nao tem versao de motor a "
         f"carimbar. Os do rodizio sao {JOGOS_DO_RODIZIO}."

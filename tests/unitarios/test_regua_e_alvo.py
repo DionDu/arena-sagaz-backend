@@ -667,7 +667,9 @@ def test_um_jogo_DESCONHECIDO_mede_em_serie() -> None:
     """
     assert trabalhadores_para("xadrez") == 1
     assert trabalhadores_para("") == 1
-    assert set(PARALELISMO_POR_JOGO) == {"damas", "pontinhos"}, (
+    # O Quatro entrou na T117 (spec 010): o motor dele e um processo por thread,
+    # e o `JogadorQuatro` deixou de guardar o da 1ª thread (`test_regua_do_quatro.py`).
+    assert set(PARALELISMO_POR_JOGO) == {"damas", "pontinhos", "quatro"}, (
         "um jogo entrou ou saiu de PARALELISMO_POR_JOGO. Se e jogo novo, o motor "
         "dele foi conferido quanto a threads?"
     )

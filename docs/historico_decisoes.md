@@ -8375,3 +8375,62 @@ do teto de 8: o laço nem rodava. Pego por mutação; a vitória longa demais
 ganhou motivo próprio. Testes: `tests/unitarios/test_provas_quatro.py` (cada
 tipo com uma posição que passa e uma que falha pelo motivo dele; 16 de 16
 mutações pegas).
+
+## 2026-10-20 (4) — O autoplay do Quatro, o ramo dele no gerador e a régua em paralelo (T117 da spec 010)
+
+**Contexto.** A T117 pede as posições do Quatro vindas do autoplay Magno × Tex
+(RF-QTR-162) e a régua "a Pita resolve, a Cacau não", e a T124b promove só os
+tipos que passarem nela. Para a régua medir um tipo, alguém tem de GERAR o
+candidato dele - e o gerador só conhecia o Pontinhos e as damas. O ramo do
+Quatro em `gerar_candidatos` não estava em tarefa nenhuma; entrou aqui, porque
+sem ele a pergunta da T117 não tem resposta.
+
+**Decisão.**
+1. **O acervo são PARTIDAS inteiras, e não posições** (`dados/jogo_quatro/
+   partidas_de_autoplay_tradicional.json`, 41 KB, viaja no repositório). A
+   posição é um prefixo; o resto da partida é a continuação que a prova do
+   `quatro_bloquear` lê. 400 partidas jogadas pelo executável (396 distintas;
+   o Magno venceu 318, o Tex 56, empates 22), o Magno trocando de cor a cada
+   partida, semente fixa por índice: o arquivo é reproduzível byte a byte.
+   Script: `scripts/extrair_posicoes_de_autoplay_quatro.py` (~90 s, 8 threads).
+2. **No Quatro o preparo é o INÍCIO de uma faixa de seis lances**
+   (`gerador.JANELA_DO_PREPARO_QUATRO`): com comprimento fixo a vez seria
+   sempre do mesmo jogador, e as aberturas repetidas dariam a mesma posição.
+3. **A ordem no laço do gerador**: vitória no 1º lance → recusa; os parâmetros
+   passam pela posição (as encostadas `E`); **a prova do tipo (T116) vem antes
+   do gabarito**; o gabarito é o de sempre (o Sagaz/Magno contra o adversário
+   do dia). Sem recusa por erro do adversário no Quatro (`RECUSA_POR_JOGO` não
+   o tem): os descuidos da política ficam marcados no gabarito (`co_acao`:
+   `bloqueio_perdido`, `epsilon_aleatorio`...), para a curadoria ver.
+4. **Os botões de geração dos dez tipos** no `EDITORIAL_FORA_DO_AR`: os tipos
+   julgados no FIM da partida (os três de "não perca" e os que pedem uma forma
+   de vencer) têm teto `42 - preparo`; com o teto padrão de 20 o gabarito muitas
+   vezes não chegaria ao fim. Palpite de partida, a medir.
+5. **A régua do Quatro roda em paralelo** (`PARALELISMO_POR_JOGO["quatro"] =
+   "maquina"`), e a vez passa a ser lida por `regua.vez_de(jogador, estado)`,
+   que pergunta ao árbitro quando o estado não a carrega.
+
+**Dois defeitos achados no caminho.**
+- ⛔ **O `JogadorQuatro` guardava no objeto o processo da 1ª thread** que
+  perguntou. Com a régua em paralelo, as oito threads escreveriam no mesmo
+  `stdin` e leriam respostas trocadas, sem erro. Agora o processo é pedido à
+  thread a cada lance; cadeado em `test_regua_do_quatro.py`.
+- ⛔ **O juiz do Quatro custava 11 s por tentativa da régua.** Ele reproduz a
+  partida para cada prefixo da fita, e a régua julga a cada lance; 32 dos 35 s
+  de três tentativas eram `linhas_alinhadas` varrendo o mesmo tabuleiro. A
+  resposta passou a ser guardada por tabuleiro (`lru_cache`; o tabuleiro e as
+  dimensões são valores imutáveis), e o mesmo em `casas_de_ameaca`: 35 s → 2,9 s,
+  com as mesmas taxas. E o `medir_variantes_do_editorial.py` não passava o
+  `co_jogo` à régua: media TUDO em série, inclusive as damas (mesmo resultado,
+  mais lento).
+
+**Alternativas consideradas.** Guardar só as posições (perde a continuação do
+bloquear); preparo exato (uma cor só); tornar o juiz incremental (mais
+invasivo: a memória por tabuleiro resolve sem mudar o desenho); medir a régua
+por um script novo (seria a segunda forma de gerar candidato - o medidor de
+variantes passou a medir o Quatro pelo `EDITORIAL_FORA_DO_AR`).
+
+**O que falta.** A rodada da régua nos dez tipos é comando do dono
+(`medir_variantes_do_editorial.py quatro --com-regua`, dezenas de minutos); a
+T124b promove o que cair na escada. Testes: `test_posicoes_de_autoplay_quatro.py`,
+`test_regua_do_quatro.py`, `test_gerador_do_quatro.py`.

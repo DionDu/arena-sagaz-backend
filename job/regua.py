@@ -108,6 +108,11 @@ PARALELISMO_POR_JOGO: Mapping[str, str] = {
     # ⛔ O interpretador do LiteRT nao e seguro para threads — e as 60 execucoes
     # do Pontinhos levam 7,7 s, entao nao ha o que ganhar.
     "pontinhos": "serie",
+    # ⚠️ O Quatro e como as damas (T117): quem joga e o executavel Dart, um
+    # processo por thread (`jogador_compartilhado`), e a thread espera parada no
+    # `readline()`. ⛔ So e seguro porque o `JogadorQuatro` NAO guarda o processo
+    # da primeira thread que perguntou - cadeado em `test_regua_do_quatro.py`.
+    "quatro": "maquina",
 }
 
 #: A variavel que desliga (ou fixa) o paralelismo.
@@ -318,6 +323,26 @@ def medir_candidato(
     return medicoes
 
 
+def vez_de(jogador, estado) -> int:
+    """De quem e a vez em [estado]: `+1` ou `-1`.
+
+    ⚠️ **Nas damas e no Pontinhos a vez mora no ESTADO** (`estado.vez_de`); no
+    Quatro em Linha ela e pergunta ao ARBITRO (`MotorQuatro.vez_de(estado)`),
+    porque o estado do Quatro e so a lista de lances e quem sabe reproduzi-la e
+    o arbitro da modalidade. Esta funcao responde pelos dois, e e a unica
+    leitura da vez na regua e no gerador (T117).
+
+    ⛔ **Pelo arbitro primeiro, e so depois pelo estado.** O caminho contrario
+    faria um estado que um dia ganhasse um atributo `vez_de` com outra regra
+    vencer o arbitro, que e quem conhece a modalidade.
+    """
+    arbitro = getattr(jogador, "arbitro", None)
+    pergunta = getattr(arbitro, "vez_de", None)
+    if callable(pergunta):
+        return pergunta(estado)
+    return estado.vez_de
+
+
 def tentativa_com_motor(
     *,
     jogador,
@@ -352,7 +377,9 @@ def tentativa_com_motor(
     """
     nivel_do_adversario = NIVEL_POR_PERSONAGEM[co_personagem_do_dia]
     # ⚠️ Quem resolve e quem joga primeiro — a mesma definicao do julgamento.
-    vez_do_solucionador = estado_inicial.vez_de
+    # A vez sai de `vez_de`, que pergunta ao arbitro quando o estado nao a tem
+    # (o Quatro, T117).
+    vez_do_solucionador = vez_de(jogador, estado_inicial)
 
     def tentar(co_personagem: str, execucao: int) -> bool:
         nivel = NIVEL_POR_PERSONAGEM[co_personagem]
@@ -360,6 +387,9 @@ def tentativa_com_motor(
         fita: list[dict[str, Any]] = []
 
         for numero in range(1, maximo_de_meios_lances + 1):
+            # Lida uma vez por lance: no Quatro cada leitura reconstroi o
+            # tabuleiro (guardado no estado depois da primeira).
+            vez = vez_de(jogador, atual)
             orcamento = Orcamento(
                 nos_maximos=NOS_POR_LANCE_NA_MEDICAO,
                 segundos_maximos=SEGUNDOS_POR_LANCE_NA_MEDICAO,
@@ -370,7 +400,7 @@ def tentativa_com_motor(
                 nu_semente, execucao * 1000 + numero
             )
             try:
-                if solucionador is not None and atual.vez_de == vez_do_solucionador:
+                if solucionador is not None and vez == vez_do_solucionador:
                     # ⚠️ **So a vez de quem resolve** — a mesma fronteira do
                     # `_resolver` da geracao. O adversario do dia continua sendo
                     # o personagem publicado, no nivel dele.
@@ -381,7 +411,7 @@ def tentativa_com_motor(
                     lance = jogador.escolher_lance(
                         atual,
                         nivel
-                        if atual.vez_de == vez_do_solucionador
+                        if vez == vez_do_solucionador
                         else nivel_do_adversario,
                         limite=orcamento,
                         semente=semente,
@@ -390,7 +420,7 @@ def tentativa_com_motor(
                 # A partida acabou antes do objetivo: nao resolveu.
                 return False
 
-            fita.append({"n": numero, "jogador": atual.vez_de, "lance": lance})
+            fita.append({"n": numero, "jogador": vez, "lance": lance})
             atual = (
                 jogador.aplicar(atual, lance)
                 if hasattr(jogador, "aplicar")
