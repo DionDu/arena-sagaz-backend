@@ -1,0 +1,65 @@
+# O motor do Quatro em Linha em Dart, como pacote (spec 010, T004, 13/10/2026).
+#
+# ── Por que ele nasce AQUI, e não dentro do aplicativo ───────────────────────
+#
+# O Quatro em Linha é o 4º jogo do hub, e o primeiro que já nasce com o motor no
+# laboratório. As damas e o Pontinhos ensinaram, cada um com um episódio de
+# divergência, que a mesma regra escrita duas vezes (no app e no servidor) acaba
+# discordando em silêncio. Então o motor nasce uma vez só, neste pacote, e:
+#
+#   app         recebe uma CÓPIA byte-idêntica de `lib/`
+#               (`lib/modulos/jogos/quatro/motor/`, SHA-256 conferido por teste);
+#   servidor    joga com este mesmo pacote compilado (fase 4);
+#   bancada     o Galaxy A06 mede este mesmo código, importado por caminho.
+#
+# ⚠️ **Escrito do zero, sem código AGPL.** As ideias (bitboard de coluna-maior,
+# negamax com alfa-beta, tabela de transposição) são as da literatura pública
+# (Allis, 1988; Tromp; Pons); nenhuma linha foi copiada de implementação
+# alheia. O `LEIA-ME.md` conta o porquê.
+name: motor_quatro
+description: >-
+  O motor do Quatro em Linha (regras por modalidade, bitboard, busca e
+  contagem de posições) em Dart puro - o código que roda no aparelho, na
+  bancada e no servidor.
+publish_to: none
+version: 0.1.0
+
+environment:
+  # Sem limite superior, pelo mesmo motivo dos motores irmãos: este pacote não
+  # usa nada de ponta, e travar a versão só criaria atrito com o Flutter do
+  # aplicativo que embarca a cópia.
+  sdk: ^3.0.0
+
+# Nenhuma dependência, e é para continuar assim. Os arquivos de `lib/` entram
+# dentro do aplicativo da Arena Sagaz; cada dependência nova aqui vira uma
+# dependência nova lá.
+dependencies:
+
+dev_dependencies:
+  lints: ^5.0.0
+  # Os testes do pacote (`dart test`).
+  test: ^1.25.0
+  # Só para os scripts de `bin/` que carimbam ou conferem o SHA-256 dos arquivos
+  # de `lib/` (o compilador do servidor de lances, na fase 4).
+  #
+  # ⚠️ Não fere a regra de "nenhuma dependência" acima, e a diferença é
+  # estrutural: o que entra no aplicativo são os arquivos de `lib/`, copiados um
+  # a um. `bin/` e `test/` não são copiados, e `dev_dependencies` não viaja para
+  # quem consome o pacote.
+  crypto: ^3.0.0
+
+# A referência do PC, empacotada para a bancada do aparelho (T021).
+#
+# ⚠️ A bancada é um app Flutter que depende deste pacote por caminho, e um app
+# Flutter só embarca arquivo que esteja dentro da pasta dele OU que um pacote
+# do qual ele depende declare aqui. Declarar `../motor_dart/dados/...` no
+# pubspec da bancada passava no `flutter test` e no build, mas o arquivo ficava
+# FORA do APK, e a tela parava em "Conferindo o motor..." (13/10/2026). Daqui,
+# o app o lê como `packages/motor_quatro/dados/referencia_pc_quatro.json`.
+#
+# O `dart pub` e o `dart test` ignoram esta seção (ela é só do Flutter), e o
+# app da Arena não a vê: ele copia os arquivos de `lib/`, e não depende deste
+# pacote.
+flutter:
+  assets:
+    - dados/referencia_pc_quatro.json

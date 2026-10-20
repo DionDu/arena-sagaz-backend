@@ -1,0 +1,18 @@
+{
+  "versao": "1.1.0",
+  "por_modalidade": {
+    "tradicional": {
+      "largura": 7, "altura": 6, "alinhar": 4,
+      "tipos_de_lance": { "s": "soltar" },
+      "niveis_disponiveis": ["cacau", "pita", "tex", "magno"],
+      "niveis": {
+        "cacau": { "teto_de_nos": 33, "epsilon": 0.40, "percebe": { "vencer": 0.97, "bloquear": 0.25, "nao_jogar_sob_ameaca": 0.10 }, "relogio_s": null },
+        "pita":  { "teto_de_nos": 310, "epsilon": 0.20, "percebe": { "vencer": 0.995, "bloquear": 0.75, "nao_jogar_sob_ameaca": 0.20 }, "relogio_s": 30 },
+        "tex":   { "teto_de_nos": 8170, "epsilon": 0.14, "percebe": { "vencer": 1, "bloquear": 0.90, "nao_jogar_sob_ameaca": 0.85 }, "relogio_s": 25 },
+        "magno": { "teto_de_nos": 216496, "epsilon": 0.015, "percebe": { "vencer": 1, "bloquear": 0.97, "nao_jogar_sob_ameaca": 0.95 }, "relogio_s": 20 }
+      },
+      "abertura_do_magno": { "1": 0.005, "2": 0.01, "3": 0.06, "4": 0.85, "5": 0.06, "6": 0.01, "7": 0.005 },
+      "guia": ["quatroGuiaSoltar", "quatroGuiaAlinhar", "quatroGuiaEmpate"]
+    }
+  }
+}

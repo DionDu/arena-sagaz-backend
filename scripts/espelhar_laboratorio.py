@@ -214,6 +214,38 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     "jogos/jogo_pontinhos/motor_dart/pubspec.yaml",
     "jogos/jogo_pontinhos/motor_dart/bin/servidor_de_lances_pontinhos.dart",
     "jogos/jogo_pontinhos/motor_dart/bin/compilar_servidor_de_lances_pontinhos.dart",
+    # ── O MOTOR DART DO QUATRO EM LINHA (spec 010, T103, 20/10/2026) ───────
+    #
+    # ⚠️ **O primeiro jogo que já nasce sem segunda escrita.** O Quatro em Linha
+    # não tem motor Python: o árbitro do servidor (`motores/quatro/`) só sabe as
+    # regras, e quem escolhe lance é este pacote compilado - os onze arquivos de
+    # `lib/` que o aplicativo embarca byte a byte
+    # (`paridade_motor_quatro_test.dart`) e que o executável carimba.
+    #
+    # O `pubspec` e os dois de `bin/` são o que a imagem do job precisa para
+    # compilar o binário Linux ela mesma. ⚠️ O carimbo gerado
+    # (`_resumo_do_motor_quatro.g.dart`) NAO viaja: o compilador o reescreve no
+    # build, a partir destes mesmos `lib/`, e um carimbo copiado daqui poderia
+    # descrever outro conjunto.
+    #
+    # ⚠️ **E o contrato do jogo viaja junto**, do laboratório (que é a fonte; o
+    # do app é cópia): as dimensões da modalidade e os números de cada nível
+    # moram nele, e o executável o recebe por `--contrato`.
+    "jogos/jogo_quatro/motor_dart/lib/ameacas_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/busca_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/catalogo_modalidades_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/contagem_posicoes_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/heuristica_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/medidas_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/modalidade_gravidade_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/politica_dificuldade_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/posicao_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/regiao_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/lib/regras_da_modalidade_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/pubspec.yaml",
+    "jogos/jogo_quatro/motor_dart/bin/servidor_de_lances_quatro.dart",
+    "jogos/jogo_quatro/motor_dart/bin/compilar_servidor_de_lances_quatro.dart",
+    "jogos/jogo_quatro/contrato/contrato_quatro.json",
 )
 
 

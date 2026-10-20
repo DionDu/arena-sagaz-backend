@@ -31,6 +31,7 @@ onde os três repositórios convivem.
 import ast
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -163,6 +164,78 @@ def test_o_motor_espelhado_importa_de_verdade():
     assert list(REGULAMENTOS) == ["brasileira", "anglo", "portuguesa", "casa"]
     assert list(NIVEIS) == ["cacau", "pita", "tex", "sagaz"]
     assert Tabuleiro.inicial() is not None
+
+
+#: Os motores Dart que o espelho TEM de trazer, um por jogo que o job joga com o
+#: código do aparelho. ⚠️ Lista escrita à mão de propósito: é ela que faz um
+#: motor inteiro que sumisse do espelho reprovar aqui, em vez de o teste abaixo
+#: passar por não achar nada para conferir.
+MOTORES_DART_ESPERADOS = ("jogo_damas", "jogo_pontinhos", "jogo_quatro")
+
+# Um `import` ou `export` de Dart: `import 'package:x/y.dart';`, `import 'y.dart'`.
+# O grupo 1 é o texto entre aspas (simples ou duplas).
+_IMPORT_DART = re.compile(r"""^\s*(?:import|export)\s+['"]([^'"]+)['"]""", re.M)
+
+
+def test_cada_motor_dart_espelhado_tem_os_imports_dentro_do_espelho():
+    """A prova, do lado Dart, de que a LISTA de arquivos espelhados está completa.
+
+    É o irmão de `test_o_motor_espelhado_importa_de_verdade`: lá o Python importa
+    o motor de damas; aqui, sem compilar nada, confere-se que todo `import` dos
+    arquivos Dart espelhados (`lib/` e `bin/`) aponta para um arquivo que ESTÁ no
+    espelho. Um arquivo novo em `lib/` esquecido na lista de
+    `espelhar_laboratorio.py` faria o `dart compile` falhar **no build da imagem
+    do Railway**, e não aqui.
+
+    O que fica de fora, e por quê:
+      - `dart:` e pacotes de terceiros (`package:crypto/...`): o `pub get` da
+        imagem os traz;
+      - os `.g.dart`: são o carimbo, que o compilador do servidor de lances
+        reescreve no build a partir dos mesmos `lib/` (copiado daqui, ele poderia
+        descrever outro conjunto).
+    """
+    for jogo in MOTORES_DART_ESPERADOS:
+        pacote = ESPELHO / "jogos" / jogo / "motor_dart"
+        pubspec = pacote / "pubspec.yaml"
+        assert pubspec.is_file(), f"o espelho não traz o motor Dart de {jogo}"
+        # O nome do pacote é o que `package:<nome>/` resolve para `lib/`.
+        nome = re.search(r"^name:\s*(\S+)", pubspec.read_text("utf-8"), re.M)
+        assert nome, f"{pubspec} sem `name:`"
+        prefixo = f"package:{nome.group(1)}/"
+
+        arquivos = sorted((pacote / "lib").glob("*.dart")) + sorted(
+            (pacote / "bin").glob("*.dart")
+        )
+        assert arquivos, f"o motor Dart de {jogo} veio sem arquivos"
+        for arquivo in arquivos:
+            for alvo in _IMPORT_DART.findall(arquivo.read_text("utf-8")):
+                if alvo.startswith(prefixo):
+                    destino = pacote / "lib" / alvo[len(prefixo):]
+                elif alvo.startswith(("dart:", "package:")):
+                    continue
+                else:
+                    if alvo.endswith(".g.dart"):
+                        continue
+                    destino = arquivo.parent / alvo
+                assert destino.resolve().is_file(), (
+                    f"{arquivo.relative_to(ESPELHO)} importa '{alvo}', que não "
+                    "está no espelho. Acrescente-o a `ARQUIVOS` em "
+                    f"`scripts/espelhar_laboratorio.py` e rode:\n"
+                    f"  {COMANDO_PARA_REESPELHAR}"
+                )
+
+
+def test_o_contrato_do_quatro_viaja_no_espelho():
+    """O executável do Quatro em Linha recebe o contrato por `--contrato`.
+
+    Sem ele no espelho, o job abriria o motor sem saber o tabuleiro. E ele tem
+    de ser JSON com ao menos uma modalidade: um arquivo vazio passaria pelo
+    manifesto (que só confere bytes contra bytes) e falharia na abertura.
+    """
+    contrato = ESPELHO / "jogos" / "jogo_quatro" / "contrato" / "contrato_quatro.json"
+    assert contrato.is_file(), f"o espelho não traz {contrato.relative_to(ESPELHO)}"
+    dados = json.loads(contrato.read_text(encoding="utf-8"))
+    assert dados["por_modalidade"], "o contrato do Quatro veio sem modalidade"
 
 
 def test_o_espelho_nao_e_uma_dependencia_de_caminho_disfarcada():

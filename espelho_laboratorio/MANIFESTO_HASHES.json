@@ -239,13 +239,13 @@
     },
     {
       "caminho": "jogos/jogo_damas/motor_dart/pubspec.yaml",
-      "sha256": "459bb7b79fd759a74215a134eb9e19b5fb65b877f61f9dd1989f2ade9cbdbdbb",
-      "tamanho_bytes": 1656
+      "sha256": "b0044f2e8ec63e1d6ccb2b0389b3113d258cd2d40fc15b552bca80893e6bee44",
+      "tamanho_bytes": 1619
     },
     {
       "caminho": "jogos/jogo_damas/motor_dart/bin/servidor_de_lances_damas.dart",
-      "sha256": "256760488f0a813b019a845565a1dc96474da84bfb19862092a599a6d6dcd8ac",
-      "tamanho_bytes": 15955
+      "sha256": "92ee41b5103829330de2b67f2fdaa276c4483aa52617b9461c6cd61963bae601",
+      "tamanho_bytes": 15635
     },
     {
       "caminho": "jogos/jogo_damas/motor_dart/bin/compilar_servidor_de_lances.dart",
@@ -291,6 +291,81 @@
       "caminho": "jogos/jogo_pontinhos/motor_dart/bin/compilar_servidor_de_lances_pontinhos.dart",
       "sha256": "7d0ccdea1bf432fc08fcd06b0773c0bb304f31056d2de62644ca461405e03685",
       "tamanho_bytes": 6480
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/ameacas_quatro.dart",
+      "sha256": "033aaca9eb0fbe31441ef889fd58c67ea025596a2e5a561211972ebcb5ff6f7b",
+      "tamanho_bytes": 5400
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/busca_quatro.dart",
+      "sha256": "a85711fdcc42aa3743f7aac05f9bf17e456d6c110155e692447769d5f40bb2e8",
+      "tamanho_bytes": 29948
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/catalogo_modalidades_quatro.dart",
+      "sha256": "d03a9b0de4b17beb94c9f09108ca2a454757592d2621d72c745895989d7cb667",
+      "tamanho_bytes": 8287
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/contagem_posicoes_quatro.dart",
+      "sha256": "8b287dcd26287b47d8a336dab777aec7f23f0598d81308eb2bbe1137193483df",
+      "tamanho_bytes": 6919
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/heuristica_quatro.dart",
+      "sha256": "318679e786f077e268c3f45a73183ae02221dc417ad86017d8180ab3336a3527",
+      "tamanho_bytes": 10182
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/medidas_quatro.dart",
+      "sha256": "ee423ac33439cbd417a086b548bd353ce7fd43c8bf21ceaf9c097e4f772cef63",
+      "tamanho_bytes": 8209
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/modalidade_gravidade_quatro.dart",
+      "sha256": "2e19e8763d1913cd7c44a8b1ff32d6901f5c0433c1c439ac99c60600f84e9014",
+      "tamanho_bytes": 9523
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/politica_dificuldade_quatro.dart",
+      "sha256": "b0a65e37aa84d80dbde03e4632dfbfbb8e66987583cfd2217fc519cb79198c7d",
+      "tamanho_bytes": 20178
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/posicao_quatro.dart",
+      "sha256": "b2d53425d79dd2e2bd6270ca614149809ee811a38165dcca5869770898184688",
+      "tamanho_bytes": 11237
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/regiao_quatro.dart",
+      "sha256": "71a4a5949e805b11f0a3b2d0cd1188f9460e2009741ffd72f78b102e87ae5f69",
+      "tamanho_bytes": 2217
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/lib/regras_da_modalidade_quatro.dart",
+      "sha256": "8f1f43eb248d7b715c674d16731d1e23d96608aa3b55365c34ab761856aba970",
+      "tamanho_bytes": 13313
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/pubspec.yaml",
+      "sha256": "0e368e0c55a6a8b7e019f3e56dd6c8c1a28a36a7b03cb22f12727ce80c48a6fb",
+      "tamanho_bytes": 3070
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/bin/servidor_de_lances_quatro.dart",
+      "sha256": "983edaf3dfbff4c0f21c0df4ecfc0f9d04961350c70be960d0041d94cc9a6c66",
+      "tamanho_bytes": 16635
+    },
+    {
+      "caminho": "jogos/jogo_quatro/motor_dart/bin/compilar_servidor_de_lances_quatro.dart",
+      "sha256": "926ad3c4805c0142b5f1bf2d4f3c80818b8927a104a48fa4360e4f4b4aa73aaa",
+      "tamanho_bytes": 5797
+    },
+    {
+      "caminho": "jogos/jogo_quatro/contrato/contrato_quatro.json",
+      "sha256": "dc65bda71af3a780dbf92a9d206a4eeb00d858d314fc903848fccd27cdcb02f9",
+      "tamanho_bytes": 1060
     },
     {
       "caminho": "contrato_dificuldade_pontinhos.json",
