@@ -49,9 +49,9 @@
 # imagem final. O que atravessa é um executável autocontido de alguns megabytes.
 FROM dart:stable AS motor
 
-# ⚠️ **São DOIS motores desde a T093 (28/09/2026)**, um por jogo, e cada um no
-# seu diretório: são pacotes Dart independentes, com `pubspec` próprio e resumo
-# próprio. Um `pub get` na raiz dos dois resolveria um lock só para os dois
+# ⚠️ **São TRÊS motores desde a T110 da spec 010 (20/10/2026)**, um por jogo, e
+# cada um no seu diretório: são pacotes Dart independentes, com `pubspec` próprio
+# e resumo próprio. Um `pub get` na raiz deles resolveria um lock só para todos os
 # pacotes, e o carimbo passaria a cobrir uma pasta que não é a dele.
 WORKDIR /motor/damas
 
@@ -89,6 +89,22 @@ WORKDIR /motor/pontinhos
 COPY espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/ ./
 RUN dart pub get
 RUN dart run bin/compilar_servidor_de_lances_pontinhos.dart
+
+# ── O MOTOR DO QUATRO EM LINHA (T110 da spec 010, 20/10/2026) ───────────────
+#
+# O terceiro pacote, no seu diretório e com o seu `pub get`, pelo mesmo motivo
+# dos outros dois. ⚠️ Este nasceu sem segunda escrita da política no servidor:
+# desde o primeiro desafio do Quatro, quem escolhe o lance do gabarito é este
+# binário (`motores/quatro/jogador_dart_quatro.py`).
+#
+# ⚠️ **O contrato não é embutido no binário**: o executável o recebe por
+# `--contrato` ao abrir (o arquivo do espelho, que entra pelo `COPY . .` do
+# estágio 2) e anuncia o SHA-256 dos bytes que leu. Por isso este estágio copia
+# só o pacote do motor, e não a pasta `contrato/`.
+WORKDIR /motor/quatro
+COPY espelho_laboratorio/jogos/jogo_quatro/motor_dart/ ./
+RUN dart pub get
+RUN dart run bin/compilar_servidor_de_lances_quatro.dart
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -147,6 +163,11 @@ ENV MOTOR_DART_DAMAS=/usr/local/bin/servidor_de_lances_damas
 COPY --from=motor /motor/pontinhos/bin/servidor_de_lances_pontinhos /usr/local/bin/servidor_de_lances_pontinhos
 ENV MOTOR_DART_PONTINHOS=/usr/local/bin/servidor_de_lances_pontinhos
 
+# E o do Quatro em Linha, com a variável que
+# `motores/quatro/jogador_dart_quatro.py` consulta primeiro (T110 da spec 010).
+COPY --from=motor /motor/quatro/bin/servidor_de_lances_quatro /usr/local/bin/servidor_de_lances_quatro
+ENV MOTOR_DART_QUATRO=/usr/local/bin/servidor_de_lances_quatro
+
 # ── 3. O PORTÃO DE BUILD (T001) ──────────────────────────────────────────────
 # ⚠️ ESTA LINHA É A ÚNICA EXECUÇÃO EM `linux/amd64` QUE O PROJETO TEM.
 #
@@ -199,6 +220,15 @@ RUN python scripts/conferir_motor_dart.py
 # aplicativo?" é o portão 3, que tem referência própria — misturar os dois faria
 # uma falha de inferência aparecer como falha de política, e vice-versa.
 RUN python scripts/conferir_motor_dart_pontinhos.py
+
+# ── 3d. O PORTÃO DO MOTOR DO QUATRO EM LINHA (T110 da spec 010) ──────────────
+#
+# O quarto irmão. Ele confere as duas travas da abertura (o carimbo dos fontes e
+# o SHA-256 do contrato lido) e refaz os **27 lances da CPU** de duas partidas
+# que o dono jogou no `des` (contra o Magno e contra o Tex), comparando com a
+# telemetria que o APARELHO gravou: o lance, a ação, os nós e a profundidade.
+# Um lance igual com nós diferentes já reprova.
+RUN python scripts/conferir_motor_dart_quatro.py
 
 # ── 4. Usuário sem privilégios ───────────────────────────────────────────────
 # Defesa em profundidade (MEL-01), a mesma do `Dockerfile` da API: se um dia

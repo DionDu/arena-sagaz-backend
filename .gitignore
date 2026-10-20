@@ -98,3 +98,6 @@ espelho_laboratorio/jogos/jogo_damas/motor_dart/pubspec.lock
 # imagem do job tambem compila - e pelo mesmo motivo.
 espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/.dart_tool/
 espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/pubspec.lock
+# E, desde a T110 da spec 010 (20/10/2026), para o do Quatro em Linha.
+espelho_laboratorio/jogos/jogo_quatro/motor_dart/.dart_tool/
+espelho_laboratorio/jogos/jogo_quatro/motor_dart/pubspec.lock

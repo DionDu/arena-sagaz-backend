@@ -596,3 +596,122 @@ def test_o_log_do_job_sai_ENQUANTO_ele_roda() -> None:
         "o Dockerfile.job perdeu `ENV PYTHONUNBUFFERED`. Sem ela o log do job so "
         f"aparece quando ele termina. ENVs encontradas: {ambiente}"
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔒 TODO MOTOR DART QUE O BACKEND ABRE ESTÁ NA IMAGEM (T110 da spec 010)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Os casos do Pontinhos lá em cima são a lista escrita à mão que o `CLAUDE.md`
+# chama de "verde e cega": eles continuariam passando no dia em que o Quatro em
+# Linha chegasse sem estágio na imagem. Aqui a lista sai do CÓDIGO: cada
+# `motores/<jogo>/jogador_dart*.py` declara o nome do binário e a variável de
+# ambiente que procura (os argumentos de `caminho_do_executavel`), e é a partir
+# dessas declarações que se cobra o Dockerfile.
+
+#: Os jogadores Dart do backend: um por jogo que joga pelo motor compilado.
+JOGADORES_DART = sorted((RAIZ / "motores").glob("*/jogador_dart*.py"))
+
+
+def _declaracao_do_jogador(arquivo: Path) -> tuple[str, str]:
+    """`(variável de ambiente, nome do binário)` que o jogador procura.
+
+    Lidos do texto, e não importando o módulo: o teste não deve depender de o
+    executável existir nesta máquina.
+    """
+    texto = arquivo.read_text(encoding="utf-8")
+    # `variavel_de_ambiente="MOTOR_DART_X"` e `nome_do_binario="servidor_..."`,
+    # os dois argumentos nomeados de `caminho_do_executavel`.
+    variavel = re.search(r'variavel_de_ambiente="([A-Z_]+)"', texto)
+    binario = re.search(r'nome_do_binario="([a-z_]+)"', texto)
+    assert variavel and binario, f"{arquivo.name} não declara variável e binário"
+    return variavel.group(1), binario.group(1)
+
+
+def test_o_controle_acha_os_tres_jogadores_dart() -> None:
+    """Controle: a varredura enxerga os três motores, e não uma pasta vazia."""
+    jogos = {arquivo.parent.name for arquivo in JOGADORES_DART}
+    assert {"damas", "pontinhos", "quatro"} <= jogos, jogos
+
+
+@pytest.mark.parametrize(
+    "jogador", JOGADORES_DART, ids=[a.parent.name for a in JOGADORES_DART]
+)
+def test_todo_motor_dart_e_compilado_atravessa_e_e_apontado(jogador: Path) -> None:
+    """🔒 Compilado PELO PROGRAMA QUE CARIMBA, copiado e apontado pela variável.
+
+    ⚠️ Faltando qualquer um dos três, o job sobe na nuvem e falha no primeiro
+    lance daquele jogo - às 6 da manhã, com o build verde.
+    """
+    variavel, binario = _declaracao_do_jogador(jogador)
+    instrucoes = linhas_de_instrucao(DOCKERFILE_JOB)
+    texto = " ".join(instrucoes)
+    # O programa que carimba e compila é o `bin/compilar_*.dart` do pacote
+    # espelhado daquele jogo. ⚠️ Tirado do espelho, e não montado do nome do
+    # binário: o das damas nasceu sem sufixo (`compilar_servidor_de_lances.dart`).
+    pacote = RAIZ / "espelho_laboratorio" / "jogos" / f"jogo_{jogador.parent.name}"
+    compiladores = [c.name for c in (pacote / "motor_dart" / "bin").glob("compilar_*.dart")]
+    assert len(compiladores) == 1, compiladores
+    assert any(
+        ln.startswith("RUN ") and f"bin/{compiladores[0]}" in ln for ln in instrucoes
+    ), f"o estágio do motor não compila `{binario}` pelo programa que carimba"
+    assert f"/{binario} /usr/local/bin/{binario}" in texto, (
+        f"o executável `{binario}` não atravessa para a imagem final"
+    )
+    assert f"{variavel}=/usr/local/bin/{binario}" in texto, (
+        f"falta o `ENV {variavel}` apontando para o binário"
+    )
+
+
+@pytest.mark.parametrize(
+    "jogador", JOGADORES_DART, ids=[a.parent.name for a in JOGADORES_DART]
+)
+def test_todo_motor_dart_tem_portao_depois_do_codigo(jogador: Path) -> None:
+    """🔒 Um `RUN` de portão que abre ESTE jogador, depois do `COPY . .`.
+
+    O portão é o script de `scripts/` que importa o módulo do jogador; ele tem
+    de rodar como `RUN` (um `CMD` só rodaria com a imagem já publicada) e depois
+    de o código entrar na imagem (antes, falharia por arquivo faltando).
+    """
+    modulo = f"motores.{jogador.parent.name}.{jogador.stem}"
+    portoes = [
+        script.name
+        for script in (RAIZ / "scripts").glob("conferir_motor_dart*.py")
+        if f"from {modulo} import" in script.read_text(encoding="utf-8")
+    ]
+    assert portoes, f"nenhum script de portão abre `{modulo}`"
+    instrucoes = linhas_de_instrucao(DOCKERFILE_JOB)
+    indice_copia = next(
+        i for i, ln in enumerate(instrucoes) if ln.startswith("COPY . ")
+    )
+    rodados = [
+        i
+        for i, ln in enumerate(instrucoes)
+        if ln.startswith("RUN ") and any(p in ln for p in portoes)
+    ]
+    assert rodados, f"o Dockerfile.job não roda o portão {portoes}"
+    assert all(i > indice_copia for i in rodados), (
+        f"o portão {portoes} roda antes de o código entrar na imagem"
+    )
+
+
+ESPELHOS_DE_MOTOR = sorted((RAIZ / "espelho_laboratorio" / "jogos").glob("*/motor_dart"))
+
+
+@pytest.mark.parametrize(
+    "pasta", ESPELHOS_DE_MOTOR, ids=[p.parent.name for p in ESPELHOS_DE_MOTOR]
+)
+def test_o_lock_do_windows_nao_viaja_de_nenhum_motor(pasta: Path) -> None:
+    """🔒 O `pubspec.lock` e o `.dart_tool/` de cada motor fora do Git e da imagem.
+
+    O analisador do editor roda `pub get` sozinho ao abrir a pasta; um lock
+    resolvido no Windows que chegasse ao build o faria falhar por um motivo que
+    não tem nada a ver com o jogo.
+    """
+    relativo = pasta.relative_to(RAIZ).as_posix()
+    gitignore = (RAIZ / ".gitignore").read_text(encoding="utf-8").splitlines()
+    for lista, nome in ((padroes_do_dockerignore(), ".dockerignore"), (gitignore, ".gitignore")):
+        for artefato in ("pubspec.lock", ".dart_tool/"):
+            assert f"{relativo}/{artefato}" in lista, (
+                f"falta `{relativo}/{artefato}` no {nome}"
+            )
