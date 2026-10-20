@@ -354,8 +354,8 @@
     },
     {
       "caminho": "jogos/jogo_quatro/motor_dart/bin/servidor_de_lances_quatro.dart",
-      "sha256": "983edaf3dfbff4c0f21c0df4ecfc0f9d04961350c70be960d0041d94cc9a6c66",
-      "tamanho_bytes": 16635
+      "sha256": "c5ea27c3f470790393b42de234053b0c3882ae6c52d18ae853a5a26df1757ea5",
+      "tamanho_bytes": 17603
     },
     {
       "caminho": "jogos/jogo_quatro/motor_dart/bin/compilar_servidor_de_lances_quatro.dart",

@@ -8335,3 +8335,43 @@ publicá-los antes do vetor e da frase, que é a falha silenciosa que as duas
 portas existem para impedir. ⚠️ O furo de ordem que isso revela (a T125 precisa
 do vetor e do manifesto, que dependem da T127 e da T131 do app) está anotado na
 T115 de `specs/010-jogo-quatro-em-linha/tasks.md`.
+
+## 2026-10-20 (3) — As provas do Quatro em Linha: a busca do executável é o oráculo (T116 da spec 010)
+
+**Contexto.** A T116 pede, por tipo, a prova de que uma posição serve ao
+desafio: "vença em N" (vitória forçada em N e não em N-1), "segure o Magno" (o
+empate existe e a maioria das colunas perde), "única coluna", "sem o meio" (a
+vitória existe com a coluna do meio proibida) e "virada" (a heurística favorece
+o adversário e a busca prova a vitória da pessoa). O Python não tem busca do
+Quatro, e escrever uma seria a segunda escrita que o projeto proíbe (§8zj).
+
+**Decisão.**
+1. **A busca é a do executável (`buscar`), e o Python só combina.** A distância
+   sai da avaliação decidida (`1000 - lances no fim`), e é a mínima porque a
+   busca aprofunda de um em um. Empate provado = motivo `profundidade` com
+   avaliação zero. Estourar o teto (2 milhões de nós por pergunta) é "não
+   provado", e a posição sai como qualquer outra.
+2. **O "sem o meio" é uma árvore E/OU em Python, podada pela busca livre**, em
+   vez de ensinar a busca do motor a proibir coluna: isso mudaria `lib/`, o
+   carimbo, o espelho do app e a bancada de paridade, para uma pergunta que só
+   o job faz. Teto: 8 lances e 400 perguntas (sem teto, uma posição de meio de
+   jogo pediu 15.820 buscas).
+3. **Um comando novo no executável, `avaliar`** (a heurística, sem busca), para
+   a "virada". Mora em `bin/`, e não em `lib/`: o carimbo e o espelho do app não
+   mudam. Aditivo, sem subir o protocolo; o Python confere na abertura que o
+   executável o declara.
+4. **A posição do Quatro usa o formato `sequencia_lances`, o do Pontinhos**, e a
+   conferência separa os dois pelo `co_jogo` de dentro da posição
+   (`job/posicao_inicial.do_quatro`/`_conferir_quatro`).
+
+**Alternativas consideradas.** Uma busca do Quatro em Python (segunda escrita);
+o parâmetro "colunas proibidas" na busca do motor (mexe em `lib/`); estimar a
+"virada" pela avaliação da busca rasa (o número depende da profundidade, e não
+diria "à primeira vista").
+
+**Achado no caminho.** A 1ª versão do "sem o meio" dizia "a vitória existe, mas
+não sem a coluna 4" para uma posição cuja vitória livre levava 11 lances, acima
+do teto de 8: o laço nem rodava. Pego por mutação; a vitória longa demais
+ganhou motivo próprio. Testes: `tests/unitarios/test_provas_quatro.py` (cada
+tipo com uma posição que passa e uma que falha pelo motivo dele; 16 de 16
+mutações pegas).

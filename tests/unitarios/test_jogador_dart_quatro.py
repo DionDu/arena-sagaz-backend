@@ -70,6 +70,23 @@ def test_o_buscar_acha_a_vitoria_imediata(jogador):
     assert resposta["acao"] == "busca_melhor"
 
 
+def test_o_avaliar_devolve_a_heuristica_do_ponto_de_vista_do_jogador_1(jogador):
+    # O tabuleiro vazio é simétrico; o 1 no meio é bom para o 1, e o 2 no meio
+    # é bom para o 2. É o sinal que a prova da "virada" lê.
+    assert jogador.avaliar(lances="", co_modalidade=MODALIDADE) == 0
+    assert jogador.avaliar(lances="s4", co_modalidade=MODALIDADE) > 0
+    assert jogador.avaliar(lances="s1s4", co_modalidade=MODALIDADE) < 0
+
+
+def test_o_avaliar_num_executavel_antigo_pede_para_recompilar(jogador, monkeypatch):
+    # Um executável anterior à T116 não declara o comando na abertura. A recusa
+    # tem de dizer o que fazer, e não só "comando desconhecido".
+    sem_o_comando = {**jogador.abertura, "comandos": ["decidir", "buscar"]}
+    monkeypatch.setattr(type(jogador), "abertura", property(lambda _self: sem_o_comando))
+    with pytest.raises(jdq.MotorDartDivergente, match="Recompile"):
+        jogador.avaliar(lances="", co_modalidade=MODALIDADE)
+
+
 def test_o_pedido_recusado_vira_value_error(jogador):
     with pytest.raises(ValueError, match="já acabou"):
         jogador.decidir(

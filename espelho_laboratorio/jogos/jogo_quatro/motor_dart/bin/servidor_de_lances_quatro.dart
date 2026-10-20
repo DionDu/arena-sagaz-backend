@@ -29,6 +29,13 @@
 // da busca, sem ε nem filtros nem sorteio. É o que as provas do job usam ("há
 // vitória forçada?"), e não o que um personagem joga.
 //
+// O `avaliar` é só a HEURÍSTICA da posição, sem busca nenhuma: o número que a
+// busca usa quando a visão acaba (`HeuristicaQuatro.avaliarJ1`, do ponto de
+// vista do jogador 1). É o que a prova da "virada" do Desafio do Dia pergunta
+// (T116 da spec 010): "à primeira vista, a posição parece do adversário?".
+// Ele vive aqui, em `bin/`, e não em `lib/`, de propósito: o carimbo do motor
+// (e o espelho do app) cobre só `lib/`, que não mudou.
+//
 // ── Por que os números do nível viajam no pedido ────────────────────────────
 //
 // O teto, o ε, o "percebe" e a abertura do Magno moram no contrato do jogo, e
@@ -66,6 +73,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:motor_quatro/busca_quatro.dart';
 import 'package:motor_quatro/catalogo_modalidades_quatro.dart';
+import 'package:motor_quatro/heuristica_quatro.dart';
 import 'package:motor_quatro/politica_dificuldade_quatro.dart';
 import 'package:motor_quatro/posicao_quatro.dart';
 import 'package:motor_quatro/regras_da_modalidade_quatro.dart';
@@ -82,7 +90,7 @@ const int versaoDoProtocoloQuatro = 1;
 
 /// Os comandos que este executável atende, na ordem em que a mensagem de erro
 /// os lista.
-const List<String> comandosDoServidorQuatro = ['decidir', 'buscar'];
+const List<String> comandosDoServidorQuatro = ['decidir', 'buscar', 'avaliar'];
 
 /// Quem atende os pedidos: o contrato já lido e as regras de cada modalidade.
 ///
@@ -154,6 +162,16 @@ final class ServidorDeLancesQuatro {
     final posicao = PosicaoQuatro.deLances(regras, lances);
     if (regras.desfecho(posicao) != null) {
       throw _PedidoInvalido('a partida já acabou: não há lance a escolher.');
+    }
+
+    // `avaliar`: a heurística, e nada mais. Vem antes do teto de nós porque
+    // não busca (um teto exigido aqui seria um número sem uso). O valor é do
+    // ponto de vista do JOGADOR 1, como o `avaliacaoJ1` das outras respostas:
+    // positivo = bom para o 1, negativo = bom para o 2.
+    if (comando == 'avaliar') {
+      return {
+        'avaliacaoJ1': HeuristicaQuatro(posicao.dimensoes).avaliarJ1(posicao),
+      };
     }
 
     // ⛔ O servidor joga SÓ pelo teto de nós. Um limite de tempo faria o lance

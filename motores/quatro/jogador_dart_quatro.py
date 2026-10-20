@@ -199,6 +199,34 @@ class JogadorDartQuatro(ProcessoDart):
             )
         )
 
+    def avaliar(self, *, lances: str, co_modalidade: str) -> int:
+        """A HEURÍSTICA da posição, sem busca: o "à primeira vista" do motor.
+
+        É o número que a busca usa quando a visão acaba, do ponto de vista do
+        jogador 1 (positivo = bom para o 1). Quem o pede é a prova da "virada"
+        (`job/provas_quatro.py`): a posição tem de PARECER do adversário.
+
+        ⚠️ O comando nasceu depois do protocolo 1 (T116), e de propósito sem
+        subir a versão: é aditivo, e um executável antigo o recusaria na hora.
+        A recusa é antecipada aqui, pela lista que a abertura declara, para a
+        mensagem dizer o que fazer (recompilar), e não só "comando desconhecido".
+
+        Raises:
+            MotorDartDivergente: o executável é anterior ao comando.
+            ValueError: o motor recusou (lance ilegal, partida terminada).
+        """
+        if "avaliar" not in self.abertura.get("comandos", ()):
+            raise MotorDartDivergente(
+                "o executável do Quatro não conhece o comando 'avaliar' "
+                "(é anterior à T116).\n" + RECEITA_DE_CONSERTO
+            )
+        resposta = self._exigir(
+            self.pedir(
+                {"comando": "avaliar", "lances": lances, "modalidade": co_modalidade}
+            )
+        )
+        return int(resposta["avaliacaoJ1"])
+
 
 # ⛔ UM MOTOR POR THREAD, e não um por processo: duas threads dividindo o mesmo
 # `stdin`/`stdout` receberiam as respostas trocadas, sem erro nenhum. A limpeza

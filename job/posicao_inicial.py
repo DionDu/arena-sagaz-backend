@@ -5,7 +5,7 @@ DOIS FORMATOS, E A DIFERENCA E DO JOGO — NAO E GOSTO
 ═══════════════════════════════════════════════════════════════════════════
 
     co_formato_posicao = 'fen'                → damas
-    co_formato_posicao = 'sequencia_lances'   → Pontinhos
+    co_formato_posicao = 'sequencia_lances'   → Pontinhos e Quatro em Linha
 
 Nas damas **cada peca carrega a sua cor na propria casa**, e a FEN ja traz de
 quem e a vez no prefixo `W:`/`B:`. A posicao se descreve sozinha.
@@ -36,6 +36,18 @@ Divergiu, ⛔ **nao publica**.
 E o mesmo principio de `ic_chegada_encerra_partida`: ninguem digita, e o que esta
 escrito tem de bater com o que se calcula. Um `vez_de` errado no banco produziria
 um desafio que o aplicativo comeca com o jogador errado — sem erro nenhum.
+
+═══════════════════════════════════════════════════════════════════════════
+⚠️ O QUATRO EM LINHA TAMBEM E 'sequencia_lances' - E SE DESCREVE SOZINHO
+═══════════════════════════════════════════════════════════════════════════
+
+No Quatro a posicao TAMBEM e a sequencia que a produziu (`s4s4s3`), e a forma
+e a que o arbitro grava (`MotorQuatro.para_dado`, T116 da spec 010): ela traz
+`co_jogo`, `co_modalidade`, a lista e a notacao concatenada. ⚠️ **E e pelo
+`co_jogo` de dentro da posicao que `conferir` separa os dois jogos**, e nao pelo
+formato: os dois usam o mesmo rotulo, e a posicao do Pontinhos nao carrega
+`co_jogo`. Uma posicao do Quatro sem ele cairia na conferencia do Pontinhos, e
+ela falha alto (a lista do Quatro se chama `sequencia_lances`, e nao `lances`).
 """
 
 from __future__ import annotations
@@ -44,6 +56,7 @@ from typing import Any, Mapping
 
 from motores.damas.motor_damas import EstadoDamas
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos
+from motores.quatro.motor_quatro import MotorQuatro
 
 #: A versao do formato de `js_posicao_inicial`.
 VERSAO = 1
@@ -142,6 +155,39 @@ def das_damas(fen: str, *, co_modalidade: str = "brasileira") -> dict[str, Any]:
     return {"versao": VERSAO, "fen": normalizada, "vez_de": vez}
 
 
+def do_quatro(lances: list[str], *, co_modalidade: str) -> dict[str, Any]:
+    """Monta `js_posicao_inicial` do Quatro em Linha a partir dos lances.
+
+    Args:
+        lances: um lance por item (`["s4", "s4", "s3"]`), desde o tabuleiro
+            vazio.
+        co_modalidade: o id da modalidade no contrato do jogo. ⚠️ Modalidade e
+            dado: o arbitro nasce com ela e recusa a que nao existe.
+
+    Returns:
+        A forma do arbitro (`MotorQuatro.para_dado`) mais a `versao`.
+
+    Raises:
+        PosicaoInvalida: lance ilegal, ou a partida ja acabou na posicao - um
+            desafio precisa de um lance a jogar.
+
+    ⚠️ `vez_de` sai da REPRODUCAO, e nao de "par/impar": numa modalidade que
+    tira pecas a alternancia continua sendo do arbitro, e e ele quem responde.
+    """
+    try:
+        motor = MotorQuatro(co_modalidade)
+        estado = motor.estado_de_sequencia("".join(lances))
+        acabou = motor.desfecho(estado) is not None
+        dado = motor.para_dado(estado)
+    except (ValueError, KeyError) as erro:
+        raise PosicaoInvalida(f"sequencia do Quatro invalida: {erro}") from erro
+    if acabou:
+        raise PosicaoInvalida(
+            f"a partida ja acabou em {''.join(lances)!r}: nao ha lance a jogar."
+        )
+    return {"versao": VERSAO, **dado}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Ler e CONFERIR
 # ═══════════════════════════════════════════════════════════════════════════
@@ -168,7 +214,10 @@ def conferir(
             f"js_posicao_inicial versao {posicao.get('versao')!r}; esperada {VERSAO}"
         )
 
-    if co_formato == FORMATO_SEQUENCIA:
+    if co_formato == FORMATO_SEQUENCIA and posicao.get("co_jogo") == "quatro":
+        # ⚠️ Antes do Pontinhos: os dois usam o mesmo formato (ver o topo).
+        _conferir_quatro(posicao, co_modalidade)
+    elif co_formato == FORMATO_SEQUENCIA:
         _conferir_sequencia(posicao)
     elif co_formato == FORMATO_FEN:
         _conferir_fen(posicao, co_modalidade)
@@ -220,6 +269,29 @@ def _conferir_sequencia(posicao: Mapping[str, Any]) -> None:
         reproduzido = reproduzido.com_lance(lance["lance"])
 
 
+def _conferir_quatro(posicao: Mapping[str, Any], co_modalidade: str) -> None:
+    """A conferencia do Quatro: reproduz a sequencia e compara cada derivado.
+
+    Os derivados sao tres - a notacao concatenada (`co_lances`, que o app le
+    como `co_lances_iniciais`), a vez e a modalidade -, e todos se refazem.
+    """
+    if posicao.get("co_modalidade") != co_modalidade:
+        raise PosicaoInvalida(
+            f"a posicao diz modalidade {posicao.get('co_modalidade')!r}, e o "
+            f"desafio, {co_modalidade!r}. ⛔ Nao publique este desafio."
+        )
+    lances = posicao.get("sequencia_lances")
+    if not isinstance(lances, list):
+        raise PosicaoInvalida("js_posicao_inicial.sequencia_lances precisa ser uma lista")
+    refeita = do_quatro(lances, co_modalidade=co_modalidade)
+    for campo in ("co_formato_posicao", "co_lances", "vez_de"):
+        if posicao.get(campo) != refeita[campo]:
+            raise PosicaoInvalida(
+                f"{campo} gravado ({posicao.get(campo)!r}) nao bate com o "
+                f"reconstruido ({refeita[campo]!r}). ⛔ Nao publique este desafio."
+            )
+
+
 def _conferir_fen(posicao: Mapping[str, Any], co_modalidade: str) -> None:
     """A conferencia das damas: a FEN e legivel, e a vez bate com o prefixo."""
     fen = posicao.get("fen")
@@ -246,7 +318,11 @@ def formato_do_jogo(co_jogo: str) -> str:
     declarado gravaria a posicao no formato errado — e o aplicativo tentaria ler
     uma FEN como sequencia, sem que nada dissesse por que.
     """
-    formatos = {"pontinhos": FORMATO_SEQUENCIA, "damas": FORMATO_FEN}
+    formatos = {
+        "pontinhos": FORMATO_SEQUENCIA,
+        "damas": FORMATO_FEN,
+        "quatro": FORMATO_SEQUENCIA,
+    }
     if co_jogo not in formatos:
         raise PosicaoInvalida(
             f"o jogo {co_jogo!r} nao declarou formato de posicao. Jogo novo entra "

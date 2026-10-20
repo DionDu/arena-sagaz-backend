@@ -17,6 +17,7 @@ from job.posicao_inicial import (
     conferir,
     das_damas,
     do_pontinhos,
+    do_quatro,
     formato_do_jogo,
 )
 
@@ -160,7 +161,7 @@ def test_formato_inventado_e_recusado() -> None:
 
 @pytest.mark.parametrize(
     "co_jogo, esperado",
-    [("pontinhos", FORMATO_SEQUENCIA), ("damas", FORMATO_FEN)],
+    [("pontinhos", FORMATO_SEQUENCIA), ("damas", FORMATO_FEN), ("quatro", FORMATO_SEQUENCIA)],
 )
 def test_cada_jogo_declara_o_seu_formato(co_jogo: str, esperado: str) -> None:
     assert formato_do_jogo(co_jogo) == esperado
@@ -174,3 +175,61 @@ def test_jogo_sem_formato_declarado_falha_ALTO() -> None:
     """
     with pytest.raises(PosicaoInvalida, match="formato de posicao"):
         formato_do_jogo("velha")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. O Quatro em Linha (T116 da spec 010): o mesmo formato do Pontinhos, e a
+#    conferencia separada pelo `co_jogo` de dentro da posicao
+# ═══════════════════════════════════════════════════════════════════════════
+
+ABERTURA_QUATRO = ["s4", "s4", "s3", "s5", "s3"]
+
+
+def test_quatro_monta_a_forma_do_arbitro_com_a_versao() -> None:
+    posicao = do_quatro(ABERTURA_QUATRO, co_modalidade="tradicional")
+    assert posicao == {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": FORMATO_SEQUENCIA,
+        "sequencia_lances": ABERTURA_QUATRO,
+        "co_lances": "s4s4s3s5s3",
+        # Cinco lances jogados: a vez e do jogador 2.
+        "vez_de": -1,
+    }
+    conferir(FORMATO_SEQUENCIA, posicao, co_modalidade="tradicional")
+
+
+@pytest.mark.parametrize(
+    "campo, valor",
+    [("vez_de", 1), ("co_lances", "s4s4s3s5"), ("co_formato_posicao", "fen")],
+)
+def test_quatro_derivado_ERRADO_e_pego(campo: str, valor: object) -> None:
+    """Cada derivado se refaz: o `co_lances` e o que o app le como posicao."""
+    posicao = {**do_quatro(ABERTURA_QUATRO, co_modalidade="tradicional"), campo: valor}
+    with pytest.raises(PosicaoInvalida, match=campo):
+        conferir(FORMATO_SEQUENCIA, posicao, co_modalidade="tradicional")
+
+
+def test_quatro_com_modalidade_de_outro_desafio_e_pego() -> None:
+    posicao = do_quatro(ABERTURA_QUATRO, co_modalidade="tradicional")
+    with pytest.raises(PosicaoInvalida, match="modalidade"):
+        conferir(FORMATO_SEQUENCIA, posicao, co_modalidade="pop_out")
+
+
+def test_quatro_sem_co_jogo_NAO_passa_como_pontinhos() -> None:
+    """⚠️ Os dois jogos usam o mesmo formato. Sem o `co_jogo`, a posicao cai na
+    conferencia do Pontinhos - e ela tem de falhar alto, e nao aceitar."""
+    posicao = do_quatro(ABERTURA_QUATRO, co_modalidade="tradicional")
+    del posicao["co_jogo"]
+    with pytest.raises(PosicaoInvalida):
+        conferir(FORMATO_SEQUENCIA, posicao, co_modalidade="tradicional")
+
+
+def test_quatro_lance_ilegal_e_partida_acabada_sao_recusados() -> None:
+    # A coluna 4 tem seis casas: o setimo `s4` e ilegal.
+    with pytest.raises(PosicaoInvalida, match="invalida"):
+        do_quatro(["s4"] * 7, co_modalidade="tradicional")
+    # O jogador 1 empilha quatro na coluna 1: a partida acabou, nao ha desafio.
+    with pytest.raises(PosicaoInvalida, match="acabou"):
+        do_quatro(["s1", "s2", "s1", "s2", "s1", "s2", "s1"], co_modalidade="tradicional")
