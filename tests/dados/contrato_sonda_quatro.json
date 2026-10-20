@@ -1,0 +1,16 @@
+{
+  "versao": "1.1.0",
+  "por_modalidade": {
+    "sonda": {
+      "largura": 6, "altura": 5, "alinhar": 4,
+      "tipos_de_lance": { "s": "soltar", "t": "tirar" },
+      "niveis_disponiveis": ["cacau", "pita", "tex"],
+      "niveis": {
+        "cacau": { "teto_de_nos": 20, "epsilon": 0.5, "percebe": { "vencer": 0.9, "bloquear": 0.2, "nao_jogar_sob_ameaca": 0.1 }, "relogio_s": null },
+        "pita":  { "teto_de_nos": 200, "epsilon": 0.25, "percebe": { "vencer": 0.99, "bloquear": 0.7, "nao_jogar_sob_ameaca": 0.2 }, "relogio_s": 30 },
+        "tex":   { "teto_de_nos": 5000, "epsilon": 0.1, "percebe": { "vencer": 1, "bloquear": 0.9, "nao_jogar_sob_ameaca": 0.8 }, "relogio_s": 25 }
+      },
+      "guia": []
+    }
+  }
+}
