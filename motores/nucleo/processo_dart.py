@@ -40,7 +40,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 
 class MotorDartIndisponivel(RuntimeError):
@@ -171,13 +171,22 @@ class ProcessoDart:
         fontes: Path,
         versao_do_protocolo: int,
         receita_de_conserto: str,
+        argumentos: Sequence[str] = (),
     ) -> None:
+        """Sobe o processo e confere a apresentação dele.
+
+        Args:
+            argumentos: o que vai na linha de comando depois do executável.
+                ⚠️ O Quatro em Linha recebe o contrato do jogo assim
+                (`--contrato <caminho>`); as damas e o Pontinhos não recebem
+                nada, e o padrão vazio os deixa como eram.
+        """
         self._caminho = caminho
         self._fontes = fontes
         self._versao_do_protocolo = versao_do_protocolo
         self._receita = receita_de_conserto
         self._processo = subprocess.Popen(
-            [str(caminho)],
+            [str(caminho), *argumentos],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             # ⛔ O stderr fica SEPARADO. Juntá-lo ao stdout misturaria um aviso
