@@ -8451,10 +8451,10 @@ magno 0,75-1,00`?):
 | `quatro_encostadas` | `{a_mais: 3}` | ✅ FOLGA `[3,3,3]` | ✅ **3 de 3** | 14,6 | **sobe** |
 | `quatro_virada` | `{}` | ✅ FOLGA `[3,3,3]` | ✅ **3 de 3** | 14,8 | **sobe** |
 | `quatro_unica_coluna` | `{}` | ✅ FOLGA `[3,3,3]` | ✅ 2 de 3 (o 3º erra por 0,03) | 17,9 | **sobe** |
-| `quatro_vencer_diagonal` | `{}` | ✅ FOLGA `[3,3,3]` | ⛔ 1 de 3 (erra por 0,07, difícil) | 20,3 | fica fora |
-| `quatro_bloquear` | `{ameacas: 3}` | ✅ FOLGA `[3,3,3]` | ⛔ 0 de 3 (erra por 0,10-0,17, difícil) | 25,7 | fica fora |
+| `quatro_vencer_diagonal` | `{}` | ✅ FOLGA `[3,3,3]` | ⛔ 1 de 3 (não medido: ver o defeito 1) | 20,3 | fica fora |
+| `quatro_bloquear` | `{ameacas: 3}` | ✅ FOLGA `[3,3,3]` | ⛔ 0 de 3 (não medido: ver o defeito 1) | 25,7 | fica fora |
 | `quatro_golpe_duplo` | `{linhas: 2}` | ⛔ SEM DESAFIO `[0,0,2]` | ⛔ 0 | 19,0 | fica fora |
-| `quatro_linha_de_cinco` | `{tamanho: 5}` | ⛔ SEM DESAFIO `[0,2,3]` | ⛔ 0 (difícil) | 24,2 | fica fora |
+| `quatro_linha_de_cinco` | `{tamanho: 5}` | ⛔ SEM DESAFIO `[0,2,3]` | ⛔ 0 (não medido) | 24,2 | fica fora |
 | `quatro_segurar_magno` | `{}` | ⛔ SEM DESAFIO `[3,0,0]` | ⛔ 0 (erra por 0,02) | 19,0 | fica fora |
 | `quatro_sem_o_meio` | `{}` | ⛔ SEM DESAFIO `[1,1,0]` | ⛔ 0 (fácil: Cacau 0,30) | 9,0 | fica fora |
 | `quatro_vencer_em_n` | `{lances: 5}` | ⛔ SEM DESAFIO `[0,0,0]` | - | - | fica fora |
@@ -8465,19 +8465,28 @@ critério que já vale desde 16/09):** sobe quem tem candidato **e** cai na esca
 em **2 ou 3 dias de 3**. ⛔ Uma variante NOVA com 1 de 3 não entra - foi o que
 recusou o `damas_sobreviver {10, 2}` (entrada de 16/09); a `damas_capturar_multipla
 {2,8}` com 1 de 3 ficou porque já estava no ar, e não é precedente para entrar.
-A T124b promove `quatro_encostadas`, `quatro_virada` e `quatro_unica_coluna`; os
+A T124b promove `quatro_virada` e `quatro_unica_coluna`; a `quatro_encostadas`
+passou, mas por acaso (defeito 1), e sobe ou espera conforme o dono decidir; os
 sete restantes continuam em `RECEITAS_FORA_DO_AR` / `EDITORIAL_FORA_DO_AR`.
 
 **Os dois defeitos que a medição mostra** (motivos de `posicao descartada`
 agregados por tipo):
 
-1. ⚠️ **Calibração "difícil" com a mesma cara do 18/09 das damas.** No
-   `bloquear`, na `linha_de_cinco`, na `diagonal` e no 3º dia do `golpe_duplo`
-   a Pita fica em 0,00 e o Tex/Magno abaixo da banda. Os personagens jogam para
-   **vencer**, e o objetivo pede outra coisa (bloquear três ameaças, alinhar
-   cinco, vencer pela diagonal) - `SOLUCIONADOR_POR_TIPO` só tem o Pontinhos.
-   ⛔ Hipótese, não medida: o caminho é o do `medir_perseguir_vs_vencer.py`
-   (pareado e com controle), e não ligar um solucionador às cegas.
+1. ⛔ **Nos tipos que pedem um JEITO de vencer, a régua não mediu nada** (correção
+   do dono no mesmo dia, depois da 1ª versão desta entrada, que dizia "difícil").
+   Os personagens são o **substituto de uma pessoa** em quatro níveis de força, e
+   jogam para vencer sem ler o objetivo; a pessoa joga **perseguindo** o
+   objetivo. Então "Pita 0 de 10" em *"Vença com cinco em linha"* quer dizer
+   "a Pita não fez cinco em linha por acaso", e não "é difícil para a Pita".
+   Afeta `vencer_diagonal`, `golpe_duplo`, `linha_de_cinco`, `sem_o_meio`,
+   `bloquear` **e também a `encostadas`**, que passou 3 de 3 pelo mesmo acaso
+   (para quem persegue o objetivo, ela tende a ser mais fácil do que medido).
+   A régua só vale como está onde o objetivo é vencer ou não perder: `virada`,
+   `unica_coluna`, `segurar_magno`, `vencer_em_n`. É a lição do 18/09 das damas
+   (*"medida com o solucionador errado não é medida"*); o conserto é um
+   solucionador que **persiga o objetivo e erre conforme o nível**, medido de forma
+   pareada e com controle (`medir_perseguir_vs_vencer.py` como molde) - o único
+   que existe hoje (`pontinhos_cadeia_longa`) não tem nível.
 2. ⚠️ **O acervo é de partidas que o Magno vence 80% das vezes.** "A posição está
    provada perdida para a pessoa" é o motivo dominante no `golpe_duplo` (29 de
    31) e na `linha_de_cinco` (29 de 36); no `segurar_magno` falta o empate
