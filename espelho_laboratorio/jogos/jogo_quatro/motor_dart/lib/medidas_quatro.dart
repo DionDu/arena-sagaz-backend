@@ -22,7 +22,13 @@
 //    linhas o último lance fechou, a maior linha, quantas casas sobraram).
 //    São a matéria dos feitos próprios (Torre, Escada Torta, Relâmpago, Golpe
 //    Duplo, Linha de Cinco) e da conquista que a escada decide.
+// 3. **As medidas da fita** ([medirFitaQuatro], spec 010, T106): o que a
+//    PESSOA fez num desafio, depois da posição publicada (os lances dela, os
+//    da coluna do meio, as ameaças que ela bloqueou, e se perdeu). São o
+//    critério de três tipos do Desafio do Dia, e o servidor as conta com o
+//    mesmo resultado, conferido pelos vetores de paridade.
 
+import 'ameacas_quatro.dart';
 import 'heuristica_quatro.dart';
 import 'posicao_quatro.dart';
 import 'regras_da_modalidade_quatro.dart';
@@ -179,5 +185,90 @@ MedidasDoFimQuatro medirFimDePartidaQuatro(
     casasRestantes: dimensoes.casas - ocupadas,
     pecasEncostadasDoJ1: pecasEncostadas(posicao, 1),
     pecasEncostadasDoJ2: pecasEncostadas(posicao, -1),
+  );
+}
+
+// ── As medidas da fita (o desafio) ───────────────────────────────────────────
+
+/// O que a pessoa fez num desafio, contado na FITA: os lances jogados depois
+/// da posição publicada, dos dois lados (`contracts/desafio-quatro.md` §4).
+///
+/// "A pessoa" é quem tem a vez na posição publicada: é ela quem resolve.
+final class MedidasDaFitaQuatro {
+  /// Quem resolve: `+1` (Jogador 1) ou `-1` (Jogador 2).
+  final int pessoa;
+
+  /// Quantos lances a pessoa fez na fita (o critério do `quatro_vencer_em_n`).
+  final int lancesDoJogador;
+
+  /// Quantos lances da pessoa caíram na coluna do meio. Só existe coluna do
+  /// meio em largura ÍMPAR; na par a conta é sempre 0 (o `quatro_sem_o_meio`
+  /// só é gerado em largura ímpar).
+  final int lancesNaColunaCentral;
+
+  /// Quantos lances da pessoa ocuparam uma casa onde o adversário venceria
+  /// no lance seguinte: uma ameaça dele jogável agora (a que o Radar mostra).
+  /// Conta LANCES: um lance que ocupa a casa conta 1, mesmo que o adversário
+  /// tivesse outra ameaça em outro lugar.
+  final int ameacasBloqueadas;
+
+  /// O predicado `quatro_perdeu`: a partida terminou com vitória do
+  /// adversário da pessoa. Falso enquanto a partida não terminou e no empate.
+  final bool perdeu;
+
+  /// Cria as medidas.
+  const MedidasDaFitaQuatro({
+    required this.pessoa,
+    required this.lancesDoJogador,
+    required this.lancesNaColunaCentral,
+    required this.ameacasBloqueadas,
+    required this.perdeu,
+  });
+}
+
+/// A coluna do meio da [largura], ou `null` quando ela é par (sem meio).
+int? colunaCentralQuatro(int largura) => largura.isOdd ? (largura + 1) ~/ 2 : null;
+
+/// Mede a [fita] de um desafio que partiu de [lancesIniciais] (as duas na
+/// notação, `s4s4s3`), pelas [regras].
+///
+/// ⚠️ A fita conta a partir da posição publicada, e nunca do tabuleiro vazio:
+/// os lances iniciais são de ninguém (`co_lances_iniciais`). Lança
+/// `LanceIlegalQuatro` (ou `FormatException`) se a fita não se joga.
+MedidasDaFitaQuatro medirFitaQuatro(
+    RegrasDaModalidadeQuatro regras, String lancesIniciais, String fita) {
+  var posicao = PosicaoQuatro.deLances(regras, lancesIniciais);
+  final pessoa = posicao.jogadorDaVez;
+  final dimensoes = regras.dimensoes;
+  final meio = colunaCentralQuatro(dimensoes.largura);
+  var lancesDoJogador = 0;
+  var lancesNaColunaCentral = 0;
+  var ameacasBloqueadas = 0;
+  for (final lance in lerSequenciaQuatro(fita, regras.tiposDeLance)) {
+    if (regras.desfecho(posicao) != null) {
+      throw LanceIlegalQuatro('lance $lance depois do fim da partida');
+    }
+    final antes = posicao;
+    posicao = regras.aplicar(posicao, lance);
+    if (antes.jogadorDaVez != pessoa) continue;
+    lancesDoJogador++;
+    if (lance.coluna == meio) lancesNaColunaCentral++;
+    // As casas de ameaça do adversário ANTES do lance (onde uma peça dele
+    // formaria linha) e as que o lance ocupou (o bit novo da máscara; um lance
+    // que não ocupa casa nova não bloqueia por ocupação). Não é preciso
+    // filtrar as jogáveis: a casa que um lance ocupa era jogável por definição.
+    final doAdversario = pessoa == 1 ? antes.pecasDoJ2 : antes.pecasDoJ1;
+    final ameacasDoAdversario =
+        casasDeAmeacaQuatro(dimensoes, doAdversario, antes.mascara);
+    final ocupadas = posicao.mascara & ~antes.mascara;
+    if (ameacasDoAdversario & ocupadas != 0) ameacasBloqueadas++;
+  }
+  final desfecho = regras.desfecho(posicao);
+  return MedidasDaFitaQuatro(
+    pessoa: pessoa,
+    lancesDoJogador: lancesDoJogador,
+    lancesNaColunaCentral: lancesNaColunaCentral,
+    ameacasBloqueadas: ameacasBloqueadas,
+    perdeu: desfecho != null && desfecho.vencedor == -pessoa,
   );
 }
