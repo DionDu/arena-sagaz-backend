@@ -54,7 +54,7 @@ FORMA_DA_VERSAO = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 # Os jogos que esta entrega conhece. ⚠️ É uma tupla e não um enum de propósito:
 # `co_jogo` é `VARCHAR(30)` no banco, e a lista de jogos do hub cresce — um enum
 # aqui obrigaria a mexer na camada comum para acrescentar um jogo.
-JOGOS_CONHECIDOS = ("pontinhos", "damas", "velha")
+JOGOS_CONHECIDOS = ("pontinhos", "damas", "velha", "quatro")
 
 
 def _validar_versao(valor: str, campo: str) -> str:
