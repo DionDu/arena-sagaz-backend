@@ -8434,3 +8434,58 @@ variantes passou a medir o Quatro pelo `EDITORIAL_FORA_DO_AR`).
 (`medir_variantes_do_editorial.py quatro --com-regua`, dezenas de minutos); a
 T124b promove o que cair na escada. Testes: `test_posicoes_de_autoplay_quatro.py`,
 `test_regua_do_quatro.py`, `test_gerador_do_quatro.py`.
+
+---
+
+## 2026-10-20 (5) — A régua nos dez tipos do Quatro: três sobem, sete ficam fora do ar (T117 → T124b da spec 010)
+
+**Contexto.** O dono rodou `medir_variantes_do_editorial.py quatro --com-regua`
+(11 variantes, 3 dias cada, 1.241 s). É a medição que a T124b usa para promover.
+
+**O resultado**, nas duas perguntas de sempre (a variante gera candidato? o
+candidato cai na escada `cacau 0,00-0,20 · pita 0,05-0,45 · tex 0,45-0,85 ·
+magno 0,75-1,00`?):
+
+| tipo | variante | candidatos `[d1,d2,d3]` | dias na escada | solução | veredito |
+|---|---|---|---|---|---|
+| `quatro_encostadas` | `{a_mais: 3}` | ✅ FOLGA `[3,3,3]` | ✅ **3 de 3** | 14,6 | **sobe** |
+| `quatro_virada` | `{}` | ✅ FOLGA `[3,3,3]` | ✅ **3 de 3** | 14,8 | **sobe** |
+| `quatro_unica_coluna` | `{}` | ✅ FOLGA `[3,3,3]` | ✅ 2 de 3 (o 3º erra por 0,03) | 17,9 | **sobe** |
+| `quatro_vencer_diagonal` | `{}` | ✅ FOLGA `[3,3,3]` | ⛔ 1 de 3 (erra por 0,07, difícil) | 20,3 | fica fora |
+| `quatro_bloquear` | `{ameacas: 3}` | ✅ FOLGA `[3,3,3]` | ⛔ 0 de 3 (erra por 0,10-0,17, difícil) | 25,7 | fica fora |
+| `quatro_golpe_duplo` | `{linhas: 2}` | ⛔ SEM DESAFIO `[0,0,2]` | ⛔ 0 | 19,0 | fica fora |
+| `quatro_linha_de_cinco` | `{tamanho: 5}` | ⛔ SEM DESAFIO `[0,2,3]` | ⛔ 0 (difícil) | 24,2 | fica fora |
+| `quatro_segurar_magno` | `{}` | ⛔ SEM DESAFIO `[3,0,0]` | ⛔ 0 (erra por 0,02) | 19,0 | fica fora |
+| `quatro_sem_o_meio` | `{}` | ⛔ SEM DESAFIO `[1,1,0]` | ⛔ 0 (fácil: Cacau 0,30) | 9,0 | fica fora |
+| `quatro_vencer_em_n` | `{lances: 5}` | ⛔ SEM DESAFIO `[0,0,0]` | - | - | fica fora |
+| `quatro_vencer_em_n` | `{lances: 6}` | ⛔ SEM DESAFIO `[1,0,0]` | ⛔ 0 (fácil: Cacau 0,70) | 9,0 | fica fora |
+
+**Decisão (minha, pela delegação de 12/09, `DECISOES-do-dono.md` §8k-0, e pelo
+critério que já vale desde 16/09):** sobe quem tem candidato **e** cai na escada
+em **2 ou 3 dias de 3**. ⛔ Uma variante NOVA com 1 de 3 não entra - foi o que
+recusou o `damas_sobreviver {10, 2}` (entrada de 16/09); a `damas_capturar_multipla
+{2,8}` com 1 de 3 ficou porque já estava no ar, e não é precedente para entrar.
+A T124b promove `quatro_encostadas`, `quatro_virada` e `quatro_unica_coluna`; os
+sete restantes continuam em `RECEITAS_FORA_DO_AR` / `EDITORIAL_FORA_DO_AR`.
+
+**Os dois defeitos que a medição mostra** (motivos de `posicao descartada`
+agregados por tipo):
+
+1. ⚠️ **Calibração "difícil" com a mesma cara do 18/09 das damas.** No
+   `bloquear`, na `linha_de_cinco`, na `diagonal` e no 3º dia do `golpe_duplo`
+   a Pita fica em 0,00 e o Tex/Magno abaixo da banda. Os personagens jogam para
+   **vencer**, e o objetivo pede outra coisa (bloquear três ameaças, alinhar
+   cinco, vencer pela diagonal) - `SOLUCIONADOR_POR_TIPO` só tem o Pontinhos.
+   ⛔ Hipótese, não medida: o caminho é o do `medir_perseguir_vs_vencer.py`
+   (pareado e com controle), e não ligar um solucionador às cegas.
+2. ⚠️ **O acervo é de partidas que o Magno vence 80% das vezes.** "A posição está
+   provada perdida para a pessoa" é o motivo dominante no `golpe_duplo` (29 de
+   31) e na `linha_de_cinco` (29 de 36); no `segurar_magno` falta o empate
+   provado (108 de 138); no `vencer_em_n` falta a vitória forçada em N (238 de
+   359) ou ela vem em outro N (91). São tipos que pedem um lado da posição que o
+   sorteio do autoplay raramente entrega.
+
+**Alternativas consideradas.** (a) Subir também a `vencer_diagonal` (FOLGA, 1 de
+3): recusada pelo precedente acima. (b) Segurar a T124b até os sete passarem:
+recusada - a calibração nunca foi condição de portão (§8c), e pescaria/remedição
+correm em paralelo, como na 009. Os sete viram tarefa própria (T124c).
