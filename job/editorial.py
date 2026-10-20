@@ -66,6 +66,15 @@ from .tipos_de_desafio import MOLDES_DA_CAPTURA_DE_DUAS_EM_OITO
 #: antigo precisa cair na tela de atualizar em vez de mostrar a chave crua.
 VERSAO_MINIMA_DOS_TIPOS_FUNDADORES = "1.3.0"
 
+#: A versao do aplicativo que traz o Quatro em Linha (spec 010, R-22).
+#:
+#: ⚠️ **Os dez tipos do jogo saem com ela, todos**, mesmo os que ainda nao tiverem
+#: passado na regua (§8zzz): o jogo, o predicado `quatro_perdeu`, as sete medidas
+#: e os textos do objetivo so existem a partir dela. ⛔ Um aplicativo 1.3 que
+#: recebesse um desafio do Quatro cairia na tela de atualizar - e e para isso que
+#: o numero existe. A T134 confere que o `pubspec.yaml` sobe para o mesmo numero.
+VERSAO_MINIMA_DO_QUATRO = "1.4.0"
+
 #: Quantos meios-lances o log de uma partida de desafio pode ter.
 #:
 #: ⚠️ **Acima do teto e DADO INVALIDO, e nao "log grande"** (T057): o replay nao
@@ -345,6 +354,35 @@ MATERIAL_DE_EXEMPLO = (12, 12)
 #: (`medidas_de_saida.lances_do_solucionador`).
 LANCES_DA_SOLUCAO_DE_EXEMPLO = 5
 
+#: Quantas pecas encostadas A MAIS a variante do `quatro_encostadas` pede.
+#:
+#: ⚠️ **Vocabulario interno, como `capturar`**: a frase diz *"venca com 9 pecas
+#: encostadas"* (o absoluto), e o editorial escreve so o `a_mais`. O absoluto e
+#: o que ja esta encostado na posicao publicada mais isto (R-22, regra 3 do
+#: catalogo) - um 9 fixo nasceria cumprido numa posicao com 9 encostadas, e
+#: impossivel numa com 2.
+CHAVE_A_MAIS_ENCOSTADAS = "a_mais"
+
+#: A chave, nos parametros efetivos, com as pecas encostadas DE QUEM RESOLVE na
+#: posicao publicada. Os tipos do Quatro a usam como o piso da faixa de
+#: `pecas_encostadas` (ver `_medidas_do_quatro`).
+ENCOSTADAS_NA_POSICAO = "encostadas_na_posicao"
+
+#: Quantas pecas encostadas a mais, sobre as da posicao, dao a parcela cheia de
+#: `pecas_encostadas` nos tipos do Quatro que nao pedem um numero delas.
+#:
+#: ⚠️ **E um ponto de partida, e nao uma medicao** (T115, 20/10/2026): numa
+#: vitoria de cinco lances a pessoa poe cinco pecas, e quatro encostadas a mais
+#: e jogar junto quase todo lance. A regua da T117 nao mexe nele (ela mede se o
+#: desafio e resolvivel, e nao o XP); quem o recalibra e a leitura dos extratos
+#: depois que o tipo for ao ar.
+ENCOSTADAS_PARA_NOTA_CHEIA = 4
+
+#: Um `E` plausivel - as encostadas de quem resolve na posicao - para as
+#: conferencias SEM posicao. ⛔ Como os de cima, nunca vai a producao: o job o
+#: conta na posicao do candidato.
+ENCOSTADAS_DE_EXEMPLO = 4
+
 
 def alvo_sai_da_posicao(parametros: Mapping[str, Any]) -> bool:
     """Esta variante calcula o alvo a partir da posicao?"""
@@ -354,6 +392,11 @@ def alvo_sai_da_posicao(parametros: Mapping[str, Any]) -> bool:
 def alvo_sai_do_material(parametros: Mapping[str, Any]) -> bool:
     """Esta variante calcula o alvo contando as pecas do tabuleiro?"""
     return CHAVE_CAPTURAR in parametros or CHAVE_ENTREGAR in parametros
+
+
+def alvo_sai_das_encostadas(parametros: Mapping[str, Any]) -> bool:
+    """Esta variante calcula o alvo contando as pecas encostadas da posicao?"""
+    return CHAVE_A_MAIS_ENCOSTADAS in parametros
 
 
 class MaterialInsuficiente(ValueError):
@@ -376,6 +419,7 @@ def parametros_efetivos(
     *,
     guloso: int | None = None,
     material: tuple[int, int] | None = None,
+    encostadas: int | None = None,
 ) -> dict[str, Any]:
     """Os numeros que a **receita** consome, com o alvo ja resolvido.
 
@@ -385,6 +429,10 @@ def parametros_efetivos(
             posicao (`G`). So e lido nas variantes de `acima_do_guloso`.
         material: `(minhas_pecas, pecas_do_adversario)` na posicao publicada. So
             e lido nas variantes de `capturar`/`entregar`.
+        encostadas: as pecas encostadas de quem resolve na posicao publicada
+            (`E`), so no Quatro em Linha. Quando vem, entra nos parametros como
+            [ENCOSTADAS_NA_POSICAO] (o piso da faixa das medidas de saida); nas
+            variantes de `a_mais`, e tambem o que vira o alvo absoluto `pecas`.
 
     Returns:
         Um dicionario com os numeros **absolutos** que `Receita.montar` espera.
@@ -392,6 +440,8 @@ def parametros_efetivos(
     Raises:
         MaterialInsuficiente: a posicao nao comporta o que a variante pede.
         TypeError: a variante e relativa e o valor de referencia nao veio.
+        ValueError: a variante de `a_mais` pede menos de uma peca a mais - o
+            desafio nasceria cumprido na posicao publicada.
 
     ⛔ **A traducao mora aqui, e num lugar so.** Ela era uma linha solta no laco
     do gerador; quando as medidas de saida passaram a precisar do mesmo numero,
@@ -437,14 +487,35 @@ def parametros_efetivos(
             saida["resta_a_voce"] = meu - quantas
         return saida
 
-    return dict(parametros)
+    saida = dict(parametros)
+    # ⚠️ Daqui para baixo so o Quatro em Linha: as variantes do Pontinhos e das
+    # damas nunca passam `encostadas`, e para elas a saida e a de sempre.
+    if alvo_sai_das_encostadas(parametros):
+        if encostadas is None:
+            raise TypeError(
+                "esta variante e relativa as pecas encostadas e nenhum "
+                "`encostadas=` foi dado"
+            )
+        a_mais = parametros[CHAVE_A_MAIS_ENCOSTADAS]
+        # ⛔ Zero a mais seria "venca com as encostadas que voce ja tem": a
+        # clausula de pecas valeria antes do primeiro lance, e o desafio viraria
+        # "venca" com outra frase.
+        if a_mais < 1:
+            raise ValueError(f"a variante pede {a_mais} peca(s) encostada(s) a mais")
+        saida["pecas"] = encostadas + a_mais
+    if encostadas is not None:
+        saida[ENCOSTADAS_NA_POSICAO] = encostadas
+    return saida
 
 
 def parametros_para_conferencia(parametros: Mapping[str, Any]) -> dict[str, Any]:
     """Os parametros de uma variante quando nao ha posicao — so para conferir."""
     return {
         **parametros_efetivos(
-            parametros, guloso=GULOSO_DE_EXEMPLO, material=MATERIAL_DE_EXEMPLO
+            parametros,
+            guloso=GULOSO_DE_EXEMPLO,
+            material=MATERIAL_DE_EXEMPLO,
+            encostadas=ENCOSTADAS_DE_EXEMPLO,
         ),
         # ⚠️ O job poe `L` nos parametros na hora de publicar (T049t); a
         # conferencia sem posicao precisa de um tambem.
@@ -763,6 +834,91 @@ def _medidas_do_damas_sobreviver(p: Mapping[str, Any]) -> list[dict[str, Any]]:
         ),
         linha_so_medida("lances_do_jogador", nu_ordem=2),
         linha_so_medida("material_do_adversario", nu_ordem=3),
+    ]
+
+
+def _faixa_das_encostadas(p: Mapping[str, Any], *, vr_peso: str) -> dict[str, Any]:
+    """A parcela de `pecas_encostadas`: o merito visivel do Quatro (contrato §4).
+
+    ⚠️ **A faixa parte do que JA estava encostado na posicao publicada**
+    ([ENCOSTADAS_NA_POSICAO]), e nao de zero: uma posicao de meio de jogo ja tem
+    pecas juntas, e uma faixa a partir de zero pagaria a quem nao fez nada a
+    parte que o gerador ja trouxe pronta. E o mesmo raciocinio da faixa do
+    `damas_capturar_multipla`, que vai do estado de partida ao alvo.
+
+    O topo e o alvo da frase no `quatro_encostadas` (`pecas`, que o editorial
+    calcula como `E + a_mais`); nos outros tipos, `E` mais
+    [ENCOSTADAS_PARA_NOTA_CHEIA].
+
+    ⚠️ No Pop Out uma peca pode sair do tabuleiro, e a pessoa pode terminar com
+    MENOS encostadas que a posicao tinha: a nota fica em zero (o `_clamp` do
+    extrato segura), e nao negativa.
+    """
+    piso = p[ENCOSTADAS_NA_POSICAO]
+    topo = p["pecas"] if "pecas" in p else piso + ENCOSTADAS_PARA_NOTA_CHEIA
+    return linha_de_faixa(
+        "pecas_encostadas", nu_ordem=1, vr_peso=vr_peso, vr_min=piso, vr_max=topo
+    )
+
+
+def _medidas_do_quatro(
+    criterio: str | None,
+) -> Callable[[Mapping[str, Any]], list[dict[str, Any]]]:
+    """As medidas de saida de um tipo do Quatro em Linha que nao e o `vencer_em_n`.
+
+    Args:
+        criterio: a medida que e o criterio da frase daquele tipo
+            (`vitoria_diagonal` no "venca com uma diagonal"), exibida com peso
+            zero. `None` nos tipos cujo criterio e o predicado `quatro_perdeu` ou
+            so a vitoria: predicado nao e medida, e nao vai ao Raio-X.
+
+    ⛔ **SO `pecas_encostadas` PONTUA, e cada uma das outras fica em zero por um
+    motivo** (contrato §4, R-22):
+
+      · `pecas_encostadas_do_adversario` - pelo mesmo motivo do
+        `material_do_adversario` no `damas_sobreviver`: pontua-la pagaria o
+        comportamento errado (desmanchar o jogo do adversario em vez de
+        construir o seu);
+      · `lances_do_jogador` - so e merito no `vencer_em_n`, em que a economia e
+        a propria frase;
+      · o criterio do tipo - ele ja decide se o desafio foi cumprido; pontua-lo
+        tambem pagaria duas vezes a mesma coisa. ⚠️ No `quatro_sem_o_meio` ele e
+        ate perigoso: `lances_na_coluna_central` e `maior_melhor` no catalogo, e
+        com peso pagaria a quem jogou no meio, o contrario da frase.
+
+    ⚠️ No `quatro_encostadas` o criterio E `pecas_encostadas`: ela pontua (e a
+    faixa tem o alvo da frase como topo), e nao aparece duas vezes.
+    """
+
+    def medidas(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+        linhas = [
+            _faixa_das_encostadas(p, vr_peso="1.000"),
+            linha_so_medida("pecas_encostadas_do_adversario", nu_ordem=2),
+            linha_so_medida("lances_do_jogador", nu_ordem=3),
+        ]
+        if criterio is not None and criterio != "pecas_encostadas":
+            linhas.append(linha_so_medida(criterio, nu_ordem=4))
+        return linhas
+
+    return medidas
+
+
+def _medidas_do_quatro_vencer_em_n(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Vencer em N: as encostadas pontuam, e a economia de lances tambem.
+
+    ⚠️ **E o unico tipo do Quatro em que `lances_do_jogador` pesa**, porque aqui
+    ele e a frase (contrato §4). A parcela e a de sempre do hub
+    (`linha_da_economia_de_lances`, de `L` a `3L`), e nao uma faixa ate `N`: a
+    pessoa so cumpre com `lances_do_jogador <= N`, entao toda resolucao ja caberia
+    na faixa ate `N`, e a parcela nao separaria ninguem.
+
+    ⚠️ **As encostadas continuam sendo o peso principal (0,6)**: vencer rapido e
+    a condicao; vencer construindo e o merito que o tabuleiro mostra.
+    """
+    return [
+        _faixa_das_encostadas(p, vr_peso="0.600"),
+        linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.400"),
+        linha_so_medida("pecas_encostadas_do_adversario", nu_ordem=3),
     ]
 
 
@@ -1849,6 +2005,143 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O EDITORIAL FORA DO AR: os numeros dos tipos que ainda nao sao publicaveis
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **E o irmao de `tipos_de_desafio.RECEITAS_FORA_DO_AR`**, e mora separado
+# pela mesma razao: `EDITORIAL` so aceita tipo que tem receita no ar (cadeado
+# `test_o_editorial_NAO_publica_tipo_sem_receita`). Quando um tipo do Quatro for
+# promovido (vetor, frase declarada e a regua), as variantes dele saem daqui e
+# entram em `EDITORIAL` na mesma resposta em que a receita entra em `RECEITAS`.
+#
+# ⛔ **NENHUMA VARIANTE DAQUI FOI MEDIDA** (`⏳ a medir` em todas). A regra do
+# `EDITORIAL` continua valendo: nenhuma variante vai ao ar sem a rodada de
+# `scripts/medir_variantes_do_editorial.py` anotada ao lado (T117/T124). Os
+# numeros abaixo sao o palpite de partida, escolhido pela FAIXA DO HUB:
+#
+#   · o Quatro alterna estritamente, como as damas, entao a faixa de 5 a 10
+#     lances do jogador e a de 9 a 20 meios-lances, e os tipos herdam o piso e
+#     o teto padrao (sem a excecao do Pontinhos);
+#   · por isso o `vencer_em_n` comeca em 5: *"venca em ate 5 lances"* tem
+#     gabarito de exatamente 9 meios-lances (5 seus e 4 do adversario, e a
+#     geracao prova que nao se vence em 4), que e o piso. *"Em 3"* caberia em 5
+#     meios-lances, abaixo do piso, e nunca geraria candidato.
+#
+# ⚠️ **Os tipos sem numero na frase tem `parametros` vazio**, e e verdade: em
+# *"segure o Magno"* nao ha o que variar alem da posicao. ⛔ O cadeado do
+# `EDITORIAL` que exige parametros (`test_principal_do_job.py`) precisa aprender
+# isso no dia da promocao - com o piso e o teto como o botao desses tipos -, e
+# nao ganhar um numero de enfeite.
+#
+# ⚠️ **`ic_chegada_encerra_partida` e TRUE nos dez**, e a razao e a mesma em
+# todos: cada chegada tem `vitoria` ou o predicado `quatro_perdeu`, e os dois so
+# respondem com a partida terminada. ⛔ `chegada_encerra_partida()` (que deriva o
+# valor) ainda nao sabe disso do predicado - ela so conhece os marcos `vitoria`
+# e `empate` - e o teste deste editorial confere os dez pela leitura da chegada.
+
+EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
+    "quatro_vencer_em_n": (
+        Publicacao(
+            # ⏳ a medir. Gabarito de 9 meios-lances: o piso da faixa do hub.
+            parametros={"lances": 5},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro_vencer_em_n,
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+        Publicacao(
+            # ⏳ a medir. 11 meios-lances; a rede da de cima.
+            parametros={"lances": 6},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro_vencer_em_n,
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_segurar_magno": (
+        Publicacao(
+            # ⏳ a medir. ⛔ Contra o Magno e so ele: e o nome do tipo.
+            parametros={},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro(None),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+            co_personagens=("magno",),
+        ),
+    ),
+    "quatro_unica_coluna": (
+        Publicacao(
+            # ⏳ a medir.
+            parametros={},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro(None),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_vencer_diagonal": (
+        Publicacao(
+            # ⏳ a medir.
+            parametros={},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("vitoria_diagonal"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_golpe_duplo": (
+        Publicacao(
+            # ⏳ a medir. Duas linhas com a mesma peca: o nome do tipo.
+            parametros={"linhas": 2},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("linhas_no_lance_final"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_linha_de_cinco": (
+        Publicacao(
+            # ⏳ a medir. Cinco: um a mais que o alinhar da modalidade de hoje.
+            parametros={"tamanho": 5},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("maior_linha"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_encostadas": (
+        Publicacao(
+            # ⏳ a medir. O alvo e o que ja esta encostado mais tres.
+            parametros={CHAVE_A_MAIS_ENCOSTADAS: 3},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("pecas_encostadas"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_sem_o_meio": (
+        Publicacao(
+            # ⏳ a medir. So em modalidade de largura impar (quem recusa a par e
+            # a geracao, T116).
+            parametros={},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("lances_na_coluna_central"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_bloquear": (
+        Publicacao(
+            # ⏳ a medir. Tres ameacas: o numero do enunciado aprovado (§8zzz).
+            parametros={"ameacas": 3},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("ameacas_bloqueadas"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_virada": (
+        Publicacao(
+            # ⏳ a medir.
+            parametros={},
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro(None),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+}
+
 
 def variantes_de(co_tipo_desafio: str) -> tuple[Publicacao, ...]:
     """Todas as variantes daquele tipo, na ordem do odometro.
@@ -1901,11 +2194,13 @@ def publicacao_de(co_tipo_desafio: str, nu_variante: int) -> Publicacao:
 
 __all__ = [
     "EDITORIAL",
+    "EDITORIAL_FORA_DO_AR",
     "LANCES_DE_PREPARO_PADRAO",
     "MAXIMO_DE_MEIOS_LANCES_PADRAO",
     "MINIMO_DE_MEIOS_LANCES_PADRAO",
     "TETO_DE_LOG_PADRAO",
     "VERSAO_MINIMA_DOS_TIPOS_FUNDADORES",
+    "VERSAO_MINIMA_DO_QUATRO",
     "Publicacao",
     "TipoSemEditorial",
     "publicacao_de",

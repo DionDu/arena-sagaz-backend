@@ -8293,3 +8293,45 @@ de propósito (a fronteira entre publicar dado e publicar código).
 recebe os predicados do desafio como respostas fixas, e só avalia os lances da
 pessoa; o Quatro precisa das mesmas duas portas, o predicado por prefixo e o
 lance que encerra (T127, T129 da spec 010).
+
+## 2026-10-20 (2) — Os dez tipos do Quatro em Linha entram no job FORA DO AR (T115 da spec 010)
+
+**Contexto.** A T115 pedia os dez tipos `quatro_*` em `job/tipos_de_desafio.py`
+e as medidas de saída no editorial. Mas um tipo em `RECEITAS` é publicável, e
+os cadeados do job cobram de todo tipo publicável o **vetor de verificação**
+(`test_todo_tipo_com_receita_TEM_vetor`) e a **frase declarada no app**
+(`test_todo_tipo_do_gerador_tem_frase_declarada`, mais a trava
+`exigir_frase_do_feito`). Nenhum dos dois existe ainda para o Quatro, e R-22 da
+spec diz que um tipo só ganha receita depois de passar na régua.
+
+**Decisão.**
+1. **Dois dicionários irmãos, fora do ar:** `RECEITAS_FORA_DO_AR`
+   (`job/tipos_de_desafio.py`) e `EDITORIAL_FORA_DO_AR` (`job/editorial.py`).
+   Promover é **mover** dos dois para `RECEITAS`/`EDITORIAL` na mesma resposta,
+   como em `tipos_propostos.py`. `tests/unitarios/test_receitas_do_quatro.py`
+   aplica a eles os cadeados dos tipos no ar e confere cada tipo contra
+   partidas reais dos vetores da T106.
+2. **Sem vocabulário novo.** "Atingido" é `igual 1`; a "janela até o fim" é a
+   janela `partida` com o predicado nulo antes do fim (T112).
+3. **O N do `quatro_encostadas` é relativo** (`a_mais`), traduzido em
+   `parametros_efetivos(..., encostadas=E)`. A porta nova só age quando
+   `encostadas` vem; o Pontinhos e as damas nunca a passam, e a saída deles é a
+   de sempre (caso de teste).
+4. **Medidas de saída:** `pecas_encostadas` em faixa de `E` (as encostadas da
+   pessoa na posição publicada) a `E + 4` (`ENCOSTADAS_PARA_NOTA_CHEIA`), ou ao
+   alvo no `quatro_encostadas`; peso 1,000, e 0,600 + 0,400 de economia de
+   lances no `quatro_vencer_em_n`. O resto com peso zero.
+5. **`co_versao_minima = 1.4.0`** (`VERSAO_MINIMA_DO_QUATRO`) nos dez.
+
+**Alternativas consideradas.** (a) Pôr em `RECEITAS` e escrever os vetores de
+verificação já: o `vetores_verificacao_test.dart` do app monta o medidor de
+cada `co_jogo` dos vetores, e ficaria vermelho até a T127 (o medidor do app).
+(b) Pôr em `tipos_propostos.py`: lá ficam propostas à espera do dono, e estes
+já foram aprovados e estão na `tb901` (`0035`). (c) Faixa de encostadas a
+partir de zero: pagaria a quem não fez nada a parte que a posição já trazia.
+
+**Motivo.** Os tipos ficam escritos e conferidos sem que a fila possa
+publicá-los antes do vetor e da frase, que é a falha silenciosa que as duas
+portas existem para impedir. ⚠️ O furo de ordem que isso revela (a T125 precisa
+do vetor e do manifesto, que dependem da T127 e da T131 do app) está anotado na
+T115 de `specs/010-jogo-quatro-em-linha/tasks.md`.

@@ -2753,6 +2753,281 @@ RECEITAS: dict[str, Receita] = {
 }
 
 
+def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
+    """Uma clausula de predicado, no formato que o avaliador le.
+
+    ⚠️ Predicado e uma pergunta de sim ou nao respondida por uma funcao
+    **compilada** no aplicativo e no job (`motores/nucleo/chegada.py`). Por isso
+    tipo que usa predicado novo so vai ao ar com versao nova do aplicativo - o
+    `quatro_perdeu` chega na 1.4.0, junto com o jogo.
+    """
+    return {
+        "tipo": "predicado",
+        "chave": chave,
+        "comparador": comparador,
+        "valor": valor,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AS RECEITAS FORA DO AR: escritas, aprovadas, e ainda nao publicaveis
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Os dez tipos do Quatro em Linha moram aqui, e nao em [RECEITAS]** (T115
+# da spec 010, 20/10/2026). Eles nao sao propostas (essas ficam em
+# `tipos_propostos.py`, esperando o dono): o dono os aprovou em 13/10/2026
+# (`DECISOES-do-dono.md` §8zzz), e eles ja tem linha na `tb901_tipo_desafio`
+# (migracao `0035`, numeros 40 a 49). O que falta e o resto das portas que
+# todo tipo em [RECEITAS] precisa ter abertas:
+#
+#   1. **vetor de verificacao** (`contratos/vetores-verificacao-desafio.json`,
+#      RF-DES-198) - sem ele o aplicativo e o servidor podem julgar diferente,
+#      calados;
+#   2. **a frase declarada no aplicativo** (`medidas_do_feito.json`, gerado por
+#      `tool/gerar_manifesto_medidas_do_feito.dart`) e a chave `.arb` do
+#      enunciado - a trava do job recusa o tipo sem ela;
+#   3. **a escada da regua** (*"a Pita resolve, a Cacau nao"*, T116/T117): tipo
+#      que nao passar nela fica no banco **sem receita** (R-22, *"tipo no banco
+#      nao e tipo no ar"*).
+#
+# ⛔ **Promover e MOVER, e nao copiar**, como em `tipos_propostos.py`: no dia em
+# que as tres portas abrirem, a entrada sai daqui e entra em [RECEITAS]. Uma
+# receita escrita nos dois lugares seria duas fontes da verdade para a mesma
+# regra, e `test_receitas_do_quatro.py` recusa.
+#
+# ⚠️ **Por que escrever agora, e nao no dia da promocao.** A forma de chegada e
+# a parte que o juiz (T112) e os vetores precisam conhecer, e escrita aqui ela ja
+# passa pelos mesmos cadeados dos tipos no ar: o avaliador a aceita, ela usa so o
+# vocabulario fechado, e ninguem a cumpre sem jogar.
+#
+# ── A JANELA "ATE O FIM" E A JANELA `partida` ───────────────────────────────
+#
+# R-22 pede *"janela ate o fim"* nos tres tipos de "nao perca". ⛔ **Nao ha
+# janela nova para isso**: o predicado `quatro_perdeu` responde `None` enquanto
+# a partida nao acabou (`motores/quatro/feitos_quatro.responder_predicados`), e
+# `None` nunca e `igual false`. Com a janela `partida`, a conjuncao so pode valer
+# no lance que encerra o jogo - que e o que "ate o fim" quer dizer. E o juiz
+# avalia esse lance seja de quem for (T113, a porta `terminou_ate`).
+#
+# ── OS MARCOS SE COMPARAM COM `igual 1` ─────────────────────────────────────
+#
+# O contrato escreve *"`vitoria` atingida"*; ⛔ `atingido` nao e comparador do
+# vocabulario fechado (sao seis: `maior_ou_igual`, `menor_ou_igual`, `igual`,
+# `diferente`, `em`, `fora_de`). Os marcos valem 1 ou 0 no medidor
+# (`feitos_quatro.medir`), entao *atingido* e `igual 1` - a mesma forma que a
+# proposta `damas_vitoria_relampago` ja usa.
+
+#: Um marco atingido: as medidas `vitoria` e `vitoria_diagonal` valem 1 ou 0.
+_ATINGIDO = 1
+
+RECEITAS_FORA_DO_AR: dict[str, Receita] = {
+    "quatro_vencer_em_n": Receita(
+        nu_tipo_desafio=40,
+        co_tipo_desafio="quatro_vencer_em_n",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroVencerEmN",
+        # "Venca em ate N lances". O job prova (T116) que a vitoria forcada
+        # existe em N lances da pessoa e NAO em N-1: sem a segunda metade, um
+        # "venca em 5" que se ganha em 2 seria um desafio de dois toques.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("lances_do_jogador", "menor_ou_igual", p["lances"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_segurar_magno": Receita(
+        nu_tipo_desafio=41,
+        co_tipo_desafio="quatro_segurar_magno",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroSegurarMagno",
+        # "Segure o Magno": nao perca. O job prova que o empate existe e que a
+        # MAIORIA das colunas legais perde - sem isso, qualquer lance seguraria.
+        # ⚠️ O personagem e sempre o Magno, e quem restringe e o editorial
+        # (`co_personagens`), e nao esta receita: ela so diz como se julga.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [_predicado("quatro_perdeu", "igual", False)],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_unica_coluna": Receita(
+        nu_tipo_desafio=42,
+        co_tipo_desafio="quatro_unica_coluna",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroUnicaColuna",
+        # "Ache a unica coluna que nao perde". ⚠️ A MESMA chegada do
+        # `quatro_segurar_magno`, de proposito: o que separa os dois tipos e a
+        # POSICAO (aqui exatamente uma coluna nao perde), provada na geracao. E
+        # o caso que o cabecalho chama de "tipo x forma": dois tipos, uma forma.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [_predicado("quatro_perdeu", "igual", False)],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_vencer_diagonal": Receita(
+        nu_tipo_desafio=43,
+        co_tipo_desafio="quatro_vencer_diagonal",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroVencerDiagonal",
+        # "Venca com uma diagonal". ⚠️ `vitoria_diagonal` so vale 1 quando a
+        # linha vencedora e DA PESSOA (`feitos_quatro.medir`): a diagonal do
+        # adversario nao cumpre nada.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("vitoria_diagonal", "igual", _ATINGIDO),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_golpe_duplo": Receita(
+        nu_tipo_desafio=44,
+        co_tipo_desafio="quatro_golpe_duplo",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroGolpeDuplo",
+        # "Venca fechando duas linhas com a mesma peca": as linhas que o lance
+        # final fechou (`linhas_no_lance_final`), da pessoa.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("linhas_no_lance_final", "maior_ou_igual", p["linhas"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "linhas": p["linhas"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_linha_de_cinco": Receita(
+        nu_tipo_desafio=45,
+        co_tipo_desafio="quatro_linha_de_cinco",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroLinhaDeCinco",
+        # "Venca com cinco em linha": a maior linha vencedora da pessoa.
+        # ⚠️ O tamanho e parametro (`tamanho`), e nao o 5 escrito aqui: numa
+        # modalidade de alinhar 5 a frase pediria 6, e e so um INSERT.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("maior_linha", "maior_ou_igual", p["tamanho"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "tamanho": p["tamanho"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_encostadas": Receita(
+        nu_tipo_desafio=46,
+        co_tipo_desafio="quatro_encostadas",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroEncostadas",
+        # "Venca com N pecas encostadas". ⛔ O N e ABSOLUTO aqui, e quem o
+        # calcula e o editorial (`parametros_efetivos`): o que ja esta encostado
+        # na posicao publicada mais o `a_mais` da variante (regra 3 do catalogo,
+        # R-22). Um N fixo escrito a mao ora nasceria cumprido, ora impossivel -
+        # a mesma armadilha que o material relativo das damas fechou.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("pecas_encostadas", "maior_ou_igual", p["pecas"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "pecas": p["pecas"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_sem_o_meio": Receita(
+        nu_tipo_desafio=47,
+        co_tipo_desafio="quatro_sem_o_meio",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroSemOMeio",
+        # "Venca sem jogar na coluna do meio". ⚠️ So existe em largura IMPAR: na
+        # par nao ha coluna do meio, `lances_na_coluna_central` vale 0 sempre, e
+        # o desafio viraria "venca" com outra frase. Quem recusa a modalidade
+        # par e a geracao (T116), que sabe a largura; a receita nao a conhece.
+        #
+        # ⚠️ `<= 0`, e nao `igual 0`: a medida e `maior_melhor` no catalogo, e o
+        # teto e a leitura natural de "nenhum lance la".
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("lances_na_coluna_central", "menor_ou_igual", 0),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_bloquear": Receita(
+        nu_tipo_desafio=48,
+        co_tipo_desafio="quatro_bloquear",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroBloquear",
+        # "Bloqueie N ameacas do adversario e nao perca". ⛔ O "e nao perca" e o
+        # que obriga a esperar o fim (R-22): sem o predicado, o juiz daria o
+        # desafio por cumprido no 3o bloqueio, antes de saber se a pessoa perde.
+        # "Bloqueie", e nao "tape" (decisao do dono, §8zzz).
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("ameacas_bloqueadas", "maior_ou_igual", p["ameacas"]),
+                _predicado("quatro_perdeu", "igual", False),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "ameacas": p["ameacas"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_virada": Receita(
+        nu_tipo_desafio=49,
+        co_tipo_desafio="quatro_virada",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroVirada",
+        # "Venca uma partida que parece perdida". A chegada e so a vitoria; o que
+        # faz a virada e a POSICAO, provada na geracao (T116): a heuristica da
+        # vantagem ao adversario, e a busca completa prova a vitoria forcada da
+        # pessoa.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [_medida("vitoria", "igual", _ATINGIDO)],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
+}
+
+
 def receita_de(co_tipo_desafio: str) -> Receita:
     """A receita de um tipo. Falha alto se ele nao tiver uma.
 
