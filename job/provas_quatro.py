@@ -48,6 +48,14 @@ A leitura da resposta segue o desenho da busca (`busca_quatro.dart`):
     caminhos sem cortar nenhum no horizonte: **empate provado**. Com motivo
     `nos`, nada está provado.
 
+⚠️ **E há uma terceira família, ainda fora de `PROVAS`** (T124c, 21/10/2026):
+o objetivo FORÇÁVEL (`ProvadorQuatro.objetivo_forcavel`). A régua mostrou que
+"ao alcance" não basta no golpe duplo e na linha de cinco - nem quem persegue o
+objetivo no nível do Magno o alcançou. Ela entra no lugar da prova "ao alcance"
+desses dois só depois da medição por fase
+(`scripts/medir_objetivo_forcavel_quatro.py`), que diz se a taxa de posições
+que passam cabe no gerador.
+
 Os três números da busca estão aqui como constantes nomeadas, e um teste os
 confere contra o fonte Dart do espelho (`test_provas_quatro.py`): mudou lá,
 o teste reprova antes de uma prova passar a ler errado.
@@ -58,6 +66,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
+from motores.nucleo.chegada import LinhaDeChegada, avaliar
 from motores.quatro import feitos_quatro
 from motores.quatro.motor_quatro import EstadoQuatro, MotorQuatro, TabuleiroQuatro
 
@@ -86,9 +95,43 @@ MAXIMO_SEM_O_MEIO = 15
 #: Passou disso, a resposta é "não provado", como a de uma busca que estoura nós.
 PERGUNTAS_SEM_O_MEIO = 400
 
+#: O teto da prova de objetivo FORÇÁVEL (golpe duplo, linha de cinco), em
+#: meios-lances. ⚠️ Palpite de partida, o mesmo do "sem o meio": quem diz se ele
+#: serve é a medição por fase (`scripts/medir_objetivo_forcavel_quatro.py`).
+MAXIMO_FORCAVEL = 15
+
+#: Quantas perguntas à busca a prova forçável pode fazer numa posição. O mesmo
+#: palpite do "sem o meio", pela mesma razão (a árvore E/OU cresce rápido).
+PERGUNTAS_FORCAVEL = 400
+
 
 class _SemPerguntas(Exception):
-    """O "sem o meio" gastou as perguntas que tinha (uso interno)."""
+    """A árvore E/OU gastou as perguntas que tinha (uso interno)."""
+
+
+@dataclass(slots=True)
+class _Arvore:
+    """O que muda de uma árvore E/OU para outra (uso interno de `_forca`).
+
+    A árvore é uma só - a pessoa escolhe UM lance, o adversário pode responder
+    QUALQUER um - e duas provas a usam: o "sem o meio" e o objetivo forçável.
+    O que as separa cabe em duas funções:
+
+    Atributos:
+        quem: a pessoa (`+1`/`-1`).
+        permitido: `(antes, depois) -> bool`: o lance da pessoa vale? (o "sem
+            o meio" recusa a coluna central).
+        folha: `(estado final) -> bool`: a partida acabou num lance da pessoa;
+            isso cumpre o que se pede?
+        perguntas_ate: a partir de quantas perguntas a prova desiste.
+        visto: as respostas guardadas, por (tabuleiro, meios-lances restantes).
+    """
+
+    quem: int
+    permitido: Callable[[EstadoQuatro, EstadoQuatro], bool]
+    folha: Callable[[EstadoQuatro], bool]
+    perguntas_ate: int
+    visto: dict[tuple, bool] = field(default_factory=dict)
 
 
 class Oraculo(Protocol):
@@ -339,11 +382,17 @@ class ProvadorQuatro:
                 f"a vitória livre já leva {(livre.meios_lances + 1) // 2} lances, "
                 f"acima do teto de {(maximo_de_meios_lances + 1) // 2}",
             )
-        self._sem_o_meio_visto: dict[tuple, bool] = {}
-        self._perguntas_ate = self.perguntas + PERGUNTAS_SEM_O_MEIO
+        arvore = _Arvore(
+            quem=quem,
+            # A proibição mora no lance da pessoa: a coluna do meio não é opção.
+            permitido=lambda antes, depois: self._coluna_do_lance(antes, depois) != meio,
+            # E a folha que vale é a vitória dela (a proibição já garantiu o resto).
+            folha=lambda fim: self.arbitro.veredito(fim).vencedor == quem,
+            perguntas_ate=self.perguntas + PERGUNTAS_SEM_O_MEIO,
+        )
         try:
             for teto in range(livre.meios_lances, maximo_de_meios_lances + 1, 2):
-                if self._vence_sem(estado, quem, meio, teto):
+                if self._forca(estado, arvore, teto):
                     lances = (teto + 1) // 2
                     return ProvaQuatro(
                         True, f"vitória sem a coluna {meio} em {lances} lances",
@@ -361,6 +410,87 @@ class ProvadorQuatro:
             f"{(maximo_de_meios_lances + 1) // 2} lances",
         )
 
+    def objetivo_forcavel(
+        self,
+        estado: EstadoQuatro,
+        js_chegada: Mapping[str, Any],
+        *,
+        maximo_de_meios_lances: int = MAXIMO_FORCAVEL,
+        perguntas: int = PERGUNTAS_FORCAVEL,
+    ) -> ProvaQuatro:
+        """A pessoa CUMPRE o objetivo à força, faça o adversário o que fizer.
+
+        A prova do golpe duplo e da linha de cinco (T124c, item 1 do plano do
+        que sobra). A prova "ao alcance" (`golpe_duplo`, `linha_de_cinco`, mais
+        abaixo) só diz que o tabuleiro ainda COMPORTA o objetivo; a régua de
+        21/10 mostrou que isso não basta: nem o perseguidor no nível do Magno
+        alcançou o objetivo nessas posições. Aqui a pergunta é a forte: existe
+        um jeito de jogar que termina na vitória DO JEITO PEDIDO contra qualquer
+        resposta?
+
+        É a mesma árvore E/OU do "sem o meio", com outra folha: a partida
+        terminou e a linha de chegada do desafio vale. ⛔ **A regra da folha não
+        é reescrita aqui**: quem mede é `feitos_quatro.medir` e quem julga é
+        `avaliar`, os mesmos que julgam a pessoa no app e no servidor.
+
+        ⚠️ **Serve às chegadas que dependem só do TABULEIRO final** (a vitória e
+        as linhas que ela fechou): a árvore guarda as respostas por tabuleiro, e
+        uma medida que dependesse do caminho (os lances na coluna do meio, as
+        ameaças bloqueadas) leria a resposta de outro caminho. Por isso o "sem o
+        meio" põe a proibição no LANCE (`permitido`), e não na folha.
+
+        Args:
+            estado: a posição publicada (a vez é de quem resolve).
+            js_chegada: a linha de chegada do tipo, com os parâmetros (a da
+                receita: `RECEITAS[tipo].montar(parametros)`).
+            maximo_de_meios_lances: até onde a árvore desce.
+            perguntas: quantas buscas a prova pode gastar nesta posição.
+        """
+        quem = self.arbitro.vez_de(estado)
+        livre = self.resultado(estado)
+        if livre.vencedor != quem:
+            return ProvaQuatro(False, f"sem vitória forçada provada para {quem:+d}")
+        if livre.meios_lances > maximo_de_meios_lances:
+            return ProvaQuatro(
+                False,
+                f"a vitória livre já leva {(livre.meios_lances + 1) // 2} lances, "
+                f"acima do teto de {(maximo_de_meios_lances + 1) // 2}",
+            )
+        chegada = LinhaDeChegada.de_dado(js_chegada)
+        iniciais = estado.lances
+
+        def cumpre(fim: EstadoQuatro) -> bool:
+            # A fita é o que se jogou DEPOIS da posição publicada, dos dois lados.
+            fita = fim.lances[len(iniciais):]
+            medidas = feitos_quatro.medir(self.arbitro, iniciais, fita, jogador=quem)
+            predicados = feitos_quatro.responder_predicados(self.arbitro, iniciais, fita)
+            return avaliar(chegada, medidas, predicados=predicados)
+
+        arvore = _Arvore(
+            quem=quem,
+            permitido=lambda _antes, _depois: True,
+            folha=cumpre,
+            perguntas_ate=self.perguntas + perguntas,
+        )
+        try:
+            for teto in range(livre.meios_lances, maximo_de_meios_lances + 1, 2):
+                if self._forca(estado, arvore, teto):
+                    lances = (teto + 1) // 2
+                    return ProvaQuatro(
+                        True, f"o objetivo é forçável em {lances} lances",
+                        {"lances": lances, "lances_livre": (livre.meios_lances + 1) // 2},
+                    )
+        except _SemPerguntas:
+            return ProvaQuatro(
+                False, f"a árvore do objetivo passou de {perguntas} perguntas sem decidir"
+            )
+        return ProvaQuatro(
+            False,
+            f"a vitória existe em {(livre.meios_lances + 1) // 2} lances, mas o "
+            f"objetivo não é forçável em até {(maximo_de_meios_lances + 1) // 2}",
+            {"lances_livre": (livre.meios_lances + 1) // 2},
+        )
+
     def _coluna_do_lance(self, antes: EstadoQuatro, depois: EstadoQuatro) -> int | None:
         """A coluna que o lance ocupou (a pilha que cresceu), sem ler a notação."""
         a = self.arbitro.tabuleiro(antes).colunas
@@ -370,8 +500,8 @@ class ProvadorQuatro:
                 return indice + 1
         return None
 
-    def _vence_sem(self, estado: EstadoQuatro, quem: int, meio: int, restam: int) -> bool:
-        """OU: algum lance da pessoa, fora do meio, vence em até [restam].
+    def _forca(self, estado: EstadoQuatro, arvore: "_Arvore", restam: int) -> bool:
+        """OU: algum lance permitido da pessoa leva à folha em até [restam].
 
         ⚠️ A resposta é guardada por (tabuleiro, restam): duas ordens de lance que
         chegam ao mesmo tabuleiro fazem a mesma pergunta.
@@ -379,40 +509,41 @@ class ProvadorQuatro:
         if restam <= 0:
             return False
         chave = (self._chave(estado), restam)
-        if chave not in self._sem_o_meio_visto:
-            self._sem_o_meio_visto[chave] = self._vence_sem_agora(estado, quem, meio, restam)
-        return self._sem_o_meio_visto[chave]
+        if chave not in arvore.visto:
+            arvore.visto[chave] = self._forca_agora(estado, arvore, restam)
+        return arvore.visto[chave]
 
-    def _vence_sem_agora(self, estado: EstadoQuatro, quem: int, meio: int, restam: int) -> bool:
-        """O corpo de `_vence_sem`, sem a memória."""
-        if self.perguntas > self._perguntas_ate:
+    def _forca_agora(self, estado: EstadoQuatro, arvore: "_Arvore", restam: int) -> bool:
+        """O corpo de `_forca`, sem a memória."""
+        if self.perguntas > arvore.perguntas_ate:
             raise _SemPerguntas
+        quem = arvore.quem
         legais = self.arbitro.lances_legais(estado)
-        # O melhor lance da busca livre vai na frente: quando ele não é do meio,
-        # costuma ser o da vitória, e o primeiro que acha a vitória encerra o OU.
+        # O melhor lance da busca livre vai na frente: quando ele é permitido,
+        # costuma ser o da vitória, e o primeiro que acha a folha encerra o OU.
         melhor = self.resultado(estado).lance
         if melhor in legais:
             legais = [melhor] + [l for l in legais if l != melhor]
         for lance in legais:
             filho = self.arbitro.aplicar(estado, lance)
-            if self._coluna_do_lance(estado, filho) == meio:
+            if not arvore.permitido(estado, filho):
                 continue
-            veredito = self.arbitro.veredito(filho)
-            if veredito.acabou:
-                if veredito.vencedor == quem:
+            if self.arbitro.veredito(filho).acabou:
+                # A partida acabou no lance da pessoa: vale se a folha vale (a
+                # vitória do jeito errado acaba a partida e NÃO cumpre).
+                if arvore.folha(filho):
                     return True
                 continue
-            # A poda: sem a vitória forçada livre, a restrita não existe.
+            # A poda: toda folha pedida é uma vitória da pessoa; sem a vitória
+            # forçada livre, a restrita não existe.
             if self.resultado(filho).vencedor != quem:
                 continue
-            if self._todas_as_respostas(filho, quem, meio, restam - 1):
+            if self._todas_as_respostas(filho, arvore, restam - 1):
                 return True
         return False
 
-    def _todas_as_respostas(
-        self, estado: EstadoQuatro, quem: int, meio: int, restam: int
-    ) -> bool:
-        """E: toda resposta do adversário ainda deixa a pessoa vencer sem o meio."""
+    def _todas_as_respostas(self, estado: EstadoQuatro, arvore: "_Arvore", restam: int) -> bool:
+        """E: toda resposta do adversário ainda deixa a pessoa chegar à folha."""
         if restam <= 0:
             return False
         for lance in self.arbitro.lances_legais(estado):
@@ -420,10 +551,10 @@ class ProvadorQuatro:
             veredito = self.arbitro.veredito(neto)
             if veredito.acabou:
                 # O adversário venceu ou empatou: este ramo não é da pessoa.
-                if veredito.vencedor != quem:
+                if veredito.vencedor != arvore.quem:
                     return False
                 continue
-            if not self._vence_sem(neto, quem, meio, restam - 1):
+            if not self._forca(neto, arvore, restam - 1):
                 return False
         return True
 

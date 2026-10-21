@@ -347,6 +347,128 @@ def test_bloquear_conta_os_bloqueios_da_continuacao(provador) -> None:
     assert not sem.passou and "continuação" in sem.motivo
 
 
+# ── O objetivo FORÇÁVEL (T124c, item 1 do plano do que sobra) ──────────────
+#
+# Montadas à mão (21/10/2026), com o desenho no comentário. Nas três primeiras
+# a vez é do jogador 1 e a vitória livre vem em 1 lance: o que muda é o JEITO.
+
+#: Linha 1: o 1 em s1, s2, s3; diagonal (1,4) (2,3) (3,2) do 1. O s4 cai em
+#: (4,1) e fecha DUAS linhas de quatro: a horizontal e a diagonal.
+GOLPE_DUPLO_EM_1 = "s1s1s2s1s3s2s3s7s2s7s1s6"
+#: Linha 1: `1 1 _ 1 1 2`. O s3 fecha UMA linha, de cinco.
+CINCO_EM_1 = "s1s7s2s7s4s6s5s6"
+#: Linha 1: `1 1 1 _`, e o 2 com três na coluna 7. O s4 vence com uma linha de
+#: quatro, e qualquer outro lance deixa o s7 do adversário: o único jeito de
+#: vencer é o ERRADO para os dois tipos.
+SO_A_HORIZONTAL = "s1s7s2s7s3s6"
+#: A mesma linha de cinco, com a vez do jogador 2 (o 1 jogou s7, s7, s6, s6, s7).
+CINCO_EM_1_DO_JOGADOR_2 = "s7s1s7s2s6s4s6s5s7"
+#: Do acervo de autoplay (21/10/2026): a linha de cinco é forçável em 8 lances,
+#: os mesmos 8 da vitória livre; o golpe duplo, não.
+CINCO_EM_8_DO_ACERVO = "s4s4s4s4s2s5s5s1s5s5s1s5s4s4s1s1s2s6s2s2s2s5s1s1"
+
+
+def _chegada(tipo: str, **par) -> dict:
+    """A linha de chegada da receita, no ar ou fora dele (o tipo muda de lado
+    no dia da promoção, e o teste não deve quebrar por isso)."""
+    return {**RECEITAS_FORA_DO_AR, **RECEITAS}[tipo].montar(par)
+
+
+def _forcavel(provador, sequencia: str, tipo: str, *, teto: int = pq.MAXIMO_FORCAVEL, **par):
+    return provador.objetivo_forcavel(
+        _estado(sequencia), _chegada(tipo, **par), maximo_de_meios_lances=teto
+    )
+
+
+def test_o_golpe_duplo_forcavel_em_1_nao_e_linha_de_cinco(provador) -> None:
+    golpe = _forcavel(provador, GOLPE_DUPLO_EM_1, "quatro_golpe_duplo", linhas=2)
+    assert golpe.passou and golpe.dados == {"lances": 1, "lances_livre": 1}
+    # As duas linhas são de quatro: o mesmo lance não faz a linha de cinco.
+    cinco = _forcavel(provador, GOLPE_DUPLO_EM_1, "quatro_linha_de_cinco", teto=1, tamanho=5)
+    assert not cinco.passou and "não é forçável em até 1" in cinco.motivo
+
+
+def test_a_linha_de_cinco_forcavel_em_1_nao_e_golpe_duplo(provador) -> None:
+    cinco = _forcavel(provador, CINCO_EM_1, "quatro_linha_de_cinco", tamanho=5)
+    assert cinco.passou and cinco.dados == {"lances": 1, "lances_livre": 1}
+    # Uma linha só, ainda que de cinco: não é o golpe duplo.
+    golpe = _forcavel(provador, CINCO_EM_1, "quatro_golpe_duplo", teto=1, linhas=2)
+    assert not golpe.passou and "não é forçável em até 1" in golpe.motivo
+
+
+@pytest.mark.parametrize(
+    "tipo, par", [("quatro_golpe_duplo", {"linhas": 2}), ("quatro_linha_de_cinco", {"tamanho": 5})]
+)
+def test_vencer_do_jeito_ERRADO_nao_cumpre_o_objetivo(provador, tipo, par) -> None:
+    """A vitória livre está a um lance, e por isso a prova "ao alcance" passaria;
+    a forçável não, porque o único jeito de vencer é com uma linha de quatro."""
+    prova = _forcavel(provador, SO_A_HORIZONTAL, tipo, **par)
+    assert not prova.passou
+    assert "vitória existe em 1 lances, mas o objetivo não é forçável" in prova.motivo
+    # O controle: a busca livre diz que ele vence ali, e em 1.
+    assert provador.resultado(_estado(SO_A_HORIZONTAL)).meios_lances == 1
+
+
+def test_o_objetivo_forcavel_e_de_quem_tem_a_vez_mesmo_o_jogador_2(provador) -> None:
+    """Quem resolve é o jogador 2: o medidor da folha tem de medir o lado DELE."""
+    prova = _forcavel(provador, CINCO_EM_1_DO_JOGADOR_2, "quatro_linha_de_cinco", tamanho=5)
+    assert prova.passou and prova.dados["lances"] == 1
+
+
+def test_o_objetivo_forcavel_numa_posicao_do_acervo(provador) -> None:
+    cinco = _forcavel(provador, CINCO_EM_8_DO_ACERVO, "quatro_linha_de_cinco", tamanho=5)
+    assert cinco.passou and cinco.dados == {"lances": 8, "lances_livre": 8}
+    golpe = _forcavel(provador, CINCO_EM_8_DO_ACERVO, "quatro_golpe_duplo", linhas=2)
+    assert not golpe.passou and "não é forçável em até 8" in golpe.motivo
+    # E o teto abaixo da vitória livre recusa sem descer a árvore.
+    curto = _forcavel(provador, CINCO_EM_8_DO_ACERVO, "quatro_linha_de_cinco", teto=1, tamanho=5)
+    assert not curto.passou and "já leva 8 lances" in curto.motivo
+
+
+def test_o_objetivo_forcavel_sem_vitoria_livre_recusa(provador) -> None:
+    prova = _forcavel(provador, ABERTA_SEM_VITORIA, "quatro_golpe_duplo", linhas=2)
+    assert not prova.passou and "sem vitória forçada" in prova.motivo
+
+
+def test_o_objetivo_forcavel_desiste_no_teto_de_perguntas(provador) -> None:
+    """Na posição do golpe duplo, a linha de cinco não existe, mas a vitória
+    livre sobrevive a quase todo lance (a ameaça do s4 continua): a árvore
+    cresce, e a prova tem de PARAR e dizer "não provado", e não seguir."""
+    antes = provador.perguntas
+    prova = provador.objetivo_forcavel(
+        _estado(GOLPE_DUPLO_EM_1), _chegada("quatro_linha_de_cinco", tamanho=5), perguntas=50
+    )
+    assert not prova.passou and "passou de 50 perguntas" in prova.motivo
+    # O teto é conferido na ENTRADA de cada nó da pessoa, e um nó pergunta no
+    # máximo a própria posição e uma por coluna (7); mais a vitória livre, que
+    # vem antes da árvore. Passar disso seria a árvore seguindo depois do teto.
+    assert provador.perguntas - antes <= 50 + 1 + 1 + 7
+
+
+def test_o_no_E_recusa_a_resposta_que_vence_mesmo_sem_a_poda(provador) -> None:
+    """A guarda do nó do adversário, medida SOZINHA.
+
+    ⚠️ Na árvore inteira ela é a segunda defesa: o lance da pessoa que deixa
+    uma vitória ao adversário já sai na poda (a busca não dá a vitória forçada
+    à pessoa ali). Um caso pela prova inteira passaria sem ela - por isso este
+    chama o nó direto. Linha 1: o 1 em s2, s3, s4 e s6 (ameaça dupla, s1 e s5);
+    o 2 com três na coluna 7 e a vez. Qualquer bloqueio perde, menos o s7, que
+    VENCE: o nó tem de dizer "não", e não pular a resposta que encerra.
+    """
+    estado = _estado("s2s7s3s7s4s7s6")
+    arvore = pq._Arvore(
+        quem=1,
+        permitido=lambda _a, _d: True,
+        folha=lambda fim: provador.arbitro.veredito(fim).vencedor == 1,
+        perguntas_ate=provador.perguntas + 100,
+    )
+    assert provador._todas_as_respostas(estado, arvore, 2) is False
+    # O controle: sem o s7, toda resposta perde para o 1 em um lance.
+    for lance in ("s1", "s5"):
+        depois = provador.arbitro.aplicar(estado, lance)
+        assert provador._forca(depois, arvore, 1) is True
+
+
 def test_a_prova_do_sem_o_meio_cabe_no_teto_de_perguntas(provador) -> None:
     """O controle do teto: medido em 20/10, a média foi 27 perguntas."""
     antes = provador.perguntas

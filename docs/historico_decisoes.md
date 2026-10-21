@@ -9157,3 +9157,53 @@ recusa, com razão, receita "em avaliação" de tipo publicado), fixando o jogo 
 `mock.patch`. Suíte 3.638 verde; app `test/core/desafios/` + `logica/` do desafio 915 verdes.
 Mutações: Dart 2 de 2 e Python 2 de 2 (as medidas do fim contadas na vitória do adversário; o
 `>=` virando `>`).
+
+## 2026-10-21 (10) — A prova de objetivo FORÇÁVEL, e a medição que decide o golpe duplo, a linha de cinco e o "sem o meio" (T124c da spec 010)
+
+**Contexto.** O "plano do que sobra" da T124c (combinado com o dono em 21/10, `tasks.md` da spec
+010) tem quatro passos; estes são o 1 e o 2. A régua com o perseguidor ("2026-10-21 (9)") mostrou
+que, no golpe duplo e na linha de cinco, nem o perseguidor no nível do Magno alcança o objetivo: a
+prova de geração de hoje ("ao alcance") só diz que o tabuleiro COMPORTA o objetivo.
+
+**Decisão 1 - a prova forçável** (`ProvadorQuatro.objetivo_forcavel`, `job/provas_quatro.py`): a
+pessoa CUMPRE o objetivo à força, faça o adversário o que fizer. É a árvore E/OU do "sem o meio"
+com outra folha. A árvore virou uma só (`_forca` / `_todas_as_respostas`, com uma `_Arvore` que
+carrega o que muda): o "sem o meio" passa a regra do LANCE (`permitido`: fora da coluna do meio) e
+a folha "vitória dela"; a forçável passa a folha "a partida acabou e a linha de chegada vale", com
+`feitos_quatro.medir` + `avaliar` - ⛔ a regra do objetivo não é escrita de novo. A poda é a mesma
+(toda folha pedida é uma vitória da pessoa; sem a vitória forçada livre, a restrita não existe), e
+os tetos são os do "sem o meio" como palpite de partida (`MAXIMO_FORCAVEL = 15` meios-lances,
+`PERGUNTAS_FORCAVEL = 400`). ⚠️ Serve só a chegadas que dependem do TABULEIRO final: as respostas
+são guardadas por tabuleiro, e uma medida de caminho (lances no meio, ameaças bloqueadas) leria a
+de outro caminho - por isso a proibição do "sem o meio" mora no lance, e não na folha.
+⛔ **Ainda fora de `PROVAS`**: o golpe duplo e a linha de cinco continuam com a prova "ao alcance"
+até a medição abaixo dizer se a forçável cabe no gerador.
+
+**Alternativas.** Pescaria offline com acervo próprio (fica para o caso de a taxa sair
+raríssima); ensinar o objetivo à busca do executável (recusada: o app não precisa disso, e seria
+uma segunda escrita da regra, em Dart).
+
+**Decisão 2 - a medição** (`scripts/medir_objetivo_forcavel_quatro.py`, comando do dono,
+§8zzzm: retomável, todos os núcleos, saída em `medicoes/`). Fase 1, por comprimento: quantas
+posições do acervo passam na forçável (separando a recusa do "estourou o teto de perguntas") e a
+distância da vitória sem o meio. Fase 2, a hipótese do dono (*"o Tex e o Magno bloqueiam demais"*):
+o perseguidor no nível do Magno contra os QUATRO adversários, nas mesmas posições da medição de
+21/10 (`alcance`) e nas que passaram na forçável (`forcavel`). Controles antes dos números: na fase
+1, toda partida do acervo terminada com cinco em linha ou duas linhas no mesmo lance tem de passar
+em 1 lance um lance antes do fim, e a posição em que só a linha de quatro vence tem de reprovar
+(ensaio: 21 de 21 nos dois tipos, e o jeito errado reprovando); na fase 2, o controle "só vencer"
+por adversário. `_jogar` do script pareado ganhou o parâmetro `adversario` (o padrão continua o
+Tex) para não haver segunda escrita da partida.
+
+**A sondagem que motivou o teto como coluna** (90 s, 152 posições de 14 a 30 lances): poucas
+passam, e muitas estouram as 400 perguntas em ~1 s - é a forma de árvore que cresce quando a
+vitória livre sobrevive a quase todo lance. Por isso a tabela separa "estourou" de "recusou", e o
+resumo dá as perguntas das que passaram.
+
+Testes: `test_provas_quatro.py` 38 (oito casos novos: o golpe em 1 que não é linha de cinco e o
+contrário, o jeito errado nos dois tipos, o jogador 2, uma posição do acervo forçável em 8, sem
+vitória livre, o teto de perguntas, e o nó E sozinho); `test_medir_objetivo_forcavel_quatro.py` 6.
+Mutações: prova 5 de 5 (a folha sempre verdadeira, a fita desde o tabuleiro vazio, o `permitido`
+ignorado, o teto ignorado, e a resposta do adversário que encerra aceita - esta sobreviveu à 1ª
+rodada: é a segunda guarda da poda, e ganhou um caso que chama o nó E direto); script 6 de 6.
+Suíte do backend 3.653 verde (21 pulados).

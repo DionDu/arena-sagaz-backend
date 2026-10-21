@@ -184,8 +184,15 @@ def _jogar(
     teto: int,
     modo: str,
     nu_semente: int,
+    adversario: NivelDeMotor = ADVERSARIO,
 ) -> dict[str, bool]:
-    """Uma partida de [modo] a partir da posicao; devolve cumpriu e venceu."""
+    """Uma partida de [modo] a partir da posicao; devolve cumpriu e venceu.
+
+    [adversario] e o nivel de quem joga contra quem resolve. O padrao e o Tex,
+    o desta medicao; `scripts/medir_objetivo_forcavel_quatro.py` passa os
+    quatro, para medir a hipotese do dono de que o Tex e o Magno bloqueiam
+    demais o golpe duplo e a linha de cinco (T124c, 21/10/2026).
+    """
     motor: MotorQuatro = jogador.arbitro
     # O controle persegue "so vencer"; os outros, o objetivo do tipo.
     chegada_do_modo = CHEGADA_DE_SO_VENCER if modo.startswith("controle") else chegada
@@ -214,7 +221,7 @@ def _jogar(
             )
 
         if motor.vez_de(estado) != desafio.pessoa:
-            lance = do_nivel(ADVERSARIO)
+            lance = do_nivel(adversario)
         elif modo == "magno_so_vence":
             lance = do_nivel(NivelDeMotor.SAGAZ)
         else:
