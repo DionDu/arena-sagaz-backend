@@ -2865,10 +2865,12 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         co_tipo_desafio="quatro_unica_coluna",
         co_jogo="quatro",
         co_chave_objetivo="desafioObjetivoQuatroUnicaColuna",
-        # "Ache a unica coluna que nao perde". ⚠️ A MESMA chegada do
-        # `quatro_segurar_magno`, de proposito: o que separa os dois tipos e a
-        # POSICAO (aqui exatamente uma coluna nao perde), provada na geracao. E
-        # o caso que o cabecalho chama de "tipo x forma": dois tipos, uma forma.
+        # ⛔ APOSENTADA em 20/10/2026 (`DECISOES-do-dono.md` §8zzzl): tudo se
+        # decidia no 1o lance (adivinhacao), e a pergunta e a mesma do Segure.
+        # Fica fora do ar e sem texto no app; nada e apagado.
+        # Era "Ache a unica coluna que nao perde": a MESMA chegada do
+        # `quatro_segurar_magno`, e o que separava os dois tipos era a POSICAO
+        # (exatamente uma coluna nao perde), provada na geracao.
         montar=lambda p: {
             "versao": VERSAO_CHEGADA,
             "janela": {"tipo": "partida"},
@@ -3014,10 +3016,10 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         co_tipo_desafio="quatro_virada",
         co_jogo="quatro",
         co_chave_objetivo="desafioObjetivoQuatroVirada",
-        # "Venca uma partida que parece perdida". A chegada e so a vitoria; o que
-        # faz a virada e a POSICAO, provada na geracao (T116): a heuristica da
-        # vantagem ao adversario, e a busca completa prova a vitoria forcada da
-        # pessoa.
+        # "Vire o jogo e venca {personagem}" (texto do dono, §8zzzl). A chegada
+        # e so a vitoria; o que faz a virada e a POSICAO, provada na geracao
+        # (T116): a heuristica da vantagem ao adversario, e a busca completa
+        # prova a vitoria forcada da pessoa.
         montar=lambda p: {
             "versao": VERSAO_CHEGADA,
             "janela": {"tipo": "partida"},

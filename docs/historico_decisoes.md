@@ -8498,3 +8498,27 @@ agregados por tipo):
 3): recusada pelo precedente acima. (b) Segurar a T124b até os sete passarem:
 recusada - a calibração nunca foi condição de portão (§8c), e pescaria/remedição
 correm em paralelo, como na 009. Os sete viram tarefa própria (T124c).
+
+---
+
+## 2026-10-20 (6) — Os textos do Quatro em Linha chegam antes da régua (T131/T131a da spec 010)
+
+**Contexto.** A decisão §8zzz do dono pede todos os textos do Quatro na 1.4.0, mesmo
+dos tipos que ainda não passaram na régua: o que exige versão nova do app é TEXTO, e
+assim o tipo sobe depois (T124b/T124c) sem outra versão. São nove tipos: a única
+coluna foi aposentada (§8zzzl).
+
+**Decisão.** As chaves de objetivo e de feito dos nove entram nos três `.arb`, e as
+frases de feito no manifesto `contratos/medidas_do_feito.json` (regerado pelo app);
+`contratos/frases_objetivo_pt.json` regerado para o painel. ⚠️ O cadeado
+`test_nenhuma_entrada_sobra_sem_tipo` exigia entrada só de tipo em `RECEITAS`; agora
+aceita também `RECEITAS_FORA_DO_AR` - a receita existe, só não está no ar -, com dois
+casos novos: a entrada adiantada obedece ao jogo e à janela da receita (para o
+defeito aparecer hoje, e não no dia da promoção), e são exatamente nove do Quatro com
+entrada.
+
+**Alternativas consideradas.** (a) Deixar as frases de feito para quando o tipo
+subir: recusada, porque o feito também é texto do app e precisaria de versão nova.
+(b) Uma lista à mão de "tipos com texto adiantado" no teste: recusada, porque é o
+cadeado de lista escrita à mão que fica verde e cego; o registro fora do ar já diz
+quem são.

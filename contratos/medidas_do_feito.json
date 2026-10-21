@@ -76,6 +76,87 @@
       "valores_do_objetivo": []
     },
     {
+      "co_chave_objetivo": "desafioObjetivoQuatroBloquear",
+      "co_jogo": "quatro",
+      "medidas": [
+        "ameacas_bloqueadas"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoQuatroEncostadas",
+      "co_jogo": "quatro",
+      "medidas": [
+        "pecas_encostadas"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoQuatroGolpeDuplo",
+      "co_jogo": "quatro",
+      "medidas": [
+        "linhas_no_lance_final"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoQuatroLinhaDeCinco",
+      "co_jogo": "quatro",
+      "medidas": [
+        "maior_linha"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoQuatroSegurarMagno",
+      "co_jogo": "quatro",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoQuatroSemOMeio",
+      "co_jogo": "quatro",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoQuatroVencerDiagonal",
+      "co_jogo": "quatro",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoQuatroVencerEmN",
+      "co_jogo": "quatro",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoQuatroVirada",
+      "co_jogo": "quatro",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": []
+    },
+    {
       "co_chave_objetivo": "desafioObjetivoSacrificio",
       "co_jogo": "damas",
       "medidas": [],

@@ -13,7 +13,8 @@ acompanhar (`DECISOES-do-dono.md` §8z item 13) - e sao tres pontas:
     o aplicativo   `medidas_do_feito_test.dart` - a frase le so o declarado, e o
                    medidor de cada jogo produz cada medida exigida
     ESTE ARQUIVO   todo tipo de `RECEITAS` tem entrada, do mesmo jogo, com a
-                   janela que a receita monta; e a trava do job funciona
+                   janela que a receita monta (e o tipo FORA DO AR que ja tem
+                   entrada tambem); e a trava do job funciona
     o job          `job/medidas_do_feito.py` - ⛔ grava tipo sem entrada
 
 ⛔ **Nivel de CI: nunca pula.** Manifesto ausente e FALHA.
@@ -35,7 +36,7 @@ from job.medidas_do_feito import (
     exigir_frase_do_feito,
     frases_declaradas,
 )
-from job.tipos_de_desafio import RECEITAS
+from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR
 
 RAIZ = Path(__file__).resolve().parents[2]
 CATALOGO = RAIZ / "contratos" / "catalogo_feitos.json"
@@ -105,10 +106,57 @@ def test_a_frase_que_pede_a_janela_tem_janela_para_contar(co_tipo: str) -> None:
 def test_nenhuma_entrada_sobra_sem_tipo() -> None:
     """Entrada sem tipo no gerador e declaracao morta - e o dia em que o tipo
     voltasse com outra frase, ela mentiria.
+
+    ⚠️ **O tipo FORA DO AR conta como tipo** (T131a da spec 010): os textos do
+    Quatro existem desde a 1.4.0 mesmo antes de o tipo passar na regua
+    (`DECISOES-do-dono.md` §8zzz), e a frase de feito vai junto, para o tipo
+    subir depois sem versao nova do app. Nao e declaracao morta: a receita
+    existe, so nao esta em `RECEITAS`.
     """
-    chaves_do_gerador = {r.co_chave_objetivo for r in RECEITAS.values()}
+    chaves_do_gerador = {
+        r.co_chave_objetivo
+        for r in (*RECEITAS.values(), *RECEITAS_FORA_DO_AR.values())
+    }
     sobrando = sorted(set(frases_declaradas()) - chaves_do_gerador)
-    assert not sobrando, f"entradas sem tipo em RECEITAS: {sobrando}"
+    assert not sobrando, f"entradas sem tipo no gerador: {sobrando}"
+
+
+@pytest.mark.parametrize(
+    "co_tipo",
+    sorted(
+        t
+        for t, r in RECEITAS_FORA_DO_AR.items()
+        if r.co_chave_objetivo in frases_declaradas()
+    ),
+)
+def test_o_tipo_FORA_DO_AR_com_entrada_tem_o_mesmo_jogo_e_janela(co_tipo: str) -> None:
+    """🔒 A entrada adiantada de um tipo fora do ar ja obedece as regras do
+    tipo no ar: o mesmo jogo, e janela gasta so com janela para contar. Sem
+    isso, o defeito apareceria no dia da promocao (T124b), e nao hoje.
+    """
+    receita = RECEITAS_FORA_DO_AR[co_tipo]
+    entrada = frases_declaradas()[receita.co_chave_objetivo]
+    assert entrada["co_jogo"] == receita.co_jogo
+    if entrada["janela_gasta"]:
+        assert _janela_da_receita(receita) != "partida", co_tipo
+
+
+def test_os_nove_tipos_do_Quatro_com_texto_tem_entrada() -> None:
+    """🔒 Os nove do Quatro tem frase de feito; a unica coluna, aposentada
+    (`DECISOES-do-dono.md` §8zzzl), nao tem.
+
+    ⚠️ Sem este caso, o parametrizado acima passaria com ZERO tipos se o
+    manifesto perdesse as entradas do Quatro.
+    """
+    # No ar ou fora dele: a promocao (T124b) move o tipo de um registro para o
+    # outro, e o que este caso guarda nao muda com ela.
+    todas = {**RECEITAS, **RECEITAS_FORA_DO_AR}
+    do_quatro = {t for t, r in todas.items() if r.co_jogo == "quatro"}
+    com_entrada = {
+        t for t in do_quatro if todas[t].co_chave_objetivo in frases_declaradas()
+    }
+    assert do_quatro - com_entrada == {"quatro_unica_coluna"}
+    assert len(com_entrada) == 9
 
 
 def test_toda_medida_exigida_e_do_catalogo_e_do_TABULEIRO() -> None:
