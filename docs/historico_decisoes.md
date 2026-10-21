@@ -9135,3 +9135,25 @@ Magno (que persegue sempre) e o controle não mudam. **Medição pareada da v3**
 
 Teste novo (o lance cru sai mesmo sendo a vitória do jeito errado); a mutação que devolve o filtro
 ao lance cru é pega. ⬜ O dono roda a régua dos dois de novo.
+
+### A régua da v3, e a promoção da diagonal e das encostadas
+
+**A régua da v3 (o dono rodou):** diagonal FOLGA `[3, 3, 3]`, **na escada em 2 de 3 dias** (dia 1:
+Cacau 0,20 · Tex 0,60 · Magno 1,00; dia 2: Cacau 0,10 · Pita 0,30 · Magno 1,00; dia 3 errou por
+0,02, a Pita em 0,00). Encostadas FOLGA `[3, 3, 3]`, **na escada em 2 de 3 dias** (dia 1: Cacau 0 ·
+Tex 0,80 · Magno 1,00; dia 2: Cacau 0 · Pita 0,40 · Magno 1,00; dia 3 errou por 0,02, a Pita em
+0,50). O critério da T124b (2 de 3) fecha: **os dois sobem.**
+
+**A promoção** (a mesma da T124b): receitas em `RECEITAS` e publicações em `EDITORIAL`, com o
+selo da medição e o comentário de 20/10 marcado como "antes"; fora do ar ficam cinco (única coluna,
+aposentada; golpe duplo e linha de cinco, à espera de uma prova de objetivo forçável; sem o meio,
+à espera de posições mais longas; bloquear, sem escada com o perseguidor). **Oito vetores**
+(`vetores_do_quatro_perseguidos`): na diagonal, a vitória pela diagonal, a vitória pela horizontal
+(o jeito errado), a diagonal do ADVERSÁRIO e uma coluna inexistente; nas encostadas, cinco no alvo
+exato (o alvo é relativo: duas da posição mais três), quatro com vitória (uma a menos), a derrota e
+um lance depois do fim. Testes que usavam os dois como "tipo fora do ar" passaram a ler os dois
+lados; o `_gerar` de `test_gerador_do_quatro.py` leva tipo no ar pelo caminho NORMAL (o gerador
+recusa, com razão, receita "em avaliação" de tipo publicado), fixando o jogo e o tipo do dia com
+`mock.patch`. Suíte 3.638 verde; app `test/core/desafios/` + `logica/` do desafio 915 verdes.
+Mutações: Dart 2 de 2 e Python 2 de 2 (as medidas do fim contadas na vitória do adversário; o
+`>=` virando `>`).

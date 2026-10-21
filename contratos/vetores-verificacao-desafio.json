@@ -5443,6 +5443,675 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "quatro-diagonal-cumpriu",
+      "de_vetor": "A pessoa vence no 4o lance dela com a diagonal que desce da esquerda: (3,4)-(4,3)-(5,2)-(6,1). `vitoria_diagonal` 1.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 43,
+      "co_tipo_desafio": "quatro_vencer_diagonal",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "vitoria_diagonal",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 6,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 1,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-diagonal-venceu-pela-horizontal",
+      "de_vetor": "A pessoa vence pela LINHA DE BAIXO (3, 4, 5 e 6), e nao pela diagonal. Venceu, e nao cumpre: quem julgasse so a vitoria diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 43,
+      "co_tipo_desafio": "quatro_vencer_diagonal",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "vitoria_diagonal",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-diagonal-do-adversario",
+      "de_vetor": "O ADVERSARIO fecha a diagonal (5,1)-(4,2)-(3,3)-(2,4). Ha uma diagonal no tabuleiro, e nao e da pessoa: nao cumpre - quem contasse a diagonal de qualquer um diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 43,
+      "co_tipo_desafio": "quatro_vencer_diagonal",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s2"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "vitoria_diagonal",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 5,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-diagonal-lance-ilegal-e-dado-invalido",
+      "de_vetor": "Uma coluna que nao existe (a 9). Dado invalido.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 43,
+      "co_tipo_desafio": "quatro_vencer_diagonal",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s9"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "vitoria_diagonal",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "quatro-encostadas-cumpriu",
+      "de_vetor": "A pessoa vence com cinco pecas encostadas, o alvo (as duas da posicao mais tres).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 46,
+      "co_tipo_desafio": "quatro_encostadas",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encostadas-uma-a-menos",
+      "de_vetor": "A pessoa vence pela linha de baixo (2 a 5) com QUATRO pecas encostadas, uma a menos que o alvo: nao cumpre por pouco - quem trocasse `maior_ou_igual` por `maior` erraria o caso do alvo exato, e quem esquecesse o relativo (alvo 3) diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 46,
+      "co_tipo_desafio": "quatro_encostadas",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encostadas-o-adversario-venceu",
+      "de_vetor": "A derrota de sempre: o J2 fecha a linha 2. Nao cumpre.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 46,
+      "co_tipo_desafio": "quatro_encostadas",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 5,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encostadas-lance-depois-do-fim-e-dado-invalido",
+      "de_vetor": "A pessoa vence pela linha de baixo e a fita segue com um lance. Dado invalido.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 46,
+      "co_tipo_desafio": "quatro_encostadas",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ],
   "sementes": [

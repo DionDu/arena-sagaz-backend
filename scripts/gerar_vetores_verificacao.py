@@ -1700,6 +1700,122 @@ def vetores_do_quatro_de_21_10() -> list[dict[str, Any]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# O QUATRO EM LINHA - a diagonal e as encostadas (T124c, defeito 1, 21/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Os dois tipos que passaram na regua com o perseguidor do objetivo. Os dois
+# pedem um JEITO de vencer, e por isso cada um tem o caso que separa o jeito
+# certo do errado: a vitoria pela horizontal num desafio de diagonal, e a
+# vitoria com uma peca encostada a menos. As fitas foram achadas por sorteio e
+# conferidas pelo medidor de producao.
+#
+# ⚠️ **O alvo das encostadas e RELATIVO** (`editorial.parametros_efetivos`): o que
+# ja esta encostado na posicao publicada mais o `a_mais` da variante. Na base, o
+# J1 tem duas pecas encostadas ((3,1) e (4,1)), entao o alvo e 2 + 3 = 5.
+
+
+def _chegada_das_encostadas() -> dict[str, Any]:
+    """A chegada das encostadas na posicao-base, como o gerador a monta."""
+    from job import editorial as editorial_mod
+
+    motor = MotorQuatro("tradicional")
+    tabuleiro = motor.tabuleiro(motor.estado_de_sequencia("".join(_BASE_DO_QUATRO)))
+    encostadas = feitos_quatro.pecas_encostadas(
+        motor.regras.dimensoes, tabuleiro, tabuleiro.vez
+    )
+    (publicacao,) = editorial_mod.EDITORIAL["quatro_encostadas"]
+    parametros = editorial_mod.parametros_efetivos(
+        publicacao.parametros, encostadas=encostadas
+    )
+    return RECEITAS["quatro_encostadas"].montar(parametros)
+
+
+def vetores_do_quatro_perseguidos() -> list[dict[str, Any]]:
+    """Os vetores do `quatro_vencer_diagonal` e do `quatro_encostadas`."""
+    diagonal = RECEITAS["quatro_vencer_diagonal"]
+    encostadas = RECEITAS["quatro_encostadas"]
+    chegada_diagonal = diagonal.montar({})
+    chegada_encostadas = _chegada_das_encostadas()
+
+    def da_diagonal(*argumentos: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(diagonal, chegada_diagonal, *argumentos)
+
+    def das_encostadas(*argumentos: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(encostadas, chegada_encostadas, *argumentos)
+
+    return [
+        # ── "Venca {personagem} com uma diagonal" ─────────────────────────────
+        da_diagonal(
+            "quatro-diagonal-cumpriu",
+            "A pessoa vence no 4o lance dela com a diagonal que desce da "
+            "esquerda: (3,4)-(4,3)-(5,2)-(6,1). `vitoria_diagonal` 1.",
+            _BASE_DO_QUATRO,
+            "s6 s3 s3 s5 s5 s3 s4".split(),
+            "cumpriu",
+        ),
+        da_diagonal(
+            "quatro-diagonal-venceu-pela-horizontal",
+            "A pessoa vence pela LINHA DE BAIXO (3, 4, 5 e 6), e nao pela "
+            "diagonal. Venceu, e nao cumpre: quem julgasse so a vitoria diria "
+            "cumpriu.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6"],
+            "nao_cumpriu",
+        ),
+        da_diagonal(
+            "quatro-diagonal-do-adversario",
+            "O ADVERSARIO fecha a diagonal (5,1)-(4,2)-(3,3)-(2,4). Ha uma "
+            "diagonal no tabuleiro, e nao e da pessoa: nao cumpre - quem contasse "
+            "a diagonal de qualquer um diria cumpriu.",
+            _BASE_DO_QUATRO,
+            "s2 s5 s2 s3 s2 s2".split(),
+            "nao_cumpriu",
+        ),
+        da_diagonal(
+            "quatro-diagonal-lance-ilegal-e-dado-invalido",
+            "Uma coluna que nao existe (a 9). Dado invalido.",
+            _BASE_DO_QUATRO,
+            ["s9"],
+            "dado_invalido",
+        ),
+        # ── "Venca {personagem} com {pecas} pecas encostadas" ─────────────────
+        das_encostadas(
+            "quatro-encostadas-cumpriu",
+            "A pessoa vence com cinco pecas encostadas, o alvo (as duas da "
+            "posicao mais tres).",
+            _BASE_DO_QUATRO,
+            "s4 s6 s2 s4 s6 s1 s5".split(),
+            "cumpriu",
+        ),
+        das_encostadas(
+            "quatro-encostadas-uma-a-menos",
+            "A pessoa vence pela linha de baixo (2 a 5) com QUATRO pecas "
+            "encostadas, uma a menos que o alvo: nao cumpre por pouco - quem "
+            "trocasse `maior_ou_igual` por `maior` erraria o caso do alvo exato, "
+            "e quem esquecesse o relativo (alvo 3) diria cumpriu.",
+            _BASE_DO_QUATRO,
+            "s2 s7 s4 s4 s5".split(),
+            "nao_cumpriu",
+        ),
+        das_encostadas(
+            "quatro-encostadas-o-adversario-venceu",
+            "A derrota de sempre: o J2 fecha a linha 2. Nao cumpre.",
+            _BASE_DO_QUATRO,
+            ["s6", "s5", "s7", "s5", "s1", "s6"],
+            "nao_cumpriu",
+        ),
+        das_encostadas(
+            "quatro-encostadas-lance-depois-do-fim-e-dado-invalido",
+            "A pessoa vence pela linha de baixo e a fita segue com um lance. "
+            "Dado invalido.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6", "s1"],
+            "dado_invalido",
+        ),
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ⛔ AS SEMENTES POR LANCE — o segundo bloco do documento (26/09/2026)
 # ═══════════════════════════════════════════════════════════════════════════
 #
@@ -1801,6 +1917,8 @@ def montar() -> dict[str, Any]:
         + vetores_do_quatro()
         # O Segure e o "venca em ate 7" (T124c), tambem no fim.
         + vetores_do_quatro_de_21_10()
+        # A diagonal e as encostadas (T124c, defeito 1), tambem no fim.
+        + vetores_do_quatro_perseguidos()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

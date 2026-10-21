@@ -2106,6 +2106,39 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             co_personagens=("magno",),
         ),
     ),
+    "quatro_vencer_diagonal": (
+        Publicacao(
+            # ✅ **No ar desde 21/10/2026** (T124c, defeito 1): com o perseguidor do
+            # objetivo como solucionador (`gerador.SOLUCIONADOR_POR_TIPO`, v3), a
+            # regua deu FOLGA `[3, 3, 3]` e escada em 2 de 3 dias (o 3o errou por
+            # 0,02). Historico do backend, "2026-10-21 (9)".
+            # Antes, em 20/10, sem o perseguidor: FOLGA e 1 de 3 na escada - a regua
+            # nao media este tipo. Preparo 10: a diagonal precisa de tabuleiro livre.
+            parametros={},
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("vitoria_diagonal"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_encostadas": (
+        Publicacao(
+            # ✅ **No ar desde 21/10/2026** (T124c, defeito 1): com o perseguidor do
+            # objetivo como solucionador (`gerador.SOLUCIONADOR_POR_TIPO`, v3), a
+            # regua deu FOLGA `[3, 3, 3]` e escada em 2 de 3 dias (o 3o errou por
+            # 0,02). Historico do backend, "2026-10-21 (9)".
+            # Antes, em 20/10, sem o perseguidor: FOLGA e 3 de 3 na escada, mas por
+            # acaso - o personagem nao perseguia o objetivo (§8zzzl). O alvo e o
+            # que ja esta encostado mais tres.
+            parametros={CHAVE_A_MAIS_ENCOSTADAS: 3},
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("pecas_encostadas"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
 }
 
 
@@ -2182,18 +2215,6 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
     ),
-    "quatro_vencer_diagonal": (
-        Publicacao(
-            # ⛔ Medida em 20/10: FOLGA, mas 1 de 3 na escada - e a regua nao mede
-            # este tipo (T124c). Preparo 10: a diagonal precisa de tabuleiro livre.
-            parametros={},
-            nu_lances_de_preparo=10,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro("vitoria_diagonal"),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
     "quatro_golpe_duplo": (
         Publicacao(
             # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 2]` (T124c). Duas linhas com a
@@ -2215,19 +2236,6 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("maior_linha"),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
-    "quatro_encostadas": (
-        Publicacao(
-            # ⚠️ Medida em 20/10: FOLGA e 3 de 3 na escada, mas POR ACASO - o
-            # personagem nao persegue o objetivo; espera um resolvedor proprio
-            # (§8zzzl, T124c). O alvo e o que ja esta encostado mais tres.
-            parametros={CHAVE_A_MAIS_ENCOSTADAS: 3},
-            nu_lances_de_preparo=10,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro("pecas_encostadas"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
     ),

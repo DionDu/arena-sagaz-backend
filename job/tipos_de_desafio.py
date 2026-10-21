@@ -2817,6 +2817,57 @@ RECEITAS: dict[str, Receita] = {
         },
         valores_da_frase=lambda p, personagem: {"personagem": personagem},
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_vencer_diagonal": Receita(
+        nu_tipo_desafio=43,
+        co_tipo_desafio="quatro_vencer_diagonal",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroVencerDiagonal",
+        # ✅ **No ar desde 21/10/2026** (T124c, defeito 1): com o perseguidor do
+        # objetivo como solucionador (`gerador.SOLUCIONADOR_POR_TIPO`, v3), a
+        # regua deu FOLGA `[3, 3, 3]` e escada em 2 de 3 dias (o 3o errou por
+        # 0,02). Historico do backend, "2026-10-21 (9)".
+        # "Venca com uma diagonal". ⚠️ `vitoria_diagonal` so vale 1 quando a
+        # linha vencedora e DA PESSOA (`feitos_quatro.medir`): a diagonal do
+        # adversario nao cumpre nada.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("vitoria_diagonal", "igual", _ATINGIDO),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_encostadas": Receita(
+        nu_tipo_desafio=46,
+        co_tipo_desafio="quatro_encostadas",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroEncostadas",
+        # ✅ **No ar desde 21/10/2026** (T124c, defeito 1): com o perseguidor do
+        # objetivo como solucionador (`gerador.SOLUCIONADOR_POR_TIPO`, v3), a
+        # regua deu FOLGA `[3, 3, 3]` e escada em 2 de 3 dias (o 3o errou por
+        # 0,02). Historico do backend, "2026-10-21 (9)".
+        # "Venca com N pecas encostadas". ⛔ O N e ABSOLUTO aqui, e quem o
+        # calcula e o editorial (`parametros_efetivos`): o que ja esta encostado
+        # na posicao publicada mais o `a_mais` da variante (regra 3 do catalogo,
+        # R-22). Um N fixo escrito a mao ora nasceria cumprido, ora impossivel -
+        # a mesma armadilha que o material relativo das damas fechou.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("pecas_encostadas", "maior_ou_igual", p["pecas"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "pecas": p["pecas"],
+            "personagem": personagem,
+        },
+    ),
 }
 
 
@@ -2841,12 +2892,15 @@ def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # ⚠️ **Os tipos do Quatro em Linha moram aqui, e nao em [RECEITAS]** (T115
-# da spec 010, 20/10/2026). Eram dez; desde a T124c sao sete: a `quatro_virada`
+# da spec 010, 20/10/2026). Eram dez; desde a T124c sao cinco: a `quatro_virada`
 # passou na regua e foi promovida na T124b, o `quatro_vencer_em_n` (so a
-# variante 7) e o `quatro_segurar_magno` passaram na remedicao de 21/10 e foram
-# promovidos na T124c, e a `quatro_unica_coluna` continua aqui APOSENTADA
-# (`DECISOES-do-dono.md` §8zzzl), sem texto no app. As outras seis esperam o
-# defeito 1 da T124c (um jogador que persiga o objetivo). Eles nao sao
+# variante 7) e o `quatro_segurar_magno` passaram na remedicao de 21/10, e a
+# `quatro_vencer_diagonal` e as `quatro_encostadas` passaram com o perseguidor
+# do objetivo (T124c, defeito 1). A `quatro_unica_coluna` continua aqui
+# APOSENTADA (`DECISOES-do-dono.md` §8zzzl), sem texto no app; golpe duplo e
+# linha de cinco esperam uma prova de objetivo FORCAVEL, o sem o meio uma
+# posicao mais longa, e o bloquear nao ganhou escada com o perseguidor
+# (historico do backend, "2026-10-21 (9)"). Eles nao sao
 # propostas (essas ficam em
 # `tipos_propostos.py`, esperando o dono): o dono os aprovou em 13/10/2026
 # (`DECISOES-do-dono.md` §8zzz), e eles ja tem linha na `tb901_tipo_desafio`
@@ -2913,25 +2967,6 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         valores_da_frase=lambda p, personagem: {"personagem": personagem},
     ),
     # ─────────────────────────────────────────────────────────────────────────
-    "quatro_vencer_diagonal": Receita(
-        nu_tipo_desafio=43,
-        co_tipo_desafio="quatro_vencer_diagonal",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroVencerDiagonal",
-        # "Venca com uma diagonal". ⚠️ `vitoria_diagonal` so vale 1 quando a
-        # linha vencedora e DA PESSOA (`feitos_quatro.medir`): a diagonal do
-        # adversario nao cumpre nada.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("vitoria", "igual", _ATINGIDO),
-                _medida("vitoria_diagonal", "igual", _ATINGIDO),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {"personagem": personagem},
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
     "quatro_golpe_duplo": Receita(
         nu_tipo_desafio=44,
         co_tipo_desafio="quatro_golpe_duplo",
@@ -2971,30 +3006,6 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         },
         valores_da_frase=lambda p, personagem: {
             "tamanho": p["tamanho"],
-            "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_encostadas": Receita(
-        nu_tipo_desafio=46,
-        co_tipo_desafio="quatro_encostadas",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroEncostadas",
-        # "Venca com N pecas encostadas". ⛔ O N e ABSOLUTO aqui, e quem o
-        # calcula e o editorial (`parametros_efetivos`): o que ja esta encostado
-        # na posicao publicada mais o `a_mais` da variante (regra 3 do catalogo,
-        # R-22). Um N fixo escrito a mao ora nasceria cumprido, ora impossivel -
-        # a mesma armadilha que o material relativo das damas fechou.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("vitoria", "igual", _ATINGIDO),
-                _medida("pecas_encostadas", "maior_ou_igual", p["pecas"]),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "pecas": p["pecas"],
             "personagem": personagem,
         },
     ),

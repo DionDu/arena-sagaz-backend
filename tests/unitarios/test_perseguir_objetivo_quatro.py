@@ -29,7 +29,8 @@ BASE = ["s3", "s3", "s4", "s4"]
 
 #: "Vencer, so" (a chegada da virada) e "vencer pela diagonal".
 SO_VENCER = RECEITAS["quatro_virada"].montar({})
-DIAGONAL = RECEITAS_FORA_DO_AR["quatro_vencer_diagonal"].montar({})
+# ⚠️ A diagonal subiu ao ar na T124c: a receita sai de onde ela estiver.
+DIAGONAL = {**RECEITAS, **RECEITAS_FORA_DO_AR}["quatro_vencer_diagonal"].montar({})
 
 
 def _desafio(co_tipo: str, chegada: dict) -> perseguir.Desafio:

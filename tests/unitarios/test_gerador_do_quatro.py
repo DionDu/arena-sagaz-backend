@@ -20,6 +20,7 @@ import importlib.util
 import random
 import sys
 from datetime import date
+from unittest import mock
 from pathlib import Path
 
 import pytest
@@ -44,8 +45,19 @@ def _estado(sequencia: str) -> EstadoQuatro:
 
 
 def _gerar(co_tipo: str, **extra):
-    """`gerar_candidatos` com os botões da variante 0 do editorial fora do ar."""
-    publicacao = editorial_mod.EDITORIAL_FORA_DO_AR[co_tipo][0]
+    """`gerar_candidatos` com os botões da variante 0 do editorial do tipo.
+
+    ⚠️ O tipo pode estar FORA do ar (vai como `receita_em_avaliacao`, que força o
+    tipo) ou NO AR - a diagonal e as encostadas subiram na T124c, e o gerador
+    recusa, com razão, receita "em avaliação" de tipo publicado. No ar, o caminho
+    é o NORMAL (com o vetor de verificação exigido), e o jogo e o tipo do dia são
+    fixados com `mock.patch`: assim o caso não depende de qual dia o rodízio dá
+    a qual tipo.
+    """
+    no_ar = co_tipo in RECEITAS
+    publicacao = (
+        editorial_mod.EDITORIAL if no_ar else editorial_mod.EDITORIAL_FORA_DO_AR
+    )[co_tipo][0]
     argumentos = dict(
         parametros=publicacao.parametros,
         quantos=1,
@@ -53,10 +65,15 @@ def _gerar(co_tipo: str, **extra):
         maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
         minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
         personagens_possiveis=publicacao.co_personagens,
-        receita_em_avaliacao=RECEITAS_FORA_DO_AR[co_tipo],
     )
+    if not no_ar:
+        argumentos["receita_em_avaliacao"] = RECEITAS_FORA_DO_AR[co_tipo]
     argumentos.update(extra)
-    return gerador.gerar_candidatos(DIA, **argumentos)
+    if not no_ar:
+        return gerador.gerar_candidatos(DIA, **argumentos)
+    # `patch.object` troca o atributo do módulo só dentro do `with`.
+    with mock.patch.object(gerador, "escolher_jogo", lambda *a, **k: "quatro"),             mock.patch.object(gerador, "escolher_tipo", lambda *a, **k: co_tipo):
+        return gerador.gerar_candidatos(DIA, **argumentos)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -341,9 +358,10 @@ MEDIDOR = _medidor()
 def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     tipos = MEDIDOR.tipos_do_alvo("quatro")
     assert tipos == sorted(t for t, r in RECEITAS_FORA_DO_AR.items() if r.co_jogo == "quatro")
-    # Eram dez; a virada subiu na T124b, o vencer em N e o Segure na T124c.
-    assert len(tipos) == 7
-    assert MEDIDOR.tipos_do_alvo("quatro_encostadas") == ["quatro_encostadas"]
+    # Eram dez; a virada subiu na T124b, o vencer em N e o Segure na T124c, e a
+    # diagonal e as encostadas com o perseguidor (T124c, defeito 1).
+    assert len(tipos) == 5
+    assert MEDIDOR.tipos_do_alvo("quatro_bloquear") == ["quatro_bloquear"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)
 
@@ -479,7 +497,7 @@ def test_o_medidor_RECUSA_medir_a_virada_pelo_alvo_no_ar() -> None:
     (desde a T120, para sempre: o Quatro entra pela adocao, e nao pelo rodizio),
     e o pedido pelo nome sai vazio."""
     assert MEDIDOR.no_ar_e_fora_do_rodizio("quatro_virada")
-    assert not MEDIDOR.no_ar_e_fora_do_rodizio("quatro_encostadas")  # fora do ar
+    assert not MEDIDOR.no_ar_e_fora_do_rodizio("quatro_bloquear")  # fora do ar
     assert not MEDIDOR.no_ar_e_fora_do_rodizio("damas_sobreviver")
     assert "quatro_virada" not in MEDIDOR.tipos_do_alvo("no-ar")
     assert MEDIDOR.tipos_do_alvo("no-ar:quatro_virada") == []

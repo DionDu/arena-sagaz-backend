@@ -6,7 +6,7 @@ import pytest
 
 from job import gerador
 from job import solucionadores as sol
-from job.tipos_de_desafio import RECEITAS_FORA_DO_AR
+from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR
 from motores.nucleo.papeis import NivelDeMotor
 from motores.quatro.motor_quatro import EstadoQuatro, MotorQuatro
 
@@ -56,7 +56,7 @@ def test_o_perseguidor_le_a_fita_a_partir_da_posicao_publicada() -> None:
     """Depois de s5 s2 o X vence pela horizontal em s6: num desafio de diagonal
     esse lance e o jeito ERRADO, e nao pode sair - se a fita fosse contada do
     tabuleiro vazio, a pessoa e os lances sairiam trocados."""
-    chegada = RECEITAS_FORA_DO_AR["quatro_vencer_diagonal"].montar({})
+    chegada = {**RECEITAS, **RECEITAS_FORA_DO_AR}["quatro_vencer_diagonal"].montar({})
     perseguidor = sol.com_chegada(
         sol.perseguidor_do_quatro("quatro_vencer_diagonal"), chegada
     )
