@@ -8591,3 +8591,48 @@ como texto e comparar texto: recusada pelo `1.10.0`.
 conta escreve na `tb004`: o push do backend (o deploy do `des`) só vem **depois** de o
 dono aplicar a `0035` e a `0036` no `des`. Testes: 108 casos novos (regras, SQL em
 SQLite, as duas rotas, a migração contra o documento); 29/29 mutações pegas.
+
+
+## 2026-10-21 (1) — A conta da adoção e as faixas, sem banco (T119 da spec 010)
+
+**Contexto.** A amostra existe desde a T118 (`log.tb004_aparelho_dia`, uma linha por
+aparelho por dia local, inclusive as legadas do app 1.3). Falta a conta que a T120 vai
+consultar para decidir os dias do jogo novo: a adoção de uma versão mínima e a faixa de
+frequência que ela autoriza (research R-23 da spec 010; limiares ratificados na T003).
+
+**Decisão.** `job/adocao.py`, puro (não lê banco, não escolhe jogo). (1)
+`medir_adocao(avistamentos, versao_minima)` recebe os pares `(id_aparelho,
+co_versao_app)` da janela e devolve `Adocao(aparelhos, adotaram)` - os **dois** números,
+para o log da execução dizer o tamanho da amostra junto com o resultado. Cada aparelho
+entra uma vez, com a **maior** versão da janela, comparada por números
+(`api.aparelhos.regras.chave_da_versao`, a mesma da T118: uma regra só). (2) A fração é
+`Fraction`, exata: 286 de 715 são 40% e já valem 1 em 4, sem depender de arredondamento.
+(3) **Sem amostra, a adoção é zero** (faixa mais rara): nenhum aparelho visto não prova
+que a versão chegou. (4) Versão ilegível numa linha: o aparelho conta no denominador e
+não alcança a mínima; uma linha legível do mesmo aparelho vence a ilegível, e a ilegível
+nunca rebaixa. Versão **mínima** ilegível é `ValueError` (defeito do catálogo). (5)
+`frequencia_do_jogo_novo` devolve `Frequencia(um_dia_em=6 | 4 | 3 | None)`, com `None` =
+rodízio pleno; o limite inferior de cada faixa entra nela (40% exatos = 1 em 4). Os
+limiares (`LIMIAR_UM_EM_QUATRO`, `LIMIAR_UM_EM_TRES`, `LIMIAR_RODIZIO_PLENO`) e os "1 em
+N" são constantes nomeadas. (6) **A janela** (`janela_da_adocao`) são os 7 dias
+**fechados** antes do dia da execução (`hoje - 7` a `hoje - 1`): o dia de hoje ainda está
+sendo escrito, e duas execuções no mesmo dia leriam amostras diferentes.
+
+**Efeito conhecido, aceito.** Quem atualiza do 1.3 para o 1.4 aparece como **dois**
+aparelhos por até 7 dias (a linha legada `uuid5` e o código novo `uuid4`): a adoção sai
+um pouco abaixo da real durante a transição. É o lado conservador e some sozinho.
+
+**Alternativas consideradas.** (a) Juntar a linha legada e a nova pela conta e pela
+plataforma: recusada, esconderia o segundo Android da mesma pessoa ainda no 1.3, que é
+exatamente o aparelho que não abriria o desafio. (b) `float` com porcentagem: recusada
+pelo `Fraction`, que torna o limiar exato por construção (nenhum caso medido errava com
+`float`, mas a garantia deixaria de depender disso). (c) Sem amostra = rodízio pleno, ou
+"não decidir": recusadas, um banco vazio ou uma leitura quebrada mandaria o jogo novo a
+todo mundo. (d) Incluir o dia de hoje na janela: recusada pela estabilidade entre
+execuções.
+
+**Testes.** `tests/unitarios/test_adocao.py`, 39 casos: os limiares dos dois lados numa
+amostra de 715 aparelhos com linhas legadas, várias linhas por aparelho e a versão
+subindo no meio da janela (285/286, 428/429, 571/572), e em amostras de 5 e 1.000; os
+números da tabela escritos por extenso; a comparação `1.10.0` × `1.9.5`; as linhas
+ilegíveis; a janela na virada do ano. 13/13 mutações pegas.
