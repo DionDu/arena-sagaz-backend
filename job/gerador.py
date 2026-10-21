@@ -49,7 +49,6 @@ from motores.damas.motor_damas import EstadoDamas, MotorDamas, estado_inicial
 from motores.nucleo.orcamento import Orcamento
 from motores.nucleo.papeis import NivelDeMotor
 from motores.pontinhos import abertura_forcada
-from motores.pontinhos import cadeia_longa
 from motores.pontinhos import guloso as guloso_mod
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos
 from motores.pontinhos.politica import JogadorPontinhos
@@ -67,6 +66,7 @@ from . import posicoes_de_autoplay_quatro as autoplay_quatro_mod
 from . import posicao_inicial as posicao_mod
 from . import provas_quatro as provas_quatro_mod
 from . import semente as semente_mod
+from . import solucionadores as solucionadores_mod
 from . import vizinhanca as vizinhanca_mod
 from .regua import vez_de
 from .espelho_de_damas import com_as_brancas_a_jogar, com_o_adversario_a_jogar
@@ -687,9 +687,22 @@ TENTATIVAS_PADRAO = 6
 #: motivo de `RECUSA_POR_JOGO`: tipo que nao esta aqui usa o Sagaz, e a ausencia
 #: da chave e a declaracao disso — em vez de um `else` silencioso.
 #:
-#: ⚠️ A funcao recebe `(arbitro, estado)` e devolve o rotulo do lance.
+#: ⚠️ A funcao recebe um `solucionadores.ContextoDoSolucionador` (desde a T124c
+#: da spec 010; antes era `(arbitro, estado)`) e devolve o rotulo do lance.
+#:
+#: ⚠️ **Os dois do Quatro entraram em 21/10/2026** (T124c, defeito 1), depois da
+#: medicao pareada e com controle (`scripts/medir_perseguir_vs_vencer_quatro.py`,
+#: historico do backend "2026-10-21 (9)"): so a diagonal e as encostadas
+#: mostraram ganho e escada. ⛔ Os outros quatro tipos do Quatro que pedem um
+#: jeito de vencer NAO entram: o defeito deles e a posicao, e nao a regua.
 SOLUCIONADOR_POR_TIPO = {
-    "pontinhos_cadeia_longa": cadeia_longa.lance_do_arquiteto,
+    "pontinhos_cadeia_longa": solucionadores_mod.arquiteto_da_cadeia_longa,
+    "quatro_vencer_diagonal": solucionadores_mod.perseguidor_do_quatro(
+        "quatro_vencer_diagonal"
+    ),
+    "quatro_encostadas": solucionadores_mod.perseguidor_do_quatro(
+        "quatro_encostadas"
+    ),
 }
 
 #: Tipos em que a recusa por erro do adversario NAO se aplica.
@@ -819,38 +832,60 @@ def _resolver(
         #
         # ⚠️ **E ele nao tem `co_acao`**: `cnn_epsilon_aleatorio` marca o erro de
         # proposito de um mascote, e quem resolve nao erra de proposito.
+        semente_do_lance = semente_mod.semente_do_lance(nu_semente, numero)
+
+        # O lance do nivel, com o motivo: o caminho de quando nao ha
+        # solucionador. ⚠️ Uma funcao (os parametros `=` congelam os valores
+        # DESTE lance), porque o solucionador do Quatro tambem o pede, para a
+        # mistura do nivel (`solucionadores.ContextoDoSolucionador`).
+        def decidir_no_nivel(
+            atual=atual, nivel_do_lance=nivel_do_lance, orcamento=orcamento,
+            semente_do_lance=semente_do_lance,
+        ) -> tuple[str, str | None]:
+            # ⚠️ **`decidir` devolve o lance E o motivo**; nem todo motor o tem
+            # (o das damas nao), e por isso a escolha e por capacidade, e nao
+            # por nome de jogo — um `if co_jogo == "pontinhos"` aqui teria de ser
+            # lembrado no dia em que o motor das damas ganhasse o mesmo metodo.
+            if hasattr(jogador, "decidir"):
+                # ⚠️ **`decidir` nao recebe orcamento, e nao e esquecimento:**
+                # no Pontinhos a escolha e uma inferencia da CNN, que nao tem no
+                # para contar; no Quatro o teto de nos e o do CONTRATO do
+                # personagem (`JogadorQuatro`), o mesmo do aparelho. O
+                # orcamento acima serve a busca das damas.
+                decisao = jogador.decidir(
+                    atual, nivel_do_lance, semente=semente_do_lance
+                )
+                return decisao.lance, decisao.co_acao
+            return (
+                jogador.escolher_lance(
+                    atual,
+                    nivel_do_lance,
+                    limite=orcamento,
+                    semente=semente_do_lance,
+                ),
+                None,
+            )
+
         if solucionador is not None and vez == vez_do_solucionador:
             try:
-                lance = solucionador(getattr(jogador, "arbitro", jogador), atual)
+                lance = solucionador(
+                    solucionadores_mod.ContextoDoSolucionador(
+                        arbitro=getattr(jogador, "arbitro", jogador),
+                        jogador=jogador,
+                        estado_inicial=estado,
+                        estado=atual,
+                        nivel=nivel_do_lance,
+                        semente=semente_do_lance,
+                        lance_do_nivel=lambda: decidir_no_nivel()[0],
+                    )
+                )
             except ValueError:
                 # A partida acabou antes de o objetivo cair — o mesmo tratamento
                 # do caminho da politica, logo abaixo.
                 return None
         else:
             try:
-                # ⚠️ **`decidir` devolve o lance E o motivo**; nem todo motor o tem
-                # (o das damas nao), e por isso a escolha e por capacidade, e nao
-                # por nome de jogo — um `if co_jogo == "pontinhos"` aqui teria de ser
-                # lembrado no dia em que o motor das damas ganhasse o mesmo metodo.
-                if hasattr(jogador, "decidir"):
-                    # ⚠️ **`decidir` nao recebe orcamento, e nao e esquecimento:**
-                    # no Pontinhos a escolha e uma inferencia da CNN, que nao tem no
-                    # para contar; no Quatro o teto de nos e o do CONTRATO do
-                    # personagem (`JogadorQuatro`), o mesmo do aparelho. O
-                    # orcamento acima serve a busca das damas.
-                    decisao = jogador.decidir(
-                        atual,
-                        nivel_do_lance,
-                        semente=semente_mod.semente_do_lance(nu_semente, numero),
-                    )
-                    lance, co_acao = decisao.lance, decisao.co_acao
-                else:
-                    lance = jogador.escolher_lance(
-                        atual,
-                        nivel_do_lance,
-                        limite=orcamento,
-                        semente=semente_mod.semente_do_lance(nu_semente, numero),
-                    )
+                lance, co_acao = decidir_no_nivel()
             except ValueError:
                 # A partida acabou antes de o objetivo cair.
                 return None
@@ -1321,7 +1356,8 @@ def gerar_candidatos(
             nu_semente=nu_semente,
             maximo_de_meios_lances=maximo_de_meios_lances,
             julgar=julgar,
-            solucionador=solucionador,
+            # A chegada DESTE candidato entra no contexto do solucionador.
+            solucionador=solucionadores_mod.com_chegada(solucionador, js_chegada),
         )
         if achado is None:
             continue
@@ -1663,7 +1699,11 @@ def bancada(candidato: Candidato) -> Bancada:
         julgar=julgar,
         # ⚠️ **O mesmo registro que a geracao consulta**, e nao uma copia: medir
         # com um solucionador diferente do que gerou mede outro desafio.
-        solucionador=SOLUCIONADOR_POR_TIPO.get(candidato.receita.co_tipo_desafio),
+        # E com a chegada do candidato, como na geracao (`com_chegada`).
+        solucionador=solucionadores_mod.com_chegada(
+            SOLUCIONADOR_POR_TIPO.get(candidato.receita.co_tipo_desafio),
+            candidato.js_chegada,
+        ),
     )
 
 

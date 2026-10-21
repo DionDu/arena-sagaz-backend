@@ -9073,3 +9073,46 @@ a v2 não basta. Uma busca em Python: lenta demais para a régua (milhares de de
 ⛔ **Nada ligado ainda.** `SOLUCIONADOR_POR_TIPO` recebe `(arbitro, estado)`, sem nível nem
 desafio, e a régua chama o solucionador sem nível. Ligar o perseguidor pede mudar essa
 interface, e espera a medição de 30 posições.
+
+### A medição de 30 posições (o dono rodou, 147 s) e a decisão por tipo
+
+**Controle: passa** - somando os seis tipos, o perseguidor no nível do Magno perseguindo "só
+vencer" venceu 148 de 174 partidas, contra 140 do Magno. ⚠️ A linha do "sem o meio" (19 contra 23)
+não é um controle limpo: o filtro da coluna central é do TIPO, e o controle também o sofre. Defeito
+do script, anotado; não muda a leitura dos outros cinco.
+
+| tipo | Magno que só vence | perseguindo: Cacau · Pita · Tex · Magno | decisão |
+|---|---|---|---|
+| diagonal | 0,47 | 0,40 · 0,53 · 0,60 · 0,73 | **ligar** (ganho de 0,27, escada crescente) |
+| encostadas | 0,70 | 0,50 · 0,63 · 0,80 · 0,90 | **ligar** (ganho de 0,20, escada crescente) |
+| bloquear | 0,33 | 0,33 · 0,47 · 0,50 · 0,43 | não ligar: ganho pequeno, e o Magno abaixo do Tex |
+| golpe duplo | 0,00 | 0,00 · 0,13 · 0,03 · 0,13 | não ligar: falta a prova de objetivo FORÇÁVEL |
+| linha de cinco | 0,03 | 0,13 · 0,07 · 0,07 · 0,10 | idem |
+| sem o meio | 0,96 | 0,79 · 0,75 · 0,83 · 0,79 | não ligar: fácil para todos, a posição é curta demais |
+
+**Decisão (minha, pela delegação de 12/09, §8k-0).** O perseguidor entra como solucionador da
+régua e da geração **só na diagonal e nas encostadas**; depois, a régua remede os dois, e quem cair
+na escada em 2 de 3 dias sobe como na T124b. A Cacau alta na média (0,40 e 0,50) não reprova: a
+régua julga candidato a candidato, contra o personagem do dia, e escolhe o que cai na escada; a
+média precisava mostrar ganho e degraus, e mostra. Os outros quatro ficam em `RECEITAS_FORA_DO_AR`,
+cada um com o defeito escrito acima, que não é de régua.
+
+### A ligação (no mesmo dia)
+
+O solucionador próprio deixou de receber `(arbitro, estado)` e passou a receber um
+`job/solucionadores.ContextoDoSolucionador`: o árbitro, o jogador, a posição publicada, a de
+agora, o **nível de quem resolve** (Sagaz na geração, o mascote medido na régua), a semente do
+lance, o lance que o motor daria naquele nível e a linha de chegada. A chegada entra por
+`solucionadores.com_chegada`, nos dois lugares que conhecem o candidato (a geração e a bancada da
+régua), e por isso o `__main__` e o medidor de variantes não mudaram. O arquiteto da cadeia longa
+do Pontinhos segue igual, por um adaptador de uma linha. `SOLUCIONADOR_POR_TIPO` ganhou
+`quatro_vencer_diagonal` e `quatro_encostadas`, os dois que a medição aprovou. ⚠️ O lance de quem
+resolve, vindo de solucionador, continua sem `co_acao` (já era assim na cadeia longa): o teste de
+ponta a ponta das encostadas passou a exigir o motivo só nos lances do adversário. Testes novos em
+`test_solucionadores.py`; mutações da ligação 4 de 4 pegas (o nível do adversário no lugar do
+mascote, a chegada esquecida na bancada e na geração, o registro sem as encostadas). Suíte
+3.611 verde.
+
+⬜ **Próximo passo, comando do dono:** a régua dos dois com o perseguidor
+(`medir_variantes_do_editorial.py <tipo> --com-regua`); quem cair na escada em 2 de 3 dias sobe
+como na T124b.

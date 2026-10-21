@@ -242,11 +242,35 @@ def test_um_candidato_das_encostadas_de_ponta_a_ponta(executavel) -> None:
         candidato.co_formato_posicao, candidato.js_posicao_inicial, co_modalidade=MODALIDADE
     )
     assert candidato.js_posicao_inicial["co_lances"] == candidato.estado_inicial.sequencia
-    # O gabarito cumpre a chegada, e cada lance traz o motivo da política.
+    # O gabarito cumpre a chegada, e cada lance DO ADVERSÁRIO traz o motivo da
+    # política. ⚠️ Desde a T124c (defeito 1) quem resolve as encostadas é o
+    # perseguidor do objetivo (`gerador.SOLUCIONADOR_POR_TIPO`), e lance de
+    # solucionador não tem `co_acao`: quem resolve não erra de propósito.
     bancada = gerador.bancada(candidato)
     fita = candidato.js_solucao["lances"]
     assert bancada.julgar(fita).cumpriu
-    assert all(passo.get("co_acao") for passo in fita)
+    pessoa = candidato.js_posicao_inicial["vez_de"]
+    do_adversario = [passo for passo in fita if passo["jogador"] != pessoa]
+    assert do_adversario and all(passo.get("co_acao") for passo in do_adversario)
+    assert not any(passo.get("co_acao") for passo in fita if passo["jogador"] == pessoa)
+    # ⛔ E a BANCADA da régua entrega o perseguidor com a chegada do candidato
+    # (`solucionadores.com_chegada`): sem ela, ele falharia só na hora de medir.
+    from job.solucionadores import ContextoDoSolucionador
+    from motores.nucleo.papeis import NivelDeMotor
+
+    legais = bancada.arbitro.lances_legais(candidato.estado_inicial)
+    lance = bancada.solucionador(
+        ContextoDoSolucionador(
+            arbitro=bancada.arbitro,
+            jogador=bancada.jogador,
+            estado_inicial=candidato.estado_inicial,
+            estado=candidato.estado_inicial,
+            nivel=NivelDeMotor.TEX,
+            semente=1,
+            lance_do_nivel=lambda: legais[0],
+        )
+    )
+    assert lance in legais
     assert candidato.nu_lances_solucao >= editorial_mod.MINIMO_DE_MEIOS_LANCES_PADRAO
 
 

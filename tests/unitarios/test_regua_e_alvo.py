@@ -455,8 +455,13 @@ def test_o_SOLUCIONADOR_DO_TIPO_joga_o_lado_de_quem_resolve() -> None:
     jogador = _JogadorQueAnota()
     chamadas: list[int] = []
 
-    def solucionador_falso(_arbitro, estado) -> str:
-        chamadas.append(estado.vez_de)
+    niveis: list = []
+
+    # ⚠️ Desde a T124c o solucionador recebe um contexto (o nivel, a semente, o
+    # lance do nivel), e nao mais `(arbitro, estado)`.
+    def solucionador_falso(contexto) -> str:
+        chamadas.append(contexto.estado.vez_de)
+        niveis.append(contexto.nivel)
         return "do-arquiteto"
 
     tentar = tentativa_com_motor(
@@ -478,6 +483,11 @@ def test_o_SOLUCIONADOR_DO_TIPO_joga_o_lado_de_quem_resolve() -> None:
         "⛔ o solucionador jogou pelo ADVERSARIO. Ele substitui so o lado de quem "
         "resolve; o outro lado e o personagem do dia, no nivel dele."
     )
+    # ⛔ E o nivel que o solucionador recebe e o do MASCOTE MEDIDO (a Cacau), e
+    # nao o do adversario do dia (o Magno): e o que da escada ao perseguidor.
+    from job.perfil import NIVEL_POR_PERSONAGEM
+
+    assert set(niveis) == {NIVEL_POR_PERSONAGEM["cacau"]}
     # ⚠️ E o jogador comum continua jogando — pelo adversario, e so por ele.
     assert jogador.pedidos, "o adversario nunca jogou"
     assert {vez for vez, _ in jogador.pedidos} == {-1}, (

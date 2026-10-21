@@ -55,6 +55,7 @@ from motores.nucleo.orcamento import Orcamento
 from motores.nucleo.papeis import NivelDeMotor
 
 from . import semente as semente_mod
+from .solucionadores import ContextoDoSolucionador
 from .perfil import NIVEL_POR_PERSONAGEM
 
 #: Quantas vezes cada mascote tenta, por padrao (RF-DES-016).
@@ -370,10 +371,13 @@ def tentativa_com_motor(
     pelo arquiteto e medido pelo Sagaz, que e o pior solucionador possivel para
     ele (7% contra 43%, medido em 30 posicoes).
 
-    ⚠️ **O solucionador proprio nao tem nivel**, e isso e uma limitacao conhecida:
-    ele joga igual para Cacau e para Magno, e a escada daquele tipo passa a
-    depender so do adversario. ⛔ E ainda assim e melhor que o anterior — medir com
-    o solucionador errado nao mede a dificuldade de coisa nenhuma.
+    ⚠️ **O solucionador recebe o nivel do mascote medido** desde a T124c da spec
+    010 (`solucionadores.ContextoDoSolucionador`): o perseguidor do Quatro o usa,
+    e a escada daquele tipo volta a ser do mascote. O arquiteto da cadeia longa
+    do Pontinhos continua sem nivel - joga igual para Cacau e para Magno, e a
+    escada dele depende so do adversario, a limitacao de antes. ⛔ E ainda assim
+    e melhor que medir com o solucionador errado, que nao mede a dificuldade de
+    coisa nenhuma.
     """
     nivel_do_adversario = NIVEL_POR_PERSONAGEM[co_personagem_do_dia]
     # ⚠️ Quem resolve e quem joga primeiro — a mesma definicao do julgamento.
@@ -404,8 +408,28 @@ def tentativa_com_motor(
                     # ⚠️ **So a vez de quem resolve** — a mesma fronteira do
                     # `_resolver` da geracao. O adversario do dia continua sendo
                     # o personagem publicado, no nivel dele.
+                    #
+                    # ⚠️ **Desde a T124c o solucionador recebe o NIVEL do mascote
+                    # medido** (no contexto), e o lance que o motor daria a ele: o
+                    # perseguidor do Quatro erra conforme o nivel, e a escada
+                    # volta a ser do mascote. A chegada ja vem no solucionador
+                    # (`solucionadores.com_chegada`, na bancada).
+                    # Os parametros `=` congelam o estado e o orcamento DESTE lance.
+                    def do_nivel(atual=atual, orcamento=orcamento, semente=semente):
+                        return jogador.escolher_lance(
+                            atual, nivel, limite=orcamento, semente=semente
+                        )
+
                     lance = solucionador(
-                        getattr(jogador, "arbitro", jogador), atual
+                        ContextoDoSolucionador(
+                            arbitro=getattr(jogador, "arbitro", jogador),
+                            jogador=jogador,
+                            estado_inicial=estado_inicial,
+                            estado=atual,
+                            nivel=nivel,
+                            semente=semente,
+                            lance_do_nivel=do_nivel,
+                        )
                     )
                 else:
                     lance = jogador.escolher_lance(
