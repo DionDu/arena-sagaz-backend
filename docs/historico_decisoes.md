@@ -8885,3 +8885,59 @@ geração e retomada); o `rollback` resolve o caso com uma linha.
 **Lição.** Não é a primeira vez neste projeto que um cadeado com a lista de jogos escrita à mão
 fica verde e cego com um jogo novo (ver a memória "jogo novo entra nos cadeados" do
 app). Lista de jogos em teste sai de onde o código a declara.
+
+---
+
+## 2026-10-21 (7) — Faltava posição no "Vença em N" e no "Segure": a fase e o orçamento, não o lado (T124c da spec 010, defeito 2)
+
+**Contexto.** A régua de 20/10 (entrada "2026-10-20 (5)") deixou *"Vença {personagem} em
+até N lances"* (`quatro_vencer_em_n`) e *"Segure {personagem}: não perca a partida"*
+(`quatro_segurar_magno`) sem candidato. Os dois tipos pedem vencer ou não perder, que é o
+que os personagens tentam: a régua os mede de verdade, e o que faltava era POSIÇÃO. A T124c
+propunha duas saídas, escolher o lado da posição ou um acervo dirigido por tipo, e mandava
+medir antes de mexer.
+
+**A medição.** `scripts/medir_fases_das_posicoes_quatro.py` (novo): para cada comprimento de
+posição de 8 a 34 lances, até 80 posições distintas do acervo Magno × Tex, o que a busca
+PROVA para quem tem a vez, separado pelo lado (o do Magno ou o do Tex na partida de origem).
+Antes, um controle: um lance antes do fim de partidas decididas, quem venceu vence em 1 -
+**20 de 20**. Depois, 2.160 posições em 105 s. O acervo tem 396 partidas: o Magno vence
+318, o Tex 56, e 22 empatam.
+
+| pergunta | 12 a 18 lances (o preparo de hoje) | 22 a 28 lances |
+|---|---|---|
+| vitória forçada em exatamente 5 lances (9 meios-lances) | 3 de 560 | 39 de 560 (7%); no lado do Magno, 35 de 295 (12%) |
+| vitória forçada em exatamente 6 lances (11 meios-lances) | 9 de 560 | 42 de 560 (7,5%) |
+| passa na prova inteira do Segure | 17 de 560 (3,0%) | 20 de 560 (3,6%) |
+
+No total, a prova do Segure passa em 4,1% das posições do lado do Magno e em 3,1% das do
+lado do Tex: **o lado quase não muda nada**, e a fase muda pouco (de 3% a 6%).
+
+**Decisão (minha, pela delegação de 12/09, `DECISOES-do-dono.md` §8k-0).**
+
+1. O preparo do `quatro_vencer_em_n` passa de **12 para 22** lances, nas duas variantes
+   (`{lances: 5}` e `{lances: 6}`). A suposição escrita no editorial, "a vitória em 5 é
+   coisa de meio de jogo", estava errada: com 12 a 18 lances as vitórias que a busca prova
+   estão a 14-23 meios-lances.
+2. `TENTATIVAS_POR_JOGO["quatro"]` passa de **20 para 40** por candidato (de 60 para 120
+   posições por dia). É o que resolve o Segure: com 3,6%, 60 tentativas dão ~2 candidatos
+   por dia (a régua viu `[3, 0, 0]`), e 120 dão ~4. Cada tentativa custa centésimos de
+   segundo nessa fase; o caro (gabarito e régua) só acontece para quem passou na prova, e
+   esses são no máximo três.
+
+**Alternativas consideradas.** (a) Escolher o lado da pessoa no sorteio: dobraria a taxa
+do "Vença em N" (de 7% para 12%), mas pedia um campo novo no editorial e um parâmetro no
+sorteio, e não ajuda o Segure; recusada enquanto o orçamento bastar. (b) Um acervo dirigido
+(partidas Magno × Magno, por exemplo, para mais empates): recusada por ora, a taxa de hoje
+basta com o orçamento maior, e trocar o acervo desloca a fila de todos os tipos do Quatro.
+(c) Mudar o N para caber no preparo antigo: o melhor com 12 a 18 lances é o N=8, com 15 de
+560 (2,7%), menos da metade do que o N=5 tem com 22 a 28; recusada.
+
+⚠️ **O que ainda não se sabe:** se os candidatos caem na escada. A régua de 20/10 achou o
+`{lances: 6}` fácil (a Cacau venceu 0,70, com um candidato só) e o Segure fora por 0,02. Isso
+é a remedição do dono, com `medir_variantes_do_editorial.py <tipo> --com-regua`, que decide
+se os dois sobem (2 de 3 dias na escada, como na T124b).
+
+**Lição.** A frase que justificava o preparo ("é coisa de meio de jogo") era uma suposição
+sobre o jogo escrita como fato, e ninguém a mediu até a régua dar `[0, 0, 0]`. O botão de
+preparo de um tipo novo sai de uma tabela por fase, e não da intuição sobre o jogo.

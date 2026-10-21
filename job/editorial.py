@@ -2099,18 +2099,25 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
         Publicacao(
             # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 0]` (sem vitoria forcada em
             # exatamente N). Gabarito de 9 meios-lances: o piso da faixa do hub.
-            # Preparo 12: a vitoria forcada em 5 e coisa de meio de jogo.
+            # ⚠️ Preparo 22, e nao 12 (T124c, 21/10/2026): a suposicao "a vitoria
+            # em 5 e coisa de meio de jogo" estava errada. Com 12 a 18 lances
+            # jogados, as vitorias forcadas que a busca prova estao a 14-23
+            # meios-lances, e so 3 de 560 posicoes do acervo passam em N=5;
+            # com 22 a 28, 39 de 560 (7%). Medido com
+            # `scripts/medir_fases_das_posicoes_quatro.py` (historico do backend,
+            # "2026-10-21 (7)").
             parametros={"lances": 5},
-            nu_lances_de_preparo=12,
+            nu_lances_de_preparo=22,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro_vencer_em_n,
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
         Publicacao(
             # ⛔ Medida em 20/10: SEM DESAFIO `[1, 0, 0]`, e facil (Cacau 0,70).
-            # 11 meios-lances; a rede da de cima.
+            # 11 meios-lances; a rede da de cima. Preparo 22 pela mesma medicao
+            # da variante acima: com 22 a 28 lances, 42 de 560 passam em N=6 (eram 9).
             parametros={"lances": 6},
-            nu_lances_de_preparo=12,
+            nu_lances_de_preparo=22,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro_vencer_em_n,
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,

@@ -659,12 +659,17 @@ RECUSA_POR_JOGO = {"pontinhos": abertura_forcada.dependeu_de_erro}
 TENTATIVAS_POR_JOGO = {
     "pontinhos": 20,
     "damas": 6,
-    # ⚠️ Vinte, como o Pontinhos, pelo mesmo motivo: cada tentativa e barata.
-    # A prova (T116) custa ate ~1,5 s na Unica coluna e menos de 0,2 s na maioria
-    # dos tipos, e o lance do Magno no executavel sai em ~0,05 s. ⛔ E a prova
-    # RECUSA muito: um tipo como o Segure precisa de um empate PROVADO, que a
-    # maior parte das posicoes do autoplay (o Magno vence 80% delas) nao tem.
-    "quatro": 20,
+    # ⚠️ Quarenta (eram vinte ate 21/10/2026, T124c): cada tentativa e barata, e
+    # a prova RECUSA muito. A busca de uma posicao custa ~0,35 s com 12 a 18
+    # lances jogados e ~0,01 s com 22 a 28, e o lance do Magno no executavel sai
+    # em ~0,05 s. Medido com `scripts/medir_fases_das_posicoes_quatro.py`: so 3%
+    # a 6% das posicoes do acervo passam na prova do Segure (empate PROVADO e a
+    # maioria das colunas perdendo), em qualquer fase e dos dois lados - com 20
+    # x 3 = 60 tentativas, ~2 candidatos por dia, e a regua de 20/10 viu
+    # `[3, 0, 0]`. Com 120, ~4. ⛔ O que passa na prova e que custa caro (o
+    # gabarito e a regua), e esses sao no maximo `quantos`: o orcamento maior so
+    # pesa nos dias em que a prova recusa quase tudo.
+    "quatro": 40,
 }
 
 #: Quantas tentativas para um jogo que nao esta em [TENTATIVAS_POR_JOGO].
