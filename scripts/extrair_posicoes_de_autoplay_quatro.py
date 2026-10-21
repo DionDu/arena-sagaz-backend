@@ -58,6 +58,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Mapping
 
 # ⚠️ Um script em `scripts/` nao e pacote: sem isto, `from job import ...` falha.
 RAIZ = Path(__file__).resolve().parents[1]
@@ -73,7 +74,7 @@ from motores.nucleo import recursos_por_thread  # noqa: E402
 from motores.nucleo.papeis import NivelDeMotor  # noqa: E402
 from motores.quatro import contrato_quatro  # noqa: E402
 from motores.quatro.jogador_quatro import JogadorQuatro  # noqa: E402
-from motores.quatro.motor_quatro import estado_inicial  # noqa: E402
+from motores.quatro.motor_quatro import EstadoQuatro, estado_inicial  # noqa: E402
 
 #: A semente-base da extracao. A partida `i` usa `SEMENTE_DA_EXTRACAO + i`, e
 #: cada lance dela a derivacao de `job/semente.semente_do_lance`. ⚠️ Fixa: e o
@@ -94,22 +95,43 @@ def jogar_partida(
     das posicoes teria sempre o Magno a jogar.
     """
     magno = 1 if indice % 2 == 0 else -1
-    semente_da_partida = SEMENTE_DA_EXTRACAO + indice
+    niveis = {magno: NivelDeMotor.SAGAZ, -magno: NivelDeMotor.TEX}
+    estado = jogar_autoplay(jogador, co_modalidade, niveis, SEMENTE_DA_EXTRACAO + indice)
+    return acervo_mod.PartidaDeAutoplay(
+        lances=estado.lances,
+        magno=magno,
+        vencedor=int(jogador.arbitro.veredito(estado).vencedor),
+    )
+
+
+def jogar_autoplay(
+    jogador: JogadorQuatro,
+    co_modalidade: str,
+    niveis: Mapping[int, NivelDeMotor],
+    semente_da_partida: int,
+) -> EstadoQuatro:
+    """Uma partida de autoplay do tabuleiro vazio ao fim; devolve o estado final.
+
+    Args:
+        niveis: o nível de cada cor (`+1` abre, `-1` responde).
+        semente_da_partida: a semente-base; o lance `n` usa a derivação de
+            `job/semente.semente_do_lance` - a mesma do Desafio do Dia.
+
+    ⚠️ Serve também à pescaria do Quatro (`pescar_posicoes_forcaveis_quatro.py`,
+    T124c), que joga outros confrontos: a partida é escrita UMA vez.
+    """
     estado = estado_inicial(co_modalidade)
     arbitro = jogador.arbitro
     numero = 0
     while not arbitro.veredito(estado).acabou:
         numero += 1
-        nivel = NivelDeMotor.SAGAZ if arbitro.vez_de(estado) == magno else NivelDeMotor.TEX
         decisao = jogador.decidir(
-            estado, nivel, semente_mod.semente_do_lance(semente_da_partida, numero)
+            estado,
+            niveis[arbitro.vez_de(estado)],
+            semente_mod.semente_do_lance(semente_da_partida, numero),
         )
         estado = jogador.aplicar(estado, decisao.lance)
-    return acervo_mod.PartidaDeAutoplay(
-        lances=estado.lances,
-        magno=magno,
-        vencedor=int(arbitro.veredito(estado).vencedor),
-    )
+    return estado
 
 
 def sem_repetidas(

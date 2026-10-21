@@ -469,6 +469,71 @@ def test_o_no_E_recusa_a_resposta_que_vence_mesmo_sem_a_poda(provador) -> None:
         assert provador._forca(depois, arvore, 1) is True
 
 
+# ── As duas defesas (21/10/2026, a pescaria) ────────────────────────────────
+#
+# Do acervo, achadas pela busca de 21/10: a vitória livre vem em 6 lances, e o
+# objetivo é forçável contra quem defende o JOGO, mas não contra quem só sabota
+# o objetivo. A recusa da defesa do objetivo é DEFINITIVA (não estoura o teto).
+
+#: A linha de cinco em 6 lances.
+CINCO_SO_CONTRA_O_JOGO = "s4s4s4s4s4s2s2s2s3s2s5s6s7s2s2s6s5s6s6s4s6s3s5s5s5s6s7s7s5"
+#: O golpe duplo em 6 lances.
+GOLPE_SO_CONTRA_O_JOGO = "s4s4s4s4s7s6s4s3s6s6s6s6s1s3s1s3s3s4s6s3s1s1s2s7s2s2s2s3s5s5s7"
+#: O "sem o meio" em 5 lances, contra o jogo (a outra defesa estoura o teto).
+SEM_O_MEIO_CONTRA_O_JOGO = "s4s3s4s4s4s6s2s3s3s3s4s2s3s6s6s6s6s3s2s1s2s5s5s1"
+
+
+@pytest.mark.parametrize(
+    "sequencia, tipo, par",
+    [
+        (CINCO_SO_CONTRA_O_JOGO, "quatro_linha_de_cinco", {"tamanho": 5}),
+        (GOLPE_SO_CONTRA_O_JOGO, "quatro_golpe_duplo", {"linhas": 2}),
+    ],
+)
+def test_a_defesa_do_JOGO_acha_o_que_a_do_objetivo_recusa(provador, sequencia, tipo, par) -> None:
+    def prova(**defesa):
+        return provador.objetivo_forcavel(
+            _estado(sequencia), _chegada(tipo, **par), maximo_de_meios_lances=11, **defesa
+        )
+
+    jogo = prova(defesa=pq.DEFESA_DO_JOGO)
+    assert jogo.passou and jogo.dados["lances"] == 6
+    objetivo = prova(defesa=pq.DEFESA_DO_OBJETIVO)
+    assert not objetivo.passou and "não é forçável em até 6" in objetivo.motivo
+    # ⚠️ O padrão é a defesa do OBJETIVO: é a das provas do gerador, e ela não
+    # muda por a pescaria usar a outra.
+    assert prova().passou is False
+
+
+def test_o_sem_o_meio_tambem_aceita_a_defesa_do_jogo(provador) -> None:
+    prova = provador.sem_o_meio(
+        _estado(SEM_O_MEIO_CONTRA_O_JOGO), maximo_de_meios_lances=9, defesa=pq.DEFESA_DO_JOGO
+    )
+    assert prova.passou and prova.dados == {"lances": 5}
+
+
+def _respostas(tabela: dict[str, pq.Resultado]) -> set[str]:
+    """`_respostas_do_jogo` com os resultados escritos à mão, por sequência."""
+    provador = pq.ProvadorQuatro(MODALIDADE, _Duplo(avaliacaoJ1=0, motivoParada="nos"))
+    provador.resultado = lambda estado: tabela[estado.sequencia]
+    netos = [_estado(sequencia) for sequencia in tabela]
+    return {neto.sequencia for neto in provador._respostas_do_jogo(netos, 1)}
+
+
+def test_a_resposta_do_jogo_e_a_que_ADIA_a_derrota_e_todas_as_empatadas_nela() -> None:
+    """Todas perdem para o 1: o motor escolhe a mais longa (7), e as duas de 7 contam."""
+    tabela = {"s1": pq.Resultado(1, 3), "s2": pq.Resultado(1, 7), "s3": pq.Resultado(1, 7)}
+    assert _respostas(tabela) == {"s2", "s3"}
+
+
+@pytest.mark.parametrize("vencedor", [0, -1, None])
+def test_a_resposta_que_nao_perde_ou_nao_se_sabe_e_escolha_do_adversario(vencedor) -> None:
+    """Empate, vitória do adversário ou "a busca não decidiu": o motor pode
+    escolhê-la, e a mais longa das que perdem deixa de contar."""
+    tabela = {"s1": pq.Resultado(1, 9), "s2": pq.Resultado(vencedor, None)}
+    assert _respostas(tabela) == {"s2"}
+
+
 def test_a_prova_do_sem_o_meio_cabe_no_teto_de_perguntas(provador) -> None:
     """O controle do teto: medido em 20/10, a média foi 27 perguntas."""
     antes = provador.perguntas

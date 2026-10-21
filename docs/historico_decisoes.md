@@ -9231,3 +9231,51 @@ perseguidor cumpre **1,00 contra os quatro**, e até o Magno que só quer vencer
 Restringir `co_personagens` a Cacau e Pita não conserta o tipo; a posição forçável conserta contra
 qualquer adversário. ⚠️ E levanta a dúvida oposta: com o Magno cumprindo sem perseguir, a escada
 pode sair plana (fácil para todos) - só a régua responde.
+
+## 2026-10-21 (11) — A defesa do JOGO, e a pescaria do golpe duplo, da linha de cinco e do "sem o meio" (T124c da spec 010)
+
+**Contexto.** O dono decidiu (`DECISOES-do-dono.md` §8zzzn) que esses três tipos vêm de uma
+pescaria offline com acervo maior, e com muitos lances da pessoa. Antes de escrever a pescaria,
+uma sondagem dimensionou a prova forçável em posições com a vitória livre a 5 a 12 lances (47
+posições, teto de 23 meios-lances e 3.000 perguntas): **0 golpes duplos e 0 linhas de cinco**
+passaram, 13 estouraram em cada, e uma prova chegou a 53 s. A prova supõe um adversário que LÊ o
+objetivo e só o sabota (aceita perder a partida, desde que não do jeito pedido); com muitos lances
+pela frente, ele sempre desmancha a forma. Nenhum personagem joga assim.
+
+**Decisão 1 - a defesa do jogo** (`provas_quatro.DEFESA_DO_JOGO`, parâmetro `defesa` de
+`objetivo_forcavel` e de `sem_o_meio`): no nó do adversário contam só as respostas que o MOTOR
+daria - a que não perde (ou que a busca não decidiu) e, quando todas perdem, as que adiam a derrota
+ao máximo (todas as empatadas nessa distância). Nas mesmas 47 posições: **4 golpes duplos (8 a 10
+lances da pessoa), 9 linhas de cinco (6 a 11) e 5 "sem o meio" (5 a 9)**. ⚠️ O padrão continua a
+defesa do OBJETIVO: as provas do gerador não mudam. Decisão minha, dentro dos critérios da §8k-0
+("não muito curtos", "de preferência muitos lances"), comunicada ao dono; a régua com o
+perseguidor continua decidindo, nível a nível, se cada tipo sobe - um personagem que erra pode,
+em tese, desviar da linha provada, e é a régua que mede isso.
+
+**Alternativas.** A defesa do objetivo com um acervo muito maior (quase nada com muitos lances,
+a qualquer tamanho razoável); o adversário de cada nível na árvore (o ε sorteado não cabe numa
+prova, e a régua já mede isso).
+
+**Decisão 2 - a pescaria** (`scripts/pescar_posicoes_forcaveis_quatro.py`, comando do dono,
+§8zzzm). Acervo PRÓPRIO, em quatro confrontos (Magno×Tex, Magno×Pita, Tex×Pita, Tex×Tex; o mais
+forte troca de cor a cada partida); ⛔ o acervo do gerador não é tocado (os cinco tipos no ar
+sorteiam dele). Cada posição distinta com a vitória livre entre o piso do gabarito (9 meios-lances)
+e o teto (23) passa pelas três provas com a defesa do jogo, numa ordem embaralhada e fixa (uma
+pescaria interrompida é uma amostra do acervo inteiro). O banco
+(`dados/jogo_quatro/banco_forcavel_tradicional.json`, versionado: o job no Railway vai lê-lo) e o
+relatório são reescritos do diário a cada execução, inclusive no Ctrl+C. O controle de antes
+(com a defesa do jogo) é o da medição: um lance antes do fim passa em 1, o jeito errado reprova.
+A partida de autoplay é a do extrator (`jogar_autoplay`, generalizada do `jogar_partida`; as quatro
+primeiras partidas saíram idênticas às do acervo gravado, mesmo motor).
+
+**A estimativa** (da sondagem): ~40 s de CPU por posição na faixa com 2.000 perguntas, ~23% das
+posições na faixa; 400 partidas → ~1 a 1,5 h em 16 processos. Esperado (pelas taxas da sondagem):
+centenas de posições por tipo.
+
+**A falsa "morte do motor".** Na sondagem um processo do motor Dart "não respondeu"; a reprodução
+mostrou que ele morria exatamente no `timeout` que eu tinha posto no comando (114,8 s de 115; 170
+de 170). A memória do motor ficou estável (19 a 34 MB em 1.100 buscas). Não é defeito do motor.
+
+Testes: `test_provas_quatro.py` 45 (as duas defesas em posições do acervo, com a recusa da defesa
+do objetivo DEFINITIVA; a escolha das respostas com resultados à mão);
+`test_pescar_posicoes_forcaveis_quatro.py` 7. Mutações: defesa 6 de 6; pescaria 6 de 6. Suíte 3.667 verde (21 pulados).

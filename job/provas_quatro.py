@@ -105,6 +105,23 @@ MAXIMO_FORCAVEL = 15
 PERGUNTAS_FORCAVEL = 400
 
 
+#: As duas defesas do nó do adversário na árvore E/OU (`_Arvore.defesa`).
+#:
+#: * `DEFESA_DO_OBJETIVO` - TODA resposta conta, inclusive a de um adversário
+#:   que lê o objetivo e só joga para estragá-lo (aceita perder a partida, desde
+#:   que não do jeito pedido). É a garantia mais forte, e a das provas do gerador.
+#: * `DEFESA_DO_JOGO` - contam só as respostas que o MOTOR daria: as que não
+#:   perdem (ou que a busca não decidiu), e, quando todas perdem, as que adiam a
+#:   derrota ao máximo. É como os quatro personagens jogam: nenhum lê o objetivo.
+#:
+#: ⚠️ Medido em 21/10/2026 (histórico do backend, "2026-10-21 (11)"): em 47
+#: posições com a vitória livre a 5 a 12 lances, a defesa do objetivo deixou
+#: passar 0 golpes duplos e 0 linhas de cinco; a do jogo, 4 e 9, a 6 a 11 lances.
+#: Com muitos lances pela frente, quem só sabota sempre desmancha a forma.
+DEFESA_DO_OBJETIVO = "objetivo"
+DEFESA_DO_JOGO = "jogo"
+
+
 class _SemPerguntas(Exception):
     """A árvore E/OU gastou as perguntas que tinha (uso interno)."""
 
@@ -124,6 +141,8 @@ class _Arvore:
         folha: `(estado final) -> bool`: a partida acabou num lance da pessoa;
             isso cumpre o que se pede?
         perguntas_ate: a partir de quantas perguntas a prova desiste.
+        defesa: quais respostas do adversário contam (`DEFESA_DO_OBJETIVO` ou
+            `DEFESA_DO_JOGO`).
         visto: as respostas guardadas, por (tabuleiro, meios-lances restantes).
     """
 
@@ -131,6 +150,7 @@ class _Arvore:
     permitido: Callable[[EstadoQuatro, EstadoQuatro], bool]
     folha: Callable[[EstadoQuatro], bool]
     perguntas_ate: int
+    defesa: str = DEFESA_DO_OBJETIVO
     visto: dict[tuple, bool] = field(default_factory=dict)
 
 
@@ -344,7 +364,12 @@ class ProvadorQuatro:
         )
 
     def sem_o_meio(
-        self, estado: EstadoQuatro, *, maximo_de_meios_lances: int = MAXIMO_SEM_O_MEIO
+        self,
+        estado: EstadoQuatro,
+        *,
+        maximo_de_meios_lances: int = MAXIMO_SEM_O_MEIO,
+        perguntas: int = PERGUNTAS_SEM_O_MEIO,
+        defesa: str = DEFESA_DO_OBJETIVO,
     ) -> ProvaQuatro:
         """A pessoa vence à força SEM jogar na coluna do meio.
 
@@ -357,6 +382,8 @@ class ProvadorQuatro:
 
         O teto cresce de dois em dois (aprofundamento iterativo): a 1ª
         profundidade que acha a vitória é a mais curta, e ela vai aos dados.
+        `perguntas` e `defesa` são os da prova forçável (`objetivo_forcavel`);
+        os padrões são os do gerador.
         """
         dimensoes = self.arbitro.regras.dimensoes
         if dimensoes.largura % 2 == 0:
@@ -388,7 +415,8 @@ class ProvadorQuatro:
             permitido=lambda antes, depois: self._coluna_do_lance(antes, depois) != meio,
             # E a folha que vale é a vitória dela (a proibição já garantiu o resto).
             folha=lambda fim: self.arbitro.veredito(fim).vencedor == quem,
-            perguntas_ate=self.perguntas + PERGUNTAS_SEM_O_MEIO,
+            perguntas_ate=self.perguntas + perguntas,
+            defesa=defesa,
         )
         try:
             for teto in range(livre.meios_lances, maximo_de_meios_lances + 1, 2):
@@ -401,7 +429,7 @@ class ProvadorQuatro:
         except _SemPerguntas:
             return ProvaQuatro(
                 False,
-                f"a busca sem a coluna {meio} passou de {PERGUNTAS_SEM_O_MEIO} "
+                f"a busca sem a coluna {meio} passou de {perguntas} "
                 "perguntas sem decidir",
             )
         return ProvaQuatro(
@@ -417,6 +445,7 @@ class ProvadorQuatro:
         *,
         maximo_de_meios_lances: int = MAXIMO_FORCAVEL,
         perguntas: int = PERGUNTAS_FORCAVEL,
+        defesa: str = DEFESA_DO_OBJETIVO,
     ) -> ProvaQuatro:
         """A pessoa CUMPRE o objetivo à força, faça o adversário o que fizer.
 
@@ -445,6 +474,10 @@ class ProvadorQuatro:
                 receita: `RECEITAS[tipo].montar(parametros)`).
             maximo_de_meios_lances: até onde a árvore desce.
             perguntas: quantas buscas a prova pode gastar nesta posição.
+            defesa: contra quem a força vale. `DEFESA_DO_OBJETIVO` (o padrão):
+                qualquer resposta. `DEFESA_DO_JOGO`: as que o motor daria - a
+                da pescaria de 21/10, porque com muitos lances a outra quase
+                não acha posição (ver a constante).
         """
         quem = self.arbitro.vez_de(estado)
         livre = self.resultado(estado)
@@ -471,6 +504,7 @@ class ProvadorQuatro:
             permitido=lambda _antes, _depois: True,
             folha=cumpre,
             perguntas_ate=self.perguntas + perguntas,
+            defesa=defesa,
         )
         try:
             for teto in range(livre.meios_lances, maximo_de_meios_lances + 1, 2):
@@ -543,20 +577,48 @@ class ProvadorQuatro:
         return False
 
     def _todas_as_respostas(self, estado: EstadoQuatro, arvore: "_Arvore", restam: int) -> bool:
-        """E: toda resposta do adversário ainda deixa a pessoa chegar à folha."""
+        """E: toda resposta do adversário que CONTA ainda deixa a pessoa chegar
+        à folha. Quais contam é a defesa da árvore (ver `DEFESA_DO_JOGO`)."""
         if restam <= 0:
             return False
+        vivos: list[EstadoQuatro] = []
         for lance in self.arbitro.lances_legais(estado):
             neto = self.arbitro.aplicar(estado, lance)
             veredito = self.arbitro.veredito(neto)
             if veredito.acabou:
-                # O adversário venceu ou empatou: este ramo não é da pessoa.
+                # O adversário venceu ou empatou: este ramo não é da pessoa. Nas
+                # duas defesas - é o lance que qualquer motor jogaria.
                 if veredito.vencedor != arvore.quem:
                     return False
                 continue
-            if not self._forca(neto, arvore, restam - 1):
-                return False
-        return True
+            if arvore.defesa == DEFESA_DO_OBJETIVO:
+                # Toda resposta conta: a primeira que escapa encerra o E.
+                if not self._forca(neto, arvore, restam - 1):
+                    return False
+            else:
+                vivos.append(neto)
+        return all(
+            self._forca(neto, arvore, restam - 1)
+            for neto in self._respostas_do_jogo(vivos, arvore.quem)
+        )
+
+    def _respostas_do_jogo(
+        self, netos: list[EstadoQuatro], quem: int
+    ) -> list[EstadoQuatro]:
+        """Das respostas do adversário, as que o MOTOR poderia escolher.
+
+        A que não perde à força (ou que a busca não decidiu) é escolha possível
+        do adversário, e conta. Quando todas perdem, o motor escolhe a que adia
+        a derrota ao máximo - e contam todas as empatadas nessa distância, porque
+        o empate do motor se desfaz por sorteio. Vazio na `DEFESA_DO_OBJETIVO`
+        (lá o laço já conferiu cada resposta, e não sobra nenhuma em `netos`).
+        """
+        resultados = [(neto, self.resultado(neto)) for neto in netos]
+        escapam = [neto for neto, r in resultados if r.vencedor != quem]
+        if escapam or not resultados:
+            return escapam
+        mais_longe = max(r.meios_lances for _, r in resultados)
+        return [neto for neto, r in resultados if r.meios_lances == mais_longe]
 
     def virada(self, estado: EstadoQuatro) -> ProvaQuatro:
         """À primeira vista a posição é do adversário, e a busca prova a da pessoa.
