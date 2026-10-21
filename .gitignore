@@ -81,6 +81,11 @@ maratona_*.jsonl
 maratona_do_gerador.json
 logs/
 
+# Saídas e diários dos scripts de medição longos (decisão do dono de 21/10/2026,
+# `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzm). Derivados, como as
+# pescarias acima: o que entra no Git é a decisão tomada com eles, no histórico.
+medicoes/
+
 # ── Artefatos do `pub` dentro do espelho (25/09/2026) ───────────────────────
 #
 # Desde 25/09/2026 o espelho carrega o pacote Dart do motor de damas, para que a
