@@ -364,6 +364,19 @@ MEDIDAS_DE_QUEM_NAO_JOGOU: dict[str, float] = {
     "empate": 0,
 }
 
+#: As respostas dos predicados para quem ainda nao jogou.
+#:
+#: ⚠️ **`quatro_perdeu` e `None`, e nao `False`** (T124c da spec 010): antes do
+#: fim da partida ninguem perdeu NEM deixou de perder, e e assim que o medidor
+#: de producao responde (`motores/quatro/feitos_quatro.responder_predicados`).
+#: Com `False` aqui, o "Segure" pareceria cumprido por quem nao jogou - que e
+#: exatamente o defeito que o `None` existe para impedir. ⛔ E sem resposta
+#: nenhuma o avaliador recusa a chegada (predicado ausente e erro), e o
+#: cadeado quebraria por falta de dado, e nao por achar o defeito.
+PREDICADOS_DE_QUEM_NAO_JOGOU: dict[str, object] = {
+    "quatro_perdeu": None,
+}
+
 
 @pytest.mark.parametrize(
     "co_tipo, receita",
@@ -396,11 +409,12 @@ def test_NENHUM_tipo_proposto_e_cumprido_por_quem_nao_fez_NADA(co_tipo, receita)
 def test_e_nenhum_tipo_NO_AR_tambem_e_cumprido_por_quem_nao_fez_nada(co_tipo):
     """⚠️ O mesmo cadeado, aplicado ao que ja esta publicado.
 
-    ⛔ Hoje **nenhum** dos cinco tem o defeito, e isso nao e sorte: os cinco pedem
-    que algo ACONTECA (feche caixas, coroe, capture), e uma clausula assim e
-    falsa antes do primeiro lance. ⚠️ Mas a familia que falta no catalogo e
-    justamente a do *"impeca"* / *"aguente"*, e quando o primeiro tipo dessa
-    familia for publicado este caso e o que o segura.
+    ⛔ Os primeiros tipos publicados pediam que algo ACONTECESSE (feche caixas,
+    coroe, capture), e uma clausula assim e falsa antes do primeiro lance. ⚠️ A
+    familia do *"impeca"* / *"aguente"* chegou ao ar em 21/10/2026 com o
+    *"Segure {personagem}: nao perca a partida"* (T124c da spec 010), e quem o
+    segura e o predicado `quatro_perdeu`, que responde `None` ate o fim da
+    partida (`PREDICADOS_DE_QUEM_NAO_JOGOU`).
 
     ⚠️ Os parametros saem do EDITORIAL, e nao de numeros escritos aqui: e com
     eles que o tipo vai ao ar.
@@ -415,7 +429,11 @@ def test_e_nenhum_tipo_NO_AR_tambem_e_cumprido_por_quem_nao_fez_nada(co_tipo):
         parametros = editorial_mod.parametros_para_conferencia(parametros)
 
         chegada = LinhaDeChegada.de_dado(RECEITAS[co_tipo].montar(parametros))
-        assert not avaliar(chegada, MEDIDAS_DE_QUEM_NAO_JOGOU), (
+        assert not avaliar(
+            chegada,
+            MEDIDAS_DE_QUEM_NAO_JOGOU,
+            predicados=PREDICADOS_DE_QUEM_NAO_JOGOU,
+        ), (
             f"⛔ {co_tipo} {dict(variante.parametros)} esta NO AR e e cumprido "
             "por quem nao fez nada."
         )

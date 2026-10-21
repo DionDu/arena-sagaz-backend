@@ -312,7 +312,10 @@ def test_o_gerador_escolhe_o_jogo_com_a_adocao_que_recebe(monkeypatch):
     monkeypatch.setattr(gerador_mod, "receita_de", receita_espia)
     with pytest.raises(gerador_mod.SemCandidato):
         gerador_mod.gerar_candidatos(dia, parametros={}, frequencias=frequencias)
-    assert escolhidos == ["quatro_virada"]
+    # ⚠️ O tipo e o que o rodizio escolhe NAQUELE dia: desde a T124c sao tres
+    # tipos do Quatro no ar, e o caso so prova que o jogo do dia foi o Quatro.
+    assert escolhidos == [escolher_tipo("quatro", dia)]
+    assert escolhidos[0].startswith("quatro_")
 
 
 def test_dois_jogos_novos_ao_mesmo_tempo_dividem_os_dias():

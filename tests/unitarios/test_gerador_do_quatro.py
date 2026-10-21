@@ -317,8 +317,8 @@ MEDIDOR = _medidor()
 def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     tipos = MEDIDOR.tipos_do_alvo("quatro")
     assert tipos == sorted(t for t, r in RECEITAS_FORA_DO_AR.items() if r.co_jogo == "quatro")
-    # Eram dez; a virada subiu na T124b.
-    assert len(tipos) == 9
+    # Eram dez; a virada subiu na T124b, o vencer em N e o Segure na T124c.
+    assert len(tipos) == 7
     assert MEDIDOR.tipos_do_alvo("quatro_encostadas") == ["quatro_encostadas"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)
@@ -396,11 +396,15 @@ def test_o_rodizio_ainda_NAO_sorteia_o_quatro() -> None:
     assert {gerador.escolher_jogo(dia) for dia in dias} == set(gerador.JOGOS_DO_RODIZIO)
 
 
-def test_a_virada_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
+def test_o_tipo_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
     monkeypatch,
 ) -> None:
-    """Com o Quatro como jogo do dia, o rodizio de tipo acha a virada, e o
-    caminho normal exige o vetor de verificacao - que agora existe.
+    """Com o Quatro como jogo do dia, o rodizio de tipo acha um tipo do Quatro
+    no ar, e o caminho normal exige o vetor de verificacao - que existe.
+
+    ⚠️ Nasceu na T124b como "a virada no ar", quando ela era o unico tipo do
+    Quatro em `RECEITAS`. Com tres (T124c), o tipo do dia e o que o rodizio
+    (`escolher_tipo`) escolhe, e o caso usa a publicacao DELE - nao a da virada.
 
     ⚠️ Desde a T120 o dia do Quatro sai da ADOCAO, e o caso usa o caminho real:
     uma faixa de 1 em 3 e o primeiro dia que ela da ao Quatro (antes, um duble
@@ -426,7 +430,9 @@ def test_a_virada_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
     monkeypatch.setattr(gerador.provas_quatro_mod, "provar", anota)
     monkeypatch.setattr(gerador.provas_quatro_mod, "ProvadorQuatro", lambda *a, **k: None)
     monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
-    (publicacao,) = editorial_mod.EDITORIAL["quatro_virada"]
+    co_tipo = gerador.escolher_tipo("quatro", dia)
+    assert RECEITAS[co_tipo].co_jogo == "quatro"
+    publicacao = editorial_mod.EDITORIAL[co_tipo][0]
     assert (
         gerador.gerar_candidatos(
             dia,
@@ -440,7 +446,7 @@ def test_a_virada_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
         )
         == []
     )
-    assert escolhidos and set(escolhidos) == {"quatro_virada"}
+    assert escolhidos and set(escolhidos) == {co_tipo}
 
 
 def test_o_medidor_RECUSA_medir_a_virada_pelo_alvo_no_ar() -> None:

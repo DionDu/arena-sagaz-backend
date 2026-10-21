@@ -8961,3 +8961,61 @@ ar, vetores de verificação, as duas fábricas do app).
 **Lição.** A frase que justificava o preparo ("é coisa de meio de jogo") era uma suposição
 sobre o jogo escrita como fato, e ninguém a mediu até a régua dar `[0, 0, 0]`. O botão de
 preparo de um tipo novo sai de uma tabela por fase, e não da intuição sobre o jogo.
+
+## 2026-10-21 (8) — O "Segure" e o "Vença em até 7" no ar, com os vetores (T124c da spec 010)
+
+**Contexto.** A remedição da entrada (7) aprovou dois tipos: *"Segure {personagem}: não perca
+a partida"* (`quatro_segurar_magno`) e *"Vença {personagem} em até 7 lances"*
+(`quatro_vencer_em_n`, só a variante `{lances: 7}`). Promover é o mesmo gesto da T124b
+(entrada "2026-10-20 (7)"): receita e editorial no ar, vetores de verificação, e o app
+julgando os vetores com as duas fábricas do Quatro.
+
+**O que mudou.**
+
+1. `job/tipos_de_desafio.py`: as duas receitas saíram de `RECEITAS_FORA_DO_AR` e entraram em
+   `RECEITAS`, depois da virada. Fora do ar ficam sete (a única coluna, aposentada, e as seis
+   que esperam o defeito 1).
+2. `job/editorial.py`: o Segure entrou no `EDITORIAL` como foi medido (preparo 22, só o
+   Magno). O "Vença em N" entrou **só com a variante 7**. ⚠️ **O 5 e o 6 não ficaram no
+   `EDITORIAL_FORA_DO_AR`**, como a entrada (7) previa: um tipo mora num lado só (o cadeado
+   `test_cada_tipo_do_quatro_mora_de_UM_lado_so`), e o tipo agora está no ar. Ficaram
+   **comentados dentro do `EDITORIAL`**, com a medição, como a `{caixas: 4, turnos: 2}` do
+   Pontinhos que saiu em 12/09 - nada é apagado, e quem quiser reabri-los acha o número ao
+   lado.
+3. **Onze vetores** (`quatro-vencer-em-7-*` e `quatro-segure-*`, gerados por
+   `scripts/gerar_vetores_verificacao.py`, `vetores_do_quatro_de_21_10`), com a posição-base
+   da virada. O "Vença em 7" tem o limite dos dois lados (vence no 7º lance: cumpre; no 8º:
+   não cumpre), uma vitória cedo, a derrota e um lance depois do fim (`dado_invalido`). O
+   Segure tem o empate de tabuleiro cheio, a mesma fita sem o último lance, a vitória da
+   pessoa, a derrota, a pessoa como J2 perdendo e uma coluna cheia (`dado_invalido`). As fitas
+   longas foram achadas por uma busca e conferidas pelo árbitro (o empate termina em
+   `tabuleiro_cheio`; as vitórias, em `alinhou`). O formato do vetor subiu para
+   `_vetor_do_quatro`, que os três tipos usam; os vetores da virada saíram byte a byte iguais.
+
+**Por que os vetores do Segure são os que importavam.** É o primeiro tipo do Quatro no ar com
+**predicado** (`quatro_perdeu`). Na T124b, tirar as portas do Quatro do juiz do app
+sobrevivia, porque a virada não as consulta. Agora dois vetores só existem por elas: o empate
+fecha num lance do **adversário** (a porta `terminou_ate`: o juiz tem de avaliar o lance que
+encerra a partida, seja de quem for), e a partida sem o último lance responde `None`, que nunca
+é `igual false` (quem respondesse `false` no meio daria o desafio a quem abandonasse).
+
+**Alternativas consideradas.** (a) Deixar o 5 e o 6 no `EDITORIAL_FORA_DO_AR` com o tipo no
+ar: duas fontes para o mesmo tipo, recusado pelo cadeado e pela regra "promover é mover". (b)
+Apagar as duas variantes: recusado ("nada é apagado"), e a medição delas responde a pergunta
+de quem um dia quiser um "Vença em 5".
+
+**Prova.** Mutações no Dart (5 de 5 pegas): as portas fora do juiz do teste, a exceção do
+lance do adversário que encerra, `quatro_perdeu` falso no meio da partida, `menor_ou_igual`
+virando `menor`, e o perdeu medido do lado errado. No Python, 5 de 5: as quatro equivalentes
+no juiz e no medidor, e a receita do Segure trocada para `diferente true` (aceitaria o `None`).
+
+**Um cadeado que precisou aprender o predicado.** `test_e_nenhum_tipo_NO_AR_tambem_e_cumprido_por_quem_nao_fez_nada`
+(`test_tipos_propostos.py`) quebrou com o Segure: o fixture de quem não jogou só tinha
+medidas, e o avaliador recusa predicado sem resposta (`ChegadaInvalida`). Ganhou
+`PREDICADOS_DE_QUEM_NAO_JOGOU = {"quatro_perdeu": None}`, a resposta do medidor de produção
+antes do fim. É o primeiro tipo da família "aguente" no ar, o caso que o docstring dele
+previa, e é ele que pega a 5ª mutação acima.
+
+⚠️ **Lacuna antiga, anotada e não consertada aqui:** nada confere que o `js_chegada` gravado
+num vetor é o que a `RECEITAS[tipo].montar(...)` de hoje produz. Mudar uma receita sem rodar
+o gerador de vetores passaria calado nos dois julgadores.

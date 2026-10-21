@@ -1446,51 +1446,64 @@ _BASE_DO_QUATRO = ["s3", "s3", "s4", "s4"]
 _BASE_DO_QUATRO_COM_O_J2 = _BASE_DO_QUATRO + ["s1"]
 
 
-def vetores_do_quatro() -> list[dict[str, Any]]:
-    """Os cinco vetores de `quatro_virada`.
+def _vetor_do_quatro(
+    receita: Any,
+    chegada: dict[str, Any],
+    identificador: str,
+    descricao: str,
+    iniciais: list[str],
+    fita: list[str],
+    veredito: str,
+) -> dict[str, Any]:
+    """Um vetor do Quatro: a posicao, a fita e o que os dois julgadores dizem.
+
+    Nasceu dentro de `vetores_do_quatro` (a virada, T124b) e subiu para ca na
+    T124c, quando o Segure e o *"venca em ate 7"* chegaram: o formato e o mesmo
+    nos tres tipos, e o que muda e so a receita e a chegada.
 
     ⚠️ **Os feitos saem do MEDIDOR DE PRODUCAO** (`feitos_quatro.medir`), como
     nos tipos de damas de 16/09: recontar aqui seria uma terceira implementacao
-    da regra que o vetor existe para conferir.
+    da regra que o vetor existe para conferir. ⚠️ A pessoa e quem tem a vez na
+    posicao publicada (`vez_de`), e o dono de cada lance alterna a partir dela.
     """
-    receita = RECEITAS["quatro_virada"]
     co_modalidade = "tradicional"
     motor = MotorQuatro(co_modalidade)
+    posicao = posicao_inicial_mod.do_quatro(iniciais, co_modalidade=co_modalidade)
+    pessoa = posicao["vez_de"]
+    esperado: dict[str, Any] = {"veredito": veredito}
+    esperado["feitos"] = (
+        {}
+        if veredito == "dado_invalido"
+        else feitos_quatro.medir(motor, iniciais, fita, jogador=pessoa)
+    )
+    return {
+        "id": identificador,
+        "de_vetor": descricao,
+        "co_jogo": "quatro",
+        "co_variante": co_modalidade,
+        "co_modalidade": co_modalidade,
+        "co_formato_posicao": posicao["co_formato_posicao"],
+        "js_posicao_inicial": posicao,
+        "nu_tipo_desafio": receita.nu_tipo_desafio,
+        "co_tipo_desafio": receita.co_tipo_desafio,
+        "jogador": pessoa,
+        # O dono de cada lance alterna, a partir de quem tem a vez.
+        "lances": [
+            {"n": n, "jogador": pessoa if n % 2 else -pessoa, "lance": lance}
+            for n, lance in enumerate(fita, start=1)
+        ],
+        "js_chegada": chegada,
+        "esperado": esperado,
+    }
 
-    def vetor(
-        identificador: str,
-        descricao: str,
-        iniciais: list[str],
-        fita: list[str],
-        veredito: str,
-    ) -> dict[str, Any]:
-        posicao = posicao_inicial_mod.do_quatro(iniciais, co_modalidade=co_modalidade)
-        pessoa = posicao["vez_de"]
-        esperado: dict[str, Any] = {"veredito": veredito}
-        esperado["feitos"] = (
-            {}
-            if veredito == "dado_invalido"
-            else feitos_quatro.medir(motor, iniciais, fita, jogador=pessoa)
-        )
-        return {
-            "id": identificador,
-            "de_vetor": descricao,
-            "co_jogo": "quatro",
-            "co_variante": co_modalidade,
-            "co_modalidade": co_modalidade,
-            "co_formato_posicao": posicao["co_formato_posicao"],
-            "js_posicao_inicial": posicao,
-            "nu_tipo_desafio": receita.nu_tipo_desafio,
-            "co_tipo_desafio": receita.co_tipo_desafio,
-            "jogador": pessoa,
-            # O dono de cada lance alterna, a partir de quem tem a vez.
-            "lances": [
-                {"n": n, "jogador": pessoa if n % 2 else -pessoa, "lance": lance}
-                for n, lance in enumerate(fita, start=1)
-            ],
-            "js_chegada": _CHEGADA_DA_VIRADA,
-            "esperado": esperado,
-        }
+
+def vetores_do_quatro() -> list[dict[str, Any]]:
+    """Os cinco vetores de `quatro_virada` (T124b)."""
+    receita = RECEITAS["quatro_virada"]
+
+    def vetor(*argumentos: Any) -> dict[str, Any]:
+        # A virada so muda a receita e a chegada; o resto e `_vetor_do_quatro`.
+        return _vetor_do_quatro(receita, _CHEGADA_DA_VIRADA, *argumentos)
 
     return [
         vetor(
@@ -1537,6 +1550,150 @@ def vetores_do_quatro() -> list[dict[str, Any]]:
             "recusa a fita inteira, em vez de ignorar o lance e medir o resto.",
             _BASE_DO_QUATRO,
             ["s8"],
+            "dado_invalido",
+        ),
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O QUATRO EM LINHA - o Segure e o "venca em ate 7" (T124c, 21/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Os dois tipos que passaram na remedicao de 21/10. As fitas longas (o empate de
+# tabuleiro cheio, a vitoria no 7o e no 8o lance) foram achadas por uma busca e
+# conferidas pelo arbitro: cada uma diz na descricao o que acontece nela, e o
+# `provar_que_o_invalido_e_mesmo_invalido` e os dois julgadores as reproduzem.
+#
+# ⚠️ **O Segure e o primeiro tipo do Quatro no ar com PREDICADO**
+# (`quatro_perdeu`), e e ele que cobre as PORTAS do juiz (T112/T113) - a
+# virada nao as consulta, e tira-las do juiz do app sobrevivia (T124b). Dois
+# casos so existem por elas: o empate termina num lance do ADVERSARIO (a porta
+# `terminou_ate`), e a partida que nao terminou responde `None`, que nunca e
+# `igual false`.
+
+#: "Venca em ate 7 lances": a unica variante no ar (`EDITORIAL`, T124c).
+_CHEGADA_DO_VENCER_EM_7 = RECEITAS["quatro_vencer_em_n"].montar({"lances": 7})
+
+#: "Segure {personagem}: nao perca a partida".
+_CHEGADA_DO_SEGURE = RECEITAS["quatro_segurar_magno"].montar({})
+
+#: Um empate de tabuleiro cheio a partir da posicao-base: 38 meios-lances, o
+#: ultimo do J2 (sao 42 casas, e a base ja tem 4 pecas).
+_FITA_DO_EMPATE = (
+    "s4 s2 s2 s7 s2 s5 s6 s7 s6 s2 s1 s6 s1 s2 s7 s2 s5 s1 s7 s7 "
+    "s6 s5 s6 s4 s1 s7 s4 s4 s6 s1 s5 s5 s3 s3 s3 s5 s3 s1"
+).split()
+
+
+def vetores_do_quatro_de_21_10() -> list[dict[str, Any]]:
+    """Os vetores do `quatro_vencer_em_n` (`{lances: 7}`) e do `quatro_segurar_magno`."""
+    vencer = RECEITAS["quatro_vencer_em_n"]
+    segurar = RECEITAS["quatro_segurar_magno"]
+
+    def em_7(*argumentos: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(vencer, _CHEGADA_DO_VENCER_EM_7, *argumentos)
+
+    def segure(*argumentos: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(segurar, _CHEGADA_DO_SEGURE, *argumentos)
+
+    return [
+        # ── "Venca em ate 7 lances" ───────────────────────────────────────────
+        em_7(
+            "quatro-vencer-em-7-cumpriu-no-limite",
+            "A pessoa vence no 7o lance dela (o 13o meio-lance), com quatro na "
+            "linha de baixo, das colunas 2 a 5; ninguem vence antes. E o limite: "
+            "quem trocasse `menor_ou_igual` por `menor` diria nao cumpriu.",
+            _BASE_DO_QUATRO,
+            "s3 s7 s2 s6 s7 s3 s3 s1 s2 s7 s4 s3 s5".split(),
+            "cumpriu",
+        ),
+        em_7(
+            "quatro-vencer-em-7-venceu-no-8o-lance",
+            "A pessoa vence, mas no 8o lance dela (o 15o meio-lance): a vitoria "
+            "veio, e um lance tarde demais. Nao cumpre - quem julgasse so a "
+            "vitoria diria cumpriu.",
+            _BASE_DO_QUATRO,
+            "s2 s6 s7 s3 s3 s1 s2 s7 s4 s3 s4 s6 s1 s6 s5".split(),
+            "nao_cumpriu",
+        ),
+        em_7(
+            "quatro-vencer-em-7-cumpriu-cedo",
+            "A pessoa vence no 2o lance dela (3, 4, 5 e 6 embaixo). Bem dentro "
+            "do limite: cumpre.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6"],
+            "cumpriu",
+        ),
+        em_7(
+            "quatro-vencer-em-7-o-adversario-venceu",
+            "A mesma derrota do vetor da virada: o J2 fecha a linha 2 no 6o "
+            "meio-lance. Poucos lances, e sem vitoria: nao cumpre.",
+            _BASE_DO_QUATRO,
+            ["s6", "s5", "s7", "s5", "s1", "s6"],
+            "nao_cumpriu",
+        ),
+        em_7(
+            "quatro-vencer-em-7-lance-depois-do-fim-e-dado-invalido",
+            "A pessoa vence no 2o lance dela, e a fita segue com mais um lance "
+            "do adversario. Depois do fim nenhum lance e legal: o julgador "
+            "recusa a fita inteira, em vez de parar na vitoria e ignorar o resto.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6", "s1"],
+            "dado_invalido",
+        ),
+        # ── "Segure {personagem}: nao perca a partida" ────────────────────────
+        segure(
+            "quatro-segure-empate-de-tabuleiro-cheio",
+            "Ninguem alinha, e o tabuleiro enche: empate, e a pessoa nao perdeu. "
+            "Cumpre - no ULTIMO meio-lance, que e do ADVERSARIO: o juiz so ve o "
+            "fim se avaliar o lance que encerra a partida, seja de quem for (a "
+            "porta `terminou_ate`).",
+            _BASE_DO_QUATRO,
+            _FITA_DO_EMPATE,
+            "cumpriu",
+        ),
+        segure(
+            "quatro-segure-a-partida-nao-terminou",
+            "O MESMO empate sem o ultimo lance: falta uma casa, e a partida nao "
+            "acabou. O `quatro_perdeu` responde nulo, e nulo nunca e `igual "
+            "false`: nao cumpre. Quem respondesse `false` no meio da partida "
+            "daria o desafio a quem abandonasse.",
+            _BASE_DO_QUATRO,
+            _FITA_DO_EMPATE[:-1],
+            "nao_cumpriu",
+        ),
+        segure(
+            "quatro-segure-a-pessoa-venceu",
+            "A pessoa vence no 2o lance dela. Vencer tambem e nao perder: cumpre.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6"],
+            "cumpriu",
+        ),
+        segure(
+            "quatro-segure-o-adversario-venceu",
+            "O J2 fecha a linha 2 no 6o meio-lance, um lance do adversario: a "
+            "pessoa perdeu, e nao cumpre.",
+            _BASE_DO_QUATRO,
+            ["s6", "s5", "s7", "s5", "s1", "s6"],
+            "nao_cumpriu",
+        ),
+        segure(
+            "quatro-segure-a-pessoa-e-o-J2-e-perdeu",
+            "A vez na posicao publicada e do J2. Ele solta na 7, o J1 solta na 5 "
+            "(1, 3, 4 e 5 embaixo), o J2 tapa a 2 e o J1 fecha pela 6. Quem perdeu "
+            "foi a pessoa: nao cumpre. Medido do lado do J1, o mesmo fim seria "
+            "uma vitoria.",
+            _BASE_DO_QUATRO_COM_O_J2,
+            ["s7", "s5", "s2", "s6"],
+            "nao_cumpriu",
+        ),
+        segure(
+            "quatro-segure-coluna-cheia-e-dado-invalido",
+            "Os dois enchem a coluna 1 (seis pecas alternadas, ninguem alinha) e "
+            "o 7o lance cai nela de novo: a coluna nao tem mais casa. Dado "
+            "invalido.",
+            _BASE_DO_QUATRO,
+            ["s1"] * 7,
             "dado_invalido",
         ),
     ]
@@ -1642,6 +1799,8 @@ def montar() -> dict[str, Any]:
         + vetores_das_damas_de_16_09()
         # ⚠️ No fim, para o diff do dia ser acrescimo (T124b da spec 010).
         + vetores_do_quatro()
+        # O Segure e o "venca em ate 7" (T124c), tambem no fim.
+        + vetores_do_quatro_de_21_10()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

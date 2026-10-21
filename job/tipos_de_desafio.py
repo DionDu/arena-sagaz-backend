@@ -2771,6 +2771,52 @@ RECEITAS: dict[str, Receita] = {
         },
         valores_da_frase=lambda p, personagem: {"personagem": personagem},
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_vencer_em_n": Receita(
+        nu_tipo_desafio=40,
+        co_tipo_desafio="quatro_vencer_em_n",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroVencerEmN",
+        # ✅ **No ar desde 21/10/2026** (T124c): com o preparo 22, a variante
+        # `{lances: 7}` caiu na escada nos tres dias e foi promovida - so ela;
+        # a 5 e a 6 ficaram fora (o porque esta no `EDITORIAL`).
+        # "Venca em ate N lances". O job prova (T116) que a vitoria forcada
+        # existe em N lances da pessoa e NAO em N-1: sem a segunda metade, um
+        # "venca em 5" que se ganha em 2 seria um desafio de dois toques.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("lances_do_jogador", "menor_ou_igual", p["lances"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_segurar_magno": Receita(
+        nu_tipo_desafio=41,
+        co_tipo_desafio="quatro_segurar_magno",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroSegurarMagno",
+        # ✅ **No ar desde 21/10/2026** (T124c): com 40 tentativas por
+        # candidato, caiu na escada em 2 de 3 dias. ⚠️ E o primeiro tipo do
+        # Quatro no ar com PREDICADO: o `_predicado` mora mais abaixo, e o
+        # `lambda` so o procura na chamada.
+        # "Segure o Magno": nao perca. O job prova que o empate existe e que a
+        # MAIORIA das colunas legais perde - sem isso, qualquer lance seguraria.
+        # ⚠️ O personagem e sempre o Magno, e quem restringe e o editorial
+        # (`co_personagens`), e nao esta receita: ela so diz como se julga.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [_predicado("quatro_perdeu", "igual", False)],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
 }
 
 
@@ -2795,10 +2841,13 @@ def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # ⚠️ **Os tipos do Quatro em Linha moram aqui, e nao em [RECEITAS]** (T115
-# da spec 010, 20/10/2026). Eram dez; desde a T124b sao nove: a `quatro_virada`
-# passou na regua e foi promovida, e a `quatro_unica_coluna` continua aqui
-# APOSENTADA (`DECISOES-do-dono.md` §8zzzl), sem texto no app. As outras oito
-# esperam a T124c. Eles nao sao propostas (essas ficam em
+# da spec 010, 20/10/2026). Eram dez; desde a T124c sao sete: a `quatro_virada`
+# passou na regua e foi promovida na T124b, o `quatro_vencer_em_n` (so a
+# variante 7) e o `quatro_segurar_magno` passaram na remedicao de 21/10 e foram
+# promovidos na T124c, e a `quatro_unica_coluna` continua aqui APOSENTADA
+# (`DECISOES-do-dono.md` §8zzzl), sem texto no app. As outras seis esperam o
+# defeito 1 da T124c (um jogador que persiga o objetivo). Eles nao sao
+# propostas (essas ficam em
 # `tipos_propostos.py`, esperando o dono): o dono os aprovou em 13/10/2026
 # (`DECISOES-do-dono.md` §8zzz), e eles ja tem linha na `tb901_tipo_desafio`
 # (migracao `0035`, numeros 40 a 49). O que falta e o resto das portas que
@@ -2845,45 +2894,6 @@ def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
 _ATINGIDO = 1
 
 RECEITAS_FORA_DO_AR: dict[str, Receita] = {
-    "quatro_vencer_em_n": Receita(
-        nu_tipo_desafio=40,
-        co_tipo_desafio="quatro_vencer_em_n",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroVencerEmN",
-        # "Venca em ate N lances". O job prova (T116) que a vitoria forcada
-        # existe em N lances da pessoa e NAO em N-1: sem a segunda metade, um
-        # "venca em 5" que se ganha em 2 seria um desafio de dois toques.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("vitoria", "igual", _ATINGIDO),
-                _medida("lances_do_jogador", "menor_ou_igual", p["lances"]),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "lances": p["lances"],
-            "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_segurar_magno": Receita(
-        nu_tipo_desafio=41,
-        co_tipo_desafio="quatro_segurar_magno",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroSegurarMagno",
-        # "Segure o Magno": nao perca. O job prova que o empate existe e que a
-        # MAIORIA das colunas legais perde - sem isso, qualquer lance seguraria.
-        # ⚠️ O personagem e sempre o Magno, e quem restringe e o editorial
-        # (`co_personagens`), e nao esta receita: ela so diz como se julga.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [_predicado("quatro_perdeu", "igual", False)],
-        },
-        valores_da_frase=lambda p, personagem: {"personagem": personagem},
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
     "quatro_unica_coluna": Receita(
         nu_tipo_desafio=42,
         co_tipo_desafio="quatro_unica_coluna",

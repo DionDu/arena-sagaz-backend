@@ -4138,6 +4138,1311 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "quatro-vencer-em-7-cumpriu-no-limite",
+      "de_vetor": "A pessoa vence no 7o lance dela (o 13o meio-lance), com quatro na linha de baixo, das colunas 2 a 5; ninguem vence antes. E o limite: quem trocasse `menor_ou_igual` por `menor` diria nao cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 40,
+      "co_tipo_desafio": "quatro_vencer_em_n",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 10,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 11,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 12,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 13,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "menor_ou_igual",
+            "valor": 7
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 7,
+          "pecas_encostadas": 7,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-vencer-em-7-venceu-no-8o-lance",
+      "de_vetor": "A pessoa vence, mas no 8o lance dela (o 15o meio-lance): a vitoria veio, e um lance tarde demais. Nao cumpre - quem julgasse so a vitoria diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 40,
+      "co_tipo_desafio": "quatro_vencer_em_n",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 10,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 11,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 12,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 13,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 14,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 15,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "menor_ou_igual",
+            "valor": 7
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 8,
+          "pecas_encostadas": 9,
+          "pecas_encostadas_do_adversario": 7,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 2,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-vencer-em-7-cumpriu-cedo",
+      "de_vetor": "A pessoa vence no 2o lance dela (3, 4, 5 e 6 embaixo). Bem dentro do limite: cumpre.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 40,
+      "co_tipo_desafio": "quatro_vencer_em_n",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "menor_ou_igual",
+            "valor": 7
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-vencer-em-7-o-adversario-venceu",
+      "de_vetor": "A mesma derrota do vetor da virada: o J2 fecha a linha 2 no 6o meio-lance. Poucos lances, e sem vitoria: nao cumpre.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 40,
+      "co_tipo_desafio": "quatro_vencer_em_n",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "menor_ou_igual",
+            "valor": 7
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 5,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-vencer-em-7-lance-depois-do-fim-e-dado-invalido",
+      "de_vetor": "A pessoa vence no 2o lance dela, e a fita segue com mais um lance do adversario. Depois do fim nenhum lance e legal: o julgador recusa a fita inteira, em vez de parar na vitoria e ignorar o resto.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 40,
+      "co_tipo_desafio": "quatro_vencer_em_n",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "menor_ou_igual",
+            "valor": 7
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "quatro-segure-empate-de-tabuleiro-cheio",
+      "de_vetor": "Ninguem alinha, e o tabuleiro enche: empate, e a pessoa nao perdeu. Cumpre - no ULTIMO meio-lance, que e do ADVERSARIO: o juiz so ve o fim se avaliar o lance que encerra a partida, seja de quem for (a porta `terminou_ate`).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 41,
+      "co_tipo_desafio": "quatro_segurar_magno",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 10,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 11,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 12,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 13,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 14,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 15,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 16,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 17,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 18,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 19,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 20,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 21,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 22,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 23,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 24,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 25,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 26,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 27,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 28,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 29,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 30,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 31,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 32,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 33,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 34,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 35,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 36,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 37,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 38,
+          "jogador": -1,
+          "lance": "s1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "predicado",
+            "chave": "quatro_perdeu",
+            "comparador": "igual",
+            "valor": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 1,
+          "lances_do_jogador": 19,
+          "pecas_encostadas": 21,
+          "pecas_encostadas_do_adversario": 21,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 2,
+          "ameacas_bloqueadas": 3
+        }
+      }
+    },
+    {
+      "id": "quatro-segure-a-partida-nao-terminou",
+      "de_vetor": "O MESMO empate sem o ultimo lance: falta uma casa, e a partida nao acabou. O `quatro_perdeu` responde nulo, e nulo nunca e `igual false`: nao cumpre. Quem respondesse `false` no meio da partida daria o desafio a quem abandonasse.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 41,
+      "co_tipo_desafio": "quatro_segurar_magno",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 10,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 11,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 12,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 13,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 14,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 15,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 16,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 17,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 18,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 19,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 20,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 21,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 22,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 23,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 24,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 25,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 26,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 27,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 28,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 29,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 30,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 31,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 32,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 33,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 34,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 35,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 36,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 37,
+          "jogador": 1,
+          "lance": "s3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "predicado",
+            "chave": "quatro_perdeu",
+            "comparador": "igual",
+            "valor": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 19,
+          "pecas_encostadas": 21,
+          "pecas_encostadas_do_adversario": 20,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 2,
+          "ameacas_bloqueadas": 3
+        }
+      }
+    },
+    {
+      "id": "quatro-segure-a-pessoa-venceu",
+      "de_vetor": "A pessoa vence no 2o lance dela. Vencer tambem e nao perder: cumpre.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 41,
+      "co_tipo_desafio": "quatro_segurar_magno",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "predicado",
+            "chave": "quatro_perdeu",
+            "comparador": "igual",
+            "valor": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-segure-o-adversario-venceu",
+      "de_vetor": "O J2 fecha a linha 2 no 6o meio-lance, um lance do adversario: a pessoa perdeu, e nao cumpre.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 41,
+      "co_tipo_desafio": "quatro_segurar_magno",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "predicado",
+            "chave": "quatro_perdeu",
+            "comparador": "igual",
+            "valor": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 5,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-segure-a-pessoa-e-o-J2-e-perdeu",
+      "de_vetor": "A vez na posicao publicada e do J2. Ele solta na 7, o J1 solta na 5 (1, 3, 4 e 5 embaixo), o J2 tapa a 2 e o J1 fecha pela 6. Quem perdeu foi a pessoa: nao cumpre. Medido do lado do J1, o mesmo fim seria uma vitoria.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4",
+          "s1"
+        ],
+        "co_lances": "s3s3s4s4s1",
+        "vez_de": -1
+      },
+      "nu_tipo_desafio": 41,
+      "co_tipo_desafio": "quatro_segurar_magno",
+      "jogador": -1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 4,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "predicado",
+            "chave": "quatro_perdeu",
+            "comparador": "igual",
+            "valor": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 3,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 1
+        }
+      }
+    },
+    {
+      "id": "quatro-segure-coluna-cheia-e-dado-invalido",
+      "de_vetor": "Os dois enchem a coluna 1 (seis pecas alternadas, ninguem alinha) e o 7o lance cai nela de novo: a coluna nao tem mais casa. Dado invalido.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 41,
+      "co_tipo_desafio": "quatro_segurar_magno",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "predicado",
+            "chave": "quatro_perdeu",
+            "comparador": "igual",
+            "valor": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ],
   "sementes": [

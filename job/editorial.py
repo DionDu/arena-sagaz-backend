@@ -2011,10 +2011,12 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         ),
     ),
     # ── Quatro em Linha ────────────────────────────────────────────────────
-    # ⚠️ **O primeiro tipo do Quatro no ar** (T124b da spec 010, 20/10/2026), e
-    # por ora o unico: a regua dos dez tipos (T117) aprovou tres, e o dono
-    # segurou dois deles (`DECISOES-do-dono.md` §8zzzl) - a unica coluna foi
-    # aposentada e as encostadas esperam um resolvedor proprio (T124c). ⛔ Estar
+    # ⚠️ **O primeiro tipo do Quatro no ar** (T124b da spec 010, 20/10/2026): a
+    # regua dos dez tipos (T117) aprovou tres, e o dono segurou dois deles
+    # (`DECISOES-do-dono.md` §8zzzl) - a unica coluna foi aposentada e as
+    # encostadas esperam um resolvedor proprio (T124c). Os outros dois abaixo
+    # dela, o *"venca em ate 7"* e o Segure, subiram na T124c (21/10), depois da
+    # remedicao com o preparo 22 e 40 tentativas por candidato. ⛔ Estar
     # aqui NAO faz o job gerar desafio do Quatro: o jogo entra pela ADOCAO
     # (`gerador.JOGOS_EM_ADOCAO`, T120), e so toma dias quando algum aparelho
     # tiver a versao minima - ou pelo `--forcar-jogo` do `des` (T121).
@@ -2034,6 +2036,76 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
     ),
+    "quatro_vencer_em_n": (
+        # ⛔ **`{lances: 5}` e `{lances: 6}` NAO SUBIRAM em 21/10/2026** (T124c),
+        # remedidas com o preparo 22 (historico do backend, "2026-10-21 (7)").
+        # Ficam aqui comentadas, com a medicao, para quem pensar em reabri-las:
+        # o problema da 5 nao e falta de posicao, e o gabarito contra quem erra
+        # vencer abaixo do piso - mais tentativas nao o resolvem.
+        # Publicacao(
+        #     # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 0]` (sem vitoria forcada em
+        #     # exatamente N). Gabarito de 9 meios-lances: o piso da faixa do hub.
+        #     # ⚠️ Preparo 22, e nao 12 (T124c, 21/10/2026): a suposicao "a vitoria
+        #     # em 5 e coisa de meio de jogo" estava errada. Com 12 a 18 lances
+        #     # jogados, as vitorias forcadas que a busca prova estao a 14-23
+        #     # meios-lances, e so 3 de 560 posicoes do acervo passam em N=5;
+        #     # com 22 a 28, 39 de 560 (7%). Medido com
+        #     # `scripts/medir_fases_das_posicoes_quatro.py` (historico do backend,
+        #     # "2026-10-21 (7)").
+        #     # ⛔ Remedida em 21/10 com o preparo 22: `[0, 3, 3]`. A posicao passou
+        #     # a existir (7 passaram na prova no dia 1), mas o gabarito contra o
+        #     # adversario do dia, que erra, vence em 2 a 4 lances, abaixo do piso.
+        #     parametros={"lances": 5},
+        #     nu_lances_de_preparo=22,
+        #     ic_chegada_encerra_partida=True,
+        #     medidas=_medidas_do_quatro_vencer_em_n,
+        #     co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        # ),
+        # Publicacao(
+        #     # ⛔ Medida em 20/10: SEM DESAFIO `[1, 0, 0]`, e facil (Cacau 0,70).
+        #     # 11 meios-lances; a rede da de cima. Preparo 22 pela mesma medicao
+        #     # da variante acima: com 22 a 28 lances, 42 de 560 passam em N=6 (eram 9).
+        #     # ⛔ Remedida em 21/10 com o preparo 22: APERTADO `[3, 2, 3]`, mas na
+        #     # escada so em 1 de 3 dias (errou por 0,02 nos outros dois).
+        #     parametros={"lances": 6},
+        #     nu_lances_de_preparo=22,
+        #     ic_chegada_encerra_partida=True,
+        #     medidas=_medidas_do_quatro_vencer_em_n,
+        #     co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        # ),
+        Publicacao(
+            # ⚠️ Nova em 21/10/2026 (T124c): com o preparo 22, o `{lances: 5}`
+            # tem posicao, mas o gabarito contra o adversario do dia (que erra)
+            # vence em 3 ou 4 lances, abaixo do piso de 9 meios-lances. Com N=7
+            # (13 meios-lances) a vitoria contra quem erra ainda tende a ficar
+            # acima do piso. ✅ Medida em 21/10: FOLGA `[3, 3, 3]`, na escada nos
+            # TRES dias (o 1º candidato de cada um), solucao de 11,7 meios-lances.
+            # E a unica das tres que passa (`{5}`: `[0, 3, 3]`; `{6}`: 1 de 3 na
+            # escada, errando por 0,02 duas vezes).
+            parametros={"lances": 7},
+            nu_lances_de_preparo=22,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro_vencer_em_n,
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_segurar_magno": (
+        Publicacao(
+            # ⛔ Medida em 20/10: SEM DESAFIO `[3, 0, 0]` (falta o empate provado).
+            # ✅ Remedida em 21/10, com 40 tentativas por candidato (eram 20):
+            # APERTADO `[3, 2, 2]`, na escada em 2 de 3 dias (o 1º errou por 0,02),
+            # solucao de 18,1 meios-lances. Passa no criterio e sobe.
+            # ⛔ Contra o Magno e so ele: e o nome do tipo.
+            # Preparo 22: o empate so se PROVA com o fim ao alcance da busca.
+            parametros={},
+            nu_lances_de_preparo=22,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 22,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro(None),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+            co_personagens=("magno",),
+        ),
+    ),
 }
 
 
@@ -2051,14 +2123,17 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
 # rodada da T117; tabela no `historico_decisoes.md`, entrada "2026-10-20 (5)").
 # Nos tipos que pedem um jeito de vencer, a regua nao mede (o personagem nao
 # persegue o objetivo); nos outros, faltou candidato. O que fazer com cada um e a
-# T124c. A regra do `EDITORIAL` continua valendo: nenhuma variante vai ao ar sem
+# T124c, e a falta de candidato ja foi atacada nela (preparo e orcamento, 21/10):
+# o Segure e o *"venca em ate 7"* passaram na remedicao e sairam daqui para o
+# `EDITORIAL`. A regra do `EDITORIAL` continua valendo: nenhuma variante vai ao ar sem
 # a rodada de `scripts/medir_variantes_do_editorial.py` anotada ao lado. Os
 # numeros abaixo sao o palpite de partida, escolhido pela FAIXA DO HUB:
 #
 #   · o Quatro alterna estritamente, como as damas, entao a faixa de 5 a 10
 #     lances do jogador e a de 9 a 20 meios-lances, e os tipos herdam o piso e
 #     o teto padrao (sem a excecao do Pontinhos);
-#   · por isso o `vencer_em_n` comeca em 5: *"venca em ate 5 lances"* tem
+#   · por isso o `vencer_em_n` comecou em 5 (e, depois da remedicao, so o 7
+#     ficou; ver o `EDITORIAL`): *"venca em ate 5 lances"* tem
 #     gabarito de exatamente 9 meios-lances (5 seus e 4 do adversario, e a
 #     geracao prova que nao se vence em 4), que e o piso. *"Em 3"* caberia em 5
 #     meios-lances, abaixo do piso, e nunca geraria candidato.
@@ -2095,71 +2170,6 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
 # e `empate` - e o teste deste editorial confere os dez pela leitura da chegada.
 
 EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
-    "quatro_vencer_em_n": (
-        Publicacao(
-            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 0]` (sem vitoria forcada em
-            # exatamente N). Gabarito de 9 meios-lances: o piso da faixa do hub.
-            # ⚠️ Preparo 22, e nao 12 (T124c, 21/10/2026): a suposicao "a vitoria
-            # em 5 e coisa de meio de jogo" estava errada. Com 12 a 18 lances
-            # jogados, as vitorias forcadas que a busca prova estao a 14-23
-            # meios-lances, e so 3 de 560 posicoes do acervo passam em N=5;
-            # com 22 a 28, 39 de 560 (7%). Medido com
-            # `scripts/medir_fases_das_posicoes_quatro.py` (historico do backend,
-            # "2026-10-21 (7)").
-            # ⛔ Remedida em 21/10 com o preparo 22: `[0, 3, 3]`. A posicao passou
-            # a existir (7 passaram na prova no dia 1), mas o gabarito contra o
-            # adversario do dia, que erra, vence em 2 a 4 lances, abaixo do piso.
-            parametros={"lances": 5},
-            nu_lances_de_preparo=22,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro_vencer_em_n,
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-        Publicacao(
-            # ⛔ Medida em 20/10: SEM DESAFIO `[1, 0, 0]`, e facil (Cacau 0,70).
-            # 11 meios-lances; a rede da de cima. Preparo 22 pela mesma medicao
-            # da variante acima: com 22 a 28 lances, 42 de 560 passam em N=6 (eram 9).
-            # ⛔ Remedida em 21/10 com o preparo 22: APERTADO `[3, 2, 3]`, mas na
-            # escada so em 1 de 3 dias (errou por 0,02 nos outros dois).
-            parametros={"lances": 6},
-            nu_lances_de_preparo=22,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro_vencer_em_n,
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-        Publicacao(
-            # ⚠️ Nova em 21/10/2026 (T124c): com o preparo 22, o `{lances: 5}`
-            # tem posicao, mas o gabarito contra o adversario do dia (que erra)
-            # vence em 3 ou 4 lances, abaixo do piso de 9 meios-lances. Com N=7
-            # (13 meios-lances) a vitoria contra quem erra ainda tende a ficar
-            # acima do piso. ✅ Medida em 21/10: FOLGA `[3, 3, 3]`, na escada nos
-            # TRES dias (o 1º candidato de cada um), solucao de 11,7 meios-lances.
-            # E a unica das tres que passa (`{5}`: `[0, 3, 3]`; `{6}`: 1 de 3 na
-            # escada, errando por 0,02 duas vezes).
-            parametros={"lances": 7},
-            nu_lances_de_preparo=22,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro_vencer_em_n,
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
-    "quatro_segurar_magno": (
-        Publicacao(
-            # ⛔ Medida em 20/10: SEM DESAFIO `[3, 0, 0]` (falta o empate provado).
-            # ✅ Remedida em 21/10, com 40 tentativas por candidato (eram 20):
-            # APERTADO `[3, 2, 2]`, na escada em 2 de 3 dias (o 1º errou por 0,02),
-            # solucao de 18,1 meios-lances. Passa no criterio e sobe.
-            # ⛔ Contra o Magno e so ele: e o nome do tipo.
-            # Preparo 22: o empate so se PROVA com o fim ao alcance da busca.
-            parametros={},
-            nu_lances_de_preparo=22,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 22,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro(None),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-            co_personagens=("magno",),
-        ),
-    ),
     "quatro_unica_coluna": (
         Publicacao(
             # ⛔ APOSENTADA (§8zzzl). Preparo 14: cada coluna precisa de desfecho
