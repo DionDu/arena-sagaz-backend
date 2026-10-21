@@ -9019,3 +9019,57 @@ previa, e é ele que pega a 5ª mutação acima.
 ⚠️ **Lacuna antiga, anotada e não consertada aqui:** nada confere que o `js_chegada` gravado
 num vetor é o que a `RECEITAS[tipo].montar(...)` de hoje produz. Mudar uma receita sem rodar
 o gerador de vetores passaria calado nos dois julgadores.
+
+## 2026-10-21 (9) — Um jogador que persegue o objetivo do Quatro, e o que ele mostrou (T124c da spec 010, defeito 1)
+
+**Contexto.** Nos seis tipos do Quatro que pedem um jeito de vencer ou de jogar (diagonal,
+golpe duplo, linha de cinco, encostadas, sem o meio, bloquear), a régua de 20/10 mediu o
+cumprimento por acaso: o personagem joga para vencer e não lê o objetivo. A T124c pedia um
+solucionador que persiga o objetivo e erre conforme o nível, medido de forma pareada e com
+controle **antes** de ligar qualquer entrada em `gerador.SOLUCIONADOR_POR_TIPO`.
+
+**O que foi feito.** `motores/quatro/perseguir_objetivo_quatro.py` (o irmão de
+`motores/damas/perseguir_coroacao.py`) e `scripts/medir_perseguir_vs_vencer_quatro.py`
+(retomável, todos os núcleos, saída em `medicoes/`, §8zzzm). Nenhuma regra reescrita: quem diz
+se um lance cumpre o objetivo é o medidor de produção (`feitos_quatro.medir` + `avaliar`).
+Quatro passos: cumprir agora; não encerrar a partida sem o objetivo; não deixar vitória
+imediata ao adversário; a nota do objetivo (uma por tipo). O nível é uma **mistura**: com a
+probabilidade do nível (Cacau 0,25 · Pita 0,50 · Tex 0,80 · Magno 1,00), o lance de perseguir;
+senão, o lance do motor Dart naquele nível.
+
+**v1 (só a nota) REPROVOU no controle** (30 posições por tipo, contra o Tex): perseguindo
+"só vencer", venceu 111 de 174 partidas, contra 140 do Magno. Uma heurística de um lance joga
+pior que a busca, e a tabela media isso. **v2:** o lance de perseguir consulta a busca do
+executável (teto de 200 mil nós por candidato): com vitória provada em algum lance, escolhe
+entre os que vencem o que mais aproxima do objetivo; sem vitória provada, joga o lance do nível,
+tirando só os provadamente perdidos. **Controle da v2: 48 de 57 contra 45 do Magno** - passa.
+
+**A v2, 10 posições por tipo** (amostra de direção, e não de veredito; a de 30 é comando do
+dono), cumpriu / venceu, contra o Tex:
+
+| tipo | Magno que só vence | Cacau · Pita · Tex · Magno perseguindo |
+|---|---|---|
+| diagonal | 8 / 8 | 7 · 7 · 7 · 8 |
+| golpe duplo | 0 / 8 | 0 · 1 · 0 · 0 (o Magno perseguindo vence 4) |
+| linha de cinco | 1 / 8 | 2 · 0 · 1 · 1 (vence 4) |
+| encostadas | 5 / 6 | 3 · 6 · 7 · 8 |
+| sem o meio (7) | 7 / 7 | 4 · 4 · 5 · 5 |
+| bloquear | 3 / 8 | 5 · 5 · 4 · 5 |
+
+**O que isso diz, tipo a tipo.** (a) **Encostadas:** o único com ganho e com escada (o Magno
+perseguindo cumpre 8, o que só vence 5). É o candidato a ligar. (b) **Golpe duplo e linha de
+cinco:** ninguém chega, nem perseguindo; quem recusa a vitória "do jeito errado" deixa de vencer.
+O defeito é da POSIÇÃO: a prova de hoje só diz "o objetivo cabe no tabuleiro", e esses dois
+precisam de uma prova de que ele é FORÇÁVEL, como a do "Vença em N". (c) **Diagonal:** sem ganho;
+o Magno já vence pela diagonal nessas posições, então a régua de 20/10 media o tipo melhor do que
+se supôs. (d) **Sem o meio:** o Magno que só vence cumpre 7 de 7; confirma "fácil e curto", e o
+perseguidor não muda isso. (e) **Bloquear:** ganho pequeno e escada plana.
+
+**Alternativas consideradas.** Uma busca dirigida ao objetivo dentro do motor Dart (o terminal
+da busca valendo só a vitória que cumpre o objetivo): é o caminho mais forte, mas mexe no motor
+espelhado e no executável carimbado; fica para depois da medição de 30, e só para os tipos em que
+a v2 não basta. Uma busca em Python: lenta demais para a régua (milhares de decisões por tipo).
+
+⛔ **Nada ligado ainda.** `SOLUCIONADOR_POR_TIPO` recebe `(arbitro, estado)`, sem nível nem
+desafio, e a régua chama o solucionador sem nível. Ligar o perseguidor pede mudar essa
+interface, e espera a medição de 30 posições.
