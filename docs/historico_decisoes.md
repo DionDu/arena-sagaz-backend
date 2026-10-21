@@ -8547,3 +8547,47 @@ dono põe as migrações (T118-T124) e o portão antes da T125. (b) Deixar o cam
 "tipo em avaliação" aceitar o tipo no ar para medir: recusada, ele existe para o que não
 foi publicado, e o publicado exige o vetor. (c) Tirar a virada só do alvo `no-ar` por
 lista: recusada, a regra é do jogo fora do rodízio, e vale para o próximo jogo.
+
+## 2026-10-20 (8) — O aparelho e o uso de cada dia: a amostra da adoção nasce no `GET /hoje` (T118 da spec 010)
+
+**Contexto.** A adoção gradual do Quatro no Desafio do Dia (RF-QTR-164a, research
+R-23) precisa da fração dos aparelhos com a versão nova, e a versão não era gravada em
+lugar nenhum que servisse de amostra. O dono validou duas tabelas no schema `log`
+(`tb003_aparelho`, `tb004_aparelho_dia`, §8zzz; `data-model.md` §4 da spec 010). A
+T118 escreve a `0036_log_aparelho` e as duas escritas: a leitura do desafio de hoje
+(qualquer app, inclusive o 1.3) e o envio diário dos detalhes (só a 1.4).
+
+**Decisão.** (1) A migração é a do documento, coluna a coluna, conferida por
+`tests/unitarios/test_migracao_aparelho_bate_com_data_model.py`. (2) O `GET
+/v1/desafios/hoje` anota a visita **depois** da leitura e **antes** do 404 (o dia sem
+desafio também é um dia visto), e a anotação **nunca derruba o desafio**: qualquer
+falha vira log e `rollback`. (3) Os dois cabeçalhos novos da 1.4 são `X-Install-Id`
+(UUID **v4**; qualquer outra versão vale como ausente, para ninguém escrever na linha
+legada de outra pessoa, que é v5) e `X-Utc-Offset` (minutos à frente de UTC, ±840). A
+rota nova é `POST /v1/aparelhos/detalhes` (`api/aparelhos/`), `202`, com as cinco
+regras da 0016; sem `X-Install-Id` ela devolve 400 `aparelho_invalido`. (4) **O dia
+local**: o fuso do cabeçalho; sem ele (o app 1.3), o da **última partida** da pessoa
+(`nu_offset_minuto_j1`, o mesmo relógio da chama); sem nenhum, UTC. (5) A linha legada
+é `uuid5(ESPACO_DA_LINHA_LEGADA, "<id_usuario>|<plataforma>")`, com o espaço de nomes
+escrito por extenso em `api/aparelhos/regras.py` e travado por teste. (6) **A maior
+versão** se decide em Python (`chave_da_versao`: quatro números, porque `"1.10.0" <
+"1.9.0"` no texto) e se grava por *compare-and-swap* (`UPDATE ... WHERE co_versao_app =
+:versao_lida`, até três voltas), e não pelo `ON CONFLICT ... WHERE` em SQL que o
+`data-model.md` §4.3 descrevia: a comparação em SQL seria uma segunda escrita da regra.
+(7) Versão fora da forma `1.2.3+4` não é gravada. (8) A exclusão de conta zera o
+`id_usuario` da `tb004` (`remover_dados_vinculados`), e a linha fica como amostra.
+(9) `ESPACO_APP_DETALHE_MB_ANDROID` e `_IOS` em `api/configuracao.py`, padrão 150,
+lidos a cada pedido.
+
+**Alternativas consideradas.** (a) O fuso do 1.3 pelo `conta.tb005` (o dispositivo de
+notificação): recusada, ele só existe para quem registrou o token, e a partida é o
+relógio que a chama já usa. (b) Comparar as versões em SQL (`string_to_array(...)::int[]`):
+recusada pela segunda escrita da regra, e porque o SQLite dos testes não a roda. (c)
+Recusar com 400 o `X-Install-Id` ilegível também no `GET /hoje`: recusada, um cabeçalho
+de analytics com defeito não pode esconder o desafio de ninguém. (d) Guardar a versão
+como texto e comparar texto: recusada pelo `1.10.0`.
+
+**Ordem.** A API nova grava em tabelas que só existem depois da `0036`, e a exclusão de
+conta escreve na `tb004`: o push do backend (o deploy do `des`) só vem **depois** de o
+dono aplicar a `0035` e a `0036` no `des`. Testes: 108 casos novos (regras, SQL em
+SQLite, as duas rotas, a migração contra o documento); 29/29 mutações pegas.

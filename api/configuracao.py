@@ -52,6 +52,17 @@ class Configuracoes(BaseSettings):
     RATE_LIMIT_POR_MINUTO: int = 120          # geral (leituras)
     RATE_LIMIT_ESCRITA_POR_MINUTO: int = 30   # escritas (mais sensíveis)
 
+    # ── O detalhe do espaco ocupado pelo app (T118 da spec 010) ──────────────
+    # O app manda todo dia quanto ocupa e o detalhe por pasta; o servidor so
+    # GUARDA o detalhe quando o total passa deste limite, em MB, que e quando
+    # alguem vai querer saber o porque (`log.tb004_aparelho_dia.js_espaco_app`).
+    # ⚠️ Um por plataforma: a diferenca entre as duas vem do cache dos SDKs, que
+    # no iOS chegou a 509 MB em 02/09/2026. O padrao, 150, e o
+    # `limitePadraoDeCache` da faxina do app; a calibracao parte do percentil 95
+    # do total de cada plataforma (guia-producao.md §8 da spec 010).
+    ESPACO_APP_DETALHE_MB_ANDROID: int = 150
+    ESPACO_APP_DETALHE_MB_IOS: int = 150
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     @property

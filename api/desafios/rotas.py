@@ -42,6 +42,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.aparelhos.dependencias import (
+    ler_cabecalhos_do_aparelho,
+    obter_servico_aparelho,
+)
+from api.aparelhos.servico import CabecalhosDoAparelho, ServicoAparelho
 from api.desafios.modelos_envio import (
     EnvioDeDesafioImpedido,
     EnvioDeDica,
@@ -114,14 +119,57 @@ def agora_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+async def _anotar_visita_do_aparelho(
+    servico: ServicoAparelho,
+    *,
+    contexto: ContextoRequisicao,
+    cabecalhos: CabecalhosDoAparelho,
+    identidade: Optional[IdentidadeFirebase],
+    agora: datetime,
+) -> None:
+    """Grava a versao do app no dia do aparelho - a amostra da adocao (T118).
+
+    ⚠️ **Nunca derruba a leitura do desafio.** Qualquer falha aqui (o banco
+    sem a 0036, uma corrida perdida, um valor que o banco recusou) vira uma
+    linha de log e um `rollback`, e o desafio chega igual: perder uma leitura
+    da amostra custa um ponto num percentual; perder o desafio do dia custa o
+    laco diario de uma pessoa.
+
+    O `rollback` desfaz so o que ESTA anotacao escreveu: a leitura do desafio
+    ja terminou quando ela roda, e nada dela fica pendente na sessao.
+    """
+    try:
+        await servico.registrar_visita(
+            versao_app=contexto.versao_app,
+            plataforma=contexto.plataforma,
+            idioma=contexto.idioma,
+            cabecalhos=cabecalhos,
+            uid=identidade.uid if identidade is not None else None,
+            agora=agora,
+        )
+    except Exception:  # noqa: BLE001 - de proposito: nada aqui pode subir
+        log.exception("registro do aparelho falhou; o desafio segue")
+        await servico.sessao.rollback()
+
+
 @router.get("/hoje", response_model=DesafioPublicado)
 async def desafio_de_hoje(
     resposta: Response,
     repo: RepositorioDesafio = Depends(obter_repositorio),
-    _contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
-    _identidade=Depends(usuario_atual_opcional),
+    contexto: ContextoRequisicao = Depends(exigir_cabecalhos),
+    identidade: Optional[IdentidadeFirebase] = Depends(usuario_atual_opcional),
+    cabecalhos: CabecalhosDoAparelho = Depends(ler_cabecalhos_do_aparelho),
+    servico_aparelho: ServicoAparelho = Depends(obter_servico_aparelho),
 ) -> DesafioPublicado:
     """O desafio de hoje — a porta principal do laco diario.
+
+    ⚠️ **E e tambem a amostra da adocao gradual** (T118, research R-23): cada
+    leitura grava a versao do app no dia LOCAL do aparelho
+    (`log.tb004_aparelho_dia`). E esta rota, e nao uma nova, porque o app 1.3
+    em campo ja a chama a cada abertura da Home: se a amostra viesse so da
+    1.4, as versoes antigas nunca apareceriam, e a adocao leria 100% no dia do
+    lancamento. A anotacao vem DEPOIS da leitura e ANTES do 404, porque o dia
+    sem desafio tambem e um dia em que o aparelho foi visto.
 
     Raises:
         ErroNaoEncontrado: nao ha desafio aprovado no ar. Ver a nota no topo
@@ -129,6 +177,13 @@ async def desafio_de_hoje(
     """
     agora = agora_utc()
     linha = await repo.de_hoje(agora=agora)
+    await _anotar_visita_do_aparelho(
+        servico_aparelho,
+        contexto=contexto,
+        cabecalhos=cabecalhos,
+        identidade=identidade,
+        agora=agora,
+    )
     if linha is None:
         raise ErroNaoEncontrado(
             "Nao ha desafio publicado para hoje.", "sem_desafio_hoje"

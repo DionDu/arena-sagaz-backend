@@ -419,7 +419,9 @@ class RepositorioUsuario:
     async def remover_dados_vinculados(self, id_usuario: str) -> None:
         """Apaga as tabelas-filhas que carregam dado pessoal/identidade: provedores
         (tb002), consentimento (tb004), tokens de dispositivo (tb005) e
-        preferências de notificação (tb006).
+        preferências de notificação (tb006). E zera o "de quem" do dia do
+        aparelho (`log.tb004_aparelho_dia`), que fica sem a pessoa e continua
+        valendo como amostra da adoção.
 
         **Mantemos `tb003_aceite_legal`** de propósito: é registro de auditoria
         legal (qual versão de termos foi aceita, quando) e **não contém PII** —
@@ -436,3 +438,16 @@ class RepositorioUsuario:
                 text(f"DELETE FROM conta.{tabela} WHERE id_usuario = :id"),
                 {"id": id_usuario},
             )
+
+        # O dia do aparelho (T118 da spec 010) guarda QUEM estava logado, sem
+        # FK de proposito (o convidado tambem tem aparelho; precedente 0016) -
+        # e por isso nenhuma cascata zera esse vinculo sozinha. A linha FICA:
+        # ela e a amostra da adocao, e um aparelho visto naquele dia continua
+        # tendo sido visto. Some so o "de quem" (`data-model.md` §4.2).
+        await self.sessao.execute(
+            text(
+                "UPDATE log.tb004_aparelho_dia SET id_usuario = NULL "
+                "WHERE id_usuario = :id"
+            ),
+            {"id": id_usuario},
+        )
