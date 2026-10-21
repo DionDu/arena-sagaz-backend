@@ -19,6 +19,7 @@ Os numeros de dificuldade ja existem, e tem dono:
 
     damas      → `espelho_laboratorio/.../contrato_damas.json`
     Pontinhos  → `espelho_laboratorio/contrato_dificuldade_pontinhos.json`
+    Quatro     → `espelho_laboratorio/jogos/jogo_quatro/contrato/contrato_quatro.json`
 
 ⛔ **Um perfil com os numeros escritos de novo seria uma SEGUNDA fonte da
 verdade** — exatamente o que os contratos existem para impedir. As duas
@@ -46,6 +47,7 @@ from typing import Any
 from motores.damas import contrato_damas
 from motores.nucleo.papeis import NivelDeMotor
 from motores.pontinhos import politica
+from motores.quatro import contrato_quatro
 
 #: Os quatro mascotes e o degrau de cada um.
 #:
@@ -56,6 +58,12 @@ NIVEL_POR_PERSONAGEM = {
     "pita": NivelDeMotor.PITA,
     "tex": NivelDeMotor.TEX,
     "magno": NivelDeMotor.SAGAZ,
+}
+
+#: O caminho de volta: o degrau para o nome do mascote, que e como o contrato do
+#: Quatro lista os niveis de cada modalidade (`niveis_disponiveis`).
+NIVEL_POR_PERSONAGEM_INVERSO = {
+    nivel: personagem for personagem, nivel in NIVEL_POR_PERSONAGEM.items()
 }
 
 
@@ -74,7 +82,13 @@ def versao_vigente() -> str:
     """A versao do perfil, derivada dos hashes dos contratos.
 
     Formato: `perfil-<8 hex>`. Os oito digitos sao o comeco do SHA-256 da
-    concatenacao dos hashes dos dois contratos, em ordem estavel.
+    concatenacao dos hashes dos contratos, em ordem estavel.
+
+    ⚠️ **Um jogo novo muda a versao de todos** (21/10/2026, quando o Quatro
+    entrou): o hash e de todos os contratos juntos. E inofensivo - os numeros
+    das damas e do Pontinhos nao mudaram, e as linhas antigas ficam onde estao,
+    com a versao delas -, e e o preco de a versao continuar sendo UMA so por
+    execucao do job, sem ninguem escolher qual jogo a define.
 
     ⚠️ **Deriva, e nao se digita.** Um numero a mao envelhece calado: alguem
     afina a Pita, esquece de subir a versao, e as medicoes novas ficam
@@ -89,10 +103,18 @@ def versao_vigente() -> str:
 
 
 def _contratos() -> dict[str, Path]:
-    """De onde saem os numeros de cada jogo."""
+    """De onde saem os numeros de cada jogo.
+
+    ⚠️ **Todo jogo que o job pode gerar tem de estar aqui** (o rodizio e os em
+    adocao, `job/gerador.py`). Faltando um, o desafio dele e gerado e medido
+    inteiro e so entao a `fk001_perfil` o recusa - foi o que aconteceu com o
+    Quatro na primeira geracao no `des` (21/10/2026, T125). O cadeado e
+    `test_todo_jogo_do_job_tem_PERFIL`, em `test_regua_e_alvo.py`.
+    """
     return {
         "damas": contrato_damas.CAMINHO_DO_CONTRATO,
         "pontinhos": politica.CAMINHO_DO_CONTRATO,
+        "quatro": contrato_quatro.CAMINHO_DO_CONTRATO,
     }
 
 
@@ -124,10 +146,30 @@ def _numeros_do_pontinhos(nivel: NivelDeMotor) -> dict[str, Any]:
     }
 
 
+def _numeros_do_quatro(nivel: NivelDeMotor) -> dict[str, Any]:
+    """Os parametros daquele degrau, POR MODALIDADE, lidos do contrato do Quatro.
+
+    ⚠️ **No Quatro os numeros sao da modalidade**, e nao do jogo: o Pop Out pode
+    ter outra Pita, e uma modalidade sem a garantia de quase perfeicao nem
+    oferece o Magno. A linha e uma so por (jogo, mascote) - e o que a FK pede -,
+    entao o `js_perfil` traz um bloco por modalidade que oferece aquele nivel,
+    com os nomes do pedido ao executavel (`para_pedido`): sao exatamente os
+    numeros com que ele jogou.
+    """
+    return {
+        modalidade: contrato_quatro.parametros_do_personagem(
+            modalidade, nivel
+        ).para_pedido()
+        for modalidade in contrato_quatro.modalidades_declaradas()
+        if NIVEL_POR_PERSONAGEM_INVERSO[nivel]
+        in contrato_quatro.niveis_disponiveis(modalidade)
+    }
+
+
 def linhas_da_dimensao() -> list[dict[str, Any]]:
     """As linhas de `desafio.tb903_perfil_dificuldade` do perfil vigente.
 
-    Uma por `(perfil, jogo, mascote)` — oito no total, com dois jogos.
+    Uma por `(perfil, jogo, mascote)` — doze no total, com tres jogos.
 
     ⚠️ **E o JOB que grava estas linhas, nunca a migracao.** Uma migracao que
     soubesse a taxa de erro da Cacau estaria publicando calibracao por `INSERT`,
@@ -140,7 +182,11 @@ def linhas_da_dimensao() -> list[dict[str, Any]]:
     """
     versao = versao_vigente()
     contratos = _contratos()
-    numeros = {"damas": _numeros_das_damas, "pontinhos": _numeros_do_pontinhos}
+    numeros = {
+        "damas": _numeros_das_damas,
+        "pontinhos": _numeros_do_pontinhos,
+        "quatro": _numeros_do_quatro,
+    }
 
     linhas: list[dict[str, Any]] = []
     for co_jogo, caminho in contratos.items():

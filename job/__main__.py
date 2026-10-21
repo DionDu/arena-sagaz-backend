@@ -1074,6 +1074,17 @@ async def executar(
             # inteira por causa de um dia.
             motivo = f"{type(erro).__name__}: {erro}"
             traceback.print_exc()
+            # ⚠️ **Desfaz o que o dia deixou pela metade, antes do proximo.**
+            # Uma excecao do banco (a `fk001_perfil` do Quatro, no `des` em
+            # 21/10/2026) deixa a transacao ABORTADA, e sem o `rollback` o
+            # Postgres recusa tudo o que vier depois: os dias seguintes e a
+            # auditoria cairam com `InFailedSQLTransactionError`, e um dia ruim
+            # virou uma execucao perdida. O que ja foi publicado nao volta: cada
+            # dia bom fecha a sua transacao (`publicar_desafio`).
+            try:
+                await sessao.rollback()
+            except Exception:  # noqa: BLE001 - a conexao pode ter caido junto
+                traceback.print_exc()
         finally:
             relatorio.segundos_por_dia[passo.dt_dia.isoformat()] = (
                 time.monotonic() - comecou_em

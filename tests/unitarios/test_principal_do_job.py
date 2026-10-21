@@ -557,6 +557,55 @@ async def test_um_dia_que_ESTOURA_nao_derruba_a_execucao() -> None:
     assert relatorio.codigo_de_saida == principal_mod.CODIGO_DIVERGIU
 
 
+class _SessaoQueAborta(FakeSessaoSQL):
+    """Um duble com a regra do Postgres: depois de um erro, a transacao para.
+
+    O primeiro `INSERT` em `tb001_desafio` estoura (como a `fk001_perfil` do
+    Quatro no `des`, 21/10/2026), e dali em diante toda consulta e recusada,
+    como o `InFailedSQLTransactionError`, ate alguem chamar `rollback`.
+    """
+
+    def __init__(self) -> None:
+        base = _sessao_feliz()
+        super().__init__(respostas=base.respostas)
+        self.abortada = False
+        self.ja_estourou = False
+
+    async def execute(self, sql: Any, parametros: Any = None):
+        if self.abortada:
+            raise RuntimeError("current transaction is aborted")
+        if not self.ja_estourou and "INSERT INTO desafio.tb001_desafio" in str(sql):
+            self.ja_estourou = True
+            self.abortada = True
+            raise RuntimeError("violates foreign key constraint fk001_perfil")
+        return await super().execute(sql, parametros)
+
+    async def rollback(self) -> None:
+        self.abortada = False
+        await super().rollback()
+
+
+@pytest.mark.asyncio
+async def test_um_erro_do_BANCO_num_dia_nao_derruba_os_SEGUINTES() -> None:
+    """🔒 O dia que estoura no banco é desfeito antes do próximo (21/10/2026).
+
+    ⚠️ **O caso acima não via isto**: o erro dele é do motor, antes de qualquer
+    escrita, e a transacao seguia sadia. No `des`, o erro foi do BANCO (a FK do
+    perfil, na primeira geracao do Quatro): a transacao ficou abortada, os dois
+    dias seguintes e a auditoria cairam com `InFailedSQLTransactionError`, e um
+    dia ruim virou uma execucao perdida.
+    """
+    sessao = _SessaoQueAborta()
+
+    relatorio = await _rodar(sessao)
+
+    assert len(relatorio.nao_cobertos) == 1, relatorio.nao_cobertos
+    assert "fk001_perfil" in relatorio.nao_cobertos[0]
+    assert relatorio.gerados == DIAS_MINIMOS - 1
+    # A auditoria rodou: chegou ao fim sem a transacao presa.
+    assert sessao.sql_executado("vw003_resolucao")
+
+
 @pytest.mark.asyncio
 async def test_termino_NAO_PROVADO_descarta_e_diz_a_diferenca() -> None:
     """⚠️ Descartar por nao provar NAO e provar que o jogo nao acaba.

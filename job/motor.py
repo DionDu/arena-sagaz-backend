@@ -92,6 +92,8 @@ from motores.damas import contrato_damas
 from motores.damas import jogador_dart as jogador_dart_damas
 from motores.pontinhos import jogador_dart_pontinhos
 from motores.pontinhos import motor_pontinhos
+from motores.quatro import contrato_quatro
+from motores.quatro import jogador_dart_quatro
 
 #: A versao do formato de `js_motores` e de `js_arquivos`.
 #:
@@ -109,7 +111,7 @@ VERSAO_DO_FORMATO = 1
 #: processo confere; quem precisa dele por inteiro o tem no proprio binario.
 DIGITOS_DO_RESUMO_DART = 16
 
-#: O manifesto e UM so para os dois jogos — ele descreve o espelho inteiro.
+#: O manifesto e UM so para todos os jogos — ele descreve o espelho inteiro.
 #:
 #: ⚠️ Lido daqui, e nao redeclarado: os dois motores ja apontam para o mesmo
 #: arquivo, e um terceiro caminho escrito a mao envelheceria calado no dia em que
@@ -233,8 +235,44 @@ def _motores_do_pontinhos() -> list[dict[str, str]]:
     ]
 
 
+def _motores_do_quatro() -> list[dict[str, str]]:
+    """Os registros do jogador do Quatro em Linha - os mesmos tres das damas.
+
+    ⚠️ **A forma e a das damas, e nao a do Pontinhos**: aqui tambem e o motor
+    Dart compilado quem escolhe o lance (a busca e a politica), e o Python e so
+    arbitro. Nao ha modelo treinado, entao nao ha `tflite`; o que diz com que
+    numeros cada personagem joga e o contrato, e ele entra pela versao declarada
+    dentro dele (o hash do arquivo ja esta no perfil, `job/perfil.py`).
+    """
+    return [
+        {
+            "co_jogo": "quatro",
+            "co_motor": "dart",
+            "co_versao": contrato_quatro.versao_do_motor(),
+        },
+        {
+            "co_jogo": "quatro",
+            "co_motor": "resumo_do_carimbo",
+            "co_versao": jogador_dart_quatro.resumo_dos_fontes()[
+                :DIGITOS_DO_RESUMO_DART
+            ],
+        },
+        {
+            "co_jogo": "quatro",
+            "co_motor": "contrato",
+            "co_versao": contrato_quatro.versao_do_contrato(),
+        },
+    ]
+
+
 def linhas_da_dimensao() -> list[dict[str, Any]]:
     """As linhas de `desafio.tb904_motor` dos motores vigentes — uma por jogo.
+
+    ⚠️ **Todo jogo que o job pode gerar tem de estar aqui**, pelo mesmo motivo
+    do perfil: faltando um, o desafio dele e gerado e medido inteiro e so entao
+    a `fk002_motor` o recusa. O Quatro faltou nas duas dimensoes na primeira
+    geracao no `des` (21/10/2026, T125); o cadeado e
+    `test_todo_jogo_do_job_tem_MOTOR`, em `test_motor_decifravel.py`.
 
     Returns:
         Dicionarios prontos para o `INSERT`, com `co_versao_motor`, `co_jogo`,
@@ -261,6 +299,11 @@ def linhas_da_dimensao() -> list[dict[str, Any]]:
             motor_pontinhos.versao_do_motor(),
             motor_pontinhos.arquivos_do_motor(),
             _motores_do_pontinhos(),
+        ),
+        "quatro": (
+            contrato_quatro.versao_do_motor(),
+            contrato_quatro.arquivos_do_motor(),
+            _motores_do_quatro(),
         ),
     }
 

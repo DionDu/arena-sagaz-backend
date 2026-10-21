@@ -32,6 +32,9 @@ from motores.damas import contrato_damas
 from motores.damas import jogador_dart as jogador_dart_damas
 from motores.pontinhos import jogador_dart_pontinhos
 from motores.pontinhos import motor_pontinhos
+from motores.quatro import contrato_quatro
+from motores.quatro import jogador_dart_quatro
+from job.gerador import JOGOS_DO_RODIZIO, JOGOS_EM_ADOCAO
 from tests.unitarios.fakes_desafio import FakeSessaoSQL
 from tests.unitarios.leitura_de_migracao import sql_da_migracao, tabelas_do_sql
 
@@ -44,7 +47,11 @@ MIGRACAO = RAIZ / "migrations" / "versions" / "0022_motor_decifravel.py"
 #: o motor Dart compilado; o Python das damas virou arbitro em 25/09 e o do
 #: Pontinhos so roda a inferencia. Os 8 digitos ⛔ mudaram — a conta e a mesma —,
 #: de modo que `damas-py-99ff17e7` e `damas-dart-99ff17e7` sao o mesmo espelho.
-PREFIXO_ESPERADO = {"damas": "damas-dart-", "pontinhos": "pontinhos-dart-"}
+PREFIXO_ESPERADO = {
+    "damas": "damas-dart-",
+    "pontinhos": "pontinhos-dart-",
+    "quatro": "quatro-dart-",
+}
 
 
 @pytest.fixture(scope="module")
@@ -77,7 +84,7 @@ def _resumo_a_partir_da_linha(linha: dict) -> str:
     return hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()[:8]
 
 
-@pytest.mark.parametrize("co_jogo", ["damas", "pontinhos"])
+@pytest.mark.parametrize("co_jogo", ["damas", "pontinhos", "quatro"])
 def test_o_carimbo_SE_REFAZ_a_partir_da_linha(linhas, co_jogo) -> None:
     """🔒 ⛔ O cadeado mais importante do arquivo: a linha basta.
 
@@ -91,6 +98,24 @@ def test_o_carimbo_SE_REFAZ_a_partir_da_linha(linhas, co_jogo) -> None:
     assert linha["co_versao_motor"] == (
         PREFIXO_ESPERADO[co_jogo] + _resumo_a_partir_da_linha(linha)
     )
+
+
+def test_todo_jogo_do_job_tem_MOTOR(linhas) -> None:
+    """🔒 Todo jogo que o job pode gerar tem a sua linha na `tb904_motor`.
+
+    ⚠️ **A lista vem do GERADOR, e nao e escrita aqui.** Os casos deste arquivo
+    enumeravam `["damas", "pontinhos"]` à mão, e por isso ficaram verdes com o
+    Quatro faltando: na primeira geracao no `des` (21/10/2026, T125) o desafio
+    dele foi gerado e medido inteiro, e so o `INSERT` revelou a falta - pela
+    `fk001_perfil`, e a `fk002_motor` viria logo atras. Um jogo novo no rodizio
+    ou em adocao entra neste cadeado sozinho.
+    """
+    jogos_do_job = set(JOGOS_DO_RODIZIO) | set(JOGOS_EM_ADOCAO)
+    assert jogos_do_job <= {linha["co_jogo"] for linha in linhas}, (
+        "o job gera jogo sem motor declarado em `job/motor.py`: "
+        f"{sorted(jogos_do_job - {l['co_jogo'] for l in linhas})}"
+    )
+    assert set(PREFIXO_ESPERADO) >= jogos_do_job
 
 
 def test_o_cadeado_acima_ENXERGA_uma_lista_estragada(linhas) -> None:
@@ -108,7 +133,7 @@ def test_o_cadeado_acima_ENXERGA_uma_lista_estragada(linhas) -> None:
     )
 
 
-@pytest.mark.parametrize("co_jogo", ["damas", "pontinhos"])
+@pytest.mark.parametrize("co_jogo", ["damas", "pontinhos", "quatro"])
 def test_os_ARQUIVOS_da_linha_existem_no_disco_com_aquele_hash(
     linhas, co_jogo
 ) -> None:
@@ -165,6 +190,7 @@ def test_os_dois_motores_expoem_a_lista_QUE_ELES_MESMOS_resumem() -> None:
     for modulo, prefixo in (
         (contrato_damas, "damas-dart-"),
         (motor_pontinhos, "pontinhos-dart-"),
+        (contrato_quatro, "quatro-dart-"),
     ):
         hashes = sorted(a["sha256"] for a in modulo.arquivos_do_motor())
         digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
@@ -185,6 +211,7 @@ def test_a_lista_cobre_TODO_o_manifesto_daquele_motor() -> None:
     for modulo, prefixos in (
         (contrato_damas, (contrato_damas.PREFIXO_DO_MOTOR,)),
         (motor_pontinhos, motor_pontinhos.PREFIXOS_DO_MOTOR),
+        (contrato_quatro, (contrato_quatro.PREFIXO_DO_MOTOR,)),
     ):
         esperados = {
             item["caminho"]
@@ -202,7 +229,7 @@ def test_a_lista_vem_ORDENADA_pelo_caminho() -> None:
     uma lista que oscila faria duas linhas iguais parecerem diferentes na
     revisao, e o `json` gravado mudaria sem motivo.
     """
-    for modulo in (contrato_damas, motor_pontinhos):
+    for modulo in (contrato_damas, motor_pontinhos, contrato_quatro):
         caminhos = [a["caminho"] for a in modulo.arquivos_do_motor()]
         assert caminhos == sorted(caminhos)
 
@@ -251,6 +278,7 @@ def test_a_lista_do_servidor_declara_o_CONTRATO_que_o_aplicativo_carrega(
     esperado = {
         "damas": contrato_damas.versao_do_contrato(),
         "pontinhos": str(motor_pontinhos.contrato_de_codificacao()["versao"]),
+        "quatro": contrato_quatro.versao_do_contrato(),
     }
     for linha in linhas:
         versoes = {
@@ -330,6 +358,7 @@ def test_o_resumo_do_carimbo_e_o_MESMO_que_o_executavel_confere(linhas) -> None:
     esperado = {
         "damas": jogador_dart_damas.resumo_dos_fontes(),
         "pontinhos": jogador_dart_pontinhos.resumo_dos_fontes(),
+        "quatro": jogador_dart_quatro.resumo_dos_fontes(),
     }
     for linha in linhas:
         registros = {
@@ -458,16 +487,17 @@ def test_a_0022_encadeia_na_0021() -> None:
 
 @pytest.mark.asyncio
 async def test_garantir_motor_grava_UMA_linha_por_jogo(linhas) -> None:
-    """Duas linhas, e os JSON viajam como texto para o `CAST(... AS JSONB)`."""
+    """Uma linha por jogo (tres desde o Quatro), e os JSON viajam como texto
+    para o `CAST(... AS JSONB)`."""
     sessao = FakeSessaoSQL(
         respostas={"INSERT INTO desafio.tb904_motor": [{"id_motor": "m"}]}
     )
     repositorio = repositorio_mod.RepositorioDoJob(sessao)
 
-    assert await repositorio.garantir_motor(linhas) == 2
+    assert await repositorio.garantir_motor(linhas) == len(linhas) == 3
 
     parametros = [p for texto, p in sessao.executadas if "tb904_motor" in texto]
-    assert len(parametros) == 2
+    assert len(parametros) == 3
     for p in parametros:
         # ⚠️ `json.loads` e a prova de que o que sobe e **texto**: passar o dict
         # direto faria o asyncpg recusar o parametro, e so no banco de verdade.

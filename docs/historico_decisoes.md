@@ -8744,3 +8744,144 @@ seis dias à frente (21/10), o comando passa a pedir `--dias` = dias cobertos + 
 
 **Testes.** `tests/unitarios/test_rodar_job_local.py` (8), `test_portao_t050_por_jogo.py`
 (29) e dois casos em `test_adocao_nao_muda_a_fila.py`; 20/20 mutações pegas.
+
+## 2026-10-21 (4) — A adoção gradual, inteira: o desenho, as alternativas e o app 1.3.1 (T122, T123 da spec 010)
+
+**Contexto.** O Quatro em Linha é o primeiro jogo do Desafio do Dia que o app em campo
+não tem: ele chega na 1.4.0, e a 1.3.1 está nas lojas. Publicar um desafio do Quatro é,
+para quem não atualizou, um dia sem desafio. A RF-DES-025/026 (spec 009) pedia que um
+jogo ou tipo novo entrasse aos poucos, conforme a versão se espalha, sem ajuste manual;
+a busca da R-23 (spec 010) confirmou que nada disso existia: `escolher_jogo` era rodízio
+puro pela data, e a versão do app só era gravada para quem já tinha sido barrado
+(`desafio_dia.tb007`) e no diagnóstico do motor nativo (`log.tb002`). As peças foram
+entrando uma a uma, cada uma com a sua entrada: a amostra ("2026-10-20 (8)", T118), a
+conta e as faixas ("2026-10-21 (1)", T119), os dias do jogo novo ("(2)", T120) e o
+caminho do `des` ("(3)", T121). Esta entrada junta o desenho e registra a conferência
+do outro lado, a do app que não atualizou.
+
+**Decisão.** (1) **Medir com o que já viaja.** A amostra é o `X-App-Version` do
+`GET /v1/desafios/hoje`, que o app 1.3 em campo já chama a cada abertura da Home: uma
+linha por aparelho por dia local (`log.tb004_aparelho_dia`, migração `0036`). (2)
+**Calcular sem banco.** `job/adocao.py`: a fração dos aparelhos vistos em 7 dias cuja
+maior versão alcança a mínima do jogo novo, e a faixa que sai dela (não aparece · 1 em 6
+· 1 em 4 · 1 em 3), em constantes nomeadas. (3) **Não mexer no que roda.** O jogo novo
+mora em `gerador.JOGOS_EM_ADOCAO`, nunca em `JOGOS_DO_RODIZIO`, e nos dias que não são
+dele `escolher_jogo` devolve exatamente o que devolvia (cadeado: 365 dias com adoção zero
+dão a fila de antes). (4) **Uma leitura por execução**, registrada no log, para duas
+execuções do mesmo dia escolherem o mesmo jogo. (5) **Genérico**: vale para qualquer jogo
+com `co_versao_minima` acima do que há em campo. (6) **O servidor entrega, o app
+decide.** O desafio do Quatro vai a todos pela mesma rota, com `versao_minima_app`
+`1.4.0`; o 1.3.1 o lê, confere a compatibilidade (o jogo primeiro), cai na tela de
+atualizar e grava o dia impedido, que a chama conta como dia jogado (RF-DES-021/024, já
+existentes desde 10/09/2026).
+
+**Alternativas consideradas.** (a) **Force-update para a 1.4.0** no dia do lançamento:
+recusada, tiraria o app de quem não atualizou para proteger um desafio por dia; o
+force-update fica para contrato quebrado (FR-028 da spec 005). (b) **Filtrar por versão
+no servidor**, servindo ao 1.3.1 um desafio de outro jogo no mesmo dia: recusada, seriam
+dois desafios do dia, com dois quadros e dois rankings, e "um desafio é publicado uma vez
+só" (spec 009, Blocos T a X). (c) **Frequência ajustada à mão** (Remote Config ou variável do
+Railway): recusada, a RF-DES-025 pede sem ajuste manual, e uma variável esquecida é a
+forma de o `prd` receber o que não devia (a mesma razão da alternativa (a) da T121). (d)
+**Esperar 100% de adoção**: recusada, não chega nunca (aparelho parado na gaveta conta). (e)
+**Amostra por SDK de analytics**: recusada, o job não lê o Analytics, e a 1.3 em campo
+não ganharia um evento novo; a amostra só vê as versões antigas porque vem de uma rota
+que elas já chamam.
+
+**Motivo.** O Quatro entra sem que nenhuma versão em campo perca o laço diário: quem tem
+a 1.4.0 o joga na frequência que a base comporta, e quem não tem vê a tela de atualizar
+naquele dia e não perde a chama por isso.
+
+**A conferência do app 1.3.1 (T122).** `tests/unitarios/test_quatro_num_app_1_3.py`, 6
+casos, pela porta HTTP de verdade com `X-App-Version: 1.3.1`: o `GET /hoje` entrega o
+desafio do Quatro (montado com a receita, o editorial e a posição reproduzida pelo
+árbitro do job, e não à mão) com `versao_minima_app` `1.4.0` e com todos os campos que o
+parser da tag `v1.3.1+16` exige sem valor padrão; o `POST /impedido` grava o dia LOCAL
+(01h30 UTC de 20/10 = 19/10 no Brasil) com `jogo_desconhecido`/`quatro`, a versão do
+CABEÇALHO e a exigida do BANCO, uma linha só na repetição; o ramo do `UNION` de
+`recalcular_chama` que lê os dias impedidos, **tirado do código-fonte e não reescrito**,
+devolve esse dia; e a sequência 17, 18, (19 impedido), 20/10 dá 4, contra 1 sem ele. O
+banco é o SQLite de `banco_de_aparelho_sqlite.py` com a `tb007` na forma da `0021`. Três
+mutações (o fuso ignorado, a versão fora do cabeçalho, a subconsulta da versão exigida),
+três pegas. ⚠️ **A metade do app** está em
+`arena-sagaz-frontend/test/modulos/desafio_do_dia/logica/compatibilidade_test.dart`
+(grupo "T122"): a mesma resposta passa pelo parser sem `DesafioInvalido` e cai fora pelo
+JOGO, e o par com o Quatro no inventário cabe. Vale para o 1.3.1 porque o parser, a regra
+e a camada de dados do desafio são idênticos na tag e no HEAD de 21/10 (`git diff --stat`
+vazio). ⚠️ **O que nenhum dos dois prova** é o Postgres (o `UUID`, o `JSONB`, o outro
+ramo da chama): isso fica para a T125, com o desafio do Quatro de verdade no `des`.
+
+## 2026-10-21 (5) — O 3º motor na imagem do job (registro da T110 da spec 010)
+
+**Contexto.** O job do Desafio do Dia joga e prova com os motores Dart compilados
+("executável prova de que código saiu"), e o Quatro em Linha é o terceiro jogo com motor
+espelhado. A T110 (20/10/2026) pôs o motor dele no `Dockerfile.job`; o registro técnico
+ficou no guia de produção da spec 010 (`specs/010-jogo-quatro-em-linha/guia-producao.md`
+§4), e faltava a entrada aqui.
+
+**Decisão.** O estágio `motor` do `Dockerfile.job` compila `/motor/quatro` (`dart pub
+get` e `dart run bin/compilar_servidor_de_lances_quatro.dart`, que carimba o SHA-256 dos
+onze arquivos de `lib/`), copia o binário para `/usr/local/bin/servidor_de_lances_quatro`
+e o aponta por `ENV MOTOR_DART_QUATRO`. O portão do build é
+`RUN python scripts/conferir_motor_dart_quatro.py`, depois dos outros três: as duas
+travas da abertura (o carimbo dos fontes e o SHA-256 do contrato lido por `--contrato`) e
+os 27 lances da CPU de duas partidas do dono no `des` (15/10/2026), comparados com a
+telemetria que o aparelho gravou. `tests/unitarios/test_imagem_do_job.py` tira a lista de
+motores do código (`motores/*/jogador_dart*.py`), e um jogo novo com motor entra nele
+sozinho.
+
+**Alternativas** (escritas na T123, depois do fato). (a) Uma imagem por jogo: recusada, o job é um só e escolhe
+o jogo do dia por dentro. (b) Baixar o binário pronto de um artefato de CI: recusada, a
+imagem deixaria de provar que o executável saiu dos fontes que ela carrega. (c) Conferir
+o motor só na abertura, em produção: recusada, um motor divergente apareceria como job
+`Crashed` às 06h, e não como build reprovado.
+
+**Motivo.** O mesmo das damas e do Pontinhos: o lance do gabarito sai do mesmo código que
+o aparelho roda, e uma divergência reprova o build antes de chegar à fila. Na virada nada
+muda no console do Railway (o `ENV` vem da imagem); o build fica alguns segundos mais
+longo.
+
+## 2026-10-21 (6) — O Quatro faltava nas dimensões do job, e um dia ruim derrubava a execução (T125 da spec 010)
+
+**Contexto.** A 1ª geração do Quatro no `des` (`rodar_job_local.py --forcar-jogo quatro
+--dias 10`, rodada pelo dono em 21/10) gerou e mediu o dia 28/10 inteiro (a
+`quatro_virada`, com a régua fora da escada na Pita e publicada como a mais próxima) e
+caiu no `INSERT`: `fk001_perfil`, `(perfil-b14f0660, quatro, cacau)` ausente de
+`desafio.tb903_perfil_dificuldade`. O perfil só lia os contratos das damas e do
+Pontinhos; o carimbo dos motores (`tb904`) também não tinha o Quatro, e a `fk002_motor`
+recusaria logo depois. Os dois cadeados (`test_regua_e_alvo.py`,
+`test_motor_decifravel.py`) listavam `("damas", "pontinhos")` à mão e ficaram verdes.
+E um segundo defeito, independente: depois do erro, os dias 29 e 30 e a auditoria
+caíram com `InFailedSQLTransactionError`, porque o `except` do laço por dia não desfazia
+a transação abortada. Nada ficou gravado no `des` (o dia caiu antes do `commit`).
+
+**Decisão.** (1) `job/perfil.py` lê também `contrato_quatro.json`: uma linha por
+mascote, com o `js_perfil` **por modalidade** (no Quatro os números são da modalidade,
+e uma modalidade sem garantia de quase perfeição nem oferece o Magno), nos nomes do
+pedido ao executável (`para_pedido`). (2) `job/motor.py` ganha `_motores_do_quatro`, na
+forma das damas (`dart`, `resumo_do_carimbo`, `contrato`; sem `tflite`). (3) Os
+cadeados tiram a lista de jogos do gerador (`JOGOS_DO_RODIZIO` + `JOGOS_EM_ADOCAO`):
+`test_todo_jogo_do_job_tem_PERFIL` e `test_todo_jogo_do_job_tem_MOTOR`. (4) O `except`
+do laço por dia chama `sessao.rollback()` (protegido: a conexão pode ter caído junto);
+cada dia bom já fecha a sua transação em `publicar_desafio`, então nada publicado volta.
+Caso: `test_um_erro_do_BANCO_num_dia_nao_derruba_os_SEGUINTES`, com um duplo que imita
+a regra do Postgres (erro aborta, só o `rollback` destrava); a mutação sem o `rollback`
+reprova.
+
+**Consequência.** A versão do perfil vira `perfil-75d0f148` para os três jogos, porque
+ela é o hash de todos os contratos juntos. É inofensivo (os números das damas e do
+Pontinhos não mudaram, e as linhas e os desafios antigos ficam com a versão deles), e
+está no guia de produção da spec 010 (§4) para ninguém estranhar no `prd`.
+
+**Alternativas consideradas.** (a) Versão de perfil por jogo, para o Quatro não mudar a
+das damas: recusada, a versão é UMA por execução do job (`__main__.py` a lê uma vez e a
+carimba em todo desafio e medição), e torná-la por jogo mudaria o carimbo de todas as
+linhas sem ganho. (b) Gravar as dimensões do Quatro só quando ele entrar no rodízio:
+recusada, o jogo em adoção já gera (é para isso que a adoção existe), e a FK o recusa
+no primeiro dia. (c) Fechar a sessão e abrir outra por dia, em vez do `rollback`:
+recusada por ora, mudaria o desenho de conexão da T049j (a sessão é solta durante a
+geração e retomada); o `rollback` resolve o caso com uma linha.
+
+**Lição.** Não é a primeira vez neste projeto que um cadeado com a lista de jogos escrita à mão
+fica verde e cego com um jogo novo (ver a memória "jogo novo entra nos cadeados" do
+app). Lista de jogos em teste sai de onde o código a declara.

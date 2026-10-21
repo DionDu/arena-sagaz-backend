@@ -19,7 +19,9 @@ from job.alvo_observado import (
     VOLUME_MINIMO,
     alvo_para_a_regua,
 )
+from job.gerador import JOGOS_DO_RODIZIO, JOGOS_EM_ADOCAO
 from job.perfil import NIVEL_POR_PERSONAGEM, linhas_da_dimensao, versao_vigente
+from motores.quatro import contrato_quatro
 from job.regua import (
     ESCADA_ALVO,
     EXECUCOES_PADRAO,
@@ -55,20 +57,38 @@ def test_a_versao_do_perfil_deriva_dos_HASHES() -> None:
     assert versao == versao_vigente()
 
 
-def test_ha_uma_linha_por_jogo_e_por_mascote() -> None:
-    """A FK composta de `tb001_desafio` exige exatamente isto.
+def test_todo_jogo_do_job_tem_PERFIL() -> None:
+    """🔒 Uma linha por jogo e por mascote - e todo jogo que o job pode gerar.
 
-    ⚠️ Faltando uma linha, o primeiro `INSERT` daquele (jogo, mascote) falha — e o
-    erro apareceria como "violacao de chave estrangeira" no meio do job, longe da
-    causa.
+    A FK composta de `tb001_desafio` exige exatamente isto. ⚠️ Faltando uma
+    linha, o primeiro `INSERT` daquele (jogo, mascote) falha, como "violacao de
+    chave estrangeira" no meio do job e longe da causa.
+
+    ⚠️ **E aconteceu, pelo motivo que este caso agora fecha** (21/10/2026, T125
+    da spec 010): ele listava `("damas", "pontinhos")` à mão, ficou verde com o
+    Quatro faltando, e o primeiro desafio do Quatro no `des` foi gerado e medido
+    inteiro antes de a `fk001_perfil` o recusar. A lista vem do gerador agora (o
+    rodizio e os em adocao), e um jogo novo entra aqui sozinho.
     """
-    linhas = linhas_da_dimensao()
-    chaves = {(l["co_jogo"], l["co_personagem"]) for l in linhas}
+    jogos_do_job = set(JOGOS_DO_RODIZIO) | set(JOGOS_EM_ADOCAO)
+    chaves = {(l["co_jogo"], l["co_personagem"]) for l in linhas_da_dimensao()}
     assert chaves == {
-        (jogo, mascote)
-        for jogo in ("damas", "pontinhos")
-        for mascote in NIVEL_POR_PERSONAGEM
+        (jogo, mascote) for jogo in jogos_do_job for mascote in NIVEL_POR_PERSONAGEM
     }
+
+
+def test_o_perfil_do_quatro_traz_os_numeros_do_CONTRATO_por_modalidade() -> None:
+    """No Quatro os numeros sao da modalidade: um bloco por modalidade que
+    oferece o nivel, com os nomes do pedido ao executavel."""
+    for linha in linhas_da_dimensao():
+        if linha["co_jogo"] != "quatro":
+            continue
+        nivel = NIVEL_POR_PERSONAGEM[linha["co_personagem"]]
+        for modalidade, numeros in linha["js_perfil"].items():
+            assert numeros == contrato_quatro.parametros_do_personagem(
+                modalidade, nivel
+            ).para_pedido()
+        assert "tradicional" in linha["js_perfil"]
 
 
 def test_a_linha_carrega_os_NUMEROS_e_o_hash_do_arquivo() -> None:
