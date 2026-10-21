@@ -33,9 +33,10 @@ passos:
      escolhe.
 
 ⚠️ **O nivel e uma MISTURA, e nao um segundo motor.** Com a probabilidade
-[PROBABILIDADE_DE_PERSEGUIR] do nivel, o lance e o do passo 4; senao, e o lance
-que o motor Dart daria naquele nivel (se ele sobreviver aos passos 2 e 3), com
-os erros que a politica de dificuldade ja tem. E o lance de perseguir consulta a
+[PROBABILIDADE_DE_PERSEGUIR] do nivel, o lance e o de perseguir (os quatro
+passos); senao, e o lance que o motor Dart daria naquele nivel, CRU, com os
+erros que a politica de dificuldade ja tem (v3: filtra-lo dava competencia a
+Cacau, ver `lance_de_quem_persegue`). E o lance de perseguir consulta a
 busca do executavel (ver `lance_de_quem_persegue`: a v1 so com a nota reprovou
 no controle). Os numeros sao o palpite de partida, e
 ⛔ **nada disto entra em `gerador.SOLUCIONADOR_POR_TIPO` antes da medicao pareada
@@ -328,6 +329,18 @@ def lance_de_quem_persegue(
         prova: o vencedor provado de uma posicao, ou `None` (ver [Prova]).
             Consultada so quando o lance e o de perseguir (nao na mistura).
     """
+    # ── A mistura do nivel: o lance do proprio nivel, CRU ───────────────────
+    #
+    # ⚠️ **A v2 filtrava tambem este lance** (passos 1 a 3), e a regua de
+    # 21/10/2026 mostrou o efeito: a Cacau resolvia 0,40 a 0,80 (o teto dela e
+    # 0,20), porque os filtros SAO competencia - nunca entregar a vitoria, nunca
+    # perder o objetivo que esta na mesa - e a v2 os dava a todos os niveis. Na
+    # v3 o lance de quando o nivel nao persegue e o do motor, com os erros dele;
+    # os filtros e a prova sao so do ramo de perseguir. O Magno (que persegue
+    # sempre) nao muda, e o controle continua o mesmo.
+    if sorteio.random() >= PROBABILIDADE_DE_PERSEGUIR[nivel]:
+        return lance_do_nivel()
+
     agora, lances = candidatos(motor, desafio, fita)
     if agora is not None:
         return agora
@@ -339,11 +352,6 @@ def lance_de_quem_persegue(
         if not guardado:
             guardado.append(lance_do_nivel())
         return guardado[0]
-
-    # A mistura do nivel: o lance do proprio nivel, se ele sobreviveu aos filtros.
-    if sorteio.random() >= PROBABILIDADE_DE_PERSEGUIR[nivel]:
-        if do_nivel() in lances:
-            return do_nivel()
 
     estado = EstadoQuatro(motor.co_modalidade, desafio.iniciais + tuple(fita))
 

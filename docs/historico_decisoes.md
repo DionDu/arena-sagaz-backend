@@ -9116,3 +9116,22 @@ mascote, a chegada esquecida na bancada e na geração, o registro sem as encost
 ⬜ **Próximo passo, comando do dono:** a régua dos dois com o perseguidor
 (`medir_variantes_do_editorial.py <tipo> --com-regua`); quem cair na escada em 2 de 3 dias sobe
 como na T124b.
+
+### A régua com o perseguidor v2, e a v3 (no mesmo dia)
+
+**A régua da v2 (o dono rodou):** diagonal FOLGA `[3, 3, 3]`, mas na escada só em 1 de 3 dias;
+encostadas FOLGA, em 0 de 3. Nos dois, quem saiu da faixa foi a **Cacau** (diagonal 0,40 e 0,50;
+encostadas 0,80, 0,30 e 0,30, com teto 0,20). **A causa era do desenho:** na v2 o lance de quando o
+nível NÃO persegue também passava pelos filtros (cumprir agora, não encerrar sem o objetivo, não
+entregar a vitória), e esses filtros são competência - a Cacau virava uma jogadora atenta.
+
+**v3:** o lance do nível sai **cru**, com os erros dele; filtros e prova só no ramo de perseguir. O
+Magno (que persegue sempre) e o controle não mudam. **Medição pareada da v3** (30 posições, 46 s):
+
+| tipo | Cacau (0-0,20) | Pita (0,05-0,45) | Tex (0,45-0,85) | Magno (0,75-1) |
+|---|---|---|---|---|
+| diagonal | 0,07 | 0,27 | 0,50 | 0,73 |
+| encostadas | 0,23 | 0,30 | 0,77 | 0,90 |
+
+Teste novo (o lance cru sai mesmo sendo a vitória do jeito errado); a mutação que devolve o filtro
+ao lance cru é pega. ⬜ O dono roda a régua dos dois de novo.

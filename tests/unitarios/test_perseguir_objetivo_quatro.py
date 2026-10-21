@@ -194,3 +194,27 @@ def test_sem_vitoria_provada_joga_o_lance_do_nivel_se_ele_nao_perde() -> None:
         prova=lambda depois: None,
     )
     assert lance == "s5"
+
+
+def test_o_lance_do_nivel_que_nao_persegue_sai_CRU_com_o_erro_dele() -> None:
+    """⛔ v3 (21/10/2026): o ramo que nao persegue nao passa pelos filtros.
+
+    A v2 filtrava tambem este lance, e a regua mostrou a Cacau resolvendo 0,40 a
+    0,80 (teto 0,20): os filtros sao competencia. Aqui o lance do nivel e a
+    vitoria do JEITO ERRADO num desafio de diagonal - e ele tem de sair igual.
+    """
+
+    class Sorteio(random.Random):
+        def random(self) -> float:
+            return 0.99
+
+    desafio = _desafio("quatro_vencer_diagonal", DIAGONAL)
+    lance = perseguir.lance_de_quem_persegue(
+        MOTOR,
+        desafio,
+        ["s5", "s2"],
+        nivel=NivelDeMotor.CACAU,
+        sorteio=Sorteio(),
+        lance_do_nivel=lambda: "s6",
+    )
+    assert lance == "s6"
