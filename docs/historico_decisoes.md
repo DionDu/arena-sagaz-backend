@@ -9207,3 +9207,27 @@ Mutações: prova 5 de 5 (a folha sempre verdadeira, a fita desde o tabuleiro va
 ignorado, o teto ignorado, e a resposta do adversário que encerra aceita - esta sobreviveu à 1ª
 rodada: é a segunda guarda da poda, e ganhou um caso que chama o nó E direto); script 6 de 6.
 Suíte do backend 3.653 verde (21 pulados).
+
+### A medição (o dono rodou, 150 s + 177 s)
+
+**Controles:** fase 1, 21 de 21 nos dois tipos e o jeito errado reprovando; fase 2, o perseguidor
+"só vencer" vence tanto quanto o Magno contra os quatro adversários (golpe: 30×29, 29×25, 25×22,
+13×12; cinco: 30×26, 28×26, 24×23, 22×17). Os números medem os tipos.
+
+**(a) A forçável é RARÍSSIMA no acervo:** golpe duplo 3 de 1.080 posições (0,3%), linha de cinco 6
+(0,6%), quase todas com 21 a 33 lances jogados; 86 estouraram o teto de perguntas em cada tipo
+(~8%, nem sim nem não), e as que passaram gastaram bem menos que ele (mediana 90 e 195, máxima 172
+e 296 de 400). Com as 120 posições por dia do gerador, isso dá menos de um candidato por dia: a
+prova no gerador, sozinha, não alimenta o tipo.
+
+**(b) O "sem o meio":** 36 de 1.080 passam (3,3%), com a vitória sem o meio a 2 a 6 lances,
+espalhadas de 10 a 25 lances jogados; com 4 lances ou mais, 13 (1,2%).
+
+**(c) A hipótese do dono, nas posições de hoje (`alcance`, n=30), o perseguidor no nível do Magno
+cumpre:** golpe duplo 0,23 (Cacau) · 0,27 (Pita) · 0,13 (Tex) · 0,07 (Magno); linha de cinco 0,30
+· 0,13 · 0,10 · 0,20. O adversário forte atrapalha no golpe duplo, mas **nem contra a Cacau passa
+de 0,30**: o defeito é a posição, e não o adversário. **Nas posições forçáveis** (n=3 e n=6), o
+perseguidor cumpre **1,00 contra os quatro**, e até o Magno que só quer vencer cumpre 0,50 a 0,83.
+Restringir `co_personagens` a Cacau e Pita não conserta o tipo; a posição forçável conserta contra
+qualquer adversário. ⚠️ E levanta a dúvida oposta: com o Magno cumprindo sem perseguir, a escada
+pode sair plana (fácil para todos) - só a régua responde.
