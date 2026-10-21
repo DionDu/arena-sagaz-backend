@@ -345,10 +345,17 @@ def test_a_modalidade_e_o_tipo_NAO_travam_em_fase() -> None:
     tipos alternando, modalidades alternando — e so uma contagem revelaria que
     metade dos pares nunca sai.
     """
-    from job.gerador import escolher_modalidade
+    from job.gerador import JOGOS_DO_RODIZIO, escolher_modalidade
 
     for co_jogo, modalidades in MODALIDADES_POR_JOGO.items():
         if not modalidades:
+            continue
+        # ⚠️ So os jogos que o rodizio sorteia (T124b da spec 010): o Quatro
+        # tem modalidade e, desde a promocao da virada, um tipo no ar - mas so
+        # entra no rodizio na T125. Ate a T124b ele passava aqui por vacuidade
+        # (zero tipos, zero combinacoes); o caso de que ele AINDA nao e sorteado
+        # mora em `test_gerador_do_quatro.py`.
+        if co_jogo not in JOGOS_DO_RODIZIO:
             continue
         pares = {
             (

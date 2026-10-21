@@ -8522,3 +8522,28 @@ subir: recusada, porque o feito também é texto do app e precisaria de versão 
 (b) Uma lista à mão de "tipos com texto adiantado" no teste: recusada, porque é o
 cadeado de lista escrita à mão que fica verde e cego; o registro fora do ar já diz
 quem são.
+
+---
+
+## 2026-10-20 (7) — A virada é o primeiro tipo do Quatro no ar, e o jogo ainda fora do rodízio (T124b da spec 010)
+
+**Contexto.** A régua de 20/10 e o dono (§8zzzl) deixaram só a `quatro_virada` para
+subir. Promover é mover a receita e o editorial para `RECEITAS`/`EDITORIAL`, com os
+vetores de verificação.
+
+**Decisão.** (1) A virada no ar, com cinco vetores de posição pequena (o vetor prova o
+julgamento; a virada é provada na geração). (2) Campo novo `jogador` nos vetores do
+Quatro, lido pelos dois julgadores com `+1` por padrão: no Quatro a vez pode ser do J2,
+e um caso de cada lado prova que o campo é lido. (3) O jogo continua fora de
+`JOGOS_DO_RODIZIO` até a T125: o job não gera Quatro por estar em `RECEITAS`, porque o
+jogo vem da data. (4) ⛔ O medidor de variantes recusa medir pelo alvo `no-ar` o tipo no
+ar de jogo fora do rodízio (`no_ar_e_fora_do_rodizio`): pelo caminho normal ele mediria
+um desafio do jogo da data com o nome da virada, sem erro. (5) O cadeado "todo tipo
+publicável tem parâmetros" aprende o tipo sem número na frase (a receita diz: só o
+personagem), exigindo o botão próprio de preparo ou teto.
+
+**Alternativas consideradas.** (a) Pôr o Quatro no rodízio já: recusada, a ordem do
+dono põe as migrações (T118-T124) e o portão antes da T125. (b) Deixar o caminho de
+"tipo em avaliação" aceitar o tipo no ar para medir: recusada, ele existe para o que não
+foi publicado, e o publicado exige o vetor. (c) Tirar a virada só do alvo `no-ar` por
+lista: recusada, a regra é do jogo fora do rodízio, e vale para o próximo jogo.

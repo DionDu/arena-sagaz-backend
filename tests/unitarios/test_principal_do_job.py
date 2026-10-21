@@ -29,6 +29,8 @@ from job import __main__ as principal_mod
 from job.alvo_observado import PISO_FIXO, TETO_FIXO, Alvo
 from job.editorial import (
     EDITORIAL,
+    LANCES_DE_PREPARO_PADRAO,
+    MAXIMO_DE_MEIOS_LANCES_PADRAO,
     TipoSemEditorial,
     parametros_para_conferencia,
     publicacao_de,
@@ -629,10 +631,32 @@ def test_todo_tipo_PUBLICAVEL_tem_editorial(co_tipo: str) -> None:
     ⛔ Um padrao — *"se nao souber, use 3"* — poria no ar um desafio cuja
     dificuldade ninguem escolheu, e ele pareceria igual aos outros na tela. O
     editorial falha alto; este caso garante que ele nunca precisa falhar.
+
+    ⚠️ **O tipo sem numero na frase tem `parametros` vazio, e e verdade** (T124b
+    da spec 010): em *"Vire o jogo e venca o Tex"* nao ha o que variar alem da
+    posicao. Quem diz isso e a propria receita - a frase dela so tem o espaco do
+    personagem -, e nao uma lista de nomes escrita aqui. ⛔ E o vazio nao pode ser
+    esquecimento: o tipo tem de declarar o SEU botao, o preparo ou o teto, fora
+    do padrao.
     """
     assert variantes_de(co_tipo), f"{co_tipo} nao tem nenhuma variante"
+    receita = receita_de(co_tipo)
     for publicacao in variantes_de(co_tipo):
-        assert publicacao.parametros
+        espacos_da_frase = set(
+            receita.valores_da_frase(
+                parametros_para_conferencia(publicacao.parametros), "pita"
+            )
+        ) - {"personagem"}
+        if espacos_da_frase:
+            assert publicacao.parametros, f"{co_tipo}: a frase pede {espacos_da_frase}"
+            continue
+        assert not publicacao.parametros, (
+            f"{co_tipo}: parametros {dict(publicacao.parametros)} que a frase nao mostra"
+        )
+        assert (
+            publicacao.nu_lances_de_preparo != LANCES_DE_PREPARO_PADRAO
+            or publicacao.nu_maximo_de_meios_lances != MAXIMO_DE_MEIOS_LANCES_PADRAO
+        ), f"{co_tipo}: sem numero na frase e sem botao proprio de preparo ou teto"
 
 
 @pytest.mark.parametrize("co_tipo", sorted(EDITORIAL))

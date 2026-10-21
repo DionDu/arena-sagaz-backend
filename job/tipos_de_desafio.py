@@ -2750,6 +2750,27 @@ RECEITAS: dict[str, Receita] = {
             "personagem": personagem,
         },
     ),
+    # ── Quatro em Linha ──────────────────────────────────────────────────────
+    "quatro_virada": Receita(
+        nu_tipo_desafio=49,
+        co_tipo_desafio="quatro_virada",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroVirada",
+        # ✅ **No ar desde 20/10/2026** (T124b): a regua a aprovou nos tres dias,
+        # e saiu de `RECEITAS_FORA_DO_AR` para ca (promover e mover). ⚠️ O
+        # `_ATINGIDO` e lido na chamada do `lambda`, e por isso pode morar mais
+        # abaixo, com os outros auxiliares do Quatro.
+        # "Vire o jogo e venca {personagem}" (texto do dono, §8zzzl). A chegada
+        # e so a vitoria; o que faz a virada e a POSICAO, provada na geracao
+        # (T116): a heuristica da vantagem ao adversario, e a busca completa
+        # prova a vitoria forcada da pessoa.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [_medida("vitoria", "igual", _ATINGIDO)],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
 }
 
 
@@ -2773,8 +2794,11 @@ def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
 # AS RECEITAS FORA DO AR: escritas, aprovadas, e ainda nao publicaveis
 # ═══════════════════════════════════════════════════════════════════════════
 #
-# ⚠️ **Os dez tipos do Quatro em Linha moram aqui, e nao em [RECEITAS]** (T115
-# da spec 010, 20/10/2026). Eles nao sao propostas (essas ficam em
+# ⚠️ **Os tipos do Quatro em Linha moram aqui, e nao em [RECEITAS]** (T115
+# da spec 010, 20/10/2026). Eram dez; desde a T124b sao nove: a `quatro_virada`
+# passou na regua e foi promovida, e a `quatro_unica_coluna` continua aqui
+# APOSENTADA (`DECISOES-do-dono.md` §8zzzl), sem texto no app. As outras oito
+# esperam a T124c. Eles nao sao propostas (essas ficam em
 # `tipos_propostos.py`, esperando o dono): o dono os aprovou em 13/10/2026
 # (`DECISOES-do-dono.md` §8zzz), e eles ja tem linha na `tb901_tipo_desafio`
 # (migracao `0035`, numeros 40 a 49). O que falta e o resto das portas que
@@ -3009,23 +3033,6 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
             "ameacas": p["ameacas"],
             "personagem": personagem,
         },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_virada": Receita(
-        nu_tipo_desafio=49,
-        co_tipo_desafio="quatro_virada",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroVirada",
-        # "Vire o jogo e venca {personagem}" (texto do dono, §8zzzl). A chegada
-        # e so a vitoria; o que faz a virada e a POSICAO, provada na geracao
-        # (T116): a heuristica da vantagem ao adversario, e a busca completa
-        # prova a vitoria forcada da pessoa.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [_medida("vitoria", "igual", _ATINGIDO)],
-        },
-        valores_da_frase=lambda p, personagem: {"personagem": personagem},
     ),
 }
 

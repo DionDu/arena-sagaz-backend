@@ -519,9 +519,19 @@ def test_o_alvo_no_ar_cobre_TODO_tipo_publicado():
     envelhecer: tipo novo entra sozinho.
     """
     no_ar = set(MEDIDOR.tipos_do_alvo(MEDIDOR.ALVO_NO_AR))
-    publicados = {
-        co_tipo for co_tipo in RECEITAS if editorial_mod.variantes_de(co_tipo)
+    # ⚠️ A unica excecao e o tipo no ar de jogo FORA do rodizio (a virada do
+    # Quatro, T124b da spec 010, ate a T125): medido pelo alvo `no-ar`, ele seria
+    # gerado com o jogo da data - outro jogo. Quem diz quais sao e a mesma funcao
+    # que o medidor usa, e nao uma lista daqui.
+    fora_do_rodizio = {
+        co_tipo for co_tipo in RECEITAS if MEDIDOR.no_ar_e_fora_do_rodizio(co_tipo)
     }
+    publicados = {
+        co_tipo
+        for co_tipo in RECEITAS
+        if editorial_mod.variantes_de(co_tipo) and co_tipo not in fora_do_rodizio
+    }
+    assert not no_ar & fora_do_rodizio
     assert no_ar == publicados, (
         "⛔ o alvo `no-ar` deixou de cobrir algum tipo publicado. Ele existe "
         "justamente para nao depender de uma lista escrita a mao."

@@ -3773,6 +3773,371 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "quatro-virada-cumpriu",
+      "de_vetor": "O J1 solta na coluna 5 e fica com tres embaixo (3, 4 e 5) e duas pontas livres; o J2 tapa a 2, e o J1 vence pela 6. A vitoria cai no 3o meio-lance, o 2o lance da pessoa.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 49,
+      "co_tipo_desafio": "quatro_virada",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-virada-parou-antes-de-vencer",
+      "de_vetor": "A MESMA fita sem o ultimo lance: a vitoria esta ao alcance, e a partida para antes dela. E o caso 'nao cumpre por pouco' - quem julgasse a ameaca no lugar da vitoria diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 49,
+      "co_tipo_desafio": "quatro_virada",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_encostadas": 3,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-virada-o-adversario-venceu",
+      "de_vetor": "A pessoa solta na 6 (3, 4 e 6 embaixo) e o J2 tapa a 5; a pessoa solta na 7 e o J2 sobe na linha 2 (3, 4 e 5); a pessoa solta na coluna 1 em vez de tapar a 6, e o J2 fecha a linha 2 por ela. A partida termina, e com a derrota: nao cumpre.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 49,
+      "co_tipo_desafio": "quatro_virada",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 5,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-virada-a-pessoa-e-o-J2",
+      "de_vetor": "A vez na posicao publicada e do J2 (o J1 jogou na coluna 1). O J2 tapa a 2 e a 6, sobe na linha 2 e vence pela coluna 1: quatro na linha 2. Julgado com o jogador +1, o medidor recusaria a fita - e o vetor que obriga os dois julgadores a ler o `jogador`.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4",
+          "s1"
+        ],
+        "co_lances": "s3s3s4s4s1",
+        "vez_de": -1
+      },
+      "nu_tipo_desafio": 49,
+      "co_tipo_desafio": "quatro_virada",
+      "jogador": -1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 2,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 4,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 6,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 7,
+          "jogador": -1,
+          "lance": "s1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 2
+        }
+      }
+    },
+    {
+      "id": "quatro-virada-lance-ilegal-e-dado-invalido",
+      "de_vetor": "Uma coluna que nao existe (a 8, num tabuleiro de 7). O julgador recusa a fita inteira, em vez de ignorar o lance e medir o resto.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 49,
+      "co_tipo_desafio": "quatro_virada",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s8"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ],
   "sementes": [

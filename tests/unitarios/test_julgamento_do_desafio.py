@@ -70,6 +70,9 @@ def test_o_juiz_concorda_com_cada_vetor(vetor: dict) -> None:
         js_posicao_inicial=vetor["js_posicao_inicial"],
         js_chegada=vetor["js_chegada"],
         fita=vetor["lances"],
+        # ⚠️ De quem e o desafio: so os vetores do Quatro declaram (a vez pode
+        # ser do J2); os antigos sao todos do J1, o padrao.
+        jogador=vetor.get("jogador", 1),
         co_modalidade=vetor.get("co_modalidade", "brasileira"),
     )
 
@@ -110,10 +113,42 @@ def test_quem_cumpriu_diz_EM_QUE_LANCE(vetor: dict) -> None:
         js_posicao_inicial=vetor["js_posicao_inicial"],
         js_chegada=vetor["js_chegada"],
         fita=vetor["lances"],
+        # ⚠️ De quem e o desafio: so os vetores do Quatro declaram (a vez pode
+        # ser do J2); os antigos sao todos do J1, o padrao.
+        jogador=vetor.get("jogador", 1),
         co_modalidade=vetor.get("co_modalidade", "brasileira"),
     )
     assert julgamento.nu_lance_cumpre_desafio is not None
     assert 1 <= julgamento.nu_lance_cumpre_desafio <= len(vetor["lances"])
+
+
+@pytest.mark.parametrize(
+    "vetor",
+    [v for v in TODOS if v.get("jogador", 1) != 1],
+    ids=[v["id"] for v in TODOS if v.get("jogador", 1) != 1],
+)
+def test_o_desafio_do_J2_julgado_como_do_J1_e_RECUSADO(vetor: dict) -> None:
+    """🔒 O campo `jogador` dos vetores do Quatro nao e enfeite (T124b).
+
+    ⚠️ Sem ele, o julgador usaria o padrao `+1` e mediria os feitos do
+    ADVERSARIO. O medidor do Quatro recusa isso nos dois lados - e e este caso
+    que prova que a recusa existe, e que um julgador que esquecesse de ler o
+    campo nao passaria em silencio.
+    """
+    julgamento = julgar_desafio(
+        co_jogo=vetor["co_jogo"],
+        js_posicao_inicial=vetor["js_posicao_inicial"],
+        js_chegada=vetor["js_chegada"],
+        fita=vetor["lances"],
+        jogador=1,
+        co_modalidade=vetor["co_modalidade"],
+    )
+    assert julgamento.veredito == "dado_invalido", julgamento.de_motivo
+
+
+def test_ha_vetor_em_que_a_pessoa_e_o_J2() -> None:
+    """Sem isto, o caso acima passaria com ZERO vetores."""
+    assert any(v.get("jogador", 1) == -1 for v in TODOS)
 
 
 def test_quem_nao_cumpriu_TAMBEM_tem_feitos() -> None:
@@ -129,6 +164,9 @@ def test_quem_nao_cumpriu_TAMBEM_tem_feitos() -> None:
         js_posicao_inicial=vetor["js_posicao_inicial"],
         js_chegada=vetor["js_chegada"],
         fita=vetor["lances"],
+        # ⚠️ De quem e o desafio: so os vetores do Quatro declaram (a vez pode
+        # ser do J2); os antigos sao todos do J1, o padrao.
+        jogador=vetor.get("jogador", 1),
         co_modalidade=vetor.get("co_modalidade", "brasileira"),
     )
     assert julgamento.feitos, "quem nao cumpriu ficou sem medida nenhuma"

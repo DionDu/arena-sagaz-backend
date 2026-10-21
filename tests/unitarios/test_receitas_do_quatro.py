@@ -1,9 +1,11 @@
-"""Os dez tipos do Quatro em Linha no job, ainda fora do ar (T115 da spec 010).
+"""Os dez tipos do Quatro em Linha no job (T115 da spec 010).
 
-As receitas moram em `job/tipos_de_desafio.RECEITAS_FORA_DO_AR` e os numeros em
-`job/editorial.EDITORIAL_FORA_DO_AR`: escritos e aprovados, e ainda nao
-publicaveis (falta o vetor de verificacao, a frase declarada no aplicativo e a
-regua). Este arquivo aplica a eles os mesmos cadeados que os tipos no ar
+Nasceram todos fora do ar: as receitas em `job/tipos_de_desafio.RECEITAS_FORA_DO_AR`
+e os numeros em `job/editorial.EDITORIAL_FORA_DO_AR`. ⚠️ **Desde a T124b um deles
+esta no ar** (a `quatro_virada`, em `RECEITAS`/`EDITORIAL`), e por isso os casos
+leem [RECEITAS_DO_QUATRO] e [EDITORIAL_DO_QUATRO], que juntam os dois lados: os
+cadeados valem para o tipo onde quer que ele more, e a promocao de outro tipo nao
+os desliga. Este arquivo aplica a eles os mesmos cadeados que os tipos no ar
 recebem nos outros testes - a chegada valida, so o vocabulario fechado, ninguem
 cumpre sem jogar, os pesos fechando em 1,000 - e mais os que sao so deles:
 
@@ -58,10 +60,23 @@ VETORES = json.loads(
 #: o teste segue a mesma disciplina.
 MODALIDADE = cq.modalidades_declaradas()[0]
 
+#: As receitas do Quatro, no ar ou fora dele (a promocao MOVE de um para o outro).
+RECEITAS_DO_QUATRO = {
+    co_tipo: receita
+    for co_tipo, receita in {**RECEITAS, **RECEITAS_FORA_DO_AR}.items()
+    if receita.co_jogo == "quatro"
+}
+
+#: Os numeros de cada uma, do mesmo lado em que a receita mora.
+EDITORIAL_DO_QUATRO = {
+    co_tipo: (EDITORIAL if co_tipo in RECEITAS else EDITORIAL_FORA_DO_AR)[co_tipo]
+    for co_tipo in RECEITAS_DO_QUATRO
+}
+
 #: Todas as variantes, achatadas, para os casos parametrizados.
 VARIANTES = [
     (co_tipo, publicacao)
-    for co_tipo, publicacoes in EDITORIAL_FORA_DO_AR.items()
+    for co_tipo, publicacoes in EDITORIAL_DO_QUATRO.items()
     for publicacao in publicacoes
 ]
 
@@ -98,31 +113,37 @@ def test_os_dez_tipos_batem_com_a_dimensao_da_0035() -> None:
     }
     assert len(na_migracao) == 10
     nas_receitas = {
-        codigo: receita.nu_tipo_desafio for codigo, receita in RECEITAS_FORA_DO_AR.items()
+        codigo: receita.nu_tipo_desafio for codigo, receita in RECEITAS_DO_QUATRO.items()
     }
     assert nas_receitas == na_migracao
-    for codigo, receita in RECEITAS_FORA_DO_AR.items():
+    for codigo, receita in RECEITAS_DO_QUATRO.items():
         assert receita.co_tipo_desafio == codigo
         assert receita.co_jogo == "quatro"
 
 
-def test_nenhum_tipo_do_quatro_esta_no_ar() -> None:
-    """⛔ Fora do ar quer dizer fora de `RECEITAS` e de `EDITORIAL`.
+def test_cada_tipo_do_quatro_mora_de_UM_lado_so() -> None:
+    """⛔ No ar quer dizer `RECEITAS` E `EDITORIAL`; fora, os dois de fora.
 
-    ⚠️ **Promover e MOVER.** No dia em que um tipo for ao ar ele sai dos dois
-    dicionarios daqui e entra nos dois de la, na mesma resposta; uma receita nos
-    dois lados seria duas fontes da verdade para a mesma regra. E entrar em
-    `RECEITAS` antes do vetor e da frase seria publicar um tipo que o aplicativo
-    pode julgar diferente, calado.
+    ⚠️ **Promover e MOVER.** No dia em que um tipo vai ao ar ele sai dos dois
+    dicionarios de fora e entra nos dois de dentro, na mesma resposta; uma
+    receita nos dois lados seria duas fontes da verdade para a mesma regra. E
+    entrar em `RECEITAS` antes do vetor e da frase seria publicar um tipo que o
+    aplicativo pode julgar diferente, calado (`test_todo_tipo_com_receita_TEM_vetor`).
     """
     assert not set(RECEITAS_FORA_DO_AR) & set(RECEITAS)
     assert not set(EDITORIAL_FORA_DO_AR) & set(EDITORIAL)
     assert set(EDITORIAL_FORA_DO_AR) == set(RECEITAS_FORA_DO_AR)
+    no_ar = {t for t in RECEITAS_DO_QUATRO if t in RECEITAS}
+    assert no_ar <= set(EDITORIAL)
+    # ⚠️ O retrato de hoje (T124b, `DECISOES-do-dono.md` §8zzzl): so a virada.
+    # Promover outro tipo (T124c) e atualizar este conjunto na mesma resposta.
+    assert no_ar == {"quatro_virada"}
+    assert "quatro_unica_coluna" in RECEITAS_FORA_DO_AR, "aposentada, e nao apagada"
 
 
 def test_a_chave_do_objetivo_e_uma_chave_do_quatro_e_nunca_a_frase() -> None:
     """A chave `.arb` do enunciado (a T131 a cria nos tres idiomas)."""
-    chaves = [r.co_chave_objetivo for r in RECEITAS_FORA_DO_AR.values()]
+    chaves = [r.co_chave_objetivo for r in RECEITAS_DO_QUATRO.values()]
     assert len(set(chaves)) == 10, "duas receitas com a mesma chave de frase"
     for chave in chaves:
         assert " " not in chave
@@ -158,7 +179,7 @@ def test_a_chegada_e_valida_e_usa_so_o_que_o_quatro_mede(
     depois do primeiro desafio publicado.
     """
     parametros = parametros_para_conferencia(publicacao.parametros)
-    chegada = LinhaDeChegada.de_dado(RECEITAS_FORA_DO_AR[co_tipo].montar(parametros))
+    chegada = LinhaDeChegada.de_dado(RECEITAS_DO_QUATRO[co_tipo].montar(parametros))
     assert chegada.clausulas
     assert chegada.janela.tipo in JANELAS
 
@@ -168,7 +189,7 @@ def test_a_chegada_e_valida_e_usa_so_o_que_o_quatro_mede(
         assert clausula.chave in disponiveis, (co_tipo, clausula.chave)
 
     # A frase monta, e recebe o personagem.
-    valores = RECEITAS_FORA_DO_AR[co_tipo].valores_da_frase(parametros, "pita")
+    valores = RECEITAS_DO_QUATRO[co_tipo].valores_da_frase(parametros, "pita")
     assert valores["personagem"] == "pita"
 
 
@@ -201,7 +222,7 @@ def test_ninguem_cumpre_sem_jogar(co_tipo, publicacao) -> None:
     quem segura e o predicado `None` antes do fim.
     """
     parametros = parametros_para_conferencia(publicacao.parametros)
-    chegada = LinhaDeChegada.de_dado(RECEITAS_FORA_DO_AR[co_tipo].montar(parametros))
+    chegada = LinhaDeChegada.de_dado(RECEITAS_DO_QUATRO[co_tipo].montar(parametros))
     assert not avaliar(chegada, MEDIDAS_DE_QUEM_NAO_JOGOU, {"quatro_perdeu": None})
 
 
@@ -214,7 +235,7 @@ def test_a_chegada_so_vale_com_a_partida_terminada(co_tipo, publicacao) -> None:
     valor TRUE digitado no editorial passa a mentir, e este caso cai.
     """
     assert publicacao.ic_chegada_encerra_partida is True
-    js = RECEITAS_FORA_DO_AR[co_tipo].montar(
+    js = RECEITAS_DO_QUATRO[co_tipo].montar(
         parametros_para_conferencia(publicacao.parametros)
     )
     chaves = {c["chave"] for c in js["clausulas"]}
@@ -236,11 +257,11 @@ def test_todos_saem_na_versao_que_traz_o_jogo(co_tipo, publicacao) -> None:
 
 def test_segurar_o_magno_e_so_contra_o_magno() -> None:
     """O nome do tipo e a restricao: no rodizio dos quatro ele mentiria."""
-    for publicacao in EDITORIAL_FORA_DO_AR["quatro_segurar_magno"]:
+    for publicacao in EDITORIAL_DO_QUATRO["quatro_segurar_magno"]:
         assert publicacao.co_personagens == ("magno",)
     outros = [
         p
-        for co_tipo, publicacoes in EDITORIAL_FORA_DO_AR.items()
+        for co_tipo, publicacoes in EDITORIAL_DO_QUATRO.items()
         if co_tipo != "quatro_segurar_magno"
         for p in publicacoes
     ]
@@ -300,19 +321,19 @@ def test_o_criterio_de_cada_tipo_aparece_com_peso_zero() -> None:
         "quatro_bloquear": "ameacas_bloqueadas",
     }
     for co_tipo, chave in criterios.items():
-        publicacao = EDITORIAL_FORA_DO_AR[co_tipo][0]
+        publicacao = EDITORIAL_DO_QUATRO[co_tipo][0]
         linhas = publicacao.medidas(parametros_para_conferencia(publicacao.parametros))
         linha = next(l for l in linhas if l["co_feito"] == chave)
         assert linha["vr_peso"] == 0, co_tipo
 
 
 def test_o_topo_da_faixa_e_o_alvo_no_encostadas_e_E_mais_a_folga_nos_outros() -> None:
-    publicacao = EDITORIAL_FORA_DO_AR["quatro_encostadas"][0]
+    publicacao = EDITORIAL_DO_QUATRO["quatro_encostadas"][0]
     p = parametros_efetivos(publicacao.parametros, encostadas=6)
     faixa = publicacao.medidas(p)[0]
     assert (faixa["vr_min"], faixa["vr_max"]) == (6, p["pecas"])
 
-    publicacao = EDITORIAL_FORA_DO_AR["quatro_virada"][0]
+    publicacao = EDITORIAL_DO_QUATRO["quatro_virada"][0]
     faixa = publicacao.medidas(parametros_efetivos(publicacao.parametros, encostadas=6))[0]
     assert (faixa["vr_min"], faixa["vr_max"]) == (6, 6 + ENCOSTADAS_PARA_NOTA_CHEIA)
 
@@ -409,7 +430,7 @@ def test_cada_tipo_cumpre_numa_partida_real_e_nao_cumpre_noutra(
     todos os cadeados de forma acima: e valida, e julgavel, e mesmo assim nao
     distingue ninguem. Aqui ela e posta contra partidas jogadas pelo motor.
     """
-    receita = RECEITAS_FORA_DO_AR[co_tipo]
+    receita = RECEITAS_DO_QUATRO[co_tipo]
     cumprem, nao_cumprem = [], []
     for caso in casos_reais:
         parametros = parametros_efetivos(

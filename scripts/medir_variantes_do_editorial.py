@@ -566,10 +566,12 @@ def _dias_do_jogo(co_jogo: str, quantos: int) -> list[date]:
     jogo pela data, e pedir damas num dia de Pontinhos geraria Pontinhos com os
     parametros das damas — sem erro, e com um numero que nao quer dizer nada.
 
-    ⚠️ **Jogo FORA do rodizio (o Quatro, ate a T120) mede em dias seguidos.**
+    ⚠️ **Jogo FORA do rodizio (o Quatro, ate a T125) mede em dias seguidos.**
     Ele nunca e o jogo do dia, e o laco abaixo nao terminaria; e nem precisa:
     tipo em avaliacao vem com a receita, e `gerar_candidatos` tira o jogo dela,
     e nao da data. O dia so muda a semente - e e isso que da posicoes diferentes.
+    ⛔ O tipo dele que ja esta NO AR nao chega aqui: ver
+    `no_ar_e_fora_do_rodizio`.
     """
     if co_jogo not in gerador_mod.JOGOS_DO_RODIZIO:
         return [DIA_BASE + timedelta(days=passo) for passo in range(quantos)]
@@ -893,6 +895,21 @@ def candidatas_do_editorial(co_tipo: str) -> tuple["Candidata", ...]:
     )
 
 
+def no_ar_e_fora_do_rodizio(co_tipo: str) -> bool:
+    """O tipo esta em `RECEITAS`, e o JOGO dele ainda nao e sorteado pelo job?
+
+    ⛔ **Esse tipo nao se mede pelos alvos `no-ar`** (T124b da spec 010, a
+    virada do Quatro): no caminho normal o gerador tira o jogo da DATA
+    (`escolher_jogo`, que so conhece `gerador.JOGOS_DO_RODIZIO`), e o caminho de
+    "tipo em avaliacao" recusa o tipo que ja esta em `RECEITAS`. Sem esta
+    recusa, a rodada mediria um desafio de Pontinhos ou de damas com o nome do
+    tipo - sem erro, e com um numero que nao quer dizer nada. A situacao dura
+    ate o jogo entrar no rodizio (T125); a medicao da virada e a de 20/10/2026.
+    """
+    receita = tipos_de_desafio_mod.RECEITAS.get(co_tipo)
+    return receita is not None and receita.co_jogo not in gerador_mod.JOGOS_DO_RODIZIO
+
+
 def tipos_do_alvo(alvo: str) -> list[str]:
     """Quais tipos de `A_MEDIR` o argumento da linha de comando seleciona.
 
@@ -927,8 +944,11 @@ def tipos_do_alvo(alvo: str) -> list[str]:
         co_tipo = alvo[len(PREFIXO_NO_AR_DE_UM_TIPO):]
         # ⛔ Tipo sem variante publicada devolve vazio, e quem chama sai com 2 -
         # um nome digitado errado nao pode virar uma rodada que nao mede nada.
-        if co_tipo in tipos_de_desafio_mod.RECEITAS and editorial_mod.variantes_de(
-            co_tipo
+        # ⛔ E o tipo no ar de jogo fora do rodizio tambem (`principal` explica).
+        if (
+            co_tipo in tipos_de_desafio_mod.RECEITAS
+            and editorial_mod.variantes_de(co_tipo)
+            and not no_ar_e_fora_do_rodizio(co_tipo)
         ):
             return [co_tipo]
         return []
@@ -949,6 +969,8 @@ def tipos_do_alvo(alvo: str) -> list[str]:
             co_tipo
             for co_tipo in sorted(tipos_de_desafio_mod.RECEITAS)
             if editorial_mod.variantes_de(co_tipo)
+            # ⛔ Ver `no_ar_e_fora_do_rodizio`: mediria outro jogo.
+            and not no_ar_e_fora_do_rodizio(co_tipo)
             and (
                 so_do_jogo is None
                 or tipos_de_desafio_mod.RECEITAS[co_tipo].co_jogo == so_do_jogo
@@ -1121,6 +1143,15 @@ def principal(argumentos: Sequence[str]) -> int:
     alvo = posicionais[0] if posicionais else "todos"
 
     tipos = tipos_do_alvo(alvo)
+    pedido = alvo[len(PREFIXO_NO_AR_DE_UM_TIPO):] if alvo.startswith(PREFIXO_NO_AR_DE_UM_TIPO) else alvo
+    if not tipos and no_ar_e_fora_do_rodizio(pedido):
+        print(
+            f"⛔ {pedido} esta no ar, mas o jogo dele ainda nao entrou no rodizio "
+            "do job (T125): o gerador sorteia o jogo pela data, e a rodada "
+            "mediria outro jogo com o nome dele. A medicao dele e a de "
+            "20/10/2026 (historico do backend, entrada \"2026-10-20 (5)\")."
+        )
+        return 2
     if not tipos:
         print(f"⛔ nada a medir para {alvo!r}.")
         print(

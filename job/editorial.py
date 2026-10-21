@@ -75,6 +75,14 @@ VERSAO_MINIMA_DOS_TIPOS_FUNDADORES = "1.3.0"
 #: o numero existe. A T134 confere que o `pubspec.yaml` sobe para o mesmo numero.
 VERSAO_MINIMA_DO_QUATRO = "1.4.0"
 
+#: As casas do tabuleiro da modalidade `tradicional` (7 x 6): o maximo de lances
+#: de uma partida, e portanto o que um teto "ate o fim" precisa cobrir.
+#:
+#: ⚠️ Aqui no topo, e nao ao lado do `EDITORIAL_FORA_DO_AR` onde nasceu: o
+#: `EDITORIAL` e montado na importacao, e a publicacao da virada (promovida na
+#: T124b) le este numero.
+CASAS_DO_TRADICIONAL = 42
+
 #: Quantos meios-lances o log de uma partida de desafio pode ter.
 #:
 #: ⚠️ **Acima do teto e DADO INVALIDO, e nao "log grande"** (T057): o replay nao
@@ -2002,6 +2010,29 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             nu_maximo_de_meios_lances=MAXIMO_DE_HOJE_NO_PONTINHOS,
         ),
     ),
+    # ── Quatro em Linha ────────────────────────────────────────────────────
+    # ⚠️ **O primeiro tipo do Quatro no ar** (T124b da spec 010, 20/10/2026), e
+    # por ora o unico: a regua dos dez tipos (T117) aprovou tres, e o dono
+    # segurou dois deles (`DECISOES-do-dono.md` §8zzzl) - a unica coluna foi
+    # aposentada e as encostadas esperam um resolvedor proprio (T124c). ⛔ Estar
+    # aqui NAO faz o job gerar desafio do Quatro: o jogo entra no rodizio
+    # (`gerador.JOGOS_DO_RODIZIO`) na T125.
+    "quatro_virada": (
+        Publicacao(
+            # ✅ Medida em 20/10/2026 (`medir_variantes_do_editorial.py quatro
+            # --com-regua`): FOLGA `[3, 3, 3]`, na escada nos TRES dias, solucao
+            # de 14,8 meios-lances. ⚠️ A regua mede a virada de verdade porque o
+            # objetivo e vencer, que e o que os personagens tentam.
+            # A prova nao limita a distancia da vitoria: o teto e o que resta
+            # do tabuleiro.
+            parametros={},
+            nu_lances_de_preparo=12,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 12,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro(None),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
 }
 
 
@@ -2015,9 +2046,12 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
 # promovido (vetor, frase declarada e a regua), as variantes dele saem daqui e
 # entram em `EDITORIAL` na mesma resposta em que a receita entra em `RECEITAS`.
 #
-# ⛔ **NENHUMA VARIANTE DAQUI FOI MEDIDA** (`⏳ a medir` em todas). A regra do
-# `EDITORIAL` continua valendo: nenhuma variante vai ao ar sem a rodada de
-# `scripts/medir_variantes_do_editorial.py` anotada ao lado (T117/T124). Os
+# ⚠️ **AS VARIANTES DAQUI FORAM MEDIDAS EM 20/10/2026, e NAO PASSARAM** (a
+# rodada da T117; tabela no `historico_decisoes.md`, entrada "2026-10-20 (5)").
+# Nos tipos que pedem um jeito de vencer, a regua nao mede (o personagem nao
+# persegue o objetivo); nos outros, faltou candidato. O que fazer com cada um e a
+# T124c. A regra do `EDITORIAL` continua valendo: nenhuma variante vai ao ar sem
+# a rodada de `scripts/medir_variantes_do_editorial.py` anotada ao lado. Os
 # numeros abaixo sao o palpite de partida, escolhido pela FAIXA DO HUB:
 #
 #   · o Quatro alterna estritamente, como as damas, entao a faixa de 5 a 10
@@ -2045,9 +2079,8 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
 #     meios-lances, e o teto padrao de 20 cobre) e o `sem_o_meio` (o teto e o
 #     da prova, 8 lances).
 
-#: As casas do tabuleiro da modalidade `tradicional` (7 x 6): o maximo de lances
-#: de uma partida, e portanto o que um teto "ate o fim" precisa cobrir.
-CASAS_DO_TRADICIONAL = 42
+#: ⚠️ `CASAS_DO_TRADICIONAL` mora no topo do arquivo desde a T124b: a virada,
+#: no `EDITORIAL`, ja o le na montagem do dicionario.
 # ⚠️ **Os tipos sem numero na frase tem `parametros` vazio**, e e verdade: em
 # *"segure o Magno"* nao ha o que variar alem da posicao. ⛔ O cadeado do
 # `EDITORIAL` que exige parametros (`test_principal_do_job.py`) precisa aprender
@@ -2063,7 +2096,8 @@ CASAS_DO_TRADICIONAL = 42
 EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     "quatro_vencer_em_n": (
         Publicacao(
-            # ⏳ a medir. Gabarito de 9 meios-lances: o piso da faixa do hub.
+            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 0]` (sem vitoria forcada em
+            # exatamente N). Gabarito de 9 meios-lances: o piso da faixa do hub.
             # Preparo 12: a vitoria forcada em 5 e coisa de meio de jogo.
             parametros={"lances": 5},
             nu_lances_de_preparo=12,
@@ -2072,7 +2106,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
         Publicacao(
-            # ⏳ a medir. 11 meios-lances; a rede da de cima.
+            # ⛔ Medida em 20/10: SEM DESAFIO `[1, 0, 0]`, e facil (Cacau 0,70).
+            # 11 meios-lances; a rede da de cima.
             parametros={"lances": 6},
             nu_lances_de_preparo=12,
             ic_chegada_encerra_partida=True,
@@ -2082,7 +2117,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_segurar_magno": (
         Publicacao(
-            # ⏳ a medir. ⛔ Contra o Magno e so ele: e o nome do tipo.
+            # ⛔ Medida em 20/10: SEM DESAFIO `[3, 0, 0]` (falta o empate provado).
+            # ⛔ Contra o Magno e so ele: e o nome do tipo.
             # Preparo 22: o empate so se PROVA com o fim ao alcance da busca.
             parametros={},
             nu_lances_de_preparo=22,
@@ -2095,7 +2131,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_unica_coluna": (
         Publicacao(
-            # ⏳ a medir. Preparo 14: cada coluna precisa de desfecho provado.
+            # ⛔ APOSENTADA (§8zzzl). Preparo 14: cada coluna precisa de desfecho
+            # provado.
             parametros={},
             nu_lances_de_preparo=14,
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 14,
@@ -2106,7 +2143,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_vencer_diagonal": (
         Publicacao(
-            # ⏳ a medir. Preparo 10: a diagonal precisa de tabuleiro livre.
+            # ⛔ Medida em 20/10: FOLGA, mas 1 de 3 na escada - e a regua nao mede
+            # este tipo (T124c). Preparo 10: a diagonal precisa de tabuleiro livre.
             parametros={},
             nu_lances_de_preparo=10,
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
@@ -2117,7 +2155,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_golpe_duplo": (
         Publicacao(
-            # ⏳ a medir. Duas linhas com a mesma peca: o nome do tipo.
+            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 2]` (T124c). Duas linhas com a
+            # mesma peca: o nome do tipo.
             parametros={"linhas": 2},
             nu_lances_de_preparo=10,
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
@@ -2128,7 +2167,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_linha_de_cinco": (
         Publicacao(
-            # ⏳ a medir. Cinco: um a mais que o alinhar da modalidade de hoje.
+            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 2, 3]` (T124c). Cinco: um a mais
+            # que o alinhar da modalidade de hoje.
             parametros={"tamanho": 5},
             nu_lances_de_preparo=10,
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
@@ -2139,7 +2179,9 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_encostadas": (
         Publicacao(
-            # ⏳ a medir. O alvo e o que ja esta encostado mais tres.
+            # ⚠️ Medida em 20/10: FOLGA e 3 de 3 na escada, mas POR ACASO - o
+            # personagem nao persegue o objetivo; espera um resolvedor proprio
+            # (§8zzzl, T124c). O alvo e o que ja esta encostado mais tres.
             parametros={CHAVE_A_MAIS_ENCOSTADAS: 3},
             nu_lances_de_preparo=10,
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
@@ -2150,7 +2192,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_sem_o_meio": (
         Publicacao(
-            # ⏳ a medir. So em modalidade de largura impar (quem recusa a par e
+            # ⛔ Medida em 20/10: SEM DESAFIO `[1, 1, 0]`, curto e facil (T124c).
+            # So em modalidade de largura impar (quem recusa a par e
             # a geracao, T116). O teto e o da prova: 8 lances (15 meios).
             parametros={},
             nu_lances_de_preparo=12,
@@ -2162,25 +2205,14 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_bloquear": (
         Publicacao(
-            # ⏳ a medir. Tres ameacas: o numero do enunciado aprovado (§8zzz).
+            # ⛔ Medida em 20/10: FOLGA, 0 de 3 na escada - e a regua nao mede este
+            # tipo (T124c). Tres ameacas: o numero do enunciado aprovado (§8zzz).
             parametros={"ameacas": 3},
             # Preparo 8: as ameacas a bloquear estao no resto da partida.
             nu_lances_de_preparo=8,
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 8,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("ameacas_bloqueadas"),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
-    "quatro_virada": (
-        Publicacao(
-            # ⏳ a medir. A prova nao limita a distancia da vitoria: o teto e
-            # o que resta do tabuleiro.
-            parametros={},
-            nu_lances_de_preparo=12,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 12,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
     ),

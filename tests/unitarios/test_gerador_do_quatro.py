@@ -123,7 +123,7 @@ def test_o_carimbo_do_motor_do_quatro() -> None:
 
 
 def test_a_bancada_do_quatro_joga_e_arbitra_a_modalidade_do_candidato() -> None:
-    receita = RECEITAS_FORA_DO_AR["quatro_virada"]
+    receita = RECEITAS["quatro_virada"]
     estado = _estado("s4s4s3")
     candidato = gerador.Candidato(
         co_jogo="quatro",
@@ -170,8 +170,10 @@ def test_posicao_reprovada_na_prova_nao_chega_ao_gabarito(monkeypatch, capsys) -
     monkeypatch.setattr(gerador, "_resolver", resolver)
     monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
 
-    assert _gerar("quatro_virada", tentativas_por_candidato=5) == []
-    assert perguntas and set(perguntas) == {"quatro_virada"}
+    # ⚠️ A diagonal, e nao a virada (que era o tipo destes casos ate a T124b):
+    # o caminho de "tipo em avaliacao" so aceita tipo fora do ar.
+    assert _gerar("quatro_vencer_diagonal", tentativas_por_candidato=5) == []
+    assert perguntas and set(perguntas) == {"quatro_vencer_diagonal"}
     assert "reprovada pelo teste" in capsys.readouterr().out
 
 
@@ -186,7 +188,7 @@ def test_vitoria_no_primeiro_lance_recusa_antes_da_prova(monkeypatch, capsys) ->
     monkeypatch.setattr(gerador.provas_quatro_mod, "ProvadorQuatro", lambda *a, **k: None)
     monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
 
-    assert _gerar("quatro_virada", tentativas_por_candidato=2) == []
+    assert _gerar("quatro_vencer_diagonal", tentativas_por_candidato=2) == []
     assert "cai no lance 1" in capsys.readouterr().out
 
 
@@ -264,14 +266,25 @@ def test_o_mesmo_dia_gera_o_mesmo_candidato(executavel) -> None:
 TETO_PROPRIO = {"quatro_vencer_em_n", "quatro_sem_o_meio"}
 
 
-@pytest.mark.parametrize("co_tipo", sorted(editorial_mod.EDITORIAL_FORA_DO_AR))
+#: Os numeros de cada tipo do Quatro, no ar ou fora dele (a promocao MOVE).
+EDITORIAL_DO_QUATRO = {
+    co_tipo: publicacoes
+    for co_tipo, publicacoes in {
+        **editorial_mod.EDITORIAL,
+        **editorial_mod.EDITORIAL_FORA_DO_AR,
+    }.items()
+    if co_tipo.startswith("quatro_")
+}
+
+
+@pytest.mark.parametrize("co_tipo", sorted(EDITORIAL_DO_QUATRO))
 def test_os_tipos_julgados_no_fim_tem_teto_ate_o_fim(co_tipo: str) -> None:
     """⛔ Com o teto padrão (20), um "não perca" nunca veria o fim da partida, e o
     tipo sairia SEM DESAFIO por um botão. O teto cobre o que resta do tabuleiro
     a partir do INÍCIO da faixa do preparo."""
     if co_tipo in TETO_PROPRIO:
         pytest.skip("teto fixado pela prova")
-    for publicacao in editorial_mod.EDITORIAL_FORA_DO_AR[co_tipo]:
+    for publicacao in EDITORIAL_DO_QUATRO[co_tipo]:
         assert (
             publicacao.nu_lances_de_preparo + publicacao.nu_maximo_de_meios_lances
             >= editorial_mod.CASAS_DO_TRADICIONAL
@@ -301,11 +314,12 @@ def _medidor():
 MEDIDOR = _medidor()
 
 
-def test_o_alvo_quatro_mede_os_dez_tipos_fora_do_ar() -> None:
+def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     tipos = MEDIDOR.tipos_do_alvo("quatro")
     assert tipos == sorted(t for t, r in RECEITAS_FORA_DO_AR.items() if r.co_jogo == "quatro")
-    assert len(tipos) == 10
-    assert MEDIDOR.tipos_do_alvo("quatro_virada") == ["quatro_virada"]
+    # Eram dez; a virada subiu na T124b.
+    assert len(tipos) == 9
+    assert MEDIDOR.tipos_do_alvo("quatro_encostadas") == ["quatro_encostadas"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)
 
@@ -343,7 +357,7 @@ def test_a_linha_da_regua_do_medidor_informa_o_jogo(monkeypatch) -> None:
     candidato = gerador.Candidato(
         co_jogo="quatro", co_variante=MODALIDADE, co_modalidade=MODALIDADE,
         co_formato_posicao="sequencia_lances", js_posicao_inicial={},
-        receita=RECEITAS_FORA_DO_AR["quatro_virada"], js_chegada={}, js_objetivo={},
+        receita=RECEITAS["quatro_virada"], js_chegada={}, js_objetivo={},
         co_personagem="tex", nu_semente=1, js_solucao={}, nu_lances_solucao=9,
         parametros={},
     )
@@ -361,3 +375,65 @@ def test_jogo_fora_do_rodizio_mede_em_dias_seguidos() -> None:
     assert "quatro" not in gerador.JOGOS_DO_RODIZIO
     dias = MEDIDOR._dias_do_jogo("quatro", 3)
     assert [(d - dias[0]).days for d in dias] == [0, 1, 2]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A virada NO AR (T124b) - e o jogo ainda fora do rodizio
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_rodizio_ainda_NAO_sorteia_o_quatro() -> None:
+    """🔒 Estar em `RECEITAS` nao faz o job gerar o Quatro: o JOGO vem da data.
+
+    ⚠️ E isto que deixa a virada subir antes das migracoes da T118-T124: o job
+    so passa a gerar desafio do Quatro quando ele entrar em
+    `gerador.JOGOS_DO_RODIZIO`, na T125. ⛔ No dia da T125 este caso falha de
+    proposito - e e para ser trocado pelo cadeado de que o Quatro aparece.
+    """
+    assert "quatro" not in gerador.JOGOS_DO_RODIZIO
+    dias = [DIA.fromordinal(DIA.toordinal() + n) for n in range(60)]
+    assert {gerador.escolher_jogo(dia) for dia in dias} == set(gerador.JOGOS_DO_RODIZIO)
+
+
+def test_a_virada_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
+    monkeypatch,
+) -> None:
+    """Simula a T125: com o Quatro como jogo do dia, o rodizio de tipo acha a
+    virada, e o caminho normal exige o vetor de verificacao - que agora existe.
+    """
+    escolhidos: list[str] = []
+
+    def anota(co_tipo, provador, estado, parametros, *, continuacao=None):
+        escolhidos.append(co_tipo)
+        return provas_quatro.ProvaQuatro(False, "so anotando")
+
+    monkeypatch.setattr(gerador, "escolher_jogo", lambda dia, evitar=(): "quatro")
+    monkeypatch.setattr(gerador.provas_quatro_mod, "provar", anota)
+    monkeypatch.setattr(gerador.provas_quatro_mod, "ProvadorQuatro", lambda *a, **k: None)
+    monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
+    (publicacao,) = editorial_mod.EDITORIAL["quatro_virada"]
+    assert (
+        gerador.gerar_candidatos(
+            DIA,
+            parametros=publicacao.parametros,
+            quantos=1,
+            tentativas_por_candidato=2,
+            lances_de_preparo=publicacao.nu_lances_de_preparo,
+            maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
+            minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
+        )
+        == []
+    )
+    assert escolhidos and set(escolhidos) == {"quatro_virada"}
+
+
+def test_o_medidor_RECUSA_medir_a_virada_pelo_alvo_no_ar() -> None:
+    """⛔ O gerador mediria outro jogo com o nome dela (ver
+    `no_ar_e_fora_do_rodizio` no medidor): os alvos `no-ar` a deixam de fora ate
+    a T125, e o pedido pelo nome sai vazio."""
+    assert MEDIDOR.no_ar_e_fora_do_rodizio("quatro_virada")
+    assert not MEDIDOR.no_ar_e_fora_do_rodizio("quatro_encostadas")  # fora do ar
+    assert not MEDIDOR.no_ar_e_fora_do_rodizio("damas_sobreviver")
+    assert "quatro_virada" not in MEDIDOR.tipos_do_alvo("no-ar")
+    assert MEDIDOR.tipos_do_alvo("no-ar:quatro_virada") == []
+    assert MEDIDOR.tipos_do_alvo("quatro_virada") == []

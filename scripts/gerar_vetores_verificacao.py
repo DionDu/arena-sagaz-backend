@@ -74,6 +74,9 @@ from motores.damas.motor_damas import EstadoDamas, MotorDamas  # noqa: E402
 from motores.damas import feitos_damas  # noqa: E402
 from motores.pontinhos import feitos_pontinhos  # noqa: E402
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos  # noqa: E402
+from motores.quatro import feitos_quatro  # noqa: E402
+from motores.quatro.motor_quatro import MotorQuatro  # noqa: E402
+from job import posicao_inicial as posicao_inicial_mod  # noqa: E402
 
 #: A versao do documento. ⚠️ **2 desde 26/09/2026**, quando o bloco `sementes`
 #: entrou: um leitor da versao 1 nao encontraria a chave, e e melhor que ele saiba
@@ -581,6 +584,11 @@ def provar_que_o_invalido_e_mesmo_invalido(vetores: list[dict[str, Any]]) -> Non
                 # `EstadoPontinhos` so reproduz a partida quando lhe perguntam
                 # algo — o `placar` e o que dispara a validacao da sequencia.
                 estado.placar
+            elif vetor["co_jogo"] == "quatro":
+                motor = MotorQuatro(vetor["co_modalidade"])
+                estado = motor.de_dado(vetor["js_posicao_inicial"])
+                for lance in fita:
+                    estado = motor.aplicar(estado, lance)
             else:
                 estado = _estado_damas(vetor["js_posicao_inicial"]["fen"])
                 for lance in fita:
@@ -1404,6 +1412,137 @@ def vetores_das_damas_de_16_09() -> list[dict[str, Any]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# O QUATRO EM LINHA - a virada (T124b da spec 010, 20/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **O vetor prova o JULGAMENTO, e nao a virada.** Que a posicao publicada
+# "parece perdida" e a pessoa vence a forca e a prova da GERACAO
+# (`job/provas_quatro.py`, T116), feita pela busca do executavel. O que o vetor
+# confere e a outra metade: dado uma posicao e uma fita, o Dart e o Python dizem
+# o mesmo veredito e as mesmas medidas. Por isso as posicoes sao pequenas e
+# conferiveis de cabeca, como as dos outros jogos.
+#
+# A posicao-base e `s3 s3 s4 s4` no tradicional (7x6): o J1 tem as casas de
+# baixo das colunas 3 e 4, o J2 as de cima delas, e a vez e do J1.
+#
+#     linha 2   . . O O . . .
+#     linha 1   . . X X . . .
+#               1 2 3 4 5 6 7
+#
+# ⚠️ **O campo `jogador` e novo** (so nos vetores do Quatro): a vez na posicao
+# publicada e de quem o desafio e, e no Quatro ela pode ser do J2 - o preparo
+# sorteia dentro de uma janela de seis lances (`gerador.JANELA_DO_PREPARO_QUATRO`).
+# Os dois julgadores o leem com `+1` por padrao, que e o que os vetores antigos
+# dizem calados. Sem ele, o desafio do J2 seria julgado do lado errado - e o
+# medidor do Quatro recusa isso, nos dois lados.
+
+#: A chegada da virada: so a vitoria (a receita, e nao um JSON escrito a mao).
+_CHEGADA_DA_VIRADA = RECEITAS["quatro_virada"].montar({})
+
+#: A posicao-base, um lance por item.
+_BASE_DO_QUATRO = ["s3", "s3", "s4", "s4"]
+
+#: A mesma posicao com um lance a mais do J1 na coluna 1: a vez passa ao J2.
+_BASE_DO_QUATRO_COM_O_J2 = _BASE_DO_QUATRO + ["s1"]
+
+
+def vetores_do_quatro() -> list[dict[str, Any]]:
+    """Os cinco vetores de `quatro_virada`.
+
+    ⚠️ **Os feitos saem do MEDIDOR DE PRODUCAO** (`feitos_quatro.medir`), como
+    nos tipos de damas de 16/09: recontar aqui seria uma terceira implementacao
+    da regra que o vetor existe para conferir.
+    """
+    receita = RECEITAS["quatro_virada"]
+    co_modalidade = "tradicional"
+    motor = MotorQuatro(co_modalidade)
+
+    def vetor(
+        identificador: str,
+        descricao: str,
+        iniciais: list[str],
+        fita: list[str],
+        veredito: str,
+    ) -> dict[str, Any]:
+        posicao = posicao_inicial_mod.do_quatro(iniciais, co_modalidade=co_modalidade)
+        pessoa = posicao["vez_de"]
+        esperado: dict[str, Any] = {"veredito": veredito}
+        esperado["feitos"] = (
+            {}
+            if veredito == "dado_invalido"
+            else feitos_quatro.medir(motor, iniciais, fita, jogador=pessoa)
+        )
+        return {
+            "id": identificador,
+            "de_vetor": descricao,
+            "co_jogo": "quatro",
+            "co_variante": co_modalidade,
+            "co_modalidade": co_modalidade,
+            "co_formato_posicao": posicao["co_formato_posicao"],
+            "js_posicao_inicial": posicao,
+            "nu_tipo_desafio": receita.nu_tipo_desafio,
+            "co_tipo_desafio": receita.co_tipo_desafio,
+            "jogador": pessoa,
+            # O dono de cada lance alterna, a partir de quem tem a vez.
+            "lances": [
+                {"n": n, "jogador": pessoa if n % 2 else -pessoa, "lance": lance}
+                for n, lance in enumerate(fita, start=1)
+            ],
+            "js_chegada": _CHEGADA_DA_VIRADA,
+            "esperado": esperado,
+        }
+
+    return [
+        vetor(
+            "quatro-virada-cumpriu",
+            "O J1 solta na coluna 5 e fica com tres embaixo (3, 4 e 5) e duas "
+            "pontas livres; o J2 tapa a 2, e o J1 vence pela 6. A vitoria cai no "
+            "3o meio-lance, o 2o lance da pessoa.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6"],
+            "cumpriu",
+        ),
+        vetor(
+            "quatro-virada-parou-antes-de-vencer",
+            "A MESMA fita sem o ultimo lance: a vitoria esta ao alcance, e a "
+            "partida para antes dela. E o caso 'nao cumpre por pouco' - quem "
+            "julgasse a ameaca no lugar da vitoria diria cumpriu.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2"],
+            "nao_cumpriu",
+        ),
+        vetor(
+            "quatro-virada-o-adversario-venceu",
+            "A pessoa solta na 6 (3, 4 e 6 embaixo) e o J2 tapa a 5; a pessoa "
+            "solta na 7 e o J2 sobe na linha 2 (3, 4 e 5); a pessoa solta na "
+            "coluna 1 em vez de tapar a 6, e o J2 fecha a linha 2 por ela. A "
+            "partida termina, e com a derrota: nao cumpre.",
+            _BASE_DO_QUATRO,
+            ["s6", "s5", "s7", "s5", "s1", "s6"],
+            "nao_cumpriu",
+        ),
+        vetor(
+            "quatro-virada-a-pessoa-e-o-J2",
+            "A vez na posicao publicada e do J2 (o J1 jogou na coluna 1). O J2 "
+            "tapa a 2 e a 6, sobe na linha 2 e vence pela coluna 1: quatro na "
+            "linha 2. Julgado com o jogador +1, o medidor recusaria a fita - e "
+            "o vetor que obriga os dois julgadores a ler o `jogador`.",
+            _BASE_DO_QUATRO_COM_O_J2,
+            ["s2", "s5", "s6", "s5", "s2", "s7", "s1"],
+            "cumpriu",
+        ),
+        vetor(
+            "quatro-virada-lance-ilegal-e-dado-invalido",
+            "Uma coluna que nao existe (a 8, num tabuleiro de 7). O julgador "
+            "recusa a fita inteira, em vez de ignorar o lance e medir o resto.",
+            _BASE_DO_QUATRO,
+            ["s8"],
+            "dado_invalido",
+        ),
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ⛔ AS SEMENTES POR LANCE — o segundo bloco do documento (26/09/2026)
 # ═══════════════════════════════════════════════════════════════════════════
 #
@@ -1501,6 +1640,8 @@ def montar() -> dict[str, Any]:
         + vetores_dos_tipos_de_14_09()
         + vetores_das_damas()
         + vetores_das_damas_de_16_09()
+        # ⚠️ No fim, para o diff do dia ser acrescimo (T124b da spec 010).
+        + vetores_do_quatro()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 
