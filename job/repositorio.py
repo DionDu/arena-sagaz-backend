@@ -271,6 +271,19 @@ SELECT dia.dt_dia,
 #: ⚠️ **So `aprovado` e `candidato` contam como vizinho.** Um descartado que
 #: ainda tenha vinculo (anterior a regra que o desagenda) nao vai ao ar, e
 #: desviar dele seria restringir o dia por causa de um desafio que ninguem vera.
+#: Os aparelhos vistos na janela da adoção, com a versão de cada dia (T120).
+#:
+#: ⛔ **Sem filtro de `ic_legado`, de propósito.** As linhas legadas são o app 1.3
+#: em campo; tirá-las daria 100% de adoção no dia do lançamento (`job/adocao.py`).
+#: Quem reduz as linhas a "um aparelho, a maior versão" é `adocao.medir_adocao`,
+#: em Python, com a mesma comparação numérica da T118 - fazê-lo aqui seria uma
+#: segunda escrita da regra.
+SQL_AVISTAMENTOS_DA_ADOCAO = """
+SELECT id_aparelho, co_versao_app
+  FROM log.vw004_aparelho_dia
+ WHERE dt_dia_local BETWEEN :dt_inicio AND :dt_fim
+"""
+
 SQL_VIZINHANCA = f"""
 SELECT dia.dt_dia,
        d.co_jogo,
@@ -565,6 +578,23 @@ class RepositorioDoJob:
             anterior=por_dia.get(dt_dia - um_dia),
             seguinte=por_dia.get(dt_dia + um_dia),
         )
+
+    async def avistamentos_da_adocao(
+        self, *, dt_inicio: date, dt_fim: date
+    ) -> list[tuple[Any, Optional[str]]]:
+        """Os pares `(id_aparelho, co_versao_app)` da janela, os dois dias incluídos.
+
+        ⚠️ Uma consulta só por execução, e para todos os jogos em adoção: a
+        amostra é a mesma, e muda só a versão mínima que cada um pede.
+        """
+        resultado = await self.sessao.execute(
+            text(SQL_AVISTAMENTOS_DA_ADOCAO),
+            {"dt_inicio": dt_inicio, "dt_fim": dt_fim},
+        )
+        return [
+            (linha["id_aparelho"], linha["co_versao_app"])
+            for linha in resultado.mappings().all()
+        ]
 
     async def mover_o_dia(
         self,

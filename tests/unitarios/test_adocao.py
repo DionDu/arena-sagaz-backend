@@ -31,8 +31,12 @@ from job.adocao import (
     UM_DIA_EM_ABAIXO_DE_40,
     UM_DIA_EM_DE_40_A_60,
     UM_DIA_EM_DE_60_A_80,
+    UM_DIA_EM_NO_RODIZIO_PLENO,
+    NAO_APARECE,
+    PASSO_DOS_DIAS,
     Adocao,
     Frequencia,
+    dia_do_jogo_novo,
     frequencia_do_jogo_novo,
     janela_da_adocao,
     medir_adocao,
@@ -86,14 +90,15 @@ def _amostra(adotaram: int, total: int) -> list[tuple[uuid.UUID, str]]:
 @pytest.mark.parametrize(
     ("adotaram", "um_dia_em"),
     [
-        (0, 6),  # ninguém
+        (0, None),  # ninguém: o jogo novo não aparece (T120)
+        (1, 6),  # basta um aparelho para a faixa de baixo valer
         (285, 6),  # 39,86% - um aparelho abaixo dos 40
         (286, 4),  # 40% cravados: o limite inferior entra na faixa
         (428, 4),  # 59,86%
         (429, 3),  # 60%
         (571, 3),  # 79,86%
-        (572, None),  # 80%: rodízio pleno
-        (715, None),  # todos
+        (572, 3),  # 80%: rodízio pleno, 1 em 3
+        (715, 3),  # todos
     ],
 )
 def test_cada_limiar_dos_dois_lados(adotaram, um_dia_em):
@@ -103,7 +108,10 @@ def test_cada_limiar_dos_dois_lados(adotaram, um_dia_em):
     assert adocao.aparelhos == TOTAL
     assert adocao.adotaram == adotaram
     assert adocao.fracao == Fraction(adotaram, TOTAL)
-    assert frequencia_do_jogo_novo(adocao) == Frequencia(um_dia_em=um_dia_em)
+    frequencia = frequencia_do_jogo_novo(adocao)
+    assert frequencia.um_dia_em == um_dia_em
+    # O pleno é a faixa de cima, e só ela: 571 (79,86%) ainda não é.
+    assert frequencia.rodizio_pleno is (adotaram >= 572)
 
 
 @pytest.mark.parametrize(
@@ -116,12 +124,13 @@ def test_cada_limiar_dos_dois_lados(adotaram, um_dia_em):
         (599, 1000, 4),
         (3, 5, 3),
         (799, 1000, 3),
-        (4, 5, None),
+        (4, 5, 3),
     ],
 )
 def test_os_limiares_valem_em_qualquer_tamanho_de_amostra(adotaram, total, um_dia_em):
     adocao = Adocao(versao_minima=MINIMA, aparelhos=total, adotaram=adotaram)
     assert frequencia_do_jogo_novo(adocao).um_dia_em == um_dia_em
+    assert frequencia_do_jogo_novo(adocao).rodizio_pleno is (adotaram * 5 >= total * 4)
 
 
 def test_os_numeros_da_tabela_sao_os_ratificados_na_t003():
@@ -132,11 +141,23 @@ def test_os_numeros_da_tabela_sao_os_ratificados_na_t003():
     assert UM_DIA_EM_ABAIXO_DE_40 == 6
     assert UM_DIA_EM_DE_40_A_60 == 4
     assert UM_DIA_EM_DE_60_A_80 == 3
+    assert UM_DIA_EM_NO_RODIZIO_PLENO == 3
 
 
-def test_o_rodizio_pleno_e_none_e_nao_um_numero():
-    assert Frequencia(um_dia_em=None).rodizio_pleno is True
-    assert Frequencia(um_dia_em=3).rodizio_pleno is False
+def test_none_quer_dizer_que_o_jogo_novo_nao_aparece():
+    assert NAO_APARECE == Frequencia(um_dia_em=None)
+    assert NAO_APARECE.aparece is False
+    assert NAO_APARECE.rodizio_pleno is False
+    assert Frequencia(um_dia_em=6).aparece is True
+
+
+def test_a_faixa_em_palavras_para_o_log():
+    assert NAO_APARECE.descrever() == "não aparece"
+    assert Frequencia(um_dia_em=6).descrever() == "1 dia em 6"
+    assert (
+        Frequencia(um_dia_em=3, rodizio_pleno=True).descrever()
+        == "rodízio pleno (1 dia em 3)"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -144,11 +165,18 @@ def test_o_rodizio_pleno_e_none_e_nao_um_numero():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_sem_amostra_a_adocao_e_zero_e_o_jogo_novo_fica_raro():
+def test_sem_amostra_a_adocao_e_zero_e_o_jogo_novo_nao_aparece():
     adocao = medir_adocao([], MINIMA)
     assert (adocao.aparelhos, adocao.adotaram) == (0, 0)
     assert adocao.fracao == 0
-    assert frequencia_do_jogo_novo(adocao).um_dia_em == 6
+    assert frequencia_do_jogo_novo(adocao) == NAO_APARECE
+
+
+def test_com_aparelhos_e_nenhum_na_versao_o_jogo_novo_nao_aparece():
+    """O dia em que o backend vai ao ar antes do app chegar às lojas."""
+    adocao = medir_adocao([("a", "1.3.1"), ("b", "1.3.1+16")], MINIMA)
+    assert (adocao.aparelhos, adocao.adotaram) == (2, 0)
+    assert frequencia_do_jogo_novo(adocao) == NAO_APARECE
 
 
 @pytest.mark.parametrize(
@@ -238,3 +266,77 @@ def test_a_janela_sao_os_sete_dias_fechados_antes_de_hoje():
 
 def test_a_janela_atravessa_a_virada_do_ano():
     assert janela_da_adocao(date(2027, 1, 3)) == (date(2026, 12, 27), date(2027, 1, 2))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. Quais dias são do jogo novo (T120)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Dez anos de dias, para as contagens.
+DEZ_ANOS = range(3650)
+
+
+def _dias(frequencia: Frequencia, *, deslocamento: float = 0.0) -> list[int]:
+    return [d for d in DEZ_ANOS if dia_do_jogo_novo(d, frequencia, deslocamento=deslocamento)]
+
+
+def test_o_passo_e_a_parte_fracionaria_da_razao_aurea():
+    import math
+
+    assert PASSO_DOS_DIAS == (math.sqrt(5) - 1) / 2
+
+
+@pytest.mark.parametrize("n", [6, 4, 3])
+def test_um_dia_em_n_e_um_dia_em_n(n):
+    """Em dez anos, a fração dos dias fica a menos de 0,2 ponto de 1/N."""
+    dias = _dias(Frequencia(um_dia_em=n))
+    assert abs(len(dias) / len(DEZ_ANOS) - 1 / n) < 0.002
+
+
+@pytest.mark.parametrize("n", [6, 4, 3])
+def test_dois_dias_seguidos_nunca_saem(n):
+    dias = _dias(Frequencia(um_dia_em=n))
+    assert min(b - a for a, b in zip(dias, dias[1:])) >= 2
+
+
+@pytest.mark.parametrize("n", [6, 4, 3])
+def test_o_jogo_novo_toma_dias_pares_e_impares_por_igual(n):
+    """⚠️ Com `dias % N == 0` (N par) ele tomaria SÓ os dias de um jogo antigo."""
+    dias = _dias(Frequencia(um_dia_em=n))
+    pares = sum(1 for d in dias if d % 2 == 0)
+    assert abs(pares / len(dias) - 0.5) < 0.02
+
+
+@pytest.mark.parametrize("n", [6, 4, 3])
+@pytest.mark.parametrize(("paridade", "tipos"), [(0, 7), (1, 4), (1, 16)])
+def test_nenhuma_vez_do_rodizio_de_tipos_fica_de_fora(n, paridade, tipos):
+    """O travamento em fase de 10/09/2026, pelo caminho do jogo novo.
+
+    O tipo de um jogo antigo é `(dias // 2) % tipos`; se os dias tomados caíssem
+    sempre no mesmo resto, aquele tipo perderia todas as vezes. 7 é o Pontinhos,
+    4 os tipos das damas e 16 os tipos × modalidades delas. Nenhum resto pode
+    perder mais que o dobro de outro.
+    """
+    from collections import Counter
+
+    tomados = Counter(
+        (d // 2) % tipos for d in _dias(Frequencia(um_dia_em=n)) if d % 2 == paridade
+    )
+    assert len(tomados) == tipos
+    assert max(tomados.values()) < 2 * min(tomados.values())
+
+
+def test_quem_nao_aparece_nunca_toma_dia():
+    assert _dias(NAO_APARECE) == []
+
+
+def test_a_regra_e_so_da_data_e_da_faixa():
+    frequencia = Frequencia(um_dia_em=4)
+    assert _dias(frequencia) == _dias(Frequencia(um_dia_em=4))
+
+
+def test_o_deslocamento_separa_dois_jogos_novos():
+    um = set(_dias(Frequencia(um_dia_em=6)))
+    outro = set(_dias(Frequencia(um_dia_em=6), deslocamento=0.5))
+    assert um and outro
+    assert not um & outro

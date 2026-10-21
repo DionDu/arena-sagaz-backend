@@ -385,12 +385,13 @@ def test_jogo_fora_do_rodizio_mede_em_dias_seguidos() -> None:
 def test_o_rodizio_ainda_NAO_sorteia_o_quatro() -> None:
     """🔒 Estar em `RECEITAS` nao faz o job gerar o Quatro: o JOGO vem da data.
 
-    ⚠️ E isto que deixa a virada subir antes das migracoes da T118-T124: o job
-    so passa a gerar desafio do Quatro quando ele entrar em
-    `gerador.JOGOS_DO_RODIZIO`, na T125. ⛔ No dia da T125 este caso falha de
-    proposito - e e para ser trocado pelo cadeado de que o Quatro aparece.
+    ⚠️ Desde a T120 o Quatro entra pela ADOCAO (`gerador.JOGOS_EM_ADOCAO`), e
+    nunca pelo rodizio: sem a faixa de adocao, `escolher_jogo` continua dando so
+    os dois jogos de sempre. Quem prova que ele aparece quando ha aparelhos na
+    versao e `test_adocao_nao_muda_a_fila.py`.
     """
     assert "quatro" not in gerador.JOGOS_DO_RODIZIO
+    assert "quatro" in gerador.JOGOS_EM_ADOCAO
     dias = [DIA.fromordinal(DIA.toordinal() + n) for n in range(60)]
     assert {gerador.escolher_jogo(dia) for dia in dias} == set(gerador.JOGOS_DO_RODIZIO)
 
@@ -398,24 +399,39 @@ def test_o_rodizio_ainda_NAO_sorteia_o_quatro() -> None:
 def test_a_virada_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
     monkeypatch,
 ) -> None:
-    """Simula a T125: com o Quatro como jogo do dia, o rodizio de tipo acha a
-    virada, e o caminho normal exige o vetor de verificacao - que agora existe.
+    """Com o Quatro como jogo do dia, o rodizio de tipo acha a virada, e o
+    caminho normal exige o vetor de verificacao - que agora existe.
+
+    ⚠️ Desde a T120 o dia do Quatro sai da ADOCAO, e o caso usa o caminho real:
+    uma faixa de 1 em 3 e o primeiro dia que ela da ao Quatro (antes, um duble
+    trocava o `escolher_jogo` inteiro).
     """
+    from job.adocao import Frequencia
+
+    frequencias = {"quatro": Frequencia(um_dia_em=3)}
+    dia = next(
+        DIA.fromordinal(DIA.toordinal() + n)
+        for n in range(30)
+        if gerador.escolher_jogo(
+            DIA.fromordinal(DIA.toordinal() + n), frequencias=frequencias
+        )
+        == "quatro"
+    )
     escolhidos: list[str] = []
 
     def anota(co_tipo, provador, estado, parametros, *, continuacao=None):
         escolhidos.append(co_tipo)
         return provas_quatro.ProvaQuatro(False, "so anotando")
 
-    monkeypatch.setattr(gerador, "escolher_jogo", lambda dia, evitar=(): "quatro")
     monkeypatch.setattr(gerador.provas_quatro_mod, "provar", anota)
     monkeypatch.setattr(gerador.provas_quatro_mod, "ProvadorQuatro", lambda *a, **k: None)
     monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
     (publicacao,) = editorial_mod.EDITORIAL["quatro_virada"]
     assert (
         gerador.gerar_candidatos(
-            DIA,
+            dia,
             parametros=publicacao.parametros,
+            frequencias=frequencias,
             quantos=1,
             tentativas_por_candidato=2,
             lances_de_preparo=publicacao.nu_lances_de_preparo,
@@ -429,8 +445,9 @@ def test_a_virada_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
 
 def test_o_medidor_RECUSA_medir_a_virada_pelo_alvo_no_ar() -> None:
     """⛔ O gerador mediria outro jogo com o nome dela (ver
-    `no_ar_e_fora_do_rodizio` no medidor): os alvos `no-ar` a deixam de fora ate
-    a T125, e o pedido pelo nome sai vazio."""
+    `no_ar_e_fora_do_rodizio` no medidor): os alvos `no-ar` a deixam de fora
+    (desde a T120, para sempre: o Quatro entra pela adocao, e nao pelo rodizio),
+    e o pedido pelo nome sai vazio."""
     assert MEDIDOR.no_ar_e_fora_do_rodizio("quatro_virada")
     assert not MEDIDOR.no_ar_e_fora_do_rodizio("quatro_encostadas")  # fora do ar
     assert not MEDIDOR.no_ar_e_fora_do_rodizio("damas_sobreviver")

@@ -146,9 +146,10 @@ class Adocao:
 
         ⚠️ **Sem amostra, a adoção é ZERO.** Nenhum aparelho visto em 7 dias (um
         banco novo, ou a leitura falhando em silêncio) não é prova de que a
-        versão chegou: o jogo novo fica na faixa mais rara, e não no rodízio
-        pleno. Errar para o lado conservador custa dias de jogo novo; errar para
-        o outro custa a tela de atualizar para todo mundo.
+        versão chegou: o jogo novo **não aparece** (`frequencia_do_jogo_novo`),
+        e nunca vai ao rodízio pleno por falta de dado. Errar para o lado
+        conservador custa dias de jogo novo; errar para o outro custa a tela de
+        atualizar para todo mundo.
         """
         if self.aparelhos == 0:
             return Fraction(0)
@@ -218,14 +219,22 @@ def medir_adocao(
 #
 # | adoção do jogo novo | o jogo novo aparece                       |
 # |---------------------|-------------------------------------------|
+# | nenhum aparelho     | não aparece (T120, a ratificar)           |
 # | < 40%               | 1 dia em 6                                |
 # | 40% a < 60%         | 1 dia em 4                                |
 # | 60% a < 80%         | 1 dia em 3                                |
-# | ≥ 80%               | rodízio pleno, sem regra especial         |
+# | ≥ 80%               | rodízio pleno (1 em 3)                    |
 #
 # ⚠️ São PONTO DE PARTIDA (R-23): mudar um número é mudar estas constantes, e o
 # teste dos limiares exatos (39,9 / 40 / 59,9 / 60 / 79,9 / 80) acusa a mudança.
 # O limite inferior de cada faixa é INCLUÍDO nela: 40% exatos já é 1 em 4.
+#
+# ⚠️ **A 1ª linha não estava na tabela da T003, e entrou na T120.** Com ZERO
+# aparelhos na versão, ninguém consegue abrir o desafio do jogo novo: cada dia
+# dele seria a tela de atualizar para todo mundo. É o que acontece no dia em que
+# o backend vai ao ar antes do app chegar às lojas - e é o que o cadeado da R-23
+# pede ("com adoção 0, 365 dias dão a mesma fila de hoje"). Basta UM aparelho
+# para a faixa de 1 em 6 valer.
 
 #: A partir daqui o jogo novo aparece 1 dia em 4.
 LIMIAR_UM_EM_QUATRO = Fraction(40, 100)
@@ -234,50 +243,121 @@ LIMIAR_UM_EM_TRES = Fraction(60, 100)
 #: A partir daqui, o rodízio pleno.
 LIMIAR_RODIZIO_PLENO = Fraction(80, 100)
 
-#: Abaixo de 40%: 1 dia em 6.
+#: Abaixo de 40% (e com pelo menos um aparelho): 1 dia em 6.
 UM_DIA_EM_ABAIXO_DE_40 = 6
 #: De 40% a menos de 60%: 1 dia em 4.
 UM_DIA_EM_DE_40_A_60 = 4
 #: De 60% a menos de 80%: 1 dia em 3.
 UM_DIA_EM_DE_60_A_80 = 3
+#: No rodízio pleno: 1 dia em 3, a parte de cada um dos três jogos.
+#:
+#: ⚠️ **O pleno é "1 em 3" pela MESMA regra dos dias, e não o jogo entrando em
+#: `gerador.JOGOS_DO_RODIZIO`.** Pôr um 3º jogo naquela tupla mudaria a conta
+#: `dias // len(JOGOS_DO_RODIZIO)` de que dependem o tipo, a modalidade e a
+#: variante do Pontinhos e das damas - a fila deles inteira mudaria de fase, que
+#: é exatamente o que a R-23 (item 4) proíbe. A frequência é a mesma; a fila dos
+#: jogos antigos continua a de sempre.
+UM_DIA_EM_NO_RODIZIO_PLENO = 3
 
 
 @dataclass(frozen=True, slots=True)
 class Frequencia:
     """Com que frequência o jogo novo pode aparecer.
 
-    ⚠️ **`um_dia_em = None` quer dizer RODÍZIO PLENO**, e não "nunca": o jogo novo
-    entra na tupla do rodízio como os outros, sem regra especial. Os outros
-    valores são *"1 dia em N"*, e quem distribui esses dias pela fila (sem
-    mudar a dos jogos antigos) é `gerador.escolher_jogo`, na T120.
-
-    ⚠️ O "1 em 3" da faixa de 60 a 80% e o rodízio pleno com três jogos dão o
-    mesmo número, e ainda assim não são a mesma coisa: o pleno é a regra de
-    sempre (a data e os vizinhos), e a faixa é a regra do jogo novo.
+    ⚠️ **`um_dia_em = None` quer dizer que o jogo novo NÃO APARECE** (nenhum
+    aparelho tem a versão). Os outros valores são *"1 dia em N"*, e quem decide
+    quais dias são esses é `dia_do_jogo_novo`, logo abaixo.
     """
 
-    #: `N` em "1 dia em N", ou `None` no rodízio pleno.
+    #: `N` em "1 dia em N", ou `None` quando o jogo novo não aparece.
     um_dia_em: Optional[int]
+    #: `True` na faixa de cima (≥ 80%). Só informa o log: a regra dos dias é a
+    #: mesma das outras faixas (ver `UM_DIA_EM_NO_RODIZIO_PLENO`).
+    rodizio_pleno: bool = False
 
     @property
-    def rodizio_pleno(self) -> bool:
-        """`True` quando o jogo novo já não precisa de regra especial."""
-        return self.um_dia_em is None
+    def aparece(self) -> bool:
+        """`True` quando o jogo novo tem algum dia."""
+        return self.um_dia_em is not None
+
+    def descrever(self) -> str:
+        """A faixa em palavras, para o log da execução."""
+        if self.um_dia_em is None:
+            return "não aparece"
+        if self.rodizio_pleno:
+            return f"rodízio pleno (1 dia em {self.um_dia_em})"
+        return f"1 dia em {self.um_dia_em}"
+
+
+#: O jogo novo fora do ar: nenhum aparelho com a versão.
+NAO_APARECE = Frequencia(um_dia_em=None)
 
 
 def frequencia_do_jogo_novo(adocao: Adocao) -> Frequencia:
-    """A faixa em que [adocao] cai, conforme a tabela ratificada na T003.
+    """A faixa em que [adocao] cai, conforme a tabela acima.
 
     A comparação é feita com a fração **exata** (`Adocao.fracao`): 2 de 5
     aparelhos são 40% e já valem 1 em 4; 285 de 715 (39,86%) ainda são 1 em 6.
     """
+    if adocao.adotaram == 0:
+        # Ninguém abre o desafio do jogo novo (inclui a amostra vazia).
+        return NAO_APARECE
     fracao = adocao.fracao
     # Do limiar mais alto para o mais baixo: a primeira faixa que a adoção
     # alcança é a dela.
     if fracao >= LIMIAR_RODIZIO_PLENO:
-        return Frequencia(um_dia_em=None)
+        return Frequencia(um_dia_em=UM_DIA_EM_NO_RODIZIO_PLENO, rodizio_pleno=True)
     if fracao >= LIMIAR_UM_EM_TRES:
         return Frequencia(um_dia_em=UM_DIA_EM_DE_60_A_80)
     if fracao >= LIMIAR_UM_EM_QUATRO:
         return Frequencia(um_dia_em=UM_DIA_EM_DE_40_A_60)
     return Frequencia(um_dia_em=UM_DIA_EM_ABAIXO_DE_40)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Quais dias são do jogo novo (T120)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: O passo da regra dos dias: a parte fracionária da razão áurea, (√5 − 1) / 2.
+#:
+#: ⚠️ **Por que um número irracional, e não "o dia é do jogo novo quando
+#: `dias % 6 == 0`".** O resto por 6 é sempre par, então o jogo novo tomaria
+#: SEMPRE o dia do mesmo jogo antigo (o Pontinhos joga nos dias pares), e dentro
+#: dele sempre a mesma vez do rodízio de tipos: `dias // 2` cairia sempre no mesmo
+#: resto por 3, e com 6 ou 3 tipos um deles nunca mais sairia. É o travamento em
+#: fase de 10/09/2026 (`gerador.escolher_tipo`), por outro caminho.
+#:
+#: Somar um irracional a cada dia e olhar só a parte fracionária (uma "rotação
+#: irracional") nunca repete um ciclo: os dias do jogo novo não têm período
+#: nenhum, então não ficam em fase com a paridade, nem com os tipos, nem com as
+#: modalidades. E a razão áurea é o irracional que espalha **mais igual**: os
+#: intervalos entre dois dias do jogo novo só assumem três tamanhos (3, 5 e 8
+#: dias no 1 em 6; 2, 3 e 5 no 1 em 4 e no 1 em 3), e dois dias seguidos nunca
+#: saem (o passo, 0,618, é maior que qualquer janela 1/N com N ≥ 2). Medido em
+#: 3.650 dias (21/10/2026): metade dos dias do jogo novo cai em dia par e metade
+#: em ímpar, e cada tipo do Pontinhos (7) e das damas (4) perde a mesma parte.
+#:
+#: Escrito por extenso, e não calculado, para nenhuma plataforma arredondar
+#: diferente: `float` do Python é IEEE 754 em todo lugar.
+PASSO_DOS_DIAS = 0.6180339887498949
+
+
+def dia_do_jogo_novo(dias: int, frequencia: Frequencia, *, deslocamento: float = 0.0) -> bool:
+    """`True` quando o dia número [dias] (desde a época do rodízio) é do jogo novo.
+
+    Args:
+        dias: os dias desde `gerador.EPOCA_DO_RODIZIO`.
+        frequencia: a faixa da adoção.
+        deslocamento: de 0 a 1, para dois jogos em adoção ao mesmo tempo não
+            caírem nos mesmos dias (cada um começa a sua janela num ponto).
+
+    A conta: a parte fracionária de `dias × PASSO_DOS_DIAS + deslocamento` cai
+    na janela `[0, 1/N)` uma vez a cada N dias, em média. É uma função **só da
+    data e da faixa**: duas execuções do job com a mesma adoção escolhem os
+    mesmos dias (a idempotência da T038).
+    """
+    if frequencia.um_dia_em is None:
+        return False
+    # `% 1.0` fica só com a parte fracionária (5,37 → 0,37).
+    posicao = (dias * PASSO_DOS_DIAS + deslocamento) % 1.0
+    return posicao < 1.0 / frequencia.um_dia_em

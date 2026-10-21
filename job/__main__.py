@@ -68,6 +68,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any, Callable, Optional, Sequence
 
+from . import adocao as adocao_mod
 from . import alvo_observado as alvo_mod
 from . import auditoria as auditoria_mod
 from . import compactar_fila as compactar_mod
@@ -254,6 +255,15 @@ class Relatorio:
     repetidos: list[str] = field(default_factory=list)
     nao_cobertos: list[str] = field(default_factory=list)
 
+    #: A adoção lida nesta execução, uma linha por jogo novo (T120):
+    #: `["quatro (>= 1.4.0): 312 de 780 aparelhos -> 1 dia em 4"]`.
+    #:
+    #: ⚠️ **É o que permite refazer a escolha do jogo de um dia.** A faixa muda
+    #: conforme a versão se espalha, e um dia gerado na semana passada saiu com a
+    #: faixa daquela semana; sem esta linha no log, ninguém saberia dizer por que o
+    #: Quatro caiu (ou não caiu) naquele dia.
+    adocao: list[str] = field(default_factory=list)
+
     #: Quanto durou cada dia gerado, em segundos: `{"2026-09-18": 184.2}`.
     #:
     #: ⚠️ **O tempo e informacao de OPERACAO, e ate 12/09/2026 ele nao existia
@@ -327,6 +337,10 @@ class Relatorio:
                 f"{dia} {seg:.0f}s" for dia, seg in sorted(self.segundos_por_dia.items())
             )
             linhas.append(f"[job] tempo: {total:.0f}s em {len(self.segundos_por_dia)} dia(s) — {detalhe}")
+        for linha in self.adocao:
+            # A adocao entra no resumo do fim tambem: e a linha que explica por
+            # que um jogo novo apareceu (ou nao) nos dias desta execucao.
+            linhas.append(f"[job] adocao: {linha}")
         if self.remanejados:
             # ⚠️ **Nomeia o que andou, e nao so quantos.** Uma linha "2
             # remanejados" nao permite conferir nada depois; com o tipo e as duas
@@ -366,6 +380,49 @@ class Relatorio:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+async def ler_frequencias(
+    repositorio: RepositorioDoJob,
+    *,
+    dt_hoje: date,
+    relatorio: Relatorio,
+) -> dict[str, adocao_mod.Frequencia]:
+    """A faixa de adocao de cada jogo de `gerador.JOGOS_EM_ADOCAO` (T120, R-23).
+
+    Le a amostra uma vez (`log.vw004_aparelho_dia`, os 7 dias fechados antes de
+    hoje), mede a adocao da versao minima de cada jogo novo e escreve uma linha
+    por jogo no log e no [Relatorio].
+
+    ⚠️ **Uma falha aqui NAO e engolida.** Ela sobe como as outras leituras do
+    comeco da execucao (perfil, motor, taxa): a tabela existe desde a `0036`, e
+    uma leitura quebrada que virasse "adocao zero" calada tiraria o jogo novo do
+    ar para sempre, sem ninguem saber por que.
+    """
+    if not gerador_mod.JOGOS_EM_ADOCAO:
+        return {}
+    dt_inicio, dt_fim = adocao_mod.janela_da_adocao(dt_hoje)
+    avistamentos = await repositorio.avistamentos_da_adocao(
+        dt_inicio=dt_inicio, dt_fim=dt_fim
+    )
+    frequencias: dict[str, adocao_mod.Frequencia] = {}
+    for co_jogo in gerador_mod.JOGOS_EM_ADOCAO:
+        versao_minima = gerador_mod.versao_minima_do_jogo(co_jogo)
+        adocao = adocao_mod.medir_adocao(avistamentos, versao_minima)
+        frequencia = adocao_mod.frequencia_do_jogo_novo(adocao)
+        frequencias[co_jogo] = frequencia
+        # O numero com o denominador, e a consequencia na fila: "312 de 780
+        # aparelhos (40,0%) -> 1 dia em 4". A porcentagem sai de uma conta so
+        # para exibir; quem decide a faixa e a fracao exata.
+        porcento = float(adocao.fracao) * 100
+        linha = (
+            f"{co_jogo} (>= {versao_minima}): {adocao.adotaram} de "
+            f"{adocao.aparelhos} aparelhos ({porcento:.1f}%) entre {dt_inicio} e "
+            f"{dt_fim} -> {frequencia.descrever()}"
+        )
+        relatorio.adocao.append(linha)
+        print(f"[job] adocao de {linha}")
+    return frequencias
+
+
 async def cobrir_um_dia(
     sessao: Any,
     repositorio: RepositorioDoJob,
@@ -376,6 +433,7 @@ async def cobrir_um_dia(
     bancada_de: Callable[[Any], Any] = gerador_mod.bancada,
     nu_execucoes_da_regua: int = regua_mod.EXECUCOES_PADRAO,
     alvo: Optional[alvo_mod.Alvo] = None,
+    frequencias: Optional[dict[str, adocao_mod.Frequencia]] = None,
 ) -> Optional[str]:
     """Gera, mede e grava o desafio de um dia. Ou reprisa, se nao der.
 
@@ -394,6 +452,9 @@ async def cobrir_um_dia(
             quem prova que a bancada de verdade funciona e a T034, com geracao
             real.
         nu_execucoes_da_regua: quantas vezes cada mascote tenta.
+        frequencias: a faixa de adoção de cada jogo novo, lida UMA vez por
+            `executar` (`ler_frequencias`). `None` = nenhum jogo novo, que é o
+            rodízio de antes da T120.
 
     Returns:
         `None` quando o dia foi coberto; o motivo, quando nao foi.
@@ -417,7 +478,9 @@ async def cobrir_um_dia(
     # ⚠️ E ela importa so quando o dia e um buraco **no meio** da fila: no fim
     # da fila nao ha vizinho a frente, e o rodizio pela data decide sozinho.
     vizinhos = await repositorio.vizinhanca(dt_dia)
-    co_jogo = gerador_mod.escolher_jogo(dt_dia, evitar=vizinhos.jogos)
+    co_jogo = gerador_mod.escolher_jogo(
+        dt_dia, evitar=vizinhos.jogos, frequencias=frequencias
+    )
     janela = timedelta(days=JANELA_DO_RODIZIO_EM_DIAS)
     recentes = await repositorio.tipos_recentes(
         co_jogo=co_jogo, dt_inicio=dt_dia - janela, dt_fim=dt_dia + janela
@@ -509,6 +572,10 @@ async def cobrir_um_dia(
         moldes=publicacao.moldes,
         # ⛔ **A MESMA vizinhanca que escolheu o jogo acima.**
         vizinhanca=vizinhos,
+        # ⛔ **E a MESMA adocao** (T120): sem ela o gerador escolheria o jogo
+        # do dia pelo rodizio antigo, e o tipo do Quatro escolhido aqui iria
+        # para uma posicao do Pontinhos.
+        frequencias=frequencias,
     )
     if not candidatos:
         return await _tentar_reprisar(
@@ -945,6 +1012,14 @@ async def executar(
         f"({alvo.co_origem}, {alvo.nu_amostras} tentativa(s) de referencia)"
     )
 
+    # ── 3b. A adocao dos jogos novos (T120) ─────────────────────────────────
+    #
+    # ⚠️ **Lida UMA vez, aqui, e entregue a todos os dias desta execucao** - pela
+    # mesma razao da banda acima, e por uma a mais: a idempotencia (T038). Se cada
+    # dia lesse a amostra por conta propria, dois dias da mesma execucao poderiam
+    # cair em faixas diferentes, e o log nao saberia dizer qual valeu.
+    frequencias = await ler_frequencias(repositorio, dt_hoje=dt_hoje, relatorio=relatorio)
+
     # ── 4. Cobrir dia a dia ─────────────────────────────────────────────────
     for numero, passo in enumerate(plano, start=1):
         if not passo.precisa_gerar:
@@ -973,6 +1048,7 @@ async def executar(
                 bancada_de=bancada_de,
                 nu_execucoes_da_regua=nu_execucoes_da_regua,
                 alvo=alvo,
+                frequencias=frequencias,
             )
         except Exception as erro:  # noqa: BLE001 - ver a docstring
             # ⚠️ **Amplo de proposito, e so aqui.** Este laco fala com dois

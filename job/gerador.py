@@ -57,6 +57,9 @@ from motores.quatro import contrato_quatro, feitos_quatro
 from motores.quatro.jogador_quatro import JogadorQuatro
 from motores.quatro.motor_quatro import EstadoQuatro
 
+from api.aparelhos.regras import chave_da_versao
+
+from . import adocao as adocao_mod
 from . import editorial as editorial_mod
 from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
@@ -89,6 +92,19 @@ VETORES = RAIZ / "contratos" / "vetores-verificacao-desafio.json"
 #: ⚠️ Jogo NOVO continua entrando pela regra antiga: com medidor **e** vetores,
 #: nunca com uma so das duas.
 JOGOS_DO_RODIZIO = ("pontinhos", "damas")
+
+#: Os jogos que entram pela ADOÇÃO GRADUAL (T120 da spec 010, R-23), em ordem
+#: estável: os dias deles saem da faixa de adoção (`job/adocao.py`), e não da data.
+#:
+#: ⛔ **Um jogo daqui NUNCA entra em `JOGOS_DO_RODIZIO`**, nem quando chega ao
+#: rodízio pleno: aquela tupla é o divisor de `dias // len(JOGOS_DO_RODIZIO)`, e
+#: um 3º jogo nela mudaria de fase o tipo, a modalidade e a variante do Pontinhos
+#: e das damas. A frequência do pleno (1 em 3) sai da mesma regra dos dias.
+#:
+#: ⚠️ **Estar aqui não põe o jogo no ar sozinho.** Enquanto nenhum aparelho tiver
+#: a versão mínima do jogo (`versao_minima_do_jogo`), a faixa é "não aparece", e a
+#: fila é exatamente a de antes - é o caso do `des` e do `prd` até o app 1.4.0.
+JOGOS_EM_ADOCAO = ("quatro",)
 
 #: Os quatro mascotes, na ordem da escada de dificuldade.
 PERSONAGENS = ("cacau", "pita", "tex", "magno")
@@ -251,13 +267,56 @@ class Candidato:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def escolher_jogo(dt_dia: date, *, evitar: Sequence[str] = ()) -> str:
+def versao_minima_do_jogo(co_jogo: str) -> str:
+    """A menor `co_versao_minima` entre as publicações no ar de [co_jogo].
+
+    É a versão que a adoção mede para um jogo de `JOGOS_EM_ADOCAO`: a partir
+    dela o app abre ao menos um tipo do jogo. Lida do editorial, e não escrita
+    de novo aqui, para a régua da adoção e a tela de atualizar nunca discordarem.
+
+    Raises:
+        ValueError: se o jogo não tem nenhuma publicação no ar - sem tipo
+            publicável, não há o que medir nem o que gerar.
+    """
+    versoes = [
+        publicacao.co_versao_minima
+        for co_tipo in tipos_do_jogo(co_jogo)
+        for publicacao in editorial_mod.EDITORIAL.get(co_tipo, ())
+    ]
+    if not versoes:
+        raise ValueError(f"o jogo {co_jogo!r} nao tem publicacao no ar")
+    # `min` com `key=` compara pela chave numérica (`1.10.0` > `1.9.0`), e não
+    # pelo texto.
+    return min(versoes, key=chave_da_versao)
+
+
+def escolher_jogo(
+    dt_dia: date,
+    *,
+    evitar: Sequence[str] = (),
+    frequencias: Mapping[str, adocao_mod.Frequencia] | None = None,
+) -> str:
     """O jogo do dia, por rodizio simples sobre a data.
 
     Args:
         dt_dia: o dia.
         evitar: os jogos dos dias vizinhos (`Vizinhanca.jogos`). Vazio = o
             rodizio puro pela data, que e o caso de toda fila sem buraco.
+        frequencias: a faixa de adoção de cada jogo de `JOGOS_EM_ADOCAO`, lida
+            **uma vez** por execução (`job.__main__.ler_frequencias`). `None` ou
+            vazio = nenhum jogo novo, e a resposta é a de antes da T120.
+
+    ⚠️ **O jogo novo só TOMA dias; ele nunca muda os outros** (T120, R-23 item 4).
+    Primeiro se pergunta se o dia é do jogo novo (`adocao.dia_do_jogo_novo`); se
+    não for, a resposta é **exatamente** a de antes - a mesma conta, com a mesma
+    tupla. E como `escolher_tipo` continua contando `dias // len(JOGOS_DO_RODIZIO)`,
+    o tipo do Pontinhos e das damas de cada dia também não muda: o dia tomado só
+    deixa de publicar aquele tipo naquela vez. O cadeado é
+    `tests/unitarios/test_adocao_nao_muda_a_fila.py`.
+
+    ⚠️ **O jogo novo também respeita a vizinhança**: se ontem ou amanhã já são
+    dele (a compactação pode mover um desafio para perto), o dia volta ao rodízio
+    de sempre.
 
     ⚠️ **Deterministico, e nao sorteado**: assim duas execucoes do job para o
     mesmo dia escolhem o mesmo jogo, e a idempotencia de T038 nao depende de
@@ -270,6 +329,24 @@ def escolher_jogo(dt_dia: date, *, evitar: Sequence[str] = ()) -> str:
     diferentes.
     """
     dias = (dt_dia - EPOCA_DO_RODIZIO).days
+
+    # ── O jogo novo toma o dia? ─────────────────────────────────────────────
+    novos = list((frequencias or {}).items())
+    for indice, (co_jogo, frequencia) in enumerate(novos):
+        if co_jogo in JOGOS_DO_RODIZIO:
+            # Um jogo do rodízio passado como "novo" tomaria dias dele mesmo, e
+            # a fila dos outros sairia de fase sem nenhum erro: recusar alto.
+            raise ValueError(f"{co_jogo!r} ja e do rodizio; nao entra pela adocao")
+        if co_jogo in evitar:
+            continue
+        # Cada jogo novo começa a sua janela num ponto diferente da volta
+        # (`indice / quantos`), para dois deles não disputarem os mesmos dias.
+        if adocao_mod.dia_do_jogo_novo(
+            dias, frequencia, deslocamento=indice / len(novos)
+        ):
+            return co_jogo
+
+    # ── Senão, exatamente o rodízio de antes da T120 ────────────────────────
     return vizinhanca_mod.preferir(
         JOGOS_DO_RODIZIO, indice_do_rodizio=dias, evitar=evitar
     )
@@ -844,6 +921,7 @@ def gerar_candidatos(
     receita_em_avaliacao: Receita | None = None,
     moldes: Sequence[str] | None = None,
     vizinhanca: "vizinhanca_mod.Vizinhanca | None" = None,
+    frequencias: "Mapping[str, adocao_mod.Frequencia] | None" = None,
 ) -> list[Candidato]:
     """Gera candidatos para um dia.
 
@@ -894,6 +972,11 @@ def gerar_candidatos(
             para escolher o jogo** — `cobrir_um_dia` escolhe jogo e tipo antes
             de chamar, e os dois lados precisam concordar. `None` = rodizio puro
             pela data.
+        frequencias: a faixa de adoção de cada jogo novo (T120). ⛔ **Pela mesma
+            razão, a MESMA que `cobrir_um_dia` usou para escolher o jogo**: se
+            só um dos lados a recebesse, o dia do Quatro sairia com o tipo do
+            Quatro escolhido lá fora e o jogo do Pontinhos escolhido aqui.
+            `None` = nenhum jogo novo.
 
     Returns:
         Os candidatos encontrados. Pode vir menos que `quantos` — e pode vir
@@ -940,7 +1023,9 @@ def gerar_candidatos(
             "⛔ Este candidato NAO e publicavel."
         )
     else:
-        co_jogo = escolher_jogo(dt_dia, evitar=vizinhos.jogos)
+        co_jogo = escolher_jogo(
+            dt_dia, evitar=vizinhos.jogos, frequencias=frequencias
+        )
         co_tipo = escolher_tipo(co_jogo, dt_dia, tipos_recentes=tipos_recentes)
         receita = receita_de(co_tipo)
         exigir_vetor(co_tipo)

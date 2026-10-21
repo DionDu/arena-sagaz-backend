@@ -8607,8 +8607,9 @@ para o log da execução dizer o tamanho da amostra junto com o resultado. Cada 
 entra uma vez, com a **maior** versão da janela, comparada por números
 (`api.aparelhos.regras.chave_da_versao`, a mesma da T118: uma regra só). (2) A fração é
 `Fraction`, exata: 286 de 715 são 40% e já valem 1 em 4, sem depender de arredondamento.
-(3) **Sem amostra, a adoção é zero** (faixa mais rara): nenhum aparelho visto não prova
-que a versão chegou. (4) Versão ilegível numa linha: o aparelho conta no denominador e
+(3) **Sem amostra, a adoção é zero**: nenhum aparelho visto não prova que a versão
+chegou (na T120, zero aparelhos na versão passou a ser "o jogo novo não aparece", e não
+a faixa mais rara - entrada seguinte). (4) Versão ilegível numa linha: o aparelho conta no denominador e
 não alcança a mínima; uma linha legível do mesmo aparelho vence a ilegível, e a ilegível
 nunca rebaixa. Versão **mínima** ilegível é `ValueError` (defeito do catálogo). (5)
 `frequencia_do_jogo_novo` devolve `Frequencia(um_dia_em=6 | 4 | 3 | None)`, com `None` =
@@ -8636,3 +8637,60 @@ amostra de 715 aparelhos com linhas legadas, várias linhas por aparelho e a ver
 subindo no meio da janela (285/286, 428/429, 571/572), e em amostras de 5 e 1.000; os
 números da tabela escritos por extenso; a comparação `1.10.0` × `1.9.5`; as linhas
 ilegíveis; a janela na virada do ano. 13/13 mutações pegas.
+
+## 2026-10-21 (2) — O jogo novo toma dias pela adoção, e a fila antiga não muda (T120 da spec 010, F-7)
+
+**Contexto.** Com a conta da adoção pronta (T119), falta o job usá-la: o jogo do dia
+sai de `gerador.escolher_jogo`, rodízio puro pela data entre Pontinhos e damas, e o
+tipo, a modalidade e a variante de cada jogo contam `dias // len(JOGOS_DO_RODIZIO)`. A
+R-23 da spec 010 pede que a adoção decida **só** os dias do jogo novo, com um cadeado de
+365 dias idênticos com adoção zero. Código em produção: o backend publica a cada push.
+
+**Decisão.** (1) **`gerador.JOGOS_EM_ADOCAO = ("quatro",)`**, separado de
+`JOGOS_DO_RODIZIO`, que **nunca** recebe o jogo novo: um 3º jogo naquela tupla mudaria
+o divisor do rodízio de tipos e poria a fila do Pontinhos e das damas inteira fora de
+fase. (2) `escolher_jogo(..., frequencias=)` pergunta primeiro se o dia é do jogo novo;
+se não for, devolve **exatamente** a resposta de antes. O dia tomado só deixa de
+publicar o tipo antigo daquela vez. (3) **Os dias do jogo novo saem de uma rotação
+irracional** (`adocao.dia_do_jogo_novo`): o dia é dele quando a parte fracionária de
+`dias × 0,618…` (a razão áurea) cai em `[0, 1/N)`. Um `dias % N == 0` com N par tomaria
+sempre os dias do mesmo jogo antigo e, dentro deles, sempre o mesmo resto do rodízio de
+tipos (o travamento em fase de 10/09/2026). Medido em 3.650 dias: 1/N dos dias, metade
+pares e metade ímpares, cada tipo do Pontinhos (7) e das damas (4, e 16 com as
+modalidades) perde a mesma parte, e dois dias seguidos nunca saem. (4) **Zero aparelhos
+na versão = o jogo novo não aparece** (`adocao.NAO_APARECE`): é o dia em que o backend
+vai ao ar antes de o app chegar às lojas, e é o que o cadeado de "adoção zero" pede;
+basta um aparelho para o 1 em 6 valer. (5) **O pleno é 1 em 3 pela mesma regra**, e não
+o jogo entrando no rodízio, pelo motivo do item 1. (6) A vizinhança vale para o jogo
+novo (vizinho dele devolve o dia ao rodízio antigo), um jogo do rodízio passado como
+novo é `ValueError`, e dois jogos novos ao mesmo tempo começam a janela em pontos
+diferentes da volta. (7) **A amostra é lida UMA vez por execução** (`ler_frequencias`
+em `job/__main__.py`, `RepositorioDoJob.avistamentos_da_adocao`, sem filtro de
+`ic_legado`), vira uma linha no log e no resumo (*"quatro (>= 1.4.0): 2 de 5
+aparelhos (40.0%) entre 2026-10-14 e 2026-10-20 -> 1 dia em 4"*) e o **mesmo** objeto
+vai a `cobrir_um_dia` e, por ele, a `gerar_candidatos`, que escolhe o jogo de novo por
+dentro. (8) A versão mínima do jogo é a menor `co_versao_minima` das publicações dele
+no ar (`versao_minima_do_jogo`, lida do editorial). (9) Uma falha na leitura da amostra
+**sobe**, como as outras leituras do começo da execução: uma "adoção zero" calada
+tiraria o jogo novo do ar para sempre.
+
+**Consequência, hoje.** No `des` e no `prd` nenhum aparelho tem a 1.4.0 (o app é
+`1.3.1+16`), então a faixa é "não aparece" e a fila é a de antes. O Quatro passa a
+tomar dias sozinho quando o primeiro aparelho com a 1.4.0 abrir o desafio. O medidor de
+variantes continua sem medir a virada pelo alvo `no-ar` (`no_ar_e_fora_do_rodizio`),
+agora de forma permanente: ele não passa faixa ao `escolher_jogo`.
+
+**Alternativas consideradas.** (a) Pôr o Quatro em `JOGOS_DO_RODIZIO` no pleno:
+recusada pelo item 1. (b) `dias % N`: recusada pelo travamento em fase. (c) Um sorteio
+pela semente do dia: idempotente também, mas com intervalos irregulares (dois dias
+seguidos possíveis) e sem a garantia de distribuição igual. (d) Contar a vez do jogo
+novo pelas aparições dele: depende da faixa de cada dia passado, que muda com a
+adoção. O tipo do Quatro segue `escolher_tipo` como os outros: os dias dele não têm
+período, então o rodízio de tipos não trava. (e) 1 em 6 já com zero aparelhos (a
+tabela da T003 ao pé da letra): recusada pelo item 4.
+
+**Testes.** `tests/unitarios/test_adocao_nao_muda_a_fila.py` (43 casos: as funções de
+antes copiadas, com a tupla e o divisor por extenso; 365 dias × 4 vizinhanças × 3
+formas de "sem jogo novo" iguais; com o jogo novo no ar, todo dia que não é dele igual,
+inclusive o tipo; a ligação no job) e `test_adocao.py` (64, com a regra dos dias).
+18/18 mutações pegas.

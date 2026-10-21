@@ -2015,8 +2015,9 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
     # por ora o unico: a regua dos dez tipos (T117) aprovou tres, e o dono
     # segurou dois deles (`DECISOES-do-dono.md` §8zzzl) - a unica coluna foi
     # aposentada e as encostadas esperam um resolvedor proprio (T124c). ⛔ Estar
-    # aqui NAO faz o job gerar desafio do Quatro: o jogo entra no rodizio
-    # (`gerador.JOGOS_DO_RODIZIO`) na T125.
+    # aqui NAO faz o job gerar desafio do Quatro: o jogo entra pela ADOCAO
+    # (`gerador.JOGOS_EM_ADOCAO`, T120), e so toma dias quando algum aparelho
+    # tiver a versao minima - ou pelo `--forcar-jogo` do `des` (T121).
     "quatro_virada": (
         Publicacao(
             # ✅ Medida em 20/10/2026 (`medir_variantes_do_editorial.py quatro

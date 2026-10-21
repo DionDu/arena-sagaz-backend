@@ -566,7 +566,8 @@ def _dias_do_jogo(co_jogo: str, quantos: int) -> list[date]:
     jogo pela data, e pedir damas num dia de Pontinhos geraria Pontinhos com os
     parametros das damas — sem erro, e com um numero que nao quer dizer nada.
 
-    ⚠️ **Jogo FORA do rodizio (o Quatro, ate a T125) mede em dias seguidos.**
+    ⚠️ **Jogo FORA do rodizio (o Quatro, que entra pela adocao - T120) mede em
+    dias seguidos.**
     Ele nunca e o jogo do dia, e o laco abaixo nao terminaria; e nem precisa:
     tipo em avaliacao vem com a receita, e `gerar_candidatos` tira o jogo dela,
     e nao da data. O dia so muda a semente - e e isso que da posicoes diferentes.
@@ -903,8 +904,11 @@ def no_ar_e_fora_do_rodizio(co_tipo: str) -> bool:
     (`escolher_jogo`, que so conhece `gerador.JOGOS_DO_RODIZIO`), e o caminho de
     "tipo em avaliacao" recusa o tipo que ja esta em `RECEITAS`. Sem esta
     recusa, a rodada mediria um desafio de Pontinhos ou de damas com o nome do
-    tipo - sem erro, e com um numero que nao quer dizer nada. A situacao dura
-    ate o jogo entrar no rodizio (T125); a medicao da virada e a de 20/10/2026.
+    tipo - sem erro, e com um numero que nao quer dizer nada. ⚠️ **Desde a T120
+    isto e permanente**: o Quatro nunca entra em `JOGOS_DO_RODIZIO` (ele toma
+    dias pela adocao, `gerador.JOGOS_EM_ADOCAO`), e este medidor nao passa faixa
+    nenhuma ao `escolher_jogo`. Ensinar-lhe a faixa e o caminho para remedir a
+    virada no ar; a medicao dela e a de 20/10/2026.
     """
     receita = tipos_de_desafio_mod.RECEITAS.get(co_tipo)
     return receita is not None and receita.co_jogo not in gerador_mod.JOGOS_DO_RODIZIO
@@ -1146,8 +1150,8 @@ def principal(argumentos: Sequence[str]) -> int:
     pedido = alvo[len(PREFIXO_NO_AR_DE_UM_TIPO):] if alvo.startswith(PREFIXO_NO_AR_DE_UM_TIPO) else alvo
     if not tipos and no_ar_e_fora_do_rodizio(pedido):
         print(
-            f"⛔ {pedido} esta no ar, mas o jogo dele ainda nao entrou no rodizio "
-            "do job (T125): o gerador sorteia o jogo pela data, e a rodada "
+            f"⛔ {pedido} esta no ar, mas o jogo dele nao e do rodizio do job "
+            "(ele entra pela adocao, T120): o gerador sorteia o jogo pela data, e a rodada "
             "mediria outro jogo com o nome dele. A medicao dele e a de "
             "20/10/2026 (historico do backend, entrada \"2026-10-20 (5)\")."
         )
