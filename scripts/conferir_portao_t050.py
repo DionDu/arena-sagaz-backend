@@ -50,6 +50,17 @@ COMO SE USA
 
     .venv\\Scripts\\python scripts\\conferir_portao_t050.py
     .venv\\Scripts\\python scripts\\conferir_portao_t050.py --sem-escrita
+    .venv\\Scripts\\python scripts\\conferir_portao_t050.py --jogo quatro
+
+`--jogo` (T121 da spec 010, o portao 4a do Quatro em Linha, R-24) pede as
+quatro condicoes **tambem** para um jogo em adocao: (a) cobra o jogo publicado,
+no formato dele; (c) le e resolve o desafio publicado **mais proximo de hoje**
+daquele jogo (pelo `GET /v1/desafios/{id}` quando ele nao e o de hoje - o envio
+da resolucao nao recusa dia futuro, e tudo e desfeito no fim), com a partida
+levando a extensao do jogo; e (d) roda tambem os cadeados dele. Sem o
+argumento, as quatro condicoes sao as de antes - com uma unica diferenca, em
+(a): um jogo em adocao publicado no `des` (o Quatro, depois da T125) nao
+reprova mais o portao, que antes exigia exatamente "pontinhos e damas".
 
 `--sem-escrita` roda so as duas leituras e a condicao (d), sem nem abrir a
 transacao de escrita. Desde que a escrita passou a ser desfeita ele nao e mais
@@ -72,6 +83,44 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+#: Os jogos do rodizio, que o portao sempre cobra.
+JOGOS_DO_RODIZIO = ("pontinhos", "damas")
+
+#: Os jogos que `--jogo` aceita: os de `job.gerador.JOGOS_EM_ADOCAO`.
+#:
+#: ⚠️ **Escritos aqui, e nao importados do `job`**: este script troca a
+#: `DATABASE_URL` antes de importar a API, e importar o job no topo arriscaria
+#: carregar o banco com a URL errada. O teste `test_portao_t050_por_jogo.py`
+#: confere que as duas listas sao iguais.
+JOGOS_EM_ADOCAO = ("quatro",)
+
+#: O formato da posicao inicial de cada jogo. ⚠️ Um formato trocado abriria o
+#: tabuleiro vazio, e o aplicativo nao tem como denunciar isso.
+FORMATO_POR_JOGO = {
+    "pontinhos": "sequencia_lances",
+    "damas": "fen",
+    "quatro": "sequencia_lances",
+}
+
+#: O `co_versao_motor` que o app grava numa partida do Quatro: `dart_` e a
+#: `versaoDoMotorQuatro` de `lib/modulos/jogos/quatro/log/versao_do_motor_quatro.dart`.
+#: ⚠️ A versao mora no app (o servidor so tem o carimbo dos hashes), entao ela e
+#: escrita aqui, e `test_portao_t050_por_jogo.py` a compara com o arquivo do app.
+VERSAO_DO_MOTOR_QUATRO_NO_APP = "dart_1.1.1"
+
+#: Os cadeados de cada jogo em adocao, somados aos do bloco em (d) com `--jogo`:
+#: o contrato espelhado, a paridade das regras com o app, as medidas, o
+#: executavel que joga no servidor e a extensao do log. ⛔ Nenhum deles pula.
+CADEADOS_POR_JOGO = {
+    "quatro": [
+        "tests/unitarios/test_contrato_quatro.py",
+        "tests/unitarios/test_regras_quatro_vetores.py",
+        "tests/unitarios/test_feitos_quatro.py",
+        "tests/unitarios/test_jogador_dart_quatro.py",
+        "tests/unitarios/test_contrato_extensao_quatro.py",
+    ],
+}
 
 # `parents[1]` e a raiz do backend; `parents[2]`, a raiz do ecossistema.
 RAIZ_BACKEND = Path(__file__).resolve().parents[1]
@@ -149,8 +198,13 @@ class Relatorio:
         return tudo
 
 
-async def conferir(*, com_escrita: bool) -> int:
-    """Roda as quatro condicoes e devolve o codigo de saida."""
+async def conferir(*, com_escrita: bool, jogo: str | None = None) -> int:
+    """Roda as quatro condicoes e devolve o codigo de saida.
+
+    Args:
+        jogo: um jogo de `JOGOS_EM_ADOCAO` para conferir junto (`--jogo`).
+            `None` = o portao de antes.
+    """
     # ⚠️ A configuracao tem de ser trocada ANTES de `api.main` ser importado: o
     # motor do SQLAlchemy nasce no import de `api.nucleo.banco`, lendo a URL de
     # uma vez so. Trocar depois deixaria o aplicativo falando com outro banco.
@@ -197,12 +251,13 @@ async def conferir(*, com_escrita: bool) -> int:
     async with AsyncClient(
         transport=transporte, base_url="http://portao", headers=CABECALHOS
     ) as cliente:
-        await _condicao_a_o_job_produz(relatorio, motor)
+        await _condicao_a_o_job_produz(relatorio, motor, jogo=jogo)
         await _condicao_b_calibracao(relatorio, motor)
-        await _condicao_c_leituras(cliente, relatorio, motor)
+        await _condicao_c_leituras(cliente, relatorio, motor, jogo=jogo)
         if com_escrita:
             await _condicao_c_escrita(
-                cliente, relatorio, motor, app, usuario_atual, IdentidadeFirebase
+                cliente, relatorio, motor, app, usuario_atual, IdentidadeFirebase,
+                jogo=jogo,
             )
         else:
             relatorio.anotar(
@@ -215,13 +270,15 @@ async def conferir(*, com_escrita: bool) -> int:
     # A condicao (d) roda o pytest num processo proprio, e por isso fica FORA
     # do `async with`: ela nao usa o banco, e misturar as duas coisas so faria
     # o motor ficar aberto por mais tempo do que precisa.
-    _condicao_d_cadeados(relatorio)
+    _condicao_d_cadeados(relatorio, jogo=jogo)
 
     await motor.dispose()
     return 0 if relatorio.imprimir() else 1
 
 
-async def _condicao_a_o_job_produz(relatorio: Relatorio, motor) -> None:
+async def _condicao_a_o_job_produz(
+    relatorio: Relatorio, motor, *, jogo: str | None = None
+) -> None:
     """(a) O job produz nos DOIS jogos, e a posicao inicial esta no formato certo.
 
     ⚠️ **Dois, e nao tres** — decisao do dono em 10/09/2026 (§8g): *"jogo da velha
@@ -230,7 +287,11 @@ async def _condicao_a_o_job_produz(relatorio: Relatorio, motor) -> None:
     """
     from sqlalchemy import text
 
-    condicao = "(a) o job produz nos dois jogos"
+    condicao = (
+        "(a) o job produz nos dois jogos"
+        if jogo is None
+        else f"(a) o job produz nos dois jogos e em {jogo}"
+    )
 
     async with motor.connect() as conexao:
         linhas = (
@@ -262,19 +323,12 @@ async def _condicao_a_o_job_produz(relatorio: Relatorio, motor) -> None:
         ).scalar()
 
     jogos = {linha["co_jogo"] for linha in linhas}
-    tem_os_dois = jogos == {"pontinhos", "damas"}
-    relatorio.anotar(
-        condicao,
-        tem_os_dois,
-        f"os jogos publicados sao {sorted(jogos)}"
-        if tem_os_dois
-        else f"⛔ esperava pontinhos e damas; achei {sorted(jogos)}",
-    )
+    relatorio.anotar(condicao, *julgar_jogos_publicados(jogos, jogo=jogo))
 
-    # ⚠️ O formato NAO e livre: `sequencia_lances` no Pontinhos, `fen` nas damas.
-    # Um formato trocado abriria o tabuleiro vazio, e o aplicativo nao tem como
-    # denunciar isso — ele so nao desenha nada.
-    esperado = {"pontinhos": "sequencia_lances", "damas": "fen"}
+    # ⚠️ O formato NAO e livre: `sequencia_lances` no Pontinhos e no Quatro, `fen`
+    # nas damas (`FORMATO_POR_JOGO`). Um formato trocado abriria o tabuleiro
+    # vazio, e o aplicativo nao tem como denunciar isso — ele so nao desenha nada.
+    esperado = FORMATO_POR_JOGO
     for linha in linhas:
         certo = esperado.get(linha["co_jogo"]) == linha["co_formato_posicao"]
         relatorio.anotar(
@@ -299,22 +353,51 @@ async def _condicao_a_o_job_produz(relatorio: Relatorio, motor) -> None:
     # ⚠️ As damas rodiziam as quatro modalidades. Com a fila curta nem todas
     # aparecem, entao o que se cobra e que a modalidade **exista** nas damas — o
     # contrario seria dado incompleto num jogo em que a regra muda com ela.
-    async with motor.connect() as conexao:
-        sem_modalidade = (
-            await conexao.execute(
-                text(
-                    "SELECT count(*) FROM desafio.vw001_desafio "
-                    " WHERE co_jogo = 'damas' "
-                    "   AND (co_modalidade IS NULL OR co_modalidade = '')"
+    # ⚠️ O jogo pedido tem modalidade tambem (o Quatro, `tradicional`), e entra
+    # na mesma conferencia.
+    for co_jogo in ["damas"] + ([jogo] if jogo else []):
+        async with motor.connect() as conexao:
+            sem_modalidade = (
+                await conexao.execute(
+                    text(
+                        "SELECT count(*) FROM desafio.vw001_desafio "
+                        " WHERE co_jogo = :co_jogo "
+                        "   AND (co_modalidade IS NULL OR co_modalidade = '')"
+                    ),
+                    {"co_jogo": co_jogo},
                 )
-            )
-        ).scalar()
-    relatorio.anotar(
-        condicao,
-        sem_modalidade == 0,
-        "toda linha de damas declara a modalidade"
-        if sem_modalidade == 0
-        else f"⛔ {sem_modalidade} linha(s) de damas sem modalidade",
+            ).scalar()
+        relatorio.anotar(
+            condicao,
+            sem_modalidade == 0,
+            f"toda linha de {co_jogo} declara a modalidade"
+            if sem_modalidade == 0
+            else f"⛔ {sem_modalidade} linha(s) de {co_jogo} sem modalidade",
+        )
+
+
+def julgar_jogos_publicados(
+    jogos: set[str], *, jogo: str | None = None
+) -> tuple[bool, str]:
+    """(a) Os jogos publicados no `des` servem? Devolve `(passou, texto)`.
+
+    ⚠️ **Os do rodizio sempre; o pedido, quando houver; e nenhum estranho.**
+    Ate a T121 a conta era `jogos == {"pontinhos", "damas"}`, e o primeiro
+    desafio do Quatro publicado no `des` deixaria o portao da 009 vermelho para
+    sempre. Um jogo em adocao publicado e permitido; um jogo que nao e de nenhuma
+    das duas listas (a velha, revogada em §8g) continua reprovando.
+
+    Funcao pura, fora da consulta, para ser testada sem banco.
+    """
+    exigidos = set(JOGOS_DO_RODIZIO) | ({jogo} if jogo else set())
+    permitidos = set(JOGOS_DO_RODIZIO) | set(JOGOS_EM_ADOCAO)
+    # `<=` entre conjuntos e "esta contido em".
+    passou = exigidos <= jogos and jogos <= permitidos
+    if passou:
+        return True, f"os jogos publicados sao {sorted(jogos)}"
+    return False, (
+        f"⛔ esperava {sorted(exigidos)} (e nada fora de {sorted(permitidos)}); "
+        f"achei {sorted(jogos)}"
     )
 
 
@@ -394,7 +477,7 @@ async def _condicao_b_calibracao(relatorio: Relatorio, motor) -> None:
     )
 
 
-def _condicao_d_cadeados(relatorio: Relatorio) -> None:
+def _condicao_d_cadeados(relatorio: Relatorio, *, jogo: str | None = None) -> None:
     """(d) Os cadeados do bloco estao verdes, e nenhum "pulou com motivo".
 
     ⛔ **Cadeado que pula conta como VERMELHO** — e o defeito que a RF-DES-143a
@@ -415,7 +498,7 @@ def _condicao_d_cadeados(relatorio: Relatorio) -> None:
         "tests/unitarios/test_uniao_xp_completa.py",
         "tests/unitarios/test_partida_de_desafio_fechada.py",
         "tests/unitarios/test_uma_fonte_de_lances.py",
-    ]
+    ] + CADEADOS_POR_JOGO.get(jogo, [])
     resultado = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", *cadeados],
         cwd=RAIZ_BACKEND,
@@ -432,7 +515,9 @@ def _condicao_d_cadeados(relatorio: Relatorio) -> None:
     relatorio.anotar(
         condicao,
         passou,
-        f"pytest dos cadeados 4, 6, 7, 8 e 9: {ultima}"
+        "pytest dos cadeados 4, 6, 7, 8 e 9"
+        + (f", e os {len(CADEADOS_POR_JOGO[jogo])} de {jogo}" if jogo else "")
+        + f": {ultima}"
         if passou
         else f"⛔ pytest falhou: {ultima}",
     )
@@ -454,8 +539,96 @@ def _condicao_d_cadeados(relatorio: Relatorio) -> None:
     )
 
 
-async def _condicao_c_leituras(cliente, relatorio: Relatorio, motor) -> None:
-    """`GET /hoje` e `GET /{id}/quadro`, conferidos contra o banco."""
+#: O dia que (c) confere. Sem `--jogo`, o de HOJE (UTC); com ele, o publicado mais
+#: proximo, de hoje em diante, daquele jogo.
+#:
+#: ⚠️ **Por que nao exigir que o de hoje seja do jogo pedido.** A fila do `des`
+#: anda uma semana a frente, e o 1o desafio do Quatro (T125) nasce no fim dela:
+#: o portao esperaria dias por um dado que ja esta gravado. A rota
+#: `GET /v1/desafios/{id}` serve o mesmo contrato do `/hoje`, e o envio da
+#: resolucao so confere o vinculo desafio-dia (`servico_envio.py`), nao a data.
+SQL_DIA_CONFERIDO = """
+SELECT d.dt_dia, d.id_desafio, d.id_desafio_dia, v.co_jogo, v.co_tipo_desafio,
+       v.co_curadoria, v.co_modalidade, v.js_posicao_inicial, v.nu_semente
+  FROM desafio_dia.vw001_desafio_dia d
+  JOIN desafio.vw001_desafio v ON v.id_desafio = d.id_desafio
+ WHERE {filtro}
+ ORDER BY d.dt_dia
+ LIMIT 1
+"""
+
+
+async def _dia_conferido(conexao, *, hoje, jogo: str | None):
+    """A linha do dia que (c) confere, ou `None` (ver `SQL_DIA_CONFERIDO`)."""
+    from sqlalchemy import text
+
+    if jogo is None:
+        filtro, parametros = "d.dt_dia = :hoje", {"hoje": hoje}
+    else:
+        filtro = "d.dt_dia >= :hoje AND v.co_jogo = :co_jogo"
+        parametros = {"hoje": hoje, "co_jogo": jogo}
+    return (
+        await conexao.execute(text(SQL_DIA_CONFERIDO.format(filtro=filtro)), parametros)
+    ).mappings().first()
+
+
+def rota_do_desafio(dia, *, hoje) -> str:
+    """A rota que serve [dia]: `/hoje` quando ele e o de hoje, senao pelo id."""
+    if dia["dt_dia"] == hoje:
+        return "/v1/desafios/hoje"
+    return f"/v1/desafios/{dia['id_desafio']}"
+
+
+def partida_do_portao(dia) -> dict[str, Any]:
+    """A parte do corpo da partida que depende do JOGO do dia conferido.
+
+    Sem extensao (o Pontinhos e as damas, como sempre foi): a variante
+    `pequeno` e nada mais - o corpo de antes da T121, byte a byte.
+
+    ⚠️ **O Quatro leva a extensao dele** (`contracts/extensao-log-quatro.md`):
+    ela grava em `jogo_quatro.tb001_partida`, que tem duas colunas `NOT NULL`
+    sem padrao, e um corpo sem ela nao exerceria essa escrita - foi um corpo
+    minimo demais que escondeu a T049t. O que o app manda de verdade nasce na
+    T129; aqui vai o que o contrato fixa:
+
+      * `co_variante` = a modalidade do desafio (`tradicional`);
+      * `co_lances_iniciais` = a posicao publicada (I-9);
+      * `nu_jogador_abertura` = a cor de quem fez o 1o lance da sequencia
+        INTEIRA (§3): a pessoa e o J1 (+1) e joga agora, entao, com um numero
+        PAR de lances publicados, foi ela quem abriu; com um impar, o
+        personagem (-1);
+      * a semente do desafio, o contrato vigente e a versao do motor que o
+        app grava (`VERSAO_DO_MOTOR_QUATRO_NO_APP`).
+    """
+    if dia["co_jogo"] != "quatro":
+        return {"co_variante": "pequeno"}
+
+    from motores.quatro import contrato_quatro
+
+    posicao = dia["js_posicao_inicial"]
+    # O driver pode devolver o JSONB como texto; nos dois casos vira dicionario.
+    if isinstance(posicao, str):
+        posicao = json.loads(posicao)
+    lances = posicao.get("co_lances") or ""
+    publicados = len(posicao.get("sequencia_lances") or [])
+    return {
+        "co_variante": dia["co_modalidade"],
+        "quatro": {
+            "co_versao_motor": VERSAO_DO_MOTOR_QUATRO_NO_APP,
+            "co_versao_contrato": contrato_quatro.versao_do_contrato(),
+            "co_lances_iniciais": lances,
+            "nu_jogador_abertura": 1 if publicados % 2 == 0 else -1,
+            "co_preferencia_abertura": "j1",
+            "nu_semente_partida": dia["nu_semente"],
+            "js_extra": None,
+        },
+    }
+
+
+async def _condicao_c_leituras(
+    cliente, relatorio: Relatorio, motor, *, jogo: str | None = None
+) -> None:
+    """`GET /hoje` (ou `/{id}`, com `--jogo`) e `GET /{id}/quadro`, contra o banco."""
     from sqlalchemy import text
 
     condicao = "(c) as tres leituras servem dado real"
@@ -467,18 +640,7 @@ async def _condicao_c_leituras(cliente, relatorio: Relatorio, motor) -> None:
     # unidade do produto (um desafio por dia UTC, igual para todos).
     hoje = datetime.now(timezone.utc).date()
     async with motor.connect() as conexao:
-        linha = (
-            await conexao.execute(
-                text(
-                    "SELECT d.id_desafio, d.id_desafio_dia, v.co_jogo, "
-                    "       v.co_tipo_desafio, v.co_curadoria "
-                    "  FROM desafio_dia.vw001_desafio_dia d "
-                    "  JOIN desafio.vw001_desafio v ON v.id_desafio = d.id_desafio "
-                    " WHERE d.dt_dia = :hoje"
-                ),
-                {"hoje": hoje},
-            )
-        ).mappings().first()
+        linha = await _dia_conferido(conexao, hoje=hoje, jogo=jogo)
 
         descartados = (
             await conexao.execute(
@@ -491,21 +653,27 @@ async def _condicao_c_leituras(cliente, relatorio: Relatorio, motor) -> None:
 
     if linha is None:
         relatorio.anotar(
-            condicao, False, f"o banco nao tem desafio para o dia UTC {hoje}"
+            condicao,
+            False,
+            f"o banco nao tem desafio para o dia UTC {hoje}"
+            if jogo is None
+            else f"o banco nao tem desafio de {jogo} de {hoje} em diante "
+            "(gere um com `rodar_job_local.py --forcar-jogo`)",
         )
         return
 
     relatorio.anotar(
         condicao,
         True,
-        f"o banco tem o dia {hoje}: {linha['co_jogo']}/{linha['co_tipo_desafio']} "
-        f"({linha['co_curadoria']})",
+        f"o banco tem o dia {linha['dt_dia']}: {linha['co_jogo']}/"
+        f"{linha['co_tipo_desafio']} ({linha['co_curadoria']})",
     )
 
-    # ── GET /v1/desafios/hoje ───────────────────────────────────────────────
-    resposta = await cliente.get("/v1/desafios/hoje")
+    # ── GET /v1/desafios/hoje (ou /{id}, quando o dia conferido nao e hoje) ──
+    rota = rota_do_desafio(linha, hoje=hoje)
+    resposta = await cliente.get(rota)
     ok = resposta.status_code == 200
-    relatorio.anotar(condicao, ok, f"GET /v1/desafios/hoje → {resposta.status_code}")
+    relatorio.anotar(condicao, ok, f"GET {rota} → {resposta.status_code}")
     if not ok:
         return
 
@@ -662,7 +830,14 @@ async def _condicao_c_leituras(cliente, relatorio: Relatorio, motor) -> None:
 
 
 async def _condicao_c_escrita(
-    cliente, relatorio: Relatorio, motor, app, usuario_atual, IdentidadeFirebase
+    cliente,
+    relatorio: Relatorio,
+    motor,
+    app,
+    usuario_atual,
+    IdentidadeFirebase,
+    *,
+    jogo: str | None = None,
 ) -> None:
     """`POST /{id}/resolucao`, com a partida subindo antes, pelo mesmo caminho.
 
@@ -694,21 +869,19 @@ async def _condicao_c_escrita(
             )
         ).mappings().first()
 
-        dia = (
-            await conexao.execute(
-                text(
-                    "SELECT d.id_desafio, d.id_desafio_dia, v.co_jogo "
-                    "  FROM desafio_dia.vw001_desafio_dia d "
-                    "  JOIN desafio.vw001_desafio v ON v.id_desafio = d.id_desafio "
-                    " WHERE d.dt_dia = :hoje"
-                ),
-                {"hoje": datetime.now(timezone.utc).date()},
-            )
-        ).mappings().first()
+        # ⚠️ O MESMO dia das leituras (`_dia_conferido`): com `--jogo`, o
+        # publicado mais proximo daquele jogo.
+        dia = await _dia_conferido(
+            conexao, hoje=datetime.now(timezone.utc).date(), jogo=jogo
+        )
 
     if conta is None or dia is None:
         relatorio.anotar(
-            condicao, False, "⛔ falta conta provisionada ou desafio de hoje no `des`"
+            condicao,
+            False,
+            "⛔ falta conta provisionada ou desafio de hoje no `des`"
+            if jogo is None
+            else f"⛔ falta conta provisionada ou desafio de {jogo} no `des`",
         )
         return
 
@@ -838,13 +1011,14 @@ async def _escrever_e_ler_de_volta(
             "partida": {
                 "id_partida": str(uuid.uuid4()),
                 "co_jogo": dia["co_jogo"],
-                "co_variante": "pequeno",
                 "co_modo": "desafio",
                 "nu_placar_j1": 1,
                 "nu_placar_j2": 0,
                 "ic_pontua": False,
                 "co_status": "concluida",
                 "dh_inicio": datetime.now(timezone.utc).isoformat(),
+                # A variante e, no Quatro, a extensao: o que depende do jogo.
+                **partida_do_portao(dia),
             },
             "jogadas": [],
             "xp": [],
@@ -1030,11 +1204,21 @@ def main() -> int:
         action="store_true",
         help="roda so as leituras; a condicao (c) fica incompleta de proposito",
     )
+    analisador.add_argument(
+        "--jogo",
+        choices=JOGOS_EM_ADOCAO,
+        default=None,
+        help="confere tambem um jogo em adocao (o portao 4a do Quatro: `--jogo quatro`)",
+    )
     argumentos = analisador.parse_args()
 
     print("⚠️ PORTAO T050 — medido contra o ambiente `des`.")
     print("   (a) e (b) sao conferidas por consulta; (d), pelos cadeados do pytest.")
-    return asyncio.run(conferir(com_escrita=not argumentos.sem_escrita))
+    if argumentos.jogo:
+        print(f"   --jogo {argumentos.jogo}: as quatro condicoes cobram tambem este jogo.")
+    return asyncio.run(
+        conferir(com_escrita=not argumentos.sem_escrita, jogo=argumentos.jogo)
+    )
 
 
 if __name__ == "__main__":

@@ -42,6 +42,16 @@ sim duas vezes**:
     python scripts/rodar_job_local.py                      → des, 7 dias
     python scripts/rodar_job_local.py --dias 14            → des, 14 dias
     python scripts/rodar_job_local.py --ambiente prd --confirmo-escrita-em-producao
+    python scripts/rodar_job_local.py --forcar-jogo quatro --dias 10   → des, so
+
+⚠️ **`--forcar-jogo` (T121 da spec 010) e so do `des`**, e o `prd` o recusa
+mesmo com a confirmacao: ele poe um jogo NOVO na fila sem esperar a adocao
+(`job/adocao.py`), e no `prd` isso seria a tela de atualizar para quem ainda nao
+tem a versao. Ele nao inventa caminho no gerador: entrega ao job uma faixa de
+"1 dia em 1" no lugar da adocao lida, e a vizinhanca faz o resto (o jogo novo
+toma um dia sim, e o dia seguinte volta ao rodizio de sempre). ⚠️ So os dias
+AINDA NAO COBERTOS sao gerados: com a fila cheia ate D+7, `--dias 3` nao gera
+nada - peca dias alem do fim da fila.
 
 ⚠️ **E mesmo no `prd` o estrago possivel e pequeno, de proposito:** tudo o que o
 job grava nasce `candidato` (RF-DES-012a), e nada vai ao ar sem o dono aprovar no
@@ -83,6 +93,31 @@ VARIAVEL_POR_AMBIENTE = {
     "des": "DATABASE_URL_DES",
     "prd": "DATABASE_URL_PRD",
 }
+
+
+def frequencias_forcadas(co_jogo: str) -> dict:
+    """A faixa que o `--forcar-jogo` entrega ao job: [co_jogo] em todo dia possivel.
+
+    ⚠️ "1 dia em 1" e a janela inteira da regra dos dias (`adocao.dia_do_jogo_novo`
+    da `True` sempre), e quem impede dois dias seguidos do mesmo jogo e a
+    vizinhanca do `escolher_jogo` - a mesma regra da fila de verdade.
+
+    Raises:
+        SystemExit: se [co_jogo] nao e um jogo em adocao. Forcar um jogo do
+            rodizio (ou um que nao existe) nao tem sentido, e o gerador o
+            recusaria com um erro bem menos claro.
+    """
+    # Importados aqui, e nao no topo: o `job` so deve ser carregado depois de a
+    # `DATABASE_URL` estar no lugar (ver `main`).
+    from job import gerador as gerador_mod
+    from job.adocao import Frequencia
+
+    if co_jogo not in gerador_mod.JOGOS_EM_ADOCAO:
+        raise SystemExit(
+            f"⛔ `--forcar-jogo {co_jogo}`: so se forca jogo em adocao "
+            f"({', '.join(gerador_mod.JOGOS_EM_ADOCAO)})."
+        )
+    return {co_jogo: Frequencia(um_dia_em=1)}
 
 
 def url_do_ambiente(co_ambiente: str) -> str:
@@ -197,7 +232,26 @@ def main() -> int:
         action="store_true",
         help="obrigatorio com `--ambiente prd`. ⛔ O job GRAVA.",
     )
+    ap.add_argument(
+        "--forcar-jogo",
+        default=None,
+        metavar="JOGO",
+        help=(
+            "so no des: poe o jogo em adocao (ex.: quatro) em todo dia possivel, "
+            "sem esperar a adocao. ⛔ Recusado com `--ambiente prd`."
+        ),
+    )
     args = ap.parse_args()
+
+    # ── ⛔ O jogo forcado nunca vai ao `prd` ─────────────────────────────────
+    #
+    # ⚠️ ANTES da trava do `prd`, e por isso mais forte que ela: nem a
+    # confirmacao libera. Forcar e coisa de quem esta testando o jogo novo.
+    if args.forcar_jogo and args.ambiente == "prd":
+        raise SystemExit(
+            "⛔ `--forcar-jogo` e so do `des`: no `prd` ele poria o jogo novo na "
+            "fila de quem ainda nao tem a versao. Nem a confirmacao o libera."
+        )
 
     # ── ⛔ A trava do `prd`: dizer que sim duas vezes ────────────────────────
     #
@@ -223,6 +277,9 @@ def main() -> int:
         "[rodar_job_local] dias: "
         + (f"{args.dias} (por DESAFIO_DIAS_A_COBRIR)" if args.dias else "a folga padrao")
     )
+    forcadas = frequencias_forcadas(args.forcar_jogo) if args.forcar_jogo else None
+    if forcadas:
+        print(f"[rodar_job_local] ⚠️ jogo FORCADO: {args.forcar_jogo} (sem esperar a adocao)")
     conferir_o_motor()
 
     print(
@@ -238,7 +295,7 @@ def main() -> int:
     # existe para o container do Railway morrer) nao nos atrapalha aqui.
     from job.__main__ import principal
 
-    return principal()
+    return principal(frequencias_forcadas=forcadas)
 
 
 if __name__ == "__main__":

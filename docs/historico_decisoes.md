@@ -8694,3 +8694,53 @@ antes copiadas, com a tupla e o divisor por extenso; 365 dias × 4 vizinhanças 
 formas de "sem jogo novo" iguais; com o jogo novo no ar, todo dia que não é dele igual,
 inclusive o tipo; a ligação no job) e `test_adocao.py` (64, com a regra dos dias).
 18/18 mutações pegas.
+
+## 2026-10-21 (3) — Forçar o jogo novo no `des`, e o portão por jogo (T121 da spec 010)
+
+**Contexto.** Com a adoção decidindo os dias do jogo novo (T120), o Quatro só entra na
+fila quando houver aparelho com a 1.4.0, e nenhum há. A fase 4a precisa de um desafio
+do Quatro no `des` agora (T125) e de um portão que o confira (T126, R-24 da spec 010):
+`scripts/conferir_portao_t050.py` só sabia conferir o desafio de hoje, e exigia que os
+jogos publicados fossem exatamente Pontinhos e damas.
+
+**Decisão.** (1) **`rodar_job_local.py --forcar-jogo quatro`** só aceita jogo de
+`gerador.JOGOS_EM_ADOCAO` e é recusado com `--ambiente prd` **antes** de qualquer outra
+coisa (nem a confirmação o libera, nem a URL do `prd` é lida). (2) **Nenhum caminho novo
+no gerador**: o script entrega ao job a faixa `Frequencia(um_dia_em=1)` no lugar da adoção
+lida (`principal(frequencias_forcadas=)` → `_executar_com_banco` → `executar`, que pula
+`ler_frequencias` e escreve "FORCADA" no log e no resumo). "1 dia em 1" é a janela
+inteira da regra dos dias, e a vizinhança faz a alternância (Quatro, antigo, Quatro). O
+Railway chama `principal()` sem argumento, e nenhuma variável de ambiente leva a faixa:
+a fila de produção não tem como recebê-la. (3) **`conferir_portao_t050.py --jogo quatro`**:
+(a) exige o jogo pedido, no formato dele (`FORMATO_POR_JOGO`, `sequencia_lances`) e com
+modalidade; (c) confere o desafio publicado mais próximo de hoje daquele jogo
+(`_dia_conferido`), pela rota `GET /v1/desafios/{id}` quando ele não é o de hoje (o envio
+da resolução só confere o vínculo desafio-dia, e a escrita é desfeita no fim); a partida
+da escrita leva a extensão do Quatro (`partida_do_portao`), com as duas colunas `NOT NULL`
+da `jogo_quatro.tb001_partida`: a abertura sai do tamanho da sequência publicada (par =
+a pessoa, J1, abriu; contrato `extensao-log-quatro.md` §3), a preferência vai `j1`, e o
+`co_versao_motor` é o que o app grava (`dart_1.1.1`, conferido por teste contra
+`versao_do_motor_quatro.dart`); (d) soma os cinco cadeados do Quatro (contrato, regras,
+medidas, executável, extensão). (4) **Uma mudança sem `--jogo`, de propósito**: (a)
+passa a exigir os jogos do rodízio e a aceitar os em adoção (`julgar_jogos_publicados`);
+antes era igualdade, e o primeiro desafio do Quatro no `des` deixaria o portão da 009
+vermelho para sempre. Jogo estranho (a velha) continua reprovando. As listas do portão
+são escritas no script (ele troca a `DATABASE_URL` antes de importar a API) e conferidas
+por teste contra as do job.
+
+**Alternativas consideradas.** (a) Uma variável de ambiente para forçar o jogo: recusada,
+uma variável esquecida no Railway poria o Quatro na fila do `prd`. (b) Um caminho
+"jogo forçado" em `cobrir_um_dia`: recusado, duplicaria a escolha do jogo e o gerador
+(que escolhe de novo por dentro) não o veria. (c) No portão, exigir que o desafio de hoje
+seja do jogo pedido: recusada, a fila anda uma semana à frente e o portão esperaria dias
+por um dado já gravado. (d) Mover o desafio do Quatro para hoje dentro da transação
+desfeita: recusada, as leituras correm fora dela e o portão conferiria um banco
+inventado.
+
+**Consequência para a T125.** O job só gera dia ainda não coberto; com a fila do `des`
+seis dias à frente (21/10), o comando passa a pedir `--dias` = dias cobertos + 4, e não
+3. Fumaça contra o `des` em 21/10 (`--jogo quatro --sem-escrita`): roda até o fim, (a) e
+(c) reprovam pela falta de desafio do Quatro, (b) e (d) passam.
+
+**Testes.** `tests/unitarios/test_rodar_job_local.py` (8), `test_portao_t050_por_jogo.py`
+(29) e dois casos em `test_adocao_nao_muda_a_fila.py`; 20/20 mutações pegas.

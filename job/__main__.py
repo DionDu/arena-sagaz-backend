@@ -906,6 +906,7 @@ async def executar(
     bancada_de: Callable[[Any], Any] = gerador_mod.bancada,
     nu_execucoes_da_regua: int = regua_mod.EXECUCOES_PADRAO,
     alvo: Optional[alvo_mod.Alvo] = None,
+    frequencias_forcadas: Optional[dict[str, adocao_mod.Frequencia]] = None,
 ) -> Relatorio:
     """Roda o job inteiro sobre uma sessao ja aberta.
 
@@ -915,6 +916,11 @@ async def executar(
             que e o fuso do Railway, e e o mesmo que decide `dt_dia`.
         gerar: a funcao de geracao, injetavel para teste.
         nu_execucoes_da_regua: quantas vezes cada mascote tenta.
+        frequencias_forcadas: a faixa de cada jogo novo, no lugar da adocao
+            lida (T121). ⛔ **So o `scripts/rodar_job_local.py --forcar-jogo`
+            passa isto, e ele recusa o `prd`**: o Railway chama `principal()`
+            sem argumento, e nenhuma variavel de ambiente chega aqui - a fila de
+            producao nunca sai de uma adocao inventada.
 
     Returns:
         O [Relatorio], **sempre** — inclusive quando dias falharam.
@@ -1018,7 +1024,18 @@ async def executar(
     # mesma razao da banda acima, e por uma a mais: a idempotencia (T038). Se cada
     # dia lesse a amostra por conta propria, dois dias da mesma execucao poderiam
     # cair em faixas diferentes, e o log nao saberia dizer qual valeu.
-    frequencias = await ler_frequencias(repositorio, dt_hoje=dt_hoje, relatorio=relatorio)
+    if frequencias_forcadas is not None:
+        # ⚠️ Forcada: nada e lido, e o log diz isso com todas as letras, para
+        # ninguem confundir a fila do `des` gerada assim com a adocao real.
+        frequencias = frequencias_forcadas
+        for co_jogo, frequencia in frequencias.items():
+            linha = f"{co_jogo}: FORCADA (--forcar-jogo) -> {frequencia.descrever()}"
+            relatorio.adocao.append(linha)
+            print(f"[job] adocao de {linha}")
+    else:
+        frequencias = await ler_frequencias(
+            repositorio, dt_hoje=dt_hoje, relatorio=relatorio
+        )
 
     # ── 4. Cobrir dia a dia ─────────────────────────────────────────────────
     for numero, passo in enumerate(plano, start=1):
@@ -1074,20 +1091,33 @@ async def executar(
     return relatorio
 
 
-async def _executar_com_banco(dt_hoje: Optional[date] = None) -> Relatorio:
+async def _executar_com_banco(
+    dt_hoje: Optional[date] = None,
+    frequencias_forcadas: Optional[dict[str, adocao_mod.Frequencia]] = None,
+) -> Relatorio:
     """Abre a conexao, roda, e fecha a engine ao sair."""
     async with abrir_sessao() as sessao:
-        return await executar(sessao, dt_hoje=dt_hoje)
+        return await executar(
+            sessao, dt_hoje=dt_hoje, frequencias_forcadas=frequencias_forcadas
+        )
 
 
-def principal(dt_hoje: Optional[date] = None) -> int:
+def principal(
+    dt_hoje: Optional[date] = None,
+    *,
+    frequencias_forcadas: Optional[dict[str, adocao_mod.Frequencia]] = None,
+) -> int:
     """Roda o job e devolve o codigo de saida do processo.
+
+    Args:
+        frequencias_forcadas: ver `executar`. ⛔ So o `rodar_job_local.py`
+            passa, e so para o `des`.
 
     ⚠️ **Devolve numero, e nao chama `sys.exit`.** Funcao que encerra o processo
     derruba o pytest junto; quem sai e o `if __name__ == "__main__"` la embaixo.
     """
     try:
-        relatorio = asyncio.run(_executar_com_banco(dt_hoje))
+        relatorio = asyncio.run(_executar_com_banco(dt_hoje, frequencias_forcadas))
     except BancoNaoConfigurado as erro:
         # ⚠️ Sem `traceback`: a causa e uma Variable esquecida no console, e o
         # rastro de pilha so afogaria o recado que diz onde arrumar.

@@ -341,3 +341,43 @@ def test_a_versao_minima_e_a_menor_por_numero(monkeypatch):
         {"t1": (_Publicacao("1.10.0"),), "t2": (_Publicacao("1.9.0"), _Publicacao("1.12.0"))},
     )
     assert gerador_mod.versao_minima_do_jogo("qualquer") == "1.9.0"
+
+
+@pytest.mark.asyncio
+async def test_a_faixa_forcada_pula_a_leitura_e_vai_ao_log(monkeypatch):
+    """T121: o `--forcar-jogo` do `des` entrega a faixa; nada é lido do banco."""
+    sessao = _sessao_feliz()
+    sessao.respostas["log.vw004_aparelho_dia"] = _linhas_de_aparelho(0, 5)
+    recebidas: list[Any] = []
+
+    async def cobrir_espiao(*_a: Any, **kwargs: Any) -> None:
+        recebidas.append(kwargs["frequencias"])
+        return None
+
+    monkeypatch.setattr(principal_mod, "cobrir_um_dia", cobrir_espiao)
+    forcadas = {"quatro": Frequencia(um_dia_em=1)}
+    relatorio = await principal_mod.executar(
+        sessao,
+        dt_hoje=date(2026, 9, 20),
+        frequencias_forcadas=forcadas,
+        nu_execucoes_da_regua=1,
+    )
+
+    assert not [sql for sql, _ in sessao.executadas if "log.vw004_aparelho_dia" in sql]
+    assert recebidas and all(f is forcadas for f in recebidas)
+    assert relatorio.adocao == ["quatro: FORCADA (--forcar-jogo) -> 1 dia em 1"]
+    assert "[job] adocao: quatro: FORCADA" in relatorio.resumo()
+
+
+def test_o_principal_entrega_a_faixa_forcada(monkeypatch):
+    recebido: list[Any] = []
+
+    async def executar_com_banco_espiao(dt_hoje, frequencias_forcadas):
+        recebido.append(frequencias_forcadas)
+        return principal_mod.Relatorio()
+
+    monkeypatch.setattr(principal_mod, "_executar_com_banco", executar_com_banco_espiao)
+    forcadas = {"quatro": Frequencia(um_dia_em=1)}
+    principal_mod.principal(frequencias_forcadas=forcadas)
+    principal_mod.principal()
+    assert recebido == [forcadas, None]
