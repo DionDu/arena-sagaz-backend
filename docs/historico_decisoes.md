@@ -8938,6 +8938,26 @@ basta com o orçamento maior, e trocar o acervo desloca a fila de todos os tipos
 é a remedição do dono, com `medir_variantes_do_editorial.py <tipo> --com-regua`, que decide
 se os dois sobem (2 de 3 dias na escada, como na T124b).
 
+**A remedição, no mesmo dia** (`medir_variantes_do_editorial.py <tipo> --com-regua`, uns
+30 s por tipo; o critério de 20/10: candidato e escada em 2 de 3 dias):
+
+| tipo e variante | candidatos `[d1,d2,d3]` | dias na escada | solução | veredito |
+|---|---|---|---|---|
+| Segure | APERTADO `[3, 2, 2]` | ✅ 2 de 3 (o 1º erra por 0,02) | 18,1 | **sobe** |
+| Vença em 5 | SEM DESAFIO `[0, 3, 3]` | 2 de 3, mas o dia 1 sem candidato | 9,0 | fica fora |
+| Vença em 6 | APERTADO `[3, 2, 3]` | ⛔ 1 de 3 (os outros dois erram por 0,02) | 10,8 | fica fora |
+| Vença em 7 (nova) | ✅ FOLGA `[3, 3, 3]` | ✅ **3 de 3**, o 1º candidato de cada dia | 11,7 | **sobe** |
+
+⚠️ **O gargalo do "Vença em 5" mudou de lugar.** Com o preparo 22 a posição existe (no dia 1,
+sete passaram na prova), mas o gabarito joga contra o adversário do dia, que erra, e vence em
+2 a 4 lances: abaixo do piso de 9 meios-lances, o candidato cai. Com N=7 a vitória contra quem
+erra ainda fica acima do piso. ⛔ Baixar o piso só para este tipo foi recusado: desafio de 1, 2
+ou 3 jogadas não merece o nome (critério do dono, §8zzzl).
+
+**Decisão:** sobem o Segure e o *"Vença {personagem} em até 7 lances"*; o 5 e o 6 ficam
+documentados no `EDITORIAL_FORA_DO_AR`. A promoção é a mesma da T124b (receita e editorial no
+ar, vetores de verificação, as duas fábricas do app).
+
 **Lição.** A frase que justificava o preparo ("é coisa de meio de jogo") era uma suposição
 sobre o jogo escrita como fato, e ninguém a mediu até a régua dar `[0, 0, 0]`. O botão de
 preparo de um tipo novo sai de uma tabela por fase, e não da intuição sobre o jogo.

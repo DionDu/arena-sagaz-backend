@@ -2106,6 +2106,9 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             # com 22 a 28, 39 de 560 (7%). Medido com
             # `scripts/medir_fases_das_posicoes_quatro.py` (historico do backend,
             # "2026-10-21 (7)").
+            # ⛔ Remedida em 21/10 com o preparo 22: `[0, 3, 3]`. A posicao passou
+            # a existir (7 passaram na prova no dia 1), mas o gabarito contra o
+            # adversario do dia, que erra, vence em 2 a 4 lances, abaixo do piso.
             parametros={"lances": 5},
             nu_lances_de_preparo=22,
             ic_chegada_encerra_partida=True,
@@ -2116,7 +2119,24 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             # ⛔ Medida em 20/10: SEM DESAFIO `[1, 0, 0]`, e facil (Cacau 0,70).
             # 11 meios-lances; a rede da de cima. Preparo 22 pela mesma medicao
             # da variante acima: com 22 a 28 lances, 42 de 560 passam em N=6 (eram 9).
+            # ⛔ Remedida em 21/10 com o preparo 22: APERTADO `[3, 2, 3]`, mas na
+            # escada so em 1 de 3 dias (errou por 0,02 nos outros dois).
             parametros={"lances": 6},
+            nu_lances_de_preparo=22,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro_vencer_em_n,
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+        Publicacao(
+            # ⚠️ Nova em 21/10/2026 (T124c): com o preparo 22, o `{lances: 5}`
+            # tem posicao, mas o gabarito contra o adversario do dia (que erra)
+            # vence em 3 ou 4 lances, abaixo do piso de 9 meios-lances. Com N=7
+            # (13 meios-lances) a vitoria contra quem erra ainda tende a ficar
+            # acima do piso. ✅ Medida em 21/10: FOLGA `[3, 3, 3]`, na escada nos
+            # TRES dias (o 1º candidato de cada um), solucao de 11,7 meios-lances.
+            # E a unica das tres que passa (`{5}`: `[0, 3, 3]`; `{6}`: 1 de 3 na
+            # escada, errando por 0,02 duas vezes).
+            parametros={"lances": 7},
             nu_lances_de_preparo=22,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro_vencer_em_n,
@@ -2126,6 +2146,9 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     "quatro_segurar_magno": (
         Publicacao(
             # ⛔ Medida em 20/10: SEM DESAFIO `[3, 0, 0]` (falta o empate provado).
+            # ✅ Remedida em 21/10, com 40 tentativas por candidato (eram 20):
+            # APERTADO `[3, 2, 2]`, na escada em 2 de 3 dias (o 1º errou por 0,02),
+            # solucao de 18,1 meios-lances. Passa no criterio e sobe.
             # ⛔ Contra o Magno e so ele: e o nome do tipo.
             # Preparo 22: o empate so se PROVA com o fim ao alcance da busca.
             parametros={},
