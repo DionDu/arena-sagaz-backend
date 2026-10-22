@@ -9400,3 +9400,32 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 .venv\Scripts\python -u scripts\diagnosticar_bloquear_quatro.py
 .venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_sem_o_meio --com-regua --dias=9
 ```
+
+### O resultado do diagnóstico (o dono rodou)
+
+Controles: **1.680 de 1.680** nas duas contas. 21 posições (9 dos 30 dias sem candidato - em
+parte artefato do script, que pede 1 candidato e por isso tenta 40 posições, e não as 120 do
+job), 5 execuções por par.
+
+| na visão da régua | cumpriu | perdeu | não perdeu, < 3 | turnos com ameaça | bloqueios | ignoradas | meios-lances |
+|---|---|---|---|---|---|---|---|
+| Cacau | 0,00 | 0,88 | 0,12 | 1,0 | 0,3 | 0,7 | 6,8 |
+| Pita | 0,01 | 0,71 | 0,29 | 1,0 | 0,7 | 0,3 | 10,0 |
+| Tex | 0,04 | 0,42 | 0,55 | 1,2 | 1,1 | 0,1 | 13,0 |
+| Magno | 0,17 | 0,13 | 0,70 | 1,6 | 1,5 | 0,0 | 14,1 |
+
+**Leitura.** (1) Há escada, crescente, mas **inteira abaixo do alvo** (o Magno em 0,17, o alvo
+dele é 0,75): no caminho da régua o tipo não é "plano", é difícil demais para todos. (2) A
+hipótese acertou o JEITO de falhar e errou o porquê: os fracos falham perdendo (ignoram a ameaça),
+os fortes falham sem perder e com menos de 3 bloqueios - mas o Magno vê MAIS ameaças que os outros
+(1,6), e não menos, porque a partida dele dura mais. (3) A causa é a POSIÇÃO: nessas partidas o
+adversário cria, em média, uma ou duas ameaças tapáveis, e nunca há três para bloquear. Nem
+contra o Magno o Magno passa de 2,5. (4) **Trocar o número não conserta**: recontado do diário,
+com 2 ameaças a régua daria Cacau 0,00 · Pita 0,04 · Tex 0,13 · Magno 0,32, e com 1, 0,03 · 0,12 ·
+0,34 · 0,62 - o Magno abaixo do piso nos dois. (5) A prova de geração (`bloquear`) é o furo: ela
+aceita a posição porque a CONTINUAÇÃO do autoplay Magno × Tex bloqueou 3, e essa é uma partida só;
+as partidas da régua, com outras sementes e outros níveis, quase nunca repetem isso.
+
+⬜ **A decisão é do dono** (como a §8zzzn e a aposentadoria da única coluna, §8zzzl): pescar
+posições de pressão (a prova pedindo 3 bloqueios em VÁRIAS continuações com o adversário do
+nível, e não numa só) ou aposentar o tipo.
