@@ -2140,6 +2140,42 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_golpe_duplo": (
+        Publicacao(
+            # ✅ **No ar desde 21/10/2026** (T124c): com a posicao do BANCO pescado
+            # (`banco_forcavel_quatro`) e o perseguidor, a regua deu FOLGA `[3, 3, 3]`
+            # e escada em 3 de 3 dias. Historico do backend, "2026-10-21 (13)".
+            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 2]` (T124c), por falta de
+            # posicao. ⚠️ Desde 21/10 a posicao vem do BANCO pescado
+            # (`banco_forcavel_quatro`, §8zzzn): o "preparo" e o comprimento
+            # minimo de uma posicao do banco, e o teto cobre o tabuleiro inteiro
+            # a partir dela. Duas linhas com a mesma peca: o nome do tipo.
+            parametros={"linhas": 2},
+            nu_lances_de_preparo=_PREPARO_DO_BANCO,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("linhas_no_lance_final"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_linha_de_cinco": (
+        Publicacao(
+            # ✅ **No ar desde 21/10/2026** (T124c): com a posicao do BANCO pescado
+            # (`banco_forcavel_quatro`) e o perseguidor, a regua deu FOLGA `[3, 3, 3]`
+            # e escada em 2 de 3 dias (o 1o errou por 0,05). Historico do backend,
+            # "2026-10-21 (13)".
+            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 2, 3]` (T124c), por falta de
+            # posicao. ⚠️ Desde 21/10 a posicao vem do BANCO pescado (ver o golpe
+            # duplo, acima). Cinco: um a mais que o alinhar da modalidade de hoje.
+            parametros={"tamanho": 5},
+            nu_lances_de_preparo=_PREPARO_DO_BANCO,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("maior_linha"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
 }
 
 
@@ -2213,34 +2249,6 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 14,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro(None),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
-    "quatro_golpe_duplo": (
-        Publicacao(
-            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 2]` (T124c), por falta de
-            # posicao. ⚠️ Desde 21/10 a posicao vem do BANCO pescado
-            # (`banco_forcavel_quatro`, §8zzzn): o "preparo" e o comprimento
-            # minimo de uma posicao do banco, e o teto cobre o tabuleiro inteiro
-            # a partir dela. Duas linhas com a mesma peca: o nome do tipo.
-            parametros={"linhas": 2},
-            nu_lances_de_preparo=_PREPARO_DO_BANCO,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro("linhas_no_lance_final"),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
-    "quatro_linha_de_cinco": (
-        Publicacao(
-            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 2, 3]` (T124c), por falta de
-            # posicao. ⚠️ Desde 21/10 a posicao vem do BANCO pescado (ver o golpe
-            # duplo, acima). Cinco: um a mais que o alinhar da modalidade de hoje.
-            parametros={"tamanho": 5},
-            nu_lances_de_preparo=_PREPARO_DO_BANCO,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro("maior_linha"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
     ),

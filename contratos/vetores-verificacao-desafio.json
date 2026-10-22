@@ -6112,6 +6112,695 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "quatro-golpe-duplo-cumpriu",
+      "de_vetor": "A pessoa vence no s1 do 5o lance dela, e a peca fecha DUAS linhas de uma vez. `linhas_no_lance_final` 2.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 44,
+      "co_tipo_desafio": "quatro_golpe_duplo",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "linhas_no_lance_final",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 7,
+          "pecas_encostadas_do_adversario": 5,
+          "vitoria_diagonal": 1,
+          "linhas_no_lance_final": 2,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-golpe-duplo-uma-linha-so",
+      "de_vetor": "A pessoa vence pela linha de baixo (3, 4, 5 e 6): UMA linha so. Venceu, e nao cumpre - quem julgasse so a vitoria diria cumpriu, e quem trocasse `maior_ou_igual 2` por `maior_ou_igual 1` tambem.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 44,
+      "co_tipo_desafio": "quatro_golpe_duplo",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "linhas_no_lance_final",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-golpe-duplo-do-adversario",
+      "de_vetor": "O ADVERSARIO vence fechando duas linhas com a mesma peca. Ha um golpe duplo no tabuleiro, e nao e da pessoa: nao cumpre.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 44,
+      "co_tipo_desafio": "quatro_golpe_duplo",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 10,
+          "jogador": -1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "linhas_no_lance_final",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 7,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-golpe-duplo-lance-ilegal-e-dado-invalido",
+      "de_vetor": "Uma coluna que nao existe (a 9). Dado invalido.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 44,
+      "co_tipo_desafio": "quatro_golpe_duplo",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s9"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "linhas_no_lance_final",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "quatro-linha-de-cinco-cumpriu",
+      "de_vetor": "A pessoa fecha a linha de baixo da coluna 3 a 7: CINCO em linha. `maior_linha` 5.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 45,
+      "co_tipo_desafio": "quatro_linha_de_cinco",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "maior_linha",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 5,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-linha-de-cinco-so-quatro",
+      "de_vetor": "A pessoa vence pela linha de baixo com QUATRO (3 a 6), uma a menos que o alvo: nao cumpre - quem trocasse `maior_ou_igual 5` por `maior_ou_igual 4` diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 45,
+      "co_tipo_desafio": "quatro_linha_de_cinco",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "maior_linha",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-linha-de-cinco-do-adversario",
+      "de_vetor": "O ADVERSARIO vence com cinco em linha. A linha de cinco existe, e nao e da pessoa: nao cumpre.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 45,
+      "co_tipo_desafio": "quatro_linha_de_cinco",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "maior_linha",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 6,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-linha-de-cinco-lance-depois-do-fim-e-dado-invalido",
+      "de_vetor": "A pessoa vence pela linha de baixo e a fita segue com um lance. Dado invalido.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 45,
+      "co_tipo_desafio": "quatro_linha_de_cinco",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "maior_linha",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ],
   "sementes": [

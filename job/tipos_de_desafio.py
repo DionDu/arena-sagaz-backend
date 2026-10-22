@@ -2868,6 +2868,56 @@ RECEITAS: dict[str, Receita] = {
             "personagem": personagem,
         },
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_golpe_duplo": Receita(
+        nu_tipo_desafio=44,
+        co_tipo_desafio="quatro_golpe_duplo",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroGolpeDuplo",
+        # ✅ **No ar desde 21/10/2026** (T124c): com a posicao do BANCO pescado
+        # (`banco_forcavel_quatro`) e o perseguidor, a regua deu FOLGA `[3, 3, 3]`
+        # e escada em 3 de 3 dias. Historico do backend, "2026-10-21 (13)".
+        # "Venca fechando duas linhas com a mesma peca": as linhas que o lance
+        # final fechou (`linhas_no_lance_final`), da pessoa.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("linhas_no_lance_final", "maior_ou_igual", p["linhas"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "linhas": p["linhas"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_linha_de_cinco": Receita(
+        nu_tipo_desafio=45,
+        co_tipo_desafio="quatro_linha_de_cinco",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroLinhaDeCinco",
+        # ✅ **No ar desde 21/10/2026** (T124c): com a posicao do BANCO pescado
+        # (`banco_forcavel_quatro`) e o perseguidor, a regua deu FOLGA `[3, 3, 3]`
+        # e escada em 2 de 3 dias (o 1o errou por 0,05). Historico do backend,
+        # "2026-10-21 (13)".
+        # "Venca com cinco em linha": a maior linha vencedora da pessoa.
+        # ⚠️ O tamanho e parametro (`tamanho`), e nao o 5 escrito aqui: numa
+        # modalidade de alinhar 5 a frase pediria 6, e e so um INSERT.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("maior_linha", "maior_ou_igual", p["tamanho"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "tamanho": p["tamanho"],
+            "personagem": personagem,
+        },
+    ),
 }
 
 
@@ -2965,49 +3015,6 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
             "clausulas": [_predicado("quatro_perdeu", "igual", False)],
         },
         valores_da_frase=lambda p, personagem: {"personagem": personagem},
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_golpe_duplo": Receita(
-        nu_tipo_desafio=44,
-        co_tipo_desafio="quatro_golpe_duplo",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroGolpeDuplo",
-        # "Venca fechando duas linhas com a mesma peca": as linhas que o lance
-        # final fechou (`linhas_no_lance_final`), da pessoa.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("vitoria", "igual", _ATINGIDO),
-                _medida("linhas_no_lance_final", "maior_ou_igual", p["linhas"]),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "linhas": p["linhas"],
-            "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_linha_de_cinco": Receita(
-        nu_tipo_desafio=45,
-        co_tipo_desafio="quatro_linha_de_cinco",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroLinhaDeCinco",
-        # "Venca com cinco em linha": a maior linha vencedora da pessoa.
-        # ⚠️ O tamanho e parametro (`tamanho`), e nao o 5 escrito aqui: numa
-        # modalidade de alinhar 5 a frase pediria 6, e e so um INSERT.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("vitoria", "igual", _ATINGIDO),
-                _medida("maior_linha", "maior_ou_igual", p["tamanho"]),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "tamanho": p["tamanho"],
-            "personagem": personagem,
-        },
     ),
     # ─────────────────────────────────────────────────────────────────────────
     "quatro_sem_o_meio": Receita(

@@ -476,8 +476,9 @@ def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     tipos = MEDIDOR.tipos_do_alvo("quatro")
     assert tipos == sorted(t for t, r in RECEITAS_FORA_DO_AR.items() if r.co_jogo == "quatro")
     # Eram dez; a virada subiu na T124b, o vencer em N e o Segure na T124c, e a
-    # diagonal e as encostadas com o perseguidor (T124c, defeito 1).
-    assert len(tipos) == 5
+    # diagonal e as encostadas com o perseguidor (T124c, defeito 1), e o golpe
+    # duplo e a linha de cinco com o banco pescado (T124c, 21/10).
+    assert len(tipos) == 3
     assert MEDIDOR.tipos_do_alvo("quatro_bloquear") == ["quatro_bloquear"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)

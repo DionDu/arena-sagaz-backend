@@ -9325,3 +9325,29 @@ acima do piso do gabarito (9), mas é o que a régua tem de mostrar por personag
 Suíte do backend: 3.678 verdes e 1 falha - o cadeado `test_o_registro_liga_SO_os_tipos_que_a_medicao_aprovou`,
 que existe para que ligar um perseguidor obrigue a dizer qual medição o aprovou. Ganhou os três
 tipos, cada um com a sua medição no docstring; o arquivo dele, 6 verdes.
+
+## 2026-10-21 (13) — O golpe duplo e a linha de cinco no ar; o "sem o meio" fica fora (T124c da spec 010)
+
+**A régua com o banco (o dono rodou, 31 s, 39 s e 61 s).** Golpe duplo: FOLGA `[3, 3, 3]`, **na
+escada em 3 de 3 dias** (Cacau 0,20/0 · Pita 0,30 · Tex 0,80 · Magno 0,90/0,80), solução média 12,6
+meios-lances; o piso do gabarito descartou candidatos de 5 meios-lances, como devia. Linha de
+cinco: FOLGA `[3, 3, 3]`, **na escada em 2 de 3** (o 1º dia errou por 0,05: o Tex em 1,00),
+solução 15,4. "Sem o meio": FOLGA `[3, 3, 3]`, **na escada em 1 de 3** (os outros erraram por 0,03 -
+a Cacau em 0,30 - e por 0,02 - a Pita em 0,00), solução 16,3.
+
+**Decisão: sobem o golpe duplo e a linha de cinco** (o critério da T124b, 2 de 3 dias); o "sem o
+meio" fica em `RECEITAS_FORA_DO_AR` - perto, e remedível. A promoção é a da T124b: receitas e
+publicações MOVIDAS para `RECEITAS`/`EDITORIAL` com o selo da medição, e **oito vetores**
+(`vetores_do_quatro_do_banco`): em cada tipo, o jeito certo (duas linhas na mesma peça; cinco em
+linha), o jeito errado (a vitória pela linha de baixo, de quatro e UMA linha só), o jeito certo
+feito pelo ADVERSÁRIO, e um dado inválido. Fitas achadas por sorteio a partir da base `s3 s3 s4
+s4` e conferidas pelo medidor de produção. Testes que retratavam os lados ajustados
+(`test_receitas_do_quatro.py`: sete no ar; `test_gerador_do_quatro.py`: três fora). **No ar, sete
+tipos do Quatro** (virada, vença em 7, Segure, diagonal, encostadas, golpe duplo, linha de cinco).
+
+Suíte do backend: 3.704 verdes e 1 falha - `test_a_receita_monta_uma_chegada_VALIDA`, cujo
+dicionário de parâmetros precisa de TODAS as chaves dos tipos no ar (o comentário dele prevê
+exatamente isto): ganhou `linhas` e `tamanho`, e o arquivo, 38 verdes. App: `test/core/desafios/`
+e a lógica do desafio, 925 verdes (eram 915: os vetores novos). Mutações: Dart 2 de 2 e Python 2 de
+2 (o lance final fechando sempre UMA linha; a maior linha nunca passando de quatro), cada uma pega
+pelo vetor "cumpriu" do próprio tipo.

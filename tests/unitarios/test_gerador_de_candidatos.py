@@ -174,6 +174,8 @@ def test_a_receita_monta_uma_chegada_VALIDA() -> None:
         # peca por 3"*). ⛔ Apagar um dos dois quebraria metade do tipo.
         "capturar": 3,   # damas_sacrificio
         "entregar": 1,   # damas_sacrificio e damas_sobreviver
+        "linhas": 2,     # quatro_golpe_duplo (no ar desde 21/10/2026)
+        "tamanho": 5,    # quatro_linha_de_cinco (no ar desde 21/10/2026)
     }
     for codigo, receita in RECEITAS.items():
         chegada = LinhaDeChegada.de_dado(receita.montar(parametros))

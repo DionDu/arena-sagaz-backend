@@ -1816,6 +1816,102 @@ def vetores_do_quatro_perseguidos() -> list[dict[str, Any]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# O QUATRO EM LINHA - o golpe duplo e a linha de cinco (T124c, 21/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Os dois tipos que subiram com a posicao do banco pescado. Os dois pedem um
+# JEITO de vencer, e cada um tem os mesmos tres casos da diagonal: o jeito certo,
+# o errado (a vitoria pela linha de baixo, de QUATRO e UMA linha so - nao e
+# golpe duplo nem linha de cinco) e o jeito certo feito pelo ADVERSARIO. As fitas
+# foram achadas por sorteio a partir da base e conferidas pelo medidor de
+# producao (os feitos do vetor saem dele).
+
+
+def vetores_do_quatro_do_banco() -> list[dict[str, Any]]:
+    """Os vetores do `quatro_golpe_duplo` e do `quatro_linha_de_cinco`."""
+    golpe = RECEITAS["quatro_golpe_duplo"]
+    cinco = RECEITAS["quatro_linha_de_cinco"]
+    chegada_golpe = golpe.montar({"linhas": 2})
+    chegada_cinco = cinco.montar({"tamanho": 5})
+
+    def do_golpe(*argumentos: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(golpe, chegada_golpe, *argumentos)
+
+    def da_linha_de_cinco(*argumentos: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(cinco, chegada_cinco, *argumentos)
+
+    return [
+        # ── "Venca {personagem} fechando {linhas} linhas com a mesma peca" ────
+        do_golpe(
+            "quatro-golpe-duplo-cumpriu",
+            "A pessoa vence no s1 do 5o lance dela, e a peca fecha DUAS linhas "
+            "de uma vez. `linhas_no_lance_final` 2.",
+            _BASE_DO_QUATRO,
+            "s2 s4 s4 s5 s2 s5 s3 s7 s1".split(),
+            "cumpriu",
+        ),
+        do_golpe(
+            "quatro-golpe-duplo-uma-linha-so",
+            "A pessoa vence pela linha de baixo (3, 4, 5 e 6): UMA linha so. "
+            "Venceu, e nao cumpre - quem julgasse so a vitoria diria cumpriu, e "
+            "quem trocasse `maior_ou_igual 2` por `maior_ou_igual 1` tambem.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6"],
+            "nao_cumpriu",
+        ),
+        do_golpe(
+            "quatro-golpe-duplo-do-adversario",
+            "O ADVERSARIO vence fechando duas linhas com a mesma peca. Ha um "
+            "golpe duplo no tabuleiro, e nao e da pessoa: nao cumpre.",
+            _BASE_DO_QUATRO,
+            "s1 s6 s3 s6 s7 s4 s1 s3 s5 s5".split(),
+            "nao_cumpriu",
+        ),
+        do_golpe(
+            "quatro-golpe-duplo-lance-ilegal-e-dado-invalido",
+            "Uma coluna que nao existe (a 9). Dado invalido.",
+            _BASE_DO_QUATRO,
+            ["s9"],
+            "dado_invalido",
+        ),
+        # ── "Venca {personagem} com {tamanho} em linha" ───────────────────────
+        da_linha_de_cinco(
+            "quatro-linha-de-cinco-cumpriu",
+            "A pessoa fecha a linha de baixo da coluna 3 a 7: CINCO em linha. "
+            "`maior_linha` 5.",
+            _BASE_DO_QUATRO,
+            "s7 s1 s6 s7 s5".split(),
+            "cumpriu",
+        ),
+        da_linha_de_cinco(
+            "quatro-linha-de-cinco-so-quatro",
+            "A pessoa vence pela linha de baixo com QUATRO (3 a 6), uma a menos "
+            "que o alvo: nao cumpre - quem trocasse `maior_ou_igual 5` por "
+            "`maior_ou_igual 4` diria cumpriu.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6"],
+            "nao_cumpriu",
+        ),
+        da_linha_de_cinco(
+            "quatro-linha-de-cinco-do-adversario",
+            "O ADVERSARIO vence com cinco em linha. A linha de cinco existe, e "
+            "nao e da pessoa: nao cumpre.",
+            _BASE_DO_QUATRO,
+            "s6 s5 s2 s6 s7 s2 s6 s5".split(),
+            "nao_cumpriu",
+        ),
+        da_linha_de_cinco(
+            "quatro-linha-de-cinco-lance-depois-do-fim-e-dado-invalido",
+            "A pessoa vence pela linha de baixo e a fita segue com um lance. "
+            "Dado invalido.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6", "s1"],
+            "dado_invalido",
+        ),
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ⛔ AS SEMENTES POR LANCE — o segundo bloco do documento (26/09/2026)
 # ═══════════════════════════════════════════════════════════════════════════
 #
@@ -1919,6 +2015,8 @@ def montar() -> dict[str, Any]:
         + vetores_do_quatro_de_21_10()
         # A diagonal e as encostadas (T124c, defeito 1), tambem no fim.
         + vetores_do_quatro_perseguidos()
+        # O golpe duplo e a linha de cinco (T124c, o banco pescado), no fim.
+        + vetores_do_quatro_do_banco()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

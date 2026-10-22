@@ -138,14 +138,17 @@ def test_cada_tipo_do_quatro_mora_de_UM_lado_so() -> None:
     # ⚠️ O retrato de hoje: a virada (T124b, `DECISOES-do-dono.md` §8zzzl), e o
     # *"venca em ate 7"* e o Segure, que passaram na remedicao de 21/10 (T124c),
     # e a diagonal e as encostadas, que passaram com o perseguidor do objetivo
-    # (T124c, defeito 1). Promover outro tipo e atualizar este conjunto na mesma
-    # resposta.
+    # (T124c, defeito 1), e o golpe duplo e a linha de cinco, que passaram com a
+    # posicao do banco pescado (T124c, 21/10). Promover outro tipo e atualizar
+    # este conjunto na mesma resposta.
     assert no_ar == {
         "quatro_virada",
         "quatro_vencer_em_n",
         "quatro_segurar_magno",
         "quatro_vencer_diagonal",
         "quatro_encostadas",
+        "quatro_golpe_duplo",
+        "quatro_linha_de_cinco",
     }
     assert "quatro_unica_coluna" in RECEITAS_FORA_DO_AR, "aposentada, e nao apagada"
 
