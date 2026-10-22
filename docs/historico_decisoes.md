@@ -9434,3 +9434,45 @@ nível, e não numa só) ou aposentar o tipo.
 APOSENTADO**, como a única coluna: continua em `RECEITAS_FORA_DO_AR`/`EDITORIAL_FORA_DO_AR`,
 marcado, e não vai ao ar. O texto do objetivo e do feito fica no app (não faz mal, e evita mexer
 em quatro cadeados do `.arb`).
+
+## 2026-10-22 (1) — O "sem o meio" sai do rodízio da Cacau (T124c da spec 010)
+
+**Contexto.** A régua do `quatro_sem_o_meio` em 9 dias (entrada "2026-10-21 (14)", critério 6 de 9)
+deu **5 de 9** na escada. O critério que eu tinha escrito ("Cacau alta → piso maior; Pita baixa →
+o piso não ajuda") não serviu: os erros não eram de um lado, eram de um **adversário**. O dono
+rodou também 18 dias (ainda sem restrição, porque a mudança não tinha entrado): **9 de 18**.
+
+| adversário do dia | dias | na escada | os que ficaram fora |
+|---|---|---|---|
+| Cacau | 04, 08, 12, 16 | **0 de 4** | fácil demais: Pita 0,60 a 0,80 (faixa 0,05-0,45), Tex 0,90-1,00 |
+| Pita | 01, 05, 09, 13, 17 | 2 de 5 | fácil demais: Cacau 0,30 (duas vezes), Tex 1,00 |
+| Tex | 02, 06, 10, 14, 18 | 4 de 5 | fácil demais: Cacau 0,30 e Pita 0,50 |
+| Magno | 03, 07, 11, 15 | 3 de 4 | difícil demais: Pita 0,00 |
+
+**Leitura.** (1) Oito dos nove erros são de fácil demais, e a metade deles está contra a Cacau,
+onde nenhum dos 12 candidatos calibrou: com a Cacau defendendo, a Pita vence sem o meio de 6 a 10
+em 10, e os níveis deixam de se separar. Os descartes abaixo do piso de 9 meios-lances aparecem
+nos dias contra a Cacau e a Pita, pelo mesmo motivo. (2) Sem a Cacau, os mesmos dados dariam 9 de
+14 (64%), abaixo da proporção do critério (12 de 18 = 67%). ⚠️ É uma conta feita DEPOIS de ver os
+dados, e não prova: com três personagens o rodízio muda o adversário de cada data, e os
+candidatos mudam junto.
+
+**Decisão (do dono, `DECISOES-do-dono.md` §8zzzp):** `co_personagens=("pita", "tex", "magno")` no
+`EDITORIAL_FORA_DO_AR`. Precedente: a cadeia longa do Pontinhos (`("cacau", "pita")`, pelo motivo
+inverso). O cadeado de `test_receitas_do_quatro.py` virou uma tabela (`RESTRICOES_DE_PERSONAGEM`):
+o Segure só contra o Magno, o "sem o meio" sem a Cacau, e todo outro tipo no rodízio inteiro.
+Mutação (restrição removida) pega.
+
+**Alternativas.** Subir o piso do banco (`PISO_DE_LANCES_DA_PESSOA`, 7 → 9; sobrariam 33 das 60
+posições): ataca o "fácil demais", mas o piso é medido contra quem DEFENDE o jogo, e contra a
+Cacau a vitória sai em 2 a 4 lances seja qual for o piso - fica como a próxima alavanca se os
+erros contra a Pita continuarem. Restringir a Tex e Magno (7 de 9 nos mesmos dados): mesma conta
+depois de ver os dados, e o dono aprovou Pita, Tex e Magno. Aposentar: prematuro, com 4 de 5 e 3
+de 4 nos dois adversários fortes.
+
+**Comando do dono (≈5 min; critério 12 de 18 na escada):**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_sem_o_meio --com-regua --dias=18
+```

@@ -267,17 +267,28 @@ def test_todos_saem_na_versao_que_traz_o_jogo(co_tipo, publicacao) -> None:
     assert publicacao.co_versao_minima == VERSAO_MINIMA_DO_QUATRO
 
 
-def test_segurar_o_magno_e_so_contra_o_magno() -> None:
-    """O nome do tipo e a restricao: no rodizio dos quatro ele mentiria."""
-    for publicacao in EDITORIAL_DO_QUATRO["quatro_segurar_magno"]:
-        assert publicacao.co_personagens == ("magno",)
-    outros = [
-        p
-        for co_tipo, publicacoes in EDITORIAL_DO_QUATRO.items()
-        if co_tipo != "quatro_segurar_magno"
-        for p in publicacoes
-    ]
-    assert all(p.co_personagens is None for p in outros)
+#: Os tipos do Quatro que nao entram no rodizio dos quatro personagens, e com
+#: quem cada um joga. Tipo fora desta tabela tem de ter `co_personagens=None`.
+RESTRICOES_DE_PERSONAGEM = {
+    # O nome do tipo e a restricao: no rodizio dos quatro ele mentiria.
+    "quatro_segurar_magno": ("magno",),
+    # Medido (22/10/2026): contra a Cacau, 0 de 4 dias na escada - ela defende
+    # tao mal que vencer sem o meio deixa de separar os niveis.
+    "quatro_sem_o_meio": ("pita", "tex", "magno"),
+}
+
+
+def test_so_os_tipos_restritos_fogem_do_rodizio() -> None:
+    """⚠️ Restringir e excecao medida: cada uma esta na tabela, com o motivo.
+
+    Uma restricao esquecida num tipo novo o tiraria do rodizio calada; uma que
+    sumisse do `sem_o_meio` o devolveria a Cacau, onde ele nao calibra.
+    """
+    for co_tipo, publicacoes in EDITORIAL_DO_QUATRO.items():
+        # `.get(...)` devolve None para o tipo fora da tabela: o rodizio inteiro.
+        esperado = RESTRICOES_DE_PERSONAGEM.get(co_tipo)
+        for publicacao in publicacoes:
+            assert publicacao.co_personagens == esperado, co_tipo
 
 
 @pytest.mark.parametrize(("co_tipo", "publicacao"), VARIANTES, ids=_id)

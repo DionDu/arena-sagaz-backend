@@ -2267,6 +2267,13 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("lances_na_coluna_central"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+            # ⛔ **Nunca contra a Cacau** (decisao do dono, 22/10/2026). Remedido
+            # em 18 dias sem esta restricao: contra a Cacau, 0 de 4 dias na
+            # escada, e nos 12 candidatos a Pita venceu de 6 a 10 em 10 - ela
+            # defende tao mal que vencer sem o meio deixa de separar os niveis.
+            # Precedente: a cadeia longa do Pontinhos, que pelo motivo inverso
+            # nunca e contra o Magno.
+            co_personagens=("pita", "tex", "magno"),
         ),
     ),
     "quatro_bloquear": (
