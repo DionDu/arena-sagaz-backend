@@ -297,6 +297,50 @@ def test_a_bandeira_da_regua_existe_e_e_OPCIONAL():
     assert MEDIDOR.EXECUCOES_DA_SONDA_DE_REGUA >= 1
 
 
+def test_os_dias_pedidos_tem_padrao_de_TRES_e_recusam_o_invalido():
+    """`--dias=N` (T124c, 21/10/2026): sem ele, os 3 de sempre.
+
+    ⛔ O invalido e RECUSA (`None`), e nao o padrao: `--dias=nove` medindo 3
+    dias calado devolveria o resultado de sempre a quem pediu nove.
+    """
+    assert MEDIDOR.DIAS_MEDIDOS == 3
+    assert MEDIDOR.dias_pedidos(["quatro_sem_o_meio", "--com-regua"]) == 3
+    assert MEDIDOR.dias_pedidos(["quatro_sem_o_meio", "--dias=9"]) == 9
+    for invalido in ("--dias=0", "--dias=nove", "--dias=", "--dias=-2", "--dias=9.5"):
+        assert MEDIDOR.dias_pedidos([invalido]) is None, invalido
+    assert MEDIDOR.principal(["quatro_sem_o_meio", "--dias=nove"]) == 2
+
+
+def test_os_dias_pedidos_chegam_ate_a_lista_de_dias(monkeypatch):
+    """Do argumento ao `_dias_do_jogo`: a rodada mede MESMO os dias pedidos.
+
+    ⚠️ E o `--dias=9` nao vira o alvo (ele comeca com `-`): o tipo medido e o
+    pedido, e nao um tipo chamado "9".
+    """
+    pedidos: list[tuple[str, int]] = []
+
+    def medir_de_mentira(co_tipo, candidatas, *, com_regua, nu_dias):
+        pedidos.append((co_tipo, nu_dias))
+        return 0.0
+
+    monkeypatch.setattr(MEDIDOR, "medir", medir_de_mentira)
+    assert MEDIDOR.principal(["quatro_sem_o_meio", "--dias=9"]) == 0
+    assert pedidos == [("quatro_sem_o_meio", 9)]
+
+    class Parou(Exception):
+        """Para o `medir` de verdade logo depois de pedir os dias."""
+
+    def dias_do_jogo(co_jogo, quantos):
+        raise Parou(quantos)
+
+    monkeypatch.undo()
+    monkeypatch.setattr(MEDIDOR, "_dias_do_jogo", dias_do_jogo)
+    variantes = MEDIDOR.candidatas_fora_do_ar("quatro_sem_o_meio")
+    with pytest.raises(Parou) as parou:
+        MEDIDOR.medir("quatro_sem_o_meio", variantes, nu_dias=9)
+    assert parou.value.args == (9,)
+
+
 def test_a_linha_da_regua_NOMEIA_de_que_lado_da_banda_a_variante_caiu():
     """⛔ *"Fora da banda"* sozinho nao diz o que fazer com a variante.
 

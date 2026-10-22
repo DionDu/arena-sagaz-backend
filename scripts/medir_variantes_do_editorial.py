@@ -656,7 +656,11 @@ def so_as_de_botao_proprio(candidatas: Sequence["Candidata"]) -> list["Candidata
 
 
 def medir(
-    co_tipo: str, variantes: Sequence["Candidata"], *, com_regua: bool = False
+    co_tipo: str,
+    variantes: Sequence["Candidata"],
+    *,
+    com_regua: bool = False,
+    nu_dias: int = DIAS_MEDIDOS,
 ) -> float:
     """Mede cada variante de um tipo e imprime o resultado, linha a linha.
 
@@ -666,6 +670,8 @@ def medir(
         com_regua: tambem roda os tres mascotes no primeiro candidato de cada
             dia. ⛔ **E a unica pergunta que decide o que vai ao ar** — ver
             `BANDEIRA_COM_REGUA`.
+        nu_dias: em quantos dias medir (`PREFIXO_DOS_DIAS`). Os primeiros dias
+            sao sempre os mesmos: pedir 9 remede os 3 de sempre e mais 6.
     """
     if not variantes:
         return 0.0
@@ -698,7 +704,7 @@ def medir(
         # botoes daria uma taxa que descreve uma execucao que nao existe.
         publicacao = editorial_mod.publicacao_de(co_tipo, 0)
 
-    dias = _dias_do_jogo(receita.co_jogo, DIAS_MEDIDOS)
+    dias = _dias_do_jogo(receita.co_jogo, nu_dias)
 
     print()
     print("═" * 75)
@@ -1026,6 +1032,34 @@ BANDEIRA_BOTAO_PROPRIO = "--com-botao-proprio"
 #: dezenas de minutos.
 BANDEIRA_COM_REGUA = "--com-regua"
 
+#: Mede em N dias, e nao nos `DIAS_MEDIDOS` de sempre: `--dias=9`.
+#:
+#: ⚠️ **Existe para o tipo que caiu PERTO do criterio** (T124c, 21/10/2026: o
+#: "sem o meio" do Quatro na escada em 1 de 3 dias, errando por 0,03 e 0,02, e
+#: para lados OPOSTOS). A medicao e deterministica - a semente sai do dia -, e
+#: rodar de novo os mesmos 3 dias devolveria o mesmo 1 de 3. Mais dias e mais
+#: posicoes, e o criterio fica a mesma proporcao (2 de 3 = 6 de 9).
+#: ⚠️ Com `=`, e nao como argumento separado: um `9` solto seria lido como o
+#: ALVO da rodada (os posicionais sao o que nao comeca com `-`).
+PREFIXO_DOS_DIAS = "--dias="
+
+
+def dias_pedidos(argumentos: Sequence[str]) -> int | None:
+    """Os dias pedidos com `--dias=N`, `DIAS_MEDIDOS` sem ele, `None` se invalido.
+
+    ⚠️ `None` e recusa, e nao "o padrao": um `--dias=nove` medindo 3 dias em
+    silencio daria ao dono o 1 de 3 de sempre achando que eram nove.
+    """
+    pedidos = [a for a in argumentos if a.startswith(PREFIXO_DOS_DIAS)]
+    if not pedidos:
+        return DIAS_MEDIDOS
+    texto = pedidos[-1][len(PREFIXO_DOS_DIAS):]
+    # `isdigit` recusa sinal, virgula e vazio; o `> 0` recusa o zero.
+    if not texto.isdigit() or int(texto) <= 0:
+        return None
+    return int(texto)
+
+
 #: Quantas vezes cada mascote tenta, na medicao com regua.
 #:
 #: ⚠️ **Menos que as 20 do job**, de proposito: aqui a pergunta e *"a taxa esta
@@ -1143,6 +1177,10 @@ def principal(argumentos: Sequence[str]) -> int:
     """Mede os tipos de um jogo, de um tipo so, ou todos. Devolve o codigo de saida."""
     so_botao_proprio = BANDEIRA_BOTAO_PROPRIO in argumentos
     com_regua = BANDEIRA_COM_REGUA in argumentos
+    nu_dias = dias_pedidos(argumentos)
+    if nu_dias is None:
+        print(f"⛔ {PREFIXO_DOS_DIAS}N pede um inteiro maior que zero (ex.: --dias=9).")
+        return 2
     posicionais = [a for a in argumentos if not a.startswith("-")]
     alvo = posicionais[0] if posicionais else "todos"
 
@@ -1200,7 +1238,7 @@ def principal(argumentos: Sequence[str]) -> int:
         print()
         print(
             f"⏳ {total_de_candidatas} candidata(s) em {len(por_tipo)} tipo(s), "
-            f"{DIAS_MEDIDOS} dias cada"
+            f"{nu_dias} dias cada"
             + (" · com regua (mais caro)" if com_regua else "")
         )
         # ⛔ **Nenhuma previsao de tempo antes da primeira medida.** O custo por
@@ -1212,7 +1250,7 @@ def principal(argumentos: Sequence[str]) -> int:
     ja_medidas = 0
     for co_tipo, candidatas in por_tipo:
         medidas += len(candidatas)
-        medir(co_tipo, candidatas, com_regua=com_regua)
+        medir(co_tipo, candidatas, com_regua=com_regua, nu_dias=nu_dias)
         ja_medidas += len(candidatas)
 
         se_faltam = total_de_candidatas - ja_medidas
@@ -1250,7 +1288,7 @@ def principal(argumentos: Sequence[str]) -> int:
     print("  ⚠️ NO LIMITE     1 de 3  publica o unico que houver, calibrado ou nao")
     print("  ⛔ SEM DESAFIO   0 de 3  a fila fica com um dia vazio, e a pessoa ve na tela")
     print()
-    print("  ⚠️ E A AMOSTRA E DE 3 DIAS, NAO DO ANO. Em 2026-09-18 uma variante")
+    print(f"  ⚠️ E A AMOSTRA E DE {nu_dias} DIAS, NAO DO ANO. Em 2026-09-18 uma variante")
     print("     medida NO LIMITE deu ZERO na execucao real: 18 posicoes tentadas,")
     print("     18 recusadas, e a fila ficou com um dia descoberto.")
     return 0

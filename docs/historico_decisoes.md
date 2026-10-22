@@ -9351,3 +9351,52 @@ exatamente isto): ganhou `linhas` e `tamanho`, e o arquivo, 38 verdes. App: `tes
 e a lógica do desafio, 925 verdes (eram 915: os vetores novos). Mutações: Dart 2 de 2 e Python 2 de
 2 (o lance final fechando sempre UMA linha; a maior linha nunca passando de quatro), cada uma pega
 pelo vetor "cumpriu" do próprio tipo.
+
+## 2026-10-21 (14) — O diagnóstico do "bloquear", e o "sem o meio" remedido em 9 dias (T124c da spec 010)
+
+**Contexto.** Sobram dois tipos do Quatro fora do ar. (a) **Bloquear** ("Bloqueie 3 ameaças do
+adversário e não perca"): a régua de 20/10 deu 0 de 3 dias na escada, e o perseguidor não a
+consertou (Cacau 0,33 · Pita 0,47 · Tex 0,50 · Magno 0,43, entrada "(9)"). O passo 4 do plano é
+DIAGNÓSTICO, não posição: medir antes de mexer. Hipótese: quem joga melhor vence cedo, e o
+adversário cria menos ameaças para bloquear. (b) **Sem o meio**: na escada em 1 de 3 dias
+(entrada "(13)").
+
+**(a) `scripts/diagnosticar_bloquear_quatro.py`.** As partidas são as da régua, pelo caminho
+da régua: a posição de `gerador.gerar_candidatos` (o tipo em avaliação, com os botões do
+`EDITORIAL_FORA_DO_AR`), a bancada de `gerador.bancada`, e cada partida de
+`regua.tentativa_com_motor`, com um `julgar` que só guarda a fita e devolve o julgamento
+verdadeiro. Os QUATRO personagens resolvem contra os QUATRO adversários (a régua não mede o
+mascote contra ele mesmo; o relatório separa a "visão da régua"). Por partida, do lado de quem
+resolve: turnos com ameaça jogável do adversário, turnos com ameaça dupla, bloqueios (a conta do
+medidor do desafio), "venceu no lugar de tapar", ameaças ignoradas, desfecho e duração. A
+partida é refeita pelas funções do medidor (`feitos_quatro._reproduzir`, `casas_de_ameaca`,
+`_casa_ocupada`), sem segunda escrita. Controles: quatro partidas montadas à mão (bloqueio,
+ignorada, dupla, vitória no lugar) param o script se contarem errado; e, partida a partida, os
+bloqueios do script = os do medidor, e o veredito da régua = "bloqueou 3 e não perdeu". Segue a
+§8zzzm (diário por dia, retomável; um processo por dia, o motor fechado com a thread do dia).
+Testes 15; mutações 10 de 10. Ensaio de 1 dia × 1 execução (22 s): os dois controles em 16 de 16;
+e um primeiro sinal, de uma posição só: contra a Cacau ninguém viu ameaça nenhuma (todos
+venceram antes, de 3 a 13 meios-lances).
+
+**(b) Decisão (minha, pela delegação de 12/09, §8k-0): remedir o "sem o meio" em 9 dias, e não
+subir o piso.** Os dois dias fora erraram para lados OPOSTOS - um com a Cacau alta demais (0,30),
+o outro com a Pita baixa demais (0,00) -, e por pouco (0,03 e 0,02, uma execução em 10). Subir o
+piso de lances deixaria o desafio mais difícil: consertaria o primeiro dia e afundaria o segundo.
+E remedir os mesmos 3 dias não adianta: a medição é determinística (a semente sai do dia), e
+devolveria o mesmo 1 de 3. Por isso a bancada ganhou `--dias=N` (padrão 3; com `=`, porque um `9`
+solto seria lido como o alvo): os 3 dias de sempre e mais 6. **Critério: a mesma proporção da
+T124b, 2 de 3 = 6 de 9.** Se cair abaixo, o lado dos erros decide: Cacau alta na maioria → piso
+maior; Pita baixa na maioria → o banco está difícil demais para ela, e o piso não ajuda. Testes 2
+(62 no arquivo); mutações 5 de 5.
+
+**Alternativas.** Subir o piso agora (recusada: os erros apontam para lados opostos); relaxar o
+critério para 1 de 3 (recusada: é o critério com que os outros sete subiram); aumentar as
+execuções da sonda (10 → 20): mexe em todos os tipos, e o problema é de posição, não de execução.
+
+**Comandos do dono.**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\diagnosticar_bloquear_quatro.py
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_sem_o_meio --com-regua --dias=9
+```
