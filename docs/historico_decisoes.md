@@ -9476,3 +9476,13 @@ de 4 nos dois adversários fortes.
 cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 .venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_sem_o_meio --com-regua --dias=18
 ```
+
+### O resultado com a restrição (o dono rodou, 22/10)
+
+**11 de 18 na escada**, um dia abaixo do critério (12). Nenhum dia contra a Cacau (a restrição
+pegou). Por adversário: Pita **3 de 6** · Tex 4 de 6 · Magno 4 de 6. Dos sete dias fora, **seis são
+de fácil demais** (a Cacau a 0,30-0,50 ou o Tex a 1,00) e um de difícil demais (a Pita a 0,00 contra
+o Magno). Cinco dos sete erram por 0,05 ou menos (uma partida em dez num mascote); o dia 10/10 erra
+por 0,15 (Cacau 0,50 e Tex 1,00, contra a Pita). Não promovido. ⬜ A decisão volta ao dono: só
+contra Tex e Magno (8 de 12 nestes dados, conta feita depois de vê-los) ou posições mais longas do
+banco (piso de lances da pessoa 7 → 9: sobram 33 de 60).
