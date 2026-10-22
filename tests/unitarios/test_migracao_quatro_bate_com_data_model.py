@@ -248,6 +248,10 @@ def test_as_linhas_das_dimensoes_batem(tabela: str, documento, sql) -> None:
 
 MIGRACAO_DO_DESAFIO = RAIZ / "migrations" / "versions" / "0035_desafio_quatro.py"
 
+#: Os dois tipos que fecham no meio (§8zzzr item 9, 22/10/2026): moram na §3.1.1
+#: do documento, que este leitor junta à §3.1, e numa migração própria.
+MIGRACAO_DO_MEIO = RAIZ / "migrations" / "versions" / "0037_tipos_quatro_meio.py"
+
 
 def _linhas_md_da_secao_3(subsecao: str) -> list[list[str]]:
     """As linhas de dados da tabela markdown da subseção `3.1` ou `3.2`.
@@ -266,11 +270,11 @@ def _linhas_md_da_secao_3(subsecao: str) -> list[list[str]]:
     return linhas
 
 
-def _tuplas_do_insert(tabela: str) -> list[list[str]]:
-    """As tuplas do `INSERT INTO desafio.<tabela>` da 0035, como texto."""
-    fonte = MIGRACAO_DO_DESAFIO.read_text(encoding="utf-8")
+def _tuplas_do_insert(tabela: str, migracao=MIGRACAO_DO_DESAFIO) -> list[list[str]]:
+    """As tuplas do `INSERT INTO desafio.<tabela>` da [migracao], como texto."""
+    fonte = migracao.read_text(encoding="utf-8")
     corpo = re.search(rf"INSERT INTO desafio\.{tabela}.*?VALUES(.*?)\"\"\"", fonte, re.S)
-    assert corpo, f"a 0035 não tem o INSERT de {tabela}"
+    assert corpo, f"a {migracao.name} não tem o INSERT de {tabela}"
     tuplas = []
     for tupla in re.findall(r"\(\s*(\d+,[^()]*?)\)", corpo.group(1), re.S):
         tuplas.append([v.strip().strip("'") for v in tupla.split(",")])
@@ -284,8 +288,11 @@ def _tuplas_do_insert(tabela: str) -> list[list[str]]:
 def test_a_0035_traz_as_linhas_da_secao_3(subsecao: str, tabela: str) -> None:
     documento = _linhas_md_da_secao_3(subsecao)
     migracao = _tuplas_do_insert(tabela)
-    # Controle: os dez tipos e as sete medidas que o dono ratificou.
-    assert len(documento) == {"3.1": 10, "3.2": 7}[subsecao]
+    if subsecao == "3.1":
+        # A §3.1 inclui a §3.1.1: os dois da 0037, depois dos dez da 0035.
+        migracao += _tuplas_do_insert(tabela, MIGRACAO_DO_MEIO)
+    # Controle: os dez tipos da T003 e os dois da §8zzzr, e as sete medidas.
+    assert len(documento) == {"3.1": 12, "3.2": 7}[subsecao]
     assert migracao == documento, (
         f"a 0035 diverge do data-model §{subsecao}:\n  migração: {migracao}\n"
         f"  documento: {documento}"

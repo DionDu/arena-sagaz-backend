@@ -51,6 +51,9 @@ from motores.quatro.motor_quatro import MotorQuatro, ler_sequencia
 
 RAIZ = Path(__file__).resolve().parents[2]
 MIGRACAO = RAIZ / "migrations" / "versions" / "0035_desafio_quatro.py"
+#: Os dois que fecham no meio (T143, §8zzzr item 9): migracao propria, porque a
+#: 0035 ja esta aplicada e migracao aplicada nao se edita.
+MIGRACAO_DO_MEIO = RAIZ / "migrations" / "versions" / "0037_tipos_quatro_meio.py"
 VETORES = json.loads(
     (RAIZ / "contratos" / "vetores-paridade-quatro.json").read_text(encoding="utf-8")
 )
@@ -107,15 +110,21 @@ def test_os_dez_tipos_batem_com_a_dimensao_da_0035() -> None:
     # As linhas da migracao tem a forma `(  40, 'quatro_vencer_em_n', ...`.
     na_migracao = {
         codigo: int(numero)
+        for migracao in (MIGRACAO, MIGRACAO_DO_MEIO)
         for numero, codigo in re.findall(
-            r"\(\s*(\d+),\s*'(quatro_\w+)'", MIGRACAO.read_text(encoding="utf-8")
+            r"\(\s*(\d+),\s*'(quatro_\w+)'", migracao.read_text(encoding="utf-8")
         )
     }
-    assert len(na_migracao) == 10
+    # Os dez da 0035 e os dois da 0037, por extenso.
+    assert len(na_migracao) == 12
+    assert na_migracao["quatro_encoste"] == 50 and na_migracao["quatro_figura"] == 51
     nas_receitas = {
         codigo: receita.nu_tipo_desafio for codigo, receita in RECEITAS_DO_QUATRO.items()
     }
-    assert nas_receitas == na_migracao
+    assert nas_receitas.items() <= na_migracao.items()
+    # ⚠️ A figura ainda nao tem receita: a clausula `figura` e a geracao sao a
+    # T146/T147. Quando a receita entrar, este conjunto fica vazio.
+    assert set(na_migracao) - set(nas_receitas) == {"quatro_figura"}
     for codigo, receita in RECEITAS_DO_QUATRO.items():
         assert receita.co_tipo_desafio == codigo
         assert receita.co_jogo == "quatro"
@@ -158,7 +167,9 @@ def test_cada_tipo_do_quatro_mora_de_UM_lado_so() -> None:
 def test_a_chave_do_objetivo_e_uma_chave_do_quatro_e_nunca_a_frase() -> None:
     """A chave `.arb` do enunciado (a T131 a cria nos tres idiomas)."""
     chaves = [r.co_chave_objetivo for r in RECEITAS_DO_QUATRO.values()]
-    assert len(set(chaves)) == 10, "duas receitas com a mesma chave de frase"
+    # Os dez da §8zzz e o "Encoste" (T143), cada um com a sua frase.
+    assert len(chaves) == 11
+    assert len(set(chaves)) == 11, "duas receitas com a mesma chave de frase"
     for chave in chaves:
         assert " " not in chave
         assert chave.startswith("desafioObjetivoQuatro"), chave
@@ -240,20 +251,29 @@ def test_ninguem_cumpre_sem_jogar(co_tipo, publicacao) -> None:
     assert not avaliar(chegada, MEDIDAS_DE_QUEM_NAO_JOGOU, {"quatro_perdeu": None})
 
 
-@pytest.mark.parametrize(("co_tipo", "publicacao"), VARIANTES, ids=_id)
-def test_a_chegada_so_vale_com_a_partida_terminada(co_tipo, publicacao) -> None:
-    """🔒 Os dez tem `ic_chegada_encerra_partida` TRUE, e a razao esta na chegada.
+#: Os tipos do Quatro que fecham NO MEIO da partida (T143, §8zzzr): sem
+#: `vitoria` e sem `quatro_perdeu` na chegada. Tipo novo que fecha no meio entra
+#: aqui, na mesma resposta.
+FECHAM_NO_MEIO = {"quatro_encoste"}
 
-    Toda chegada consulta `vitoria` ou o predicado `quatro_perdeu`, e os dois so
-    respondem no fim. ⚠️ Se um tipo novo do Quatro vier sem nenhum dos dois, o
-    valor TRUE digitado no editorial passa a mentir, e este caso cai.
+
+@pytest.mark.parametrize(("co_tipo", "publicacao"), VARIANTES, ids=_id)
+def test_o_encerra_partida_do_editorial_e_o_que_a_chegada_diz(co_tipo, publicacao) -> None:
+    """🔒 `ic_chegada_encerra_partida` e TRUE se e so se a chegada so vale no fim.
+
+    Uma chegada que consulta `vitoria` ou o predicado `quatro_perdeu` so pode
+    valer com a partida terminada (os dois so respondem no fim): TRUE. Sem
+    nenhum dos dois, o desafio fecha no meio ([FECHAM_NO_MEIO]): FALSE, e o app
+    deixa a pessoa continuar jogando. ⚠️ Um valor digitado no editorial que
+    discordasse da chegada mentiria ao app, e este caso cai.
     """
-    assert publicacao.ic_chegada_encerra_partida is True
     js = RECEITAS_DO_QUATRO[co_tipo].montar(
         parametros_para_conferencia(publicacao.parametros)
     )
     chaves = {c["chave"] for c in js["clausulas"]}
-    assert chaves & {"vitoria", "quatro_perdeu"}, co_tipo
+    so_no_fim = bool(chaves & {"vitoria", "quatro_perdeu"})
+    assert so_no_fim == (co_tipo not in FECHAM_NO_MEIO), co_tipo
+    assert publicacao.ic_chegada_encerra_partida is so_no_fim, co_tipo
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -456,13 +476,22 @@ def test_cada_tipo_cumpre_numa_partida_real_e_nao_cumpre_noutra(
     distingue ninguem. Aqui ela e posta contra partidas jogadas pelo motor.
     """
     receita = RECEITAS_DO_QUATRO[co_tipo]
+    no_meio = co_tipo in FECHAM_NO_MEIO
     cumprem, nao_cumprem = [], []
     for caso in casos_reais:
         parametros = parametros_efetivos(
             publicacao.parametros, encostadas=caso["encostadas"]
         )
         chegada = LinhaDeChegada.de_dado(receita.montar(parametros))
-        if avaliar(chegada, caso["medidas"], caso["predicados"]):
+        medidas, predicados = caso["medidas"], caso["predicados"]
+        if no_meio:
+            # ⚠️ Nos que fecham no meio, a leitura direta e a da JANELA: os
+            # `2M - 1` primeiros meios-lances (M da pessoa). Medir a fita inteira
+            # contaria lances da pessoa alem do M, e a janela ja estaria fechada.
+            janela = caso["fita"][: 2 * parametros["lances"] - 1]
+            medidas = fq.medir(motor, caso["iniciais"], janela)
+            predicados = fq.responder_predicados(motor, caso["iniciais"], janela)
+        if avaliar(chegada, medidas, predicados):
             cumprem.append((caso, parametros))
         else:
             nao_cumprem.append((caso, parametros))
@@ -484,7 +513,13 @@ def test_cada_tipo_cumpre_numa_partida_real_e_nao_cumpre_noutra(
             co_modalidade=MODALIDADE,
         )
         assert julgamento.veredito == esperado, (co_tipo, caso["fita"])
-        if esperado == CUMPRIU:
-            # Todas as chegadas do Quatro so valem no fim: o objetivo cai no
+        if esperado == CUMPRIU and no_meio:
+            # O que fecha no meio cai DENTRO da janela (o M-esimo lance da
+            # pessoa, no maximo), seja qual for o comprimento da partida. ⚠️ Ele
+            # pode cair no lance que tambem vence: alcancar o alvo vencendo
+            # cumpre (ha um caso assim nas partidas reais, no 13o meio-lance).
+            assert julgamento.nu_lance_cumpre_desafio <= 2 * parametros["lances"] - 1
+        elif esperado == CUMPRIU:
+            # As outras chegadas do Quatro so valem no fim: o objetivo cai no
             # ultimo lance da fita, e nunca antes.
             assert julgamento.nu_lance_cumpre_desafio == len(fita), co_tipo

@@ -94,6 +94,15 @@
       "valores_do_objetivo": []
     },
     {
+      "co_chave_objetivo": "desafioObjetivoQuatroEncoste",
+      "co_jogo": "quatro",
+      "medidas": [
+        "pecas_encostadas"
+      ],
+      "janela_gasta": true,
+      "valores_do_objetivo": []
+    },
+    {
       "co_chave_objetivo": "desafioObjetivoQuatroGolpeDuplo",
       "co_jogo": "quatro",
       "medidas": [

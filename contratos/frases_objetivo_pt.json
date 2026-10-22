@@ -9,6 +9,7 @@
   "desafioObjetivoPaciencia": "{lances, plural, =1{Passe 1 lance} other{Passe {lances} lances}} sem fechar nem ceder nenhuma caixa a {personagem}",
   "desafioObjetivoQuatroBloquear": "{ameacas, plural, =1{Bloqueie 1 ameaça} other{Bloqueie {ameacas} ameaças}} de {personagem} e não perca",
   "desafioObjetivoQuatroEncostadas": "Vença {personagem} com {pecas} peças encostadas",
+  "desafioObjetivoQuatroEncoste": "{pecas, plural, =1{Encoste 1 peça} other{Encoste {pecas} peças}} em até {lances, plural, =1{1 lance} other{{lances} lances}} contra {personagem}",
   "desafioObjetivoQuatroGolpeDuplo": "Vença {personagem} fechando {linhas, plural, =1{1 linha} other{{linhas} linhas}} com a mesma peça",
   "desafioObjetivoQuatroLinhaDeCinco": "Vença {personagem} com {tamanho} peças em linha",
   "desafioObjetivoQuatroSegurarMagno": "Segure {personagem}: não perca a partida",

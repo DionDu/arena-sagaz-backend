@@ -2296,6 +2296,38 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    # "Encoste N pecas em ate M lances" (T143, §8zzzr): o primeiro tipo do Quatro
+    # que fecha NO MEIO da partida.
+    #
+    # ⚠️ **A grade e M de 5 a 7, e nao de 3 a 5 como a proposta dizia**: o piso
+    # do gabarito e de 9 meios-lances (`MINIMO_DE_MEIOS_LANCES_PADRAO`, a regra
+    # do dono de 11/09 contra o desafio resolvido em 3 lances), e com M = 3 ou 4
+    # a solucao inteira caberia em 5 ou 7 meios-lances - nenhum candidato
+    # passaria. Com M = 5 o gabarito tem de usar os cinco lances.
+    #
+    # O `a_mais` e `M + k`: k = 1 ou 2 pecas SOLTAS a juntar alem de jogar
+    # colado (a prova recusa a posicao com menos de k soltas). O teto do
+    # gabarito e `2M - 1`: depois do M-esimo lance da pessoa a janela fechou, e
+    # mais meios-lances nao mudariam o veredito.
+    #
+    # ⛔ `ic_chegada_encerra_partida=False`: sem `vitoria` na chegada, o desafio
+    # fecha no instante em que o alvo e alcancado, e a partida continua (o
+    # cartao "Desafio resolvido" da T129). Preparo 10, o do `quatro_encostadas`.
+    #
+    # ⬜ Nao medida: a medicao pareada do perseguidor e a regua sao da T143.
+    "quatro_encoste": tuple(
+        Publicacao(
+            parametros={"lances": lances, CHAVE_A_MAIS_ENCOSTADAS: lances + juntar},
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=2 * lances - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_quatro("pecas_encostadas"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        )
+        for lances in (5, 6, 7)
+        for juntar in (1, 2)
+    ),
 }
 
 

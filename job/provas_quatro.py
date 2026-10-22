@@ -756,6 +756,52 @@ class ProvadorQuatro:
         return ProvaQuatro(True, f"{ja} encostadas; o alvo {pecas} pede mais {falta}",
                            {"ja": ja, "falta": falta})
 
+    def encoste(self, estado: EstadoQuatro, pecas: int, lances: int) -> ProvaQuatro:
+        """O alvo de [pecas] encostadas em [lances] lances pede JUNTAR peças soltas.
+
+        O alvo é `E + M + k` (`editorial.parametros_efetivos`): jogar sempre
+        colado dá no máximo uma encostada a mais por lance (a peça nova), e só
+        quem junta uma peça SOLTA (sem vizinha da mesma cor) ganha duas de uma
+        vez - a nova e a solta, que passa a contar. Então o `k = alvo - E - M`
+        exige pelo menos `k` soltas na posição publicada; sem elas, o alvo está
+        fora do alcance até de quem joga perfeito. Com `k <= 0` o desafio seria
+        "jogue colado", e a geração também recusa (é o defeito que o `k` veio
+        evitar: fácil para todos, a escada plana).
+
+        ⚠️ É a conta de cima, e não uma prova de que o alvo é alcançável: o
+        adversário pode tapar a casa da junção. Quem diz se é alcançável é o
+        gabarito (o perseguidor no nível do Magno), e quem diz se é difícil é a
+        régua.
+        """
+        if (recusa := self._nao_perdida(estado)) is not None:
+            return recusa
+        dimensoes = self.arbitro.regras.dimensoes
+        tabuleiro = self.arbitro.tabuleiro(estado)
+        quem = tabuleiro.vez
+        ja = feitos_quatro.pecas_encostadas(dimensoes, tabuleiro, quem)
+        # As peças da pessoa: as encostadas mais as soltas. A conta das
+        # encostadas é a do medidor (`pecas_encostadas`), e a das soltas sai dela.
+        minhas = sum(
+            1
+            for coluna in range(1, dimensoes.largura + 1)
+            for linha in range(1, len(tabuleiro.colunas[coluna - 1]) + 1)
+            if tabuleiro.peca((coluna, linha)) == quem
+        )
+        soltas = minhas - ja
+        juntar = pecas - ja - lances
+        if juntar <= 0:
+            return ProvaQuatro(
+                False, f"o alvo {pecas} cabe jogando colado ({ja} + {lances} lances)"
+            )
+        if soltas < juntar:
+            return ProvaQuatro(
+                False, f"o alvo pede juntar {juntar} peça(s) solta(s), e há {soltas}"
+            )
+        return ProvaQuatro(
+            True, f"{ja} encostadas e {soltas} soltas; o alvo {pecas} pede juntar {juntar}",
+            {"ja": ja, "soltas": soltas, "juntar": juntar},
+        )
+
     def bloquear(
         self, estado: EstadoQuatro, ameacas: int, continuacao: Sequence[str] | None
     ) -> ProvaQuatro:
@@ -784,7 +830,7 @@ class ProvadorQuatro:
 #: A prova de cada tipo, pelo `co_tipo_desafio`. Cada entrada recebe o provador,
 #: a posição, os parâmetros EFETIVOS do candidato e a continuação do autoplay.
 #:
-#: ⚠️ As chaves são exatamente os dez tipos do Quatro (cadeado em
+#: ⚠️ As chaves são exatamente os tipos do Quatro (cadeado em
 #: `test_provas_quatro.py`): um tipo novo sem prova seria publicado sem que
 #: ninguém tivesse perguntado se a posição serve a ele.
 PROVAS: dict[
@@ -798,6 +844,7 @@ PROVAS: dict[
     "quatro_golpe_duplo": lambda p, e, par, _c: p.golpe_duplo(e, par["linhas"]),
     "quatro_linha_de_cinco": lambda p, e, par, _c: p.linha_de_cinco(e, par["tamanho"]),
     "quatro_encostadas": lambda p, e, par, _c: p.encostadas(e, par["pecas"]),
+    "quatro_encoste": lambda p, e, par, _c: p.encoste(e, par["pecas"], par["lances"]),
     "quatro_sem_o_meio": lambda p, e, _par, _c: p.sem_o_meio(e),
     "quatro_bloquear": lambda p, e, par, c: p.bloquear(e, par["ameacas"], c),
     "quatro_virada": lambda p, e, _par, _c: p.virada(e),

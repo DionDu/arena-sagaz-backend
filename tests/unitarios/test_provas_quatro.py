@@ -142,7 +142,8 @@ def test_todo_tipo_do_quatro_tem_prova_e_nenhuma_sobra() -> None:
     tipos = {
         co for co, r in {**RECEITAS, **RECEITAS_FORA_DO_AR}.items() if r.co_jogo == "quatro"
     }
-    assert len(tipos) == 10, "o controle: são dez tipos (§8zzz)"
+    # Os dez da §8zzz e o "Encoste" da §8zzzr (T143, 22/10/2026).
+    assert len(tipos) == 11, "o controle: são onze tipos (§8zzz e §8zzzr)"
     assert set(pq.PROVAS) == tipos
 
 
@@ -334,6 +335,31 @@ def test_encostadas_quer_o_alvo_ACIMA_do_que_ja_ha(provador) -> None:
     # Com 34 casas livres a pessoa joga 17 vezes: 18 a mais não cabe.
     demais = _prova(provador, "quatro_encostadas", ABERTA_SEM_VITORIA, pecas=ja + 18)
     assert not demais.passou and "restam 17 lances" in demais.motivo
+
+
+def test_encoste_pede_JUNTAR_pecas_soltas(provador) -> None:
+    """O "Encoste N em ate M" (T143): o alvo acima de `E + M` pede soltas.
+
+    Na posicao, o jogador 1 tem a vez e quatro pecas: (3,1) e (4,1) juntas, e
+    (4,3) e (4,5) SOLTAS, cada uma entre pecas do 2 na coluna 4. Entao `E = 2`
+    e ha duas soltas: o alvo pode pedir juntar uma ou duas, e nao tres. Os
+    numeros vao por extenso (e nao lidos da prova), para o caso nao se medir
+    pela propria regua.
+    """
+    um = _prova(provador, "quatro_encoste", ABERTA_SEM_VITORIA, pecas=8, lances=5)
+    assert um.passou and um.dados == {"ja": 2, "soltas": 2, "juntar": 1}
+    dois = _prova(provador, "quatro_encoste", ABERTA_SEM_VITORIA, pecas=9, lances=5)
+    assert dois.passou and dois.dados["juntar"] == 2
+    tres = _prova(provador, "quatro_encoste", ABERTA_SEM_VITORIA, pecas=10, lances=5)
+    assert not tres.passou and "juntar 3 peça(s) solta(s), e há 2" in tres.motivo
+    # Alvo E + M: "jogue colado", que todos cumprem. ⛔ Recusa.
+    colado = _prova(provador, "quatro_encoste", ABERTA_SEM_VITORIA, pecas=7, lances=5)
+    assert not colado.passou and "cabe jogando colado" in colado.motivo
+    # O M conta: o mesmo alvo 9 com 6 lances pede juntar so uma.
+    com_seis = _prova(provador, "quatro_encoste", ABERTA_SEM_VITORIA, pecas=9, lances=6)
+    assert com_seis.passou and com_seis.dados["juntar"] == 1
+    perdida = _prova(provador, "quatro_encoste", PROVADA_PERDIDA, pecas=20, lances=5)
+    assert not perdida.passou and "provada perdida" in perdida.motivo
 
 
 def test_bloquear_conta_os_bloqueios_da_continuacao(provador) -> None:

@@ -78,7 +78,10 @@ def test_o_registro_liga_SO_os_tipos_que_a_medicao_aprovou() -> None:
       "2026-10-21 (10)" e "(12)";
     * sem o meio: o mesmo banco, e o perseguidor e quem nao joga na coluna
       central (o Magno que so vence a ocuparia, e o gabarito descumpriria o
-      proprio tipo) - historico "2026-10-21 (12)".
+      proprio tipo) - historico "2026-10-21 (12)";
+    * o "Encoste N em ate M": o script pareado com o controle PROPRIO dele (o
+      alvo de jogar colado), 30 de 30, e o perseguidor-Magno 30 de 30 contra 10
+      do Magno que so vence - historico "2026-10-22 (4)".
     """
     do_quatro = {t for t in gerador.SOLUCIONADOR_POR_TIPO if t.startswith("quatro_")}
     assert do_quatro == {
@@ -87,6 +90,7 @@ def test_o_registro_liga_SO_os_tipos_que_a_medicao_aprovou() -> None:
         "quatro_golpe_duplo",
         "quatro_linha_de_cinco",
         "quatro_sem_o_meio",
+        "quatro_encoste",
     }
 
 

@@ -9560,3 +9560,75 @@ receita lida de `RECEITAS`). Suíte 3.735 + os 3 ajustados. Mutação: a medida
 `lances_na_coluna_central` zerada no medidor, **1 de 1** pega de cada lado (Python por
 `test_julgamento_do_desafio.py`, Dart por `vetores_verificacao_test.dart`, no vetor da passagem
 pelo meio).
+
+## 2026-10-22 (4) — "Encoste N peças em até M lances", fora do ar e medido (T143 da spec 010)
+
+**Contexto.** A proposta aprovada pelo dono (`DECISOES-do-dono.md` §8zzzr; o texto em
+`arena-sagaz-frontend/specs/010-jogo-quatro-em-linha/PROPOSTA-revisao-catalogo-quatro.md` §1): o
+primeiro tipo do Quatro que **fecha no meio** da partida. A medida (`pecas_encostadas`) já existia;
+o que muda é a janela curta (`lances_do_jogador`, a do "Coroe em até N lances" das damas) e a falta
+da `vitoria` na chegada.
+
+**Decisões.**
+
+1. **A migração `0037_tipos_quatro_meio`** (aprovada pelo dono, §8zzzr item 9): 50
+   `quatro_encoste` e 51 `quatro_figura` em `desafio.tb901_tipo_desafio`. A faixa 40-49 está
+   cheia. Migração própria, porque a 0035 já está aplicada no `des`. ⬜ **Aplicar no `des` antes do
+   push que levar um dos dois ao ar** (comando do dono; nenhum código em execução depende dela
+   hoje).
+2. **A receita** (`RECEITAS_FORA_DO_AR["quatro_encoste"]`): janela `lances_do_jogador` M,
+   cláusula `pecas_encostadas >= pecas`. O `pecas` é absoluto e sai da posição, pela conta que já
+   existia (`parametros_efetivos`: `E + a_mais`), com o `a_mais` escrito como `M + k`.
+3. **A grade é M de 5 a 7 × k de 1 a 2, e não M de 3 a 5 como a proposta dizia.** O piso do
+   gabarito é de 9 meios-lances (`MINIMO_DE_MEIOS_LANCES_PADRAO`, a regra do dono de 11/09 contra o
+   desafio resolvido em 3 lances): com M = 3 ou 4 a solução inteira caberia em 5 ou 7 meios-lances,
+   e nenhum candidato passaria. O teto de cada variante é `2M - 1` (depois do M-ésimo lance da
+   pessoa a janela fechou), e `ic_chegada_encerra_partida = False`.
+4. **A prova da geração** (`ProvadorQuatro.encoste`): a posição não pode estar provada perdida; o
+   alvo tem de estar acima de `E + M` (senão é "jogue colado", que todos cumprem); e a posição
+   precisa de pelo menos `k` peças **soltas** da pessoa (sem vizinha da mesma cor), porque só
+   juntar uma solta rende duas encostadas num lance. Sondagem no acervo antes (preparo 10 a 15):
+   S ≥ 1 em 71% das posições, S ≥ 2 em 36%.
+5. **O perseguidor ganhou um ramo** (`FECHAM_NO_MEIO`): fora de uma vitória provada, ele jogava o
+   lance do nível e só desempatava pela nota. Serve a quem pede um jeito de vencer; no "Encoste"
+   ele mediria o nível jogando para vencer. Agora, nos tipos que fecham no meio, a prova só tira os
+   lances provadamente perdidos e a nota escolhe entre os outros. A nota é `100 × encostadas +
+   comum`: juntar uma solta vale 200, jogar colado 100.
+
+**A medição pareada** (`scripts/medir_perseguir_vs_vencer_quatro.py`, que aprendeu o tipo e um
+**controle próprio**: o mesmo desafio com o alvo de jogar colado, `E + M`, que quem persegue bem
+cumpre quase sempre). 30 posições, variante M = 5 e k = 1, contra o Tex (menos de 1 minuto):
+
+| modo | cumpriu |
+|---|---|
+| controle (alvo de jogar colado) | **30 de 30** |
+| Magno que só vence | 10 de 30 |
+| perseguidor Cacau · Pita · Tex · Magno | 9 · 23 · 25 · **30** de 30 |
+
+O perseguidor é competente (o controle) e muda o resultado (30 contra 10): **ligado em
+`SOLUCIONADOR_POR_TIPO`**. A escada sobe a cada degrau, mas nesta variante a Cacau (0,30) e a Pita
+(0,77) ficam acima da banda: fácil demais com k = 1 e M = 5. Quem decide entre as seis é a régua.
+
+**Ensaio sem régua, 1 dia** (`medir_variantes_do_editorial.py quatro_encoste --dias=1`): as seis
+variantes em FOLGA (3 de 3), soluções de 9,0 a 11,7 meios-lances, 88 s.
+
+**Testes.** `test_provas_quatro.py` (o encoste: juntar 1 e 2 passam, 3 recusa "há 2", o alvo de
+jogar colado recusa, o M conta, a posição perdida recusa; o cadeado das provas com onze tipos);
+`test_perseguir_objetivo_quatro.py` (juntar vale mais que jogar colado; o Magno persegue sem
+vitória provada e nem pede o lance do nível; o lance provado perdido sai mesmo sendo o melhor);
+`test_receitas_do_quatro.py` (a dimensão lida da 0035 e da 0037, com a figura ainda sem receita;
+o `ic_chegada_encerra_partida` conferido nos dois sentidos, `FECHAM_NO_MEIO`; nas partidas reais, a
+leitura direta do "Encoste" é a da janela, e o juiz fecha dentro dela); `test_gerador_do_quatro.py`
+(o teto do encoste é a janela, 9 · 11 · 13, acima do piso; três tipos fora do ar);
+`test_solucionadores.py` (o encoste ligado). O app ganhou o texto e a capacidade (T144).
+
+**Comando do dono (≈14 min; o que olhar primeiro abaixo):**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_encoste --com-regua --dias=9
+```
+
+Nove dias, e não dezoito: as seis variantes em 18 dias passariam de 25 minutos, e o medidor não é
+retomável (§8zzzm). Critério da triagem: **6 de 9 dias na escada**. As que passarem vão aos 18 dias
+(12 de 18), com o editorial já sem as que caíram.

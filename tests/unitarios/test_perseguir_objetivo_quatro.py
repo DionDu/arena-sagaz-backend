@@ -220,3 +220,69 @@ def test_o_lance_do_nivel_que_nao_persegue_sai_CRU_com_o_erro_dele() -> None:
         lance_do_nivel=lambda: "s6",
     )
     assert lance == "s6"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# O "Encoste N em ate M" (T143, 22/10/2026): fecha no meio, e nao pede vencer
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: O jogador 1 com a vez e duas pecas SOLTAS no chao, nas colunas 1 e 3 (o 2
+#: tem duas na coluna 7). So o s2 junta as duas de uma vez: 3 encostadas. Os
+#: lances colados (s1, s3, s4) dao 2; s5, s6 e s7 nao encostam em nada.
+BASE_ENCOSTE = ["s1", "s7", "s3", "s7"]
+
+#: Alvo 6 em 5 lances (E = 0, M = 5, k = 1): o 1o lance nunca cumpre sozinho.
+ENCOSTE = RECEITAS_FORA_DO_AR["quatro_encoste"].montar({"lances": 5, "pecas": 6})
+
+
+def _desafio_encoste() -> perseguir.Desafio:
+    return perseguir.desafio_de(MOTOR, "quatro_encoste", BASE_ENCOSTE, ENCOSTE)
+
+
+def test_no_encoste_juntar_a_peca_solta_vale_MAIS_que_jogar_colado() -> None:
+    desafio = _desafio_encoste()
+
+    def nota(lance: str) -> float:
+        estado = EstadoQuatro("tradicional", tuple(BASE_ENCOSTE) + (lance,))
+        return perseguir.nota_do_objetivo(MOTOR, MOTOR.tabuleiro(estado), desafio)
+
+    # Os numeros por extenso: 3 encostadas, 2 e 0 (100 por peca, e o `comum`
+    # desempata dentro de cada degrau).
+    assert nota("s2") > max(nota("s1"), nota("s3"), nota("s4"))
+    assert min(nota("s1"), nota("s3"), nota("s4")) > max(nota("s5"), nota("s6"))
+
+
+def test_no_encoste_o_magno_persegue_SEM_esperar_vitoria_provada() -> None:
+    """⛔ No "Vença com N encostadas", sem vitoria provada o perseguidor joga o
+    lance do nivel (o caso logo acima, com a diagonal). No "Encoste" vencer nao
+    e o objetivo: ele escolhe pela nota, e nem pede o lance do nivel."""
+    lance = perseguir.lance_de_quem_persegue(
+        MOTOR,
+        _desafio_encoste(),
+        [],
+        nivel=NivelDeMotor.SAGAZ,
+        sorteio=random.Random(1),
+        lance_do_nivel=_nunca,
+        prova=lambda depois: None,
+    )
+    assert lance == "s2"
+
+
+def test_no_encoste_o_lance_PROVADO_perdido_sai_mesmo_sendo_o_melhor() -> None:
+    desafio = _desafio_encoste()
+
+    def prova(depois: EstadoQuatro) -> int | None:
+        # O s2 (o melhor pela nota) entrega a partida; os outros, nada provado.
+        return -desafio.pessoa if depois.lances[-1] == "s2" else None
+
+    lance = perseguir.lance_de_quem_persegue(
+        MOTOR,
+        desafio,
+        [],
+        nivel=NivelDeMotor.SAGAZ,
+        sorteio=random.Random(1),
+        lance_do_nivel=_nunca,
+        prova=prova,
+    )
+    # O que sobra de melhor e jogar colado (2 encostadas), e nao o s2.
+    assert lance in {"s1", "s3", "s4"}

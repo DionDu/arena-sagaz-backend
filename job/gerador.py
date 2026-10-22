@@ -714,6 +714,12 @@ SOLUCIONADOR_POR_TIPO = {
         "quatro_linha_de_cinco"
     ),
     "quatro_sem_o_meio": solucionadores_mod.perseguidor_do_quatro("quatro_sem_o_meio"),
+    # ⚠️ O "Encoste N em ate M" (T143, 22/10/2026): medido pareado em 30
+    # posicoes contra o Tex (`medir_perseguir_vs_vencer_quatro.py`, a variante
+    # M = 5, k = 1). Controle proprio (o alvo de jogar colado) 30 de 30; o
+    # perseguidor no nivel do Magno 30 de 30, contra 10 de 30 do Magno que so
+    # vence. Historico do backend "2026-10-22 (4)".
+    "quatro_encoste": solucionadores_mod.perseguidor_do_quatro("quatro_encoste"),
 }
 
 #: Tipos em que a recusa por erro do adversario NAO se aplica.

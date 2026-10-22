@@ -74,7 +74,8 @@ RELATORIO = PASTA / "relatorio.txt"
 
 CO_MODALIDADE = "tradicional"
 
-#: Os seis tipos que pedem um jeito de vencer (ou de jogar).
+#: Os seis tipos que pedem um jeito de vencer (ou de jogar), e o "Encoste N em
+#: ate M" (T143, 22/10/2026), que fecha no meio da partida.
 TIPOS = (
     "quatro_vencer_diagonal",
     "quatro_golpe_duplo",
@@ -82,7 +83,17 @@ TIPOS = (
     "quatro_encostadas",
     "quatro_sem_o_meio",
     "quatro_bloquear",
+    "quatro_encoste",
 )
+
+#: ⚠️ **Os tipos com CONTROLE PROPRIO**: o controle de "so vencer" nao serve a
+#: um objetivo que nao e vencer. No "Encoste" o controle e o mesmo desafio com o
+#: alvo de JOGAR COLADO (`E + M`, sem pecas soltas a juntar): ele cabe sempre
+#: (cada lance encosta a peca nova), entao o perseguidor no nivel do Magno tem
+#: de cumpri-lo quase sempre - senao ele mede a propria incompetencia (a
+#: proposta, §1, passo 3). E o controle e julgado pela chegada DELE, e nao pela
+#: do desafio.
+CONTROLE_PROPRIO = frozenset({"quatro_encoste"})
 
 #: A semente da amostra: a mesma posicao a cada execucao (retomavel e pareado).
 SEMENTE = 20261021
@@ -167,11 +178,16 @@ def _posicao(co_tipo: str, indice: int, provador) -> dict[str, Any] | None:
         )
         if not prova.passou:
             continue
-        return {
+        posicao = {
             "lances": list(sorteada.lances),
             "chegada": _receita(co_tipo).montar(parametros),
             "teto": publicacao.nu_maximo_de_meios_lances,
         }
+        if co_tipo in CONTROLE_PROPRIO:
+            # O alvo de jogar colado: o que ja esta encostado mais um por lance.
+            facil = {**parametros, "pecas": encostadas + parametros["lances"]}
+            posicao["controle"] = _receita(co_tipo).montar(facil)
+        return posicao
     return None
 
 
@@ -185,6 +201,7 @@ def _jogar(
     modo: str,
     nu_semente: int,
     adversario: NivelDeMotor = ADVERSARIO,
+    controle: dict[str, Any] | None = None,
 ) -> dict[str, bool]:
     """Uma partida de [modo] a partir da posicao; devolve cumpriu e venceu.
 
@@ -192,10 +209,20 @@ def _jogar(
     o desta medicao; `scripts/medir_objetivo_forcavel_quatro.py` passa os
     quatro, para medir a hipotese do dono de que o Tex e o Magno bloqueiam
     demais o golpe duplo e a linha de cinco (T124c, 21/10/2026).
+
+    [controle]: a chegada do controle PROPRIO do tipo ([CONTROLE_PROPRIO]).
+    Com ela, o modo de controle persegue e e julgado por ela.
     """
     motor: MotorQuatro = jogador.arbitro
-    # O controle persegue "so vencer"; os outros, o objetivo do tipo.
-    chegada_do_modo = CHEGADA_DE_SO_VENCER if modo.startswith("controle") else chegada
+    # O controle persegue "so vencer" (ou o controle proprio do tipo); os
+    # outros, o objetivo do tipo.
+    if modo.startswith("controle") and controle is not None:
+        chegada = controle
+    chegada_do_modo = (
+        CHEGADA_DE_SO_VENCER
+        if modo.startswith("controle") and controle is None
+        else chegada
+    )
     desafio = perseguir.desafio_de(motor, co_tipo, iniciais, chegada_do_modo)
     # ⚠️ O sorteio da mistura do nivel: a semente e a da partida, e entao os
     # modos ficam pareados no adversario (as sementes dos lances sao as mesmas).
@@ -291,6 +318,7 @@ def medir_unidade(unidade: tuple[str, int]) -> dict[str, Any]:
                     posicao["teto"],
                     modo,
                     nu_semente,
+                    controle=posicao.get("controle"),
                 )
     linha["segundos"] = round(time.time() - inicio, 1)
     return linha
@@ -311,6 +339,8 @@ def relatorio(linhas: list[dict[str, Any]]) -> str:
         "",
         "⛔ CONTROLE: o perseguidor-Magno vencendo quando o objetivo e SO vencer,",
         "contra o Magno que so vence (coluna 'venceu'). Perto = competente.",
+        "⛔ No quatro_encoste o controle e o alvo de JOGAR COLADO (coluna",
+        "'cumpriu' da linha de controle): perto de 1,00 = competente.",
         "",
     ]
     for co_tipo in TIPOS:

@@ -142,7 +142,8 @@ def test_o_tipo_FORA_DO_AR_com_entrada_tem_o_mesmo_jogo_e_janela(co_tipo: str) -
 
 
 def test_os_nove_tipos_do_Quatro_com_texto_tem_entrada() -> None:
-    """🔒 Os nove do Quatro tem frase de feito; a unica coluna, aposentada
+    """🔒 Os dez do Quatro tem frase de feito (os nove de 20/10 e o "Encoste" da
+    T144, 22/10/2026); a unica coluna, aposentada
     (`DECISOES-do-dono.md` §8zzzl), nao tem.
 
     ⚠️ Sem este caso, o parametrizado acima passaria com ZERO tipos se o
@@ -156,7 +157,7 @@ def test_os_nove_tipos_do_Quatro_com_texto_tem_entrada() -> None:
         t for t in do_quatro if todas[t].co_chave_objetivo in frases_declaradas()
     }
     assert do_quatro - com_entrada == {"quatro_unica_coluna"}
-    assert len(com_entrada) == 9
+    assert len(com_entrada) == 10
 
 
 def test_toda_medida_exigida_e_do_catalogo_e_do_TABULEIRO() -> None:

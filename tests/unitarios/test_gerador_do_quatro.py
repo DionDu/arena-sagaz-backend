@@ -307,7 +307,10 @@ def test_o_mesmo_dia_gera_o_mesmo_candidato(executavel) -> None:
 #: Os tipos cujo teto NÃO precisa chegar ao fim do tabuleiro (ver o editorial).
 #: ⚠️ O "sem o meio" saiu daqui em 21/10/2026: a posição dele vem do banco
 #: pescado, com vitórias de até 12 lances, e o teto passou a cobrir o tabuleiro.
-TETO_PROPRIO = {"quatro_vencer_em_n"}
+#: ⚠️ O "Encoste N em ate M" (T143) entrou aqui em 22/10/2026: ele fecha no
+#: MEIO, e depois do M-esimo lance da pessoa a janela fechou - o teto e `2M - 1`
+#: (o caso logo abaixo do de "ate o fim").
+TETO_PROPRIO = {"quatro_vencer_em_n", "quatro_encoste"}
 
 
 #: Os numeros de cada tipo do Quatro, no ar ou fora dele (a promocao MOVE).
@@ -333,6 +336,22 @@ def test_os_tipos_julgados_no_fim_tem_teto_ate_o_fim(co_tipo: str) -> None:
             publicacao.nu_lances_de_preparo + publicacao.nu_maximo_de_meios_lances
             >= editorial_mod.CASAS_DO_TRADICIONAL
         )
+
+
+def test_o_teto_do_encoste_e_a_JANELA_e_cabe_acima_do_piso() -> None:
+    """No "Encoste" o teto e a janela (`2M - 1` meios-lances: M da pessoa e M - 1
+    do adversario), e o piso padrao de 9 tem de caber nela - senao a variante
+    nunca geraria. Os numeros por extenso: M de 5 a 7, tetos 9, 11 e 13."""
+    tetos = sorted(
+        {
+            (p.parametros["lances"], p.nu_maximo_de_meios_lances)
+            for p in EDITORIAL_DO_QUATRO["quatro_encoste"]
+        }
+    )
+    assert tetos == [(5, 9), (6, 11), (7, 13)]
+    for publicacao in EDITORIAL_DO_QUATRO["quatro_encoste"]:
+        assert publicacao.nu_minimo_de_meios_lances == 9
+        assert publicacao.nu_minimo_de_meios_lances <= publicacao.nu_maximo_de_meios_lances
 
 
 @pytest.mark.parametrize("co_tipo", sorted(banco_mod.TIPOS_DO_BANCO))
@@ -538,8 +557,9 @@ def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     # Eram dez; a virada subiu na T124b, o vencer em N e o Segure na T124c, e a
     # diagonal e as encostadas com o perseguidor (T124c, defeito 1), e o golpe
     # duplo e a linha de cinco com o banco pescado (T124c, 21/10), e o "sem o
-    # meio" com o piso de 9 (T124c, 22/10). Sobram os dois aposentados.
-    assert len(tipos) == 2
+    # meio" com o piso de 9 (T124c, 22/10). Sobram os dois aposentados, e o
+    # "Encoste N em ate M", que nasceu fora do ar em 22/10 (T143).
+    assert len(tipos) == 3
     assert MEDIDOR.tipos_do_alvo("quatro_bloquear") == ["quatro_bloquear"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)

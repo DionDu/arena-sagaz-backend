@@ -71,6 +71,13 @@ DIRECOES = ((0, 1), (1, 0), (1, 1), (1, -1))
 #: So as duas diagonais (o `quatro_vencer_diagonal`).
 DIAGONAIS = ((1, 1), (1, -1))
 
+#: Os tipos cujo objetivo NAO e um jeito de vencer, e que fecham no meio da
+#: partida (T143, §8zzzr). ⚠️ Neles o ramo de perseguir nao espera uma vitoria
+#: provada para se afastar do lance do nivel: vencer nao e o objetivo, e esperar
+#: por ela faria o perseguidor jogar como quem so quer vencer (ver
+#: `lance_de_quem_persegue`).
+FECHAM_NO_MEIO = frozenset({"quatro_encoste"})
+
 #: Quem responde "esta posicao e perdida a forca para quem tem a vez?". Na
 #: producao e o `ProvadorQuatro` (a busca do executavel); `None` desliga o passo.
 Prova = Callable[[EstadoQuatro], "int | None"]
@@ -290,6 +297,17 @@ def nota_do_objetivo(
             motor.regras.dimensoes, tabuleiro, eu
         )
         return 10 * encostadas + comum
+    if tipo == "quatro_encoste":
+        # ⚠️ As encostadas MANDAM (100 por peca, contra o `comum`, que raramente
+        # passa de algumas dezenas): o prazo e curto, e um lance gasto em jogar
+        # bem e um lance a menos para o alvo. O `comum` so desempata - e o
+        # passo 3 ja tira o lance que entrega a vitoria ao adversario. Juntar
+        # uma peca solta vale 200 (a nova e a solta passam a contar), e jogar
+        # colado 100: e isso que faz o perseguidor procurar as soltas.
+        encostadas = feitos_quatro.pecas_encostadas(
+            motor.regras.dimensoes, tabuleiro, eu
+        )
+        return 100 * encostadas + comum
     if tipo == "quatro_sem_o_meio":
         meio = _coluna_do_meio(motor)
         return _potencial(motor, tabuleiro, eu, proibida=meio) - _potencial(
@@ -361,7 +379,17 @@ def lance_de_quem_persegue(
     # custa: quando a busca PROVA vitoria em algum lance, escolhe entre os que
     # vencem o que mais aproxima do objetivo; sem vitoria provada, joga o lance
     # do nivel, tirando so os provadamente perdidos.
-    if prova is not None:
+    #
+    # ⚠️ **Nos tipos que fecham no meio** ([FECHAM_NO_MEIO]) a prova so tira os
+    # lances provadamente perdidos, e a nota escolhe entre os outros: o objetivo
+    # nao e vencer, entao nem a vitoria provada nem o lance do nivel tem
+    # prioridade sobre ele. Sem isso o perseguidor do "Encoste" jogaria o lance
+    # do nivel quase sempre (sem vitoria provada a vista), e mediria o nivel
+    # jogando para vencer - o defeito que este modulo veio atacar.
+    if prova is not None and desafio.co_tipo in FECHAM_NO_MEIO:
+        resultado = {l: prova(estado.com_lance(l)) for l in lances}
+        lances = [l for l in lances if resultado[l] != -desafio.pessoa] or lances
+    elif prova is not None:
         resultado = {l: prova(estado.com_lance(l)) for l in lances}
         vencem = [l for l in lances if resultado[l] == desafio.pessoa]
         if vencem:
