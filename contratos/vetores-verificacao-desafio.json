@@ -6801,6 +6801,318 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "quatro-sem-o-meio-cumpriu",
+      "de_vetor": "A pessoa vence pela linha de baixo (3, 4, 5 e 6) jogando nas colunas 5 e 6: nenhum lance DA FITA na coluna 4. A peca dela na coluna 4 veio do preparo, e nao conta. `lances_na_coluna_central` 0.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 47,
+      "co_tipo_desafio": "quatro_sem_o_meio",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_na_coluna_central",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-sem-o-meio-passou-uma-vez-pelo-meio",
+      "de_vetor": "A pessoa joga UMA vez na coluna 4 e depois vence pela linha de baixo. Venceu, e nao cumpre: quem julgasse so a vitoria, ou trocasse `menor_ou_igual 0` por `menor_ou_igual 1`, diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 47,
+      "co_tipo_desafio": "quatro_sem_o_meio",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_na_coluna_central",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-sem-o-meio-o-adversario-venceu",
+      "de_vetor": "A pessoa nunca joga na coluna 4, e o J2 fecha a linha 2. Nao cumpre: quem julgasse so a coluna diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 47,
+      "co_tipo_desafio": "quatro_sem_o_meio",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s7"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_na_coluna_central",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 5,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-sem-o-meio-lance-ilegal-e-dado-invalido",
+      "de_vetor": "Uma coluna que nao existe (a 9). Dado invalido.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 47,
+      "co_tipo_desafio": "quatro_sem_o_meio",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s9"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "partida"
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "lances_na_coluna_central",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ],
   "sementes": [

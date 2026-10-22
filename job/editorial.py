@@ -2176,6 +2176,34 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
     ),
+    "quatro_sem_o_meio": (
+        Publicacao(
+            # ✅ **No ar desde 22/10/2026** (T124c): com o piso de 9 lances da
+            # pessoa (§8zzzq) e sem a Cacau (abaixo), a regua de 18 dias deu
+            # FOLGA `[3] x 18` e escada em 13 de 18 dias (criterio 12; os cinco
+            # de fora erraram por 0,02 a 0,12). Historico "2026-10-22 (3)".
+            # ⛔ Medida em 20/10: SEM DESAFIO `[1, 1, 0]`, curto e facil (T124c).
+            # ⚠️ Desde 21/10 a posicao vem do BANCO pescado (ver o golpe duplo,
+            # acima), com a vitoria sem o meio a pelo menos 7 lances da pessoa -
+            # *"resolver o desafio em tao poucos lances do jogador humano e muito
+            # ruim"* (o dono, §8zzzn). O teto deixou de ser o da prova (8 lances):
+            # o banco tem vitorias de ate 12, e o teto cobre o tabuleiro inteiro.
+            # So em modalidade de largura impar (o banco so tem o tradicional).
+            parametros={},
+            nu_lances_de_preparo=_PREPARO_DO_BANCO,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("lances_na_coluna_central"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+            # ⛔ **Nunca contra a Cacau** (decisao do dono, 22/10/2026). Remedido
+            # em 18 dias sem esta restricao: contra a Cacau, 0 de 4 dias na
+            # escada, e nos 12 candidatos a Pita venceu de 6 a 10 em 10 - ela
+            # defende tao mal que vencer sem o meio deixa de separar os niveis.
+            # Precedente: a cadeia longa do Pontinhos, que pelo motivo inverso
+            # nunca e contra o Magno.
+            co_personagens=("pita", "tex", "magno"),
+        ),
+    ),
 }
 
 
@@ -2250,30 +2278,6 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
-    "quatro_sem_o_meio": (
-        Publicacao(
-            # ⛔ Medida em 20/10: SEM DESAFIO `[1, 1, 0]`, curto e facil (T124c).
-            # ⚠️ Desde 21/10 a posicao vem do BANCO pescado (ver o golpe duplo,
-            # acima), com a vitoria sem o meio a pelo menos 7 lances da pessoa -
-            # *"resolver o desafio em tao poucos lances do jogador humano e muito
-            # ruim"* (o dono, §8zzzn). O teto deixou de ser o da prova (8 lances):
-            # o banco tem vitorias de ate 12, e o teto cobre o tabuleiro inteiro.
-            # So em modalidade de largura impar (o banco so tem o tradicional).
-            parametros={},
-            nu_lances_de_preparo=_PREPARO_DO_BANCO,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro("lances_na_coluna_central"),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-            # ⛔ **Nunca contra a Cacau** (decisao do dono, 22/10/2026). Remedido
-            # em 18 dias sem esta restricao: contra a Cacau, 0 de 4 dias na
-            # escada, e nos 12 candidatos a Pita venceu de 6 a 10 em 10 - ela
-            # defende tao mal que vencer sem o meio deixa de separar os niveis.
-            # Precedente: a cadeia longa do Pontinhos, que pelo motivo inverso
-            # nunca e contra o Magno.
-            co_personagens=("pita", "tex", "magno"),
         ),
     ),
     "quatro_bloquear": (

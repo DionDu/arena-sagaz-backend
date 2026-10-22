@@ -537,8 +537,9 @@ def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     assert tipos == sorted(t for t, r in RECEITAS_FORA_DO_AR.items() if r.co_jogo == "quatro")
     # Eram dez; a virada subiu na T124b, o vencer em N e o Segure na T124c, e a
     # diagonal e as encostadas com o perseguidor (T124c, defeito 1), e o golpe
-    # duplo e a linha de cinco com o banco pescado (T124c, 21/10).
-    assert len(tipos) == 3
+    # duplo e a linha de cinco com o banco pescado (T124c, 21/10), e o "sem o
+    # meio" com o piso de 9 (T124c, 22/10). Sobram os dois aposentados.
+    assert len(tipos) == 2
     assert MEDIDOR.tipos_do_alvo("quatro_bloquear") == ["quatro_bloquear"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)
@@ -633,13 +634,15 @@ def test_o_tipo_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
     from job.adocao import Frequencia
 
     frequencias = {"quatro": Frequencia(um_dia_em=3)}
+    # ⚠️ O primeiro dia do Quatro cujo tipo NAO vem do banco pescado: os tipos do
+    # banco (`TIPOS_DO_BANCO`) nao passam pela prova da geracao que este caso
+    # anota, e sim pelo banco. Ate 22/10/2026 o primeiro dia do Quatro caia num
+    # tipo do acervo; com o "sem o meio" no ar, o rodizio passou a dar a ele.
     dia = next(
-        DIA.fromordinal(DIA.toordinal() + n)
-        for n in range(30)
-        if gerador.escolher_jogo(
-            DIA.fromordinal(DIA.toordinal() + n), frequencias=frequencias
-        )
-        == "quatro"
+        d
+        for d in (DIA.fromordinal(DIA.toordinal() + n) for n in range(90))
+        if gerador.escolher_jogo(d, frequencias=frequencias) == "quatro"
+        and gerador.escolher_tipo("quatro", d) not in banco_mod.TIPOS_DO_BANCO
     )
     escolhidos: list[str] = []
 

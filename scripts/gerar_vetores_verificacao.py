@@ -1912,6 +1912,65 @@ def vetores_do_quatro_do_banco() -> list[dict[str, Any]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# O QUATRO EM LINHA - o "sem o meio" (T124c, 22/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Subiu com o piso de 9 lances da pessoa e sem a Cacau (§8zzzp, §8zzzq). Pede um
+# JEITO de vencer, e por isso tem os casos que separam o certo do errado: a
+# vitoria sem tocar na coluna 4; a vitoria que passou UMA vez pela coluna 4
+# (quem trocasse `menor_ou_igual 0` por `menor_ou_igual 1`, ou julgasse so a
+# vitoria, diria cumpriu); e a derrota sem tocar no meio (quem julgasse so a
+# coluna diria cumpriu). ⚠️ Na base a pessoa ja tem uma peca na coluna 4, posta
+# no PREPARO: a medida conta so os lances da fita, e e por isso que o primeiro
+# caso cumpre.
+
+
+def vetores_do_quatro_sem_o_meio() -> list[dict[str, Any]]:
+    """Os vetores do `quatro_sem_o_meio`."""
+    receita = RECEITAS["quatro_sem_o_meio"]
+    chegada = receita.montar({})
+
+    def do_sem_o_meio(*argumentos: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(receita, chegada, *argumentos)
+
+    return [
+        do_sem_o_meio(
+            "quatro-sem-o-meio-cumpriu",
+            "A pessoa vence pela linha de baixo (3, 4, 5 e 6) jogando nas "
+            "colunas 5 e 6: nenhum lance DA FITA na coluna 4. A peca dela na "
+            "coluna 4 veio do preparo, e nao conta. `lances_na_coluna_central` 0.",
+            _BASE_DO_QUATRO,
+            ["s5", "s2", "s6"],
+            "cumpriu",
+        ),
+        do_sem_o_meio(
+            "quatro-sem-o-meio-passou-uma-vez-pelo-meio",
+            "A pessoa joga UMA vez na coluna 4 e depois vence pela linha de "
+            "baixo. Venceu, e nao cumpre: quem julgasse so a vitoria, ou "
+            "trocasse `menor_ou_igual 0` por `menor_ou_igual 1`, diria cumpriu.",
+            _BASE_DO_QUATRO,
+            "s4 s1 s5 s1 s6".split(),
+            "nao_cumpriu",
+        ),
+        do_sem_o_meio(
+            "quatro-sem-o-meio-o-adversario-venceu",
+            "A pessoa nunca joga na coluna 4, e o J2 fecha a linha 2. Nao "
+            "cumpre: quem julgasse so a coluna diria cumpriu.",
+            _BASE_DO_QUATRO,
+            ["s6", "s5", "s7", "s5", "s1", "s6"],
+            "nao_cumpriu",
+        ),
+        do_sem_o_meio(
+            "quatro-sem-o-meio-lance-ilegal-e-dado-invalido",
+            "Uma coluna que nao existe (a 9). Dado invalido.",
+            _BASE_DO_QUATRO,
+            ["s9"],
+            "dado_invalido",
+        ),
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ⛔ AS SEMENTES POR LANCE — o segundo bloco do documento (26/09/2026)
 # ═══════════════════════════════════════════════════════════════════════════
 #
@@ -2017,6 +2076,8 @@ def montar() -> dict[str, Any]:
         + vetores_do_quatro_perseguidos()
         # O golpe duplo e a linha de cinco (T124c, o banco pescado), no fim.
         + vetores_do_quatro_do_banco()
+        # O "sem o meio" (T124c, o piso de 9), no fim.
+        + vetores_do_quatro_sem_o_meio()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

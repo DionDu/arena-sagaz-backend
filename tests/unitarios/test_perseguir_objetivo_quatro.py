@@ -64,7 +64,8 @@ def test_a_vitoria_do_JEITO_ERRADO_sai_da_lista() -> None:
 
 
 def test_no_sem_o_meio_a_coluna_central_nao_e_lance() -> None:
-    chegada = RECEITAS_FORA_DO_AR["quatro_sem_o_meio"].montar({})
+    # No ar desde 22/10/2026 (T124c): a receita mora em `RECEITAS`.
+    chegada = RECEITAS["quatro_sem_o_meio"].montar({})
     desafio = _desafio("quatro_sem_o_meio", chegada)
     _, lances = perseguir.candidatos(MOTOR, desafio, [])
     assert "s4" not in lances

@@ -324,8 +324,11 @@ def test_os_dias_pedidos_chegam_ate_a_lista_de_dias(monkeypatch):
         return 0.0
 
     monkeypatch.setattr(MEDIDOR, "medir", medir_de_mentira)
-    assert MEDIDOR.principal(["quatro_sem_o_meio", "--dias=9"]) == 0
-    assert pedidos == [("quatro_sem_o_meio", 9)]
+    # ⚠️ Um tipo FORA do ar: o "sem o meio", que nasceu neste caso, subiu em
+    # 22/10/2026, e o medidor recusa (saida 2) o tipo do Quatro no ar. O
+    # bloquear esta aposentado, mas continua medivel pelo nome.
+    assert MEDIDOR.principal(["quatro_bloquear", "--dias=9"]) == 0
+    assert pedidos == [("quatro_bloquear", 9)]
 
     class Parou(Exception):
         """Para o `medir` de verdade logo depois de pedir os dias."""
@@ -335,9 +338,9 @@ def test_os_dias_pedidos_chegam_ate_a_lista_de_dias(monkeypatch):
 
     monkeypatch.undo()
     monkeypatch.setattr(MEDIDOR, "_dias_do_jogo", dias_do_jogo)
-    variantes = MEDIDOR.candidatas_fora_do_ar("quatro_sem_o_meio")
+    variantes = MEDIDOR.candidatas_fora_do_ar("quatro_bloquear")
     with pytest.raises(Parou) as parou:
-        MEDIDOR.medir("quatro_sem_o_meio", variantes, nu_dias=9)
+        MEDIDOR.medir("quatro_bloquear", variantes, nu_dias=9)
     assert parou.value.args == (9,)
 
 

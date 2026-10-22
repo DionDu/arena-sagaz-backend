@@ -9524,3 +9524,39 @@ passando o padrão.
 cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 .venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_sem_o_meio --com-regua --dias=18
 ```
+
+## 2026-10-22 (3) — O "sem o meio" no ar (T124c da spec 010)
+
+**Contexto.** O dono rodou a régua de 18 dias com o piso de 9 lances da pessoa (entrada "2026-10-22
+(2)") e sem a Cacau como adversária (entrada "2026-10-22 (1)"). Resultado: **FOLGA**, 3 de 3
+candidatos em todos os 18 dias, solução média de 15,7 meios-lances, e **escada em 13 de 18 dias**
+(o critério combinado é 12). Os cinco dias de fora (01, 07, 10, 16 e 18/10) erraram todos para o
+**mesmo lado**, o de fácil demais, e por pouco: o Tex vencendo 9 ou 10 em 10 contra a Pita (banda
+0,45 a 0,85), a Cacau 3 ou 4 em 10 contra a Pita (banda até 0,20), a Pita 5 em 10 contra o Magno
+(banda até 0,45); o maior erro foi 0,12. Nos 13 dias na escada, o candidato escolhido foi o 1º em
+nove e o 2º em quatro.
+
+**Decisão.** Promovido como na T124b: a receita sai de `RECEITAS_FORA_DO_AR` e entra em `RECEITAS`
+(`job/tipos_de_desafio.py`), e a publicação sai de `EDITORIAL_FORA_DO_AR` e entra em `EDITORIAL`
+(`job/editorial.py`), com o `co_personagens=("pita", "tex", "magno")` e os botões medidos (preparo
+do banco, teto do tabuleiro inteiro). O app já tinha o texto (`desafioObjetivoQuatroSemOMeio`) e a
+capacidade declarada (`capacidades_deste_app.dart`). **No ar, oito tipos do Quatro**; fora do ar ficam só os dois
+aposentados (`quatro_unica_coluna`, §8zzzl, e `quatro_bloquear`, §8zzzo).
+
+**Vetores** (`scripts/gerar_vetores_verificacao.py`, `vetores_do_quatro_sem_o_meio`, quatro novos;
+73 no total, as duas cópias regeradas): a vitória pela linha de baixo sem nenhum lance da fita na
+coluna 4 (cumpre: a peça da pessoa na coluna 4 veio do **preparo**, e a medida só conta a fita); a
+vitória que passou **uma vez** pela coluna 4 (não cumpre: pega quem julgasse só a vitória, ou
+trocasse `<= 0` por `<= 1`); a derrota sem tocar no meio (não cumpre: pega quem julgasse só a
+coluna); e uma coluna que não existe (dado inválido).
+
+**Testes.** Retratos ajustados: `test_receitas_do_quatro.py` (o conjunto no ar ganha o "sem o
+meio"), `test_gerador_do_quatro.py` (fora do ar, 2 tipos; e o caso do caminho normal passa a
+procurar o 1º dia do Quatro cujo tipo **não** vem do banco pescado, porque o rodízio passou a dar o
+"sem o meio" ao dia que ele usava, e os tipos do banco não passam pela prova que o caso anota),
+`test_medidor_de_variantes.py` (o caso dos `--dias` mede o `quatro_bloquear`, que continua fora do
+ar: o medidor recusa, com saída 2, tipo do Quatro no ar) e `test_perseguir_objetivo_quatro.py` (a
+receita lida de `RECEITAS`). Suíte 3.735 + os 3 ajustados. Mutação: a medida
+`lances_na_coluna_central` zerada no medidor, **1 de 1** pega de cada lado (Python por
+`test_julgamento_do_desafio.py`, Dart por `vetores_verificacao_test.dart`, no vetor da passagem
+pelo meio).

@@ -2918,6 +2918,33 @@ RECEITAS: dict[str, Receita] = {
             "personagem": personagem,
         },
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_sem_o_meio": Receita(
+        nu_tipo_desafio=47,
+        co_tipo_desafio="quatro_sem_o_meio",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroSemOMeio",
+        # ✅ **No ar desde 22/10/2026** (T124c): com o piso de 9 lances da
+        # pessoa (`banco_forcavel_quatro.PISO_POR_TIPO`, §8zzzq) e sem a Cacau
+        # (§8zzzp), a regua de 18 dias deu FOLGA e escada em 13 de 18 dias
+        # (o criterio e 12). Historico do backend, "2026-10-22 (3)".
+        # "Venca sem jogar na coluna do meio". ⚠️ So existe em largura IMPAR: na
+        # par nao ha coluna do meio, `lances_na_coluna_central` vale 0 sempre, e
+        # o desafio viraria "venca" com outra frase. Quem recusa a modalidade
+        # par e a geracao (T116), que sabe a largura; a receita nao a conhece.
+        #
+        # ⚠️ `<= 0`, e nao `igual 0`: a medida e `maior_melhor` no catalogo, e o
+        # teto e a leitura natural de "nenhum lance la".
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("vitoria", "igual", _ATINGIDO),
+                _medida("lances_na_coluna_central", "menor_ou_igual", 0),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
 }
 
 
@@ -3015,29 +3042,6 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
             "versao": VERSAO_CHEGADA,
             "janela": {"tipo": "partida"},
             "clausulas": [_predicado("quatro_perdeu", "igual", False)],
-        },
-        valores_da_frase=lambda p, personagem: {"personagem": personagem},
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_sem_o_meio": Receita(
-        nu_tipo_desafio=47,
-        co_tipo_desafio="quatro_sem_o_meio",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroSemOMeio",
-        # "Venca sem jogar na coluna do meio". ⚠️ So existe em largura IMPAR: na
-        # par nao ha coluna do meio, `lances_na_coluna_central` vale 0 sempre, e
-        # o desafio viraria "venca" com outra frase. Quem recusa a modalidade
-        # par e a geracao (T116), que sabe a largura; a receita nao a conhece.
-        #
-        # ⚠️ `<= 0`, e nao `igual 0`: a medida e `maior_melhor` no catalogo, e o
-        # teto e a leitura natural de "nenhum lance la".
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("vitoria", "igual", _ATINGIDO),
-                _medida("lances_na_coluna_central", "menor_ou_igual", 0),
-            ],
         },
         valores_da_frase=lambda p, personagem: {"personagem": personagem},
     ),
