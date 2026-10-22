@@ -69,9 +69,25 @@ def test_o_perseguidor_le_a_fita_a_partir_da_posicao_publicada() -> None:
 
 
 def test_o_registro_liga_SO_os_tipos_que_a_medicao_aprovou() -> None:
-    """⛔ A lista sai da medicao pareada de 21/10 (historico "2026-10-21 (9)")."""
+    """⛔ A lista sai das medicoes pareadas, e cada entrada tem a sua:
+
+    * diagonal e encostadas: a medicao de 21/10 (historico "2026-10-21 (9)");
+    * golpe duplo e linha de cinco: a fase 2 de `medir_objetivo_forcavel_quatro.py`
+      nas posicoes forcaveis (o perseguidor 1,00 contra os quatro adversarios;
+      o Magno que so vence 0,50 a 0,83; o controle batendo) - historico
+      "2026-10-21 (10)" e "(12)";
+    * sem o meio: o mesmo banco, e o perseguidor e quem nao joga na coluna
+      central (o Magno que so vence a ocuparia, e o gabarito descumpriria o
+      proprio tipo) - historico "2026-10-21 (12)".
+    """
     do_quatro = {t for t in gerador.SOLUCIONADOR_POR_TIPO if t.startswith("quatro_")}
-    assert do_quatro == {"quatro_vencer_diagonal", "quatro_encostadas"}
+    assert do_quatro == {
+        "quatro_vencer_diagonal",
+        "quatro_encostadas",
+        "quatro_golpe_duplo",
+        "quatro_linha_de_cinco",
+        "quatro_sem_o_meio",
+    }
 
 
 def test_o_teto_da_prova_e_o_da_medicao() -> None:

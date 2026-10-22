@@ -25,6 +25,7 @@ from pathlib import Path
 
 import pytest
 
+from job import banco_forcavel_quatro as banco_mod
 from job import editorial as editorial_mod
 from job import gerador
 from job import posicao_inicial as posicao_mod
@@ -304,7 +305,9 @@ def test_o_mesmo_dia_gera_o_mesmo_candidato(executavel) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 #: Os tipos cujo teto NÃO precisa chegar ao fim do tabuleiro (ver o editorial).
-TETO_PROPRIO = {"quatro_vencer_em_n", "quatro_sem_o_meio"}
+#: ⚠️ O "sem o meio" saiu daqui em 21/10/2026: a posição dele vem do banco
+#: pescado, com vitórias de até 12 lances, e o teto passou a cobrir o tabuleiro.
+TETO_PROPRIO = {"quatro_vencer_em_n"}
 
 
 #: Os numeros de cada tipo do Quatro, no ar ou fora dele (a promocao MOVE).
@@ -332,9 +335,123 @@ def test_os_tipos_julgados_no_fim_tem_teto_ate_o_fim(co_tipo: str) -> None:
         )
 
 
-def test_o_teto_do_sem_o_meio_e_o_da_prova() -> None:
-    (publicacao,) = editorial_mod.EDITORIAL_FORA_DO_AR["quatro_sem_o_meio"]
-    assert publicacao.nu_maximo_de_meios_lances == provas_quatro.MAXIMO_SEM_O_MEIO
+@pytest.mark.parametrize("co_tipo", sorted(banco_mod.TIPOS_DO_BANCO))
+def test_o_teto_dos_tipos_do_banco_cobre_a_posicao_mais_curta_do_banco(co_tipo) -> None:
+    """O "preparo" dos tipos do banco é o comprimento mínimo de uma posição
+    pescada: com ele, o cadeado acima garante o teto até o fim do tabuleiro. E
+    o banco gravado não pode ter posição mais curta que isso."""
+    for publicacao in EDITORIAL_DO_QUATRO[co_tipo]:
+        assert publicacao.nu_lances_de_preparo == banco_mod.MINIMO_DE_LANCES_JOGADOS
+    posicoes = banco_mod.carregar(MODALIDADE)[co_tipo]
+    assert min(len(p.lances) for p in posicoes) >= banco_mod.MINIMO_DE_LANCES_JOGADOS
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O banco pescado (T124c, 21/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Uma posição de mentira do banco (a prova não roda: o tabuleiro só precisa ser
+#: legal). ⚠️ Ela cai no lance 1 (o s3 fecha a linha), então os casos que a usam
+#: desligam a recusa do lance 1, que não é o que se confere aqui.
+PESCADA = banco_mod.PosicaoDoBanco(
+    lances=ler_sequencia("s1s7s2s7s4s6s5s6"), lances_da_pessoa=9, confronto="tex_tex"
+)
+
+
+@pytest.mark.parametrize("co_tipo", sorted(banco_mod.TIPOS_DO_BANCO))
+def test_os_tipos_do_banco_tiram_a_posicao_do_BANCO_e_nao_refazem_a_prova(
+    monkeypatch, co_tipo
+) -> None:
+    vistos: list[tuple[str, ...]] = []
+
+    def resolver(jogador, base, **kwargs):
+        # O gabarito recebe a posição PESCADA; parar aqui basta ao caso.
+        vistos.append(tuple(base.lances))
+        return None
+
+    def nao_prove(*args, **kwargs):
+        raise AssertionError("a prova foi refeita para uma posição do banco")
+
+    def nao_sorteie_do_acervo(*args, **kwargs):
+        raise AssertionError("um tipo do banco sorteou do acervo do gerador")
+
+    monkeypatch.setattr(gerador.banco_quatro_mod, "sortear", lambda *a, **k: PESCADA)
+    monkeypatch.setattr(gerador, "_preparar_quatro", nao_sorteie_do_acervo)
+    monkeypatch.setattr(gerador.provas_quatro_mod, "provar", nao_prove)
+    monkeypatch.setattr(gerador, "vitoria_imediata_quatro", lambda arbitro, estado: None)
+    monkeypatch.setattr(gerador, "_resolver", resolver)
+    monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
+
+    _gerar(co_tipo, tentativas_por_candidato=2)
+    assert vistos and set(vistos) == {PESCADA.lances}
+
+
+def test_os_outros_tipos_do_quatro_continuam_no_acervo(monkeypatch) -> None:
+    def nao_use_o_banco(*args, **kwargs):
+        raise AssertionError("um tipo fora do banco sorteou do banco")
+
+    monkeypatch.setattr(gerador.banco_quatro_mod, "sortear", nao_use_o_banco)
+    monkeypatch.setattr(
+        gerador.provas_quatro_mod, "provar",
+        lambda *a, **k: provas_quatro.ProvaQuatro(False, "so conferindo a origem"),
+    )
+    monkeypatch.setattr(gerador.provas_quatro_mod, "ProvadorQuatro", lambda *a, **k: None)
+    monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
+    assert _gerar("quatro_bloquear", tentativas_por_candidato=2) == []
+
+
+def test_os_tipos_do_banco_sao_perseguidos_no_gabarito() -> None:
+    """A régua mede com o perseguidor; sem ele no registro, o Magno que só
+    vence jogaria o gabarito, e no "sem o meio" ocuparia a coluna proibida."""
+    for co_tipo in banco_mod.TIPOS_DO_BANCO:
+        assert co_tipo in gerador.SOLUCIONADOR_POR_TIPO
+
+
+def test_o_sorteio_do_banco_respeita_o_PISO_e_falha_alto_sem_posicao() -> None:
+    curta = banco_mod.PosicaoDoBanco(("s4",) * 8, lances_da_pessoa=6, confronto="x")
+    longa = banco_mod.PosicaoDoBanco(("s3",) * 8, lances_da_pessoa=7, confronto="x")
+    banco = {"quatro_golpe_duplo": (curta, longa)}
+    for semente in range(20):
+        achada = banco_mod.sortear(
+            random.Random(semente), "quatro_golpe_duplo", MODALIDADE, banco=banco
+        )
+        assert achada is longa
+    with pytest.raises(banco_mod.BancoSemPosicao):
+        banco_mod.sortear(
+            random.Random(0), "quatro_golpe_duplo", MODALIDADE, banco=banco, piso=8
+        )
+    with pytest.raises(banco_mod.BancoSemPosicao):
+        banco_mod.sortear(random.Random(0), "quatro_sem_o_meio", MODALIDADE, banco=banco)
+
+
+def test_o_banco_gravado_tem_os_tres_tipos_acima_do_piso() -> None:
+    """O arquivo que vai ao Railway: lido pelo leitor de produção, com posição
+    acima do piso em cada tipo (senão o gerador falharia alto no dia do tipo)."""
+    banco = banco_mod.carregar(MODALIDADE)
+    assert set(banco) == set(banco_mod.TIPOS_DO_BANCO)
+    for co_tipo, posicoes in banco.items():
+        assert any(p.lances_da_pessoa >= banco_mod.PISO_DE_LANCES_DA_PESSOA for p in posicoes)
+
+
+def test_o_banco_de_outra_modalidade_ou_formato_e_recusado(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(acervo_mod, "PASTA_DO_ACERVO", tmp_path)
+    banco_mod.carregar.cache_clear()
+    try:
+        caminho = banco_mod.caminho_do_banco(MODALIDADE)
+        caminho.write_text('{"versao": 1, "co_modalidade": "outra", "tipos": {}}', encoding="utf-8")
+        with pytest.raises(ValueError, match="outra"):
+            banco_mod.carregar(MODALIDADE)
+        banco_mod.carregar.cache_clear()
+        caminho.write_text('{"versao": 99, "co_modalidade": "tradicional", "tipos": {}}', encoding="utf-8")
+        with pytest.raises(ValueError, match="99"):
+            banco_mod.carregar(MODALIDADE)
+        banco_mod.carregar.cache_clear()
+        caminho.unlink()
+        with pytest.raises(FileNotFoundError, match="pescar_posicoes_forcaveis_quatro"):
+            banco_mod.carregar(MODALIDADE)
+    finally:
+        # O cache não pode guardar o banco de mentira para os casos seguintes.
+        banco_mod.carregar.cache_clear()
 
 
 def test_as_casas_do_tradicional_batem_com_o_contrato() -> None:

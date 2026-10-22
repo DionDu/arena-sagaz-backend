@@ -109,9 +109,10 @@ def arquiteto_da_cadeia_longa(contexto: ContextoDoSolucionador) -> str:
 def perseguidor_do_quatro(co_tipo: str) -> Solucionador:
     """O perseguidor do objetivo do Quatro, para um tipo.
 
-    ⚠️ **Ligado so onde a medicao pareada mostrou ganho e escada** (diagonal e
-    encostadas, 21/10/2026; historico do backend, "2026-10-21 (9)"): o registro
-    `gerador.SOLUCIONADOR_POR_TIPO` e a lista.
+    ⚠️ **Ligado so onde a medicao pareada mostrou ganho**: diagonal e encostadas
+    (21/10/2026; historico do backend, "2026-10-21 (9)"), e os tres tipos do
+    banco pescado - golpe duplo, linha de cinco e "sem o meio" (historico
+    "2026-10-21 (12)"). O registro `gerador.SOLUCIONADOR_POR_TIPO` e a lista.
     """
 
     def solucionar(contexto: ContextoDoSolucionador) -> str:

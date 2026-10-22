@@ -53,6 +53,7 @@ from .medidas_de_saida import (
 # ⚠️ O unico acervo POR VARIANTE de hoje. As FENs moram em `tipos_de_desafio.py`
 # com todos os outros moldes, e o editorial so aponta para elas.
 from .tipos_de_desafio import MOLDES_DA_CAPTURA_DE_DUAS_EM_OITO
+from .banco_forcavel_quatro import MINIMO_DE_LANCES_JOGADOS as _PREPARO_DO_BANCO
 
 #: A versao do aplicativo que estreia o Desafio do Dia.
 #:
@@ -2217,11 +2218,14 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_golpe_duplo": (
         Publicacao(
-            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 2]` (T124c). Duas linhas com a
-            # mesma peca: o nome do tipo.
+            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 0, 2]` (T124c), por falta de
+            # posicao. ⚠️ Desde 21/10 a posicao vem do BANCO pescado
+            # (`banco_forcavel_quatro`, §8zzzn): o "preparo" e o comprimento
+            # minimo de uma posicao do banco, e o teto cobre o tabuleiro inteiro
+            # a partir dela. Duas linhas com a mesma peca: o nome do tipo.
             parametros={"linhas": 2},
-            nu_lances_de_preparo=10,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
+            nu_lances_de_preparo=_PREPARO_DO_BANCO,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("linhas_no_lance_final"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2229,11 +2233,12 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_linha_de_cinco": (
         Publicacao(
-            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 2, 3]` (T124c). Cinco: um a mais
-            # que o alinhar da modalidade de hoje.
+            # ⛔ Medida em 20/10: SEM DESAFIO `[0, 2, 3]` (T124c), por falta de
+            # posicao. ⚠️ Desde 21/10 a posicao vem do BANCO pescado (ver o golpe
+            # duplo, acima). Cinco: um a mais que o alinhar da modalidade de hoje.
             parametros={"tamanho": 5},
-            nu_lances_de_preparo=10,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 10,
+            nu_lances_de_preparo=_PREPARO_DO_BANCO,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("maior_linha"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
@@ -2242,11 +2247,15 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     "quatro_sem_o_meio": (
         Publicacao(
             # ⛔ Medida em 20/10: SEM DESAFIO `[1, 1, 0]`, curto e facil (T124c).
-            # So em modalidade de largura impar (quem recusa a par e
-            # a geracao, T116). O teto e o da prova: 8 lances (15 meios).
+            # ⚠️ Desde 21/10 a posicao vem do BANCO pescado (ver o golpe duplo,
+            # acima), com a vitoria sem o meio a pelo menos 7 lances da pessoa -
+            # *"resolver o desafio em tao poucos lances do jogador humano e muito
+            # ruim"* (o dono, §8zzzn). O teto deixou de ser o da prova (8 lances):
+            # o banco tem vitorias de ate 12, e o teto cobre o tabuleiro inteiro.
+            # So em modalidade de largura impar (o banco so tem o tradicional).
             parametros={},
-            nu_lances_de_preparo=12,
-            nu_maximo_de_meios_lances=15,
+            nu_lances_de_preparo=_PREPARO_DO_BANCO,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - _PREPARO_DO_BANCO,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("lances_na_coluna_central"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,

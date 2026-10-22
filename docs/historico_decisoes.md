@@ -9279,3 +9279,49 @@ de 170). A memória do motor ficou estável (19 a 34 MB em 1.100 buscas). Não �
 Testes: `test_provas_quatro.py` 45 (as duas defesas em posições do acervo, com a recusa da defesa
 do objetivo DEFINITIVA; a escolha das respostas com resultados à mão);
 `test_pescar_posicoes_forcaveis_quatro.py` 7. Mutações: defesa 6 de 6; pescaria 6 de 6. Suíte 3.667 verde (21 pulados).
+
+## 2026-10-21 (12) — O banco pescado entra no gerador (T124c da spec 010)
+
+**A pescaria (o dono rodou, 34 s + 1.984 s).** Controles: 21 de 21 nos dois tipos, o jeito errado
+reprovando. 400 partidas em quatro confrontos, 4.984 posições distintas, 1.092 com a vitória livre
+entre 5 e 12 lances. Passaram, com a defesa do jogo: **golpe duplo 46, linha de cinco 110, "sem o
+meio" 112**; a maioria do golpe e da linha de cinco entre 7 e 10 lances da pessoa, o "sem o meio"
+mais concentrado em 5 e 6. Por confronto, Tex×Tex (28 · 40 · 32) e Magno×Tex (12 · 56 · 31)
+rendem muito mais que Magno×Pita e Tex×Pita (partidas mais curtas, menos posições). ⚠️ ~700
+posições estouraram as 2.000 perguntas no golpe duplo e na linha de cinco: uma segunda passada só
+nelas, com teto maior, renderia mais - não é urgente.
+
+**Decisão: o gerador tira esses três tipos do banco** (`job/banco_forcavel_quatro.py`; o arquivo
+`dados/jogo_quatro/banco_forcavel_tradicional.json` vai ao Git). O módulo é o dono do formato (a
+pescaria importa dele o caminho, a versão, os tipos e o mínimo de lances jogados), confere versão
+e modalidade, e sorteia com o **piso de publicação de 7 lances da pessoa** (`PISO_DE_LANCES_DA_
+PESSOA`): sobram 44 · 94 · 60. O piso é escolha minha pelos critérios do dono (§8k-0, "não muito
+curtos", "entre duas, entra a mais longa") e pela frase de 21/10 (*"resolver o desafio em tão
+poucos lances do jogador humano é muito ruim"*), na régua do "Vença em 7". No gerador:
+
+- a posição vem do banco, e não do acervo; o preparo não se aplica (no editorial, o "preparo"
+  desses tipos passou a ser o comprimento mínimo de uma posição do banco, 8, e o teto cobre o
+  tabuleiro a partir dela: 34 meios-lances. O "sem o meio" perdeu o teto da prova, 15, porque o
+  banco tem vitórias de até 12 lances);
+- a prova NÃO é refeita (a da pescaria é mais forte que a "ao alcance" de `PROVAS`, e custa até
+  minutos por posição);
+- o perseguidor fica ligado nos três (`SOLUCIONADOR_POR_TIPO`): nas posições forçáveis ele cumpriu
+  1,00 contra os quatro adversários (fase 2 da medição), e no "sem o meio" é quem não joga na
+  coluna central;
+- ⛔ um tipo do banco sem posição acima do piso FALHA ALTO (`BancoSemPosicao`), em vez de cair
+  calado no acervo.
+
+Não repetir continua sendo a assinatura conferida contra o histórico antes de publicar (T049i).
+
+Testes: `test_gerador_do_quatro.py` (o banco no lugar do acervo e sem a prova, os outros tipos no
+acervo, o perseguidor nos três, o piso, o banco gravado com os três tipos, a recusa de modalidade
+e formato, e o teto cobrindo a posição mais curta do banco). Mutações 6 de 6.
+
+**Ensaio de ponta a ponta** (motor de verdade, um candidato por tipo): os três geraram candidato na
+1ª tentativa, com a posição do banco e o gabarito do perseguidor - contra a Pita, soluções de 11,
+11 e 9 meios-lances. ⚠️ Abaixo dos 7 lances provados contra quem defende bem, porque a Pita erra:
+acima do piso do gabarito (9), mas é o que a régua tem de mostrar por personagem.
+
+Suíte do backend: 3.678 verdes e 1 falha - o cadeado `test_o_registro_liga_SO_os_tipos_que_a_medicao_aprovou`,
+que existe para que ligar um perseguidor obrigue a dizer qual medição o aprovou. Ganhou os três
+tipos, cada um com a sua medição no docstring; o arquivo dele, 6 verdes.

@@ -59,6 +59,7 @@ from motores.quatro.motor_quatro import EstadoQuatro
 from api.aparelhos.regras import chave_da_versao
 
 from . import adocao as adocao_mod
+from . import banco_forcavel_quatro as banco_quatro_mod
 from . import editorial as editorial_mod
 from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
@@ -703,6 +704,16 @@ SOLUCIONADOR_POR_TIPO = {
     "quatro_encostadas": solucionadores_mod.perseguidor_do_quatro(
         "quatro_encostadas"
     ),
+    # ⚠️ Os três do banco (T124c, 21/10/2026): nas posições forçáveis, o
+    # perseguidor no nível do Magno cumpriu 1,00 contra os quatro adversários,
+    # e o Magno que só vence 0,50 a 0,83 (`medir_objetivo_forcavel_quatro.py`,
+    # fase 2). No "sem o meio" ele é também quem não joga na coluna central - o
+    # Magno que só vence a ocuparia, e o gabarito descumpriria o próprio tipo.
+    "quatro_golpe_duplo": solucionadores_mod.perseguidor_do_quatro("quatro_golpe_duplo"),
+    "quatro_linha_de_cinco": solucionadores_mod.perseguidor_do_quatro(
+        "quatro_linha_de_cinco"
+    ),
+    "quatro_sem_o_meio": solucionadores_mod.perseguidor_do_quatro("quatro_sem_o_meio"),
 }
 
 #: Tipos em que a recusa por erro do adversario NAO se aplica.
@@ -1168,7 +1179,18 @@ def gerar_candidatos(
             co_modalidade = escolher_modalidade(
                 co_jogo, dt_dia, evitar=vizinhos.modalidades
             )
-            base, continuacao = _preparar_quatro(sorteio, lances_de_preparo, co_modalidade)
+            if co_tipo in banco_quatro_mod.TIPOS_DO_BANCO:
+                # ⚠️ Golpe duplo, linha de cinco e "sem o meio" vêm do BANCO
+                # pescado (T124c, `DECISOES-do-dono.md` §8zzzn): o acervo do
+                # gerador quase não tem posição para eles. A posição já foi
+                # provada na pescaria (ver o salto da prova, mais abaixo), e o
+                # preparo não se aplica - o comprimento é o da posição pescada.
+                pescada = banco_quatro_mod.sortear(sorteio, co_tipo, co_modalidade)
+                base, continuacao = EstadoQuatro(co_modalidade, pescada.lances), ()
+            else:
+                base, continuacao = _preparar_quatro(
+                    sorteio, lances_de_preparo, co_modalidade
+                )
             jogador = JogadorQuatro(co_modalidade)
             # ⚠️ A mesma recusa do lance 1 das damas: quem resolve vence no
             # primeiro lance, e o desafio acabaria num toque - seja qual for o
@@ -1314,13 +1336,22 @@ def gerar_candidatos(
             # serve ao tipo (a vitoria em N e nao em N-1, o empate do Segure, a
             # coluna unica...). Gerar o gabarito de uma posicao que nao serve
             # gastaria a partida inteira do Magno para descarta-la depois.
-            if provador is None:
-                provador = provas_quatro_mod.ProvadorQuatro(
-                    co_modalidade, jogador.motor_dart
+            #
+            # ⚠️ **Menos nos tipos do BANCO**: a posição foi provada na pescaria
+            # (o objetivo forçável contra quem defende o jogo, com pelo menos
+            # `PISO_DE_LANCES_DA_PESSOA` lances), e refazer aqui custaria até
+            # minutos por posição. A prova de `PROVAS` desses tipos (a "ao
+            # alcance") é mais fraca que a da pescaria, e não acrescentaria nada.
+            if co_tipo in banco_quatro_mod.TIPOS_DO_BANCO:
+                prova = provas_quatro_mod.ProvaQuatro(True, "provada na pescaria")
+            else:
+                if provador is None:
+                    provador = provas_quatro_mod.ProvadorQuatro(
+                        co_modalidade, jogador.motor_dart
+                    )
+                prova = provas_quatro_mod.provar(
+                    co_tipo, provador, base, parametros_daqui, continuacao=continuacao
                 )
-            prova = provas_quatro_mod.provar(
-                co_tipo, provador, base, parametros_daqui, continuacao=continuacao
-            )
             if not prova.passou:
                 print(
                     f"⚠️ [job] {dt_dia}: posicao descartada — {co_tipo}: "

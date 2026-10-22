@@ -86,6 +86,7 @@ sys.path.insert(0, str(RAIZ))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+from job import banco_forcavel_quatro as banco_mod  # noqa: E402
 from job import posicoes_de_autoplay_quatro as acervo_mod  # noqa: E402
 from job import provas_quatro as provas_mod  # noqa: E402
 from job.editorial import MINIMO_DE_MEIOS_LANCES_PADRAO  # noqa: E402
@@ -113,8 +114,8 @@ RELATORIO = PASTA / "relatorio.txt"
 
 CO_MODALIDADE = "tradicional"
 
-#: A versão do formato do banco (quem lê confere).
-VERSAO_DO_BANCO = 1
+#: A versão do formato do banco: a de quem o LÊ (`job/banco_forcavel_quatro`).
+VERSAO_DO_BANCO = banco_mod.VERSAO_DO_BANCO
 
 #: A semente-base da pescaria. A partida `i` do confronto `k` usa
 #: `SEMENTE + 100_000 * k + i`. ⚠️ Fixa: rodar de novo joga as mesmas partidas,
@@ -130,19 +131,18 @@ CONFRONTOS: dict[str, tuple[NivelDeMotor, NivelDeMotor]] = {
     "tex_tex": (NivelDeMotor.TEX, NivelDeMotor.TEX),
 }
 
-#: Os três tipos da pescaria, com o parâmetro de cada um (o do editorial).
-TIPOS = ("quatro_golpe_duplo", "quatro_linha_de_cinco", "quatro_sem_o_meio")
+#: Os três tipos da pescaria: os que o gerador tira do banco, em ordem estável.
+TIPOS = tuple(sorted(banco_mod.TIPOS_DO_BANCO))
 
 #: O piso: a vitória livre (e então a do objetivo) a pelo menos 9 meios-lances.
 PISO_DE_MEIOS_LANCES = MINIMO_DE_MEIOS_LANCES_PADRAO
 
 #: Posições com menos lances jogados que isto são aberturas: ficam de fora.
-MINIMO_DE_LANCES_JOGADOS = 8
+#: O número é do módulo do banco, porque o editorial também o lê (o teto).
+MINIMO_DE_LANCES_JOGADOS = banco_mod.MINIMO_DE_LANCES_JOGADOS
 
-
-def caminho_do_banco(co_modalidade: str) -> Path:
-    """O arquivo do banco, ao lado do acervo do gerador (vai ao Git)."""
-    return acervo_mod.PASTA_DO_ACERVO / f"banco_forcavel_{co_modalidade}.json"
+#: O arquivo do banco: o caminho de quem o LÊ, e não uma segunda escrita.
+caminho_do_banco = banco_mod.caminho_do_banco
 
 
 # ═══════════════════════════════════════════════════════════════════════════
