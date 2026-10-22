@@ -2948,9 +2948,11 @@ def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
 # `quatro_vencer_diagonal` e as `quatro_encostadas` passaram com o perseguidor
 # do objetivo (T124c, defeito 1). A `quatro_unica_coluna` continua aqui
 # APOSENTADA (`DECISOES-do-dono.md` §8zzzl), sem texto no app; golpe duplo e
-# linha de cinco esperam uma prova de objetivo FORCAVEL, o sem o meio uma
-# posicao mais longa, e o bloquear nao ganhou escada com o perseguidor
-# (historico do backend, "2026-10-21 (9)"). Eles nao sao
+# linha de cinco subiram com o banco pescado (21/10), o sem o meio espera a
+# remedicao em 9 dias, e o `quatro_bloquear` tambem esta APOSENTADO
+# (`DECISOES-do-dono.md` §8zzzo, 21/10/2026: o adversario cria 1 a 2 ameacas
+# tapaveis por partida, e nem pedindo 1 o Magno chega ao piso; historico do
+# backend "2026-10-21 (14)"). Eles nao sao
 # propostas (essas ficam em
 # `tipos_propostos.py`, esperando o dono): o dono os aprovou em 13/10/2026
 # (`DECISOES-do-dono.md` §8zzz), e eles ja tem linha na `tb901_tipo_desafio`

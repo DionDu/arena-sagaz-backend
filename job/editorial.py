@@ -2271,8 +2271,11 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "quatro_bloquear": (
         Publicacao(
-            # ⛔ Medida em 20/10: FOLGA, 0 de 3 na escada - e a regua nao mede este
-            # tipo (T124c). Tres ameacas: o numero do enunciado aprovado (§8zzz).
+            # ⛔ APOSENTADA (§8zzzo, 21/10/2026). O diagnostico pelo caminho da
+            # regua (`scripts/diagnosticar_bloquear_quatro.py`) deu Cacau 0,00 ·
+            # Pita 0,01 · Tex 0,04 · Magno 0,17: o adversario cria 1 a 2 ameacas
+            # tapaveis por partida, e com 1 ou 2 ameacas o Magno tambem nao chega.
+            # Tres ameacas: o numero do enunciado aprovado (§8zzz).
             parametros={"ameacas": 3},
             # Preparo 8: as ameacas a bloquear estao no resto da partida.
             nu_lances_de_preparo=8,

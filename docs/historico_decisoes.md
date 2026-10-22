@@ -9429,3 +9429,8 @@ as partidas da régua, com outras sementes e outros níveis, quase nunca repetem
 ⬜ **A decisão é do dono** (como a §8zzzn e a aposentadoria da única coluna, §8zzzl): pescar
 posições de pressão (a prova pedindo 3 bloqueios em VÁRIAS continuações com o adversário do
 nível, e não numa só) ou aposentar o tipo.
+
+**Decisão do dono (21/10/2026, `DECISOES-do-dono.md` §8zzzo): o `quatro_bloquear` foi
+APOSENTADO**, como a única coluna: continua em `RECEITAS_FORA_DO_AR`/`EDITORIAL_FORA_DO_AR`,
+marcado, e não vai ao ar. O texto do objetivo e do feito fica no app (não faz mal, e evita mexer
+em quatro cadeados do `.arb`).
