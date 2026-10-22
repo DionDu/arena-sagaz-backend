@@ -386,6 +386,34 @@ def test_os_tipos_do_banco_tiram_a_posicao_do_BANCO_e_nao_refazem_a_prova(
     assert vistos and set(vistos) == {PESCADA.lances}
 
 
+#: Outra posição legal (o espelho da `PESCADA`), para o banco de mentira do caso
+#: abaixo ter duas posições distintas.
+PESCADA_ESPELHO = banco_mod.PosicaoDoBanco(
+    lances=ler_sequencia("s7s1s6s1s4s2s3s2"), lances_da_pessoa=8, confronto="tex_tex"
+)
+
+
+def test_o_GERADOR_sorteia_o_sem_o_meio_com_o_piso_do_tipo(monkeypatch) -> None:
+    """O caminho do job inteiro, e não só o `sortear`: com um banco de mentira em
+    que o "sem o meio" tem uma posição de 8 lances da pessoa e outra de 9, o
+    gabarito só recebe a de 9. Pega o gerador passando o piso padrão (7), que
+    deixaria a de 8 entrar."""
+    vistos: list[tuple[str, ...]] = []
+
+    def resolver(jogador, base, **kwargs):
+        vistos.append(tuple(base.lances))
+        return None
+
+    banco_de_mentira = {"quatro_sem_o_meio": (PESCADA_ESPELHO, PESCADA)}
+    monkeypatch.setattr(banco_mod, "carregar", lambda co_modalidade: banco_de_mentira)
+    monkeypatch.setattr(gerador, "vitoria_imediata_quatro", lambda arbitro, estado: None)
+    monkeypatch.setattr(gerador, "_resolver", resolver)
+    monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
+
+    _gerar("quatro_sem_o_meio", tentativas_por_candidato=12)
+    assert vistos and set(vistos) == {PESCADA.lances}
+
+
 def test_os_outros_tipos_do_quatro_continuam_no_acervo(monkeypatch) -> None:
     def nao_use_o_banco(*args, **kwargs):
         raise AssertionError("um tipo fora do banco sorteou do banco")
@@ -426,11 +454,43 @@ def test_o_sorteio_do_banco_respeita_o_PISO_e_falha_alto_sem_posicao() -> None:
 
 def test_o_banco_gravado_tem_os_tres_tipos_acima_do_piso() -> None:
     """O arquivo que vai ao Railway: lido pelo leitor de produção, com posição
-    acima do piso em cada tipo (senão o gerador falharia alto no dia do tipo)."""
+    acima do piso DO TIPO em cada um (senão o gerador falharia alto no dia do
+    tipo)."""
     banco = banco_mod.carregar(MODALIDADE)
     assert set(banco) == set(banco_mod.TIPOS_DO_BANCO)
     for co_tipo, posicoes in banco.items():
-        assert any(p.lances_da_pessoa >= banco_mod.PISO_DE_LANCES_DA_PESSOA for p in posicoes)
+        assert any(p.lances_da_pessoa >= banco_mod.piso_do_tipo(co_tipo) for p in posicoes)
+
+
+def test_o_piso_do_sem_o_meio_e_9_e_os_outros_dois_continuam_em_7() -> None:
+    """A decisão do dono de 22/10/2026 (§8zzzq): posições mais longas só no
+    "sem o meio". ⚠️ Os números entram por extenso, e não lidos das constantes:
+    um caso que lesse `PISO_POR_TIPO` passaria com qualquer valor lá dentro. O
+    golpe duplo e a linha de cinco foram medidos e publicados com 7."""
+    assert banco_mod.piso_do_tipo("quatro_sem_o_meio") == 9
+    assert banco_mod.piso_do_tipo("quatro_golpe_duplo") == 7
+    assert banco_mod.piso_do_tipo("quatro_linha_de_cinco") == 7
+    # Todo tipo com piso próprio é um tipo do banco (um nome errado na tabela
+    # deixaria o "sem o meio" no padrão, calado).
+    assert set(banco_mod.PISO_POR_TIPO) <= banco_mod.TIPOS_DO_BANCO
+
+
+def test_no_banco_gravado_o_sem_o_meio_sorteia_so_posicoes_de_9_lances_ou_mais() -> None:
+    """Sem `piso=` (como o gerador chama), o sorteio do "sem o meio" no banco de
+    produção nunca devolve uma posição de 5 a 8 lances da pessoa - e o banco tem
+    dessas (o caso confere que a recusa foi exercida)."""
+    posicoes = banco_mod.carregar(MODALIDADE)["quatro_sem_o_meio"]
+    assert any(p.lances_da_pessoa < 9 for p in posicoes)
+    assert sum(p.lances_da_pessoa >= 9 for p in posicoes) >= 20
+    for semente in range(200):
+        achada = banco_mod.sortear(random.Random(semente), "quatro_sem_o_meio", MODALIDADE)
+        assert achada.lances_da_pessoa >= 9
+    # E o golpe duplo continua alcançando as posições de 7 e 8.
+    vistos = {
+        banco_mod.sortear(random.Random(s), "quatro_golpe_duplo", MODALIDADE).lances_da_pessoa
+        for s in range(400)
+    }
+    assert {7, 8} <= vistos
 
 
 def test_o_banco_de_outra_modalidade_ou_formato_e_recusado(tmp_path, monkeypatch) -> None:

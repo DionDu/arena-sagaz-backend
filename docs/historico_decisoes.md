@@ -9486,3 +9486,41 @@ o Magno). Cinco dos sete erram por 0,05 ou menos (uma partida em dez num mascote
 por 0,15 (Cacau 0,50 e Tex 1,00, contra a Pita). Não promovido. ⬜ A decisão volta ao dono: só
 contra Tex e Magno (8 de 12 nestes dados, conta feita depois de vê-los) ou posições mais longas do
 banco (piso de lances da pessoa 7 → 9: sobram 33 de 60).
+
+## 2026-10-22 (2) — O "sem o meio" com piso de 9 lances da pessoa (T124c da spec 010)
+
+**Contexto.** Com a restrição da entrada "2026-10-22 (1)" (Pita, Tex e Magno), a régua de 18
+dias deu 11 de 18 na escada, um abaixo do critério, e seis dos sete erros foram de fácil demais.
+O dono escolheu posições mais longas, mantendo os três adversários (`DECISOES-do-dono.md`
+§8zzzq): *"Não vejo problemas em termos desafios em jogadas mais longas, desde que sejam
+alcançáveis."*
+
+**Decisão.** O piso de lances da pessoa do banco pescado passa a ser **por tipo**, em
+`job/banco_forcavel_quatro.py`: `PISO_POR_TIPO = {"quatro_sem_o_meio": 9}` e `piso_do_tipo`, que
+devolve o padrão (`PISO_DE_LANCES_DA_PESSOA = 7`) para os outros. O `sortear` pergunta ao
+`piso_do_tipo` quando ninguém passa `piso=` (o gerador e a bancada da régua não passam), então há
+**um** lugar que decide. O golpe duplo e a linha de cinco ficam com 7: foram medidos e publicados
+assim (entrada "2026-10-21 (13)"). No banco gravado, o "sem o meio" tem 60 posições, e 33 delas
+com 9 ou mais lances da pessoa (9: 9 · 10: 14 · 11: 7 · 12: 3). "Alcançável" é o que a pescaria
+já provava: o objetivo é forçável contra quem defende o jogo.
+
+**Alternativas.** (1) Subir o `PISO_DE_LANCES_DA_PESSOA` inteiro para 9: mudaria dois tipos que
+já estão no ar sem remedi-los. (2) Um campo de piso no `EDITORIAL`: o piso é da posição do banco,
+e não da publicação; e o gerador já tira a posição do banco antes de olhar o editorial. (3) Só
+contra Tex e Magno: recusada pelo dono.
+
+**Testes** (`tests/unitarios/test_gerador_do_quatro.py`, 3 casos novos e 1 ajustado): os pisos
+por extenso (9 / 7 / 7, sem ler a constante que se confere) e todo tipo da tabela é do banco; no
+banco gravado, 200 sorteios do "sem o meio" sem `piso=` dão 9 ou mais (e o banco tem posição
+abaixo de 9, para a recusa ser exercida), e o golpe duplo continua alcançando 7 e 8; e o caminho
+do GERADOR inteiro, com um banco de mentira de duas posições (8 e 9 lances), só entrega a de 9 ao
+gabarito. Mutações **6 de 6** pegas: o 9 trocado por 8, o nome do tipo errado na tabela, o golpe
+duplo com 9, o `piso_do_tipo` devolvendo o padrão, o `sortear` usando o padrão, e o gerador
+passando o padrão.
+
+**Comando do dono (≈5 min; critério 12 de 18 na escada → promover como na T124b):**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_sem_o_meio --com-regua --dias=18
+```

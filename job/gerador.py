@@ -1339,7 +1339,7 @@ def gerar_candidatos(
             #
             # ⚠️ **Menos nos tipos do BANCO**: a posição foi provada na pescaria
             # (o objetivo forçável contra quem defende o jogo, com pelo menos
-            # `PISO_DE_LANCES_DA_PESSOA` lances), e refazer aqui custaria até
+            # `piso_do_tipo` lances da pessoa), e refazer aqui custaria até
             # minutos por posição. A prova de `PROVAS` desses tipos (a "ao
             # alcance") é mais fraca que a da pescaria, e não acrescentaria nada.
             if co_tipo in banco_quatro_mod.TIPOS_DO_BANCO:
