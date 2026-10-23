@@ -2945,6 +2945,42 @@ RECEITAS: dict[str, Receita] = {
         },
         valores_da_frase=lambda p, personagem: {"personagem": personagem},
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_encoste": Receita(
+        nu_tipo_desafio=50,
+        co_tipo_desafio="quatro_encoste",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroEncoste",
+        # "Encoste N pecas em ate M lances" (T143 da spec 010, `DECISOES-do-dono.md`
+        # §8zzzr; a proposta em `PROPOSTA-revisao-catalogo-quatro.md` §1). E o
+        # primeiro tipo do Quatro que FECHA NO MEIO da partida: nao ha `vitoria` na
+        # conjuncao, e a janela e a do "Coroe em ate N lances" das damas.
+        # ✅ **No ar desde 22/10/2026**: a regua de 18 dias deu escada em 12, 12,
+        # 12 e 13 de 18 nas quatro variantes (criterio 12). Historico do backend,
+        # "2026-10-22 (6)".
+        #
+        # ⚠️ **O N e absoluto, e sai da posicao** (`editorial.parametros_efetivos`):
+        # o que ja esta encostado na posicao publicada (`E`) mais o `a_mais` da
+        # variante, que o editorial escreve como `M + k`. Com `a_mais <= M` o
+        # desafio seria "jogue sempre colado" (cada lance encosta a peca nova), e
+        # todos os niveis o cumpririam; o `k` pede JUNTAR pecas soltas, e a prova
+        # (`provas_quatro.encoste`) recusa a posicao com menos de `k` delas.
+        #
+        # ⚠️ Vencer antes do alvo NAO cumpre: a partida acabou, e o juiz nao tem
+        # mais lance para olhar. E a forma de todo desafio com prazo.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "lances_do_jogador", "n": p["lances"]},
+            "clausulas": [
+                _medida("pecas_encostadas", "maior_ou_igual", p["pecas"]),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "pecas": p["pecas"],
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
 }
 
 
@@ -3065,39 +3101,6 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         },
         valores_da_frase=lambda p, personagem: {
             "ameacas": p["ameacas"],
-            "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_encoste": Receita(
-        nu_tipo_desafio=50,
-        co_tipo_desafio="quatro_encoste",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroEncoste",
-        # "Encoste N pecas em ate M lances" (T143 da spec 010, `DECISOES-do-dono.md`
-        # §8zzzr; a proposta em `PROPOSTA-revisao-catalogo-quatro.md` §1). E o
-        # primeiro tipo do Quatro que FECHA NO MEIO da partida: nao ha `vitoria` na
-        # conjuncao, e a janela e a do "Coroe em ate N lances" das damas.
-        #
-        # ⚠️ **O N e absoluto, e sai da posicao** (`editorial.parametros_efetivos`):
-        # o que ja esta encostado na posicao publicada (`E`) mais o `a_mais` da
-        # variante, que o editorial escreve como `M + k`. Com `a_mais <= M` o
-        # desafio seria "jogue sempre colado" (cada lance encosta a peca nova), e
-        # todos os niveis o cumpririam; o `k` pede JUNTAR pecas soltas, e a prova
-        # (`provas_quatro.encoste`) recusa a posicao com menos de `k` delas.
-        #
-        # ⚠️ Vencer antes do alvo NAO cumpre: a partida acabou, e o juiz nao tem
-        # mais lance para olhar. E a forma de todo desafio com prazo.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "lances_do_jogador", "n": p["lances"]},
-            "clausulas": [
-                _medida("pecas_encostadas", "maior_ou_igual", p["pecas"]),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "pecas": p["pecas"],
-            "lances": p["lances"],
             "personagem": personagem,
         },
     ),

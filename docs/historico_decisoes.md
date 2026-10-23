@@ -9706,3 +9706,55 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 
 Critério: **12 de 18 dias na escada**, somando os 9 da triagem aos 9 desta rodada (M5 k2 precisa
 de 4 de 9; M6 k1, M6 k2 e M7 k1, de 6 de 9).
+
+## 2026-10-22 (6) — "Encoste N peças em até M lances" no ar (T143 da spec 010)
+
+**Contexto.** A rodada dos dias 10 a 18 (o dono rodou, com o medidor retomável da entrada (5))
+fechou a régua de 18 dias das quatro variantes que passaram na triagem.
+
+**O resultado** (FOLGA `[3] × 18` nas quatro; critério 12 de 18 dias na escada):
+
+| variante | dias 1-9 | dias 10-18 | total |
+|---|---|---|---|
+| M5 k2 | 8 | 4 | **12/18** ✅ no limite |
+| M6 k1 | 6 | 6 | **12/18** ✅ |
+| M6 k2 | 6 | 6 | **12/18** ✅ |
+| M7 k1 | 6 | 7 | **13/18** ✅ |
+
+Nos dias 10 a 18, 12 dias ficaram fora da escada, errando por 0,02 a 0,12: 9 para o lado do
+fácil demais (a Cacau, a Pita ou o Tex acima da faixa) e 3 para o do difícil. O M5 k2 caiu de 8 de 9 para 4 de 9 na segunda metade: a triagem de 9 dias
+o tinha como o melhor, e os 18 dias o puseram no limite. É o motivo de a triagem não promover
+sozinha.
+
+**Decisões.**
+
+1. **Receita e editorial movidos para o ar** (`RECEITAS`, `EDITORIAL`), com as quatro variantes.
+   Nove tipos do Quatro no ar; fora, os dois aposentados.
+2. **Sete vetores** `quatro-encoste-*`, um por leitura errada que um juiz poderia ter: cumprir e
+   DEPOIS perder (cumpriu, no lance 5, e a partida segue até o adversário vencer no 8); o alvo no
+   último lance da janela; o alvo um lance depois da janela (não cumpre); vencer com menos peças
+   que o alvo (não cumpre); o exemplo do dono da proposta §1 (A, B e C lado a lado, D em cima de
+   B: 4 peças), com o alvo 4 (cumpre) e com o alvo 5 (não cumpre: são 4 peças e 5 pares de
+   vizinhas, e quem contasse encostos diria que cumpriu); e o dado inválido.
+3. **`_vetor_do_quatro` ganhou `feitos_ate`**: no tipo que fecha no meio, o juiz devolve os feitos
+   do instante em que decidiu (o lance que cumpriu, ou o fim da janela), e a fita pode seguir
+   depois dele (RF-DES-213). Sem o corte, o vetor esperaria os feitos da fita inteira.
+4. **O cadeado "quem não fez nada não cumpre" aprendeu as medidas do Quatro**
+   (`MEDIDAS_DE_QUEM_NAO_JOGOU`). Até aqui toda chegada do Quatro tinha `vitoria`, que falha
+   antes e poupava o avaliador de ler a medida seguinte; o Encoste é só medida. As encostadas de
+   quem não jogou são as da posição (`ENCOSTADAS_DE_EXEMPLO`), o mesmo `E` que a conferência soma
+   ao `a_mais` para dar o alvo.
+5. **Os casos do medidor retomável passaram a usar o `quatro_bloquear`** (aposentado, medível pelo
+   nome): o medidor recusa o tipo do Quatro no ar. Um deles passava **sem rodar o laço** depois da
+   promoção (a lista fora do ar ficou vazia), e ganhou a trava do tamanho.
+
+**Provas.** O juiz do servidor mutado de dois jeitos: a janela ignorada (pega pelo "alcançou depois
+da janela") e o juiz que só olha o fim da janela (pego pelo "cumpriu e depois perdeu", no
+veredito e no lance). No app, os sete vetores passam no juiz em Dart
+(`vetores_verificacao_test.dart`), com a cópia regerada.
+
+⚠️ **A `0037_tipos_quatro_meio` NÃO está aplicada no `des`** (conferido em 22/10: revisão
+`0036_log_aparelho`, sem os tipos 50 e 51). O push deste commit publica o job com o Encoste no ar,
+e o job gravaria um desafio de tipo 50 que o banco recusa. **O push espera o dono aplicar a
+migração** (runbook: `identificar_banco.py` → `alembic upgrade head` →
+`conferir_migracao_desafio.py`).

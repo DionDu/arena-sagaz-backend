@@ -1454,8 +1454,16 @@ def _vetor_do_quatro(
     iniciais: list[str],
     fita: list[str],
     veredito: str,
+    feitos_ate: int | None = None,
 ) -> dict[str, Any]:
     """Um vetor do Quatro: a posicao, a fita e o que os dois julgadores dizem.
+
+    Args:
+        feitos_ate: quantos lances da fita os feitos medem. `None` mede a fita
+            inteira, que e o caso de todo tipo que so se decide no fim. ⚠️ No
+            tipo que FECHA NO MEIO (o "Encoste", T143) o juiz devolve os feitos
+            do instante em que decidiu - o lance que cumpriu, ou o fim da
+            janela -, e a fita pode seguir depois dele (RF-DES-213).
 
     Nasceu dentro de `vetores_do_quatro` (a virada, T124b) e subiu para ca na
     T124c, quando o Segure e o *"venca em ate 7"* chegaram: o formato e o mesmo
@@ -1474,7 +1482,7 @@ def _vetor_do_quatro(
     esperado["feitos"] = (
         {}
         if veredito == "dado_invalido"
-        else feitos_quatro.medir(motor, iniciais, fita, jogador=pessoa)
+        else feitos_quatro.medir(motor, iniciais, fita[:feitos_ate], jogador=pessoa)
     )
     return {
         "id": identificador,
@@ -1971,6 +1979,115 @@ def vetores_do_quatro_sem_o_meio() -> list[dict[str, Any]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# O QUATRO EM LINHA - o "Encoste N pecas em ate M lances" (T143, 22/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# O primeiro tipo do Quatro que FECHA NO MEIO: uma medida (`pecas_encostadas`)
+# numa janela de M lances da pessoa, sem `vitoria`. Os casos separam as quatro
+# leituras erradas que um juiz poderia ter: (a) "a partida acabou mal, entao
+# nao cumpriu" - a pessoa cumpre e DEPOIS o adversario vence, e o veredito
+# continua cumpriu; (b) "olhe o fim, e nao a janela" - o alvo e alcancado um
+# lance depois do prazo; (c) "vencer basta" - a pessoa vence com menos pecas
+# encostadas que o alvo; (d) "conte os encostos" - o exemplo do dono tem 4
+# pecas e 5 pares de vizinhas. ⚠️ Na base, as duas pecas da pessoa na linha de baixo
+# ja estao encostadas (E = 2); a peca solta que ela poe em cima de uma do
+# adversario (s3) nao conta ate ganhar uma vizinha DELA (s4), e entao as duas
+# contam de uma vez.
+#
+# ⚠️ Os numeros da frase sao pequenos (M = 2 ou 3, N = 5), e nao os do
+# editorial: o vetor confere a REGRA do juiz, e a regra nao muda com o numero.
+
+
+def vetores_do_quatro_encoste() -> list[dict[str, Any]]:
+    """Os vetores do `quatro_encoste`."""
+    receita = RECEITAS["quatro_encoste"]
+    em_tres = receita.montar({"lances": 3, "pecas": 5})
+    em_dois = receita.montar({"lances": 2, "pecas": 5})
+
+    def do_encoste(chegada: dict[str, Any], *argumentos: Any, **opcoes: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(receita, chegada, *argumentos, **opcoes)
+
+    # s3 (solta, em cima do adversario) · s4 (encosta nela: 2 -> 4) · s5 (encosta
+    # na linha de baixo: 5). O adversario empilha na coluna 7.
+    ate_o_alvo = ["s3", "s7", "s4", "s7", "s5"]
+    return [
+        do_encoste(
+            em_tres,
+            "quatro-encoste-cumpriu-e-depois-perdeu",
+            "A pessoa chega a 5 pecas encostadas no 3o lance dela (lance 5 da "
+            "fita), e a partida segue: o adversario fecha a coluna 7 no lance 8. "
+            "Cumpriu, no lance 5 - quem julgasse pelo fim da partida diria que nao.",
+            _BASE_DO_QUATRO,
+            ate_o_alvo + ["s7", "s1", "s7"],
+            "cumpriu",
+            feitos_ate=5,
+        ),
+        do_encoste(
+            em_tres,
+            "quatro-encoste-cumpriu-no-ultimo-lance-da-janela",
+            "A mesma fita, parada no lance que cumpre: o 3o e ultimo lance da "
+            "janela. Cumpriu.",
+            _BASE_DO_QUATRO,
+            ate_o_alvo,
+            "cumpriu",
+        ),
+        do_encoste(
+            em_dois,
+            "quatro-encoste-alcancou-depois-da-janela",
+            "Com a janela de 2 lances, as 5 encostadas chegam no 3o lance da "
+            "pessoa, um depois do prazo. Nao cumpre, e os feitos sao os do fim da "
+            "janela (4 encostadas, lance 4): quem olhasse a fita inteira diria "
+            "cumpriu.",
+            _BASE_DO_QUATRO,
+            ate_o_alvo,
+            "nao_cumpriu",
+            feitos_ate=4,
+        ),
+        do_encoste(
+            em_tres,
+            "quatro-encoste-venceu-sem-o-alvo",
+            "A pessoa fecha a linha de baixo (2, 3, 4 e 5) no 2o lance dela, com "
+            "4 pecas encostadas. A partida acabou antes do alvo de 5: nao cumpre. "
+            "Quem tratasse a vitoria como cumprimento diria cumpriu.",
+            _BASE_DO_QUATRO,
+            ["s5", "s7", "s2"],
+            "nao_cumpriu",
+        ),
+        # ── O exemplo do dono (a proposta §1): A, B e C lado a lado, e D em
+        # cima de B. Sao 4 PECAS encostadas, e 5 PARES de vizinhas (A-B, B-C,
+        # B-D, e D toca A e C na diagonal): os dois vetores separam as duas
+        # contagens. O tabuleiro comeca vazio, e o adversario joga longe.
+        do_encoste(
+            receita.montar({"lances": 4, "pecas": 4}),
+            "quatro-encoste-o-exemplo-do-dono-quatro-pecas",
+            "A (s2), B (s3) e C (s4) na linha de baixo e D (s3) em cima de B: "
+            "4 pecas encostadas no 4o lance. Pelo caminho, A sozinha conta 0 e, "
+            "com B ao lado, as duas contam (2). Cumpriu o alvo de 4.",
+            [],
+            ["s2", "s7", "s3", "s7", "s4", "s6", "s3"],
+            "cumpriu",
+        ),
+        do_encoste(
+            receita.montar({"lances": 4, "pecas": 5}),
+            "quatro-encoste-o-exemplo-do-dono-conta-pecas-e-nao-pares",
+            "A mesma fita com o alvo de 5. Sao 4 pecas e 5 pares de vizinhas: "
+            "nao cumpre. Quem contasse encostos, e nao pecas, diria cumpriu.",
+            [],
+            ["s2", "s7", "s3", "s7", "s4", "s6", "s3"],
+            "nao_cumpriu",
+        ),
+        do_encoste(
+            em_tres,
+            "quatro-encoste-lance-ilegal-e-dado-invalido",
+            "Uma coluna que nao existe (a 9). Dado invalido.",
+            _BASE_DO_QUATRO,
+            ["s9"],
+            "dado_invalido",
+        ),
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ⛔ AS SEMENTES POR LANCE — o segundo bloco do documento (26/09/2026)
 # ═══════════════════════════════════════════════════════════════════════════
 #
@@ -2078,6 +2195,8 @@ def montar() -> dict[str, Any]:
         + vetores_do_quatro_do_banco()
         # O "sem o meio" (T124c, o piso de 9), no fim.
         + vetores_do_quatro_sem_o_meio()
+        # O "Encoste" (T143, o primeiro que fecha no meio), no fim.
+        + vetores_do_quatro_encoste()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

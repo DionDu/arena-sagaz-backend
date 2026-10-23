@@ -7113,6 +7113,564 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "quatro-encoste-cumpriu-e-depois-perdeu",
+      "de_vetor": "A pessoa chega a 5 pecas encostadas no 3o lance dela (lance 5 da fita), e a partida segue: o adversario fecha a coluna 7 no lance 8. Cumpriu, no lance 5 - quem julgasse pelo fim da partida diria que nao.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 50,
+      "co_tipo_desafio": "quatro_encoste",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encoste-cumpriu-no-ultimo-lance-da-janela",
+      "de_vetor": "A mesma fita, parada no lance que cumpre: o 3o e ultimo lance da janela. Cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 50,
+      "co_tipo_desafio": "quatro_encoste",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encoste-alcancou-depois-da-janela",
+      "de_vetor": "Com a janela de 2 lances, as 5 encostadas chegam no 3o lance da pessoa, um depois do prazo. Nao cumpre, e os feitos sao os do fim da janela (4 encostadas, lance 4): quem olhasse a fita inteira diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 50,
+      "co_tipo_desafio": "quatro_encoste",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encoste-venceu-sem-o-alvo",
+      "de_vetor": "A pessoa fecha a linha de baixo (2, 3, 4 e 5) no 2o lance dela, com 4 pecas encostadas. A partida acabou antes do alvo de 5: nao cumpre. Quem tratasse a vitoria como cumprimento diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 50,
+      "co_tipo_desafio": "quatro_encoste",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s2"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 1,
+          "maior_linha": 4,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encoste-o-exemplo-do-dono-quatro-pecas",
+      "de_vetor": "A (s2), B (s3) e C (s4) na linha de baixo e D (s3) em cima de B: 4 pecas encostadas no 4o lance. Pelo caminho, A sozinha conta 0 e, com B ao lado, as duas contam (2). Cumpriu o alvo de 4.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 50,
+      "co_tipo_desafio": "quatro_encoste",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encoste-o-exemplo-do-dono-conta-pecas-e-nao-pares",
+      "de_vetor": "A mesma fita com o alvo de 5. Sao 4 pecas e 5 pares de vizinhas: nao cumpre. Quem contasse encostos, e nao pecas, diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 50,
+      "co_tipo_desafio": "quatro_encoste",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-encoste-lance-ilegal-e-dado-invalido",
+      "de_vetor": "Uma coluna que nao existe (a 9). Dado invalido.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4"
+        ],
+        "co_lances": "s3s3s4s4",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 50,
+      "co_tipo_desafio": "quatro_encoste",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s9"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "pecas_encostadas",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ],
   "sementes": [

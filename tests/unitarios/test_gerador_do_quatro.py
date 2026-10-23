@@ -557,9 +557,9 @@ def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     # Eram dez; a virada subiu na T124b, o vencer em N e o Segure na T124c, e a
     # diagonal e as encostadas com o perseguidor (T124c, defeito 1), e o golpe
     # duplo e a linha de cinco com o banco pescado (T124c, 21/10), e o "sem o
-    # meio" com o piso de 9 (T124c, 22/10). Sobram os dois aposentados, e o
-    # "Encoste N em ate M", que nasceu fora do ar em 22/10 (T143).
-    assert len(tipos) == 3
+    # meio" com o piso de 9 (T124c, 22/10), e o "Encoste N em ate M" com a
+    # regua de 18 dias (T143, 22/10). Sobram os dois aposentados.
+    assert len(tipos) == 2
     assert MEDIDOR.tipos_do_alvo("quatro_bloquear") == ["quatro_bloquear"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)

@@ -232,7 +232,8 @@ def test_o_lance_do_nivel_que_nao_persegue_sai_CRU_com_o_erro_dele() -> None:
 BASE_ENCOSTE = ["s1", "s7", "s3", "s7"]
 
 #: Alvo 6 em 5 lances (E = 0, M = 5, k = 1): o 1o lance nunca cumpre sozinho.
-ENCOSTE = RECEITAS_FORA_DO_AR["quatro_encoste"].montar({"lances": 5, "pecas": 6})
+# No ar desde 22/10/2026 (T143): a receita mora em `RECEITAS`.
+ENCOSTE = RECEITAS["quatro_encoste"].montar({"lances": 5, "pecas": 6})
 
 
 def _desafio_encoste() -> perseguir.Desafio:

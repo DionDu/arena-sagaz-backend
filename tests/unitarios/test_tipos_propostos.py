@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import pytest
 
+from job.editorial import ENCOSTADAS_DE_EXEMPLO
 from job.tipos_de_desafio import RECEITAS
 from job.tipos_propostos import (
     PARAMETROS_DE_EXEMPLO,
@@ -362,6 +363,22 @@ MEDIDAS_DE_QUEM_NAO_JOGOU: dict[str, float] = {
     # marcos
     "vitoria": 0,
     "empate": 0,
+    # ── O Quatro (T143 da spec 010, 22/10/2026) ──────────────────────────────
+    # ⚠️ Ate o "Encoste" toda chegada do Quatro tinha `vitoria`, que falha antes
+    # e poupava o avaliador de ler a medida seguinte; o "Encoste" e so medida, e
+    # sem estas chaves o cadeado quebrava por falta de dado, e nao por achar o
+    # defeito.
+    # ⚠️ **As encostadas sao as DA POSICAO, e nao zero**: e o mesmo `E` que a
+    # conferencia sem posicao soma ao `a_mais` para dar o alvo
+    # (`editorial.parametros_para_conferencia`), as duas metades descrevendo a
+    # mesma posicao. Com zero, um alvo "E + 0" passaria escondido.
+    "pecas_encostadas": ENCOSTADAS_DE_EXEMPLO,
+    "pecas_encostadas_do_adversario": ENCOSTADAS_DE_EXEMPLO,
+    "vitoria_diagonal": 0,
+    "linhas_no_lance_final": 0,
+    "maior_linha": 0,
+    "lances_na_coluna_central": 0,
+    "ameacas_bloqueadas": 0,
 }
 
 #: As respostas dos predicados para quem ainda nao jogou.

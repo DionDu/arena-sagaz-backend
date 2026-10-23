@@ -149,8 +149,9 @@ def test_cada_tipo_do_quatro_mora_de_UM_lado_so() -> None:
     # e a diagonal e as encostadas, que passaram com o perseguidor do objetivo
     # (T124c, defeito 1), e o golpe duplo e a linha de cinco, que passaram com a
     # posicao do banco pescado (T124c, 21/10), e o "sem o meio", com o piso de
-    # 9 lances da pessoa (T124c, 22/10). Promover outro tipo e atualizar este
-    # conjunto na mesma resposta.
+    # 9 lances da pessoa (T124c, 22/10), e o "Encoste N em ate M", o primeiro
+    # que fecha no meio, com a regua de 18 dias (T143, 22/10). Promover outro
+    # tipo e atualizar este conjunto na mesma resposta.
     assert no_ar == {
         "quatro_virada",
         "quatro_vencer_em_n",
@@ -160,6 +161,7 @@ def test_cada_tipo_do_quatro_mora_de_UM_lado_so() -> None:
         "quatro_golpe_duplo",
         "quatro_linha_de_cinco",
         "quatro_sem_o_meio",
+        "quatro_encoste",
     }
     assert "quatro_unica_coluna" in RECEITAS_FORA_DO_AR, "aposentada, e nao apagada"
 

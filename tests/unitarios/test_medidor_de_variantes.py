@@ -713,8 +713,10 @@ def test_o_do_dia_mede_SO_os_dias_do_fim(monkeypatch):
         return []
 
     monkeypatch.setattr(MEDIDOR.gerador_mod, "gerar_candidatos", espiao)
-    uma = MEDIDOR.candidatas_fora_do_ar("quatro_encoste")[:1]
-    MEDIDOR.medir("quatro_encoste", uma, nu_dias=18, do_dia=10)
+    # ⚠️ Um tipo FORA do ar (o bloquear, aposentado mas medivel pelo nome): o
+    # tipo do Quatro no ar e recusado pelo medidor.
+    uma = MEDIDOR.candidatas_fora_do_ar("quatro_bloquear")[:1]
+    MEDIDOR.medir("quatro_bloquear", uma, nu_dias=18, do_dia=10)
 
     assert vistos == MEDIDOR._dias_do_jogo("quatro", 18)[9:]
     assert len(vistos) == 9
@@ -736,7 +738,12 @@ def test_a_unidade_leva_os_BOTOES_da_variante_ate_o_gerador(monkeypatch):
 
     monkeypatch.setattr(MEDIDOR.gerador_mod, "gerar_candidatos", espiao)
     _, publicacao, _ = MEDIDOR._receita_e_publicacao("quatro_encoste")
-    for candidata in MEDIDOR.candidatas_fora_do_ar("quatro_encoste"):
+    # ⛔ As variantes NO AR (desde 22/10/2026), e nunca uma lista vazia: com a
+    # promocao, `candidatas_fora_do_ar` passou a devolver zero, e este laco
+    # passava sem rodar nenhuma vez.
+    variantes = MEDIDOR.candidatas_do_editorial("quatro_encoste")
+    assert len(variantes) == 4
+    for candidata in variantes:
         botoes = MEDIDOR.botoes_da_candidata(candidata, publicacao)
         resultado = MEDIDOR.medir_um_dia(
             "quatro_encoste", candidata.parametros, botoes, date(2026, 10, 10), com_regua=True
@@ -749,7 +756,8 @@ def test_a_unidade_leva_os_BOTOES_da_variante_ate_o_gerador(monkeypatch):
         assert pedidos[-1]["maximo_de_meios_lances"] == 2 * lances - 1
         assert pedidos[-1]["minimo_de_meios_lances"] == 9
         assert pedidos[-1]["lances_de_preparo"] == 10
-        assert pedidos[-1]["receita_em_avaliacao"] is not None
+        # No ar: o gerador escolhe pelo caminho normal, e exige o vetor.
+        assert pedidos[-1]["receita_em_avaliacao"] is None
         recentes = pedidos[-1]["tipos_recentes"]
         assert recentes and "quatro_encoste" not in recentes
 
@@ -774,9 +782,16 @@ def test_os_botoes_com_lista_voltam_a_ser_TUPLA_no_gerador(monkeypatch):
     assert pedidos[0]["personagens_possiveis"] == ("pita", "tex")
 
 
+#: As duas variantes da rodada falsa. ⚠️ De um tipo FORA do ar (o bloquear,
+#: aposentado mas medivel pelo nome), porque so esses o medidor aceita; os
+#: numeros sao escritos aqui, e nao lidos do editorial, para o caso nao depender
+#: de quantas variantes o tipo tem.
+DUAS = (MEDIDOR.Candidata({"ameacas": 2}), MEDIDOR.Candidata({"ameacas": 3}))
+
+
 def _duas_variantes():
-    """As duas primeiras variantes do "Encoste", com a forma de `por_tipo`."""
-    return [("quatro_encoste", MEDIDOR.candidatas_fora_do_ar("quatro_encoste")[:2])]
+    """As duas variantes, com a forma de `por_tipo`."""
+    return [("quatro_bloquear", DUAS)]
 
 
 def _um_dia_falso(chamadas: list, *, para_na: int | None = None):
@@ -789,12 +804,10 @@ def _um_dia_falso(chamadas: list, *, para_na: int | None = None):
     """
 
     def medir_um_dia(co_tipo, parametros, botoes, dia, *, com_regua):
-        chamadas.append((parametros["lances"], parametros["a_mais"], dia.isoformat()))
+        chamadas.append((parametros["ameacas"], dia.isoformat()))
         if para_na is not None and len(chamadas) == para_na:
             raise KeyboardInterrupt
-        # A 1a variante da grade e M5 k2, e a 2a M6 k1. Pela JANELA, e nao pelo
-        # `a_mais` (M + k): as duas tem 7.
-        primeira = parametros["lances"] == 5
+        primeira = parametros["ameacas"] == 2
         if not primeira and dia.day == 4:
             return {"candidatos": 0, "lances_da_solucao": [], "na_escada": None, "regua": None}
         na_escada = primeira and dia.day == 3
@@ -811,7 +824,7 @@ def _um_dia_falso(chamadas: list, *, para_na: int | None = None):
 def _rodar(tmp_path):
     """A rodada dos dias 3 e 4 (de 4) com as duas variantes, num processo so."""
     return MEDIDOR.medir_retomavel(
-        _duas_variantes(), alvo="quatro_encoste", nu_dias=4, do_dia=3,
+        _duas_variantes(), alvo="quatro_bloquear", nu_dias=4, do_dia=3,
         com_regua=True, processos=1, pasta=tmp_path,
     )
 
@@ -828,7 +841,7 @@ def test_a_rodada_retomavel_GRAVA_uma_linha_por_unidade_e_o_relatorio(monkeypatc
     assert len(linhas) == 4
     assert {linha["dia"] for linha in linhas} == {"2026-10-03", "2026-10-04"}
 
-    relatorio = (tmp_path / "relatorio_quatro_encoste.txt").read_text(encoding="utf-8")
+    relatorio = (tmp_path / "relatorio_quatro_bloquear.txt").read_text(encoding="utf-8")
     # A 1a variante: na escada so no dia 3. A 2a: em nenhum, e o dia 4 sem
     # candidato conta como FORA (na producao e um dia descoberto).
     assert relatorio.count("NA ESCADA em 1 de 2 dias") == 1, relatorio
@@ -845,14 +858,14 @@ def test_rodar_de_novo_NAO_mede_o_que_esta_no_diario(monkeypatch, tmp_path):
     chamadas: list = []
     monkeypatch.setattr(MEDIDOR, "medir_um_dia", _um_dia_falso(chamadas))
     _rodar(tmp_path)
-    primeiro = (tmp_path / "relatorio_quatro_encoste.txt").read_text(encoding="utf-8")
+    primeiro = (tmp_path / "relatorio_quatro_bloquear.txt").read_text(encoding="utf-8")
 
     chamadas.clear()
     _rodar(tmp_path)
 
     assert chamadas == []
     assert len(MEDIDOR.ler_diario(tmp_path / "diario.jsonl")) == 4
-    assert (tmp_path / "relatorio_quatro_encoste.txt").read_text(encoding="utf-8") == primeiro
+    assert (tmp_path / "relatorio_quatro_bloquear.txt").read_text(encoding="utf-8") == primeiro
 
 
 def test_o_ctrl_c_no_meio_perde_SO_a_unidade_em_andamento(monkeypatch, tmp_path):
@@ -875,7 +888,7 @@ def test_o_ctrl_c_no_meio_perde_SO_a_unidade_em_andamento(monkeypatch, tmp_path)
 
     assert len(retomadas) == 2
     assert set(retomadas).isdisjoint(chamadas[:2])
-    relatorio = (tmp_path / "relatorio_quatro_encoste.txt").read_text(encoding="utf-8")
+    relatorio = (tmp_path / "relatorio_quatro_bloquear.txt").read_text(encoding="utf-8")
     assert "NA ESCADA em 1 de 2 dias" in relatorio
 
 
@@ -890,17 +903,17 @@ def test_linha_de_OUTRA_versao_do_codigo_nao_vale(monkeypatch, tmp_path):
     _rodar(tmp_path)
 
     assert len(chamadas) == 4
-    relatorio = (tmp_path / "relatorio_quatro_encoste.txt").read_text(encoding="utf-8")
+    relatorio = (tmp_path / "relatorio_quatro_bloquear.txt").read_text(encoding="utf-8")
     assert "4 linha(s) do diario sao de outra versao do codigo" in relatorio
 
 
 def test_a_chave_NAO_depende_da_ordem_da_grade():
     """Tirar uma variante da grade nao invalida as medidas das outras."""
-    duas = MEDIDOR.candidatas_fora_do_ar("quatro_encoste")[:2]
+    duas = DUAS
 
     def chaves(candidatas):
         unidades = MEDIDOR.unidades_da_rodada(
-            [("quatro_encoste", candidatas)], nu_dias=2, do_dia=1, com_regua=True, versao="v"
+            [("quatro_bloquear", candidatas)], nu_dias=2, do_dia=1, com_regua=True, versao="v"
         )
         return {MEDIDOR.chave_da_unidade(u) for u in unidades}
 
@@ -954,11 +967,11 @@ def test_com_regua_o_principal_vai_para_a_rodada_RETOMAVEL(monkeypatch):
     monkeypatch.setattr(MEDIDOR, "medir_retomavel", retomavel)
     monkeypatch.setattr(MEDIDOR, "medir", medir_proibido)
     assert MEDIDOR.principal(
-        ["quatro_encoste", "--com-regua", "--dias=18", "--do-dia=10", "--processos=3"]
+        ["quatro_bloquear", "--com-regua", "--dias=18", "--do-dia=10", "--processos=3"]
     ) == 0
     assert pedidos == [
         {
-            "tipos": ["quatro_encoste"], "alvo": "quatro_encoste", "nu_dias": 18,
+            "tipos": ["quatro_bloquear"], "alvo": "quatro_bloquear", "nu_dias": 18,
             "do_dia": 10, "com_regua": True, "processos": 3,
         }
     ]

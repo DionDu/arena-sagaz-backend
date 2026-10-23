@@ -2204,6 +2204,58 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             co_personagens=("pita", "tex", "magno"),
         ),
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    # "Encoste N pecas em ate M lances" (T143, §8zzzr): o primeiro tipo do Quatro
+    # que fecha NO MEIO da partida.
+    #
+    # ⚠️ **A grade e M de 5 a 7, e nao de 3 a 5 como a proposta dizia**: o piso
+    # do gabarito e de 9 meios-lances (`MINIMO_DE_MEIOS_LANCES_PADRAO`, a regra
+    # do dono de 11/09 contra o desafio resolvido em 3 lances), e com M = 3 ou 4
+    # a solucao inteira caberia em 5 ou 7 meios-lances - nenhum candidato
+    # passaria. Com M = 5 o gabarito tem de usar os cinco lances.
+    #
+    # O `a_mais` e `M + k`: k = 1 ou 2 pecas SOLTAS a juntar alem de jogar
+    # colado (a prova recusa a posicao com menos de k soltas). O teto do
+    # gabarito e `2M - 1`: depois do M-esimo lance da pessoa a janela fechou, e
+    # mais meios-lances nao mudariam o veredito.
+    #
+    # ⛔ `ic_chegada_encerra_partida=False`: sem `vitoria` na chegada, o desafio
+    # fecha no instante em que o alvo e alcancado, e a partida continua (o
+    # cartao "Desafio resolvido" da T129). Preparo 10, o do `quatro_encostadas`.
+    #
+    # ✅ Triagem com regua em 9 dias (22/10/2026, historico do backend
+    # "2026-10-22 (4)"), criterio 6 de 9 dias na escada. As seis em FOLGA (3 de
+    # 3 todos os dias); na escada:
+    #
+    #     M5 k1  5/9  ⛔ sai (a Pita fica alta: o pareado ja dava 0,77)
+    #     M5 k2  8/9  ✅
+    #     M6 k1  6/9  ✅
+    #     M6 k2  6/9  ✅
+    #     M7 k1  6/9  ✅
+    #     M7 k2  5/9  ⛔ sai
+    #
+    # ✅ **No ar desde 22/10/2026** (T143): as quatro que ficaram foram aos 18
+    # dias (DECISOES §8zzzr item 12; os dias 10 a 18 com o medidor retomavel,
+    # historico "2026-10-22 (6)"), criterio 12 de 18 dias na escada:
+    #
+    #     M5 k2  8 + 4 = 12/18  ✅ no limite (fora em 5 dos 9 novos; 4 deles faceis demais)
+    #     M6 k1  6 + 6 = 12/18  ✅
+    #     M6 k2  6 + 6 = 12/18  ✅
+    #     M7 k1  6 + 7 = 13/18  ✅
+    #
+    # FOLGA `[3] x 18` nas quatro; os dias fora erraram por 0,02 a 0,12.
+    "quatro_encoste": tuple(
+        Publicacao(
+            parametros={"lances": lances, CHAVE_A_MAIS_ENCOSTADAS: lances + juntar},
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=2 * lances - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_quatro("pecas_encostadas"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        )
+        # Os pares (M, k) que passaram na triagem; (5, 1) e (7, 2) sairam.
+        for lances, juntar in ((5, 2), (6, 1), (6, 2), (7, 1))
+    ),
 }
 
 
@@ -2295,50 +2347,6 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_quatro("ameacas_bloqueadas"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    # "Encoste N pecas em ate M lances" (T143, §8zzzr): o primeiro tipo do Quatro
-    # que fecha NO MEIO da partida.
-    #
-    # ⚠️ **A grade e M de 5 a 7, e nao de 3 a 5 como a proposta dizia**: o piso
-    # do gabarito e de 9 meios-lances (`MINIMO_DE_MEIOS_LANCES_PADRAO`, a regra
-    # do dono de 11/09 contra o desafio resolvido em 3 lances), e com M = 3 ou 4
-    # a solucao inteira caberia em 5 ou 7 meios-lances - nenhum candidato
-    # passaria. Com M = 5 o gabarito tem de usar os cinco lances.
-    #
-    # O `a_mais` e `M + k`: k = 1 ou 2 pecas SOLTAS a juntar alem de jogar
-    # colado (a prova recusa a posicao com menos de k soltas). O teto do
-    # gabarito e `2M - 1`: depois do M-esimo lance da pessoa a janela fechou, e
-    # mais meios-lances nao mudariam o veredito.
-    #
-    # ⛔ `ic_chegada_encerra_partida=False`: sem `vitoria` na chegada, o desafio
-    # fecha no instante em que o alvo e alcancado, e a partida continua (o
-    # cartao "Desafio resolvido" da T129). Preparo 10, o do `quatro_encostadas`.
-    #
-    # ✅ Triagem com regua em 9 dias (22/10/2026, historico do backend
-    # "2026-10-22 (4)"), criterio 6 de 9 dias na escada. As seis em FOLGA (3 de
-    # 3 todos os dias); na escada:
-    #
-    #     M5 k1  5/9  ⛔ sai (a Pita fica alta: o pareado ja dava 0,77)
-    #     M5 k2  8/9  ✅
-    #     M6 k1  6/9  ✅
-    #     M6 k2  6/9  ✅
-    #     M7 k1  6/9  ✅
-    #     M7 k2  5/9  ⛔ sai
-    #
-    # ⬜ As quatro que ficaram vao aos 18 dias (12 de 18; DECISOES §8zzzr item
-    # 12), medindo so os dias 10 a 18 - os 1 a 9 sao os de cima.
-    "quatro_encoste": tuple(
-        Publicacao(
-            parametros={"lances": lances, CHAVE_A_MAIS_ENCOSTADAS: lances + juntar},
-            nu_lances_de_preparo=10,
-            nu_maximo_de_meios_lances=2 * lances - 1,
-            ic_chegada_encerra_partida=False,
-            medidas=_medidas_do_quatro("pecas_encostadas"),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        )
-        # Os pares (M, k) que passaram na triagem; (5, 1) e (7, 2) sairam.
-        for lances, juntar in ((5, 2), (6, 1), (6, 2), (7, 1))
     ),
 }
 
