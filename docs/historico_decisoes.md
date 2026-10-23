@@ -9950,9 +9950,16 @@ O pior caso paralisa (qualquer figura se tapa com uma resposta, e todo lance pas
 - nem da posição de saída: o número de ameaças do adversário (0, 1, 2 ou mais: 73%, 77% e 73%
   de cumprimento), o lado de quem resolve (68% e 80%) e a posição aberta ou já decidida pela busca
   (69% e 64%) não separam as falhas;
-- o rastro lance a lance mostra o mecanismo: perseguindo a figura a pessoa arma as próprias
-  linhas de quatro, o adversário bloqueia a casa da figura, e dali em diante quase todo lance
-  entrega a vitória ou a ganha (vencer sem a figura também perde o desafio);
+- o rastro lance a lance mostrou três modos de falha, ⚠️ **sem contagem de quantas falhas são de
+  cada um**: (a) a casa que falta à figura é a 4ª de uma linha que uma peça que JÁ estava no
+  tabuleiro completa, e o adversário é obrigado a bloqueá-la. ⚠️ Não é a ameaça da própria figura:
+  o bloqueio na ponta da barra do L não desfaz o L (observação do dono, 23/10). É a figura
+  deslocada em relação às peças antigas: na posição #14 do L, a coluna 3 tinha X nas linhas 1 a 3,
+  o L com a barra ali não cabia (o pé seria do adversário), e o único L possível pedia a casa
+  (3, 4), a 4ª da vertical; (b) o adversário ocupa a última casa pelo jogo dele; (c) a posição
+  fica tão tensa que quase todo lance entrega a vitória ou a ganha (vencer sem a figura também
+  perde o desafio). ⚠️ A nota que prevê o bloqueio (a que ficou) mediu o mesmo que a soma sem ela
+  (23 a 25 de 30 nas duas): ela não prova que (a) é a causa dos ~20%;
 - ⚠️ **e há margem**: uma busca exaustiva dos lances da pessoa contra as respostas REAIS do Tex
   (determinísticas pela semente) formou o L em 5 das 6 falhas, quase sempre com poucas respostas.
   Ela sabe o que o adversário vai jogar, e o perseguidor não pode saber; mas mostra que o teto
