@@ -77,6 +77,11 @@ VERSAO_MINIMA_DOS_TIPOS_FUNDADORES = "1.3.0"
 #: o numero existe. A T134 confere que o `pubspec.yaml` sobe para o mesmo numero.
 VERSAO_MINIMA_DO_QUATRO = "1.4.0"
 
+#: Os adversarios das variantes do "Forme a figura" que so ficam na escada sem
+#: a Cacau (DECISOES §8zzzt, 23/10/2026). ⚠️ E restricao POR VARIANTE, e nao do
+#: tipo: nas figuras aprovadas com os quatro, a Cacau continua no rodizio.
+_FIGURA_SEM_A_CACAU = ("pita", "tex", "magno")
+
 #: As casas do tabuleiro da modalidade `tradicional` (7 x 6): o maximo de lances
 #: de uma partida, e portanto o que um teto "ate o fim" precisa cobrir.
 #:
@@ -2430,13 +2435,36 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     # adversario, 12 das 14 ficaram na escada em 0 a 2 dias de 4 (o quadrado,
     # em 4 e 3); com o Magno, 2 a 4 de 4. A §8zzzr item 7 previa o contrario.
     #
-    # ⚠️ **A grade volta a ser a COMPLETA** (23/10/2026, DECISOES §8zzzs): o
+    # ⚠️ **A grade voltou a ser a COMPLETA** (23/10/2026, DECISOES §8zzzs): o
     # dono pediu as dezenove figuras validas da proposta (as onze acima e as oito
     # do segundo lote) numa medicao so, com 36 dias, em vez de lote a lote. Os
-    # numeros acima ficam como o registro das rodadas de 9 e de 18 dias; a
-    # rodada de 36 dias os substitui, e o editorial volta a ser podado por ela
-    # (criterio: 2/3 dos dias na escada, 24 de 36), olhando tambem o resultado
-    # POR ADVERSARIO, que o relatorio passou a separar.
+    # numeros acima ficam como o registro das rodadas de 9 e de 18 dias.
+    #
+    # ✅ **Os 36 dias das 57 variantes** (23/10/2026, historico do backend
+    # "2026-10-23 (7)"), criterio 24 de 36 dias na escada. Passam 12 variantes,
+    # de 7 figuras, com os quatro adversarios:
+    #
+    #     igual 1 · 2 · 3     29 · 29 · 28      quadrado 2 · 3   30 · 26
+    #     i 2 · 3             27 · 27           i_longo 2 · 3    26 · 25
+    #     igual_sanduiche 3   28                z 3 · xis 3      24 · 24 (no limite)
+    #
+    # ⚠️ **Contra a CACAU de adversario a regua nao certifica a figura**: nesses
+    # dias os substitutos FORTES resolvem menos do que a faixa deles (o Magno
+    # ficou abaixo 258 vezes, o Tex 183, somando as 57 variantes). Lendo os
+    # mesmos dias sem os da Cacau (criterio 18 de 27), oito variantes que
+    # ficaram fora se salvariam:
+    #
+    #     t 1 · 2 · 3   18 · 20 · 22     piramide 1         21
+    #     i_longo 1     19               igual_sanduiche 2  19
+    #     losango 1     18               v_grande 3         18
+    #
+    # ⛔ **Essa conta e uma RELEITURA, e nao uma medicao**: com a restricao o
+    # rodizio de adversarios cai em outros dias. Por isso as oito entram aqui
+    # SEM A CACAU e vao a uma rodada de confirmacao propria (decisao do dono,
+    # 23/10/2026, DECISOES §8zzzt). O criterio e o mesmo, 24 de 36. As doze
+    # aprovadas continuam com os quatro adversarios: nelas a Cacau funciona.
+    # Saem nas tres folgas, mesmo sem a Cacau: mais, c, l, t_invertido, u, v,
+    # escada e n (continuam no catalogo; sai so a variante).
     #
     # ⬜ Promover (T150) so DEPOIS da T149: o backend recusa por no ar um tipo
     # cuja frase de feito o app nao declara (`test_medidas_do_feito.py`).
@@ -2453,10 +2481,35 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+            # `None` = os quatro adversarios; a tupla = so esses.
+            co_personagens=personagens,
         )
-        # A grade completa: toda figura do catalogo, com cada folga.
-        for nome in figuras_quatro_mod.FIGURAS_QUATRO
-        for folga in figuras_quatro_mod.FOLGAS_DA_FIGURA
+        # ⚠️ A variante 0 continua o Z com folga 3: e dela que saem os botoes de
+        # referencia do medidor e do teste do teto (17).
+        for nome, folga, personagens in (
+            # As doze aprovadas nos 36 dias, contra os quatro adversarios.
+            ("z", 3, None),
+            ("igual", 1, None),
+            ("igual", 2, None),
+            ("igual", 3, None),
+            ("i", 2, None),
+            ("i", 3, None),
+            ("quadrado", 2, None),
+            ("quadrado", 3, None),
+            ("xis", 3, None),
+            ("i_longo", 2, None),
+            ("i_longo", 3, None),
+            ("igual_sanduiche", 3, None),
+            # As oito do resgate, sem a Cacau, em confirmacao.
+            ("t", 1, _FIGURA_SEM_A_CACAU),
+            ("t", 2, _FIGURA_SEM_A_CACAU),
+            ("t", 3, _FIGURA_SEM_A_CACAU),
+            ("piramide", 1, _FIGURA_SEM_A_CACAU),
+            ("i_longo", 1, _FIGURA_SEM_A_CACAU),
+            ("igual_sanduiche", 2, _FIGURA_SEM_A_CACAU),
+            ("losango", 1, _FIGURA_SEM_A_CACAU),
+            ("v_grande", 3, _FIGURA_SEM_A_CACAU),
+        )
     ),
 }
 

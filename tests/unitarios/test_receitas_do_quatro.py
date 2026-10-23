@@ -311,6 +311,15 @@ RESTRICOES_DE_PERSONAGEM = {
     "quatro_sem_o_meio": ("pita", "tex", "magno"),
 }
 
+#: As variantes do "Forme a figura" que vao sem a Cacau (DECISOES §8zzzt,
+#: 23/10/2026): a restricao e POR VARIANTE, e as outras ficam no rodizio. Nos
+#: 36 dias, contra a Cacau de adversario os substitutos fortes resolveram menos
+#: do que a faixa deles; lidas sem esses dias, estas oito passaram de 18 de 27.
+RESGATE_DA_FIGURA_SEM_A_CACAU = {
+    ("t", 1), ("t", 2), ("t", 3), ("piramide", 1), ("i_longo", 1),
+    ("igual_sanduiche", 2), ("losango", 1), ("v_grande", 3),
+}
+
 
 def test_so_os_tipos_restritos_fogem_do_rodizio() -> None:
     """⚠️ Restringir e excecao medida: cada uma esta na tabela, com o motivo.
@@ -322,6 +331,12 @@ def test_so_os_tipos_restritos_fogem_do_rodizio() -> None:
         # `.get(...)` devolve None para o tipo fora da tabela: o rodizio inteiro.
         esperado = RESTRICOES_DE_PERSONAGEM.get(co_tipo)
         for publicacao in publicacoes:
+            if co_tipo == "quatro_figura":
+                # A unica restricao por variante: o par (figura, folga) decide.
+                par = (publicacao.parametros["figura"], publicacao.parametros["folga"])
+                esperado = (
+                    ("pita", "tex", "magno") if par in RESGATE_DA_FIGURA_SEM_A_CACAU else None
+                )
             assert publicacao.co_personagens == esperado, co_tipo
 
 

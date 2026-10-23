@@ -10181,3 +10181,71 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 São 57 × 36 = 2.052 unidades. ⚠️ O catálogo e o editorial mudaram, então o diário não aproveita
 as rodadas anteriores: tudo é medido com o código de agora. Eu leio
 `medicoes/medir_variantes_do_editorial/relatorio_quatro_figura.txt`, começando pelo QUADRO.
+
+
+## 2026-10-23 (7) — "Forme a figura": os 36 dias, a poda e o resgate sem a Cacau (spec 010)
+
+**Contexto.** A rodada de 36 dias das 57 variantes terminou (entrada anterior; relatório em
+`medicoes/medir_variantes_do_editorial/relatorio_quatro_figura.txt`). Critério: 24 de 36 dias na
+escada. Decisão do dono em `DECISOES-do-dono.md` §8zzzt.
+
+**O resultado.** Passam **12 variantes, de 7 figuras**, com os quatro adversários:
+
+| figura | folga | dias na escada |
+|---|---|---|
+| igual | 1 · 2 · 3 | 29 · 29 · 28 |
+| quadrado | 2 · 3 | 30 · 26 |
+| i | 2 · 3 | 27 · 27 |
+| i_longo | 2 · 3 | 26 · 25 |
+| igual_sanduiche | 3 | 28 |
+| z · xis | 3 · 3 | 24 · 24 (no limite) |
+
+⚠️ **A medição é determinística**: os dias 1 a 18 desta rodada repetiram a régua de 18 dias
+variante a variante (z 3: 12; igual 2: 15; t 3: 11; losango 1: 9...).
+
+⚠️ **Contra a Cacau de adversário os substitutos fortes resolvem MENOS**: nos dias em que ela é
+a adversária, somando as 57 variantes, o Magno ficou abaixo da faixa dele 258 vezes, o Tex 183,
+a Pita 70 (acima, só 19 e 4). Hipótese, não conferida: o substituto não lê o objetivo e, contra
+uma adversária fraca, ganha a partida sem formar a figura. O diário só registra
+"resolveu ou não".
+
+**Decisão.**
+
+1. **O editorial fica com 20 variantes**, ainda fora do ar: as 12 aprovadas (`co_personagens`
+   `None`) e as **8 do resgate sem a Cacau** (`_FIGURA_SEM_A_CACAU`, pita, tex e magno), que
+   lidas sem os dias da Cacau passaram de 18 de 27: t 1 · 2 · 3 (18, 20, 22), piramide 1 (21),
+   i_longo 1 (19), igual_sanduiche 2 (19), losango 1 e v_grande 3 (18, no limite). A variante 0
+   continua o Z com folga 3 (teto 17).
+2. **A restrição é por variante**, a primeira do editorial. O job já a lia da variante
+   publicada (`job/__main__.py`, `publicacao.co_personagens`); **o medidor não**: lia sempre a
+   da variante 0 (`botoes_da_candidata`). Agora a `Candidata` tem `personagens`, com a marca
+   `HERDA_OS_PERSONAGENS` para as de estudo (`None` já quer dizer "os quatro"), e as candidatas
+   do editorial, no ar e fora dele, saem de uma função só (`candidata_da_publicacao`) - eram
+   duas cópias, e a correção numa só deixaria o "Forme a figura" (fora do ar) medido errado.
+   Casos: `test_cada_variante_chega_ao_gerador_com_os_ADVERSARIOS_dela` e
+   `test_as_candidatas_do_editorial_levam_os_ADVERSARIOS_de_cada_variante` (2/2 mutações pegas).
+   O cadeado `test_so_os_tipos_restritos_fogem_do_rodizio` aceita a restrição por variante só
+   no `quatro_figura`, com a lista do resgate por extenso.
+3. **Rodada de confirmação** (comando abaixo): as 20 variantes. As 12 aprovadas são o
+   CONTROLE: pela determinística, têm de repetir os números de cima; diferença ali é defeito do
+   medidor, e não resultado.
+4. Os vetores `quatro-figura-no-ar-*` das figuras novas no ar (i_longo, igual_sanduiche e as
+   que o resgate aprovar) entram na T150, depois da confirmação, de uma vez.
+
+**Alternativas consideradas.** Tirar a Cacau do tipo inteiro (21 variantes pela releitura, mas a
+pessoa perderia a adversária mais fácil em todo dia de figura, e seria preciso medir as 21 de
+novo); subir só as 12 (o T, a pirâmide e o losango ficariam fora da 1.4.0); medir só as 8 (o
+diário não aproveita as 12, porque a impressão do código muda com o editorial, e um filtro por
+variante seria opção nova no medidor para poupar ~45 minutos de máquina sem ninguém olhando - e
+perderia o controle).
+
+**Comando do dono (20 variantes × 36 dias; ~1 h a 1 h 30, retomável):**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_figura --com-regua --dias=36
+```
+
+O relatório das 57 variantes ficou guardado em `medicoes/medir_variantes_do_editorial/relatorio_quatro_figura_57_variantes_36_dias.txt`
+(a rodada nova grava por cima do `relatorio_quatro_figura.txt`). Eu o leio direto: primeiro o
+QUADRO, e nele as 12 de controle.

@@ -762,6 +762,64 @@ def test_a_unidade_leva_os_BOTOES_da_variante_ate_o_gerador(monkeypatch):
         assert recentes and "quatro_encoste" not in recentes
 
 
+def test_cada_variante_chega_ao_gerador_com_os_ADVERSARIOS_dela(monkeypatch):
+    """🔒 A restricao de adversario e da VARIANTE, e nao da variante 0.
+
+    ⛔ **O defeito que este caso guarda** (corrigido em 23/10/2026, DECISOES
+    §8zzzt): o medidor lia `co_personagens` sempre da variante 0. No "sem o
+    meio" a variante 0 e sem a Cacau; uma variante sem restricao ao lado dela
+    seria medida sem a Cacau tambem, e uma com outra restricao, com a da
+    vizinha - sem erro nenhum, e com um numero de outra execucao.
+
+    ⚠️ As candidatas sao escritas aqui: o defeito precisa das tres formas no
+    MESMO tipo, com a variante 0 restrita (senao herdar dela daria `None` por
+    coincidencia, e o caso passaria com o defeito).
+    """
+    co_tipo = "quatro_sem_o_meio"
+    _, publicacao, _ = MEDIDOR._receita_e_publicacao(co_tipo)
+    assert publicacao.co_personagens == ("pita", "tex", "magno")
+    vistos: list = []
+
+    def espiao(_dia, *, personagens_possiveis=None, **_resto):
+        vistos.append(personagens_possiveis)
+        return []
+
+    monkeypatch.setattr(MEDIDOR.gerador_mod, "gerar_candidatos", espiao)
+    candidatas = (
+        # De estudo: nao declara, e herda a da publicacao de referencia.
+        MEDIDOR.Candidata({}),
+        # Do editorial, sem restricao: tem de chegar `None`, e nao a da vizinha.
+        MEDIDOR.Candidata({}, personagens=None),
+        # Do editorial, com outra restricao: tem de chegar a dela.
+        MEDIDOR.Candidata({}, personagens=("magno",)),
+    )
+    for candidata in candidatas:
+        botoes = MEDIDOR.botoes_da_candidata(candidata, publicacao)
+        MEDIDOR.medir_um_dia(co_tipo, {}, botoes, date(2026, 10, 10), com_regua=False)
+    assert vistos == [("pita", "tex", "magno"), None, ("magno",)]
+
+
+def test_as_candidatas_do_editorial_levam_os_ADVERSARIOS_de_cada_variante():
+    """🔒 O "Forme a figura" tem variantes com e sem a Cacau no mesmo tipo.
+
+    ⚠️ Ele esta FORA do ar, e e por `candidatas_fora_do_ar` que o medidor o le;
+    o caminho do editorial no ar passa pela mesma `candidata_da_publicacao`.
+    """
+    candidatas = MEDIDOR.candidatas_fora_do_ar("quatro_figura")
+    variantes = editorial_mod.EDITORIAL_FORA_DO_AR["quatro_figura"]
+    assert [c.personagens for c in candidatas] == [v.co_personagens for v in variantes]
+    # ⚠️ As duas formas presentes: sem isto o caso passaria por vacuidade.
+    assert {c.personagens for c in candidatas} == {None, ("pita", "tex", "magno")}
+    # E o caminho do editorial no ar, com uma variante restrita (o "sem o meio"
+    # esta fora do ar; a cadeia longa do Pontinhos, no ar, e so contra a Cacau
+    # e a Pita).
+    no_ar = MEDIDOR.candidatas_do_editorial("pontinhos_cadeia_longa")
+    assert [c.personagens for c in no_ar] == [
+        v.co_personagens for v in editorial_mod.variantes_de("pontinhos_cadeia_longa")
+    ]
+    assert no_ar[0].personagens is not None
+
+
 def test_os_botoes_com_lista_voltam_a_ser_TUPLA_no_gerador(monkeypatch):
     """Acervo e adversarios: listas no diario, tuplas no gerador (como no job)."""
     pedidos: list[dict] = []

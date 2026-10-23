@@ -179,6 +179,13 @@ DIAS_MEDIDOS = 3
 #: repetivel.
 DIA_BASE = date(2026, 10, 1)
 
+#: A marca de "a candidata nao declarou adversarios": herda os da publicacao de
+#: referencia. ⚠️ **Nao pode ser `None`**, porque `None` ja quer dizer outra
+#: coisa em `co_personagens` - "os quatro, sem restricao". Uma variante do
+#: editorial sem restricao (`None`) ao lado de outra que tem (a variante 0)
+#: herdaria a restricao da vizinha se as duas palavras fossem a mesma.
+HERDA_OS_PERSONAGENS = "herda"
+
 @dataclass(frozen=True, slots=True)
 class Candidata:
     """Uma variante a medir, com os botoes de geracao que ela precisa.
@@ -194,6 +201,13 @@ class Candidata:
         moldes: o acervo PROPRIO da variante (`Publicacao.moldes`). `None` usa
             o da receita. ⚠️ Medir com o acervo da receita uma variante que tem
             o seu descreveria uma execucao que o job nao faz (30/09/2026).
+        personagens: os adversarios da VARIANTE (`Publicacao.co_personagens`):
+            `None` = os quatro, a tupla = so esses, e [HERDA_OS_PERSONAGENS] (o
+            padrao, das candidatas de estudo) = os da publicacao de referencia.
+            ⚠️ Ate 23/10/2026 o medidor lia sempre os da variante 0, o que
+            estava certo enquanto nenhum tipo tinha restricao so em parte das
+            variantes; o resgate do "Forme a figura" sem a Cacau (§8zzzt) e o
+            primeiro.
 
     ⛔ **Os dois botoes precisam ser POR CANDIDATA, e descobrir isso custou uma
     execucao.** Ate 12/09/2026 eles saiam sempre da publicacao no ar, o que estava
@@ -209,6 +223,7 @@ class Candidata:
     nu_maximo_de_meios_lances: int | None = None
     nu_minimo_de_meios_lances: int | None = None
     moldes: tuple[str, ...] | None = None
+    personagens: tuple[str, ...] | None | str = HERDA_OS_PERSONAGENS
 
 
 #: As variantes a medir, por tipo. ⚠️ **A primeira de cada lista e a que esta no
@@ -590,14 +605,27 @@ def candidatas_fora_do_ar(co_tipo: str) -> tuple["Candidata", ...]:
     e copia-lo para ca daria duas fontes para o mesmo botao.
     """
     return tuple(
-        Candidata(
-            publicacao.parametros,
-            nu_lances_de_preparo=publicacao.nu_lances_de_preparo,
-            nu_maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
-            nu_minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
-            moldes=publicacao.moldes,
-        )
+        candidata_da_publicacao(publicacao)
         for publicacao in editorial_mod.EDITORIAL_FORA_DO_AR.get(co_tipo, ())
+    )
+
+
+def candidata_da_publicacao(publicacao) -> "Candidata":
+    """A candidata que mede uma variante do editorial com TODOS os botoes dela.
+
+    ⚠️ **Uma funcao so para o editorial no ar e o fora do ar.** Eram duas copias,
+    e a correcao dos adversarios (23/10/2026) entrou numa so: o "Forme a figura",
+    que esta fora do ar, continuaria medido com os da variante 0.
+    """
+    return Candidata(
+        publicacao.parametros,
+        nu_lances_de_preparo=publicacao.nu_lances_de_preparo,
+        nu_maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
+        nu_minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
+        moldes=publicacao.moldes,
+        # Os adversarios DESTA variante (inclusive o `None`, "os quatro"), e
+        # nunca os da variante 0.
+        personagens=publicacao.co_personagens,
     )
 
 
@@ -759,9 +787,13 @@ def botoes_da_candidata(candidata: "Candidata", publicacao) -> dict[str, Any]:
     # de DUAS - uma execucao que o job nao faz. `getattr`, e nao o campo direto:
     # as candidatas em estudo de `EM_AVALIACAO` podem ser de outra forma.
     moldes = getattr(candidata, "moldes", None)
-    # ⚠️ A mesma restricao de adversario da publicacao no ar: medir contra um
-    # adversario que o tipo nao publica descreveria outra execucao.
-    personagens = publicacao.co_personagens
+    # ⚠️ A mesma restricao de adversario com que o job publica ESTA variante:
+    # medir contra um adversario que ela nao publica descreveria outra execucao.
+    # A candidata de estudo nao declara (herda a da publicacao de referencia,
+    # como antes); a do editorial traz a da variante dela, inclusive o `None`.
+    personagens = getattr(candidata, "personagens", HERDA_OS_PERSONAGENS)
+    if personagens == HERDA_OS_PERSONAGENS:
+        personagens = publicacao.co_personagens
     return {
         "preparo": preparo,
         "teto": teto,
@@ -1036,13 +1068,7 @@ def candidatas_do_editorial(co_tipo: str) -> tuple["Candidata", ...]:
     amanha entra nesta medicao sem ninguem copiar numero nenhum.
     """
     return tuple(
-        Candidata(
-            publicacao.parametros,
-            nu_lances_de_preparo=publicacao.nu_lances_de_preparo,
-            nu_maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
-            nu_minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
-            moldes=publicacao.moldes,
-        )
+        candidata_da_publicacao(publicacao)
         for publicacao in editorial_mod.variantes_de(co_tipo)
     )
 

@@ -197,8 +197,8 @@ def test_posicao_reprovada_na_prova_nao_chega_ao_gabarito(monkeypatch, capsys) -
 
 def test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato(monkeypatch) -> None:
     """No "Forme a figura" (T147) o prazo sai da posicao, e o teto do gabarito e
-    apertado a ele: `2M - 1` meios-lances. A variante 0 (o T, folga 1, com a
-    grade completa de 23/10/2026) declara 13, o teto do maior prazo; uma
+    apertado a ele: `2M - 1` meios-lances. A variante 0 (o Z, folga 3, desde
+    a poda dos 36 dias, §8zzzt) declara 17, o teto do maior prazo; uma
     posicao com a figura a 2 casas tem M = 3, e o gabarito so pode olhar 5
     meios-lances (depois disso a janela fechou)."""
     prazos: list[int] = []
@@ -219,9 +219,9 @@ def test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato(monkeypatch) -> 
 
     assert _gerar("quatro_figura", tentativas_por_candidato=6) == []
     assert tetos and len(tetos) == len(prazos)
-    assert tetos == [min(13, 2 * m - 1) for m in prazos]
+    assert tetos == [min(17, 2 * m - 1) for m in prazos]
     # E o aperto aconteceu de fato em alguma posicao (senao o caso nao mede nada).
-    assert any(teto < 13 for teto in tetos), prazos
+    assert any(teto < 17 for teto in tetos), prazos
 
 
 def test_vitoria_no_primeiro_lance_recusa_antes_da_prova(monkeypatch, capsys) -> None:
@@ -384,21 +384,50 @@ def test_o_teto_da_figura_e_o_do_maior_prazo_e_cabe_acima_do_piso() -> None:
         assert publicacao.nu_minimo_de_meios_lances <= publicacao.nu_maximo_de_meios_lances
 
 
-def test_as_variantes_da_figura_sao_a_grade_completa_do_catalogo() -> None:
-    """Durante a medicao de 36 dias (DECISOES §8zzzs) o editorial mede TODA
-    figura do catalogo com cada folga: 19 x 3 = 57 variantes, sem repeticao.
-    ⚠️ Os numeros por extenso: uma figura que sumisse do catalogo, ou uma
-    folga a menos, deixaria de ser medida sem ninguem ver."""
+def test_as_variantes_da_figura_sao_as_da_poda_dos_36_dias() -> None:
+    """A poda dos 36 dias (DECISOES §8zzzt): as 12 aprovadas com os quatro
+    adversarios e as 8 do resgate, sem a Cacau, em confirmacao.
+    ⚠️ Os pares por extenso, cada um com os seus adversarios: uma variante que
+    perdesse a restricao (ou a ganhasse) mudaria o que o job publica sem
+    ninguem ver."""
     from job import figuras_quatro as fq
 
-    pares = [
-        (p.parametros[fq.CHAVE_FIGURA], p.parametros[fq.CHAVE_FOLGA_DA_FIGURA])
+    sem_a_cacau = ("pita", "tex", "magno")
+    trios = [
+        (
+            p.parametros[fq.CHAVE_FIGURA],
+            p.parametros[fq.CHAVE_FOLGA_DA_FIGURA],
+            p.co_personagens,
+        )
         for p in EDITORIAL_DO_QUATRO["quatro_figura"]
     ]
+    assert trios == [
+        ("z", 3, None),
+        ("igual", 1, None),
+        ("igual", 2, None),
+        ("igual", 3, None),
+        ("i", 2, None),
+        ("i", 3, None),
+        ("quadrado", 2, None),
+        ("quadrado", 3, None),
+        ("xis", 3, None),
+        ("i_longo", 2, None),
+        ("i_longo", 3, None),
+        ("igual_sanduiche", 3, None),
+        ("t", 1, sem_a_cacau),
+        ("t", 2, sem_a_cacau),
+        ("t", 3, sem_a_cacau),
+        ("piramide", 1, sem_a_cacau),
+        ("i_longo", 1, sem_a_cacau),
+        ("igual_sanduiche", 2, sem_a_cacau),
+        ("losango", 1, sem_a_cacau),
+        ("v_grande", 3, sem_a_cacau),
+    ]
     # Sem repeticao: um par duplicado seria medido (e pesaria) em dobro.
-    assert len(pares) == len(set(pares)) == 57
-    assert {figura for figura, _ in pares} == set(fq.FIGURAS_QUATRO)
-    assert {folga for _, folga in pares} == {1, 2, 3}
+    pares = [(figura, folga) for figura, folga, _ in trios]
+    assert len(pares) == len(set(pares))
+    # Toda figura do editorial existe no catalogo (que guarda tambem as que sairam).
+    assert {figura for figura, _ in pares} <= set(fq.FIGURAS_QUATRO)
 
 
 def test_o_teto_do_encoste_e_a_JANELA_e_cabe_acima_do_piso() -> None:
