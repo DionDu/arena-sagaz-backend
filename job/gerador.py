@@ -61,6 +61,7 @@ from api.aparelhos.regras import chave_da_versao
 from . import adocao as adocao_mod
 from . import banco_forcavel_quatro as banco_quatro_mod
 from . import editorial as editorial_mod
+from . import figuras_quatro as figuras_quatro_mod
 from . import gabarito as gabarito_mod
 from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicoes_de_autoplay_quatro as autoplay_quatro_mod
@@ -1333,8 +1334,27 @@ def gerar_candidatos(
             encostadas = feitos_quatro.pecas_encostadas(
                 jogador.arbitro.regras.dimensoes, tabuleiro, tabuleiro.vez
             )
+            # ⚠️ No "Forme a figura" (T147) o PRAZO sai da posicao: a distancia
+            # da figura aqui, mais a folga da variante. Figura sem lugar livre
+            # de conflito nunca mais se forma nesta partida: a posicao nao serve.
+            distancia = None
+            if editorial_mod.alvo_sai_da_figura(parametros):
+                distancia = figuras_quatro_mod.distancia(
+                    figuras_quatro_mod.FIGURAS_QUATRO[
+                        parametros[figuras_quatro_mod.CHAVE_FIGURA]
+                    ],
+                    tabuleiro,
+                    jogador.arbitro.regras.dimensoes,
+                )
+                if distancia is None:
+                    print(
+                        f"⚠️ [job] {dt_dia}: posicao descartada — {co_tipo}: a "
+                        "figura nao cabe sem conflito em lugar nenhum. Lances "
+                        f"{base.sequencia}"
+                    )
+                    continue
             parametros_daqui = editorial_mod.parametros_efetivos(
-                parametros, encostadas=encostadas
+                parametros, encostadas=encostadas, distancia=distancia
             )
             # ── ⛔ A PROVA DO TIPO, ANTES DO GABARITO (T116) ─────────────────
             #
@@ -1385,13 +1405,21 @@ def gerar_candidatos(
                 co_modalidade=co_modalidade or "brasileira",
             )
 
+        # ⚠️ O teto do gabarito e o da variante, e no "Forme a figura" ele e
+        # apertado ao prazo DESTE candidato (`2M - 1` meios-lances: depois do
+        # M-esimo lance da pessoa a janela fechou). A variante declara o teto do
+        # maior prazo possivel, porque o M so existe depois da posicao.
+        teto_daqui = maximo_de_meios_lances
+        if editorial_mod.alvo_sai_da_figura(parametros):
+            teto_daqui = min(teto_daqui, 2 * parametros_daqui["lances"] - 1)
+
         achado = _resolver(
             jogador,
             base,
             nivel=NivelDeMotor.SAGAZ,
             nivel_do_adversario=NIVEL_POR_PERSONAGEM[co_personagem],
             nu_semente=nu_semente,
-            maximo_de_meios_lances=maximo_de_meios_lances,
+            maximo_de_meios_lances=teto_daqui,
             julgar=julgar,
             # A chegada DESTE candidato entra no contexto do solucionador.
             solucionador=solucionadores_mod.com_chegada(solucionador, js_chegada),

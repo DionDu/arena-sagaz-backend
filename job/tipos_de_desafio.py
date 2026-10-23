@@ -49,6 +49,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
+from . import figuras_quatro as figuras_quatro_mod
+
 #: A versao do formato de `js_chegada` que as receitas emitem.
 VERSAO_CHEGADA = 1
 
@@ -3101,6 +3103,36 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         },
         valores_da_frase=lambda p, personagem: {
             "ameacas": p["ameacas"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_figura": Receita(
+        nu_tipo_desafio=51,
+        co_tipo_desafio="quatro_figura",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroFigura",
+        # "Forme a figura em ate M lances" (T147 da spec 010, `DECISOES-do-dono.md`
+        # §8zzzr; a proposta em `PROPOSTA-revisao-catalogo-quatro.md` §2). Fecha NO
+        # MEIO da partida, como o Encoste: a chegada e so a clausula `figura`
+        # (T146), dentro da janela de M lances.
+        #
+        # ⚠️ **O desenho viaja na chegada**, lido do catalogo pelo nome
+        # (`job/figuras_quatro.py`): a frase e uma so para todas as figuras, e o
+        # aplicativo desenha a figura a partir da chegada (T149). Figura nova e
+        # uma linha no catalogo, sem versao nova do app.
+        #
+        # ⚠️ **O M e absoluto, e sai da posicao** (`editorial.parametros_efetivos`):
+        # a distancia da figura na posicao publicada mais a folga da variante.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "lances_do_jogador", "n": p["lances"]},
+            "clausulas": [
+                figuras_quatro_mod.FIGURAS_QUATRO[p[figuras_quatro_mod.CHAVE_FIGURA]].clausula()
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
             "personagem": personagem,
         },
     ),

@@ -53,6 +53,7 @@ from .medidas_de_saida import (
 # ⚠️ O unico acervo POR VARIANTE de hoje. As FENs moram em `tipos_de_desafio.py`
 # com todos os outros moldes, e o editorial so aponta para elas.
 from .tipos_de_desafio import MOLDES_DA_CAPTURA_DE_DUAS_EM_OITO
+from . import figuras_quatro as figuras_quatro_mod
 from .banco_forcavel_quatro import MINIMO_DE_LANCES_JOGADOS as _PREPARO_DO_BANCO
 
 #: A versao do aplicativo que estreia o Desafio do Dia.
@@ -392,6 +393,15 @@ ENCOSTADAS_PARA_NOTA_CHEIA = 4
 #: conta na posicao do candidato.
 ENCOSTADAS_DE_EXEMPLO = 4
 
+#: A chave, nos parametros efetivos, com a distancia da figura na posicao
+#: publicada (`figuras_quatro.distancia`). Fica ao lado do prazo que saiu dela,
+#: para o Raio-X e a regua lerem de onde o M veio.
+DISTANCIA_DA_FIGURA = "distancia_da_figura"
+
+#: Uma distancia plausivel para as conferencias SEM posicao. ⛔ Nunca vai a
+#: producao: o job a mede na posicao do candidato.
+DISTANCIA_DE_EXEMPLO = 4
+
 
 def alvo_sai_da_posicao(parametros: Mapping[str, Any]) -> bool:
     """Esta variante calcula o alvo a partir da posicao?"""
@@ -406,6 +416,11 @@ def alvo_sai_do_material(parametros: Mapping[str, Any]) -> bool:
 def alvo_sai_das_encostadas(parametros: Mapping[str, Any]) -> bool:
     """Esta variante calcula o alvo contando as pecas encostadas da posicao?"""
     return CHAVE_A_MAIS_ENCOSTADAS in parametros
+
+
+def alvo_sai_da_figura(parametros: Mapping[str, Any]) -> bool:
+    """Esta variante calcula o PRAZO pela distancia da figura na posicao?"""
+    return figuras_quatro_mod.CHAVE_FOLGA_DA_FIGURA in parametros
 
 
 class MaterialInsuficiente(ValueError):
@@ -429,6 +444,7 @@ def parametros_efetivos(
     guloso: int | None = None,
     material: tuple[int, int] | None = None,
     encostadas: int | None = None,
+    distancia: int | None = None,
 ) -> dict[str, Any]:
     """Os numeros que a **receita** consome, com o alvo ja resolvido.
 
@@ -442,6 +458,9 @@ def parametros_efetivos(
             (`E`), so no Quatro em Linha. Quando vem, entra nos parametros como
             [ENCOSTADAS_NA_POSICAO] (o piso da faixa das medidas de saida); nas
             variantes de `a_mais`, e tambem o que vira o alvo absoluto `pecas`.
+        distancia: a distancia da figura na posicao publicada
+            (`figuras_quatro.distancia`), so no "Forme a figura". Vira o prazo:
+            `lances = distancia + folga`.
 
     Returns:
         Um dicionario com os numeros **absolutos** que `Receita.montar` espera.
@@ -512,6 +531,16 @@ def parametros_efetivos(
         if a_mais < 1:
             raise ValueError(f"a variante pede {a_mais} peca(s) encostada(s) a mais")
         saida["pecas"] = encostadas + a_mais
+    if alvo_sai_da_figura(parametros):
+        if distancia is None:
+            raise TypeError(
+                "esta variante e relativa a distancia da figura e nenhuma "
+                "`distancia=` foi dada"
+            )
+        # ⚠️ O prazo e ABSOLUTO na frase (*"forme a figura em ate 6 lances"*), e
+        # a folga fica nos parametros so como registro de qual variante foi.
+        saida["lances"] = distancia + parametros[figuras_quatro_mod.CHAVE_FOLGA_DA_FIGURA]
+        saida[DISTANCIA_DA_FIGURA] = distancia
     if encostadas is not None:
         saida[ENCOSTADAS_NA_POSICAO] = encostadas
     return saida
@@ -525,6 +554,7 @@ def parametros_para_conferencia(parametros: Mapping[str, Any]) -> dict[str, Any]
             guloso=GULOSO_DE_EXEMPLO,
             material=MATERIAL_DE_EXEMPLO,
             encostadas=ENCOSTADAS_DE_EXEMPLO,
+            distancia=DISTANCIA_DE_EXEMPLO,
         ),
         # ⚠️ O job poe `L` nos parametros na hora de publicar (T049t); a
         # conferencia sem posicao precisa de um tambem.
@@ -2347,6 +2377,38 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_quatro("ameacas_bloqueadas"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         ),
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    # "Forme a figura" (T147, §8zzzr): a segunda forma que fecha no meio, e a
+    # prioridade do dono (*"sera o mais legal do App"*, item 7).
+    #
+    # Uma variante por FIGURA do catalogo e por FOLGA: `{"figura": "t",
+    # "folga": 2}`. O prazo publicado e `distancia + folga`, medido na posicao
+    # (`parametros_efetivos`), e por isso o teto do gabarito daqui e o do maior
+    # prazo possivel; o gerador o aperta para `2M - 1` em cada candidato.
+    #
+    # ⛔ `ic_chegada_encerra_partida=False`, como no Encoste: a figura formada
+    # fecha o desafio, e a partida continua. Preparo 10, o do Encoste.
+    #
+    # ⬜ Nao medida: a sondagem da distancia, o perseguidor e a regua sao a T148.
+    # ⚠️ Prioridade do dono: a figura que so ficar na escada contra os fracos
+    # sobe com `co_personagens` restrito, em vez de ficar fora.
+    "quatro_figura": tuple(
+        Publicacao(
+            parametros={
+                figuras_quatro_mod.CHAVE_FIGURA: nome,
+                figuras_quatro_mod.CHAVE_FOLGA_DA_FIGURA: folga,
+            },
+            nu_lances_de_preparo=10,
+            nu_maximo_de_meios_lances=2
+            * (figuras_quatro_mod.DISTANCIA_MAXIMA_DA_FIGURA + folga)
+            - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_quatro(None),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        )
+        for nome in figuras_quatro_mod.FIGURAS_QUATRO
+        for folga in figuras_quatro_mod.FOLGAS_DA_FIGURA
     ),
 }
 

@@ -121,10 +121,8 @@ def test_os_dez_tipos_batem_com_a_dimensao_da_0035() -> None:
     nas_receitas = {
         codigo: receita.nu_tipo_desafio for codigo, receita in RECEITAS_DO_QUATRO.items()
     }
-    assert nas_receitas.items() <= na_migracao.items()
-    # ⚠️ A figura ainda nao tem receita: a clausula `figura` e a geracao sao a
-    # T146/T147. Quando a receita entrar, este conjunto fica vazio.
-    assert set(na_migracao) - set(nas_receitas) == {"quatro_figura"}
+    # ✅ A figura ganhou a receita na T147 (23/10/2026): os doze tem receita.
+    assert nas_receitas == na_migracao
     for codigo, receita in RECEITAS_DO_QUATRO.items():
         assert receita.co_tipo_desafio == codigo
         assert receita.co_jogo == "quatro"
@@ -169,9 +167,10 @@ def test_cada_tipo_do_quatro_mora_de_UM_lado_so() -> None:
 def test_a_chave_do_objetivo_e_uma_chave_do_quatro_e_nunca_a_frase() -> None:
     """A chave `.arb` do enunciado (a T131 a cria nos tres idiomas)."""
     chaves = [r.co_chave_objetivo for r in RECEITAS_DO_QUATRO.values()]
-    # Os dez da §8zzz e o "Encoste" (T143), cada um com a sua frase.
-    assert len(chaves) == 11
-    assert len(set(chaves)) == 11, "duas receitas com a mesma chave de frase"
+    # Os dez da §8zzz, o "Encoste" (T143) e o "Forme a figura" (T147), cada um
+    # com a sua frase.
+    assert len(chaves) == 12
+    assert len(set(chaves)) == 12, "duas receitas com a mesma chave de frase"
     for chave in chaves:
         assert " " not in chave
         assert chave.startswith("desafioObjetivoQuatro"), chave
@@ -212,6 +211,11 @@ def test_a_chegada_e_valida_e_usa_so_o_que_o_quatro_mede(
 
     medidas, predicados = _medidas_e_predicados_do_quatro(motor)
     for clausula in chegada.clausulas:
+        if clausula.tipo == "figura":
+            # A figura nao consulta medida nem predicado: ela pede a GRADE, que o
+            # juiz do Quatro entrega (`test_clausula_figura.py`), e o desenho tem
+            # de estar no catalogo (`test_figuras_quatro.py`).
+            continue
         disponiveis = medidas if clausula.tipo == "medida" else predicados
         assert clausula.chave in disponiveis, (co_tipo, clausula.chave)
 
@@ -250,13 +254,18 @@ def test_ninguem_cumpre_sem_jogar(co_tipo, publicacao) -> None:
     """
     parametros = parametros_para_conferencia(publicacao.parametros)
     chegada = LinhaDeChegada.de_dado(RECEITAS_DO_QUATRO[co_tipo].montar(parametros))
-    assert not avaliar(chegada, MEDIDAS_DE_QUEM_NAO_JOGOU, {"quatro_perdeu": None})
+    # A grade do tabuleiro vazio: a figura (T147) nao existe antes do primeiro
+    # lance. Os outros tipos nao a leem.
+    vazio = [[0] * 7 for _ in range(6)]
+    assert not avaliar(
+        chegada, MEDIDAS_DE_QUEM_NAO_JOGOU, {"quatro_perdeu": None}, grade=vazio
+    )
 
 
 #: Os tipos do Quatro que fecham NO MEIO da partida (T143, §8zzzr): sem
 #: `vitoria` e sem `quatro_perdeu` na chegada. Tipo novo que fecha no meio entra
 #: aqui, na mesma resposta.
-FECHAM_NO_MEIO = {"quatro_encoste"}
+FECHAM_NO_MEIO = {"quatro_encoste", "quatro_figura"}
 
 
 @pytest.mark.parametrize(("co_tipo", "publicacao"), VARIANTES, ids=_id)
@@ -272,7 +281,8 @@ def test_o_encerra_partida_do_editorial_e_o_que_a_chegada_diz(co_tipo, publicaca
     js = RECEITAS_DO_QUATRO[co_tipo].montar(
         parametros_para_conferencia(publicacao.parametros)
     )
-    chaves = {c["chave"] for c in js["clausulas"]}
+    # `get`: a clausula `figura` (T146) nao tem `chave`.
+    chaves = {c.get("chave") for c in js["clausulas"]}
     so_no_fim = bool(chaves & {"vitoria", "quatro_perdeu"})
     assert so_no_fim == (co_tipo not in FECHAM_NO_MEIO), co_tipo
     assert publicacao.ic_chegada_encerra_partida is so_no_fim, co_tipo
@@ -477,6 +487,13 @@ def test_cada_tipo_cumpre_numa_partida_real_e_nao_cumpre_noutra(
     todos os cadeados de forma acima: e valida, e julgavel, e mesmo assim nao
     distingue ninguem. Aqui ela e posta contra partidas jogadas pelo motor.
     """
+    if co_tipo == "quatro_figura":
+        # ⚠️ As partidas daqui terminam em linha de cinco, e quase nenhuma forma
+        # uma figura do catalogo: o caso "nenhuma partida real cumpre" cairia
+        # por acaso, e nao por defeito. A figura tem o seu: cada uma do catalogo
+        # e FORMADA numa partida jogada pelo arbitro e julgada pelo juiz, e uma
+        # janela de um lance a menos nao cumpre (`test_figuras_quatro.py`).
+        pytest.skip("a figura e posta contra partidas proprias em test_figuras_quatro.py")
     receita = RECEITAS_DO_QUATRO[co_tipo]
     no_meio = co_tipo in FECHAM_NO_MEIO
     cumprem, nao_cumprem = [], []

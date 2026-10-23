@@ -70,6 +70,8 @@ from motores.nucleo.chegada import LinhaDeChegada, avaliar
 from motores.quatro import feitos_quatro
 from motores.quatro.motor_quatro import EstadoQuatro, MotorQuatro, TabuleiroQuatro
 
+from job import figuras_quatro
+
 #: O valor-base da vitória na busca (`valorVitoriaQuatro`).
 VALOR_VITORIA = 1000
 
@@ -802,6 +804,41 @@ class ProvadorQuatro:
             {"ja": ja, "soltas": soltas, "juntar": juntar},
         )
 
+    def figura(self, estado: EstadoQuatro, nome: str, lances: int) -> ProvaQuatro:
+        """A figura [nome] nao esta formada, nao se forma num lance, e cabe em [lances].
+
+        A distancia (`figuras_quatro.distancia`) e recalculada aqui, da posicao, e
+        nao lida dos parametros: a prova nao confia no numero de quem a chama.
+        Recusa a figura sem lugar livre de conflito (ela nunca mais se forma), a
+        ja formada ou formavel num lance (a proposta §2, recusa 5), a longe demais
+        (a faixa provisoria da T147), e o prazo menor que a distancia (recusa 6).
+
+        ⚠️ Como no Encoste, e a conta de cima, e nao a prova de que a figura e
+        alcancavel: quem diz isso e o gabarito, e quem diz se e dificil e a regua.
+        """
+        if (recusa := self._nao_perdida(estado)) is not None:
+            return recusa
+        figura = figuras_quatro.FIGURAS_QUATRO[nome]
+        quanto = figuras_quatro.distancia(
+            figura, self.arbitro.tabuleiro(estado), self.arbitro.regras.dimensoes
+        )
+        if quanto is None:
+            return ProvaQuatro(False, f"a figura {nome} nao cabe sem conflito em lugar nenhum")
+        if quanto < figuras_quatro.DISTANCIA_MINIMA_DA_FIGURA:
+            return ProvaQuatro(
+                False, f"a figura {nome} esta a {quanto} casa(s): ja formada ou formavel num lance"
+            )
+        if quanto > figuras_quatro.DISTANCIA_MAXIMA_DA_FIGURA:
+            return ProvaQuatro(False, f"a figura {nome} esta a {quanto} casas: longe demais")
+        if lances < quanto:
+            return ProvaQuatro(
+                False, f"o prazo de {lances} lances e menor que a distancia {quanto}"
+            )
+        return ProvaQuatro(
+            True, f"a figura {nome} esta a {quanto} casas; o prazo e {lances}",
+            {"distancia": quanto},
+        )
+
     def bloquear(
         self, estado: EstadoQuatro, ameacas: int, continuacao: Sequence[str] | None
     ) -> ProvaQuatro:
@@ -845,6 +882,9 @@ PROVAS: dict[
     "quatro_linha_de_cinco": lambda p, e, par, _c: p.linha_de_cinco(e, par["tamanho"]),
     "quatro_encostadas": lambda p, e, par, _c: p.encostadas(e, par["pecas"]),
     "quatro_encoste": lambda p, e, par, _c: p.encoste(e, par["pecas"], par["lances"]),
+    "quatro_figura": lambda p, e, par, _c: p.figura(
+        e, par[figuras_quatro.CHAVE_FIGURA], par["lances"]
+    ),
     "quatro_sem_o_meio": lambda p, e, _par, _c: p.sem_o_meio(e),
     "quatro_bloquear": lambda p, e, par, c: p.bloquear(e, par["ameacas"], c),
     "quatro_virada": lambda p, e, _par, _c: p.virada(e),

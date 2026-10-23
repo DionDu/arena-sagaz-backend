@@ -156,7 +156,10 @@ def test_os_nove_tipos_do_Quatro_com_texto_tem_entrada() -> None:
     com_entrada = {
         t for t in do_quatro if todas[t].co_chave_objetivo in frases_declaradas()
     }
-    assert do_quatro - com_entrada == {"quatro_unica_coluna"}
+    # ⚠️ O "Forme a figura" (T147) ainda nao tem frase de feito: ela nasce no
+    # app com o resto do texto do tipo (T149), e o manifesto e regerado de la.
+    # Tipo fora do ar sem entrada e aceito (o cadeado acima so cobra quem tem).
+    assert do_quatro - com_entrada == {"quatro_unica_coluna", "quatro_figura"}
     assert len(com_entrada) == 10
 
 

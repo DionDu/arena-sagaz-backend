@@ -195,6 +195,34 @@ def test_posicao_reprovada_na_prova_nao_chega_ao_gabarito(monkeypatch, capsys) -
     assert "reprovada pelo teste" in capsys.readouterr().out
 
 
+def test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato(monkeypatch) -> None:
+    """No "Forme a figura" (T147) o prazo sai da posicao, e o teto do gabarito e
+    apertado a ele: `2M - 1` meios-lances. A variante 0 (o T, folga 1) declara
+    13, o teto do maior prazo; uma posicao com a figura a 2 casas tem M = 3, e o
+    gabarito so pode olhar 5 meios-lances (depois disso a janela fechou)."""
+    prazos: list[int] = []
+    tetos: list[int] = []
+
+    def aprova(co_tipo, provador, estado, parametros, *, continuacao=None):
+        prazos.append(parametros["lances"])
+        return provas_quatro.ProvaQuatro(True, "aprovada pelo teste")
+
+    def resolver(*args, maximo_de_meios_lances, **kwargs):
+        tetos.append(maximo_de_meios_lances)
+        return None
+
+    monkeypatch.setattr(gerador.provas_quatro_mod, "provar", aprova)
+    monkeypatch.setattr(gerador.provas_quatro_mod, "ProvadorQuatro", lambda *a, **k: None)
+    monkeypatch.setattr(gerador, "_resolver", resolver)
+    monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
+
+    assert _gerar("quatro_figura", tentativas_por_candidato=6) == []
+    assert tetos and len(tetos) == len(prazos)
+    assert tetos == [min(13, 2 * m - 1) for m in prazos]
+    # E o aperto aconteceu de fato em alguma posicao (senao o caso nao mede nada).
+    assert any(teto < 13 for teto in tetos), prazos
+
+
 def test_vitoria_no_primeiro_lance_recusa_antes_da_prova(monkeypatch, capsys) -> None:
     """A recusa mais barata vem primeiro: a prova nem é perguntada."""
 
@@ -310,7 +338,7 @@ def test_o_mesmo_dia_gera_o_mesmo_candidato(executavel) -> None:
 #: ⚠️ O "Encoste N em ate M" (T143) entrou aqui em 22/10/2026: ele fecha no
 #: MEIO, e depois do M-esimo lance da pessoa a janela fechou - o teto e `2M - 1`
 #: (o caso logo abaixo do de "ate o fim").
-TETO_PROPRIO = {"quatro_vencer_em_n", "quatro_encoste"}
+TETO_PROPRIO = {"quatro_vencer_em_n", "quatro_encoste", "quatro_figura"}
 
 
 #: Os numeros de cada tipo do Quatro, no ar ou fora dele (a promocao MOVE).
@@ -336,6 +364,23 @@ def test_os_tipos_julgados_no_fim_tem_teto_ate_o_fim(co_tipo: str) -> None:
             publicacao.nu_lances_de_preparo + publicacao.nu_maximo_de_meios_lances
             >= editorial_mod.CASAS_DO_TRADICIONAL
         )
+
+
+def test_o_teto_da_figura_e_o_do_maior_prazo_e_cabe_acima_do_piso() -> None:
+    """No "Forme a figura" o prazo sai da posicao (`distancia + folga`), e a
+    variante declara o teto do MAIOR prazo possivel: distancia 6 (a maxima
+    aceita) mais a folga. Os numeros por extenso: folga 1, 2 e 3, tetos 13, 15 e
+    17. O gerador aperta o teto para `2M - 1` em cada candidato."""
+    tetos = sorted(
+        {
+            (p.parametros["folga"], p.nu_maximo_de_meios_lances)
+            for p in EDITORIAL_DO_QUATRO["quatro_figura"]
+        }
+    )
+    assert tetos == [(1, 13), (2, 15), (3, 17)]
+    for publicacao in EDITORIAL_DO_QUATRO["quatro_figura"]:
+        assert publicacao.nu_minimo_de_meios_lances == 9
+        assert publicacao.nu_minimo_de_meios_lances <= publicacao.nu_maximo_de_meios_lances
 
 
 def test_o_teto_do_encoste_e_a_JANELA_e_cabe_acima_do_piso() -> None:
@@ -558,8 +603,9 @@ def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     # diagonal e as encostadas com o perseguidor (T124c, defeito 1), e o golpe
     # duplo e a linha de cinco com o banco pescado (T124c, 21/10), e o "sem o
     # meio" com o piso de 9 (T124c, 22/10), e o "Encoste N em ate M" com a
-    # regua de 18 dias (T143, 22/10). Sobram os dois aposentados.
-    assert len(tipos) == 2
+    # regua de 18 dias (T143, 22/10). Sobram os dois aposentados, e o "Forme a
+    # figura" (T147, 23/10), que espera a regua da T148.
+    assert len(tipos) == 3
     assert MEDIDOR.tipos_do_alvo("quatro_bloquear") == ["quatro_bloquear"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)

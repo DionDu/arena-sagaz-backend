@@ -142,8 +142,9 @@ def test_todo_tipo_do_quatro_tem_prova_e_nenhuma_sobra() -> None:
     tipos = {
         co for co, r in {**RECEITAS, **RECEITAS_FORA_DO_AR}.items() if r.co_jogo == "quatro"
     }
-    # Os dez da §8zzz e o "Encoste" da §8zzzr (T143, 22/10/2026).
-    assert len(tipos) == 11, "o controle: são onze tipos (§8zzz e §8zzzr)"
+    # Os dez da §8zzz, o "Encoste" da §8zzzr (T143, 22/10/2026) e o "Forme a
+    # figura" (T147, 23/10/2026).
+    assert len(tipos) == 12, "o controle: são doze tipos (§8zzz e §8zzzr)"
     assert set(pq.PROVAS) == tipos
 
 
@@ -359,6 +360,28 @@ def test_encoste_pede_JUNTAR_pecas_soltas(provador) -> None:
     com_seis = _prova(provador, "quatro_encoste", ABERTA_SEM_VITORIA, pecas=9, lances=6)
     assert com_seis.passou and com_seis.dados["juntar"] == 1
     perdida = _prova(provador, "quatro_encoste", PROVADA_PERDIDA, pecas=20, lances=5)
+    assert not perdida.passou and "provada perdida" in perdida.motivo
+
+
+def test_figura_pede_distancia_na_faixa_e_prazo_que_a_cubra(provador) -> None:
+    """O "Forme a figura" (T147): a distancia vem da posicao, e nao do parametro.
+
+    No tabuleiro vazio o quadrado esta a 4 casas e o T a 9 (cinco pecas e os
+    quatro apoios dos bracos). Com o J1 tendo tres casas do quadrado (colunas 1
+    e 2, e o J2 longe), falta uma: forma num lance. Os numeros por extenso.
+    """
+    vazio = _prova(provador, "quatro_figura", "", figura="quadrado", lances=5)
+    assert vazio.passou and vazio.dados == {"distancia": 4}
+    # O prazo menor que a distancia: nem jogando perfeito cabe (recusa 6).
+    curto = _prova(provador, "quatro_figura", "", figura="quadrado", lances=3)
+    assert not curto.passou and "menor que a distancia 4" in curto.motivo
+    # Longe demais: o T no vazio esta a 9, acima da faixa provisoria (6).
+    longe = _prova(provador, "quatro_figura", "", figura="t", lances=12)
+    assert not longe.passou and "9 casas: longe demais" in longe.motivo
+    # Formavel num lance (recusa 5).
+    num_lance = _prova(provador, "quatro_figura", "s1s7s1s7s2s6", figura="quadrado", lances=5)
+    assert not num_lance.passou and "a 1 casa(s)" in num_lance.motivo
+    perdida = _prova(provador, "quatro_figura", PROVADA_PERDIDA, figura="quadrado", lances=6)
     assert not perdida.passou and "provada perdida" in perdida.motivo
 
 

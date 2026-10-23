@@ -9817,3 +9817,65 @@ vazio (no Quatro a gravidade não deixa); o caso entrou nos dois testes.
 
 ⚠️ **Nada vai ao ar com isto**: o tipo 51 não tem receita nem editorial. O push publica o juiz novo
 no job e na API, e as chegadas de hoje (sem figura) são julgadas como antes.
+
+## 2026-10-23 (2) — "Forme a figura": o catálogo como dado e a geração, fora do ar (T147 da spec 010)
+
+**Contexto.** Com a cláusula `figura` no juiz (entrada anterior), faltava o tipo 51 ter de onde
+tirar as figuras e como gerar uma posição para elas. A proposta (`PROPOSTA-revisao-catalogo-quatro.md`
+§2) fixou o primeiro lote, as recusas e a ideia do prazo relativo; o dono a aprovou (§8zzzr).
+
+**Decisões.**
+
+1. **O catálogo é dado, num arquivo só**: `job/figuras_quatro.py`, `FIGURAS_QUATRO`, onze
+   figuras com nome, desenho, `espelhar` e família. O primeiro lote (T, +, z, =, losango, c, i),
+   os controles (quadrado, L) e o teto (V grande, xis). Figura nova é uma linha ali: o desenho
+   viaja na chegada publicada, e o app não precisa de versão nova. O nome fica nos parâmetros
+   (`{"figura": "t", "folga": 2}`), e a receita lê o desenho do catálogo pelo nome.
+2. **Cinco recusas** (`figuras_quatro.recusas`), com cadeado: fora do formato (a leitura do
+   juiz); uma casa `_` embaixo de uma peça (não fica de pé); não cabe no tabuleiro; uma linha de
+   `alinhar` peças da pessoa (formá-la é vencer); e **a última peça de alguma coluna é do
+   adversário**. A quinta é nova, e vem da decisão 6 da entrada anterior: só o lance da pessoa
+   fecha a conta, e com o `O` no topo de uma coluna a figura poderia se completar num lance do
+   adversário depois do prazo. As onze passam nas cinco.
+3. **O prazo sai da posição**: `M = distância + folga` (`editorial.parametros_efetivos`, com
+   `distancia=`, como as encostadas). A distância (`figuras_quatro.distancia`) é, entre os lugares
+   onde a figura cabe sem conflito de cor (e o espelho, quando vale), o menor número de casas a
+   ocupar: os `X` que faltam, os `O` que faltam, e os **apoios** (casas vazias fora da figura,
+   embaixo de uma peça dela). Figura sem lugar livre de conflito: a posição é descartada no
+   gerador. A distância fica nos parâmetros publicados (`distancia_da_figura`), ao lado do prazo
+   que saiu dela.
+4. **A prova** (`provas_quatro.figura`) recalcula a distância da posição (não confia no
+   parâmetro) e recusa: a posição provada perdida (a recusa comum); a figura sem lugar; a já
+   formada ou formável num lance (distância < 2, a recusa 5 da proposta); a longe demais
+   (distância > 6); e o prazo menor que a distância (a recusa 6). ⚠️ **A faixa 2 a 6 é
+   provisória**: a sondagem da distância no acervo é a T148.
+5. **33 variantes fora do ar** (onze figuras × folga 1, 2 e 3), preparo 10 como o Encoste,
+   `ic_chegada_encerra_partida=False`, as medidas de saída do Quatro (as encostadas pontuam). O
+   teto do gabarito da variante é o do maior prazo possível (`2 × (6 + folga) - 1`: 13, 15 e
+   17), e **o gerador o aperta para `2M - 1` em cada candidato**: depois do M-ésimo lance da
+   pessoa a janela fechou.
+6. **A frase de feito e a do objetivo ainda não existem**: as duas nascem no app com o texto do
+   tipo (T149), e os manifestos são regerados de lá. O cadeado das medidas do feito aceita, por
+   ora, o tipo fora do ar sem entrada.
+
+**Alternativas consideradas.** Um M fixo por variante (o Encoste usa): numa posição em que a
+figura está a 2 casas ele sobraria, e numa em que está a 7 faltaria (a proposta, recusa 6). O
+catálogo num JSON em `contratos/`: nada além do job o lê, e um dicionário Python com os desenhos
+como texto continua sendo dado (nenhuma linha de código por figura).
+
+**Provas.** `tests/unitarios/test_figuras_quatro.py` (51 casos): a tabela da
+proposta por extenso (peças `X`/`O`, apoios, maior linha, lugares) para as onze; as recusas, com
+as figuras que a proposta tirou, cada uma pelo motivo dela; a distância em tabuleiros escritos à
+mão (vazio, peça da pessoa, do adversário, apoio, `O` já posto, `_` ocupado, espelho, sem lugar);
+e **cada figura formada numa partida de verdade**: o árbitro joga uma fita que monta a figura no
+canto sem ninguém vencer, e o juiz de produção diz "cumpriu" no último lance (o da pessoa) com o
+prazo exato, e "não cumpriu" com um lance a menos. A prova com o executável real
+(`test_provas_quatro.py`) e o teto apertado no gerador (`test_gerador_do_quatro.py`). Os
+cadeados do Quatro que listam tipos ou leem `chave` em toda cláusula aprenderam o tipo novo.
+**Mutações 16/16.** Uma fumaça do gerador (quadrado, losango e T, folga 3, seis posições cada)
+mostrou o caminho inteiro: a distância medida, o prazo, e a prova recusando a perdida, a
+formável num lance e a longe demais.
+
+⚠️ **Nenhum candidato sai ainda, e é esperado**: o gabarito joga para vencer, e não para formar
+a figura. O perseguidor da figura, a sondagem e a régua são a T148. Nada vai ao ar com este
+push: o tipo está em `RECEITAS_FORA_DO_AR`.
