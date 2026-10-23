@@ -9760,3 +9760,60 @@ disse DES; `upgrade` de `0036_log_aparelho` para `0037_tipos_quatro_meio`; o
 `conferir_migracao_desafio.py` fechou OK (20 tabelas, 20 VIEWs, 20/20 com as colunas na ordem,
 `tb901_tipo_desafio` com 26 linhas). Conferido depois por `consultar_des.py`: 50 `quatro_encoste`
 e 51 `quatro_figura`. Só então o push. ⛔ No `prd` não.
+
+## 2026-10-23 — A cláusula `figura` no juiz dos dois lados (T146 da spec 010)
+
+**Contexto.** "Forme a figura" (o tipo 51, `quatro_figura`, aprovado em 22/10: `docs/DECISOES-do-dono.md`
+§8zzzr) precisa de uma pergunta que a linha de chegada não sabia fazer: *este desenho está no
+tabuleiro?* O dono confirmou a recomendação (a) da proposta (§8zzzr item 10): um **terceiro tipo
+de cláusula**, ao lado de `medida` e `predicado`.
+
+**Decisões.**
+
+1. **A forma:** `{"tipo": "figura", "desenho": [".X.", "XOX", ".X."], "espelhar": false}`. O
+   desenho são as linhas de cima para baixo (`X` da pessoa, `O` do adversário, `_` vazia, `.`
+   qualquer coisa); vale em qualquer lugar do tabuleiro, não gira, e `espelhar` aceita o espelho
+   da esquerda para a direita. **Só esses três campos**: `comparador`, `chave` ou `valor` numa
+   figura são recusados, como o `n` numa janela `partida`. `espelhar` é obrigatório e tem de ser
+   booleano (o `1` é recusado: o Python o aceitaria como `True`, o Dart não).
+2. **A figura é uma classe própria** (`ClausulaDeFigura`), e não campos opcionais na `Clausula`:
+   quem lê `chave`/`comparador` (o chip de progresso, o "não deu", `chaves_de_medida`) continua
+   lendo só as duas de sempre. No Dart a mãe é `sealed` (`ClausulaDaChegada`): um `switch` que
+   esqueça a figura não compila. Os dois consumidores do app (`progresso_do_objetivo.dart`) a
+   tratam como **condição** (sem contador: ou está, ou não está).
+3. **A grade vem do JOGO**, por uma porta nova do prefixo (`grade_ate` no `julgar` do servidor,
+   `PortasDoPrefixo.gradeAte` no app), como `quatro_perdeu` e "a partida acabou" já vinham: linhas
+   de cima para baixo, `+1`/`-1`/`0`, com donos **absolutos**. Quem traduz `X`/`O` é o juiz, que
+   sabe de quem é o desafio. Só o Quatro a entrega (`feitos_quatro.grade` · `gradeDoQuatro`).
+4. **Jogo que não entrega a grade RECUSA a chegada antes de olhar a fita** (`ChegadaInvalida`).
+   Sem a pergunta na entrada, uma fita sem lance da pessoa dentro da janela sairia "não cumpriu",
+   calada. E a grade só é montada quando há figura: os outros tipos não pagam a reconstrução.
+5. **O juiz não confere** caber no tabuleiro, ficar de pé com a gravidade ou não ser uma linha de
+   quatro: é do catálogo de figuras (T147). Figura maior que o tabuleiro simplesmente nunca
+   aparece.
+6. **Só o lance da pessoa fecha a conta**, como em toda chegada (o `julgar` não mudou nisso): uma
+   figura que o adversário completa só vale no lance seguinte da pessoa, se ainda houver janela.
+   ⚠️ **Para a T147:** como peça não sai do tabuleiro no tradicional, isso só pesa quando a última
+   casa preenchida de uma coluna da figura é `O`; nas 19 figuras da proposta o `O` tem sempre um
+   `X` por cima. O catálogo pode recusar a figura em que não tenha.
+
+**Alternativas consideradas** (a proposta §2): um predicado `quatro_figura` com a grade no `valor`
+(esconderia um parâmetro onde ninguém o procura, num predicado que é "sem parâmetro"); um tipo de
+desafio por figura (cada figura nova pediria texto novo e versão nova do app). Descartadas pela
+§8zzzr.
+
+**Provas.** Treze vetores `quatro-figura-*` em `contratos/vetores-verificacao-desafio.json` (93 no
+total), com a chegada escrita à mão (a receita é a T147) e um `_TipoDaFigura` no lugar dela no
+gerador: a figura longe do canto; um lance depois da janela; o espelho aceito e recusado; o
+losango com o `O` do adversário e a cruz da pessoa no lugar dele; o L formado só pelo adversário;
+o U oco e o U cheio; o `_` ocupado; o `_` que existe no lance 9 e é ocupado no 10 (fecha no 9); a
+pessoa sendo o J2; e o dado inválido. Os dois juízes concordam nos 93. O cadeado dos vocabulários
+(`test_vetores_verificacao.py`) aprendeu que a figura não tem `comparador`. Os testes de unidade
+estão em `tests/unitarios/test_clausula_figura.py` e no espelho do app, `clausula_figura_test.dart`.
+**Mutações 16/16** (oito por lado: `O`, `_` e `X` afrouxados, espelho sempre, um topo a menos,
+sem a recusa da entrada, a grade de cabeça para baixo, `espelhar` numérico). A primeira rodada deu
+14/16: o `O` aceitando a casa vazia sobrevivia nos dois lados, porque nenhum caso tinha o miolo
+vazio (no Quatro a gravidade não deixa); o caso entrou nos dois testes.
+
+⚠️ **Nada vai ao ar com isto**: o tipo 51 não tem receita nem editorial. O push publica o juiz novo
+no job e na API, e as chegadas de hoje (sem figura) são julgadas como antes.

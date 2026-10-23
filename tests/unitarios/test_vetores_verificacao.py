@@ -56,7 +56,14 @@ COMPARADORES = {
     "em",
     "fora_de",
 }
-TIPOS_DE_CLAUSULA = {"medida", "predicado"}
+# ⚠️ A `figura` entrou em 23/10/2026 (T146 da spec 010, §8zzzr item 10), por
+# decisao do dono: continua sendo dado (um desenho com quatro simbolos), sem
+# `comparador`, sem `chave` e sem `valor`.
+TIPOS_DE_CLAUSULA = {"medida", "predicado", "figura"}
+
+# Os quatro simbolos do desenho da figura, e os unicos campos dela.
+SIMBOLOS_DA_FIGURA = {"X", "O", "_", "."}
+CAMPOS_DA_FIGURA = {"tipo", "desenho", "espelhar"}
 
 VEREDITOS = {"cumpriu", "nao_cumpriu", "dado_invalido"}
 
@@ -159,6 +166,14 @@ def test_os_tres_vocabularios_de_chegada_sao_fechados(documento: dict) -> None:
         for clausula in chegada["clausulas"]:
             if clausula["tipo"] not in TIPOS_DE_CLAUSULA:
                 problemas.append(f"{vetor['id']}: clausula {clausula['tipo']!r}")
+            if clausula["tipo"] == "figura":
+                # A figura nao tem comparador: o que se fecha nela sao os
+                # campos e os simbolos do desenho.
+                if set(clausula) != CAMPOS_DA_FIGURA:
+                    problemas.append(f"{vetor['id']}: campos da figura {sorted(clausula)}")
+                if set("".join(clausula["desenho"])) - SIMBOLOS_DA_FIGURA:
+                    problemas.append(f"{vetor['id']}: desenho {clausula['desenho']!r}")
+                continue
             if clausula["comparador"] not in COMPARADORES:
                 problemas.append(
                     f"{vetor['id']}: comparador {clausula['comparador']!r}"

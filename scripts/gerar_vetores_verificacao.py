@@ -2088,6 +2088,201 @@ def vetores_do_quatro_encoste() -> list[dict[str, Any]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# A CLAUSULA `figura` (T146 da spec 010, §8zzzr item 10)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **O tipo 51 (`quatro_figura`) ainda nao tem receita** (ela e a T147): as
+# chegadas daqui sao escritas a mao, no formato do contrato, e o que os vetores
+# conferem e a REGRA da clausula nos dois juizes - a translacao, o espelho, as
+# duas cores, a casa vazia, de quem e o desafio. A figura que for ao ar vem do
+# catalogo da T147, e a regra nao muda com a figura.
+#
+# Os desenhos, de cima para baixo (`X` da pessoa, `O` do adversario, `_` vazia,
+# `.` fora da figura):
+#
+#     L          losango      U (oco ou cheio)   U so oco    o i curto
+#     X .        . X .        X . X              X _ X       X
+#     X .        X O X        X X X              X X X       X
+#     X X        . X .                                       O
+#
+# O tabuleiro comeca vazio e a pessoa e o J1, salvo no vetor do J2; nenhuma
+# fita forma quatro em linha, de nenhum dos lados.
+
+
+class _TipoDaFigura:
+    """O que `_vetor_do_quatro` le de uma receita: o numero e o nome do tipo.
+
+    ⚠️ Existe so ate a T147 trazer a receita de `quatro_figura`; o numero e o da
+    migracao `0037_tipos_quatro_meio`, conferido em `test_receitas_do_quatro.py`.
+    """
+
+    nu_tipo_desafio = 51
+    co_tipo_desafio = "quatro_figura"
+
+
+def _chegada_da_figura(desenho: list[str], lances: int, *, espelhar: bool = False) -> dict[str, Any]:
+    """A linha de chegada de "forme a figura em ate N lances"."""
+    return {
+        "versao": 1,
+        "janela": {"tipo": "lances_do_jogador", "n": lances},
+        "clausulas": [{"tipo": "figura", "desenho": desenho, "espelhar": espelhar}],
+    }
+
+
+def vetores_da_figura() -> list[dict[str, Any]]:
+    """Os vetores da clausula `figura`."""
+    tipo = _TipoDaFigura()
+    l_ = ["X.", "X.", "XX"]
+    losango = [".X.", "XOX", ".X."]
+    u_qualquer = ["X.X", "XXX"]
+    u_oco = ["X_X", "XXX"]
+
+    def da_figura(chegada: dict[str, Any], *argumentos: Any, **opcoes: Any) -> dict[str, Any]:
+        return _vetor_do_quatro(tipo, chegada, *argumentos, **opcoes)
+
+    # A pessoa sobe a coluna 5 (tres pecas) e poe a 4a na 6, embaixo: o L, na
+    # parte de baixo e a direita do tabuleiro. O adversario joga em 1 e 2.
+    o_l_na_direita = ["s5", "s1", "s5", "s2", "s5", "s1", "s6"]
+    # A mesma coluna 5, e a 4a peca na 4: o espelho do L (um J).
+    o_j = ["s5", "s1", "s5", "s2", "s5", "s1", "s4"]
+    # O U: a linha de baixo 3-4-5 e as pontas em 3 e 5. Na 1a fita a casa de
+    # cima da 4 fica vazia; na 2a o adversario a ocupa no lance 4.
+    u_vazio = ["s3", "s1", "s4", "s1", "s5", "s7", "s3", "s7", "s5"]
+    u_ocupado = ["s3", "s1", "s4", "s4", "s5", "s7", "s3", "s7", "s5"]
+
+    return [
+        da_figura(
+            _chegada_da_figura(l_, 4),
+            "quatro-figura-o-L-em-outro-lugar-cumpriu",
+            "A pessoa forma o L nas colunas 5 e 6, longe do canto de cima e da "
+            "esquerda: a figura vale em qualquer coluna e qualquer altura. "
+            "Cumpriu no 4o lance dela (lance 7 da fita).",
+            [],
+            o_l_na_direita,
+            "cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(l_, 3),
+            "quatro-figura-o-L-um-lance-depois-da-janela",
+            "A mesma fita com a janela de 3 lances: o L fecha no 4o lance da "
+            "pessoa, um depois do prazo. Nao cumpre, e os feitos sao os do fim "
+            "da janela (lance 6).",
+            [],
+            o_l_na_direita,
+            "nao_cumpriu",
+            feitos_ate=6,
+        ),
+        da_figura(
+            _chegada_da_figura(l_, 4, espelhar=True),
+            "quatro-figura-o-espelho-aceito",
+            "A pessoa forma o espelho do L (a 4a peca na coluna 4, e nao na 6), "
+            "e a figura aceita o espelho. Cumpriu no lance 7.",
+            [],
+            o_j,
+            "cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(l_, 4),
+            "quatro-figura-o-espelho-recusado",
+            "A mesma fita, com a figura que NAO aceita o espelho: o J nao e o L. "
+            "Nao cumpre. Quem espelhasse sempre diria cumpriu.",
+            [],
+            o_j,
+            "nao_cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(losango, 4),
+            "quatro-figura-o-losango-cumpriu",
+            "O adversario poe a peca dele em cima da primeira da pessoa (coluna "
+            "4), e ela a cerca: em cima, e dos lados nas colunas 3 e 5. A peca "
+            "do meio e DELE, como o desenho pede. Cumpriu no lance 7.",
+            [],
+            ["s4", "s4", "s4", "s3", "s3", "s5", "s5"],
+            "cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(losango, 5),
+            "quatro-figura-a-casa-O-com-peca-da-pessoa",
+            "O mesmo desenho, mas o meio e da PESSOA: ela fez a cruz inteira "
+            "(coluna 4 com tres, e as 3 e 5 no meio). A casa `O` pede a peca do "
+            "adversario. Nao cumpre. Quem lesse `O` como 'qualquer peca' diria "
+            "cumpriu.",
+            [],
+            ["s4", "s3", "s4", "s5", "s3", "s1", "s5", "s1", "s4"],
+            "nao_cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(l_, 5),
+            "quatro-figura-so-pecas-do-adversario",
+            "Quem forma o L e o ADVERSARIO (coluna 5 com tres e a 6 embaixo), e "
+            "a pessoa joga um 5o lance depois. A figura e da pessoa: nao cumpre. "
+            "Quem conferisse a forma sem a cor diria cumpriu.",
+            [],
+            ["s1", "s5", "s1", "s5", "s2", "s5", "s2", "s6", "s7"],
+            "nao_cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(u_qualquer, 5),
+            "quatro-figura-o-U-oco-vale",
+            "O U com o miolo vazio, e o desenho com `.` no miolo: vale (o dono "
+            "decidiu que o U vale oco ou cheio). Cumpriu no lance 9.",
+            [],
+            u_vazio,
+            "cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(u_qualquer, 5),
+            "quatro-figura-o-U-cheio-vale",
+            "O U com a peca do ADVERSARIO no miolo, e o mesmo desenho com `.`: "
+            "vale tambem. Cumpriu no lance 9.",
+            [],
+            u_ocupado,
+            "cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(u_oco, 5),
+            "quatro-figura-a-casa-vazia-ocupada",
+            "O desenho com `_` no miolo (a casa tem de estar VAZIA), e o "
+            "adversario a ocupou. Nao cumpre. Quem lesse `_` como `.` diria "
+            "cumpriu.",
+            [],
+            u_ocupado,
+            "nao_cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(u_oco, 6),
+            "quatro-figura-a-casa-vazia-fecha-no-instante",
+            "O U oco se forma no lance 9, com o miolo vazio, e o adversario o "
+            "ocupa no lance 10. O juiz fecha no 9, e o que vem depois nao "
+            "desfaz: cumpriu, com os feitos do lance 9. Quem julgasse pelo fim "
+            "da janela diria nao.",
+            [],
+            u_vazio + ["s4", "s7"],
+            "cumpriu",
+            feitos_ate=9,
+        ),
+        da_figura(
+            _chegada_da_figura(["X", "X", "O"], 2),
+            "quatro-figura-a-pessoa-e-o-J2",
+            "A vez na posicao publicada e do J2, e `X` e dele: ele poe a 2a peca "
+            "na coluna 3, por cima da sua e da do J1. Cumpriu no 1o lance. Quem "
+            "lesse `X` como o J1 diria nao cumpriu.",
+            _BASE_DO_QUATRO_COM_O_J2,
+            ["s3"],
+            "cumpriu",
+        ),
+        da_figura(
+            _chegada_da_figura(l_, 4),
+            "quatro-figura-lance-ilegal-e-dado-invalido",
+            "Uma coluna que nao existe (a 9). Dado invalido.",
+            [],
+            ["s9"],
+            "dado_invalido",
+        ),
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ⛔ AS SEMENTES POR LANCE — o segundo bloco do documento (26/09/2026)
 # ═══════════════════════════════════════════════════════════════════════════
 #
@@ -2197,6 +2392,8 @@ def montar() -> dict[str, Any]:
         + vetores_do_quatro_sem_o_meio()
         # O "Encoste" (T143, o primeiro que fecha no meio), no fim.
         + vetores_do_quatro_encoste()
+        # A clausula `figura` (T146), no fim.
+        + vetores_da_figura()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

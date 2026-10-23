@@ -7671,6 +7671,1177 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "quatro-figura-o-L-em-outro-lugar-cumpriu",
+      "de_vetor": "A pessoa forma o L nas colunas 5 e 6, longe do canto de cima e da esquerda: a figura vale em qualquer coluna e qualquer altura. Cumpriu no 4o lance dela (lance 7 da fita).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.",
+              "X.",
+              "XX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-o-L-um-lance-depois-da-janela",
+      "de_vetor": "A mesma fita com a janela de 3 lances: o L fecha no 4o lance da pessoa, um depois do prazo. Nao cumpre, e os feitos sao os do fim da janela (lance 6).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.",
+              "X.",
+              "XX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 3,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-o-espelho-aceito",
+      "de_vetor": "A pessoa forma o espelho do L (a 4a peca na coluna 4, e nao na 6), e a figura aceita o espelho. Cumpriu no lance 7.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.",
+              "X.",
+              "XX"
+            ],
+            "espelhar": true
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-o-espelho-recusado",
+      "de_vetor": "A mesma fita, com a figura que NAO aceita o espelho: o J nao e o L. Nao cumpre. Quem espelhasse sempre diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s2"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.",
+              "X.",
+              "XX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-o-losango-cumpriu",
+      "de_vetor": "O adversario poe a peca dele em cima da primeira da pessoa (coluna 4), e ela a cerca: em cima, e dos lados nas colunas 3 e 5. A peca do meio e DELE, como o desenho pede. Cumpriu no lance 7.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              ".X.",
+              "XOX",
+              ".X."
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 2,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-a-casa-O-com-peca-da-pessoa",
+      "de_vetor": "O mesmo desenho, mas o meio e da PESSOA: ela fez a cruz inteira (coluna 4 com tres, e as 3 e 5 no meio). A casa `O` pede a peca do adversario. Nao cumpre. Quem lesse `O` como 'qualquer peca' diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              ".X.",
+              "XOX",
+              ".X."
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 3,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-so-pecas-do-adversario",
+      "de_vetor": "Quem forma o L e o ADVERSARIO (coluna 5 com tres e a 6 embaixo), e a pessoa joga um 5o lance depois. A figura e da pessoa: nao cumpre. Quem conferisse a forma sem a cor diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s1"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s2"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s6"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s7"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.",
+              "X.",
+              "XX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-o-U-oco-vale",
+      "de_vetor": "O U com o miolo vazio, e o desenho com `.` no miolo: vale (o dono decidiu que o U vale oco ou cheio). Cumpriu no lance 9.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.X",
+              "XXX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-o-U-cheio-vale",
+      "de_vetor": "O U com a peca do ADVERSARIO no miolo, e o mesmo desenho com `.`: vale tambem. Cumpriu no lance 9.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.X",
+              "XXX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-a-casa-vazia-ocupada",
+      "de_vetor": "O desenho com `_` no miolo (a casa tem de estar VAZIA), e o adversario a ocupou. Nao cumpre. Quem lesse `_` como `.` diria cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X_X",
+              "XXX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-a-casa-vazia-fecha-no-instante",
+      "de_vetor": "O U oco se forma no lance 9, com o miolo vazio, e o adversario o ocupa no lance 10. O juiz fecha no 9, e o que vem depois nao desfaz: cumpriu, com os feitos do lance 9. Quem julgasse pelo fim da janela diria nao.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 10,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 11,
+          "jogador": 1,
+          "lance": "s7"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 6
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X_X",
+              "XXX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 4,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-a-pessoa-e-o-J2",
+      "de_vetor": "A vez na posicao publicada e do J2, e `X` e dele: ele poe a 2a peca na coluna 3, por cima da sua e da do J1. Cumpriu no 1o lance. Quem lesse `X` como o J1 diria nao cumpriu.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [
+          "s3",
+          "s3",
+          "s4",
+          "s4",
+          "s1"
+        ],
+        "co_lances": "s3s3s4s4s1",
+        "vez_de": -1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": -1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": -1,
+          "lance": "s3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X",
+              "X",
+              "O"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_encostadas": 3,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 0,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-lance-ilegal-e-dado-invalido",
+      "de_vetor": "Uma coluna que nao existe (a 9). Dado invalido.",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s9"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.",
+              "X.",
+              "XX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ],
   "sementes": [

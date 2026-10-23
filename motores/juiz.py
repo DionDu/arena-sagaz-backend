@@ -128,7 +128,7 @@ def _medidor_do_quatro(
     jogador: int,
     co_modalidade: str,
 ):
-    """Devolve `(medir_ate, predicados_ate, terminou_ate)` do Quatro em Linha.
+    """Devolve `(medir_ate, predicados_ate, terminou_ate, grade_ate)` do Quatro.
 
     A posição inicial é uma **sequência de lances**, como no Pontinhos: no
     Quatro a ordem dos lances é o próprio tabuleiro. Quem a lê é o árbitro
@@ -140,6 +140,9 @@ def _medidor_do_quatro(
     respostas fixas: ver `feitos_quatro.responder_predicados`. E pela mesma
     razão o juiz precisa saber quando a partida ACABOU (`terminou_ate`): o fim
     pode cair num lance do adversário, e é só no fim que "não perca" responde.
+
+    ⚠️ **E o Quatro é o jogo que entrega a GRADE** (T146 da spec 010): o
+    tabuleiro do prefixo, para a cláusula `figura` (`feitos_quatro.grade`).
     """
     motor = MotorQuatro(co_modalidade)
     # `de_dado` reproduz a posição agora: uma posição publicada inválida é
@@ -162,7 +165,10 @@ def _medidor_do_quatro(
             estado = motor.aplicar(estado, lance)
         return motor.veredito(estado).acabou
 
-    return medir_ate, predicados_ate, terminou_ate
+    def grade_ate(quantos: int) -> list[list[int]]:
+        return feitos_quatro.grade(motor, iniciais, lances_ate(quantos))
+
+    return medir_ate, predicados_ate, terminou_ate, grade_ate
 
 
 def julgar_desafio(
@@ -204,6 +210,9 @@ def julgar_desafio(
     # "A partida acabou neste prefixo?"; só o Quatro responde hoje (ver o
     # `julgar`: as damas e o Pontinhos ficam com a regra de sempre).
     terminou_ate = None
+    # O tabuleiro do prefixo, para a cláusula `figura`; só o Quatro o entrega.
+    # ⚠️ Sem ele, chegada com `figura` é recusada (`ChegadaInvalida`).
+    grade_ate = None
     if co_jogo == "pontinhos":
         medir_ate = _medidor_do_pontinhos(js_posicao_inicial, fita, jogador)
     elif co_jogo == "damas":
@@ -211,7 +220,7 @@ def julgar_desafio(
             js_posicao_inicial, fita, jogador, co_modalidade
         )
     elif co_jogo == "quatro":
-        medir_ate, predicados_ate, terminou_ate = _medidor_do_quatro(
+        medir_ate, predicados_ate, terminou_ate, grade_ate = _medidor_do_quatro(
             js_posicao_inicial, fita, jogador, co_modalidade
         )
     else:
@@ -228,4 +237,5 @@ def julgar_desafio(
         predicados=predicados,
         predicados_ate=predicados_ate,
         terminou_ate=terminou_ate,
+        grade_ate=grade_ate,
     )

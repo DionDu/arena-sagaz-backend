@@ -35,6 +35,10 @@ E o predicado `quatro_perdeu` ([responder_predicados]): `True` quando a partida
 terminou com vitória do adversário, `False` quando terminou sem ela, e **sem
 resposta (`None`) enquanto ela não terminou**. Ver o porquê lá.
 
+E a GRADE ([grade], T146 da spec 010): o tabuleiro depois da fita, como a
+cláusula `figura` da linha de chegada o lê. Não é medida (não vai ao extrato):
+é a matéria-prima com que o juiz procura o desenho.
+
 ⚠️ **A fonte é o motor Dart** (`medidas_quatro.dart`, `medirFitaQuatro`): esta
 é a escrita do servidor, e os vetores de paridade da T106
 (`contratos/vetores-paridade-quatro.json`) conferem que as duas contam igual.
@@ -230,6 +234,34 @@ def medir(
         "lances_na_coluna_central": na_coluna_central,
         "ameacas_bloqueadas": bloqueadas,
     }
+
+
+def grade(
+    motor: MotorQuatro, lances_iniciais: Sequence[str], fita: Sequence[str]
+) -> list[list[int]]:
+    """O tabuleiro depois de [fita], na forma que a cláusula `figura` lê.
+
+    Uma lista de linhas de CIMA para BAIXO; cada linha, as colunas da esquerda
+    para a direita, com `+1` (J1), `-1` (J2) ou `0` (vazia). É o desenho de
+    cabeça para baixo em relação ao motor, que guarda cada coluna de baixo para
+    cima: a figura é escrita como a pessoa a vê, com o chão embaixo.
+
+    ⚠️ **Os donos são absolutos (J1/J2), e não "a pessoa"/"o adversário"**:
+    quem traduz `X` e `O` é o juiz, que sabe de quem é o desafio. Assim a grade
+    é a mesma para qualquer pergunta, e o espelho Dart
+    (`grade_desafio_quatro.dart`) entrega exatamente isto.
+
+    Raises:
+        ValueError: um lance ilegal ou depois do fim (o árbitro recusa).
+    """
+    _, _, estado = _reproduzir(motor, lances_iniciais, fita)
+    tabuleiro = motor.tabuleiro(estado)
+    dimensoes = motor.regras.dimensoes
+    # `range(altura, 0, -1)`: as linhas 6, 5, ..., 1 - a de cima primeiro.
+    return [
+        [tabuleiro.peca((coluna, linha)) for coluna in range(1, dimensoes.largura + 1)]
+        for linha in range(dimensoes.altura, 0, -1)
+    ]
 
 
 def responder_predicados(

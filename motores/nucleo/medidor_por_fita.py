@@ -173,6 +173,7 @@ def julgar(
     predicados: Mapping[str, Any] | None = None,
     predicados_ate=None,
     terminou_ate=None,
+    grade_ate=None,
 ) -> Julgamento:
     """Reproduz a fita e diz se o desafio foi cumprido.
 
@@ -197,6 +198,11 @@ def julgar(
             neste prefixo?". Quando vem, o lance do ADVERSÁRIO que encerra a
             partida também é avaliado (ver a nota no laço). Sem ela, o
             comportamento é o de sempre: só os lances do jogador fecham a conta.
+        grade_ate: função `(quantos_lances) -> grade`, o tabuleiro no prefixo,
+            linhas de cima para baixo com `+1`, `-1` ou `0` (T146 da spec 010).
+            É o que a cláusula `figura` confere. ⚠️ Chegada com `figura` e sem
+            esta função é RECUSADA antes de qualquer lance: o jogo que não
+            entrega a grade não julga figura, e "não cumpriu" esconderia isso.
 
     ⚠️ **Mede-se lance a lance, e nao só no fim.** Duas razões, e as duas
     importam: (a) e assim que se descobre **em que lance** o objetivo caiu, que e
@@ -206,6 +212,19 @@ def julgar(
     que nao.
     """
     limite = prefixo_da_janela(fita, chegada, jogador=jogador)
+
+    # ── O jogo responde a tudo o que a chegada pergunta? ────────────────────
+    # Vem antes da fita: e defeito do DESAFIO (publicado num jogo que nao tem
+    # grade), e a fita de quem jogou nao tem culpa dele. Sem esta pergunta aqui,
+    # uma fita sem lance nenhum dentro da janela sairia "nao cumpriu" calada.
+    if chegada.figuras and grade_ate is None:
+        raise ChegadaInvalida(
+            "a chegada tem `figura`, e este jogo nao entrega a grade do "
+            "tabuleiro. ⚠️ Figura so vale em jogo que entrega a grade."
+        )
+    # A grade so e montada quando alguma clausula a consulta: os outros tipos
+    # nao pagam a reconstrucao do tabuleiro a cada lance.
+    precisa_da_grade = bool(chegada.figuras)
 
     # ── A fita e reproduzível? ──────────────────────────────────────────────
     # A pergunta vem primeiro, e sobre a fita INTEIRA: um lance ilegal depois do
@@ -243,8 +262,9 @@ def julgar(
         respostas = dict(predicados or {})
         if predicados_ate is not None:
             respostas.update(predicados_ate(quantos))
+        grade = grade_ate(quantos) if precisa_da_grade else None
         try:
-            if avaliar(chegada, medidas, respostas):
+            if avaliar(chegada, medidas, respostas, grade=grade, jogador=jogador):
                 lance_que_cumpriu = quantos
                 feitos_na_janela = medidas
                 break

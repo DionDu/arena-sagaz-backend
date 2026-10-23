@@ -42,12 +42,43 @@ exatamente o que nao pode viajar como dado.
 ⚠️ **Os tres vocabularios sao fechados**, e um valor fora deles e recusado com
 `ChegadaInvalida`. ⛔ Nunca "ignore o que nao entender": um comparador
 desconhecido tratado como `maior_ou_igual` julgaria errado em silencio.
+
+═══════════════════════════════════════════════════════════════════════════
+A CLAUSULA `figura` (T146 da spec 010, `docs/DECISOES-do-dono.md` §8zzzr item 10)
+═══════════════════════════════════════════════════════════════════════════
+
+    { "tipo": "figura", "desenho": [".X.", "XOX", ".X."], "espelhar": false }
+
+Le-se: *existe um lugar do tabuleiro onde este desenho cabe inteiro, casa por
+casa?* O `desenho` e uma lista de linhas do tabuleiro, **de cima para baixo**, e
+cada letra de uma linha e uma coluna, da esquerda para a direita:
+
+    X  uma peca DA PESSOA          _  a casa VAZIA
+    O  uma peca DO ADVERSARIO      .  qualquer coisa: a casa nao e da figura
+
+A figura pode estar em qualquer coluna e qualquer altura (translacao), e nao
+gira: a gravidade fica para baixo. `espelhar: true` aceita tambem o espelho da
+esquerda para a direita (nas letras nao, porque o "z" espelhado e um "s").
+
+⚠️ **Continua sendo DADO, e nao codigo**: quatro simbolos numa grade, sem
+expressao, sem `OU`, sem aritmetica. E isso que deixa publicar figura nova sem
+versao nova do aplicativo, como o resto do Bloco Y.
+
+⚠️ **Quem entrega a grade e o JOGO** (o `juiz.py`, que conhece os jogos), como
+`(linhas de cima para baixo) x (colunas da esquerda para a direita)`, com `+1`,
+`-1` ou `0` em cada casa. Jogo que nao entrega grade nao julga figura: a chegada
+e recusada, e nao "nao cumpriu" (ver `avaliar` e o `julgar` do medidor).
+
+⚠️ **O que este arquivo NAO confere** e a figura caber no tabuleiro de um jogo,
+ficar de pe com a gravidade, ou nao ser uma linha vencedora: isso e do jogo, e
+mora no catalogo de figuras do job (T147). Uma figura maior que o tabuleiro aqui
+simplesmente nunca aparece.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, ClassVar, Mapping, Sequence
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Os tres vocabularios fechados
@@ -79,7 +110,18 @@ COMPARADORES = frozenset(
 #: `medida`    — compara uma chave do catalogo de feitos com um numero
 #: `predicado` — uma pergunta de sim ou nao sobre a posicao, respondida por uma
 #:               funcao **nomeada e compilada** dentro do aplicativo e do job
-TIPOS_DE_CLAUSULA = frozenset({"medida", "predicado"})
+#: `figura`    — um desenho que precisa aparecer no tabuleiro (ver o cabecalho);
+#:               a unica sem `chave`, `comparador` e `valor`
+TIPOS_DE_CLAUSULA = frozenset({"medida", "predicado", "figura"})
+
+#: Os quatro simbolos do `desenho` de uma figura: peca da pessoa, peca do
+#: adversario, casa vazia, e "a casa nao faz parte da figura".
+SIMBOLOS_DA_FIGURA = frozenset({"X", "O", "_", "."})
+
+#: Os campos que uma clausula `figura` tem. ⚠️ Nenhum outro: um `comparador`
+#: esquecido nela seria um numero que ninguem le (o mesmo caso do `n` na janela
+#: `partida`).
+CAMPOS_DA_FIGURA = frozenset({"tipo", "desenho", "espelhar"})
 
 #: A versao de formato que este avaliador entende.
 #:
@@ -157,11 +199,19 @@ class Clausula:
 
     @classmethod
     def de_dado(cls, dado: Mapping[str, Any]) -> "Clausula":
-        """Le e valida uma clausula vinda do JSON."""
+        """Le e valida uma clausula de `medida` ou de `predicado` vinda do JSON.
+
+        ⚠️ A `figura` tem forma propria ([ClausulaDeFigura]); quem le uma
+        clausula sem saber o tipo usa [ler_clausula].
+        """
         tipo = dado.get("tipo")
         if tipo not in TIPOS_DE_CLAUSULA:
             raise ChegadaInvalida(
-                f"clausula de tipo {tipo!r}; os dois sao: {sorted(TIPOS_DE_CLAUSULA)}"
+                f"clausula de tipo {tipo!r}; os tres sao: {sorted(TIPOS_DE_CLAUSULA)}"
+            )
+        if tipo == "figura":
+            raise ChegadaInvalida(
+                "a clausula `figura` tem forma propria: leia com `ler_clausula`"
             )
         comparador = dado.get("comparador")
         if comparador not in COMPARADORES:
@@ -194,6 +244,80 @@ class Clausula:
 
 
 @dataclass(frozen=True, slots=True)
+class ClausulaDeFigura:
+    """A clausula `figura`: um desenho que precisa aparecer no tabuleiro.
+
+    Atributos:
+        desenho: as linhas, de cima para baixo, com os quatro
+            [SIMBOLOS_DA_FIGURA]. Todas do mesmo tamanho, e pelo menos um `X`.
+        espelhar: se o espelho da esquerda para a direita tambem vale.
+    """
+
+    #: `ClassVar` diz ao `dataclass` que isto e da CLASSE, e nao um campo: toda
+    #: clausula de figura tem o mesmo tipo, e quem filtra por `c.tipo` (como
+    #: `chaves_de_medida`) continua funcionando sem saber que ela existe.
+    tipo: ClassVar[str] = "figura"
+
+    desenho: tuple[str, ...]
+    espelhar: bool
+
+    @classmethod
+    def de_dado(cls, dado: Mapping[str, Any]) -> "ClausulaDeFigura":
+        """Le e valida uma clausula `figura` vinda do JSON."""
+        sobrando = set(dado) - CAMPOS_DA_FIGURA
+        if sobrando:
+            raise ChegadaInvalida(
+                f"a clausula `figura` nao aceita {sorted(sobrando)}; os campos dela "
+                f"sao {sorted(CAMPOS_DA_FIGURA)}"
+            )
+
+        desenho = dado.get("desenho")
+        # Um texto solto tambem e uma `Sequence` em Python; aqui ele seria lido
+        # letra a letra, como se cada letra fosse uma linha.
+        if not isinstance(desenho, (list, tuple)) or not desenho:
+            raise ChegadaInvalida(
+                f"a figura precisa de um `desenho`: uma lista de linhas; veio {desenho!r}"
+            )
+        if not all(isinstance(linha, str) and linha for linha in desenho):
+            raise ChegadaInvalida(f"toda linha do desenho e um texto nao vazio: {desenho!r}")
+        if len({len(linha) for linha in desenho}) != 1:
+            # Linhas de tamanhos diferentes nao dizem em que coluna cada casa
+            # fica: a figura seria lida de um jeito aqui e de outro no app.
+            raise ChegadaInvalida(f"as linhas do desenho tem tamanhos diferentes: {desenho!r}")
+        estranhos = set("".join(desenho)) - SIMBOLOS_DA_FIGURA
+        if estranhos:
+            raise ChegadaInvalida(
+                f"simbolos fora do desenho: {sorted(estranhos)}; os quatro sao "
+                f"{sorted(SIMBOLOS_DA_FIGURA)}"
+            )
+        if "X" not in "".join(desenho):
+            # Sem peca da pessoa, nada do que ela joga conta para a figura.
+            raise ChegadaInvalida(f"a figura nao tem nenhuma peca da pessoa (`X`): {desenho!r}")
+
+        espelhar = dado.get("espelhar")
+        # `isinstance(1, bool)` e falso (e `isinstance(True, int)` e verdadeiro):
+        # por isso a pergunta e sobre `bool`, e o `1` e recusado.
+        if not isinstance(espelhar, bool):
+            raise ChegadaInvalida(
+                f"a figura exige `espelhar` verdadeiro ou falso; veio {espelhar!r}"
+            )
+        return cls(desenho=tuple(desenho), espelhar=espelhar)
+
+
+def ler_clausula(dado: Mapping[str, Any]) -> "Clausula | ClausulaDeFigura":
+    """Le uma clausula de qualquer dos tres tipos.
+
+    E a porta de entrada de `LinhaDeChegada.de_dado`: a `figura` tem forma
+    propria, e as outras duas passam por [Clausula.de_dado].
+    """
+    if not isinstance(dado, Mapping):
+        raise ChegadaInvalida(f"clausula precisa ser um objeto; veio {dado!r}")
+    if dado.get("tipo") == "figura":
+        return ClausulaDeFigura.de_dado(dado)
+    return Clausula.de_dado(dado)
+
+
+@dataclass(frozen=True, slots=True)
 class LinhaDeChegada:
     """A conjuncao inteira, ja validada.
 
@@ -203,7 +327,7 @@ class LinhaDeChegada:
     """
 
     janela: Janela
-    clausulas: tuple[Clausula, ...]
+    clausulas: tuple[Clausula | ClausulaDeFigura, ...]
 
     @classmethod
     def de_dado(cls, dado: Mapping[str, Any]) -> "LinhaDeChegada":
@@ -231,7 +355,7 @@ class LinhaDeChegada:
 
         return cls(
             janela=Janela.de_dado(dado["janela"]),
-            clausulas=tuple(Clausula.de_dado(c) for c in clausulas),
+            clausulas=tuple(ler_clausula(c) for c in clausulas),
         )
 
     @property
@@ -248,6 +372,11 @@ class LinhaDeChegada:
     def predicados(self) -> tuple[str, ...]:
         """Os predicados que esta linha de chegada consulta."""
         return tuple(c.chave for c in self.clausulas if c.tipo == "predicado")
+
+    @property
+    def figuras(self) -> tuple[ClausulaDeFigura, ...]:
+        """As clausulas `figura`: havendo alguma, o julgamento precisa da grade."""
+        return tuple(c for c in self.clausulas if isinstance(c, ClausulaDeFigura))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -293,10 +422,70 @@ def comparar(medido: Any, comparador: str, alvo: Any) -> bool:
     return _COMPARACOES[comparador](medido, alvo)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# A figura no tabuleiro
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _casa_serve(simbolo: str, dono: int, jogador: int) -> bool:
+    """A casa do tabuleiro (com o [dono] `+1`, `-1` ou `0`) serve ao [simbolo]?"""
+    if simbolo == "X":
+        return dono == jogador
+    if simbolo == "O":
+        return dono == -jogador
+    if simbolo == "_":
+        return dono == 0
+    # `.`: a casa nao faz parte da figura, e qualquer coisa serve.
+    return True
+
+
+def figura_formada(
+    figura: ClausulaDeFigura,
+    grade: Sequence[Sequence[int]],
+    jogador: int,
+) -> bool:
+    """O desenho da [figura] aparece em algum lugar da [grade]?
+
+    Args:
+        figura: a clausula, ja validada.
+        grade: o tabuleiro, linhas de CIMA para BAIXO, colunas da esquerda para
+            a direita, com `+1`, `-1` ou `0` (vazia) em cada casa.
+        jogador: de quem e o desafio. `X` e dele; `O`, do outro.
+
+    A busca e a forca bruta: cada canto de cima e da esquerda possivel, e cada
+    casa do desenho conferida. No 7 x 6 sao no maximo 42 cantos, e o desenho tem
+    poucas casas - nao vale um algoritmo mais esperto.
+    """
+    desenhos = [figura.desenho]
+    if figura.espelhar:
+        # `linha[::-1]` e a linha de tras para frente: o espelho da esquerda
+        # para a direita. A ordem das linhas (de cima para baixo) nao muda.
+        desenhos.append(tuple(linha[::-1] for linha in figura.desenho))
+
+    altura = len(grade)
+    largura = len(grade[0]) if altura else 0
+    for desenho in desenhos:
+        alto, largo = len(desenho), len(desenho[0])
+        # `range(altura - alto + 1)`: os topos em que o desenho ainda cabe
+        # inteiro para baixo (vazio quando ele e mais alto que o tabuleiro).
+        for topo in range(altura - alto + 1):
+            for esquerda in range(largura - largo + 1):
+                if all(
+                    _casa_serve(simbolo, grade[topo + i][esquerda + j], jogador)
+                    for i, linha in enumerate(desenho)
+                    for j, simbolo in enumerate(linha)
+                ):
+                    return True
+    return False
+
+
 def avaliar(
     chegada: LinhaDeChegada,
     medidas: Mapping[str, Any],
     predicados: Mapping[str, Any] | None = None,
+    *,
+    grade: Sequence[Sequence[int]] | None = None,
+    jogador: int = 1,
 ) -> bool:
     """Todas as clausulas valem?
 
@@ -305,20 +494,35 @@ def avaliar(
         medidas: as chaves do catalogo medidas na janela — o que o medidor por
             fita produziu.
         predicados: as respostas dos predicados, quando houver.
+        grade: o tabuleiro de agora, para as clausulas `figura` (ver
+            [figura_formada]). So o jogo que tem grade a entrega.
+        jogador: de quem e o desafio; so a `figura` usa (o `X` e dele).
 
     Returns:
         `True` so quando **todas** as clausulas valem. E sempre uma conjuncao.
 
     Raises:
-        ChegadaInvalida: se uma chave consultada nao foi medida.
+        ChegadaInvalida: se uma chave consultada nao foi medida, ou se ha
+            `figura` e a grade nao veio.
 
     ⚠️ **Chave ausente e erro, nunca `False`.** Tratar "nao medi" como "nao
     cumpriu" faria um medidor com defeito parecer uma pessoa que nao conseguiu —
     e o defeito ficaria escondido atras de milhares de tentativas fracassadas.
+    A grade ausente e o mesmo caso.
     """
     respostas = dict(predicados or {})
 
     for clausula in chegada.clausulas:
+        if isinstance(clausula, ClausulaDeFigura):
+            if grade is None:
+                raise ChegadaInvalida(
+                    "a clausula `figura` precisa da grade do tabuleiro, e o jogo "
+                    "nao a entregou. ⚠️ Figura so vale em jogo que entrega a grade."
+                )
+            if not figura_formada(clausula, grade, jogador):
+                return False
+            continue
+
         if clausula.tipo == "medida":
             if clausula.chave not in medidas:
                 raise ChegadaInvalida(
