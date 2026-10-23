@@ -2390,9 +2390,28 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     # ⛔ `ic_chegada_encerra_partida=False`, como no Encoste: a figura formada
     # fecha o desafio, e a partida continua. Preparo 10, o do Encoste.
     #
-    # ⬜ Nao medida: a sondagem da distancia, o perseguidor e a regua sao a T148.
-    # ⚠️ Prioridade do dono: a figura que so ficar na escada contra os fracos
-    # sobe com `co_personagens` restrito, em vez de ficar fora.
+    # ✅ Triagem com regua em 9 dias (23/10/2026, historico do backend
+    # "2026-10-23 (4)"), criterio 6 de 9 dias na escada (o do Encoste). Dias na
+    # escada por folga 1 · 2 · 3 (✅ = passou):
+    #
+    #     t         5 · 6✅ · 7✅        losango   7✅ · 6✅ · 5
+    #     mais      5 · 4  · 4          c         6✅ · 5  · 6✅
+    #     z         4 · 4  · 6✅        i         3  · 6✅ · 6✅
+    #     igual     6✅ · 7✅ · 5        quadrado  3  · 7✅ · 7✅
+    #     l         4 · 5  · 4          v_grande  4  · 4  · 4
+    #     xis       5 · 5  · 7✅
+    #
+    # Ficam 14 variantes de 8 figuras. ⚠️ Duas com pouca sobra de candidatos no
+    # dia mais fraco: losango folga 1 (2 de 3) e i folga 2 (1 de 3, "no
+    # limite"); passaram pela escada, que e o criterio. O mais, o L e o V
+    # grande saem nas tres folgas; ⚠️ nao e o caso "so na escada contra os
+    # fracos" da §8zzzr item 7: nos 9 dias os dias fora se concentram com a
+    # Cacau e a Pita de ADVERSARIO, e nao com o Tex e o Magno (2 ou 3 dias por
+    # adversario, pouco para afirmar mais). As figuras continuam no catalogo
+    # (`figuras_quatro.FIGURAS_QUATRO`); sai so a variante do editorial.
+    #
+    # ⬜ As 14 vao aos 18 dias (os dias 10 a 18, `--do-dia=10`), criterio 12
+    # de 18, como o Encoste.
     "quatro_figura": tuple(
         Publicacao(
             parametros={
@@ -2407,8 +2426,23 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         )
-        for nome in figuras_quatro_mod.FIGURAS_QUATRO
-        for folga in figuras_quatro_mod.FOLGAS_DA_FIGURA
+        # Os pares (figura, folga) que passaram na triagem (a tabela acima).
+        for nome, folga in (
+            ("t", 2),
+            ("t", 3),
+            ("z", 3),
+            ("igual", 1),
+            ("igual", 2),
+            ("losango", 1),
+            ("losango", 2),
+            ("c", 1),
+            ("c", 3),
+            ("i", 2),
+            ("i", 3),
+            ("quadrado", 2),
+            ("quadrado", 3),
+            ("xis", 3),
+        )
     ),
 }
 

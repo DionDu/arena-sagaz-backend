@@ -10019,3 +10019,64 @@ com o piso ativo. Pode ser interrompida com Ctrl+C e retomada com o mesmo comand
 **6 de 9 dias na escada**; as que passarem vão aos 18 dias (12 de 18). ⚠️ Prioridade do dono
 (§8zzzr): figura que só ficar na escada contra os adversários fracos sobe com `co_personagens`
 restrito, em vez de ficar fora - a triagem diz qual.
+
+## 2026-10-23 (4) — "Forme a figura": a triagem de 9 dias e a grade dos 18 (T148 da spec 010)
+
+**Contexto.** A triagem da entrada anterior rodou (297 unidades, 6,9 h de CPU somadas;
+`medicoes/medir_variantes_do_editorial/relatorio_quatro_figura.txt`). Critério combinado:
+6 de 9 dias na escada.
+
+**O resultado**, dias na escada por folga 1 · 2 · 3:
+
+| figura | folga 1 | folga 2 | folga 3 |
+|---|---|---|---|
+| t | 5 | **6** | **7** |
+| mais | 5 | 4 | 4 |
+| z | 4 | 4 | **6** |
+| igual | **6** | **7** | 5 |
+| losango | **7** (apertado: 2 de 3) | **6** | 5 |
+| c | **6** | 5 | **6** |
+| i | 3 (sem desafio em 2 dias) | **6** (no limite: 1 de 3) | **6** (apertado) |
+| quadrado | 3 (no limite) | **7** | **7** |
+| l | 4 (sem desafio em 1 dia) | 5 | 4 |
+| v_grande | 4 | 4 | 4 |
+| xis | 5 | 5 | **7** |
+
+**Decisão.** As 14 em negrito (8 figuras) ficam no editorial, escritas como pares
+`(figura, folga)`, e vão aos 18 dias (os dias 10 a 18, critério 12 de 18, como o Encoste). As
+outras 19 saem do editorial; ⚠️ **as figuras continuam no catálogo** (`figuras_quatro.py`): a
+figura é dado, e sai só a variante. Cadeado novo:
+`test_as_variantes_da_figura_sao_as_14_da_triagem_e_do_catalogo` (um nome errado não daria
+erro, só um dia sem candidato). O `test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato`
+passa a ler 15, o teto da nova variante 0 (T, folga 2).
+
+**O mais, o L e o V grande não são o caso da §8zzzr item 7.** O relatório não imprime o
+adversário do dia, mas ele é o mascote que falta na linha da régua (quem enfrenta não se mede
+contra si). Separando por ele, os dias fora dessas três figuras se concentram com a **Cacau e a
+Pita de adversário** (de 1 a 3 dias na escada em 4 ou 5), e com o **Magno de adversário** ficam na
+escada em 1 ou 2 dias de 2. É o contrário do que o item 7 previa ("só na escada contra os
+fracos"), e com 2 ou 3 dias por adversário não dá para afirmar mais do que isso: a regra do item
+7 não se aplica, e restringir essas figuras ao Tex e ao Magno seria outra decisão (do dono). O
+tipo não falta na 1.4.0: são 8 figuras.
+
+**De passagem: o docstring de `_potencial_da_figura`** (`motores/quatro/perseguir_objetivo_quatro.py`)
+dizia que a pessoa "arma as próprias linhas e o adversário bloqueia a casa da figura". O certo,
+como na entrada anterior: o bloqueio só derruba a figura quando a casa que falta é a 4ª de uma
+linha que uma peça ANTIGA completa (a #14 do L), e a nota que prevê o bloqueio mediu o mesmo que
+sem ela. Ficou para agora porque mudar `motores/` troca o carimbo do diário; com `--do-dia=10`
+os dias 1 a 9 não são medidos de novo, e a poda do editorial já trocava o carimbo.
+
+**Alternativas consideradas.** Levar as 33 aos 18 dias (as 19 de fora precisariam de 7 a 9 dias
+na escada em 9 para chegar a 12, o que nenhuma triagem mostrou); restringir o mais, o L e o V
+grande à Cacau e à Pita já agora (os dados apontam o contrário).
+
+**Comando do dono (os dias 10 a 18; ~20 a 40 min, retomável):**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_figura --com-regua --dias=18 --do-dia=10
+```
+
+São 14 × 9 = 126 unidades (43% do tempo de CPU da triagem). Eu leio
+`medicoes/medir_variantes_do_editorial/relatorio_quatro_figura.txt` e somo aos 9 dias daqui:
+12 de 18 promove (T150).

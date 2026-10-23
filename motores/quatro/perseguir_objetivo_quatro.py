@@ -343,13 +343,20 @@ def _potencial_da_figura(
     """O quanto o [tabuleiro] aproxima a pessoa da figura, DEPOIS do bloqueio.
 
     [tabuleiro] e o de depois do lance da pessoa (a vez e do adversario). ⚠️
-    **O modo de falha que isto ataca** (o rastro do controle, 23/10/2026):
-    construindo a figura, a pessoa arma as proprias linhas de quatro, e o
-    adversario - que nao le o objetivo, mas bloqueia toda vitoria pronta, como
-    qualquer motor - poe a peca justamente na casa que a figura pedia. Entao,
+    **O modo de falha que isto ataca** (o rastro do controle, 23/10/2026): o
+    adversario nao le o objetivo, mas bloqueia toda vitoria pronta, como
+    qualquer motor. Isso so derruba a figura num caso estreito: quando a casa
+    que FALTA a figura e a 4a de uma linha que uma peca que JA estava no
+    tabuleiro completa (a posicao #14 do L: X nas linhas 1 a 3 da coluna 3, e
+    o unico L possivel pedia a casa (3, 4), a 4a da vertical). ⛔ O bloqueio na
+    ponta da propria figura nao a desfaz: a figura ja esta formada. Entao,
     quando o lance deixa a pessoa com UMA casa de vitoria, a nota e a do
     tabuleiro depois do bloqueio nela; com duas ou mais, o adversario nao
     bloqueia tudo, e a nota e a de agora.
+
+    ⚠️ Esta previsao mediu o mesmo que a soma sem ela (23 a 25 de 30 no
+    controle): ela nao prova que esse caso e a causa das falhas (historico do
+    backend "2026-10-23 (3)").
 
     ⚠️ Os `X` sao da PESSOA, passada explicita: neste tabuleiro a vez ja e do
     adversario.
