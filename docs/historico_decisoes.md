@@ -9573,9 +9573,9 @@ da `vitoria` na chegada.
 
 1. **A migração `0037_tipos_quatro_meio`** (aprovada pelo dono, §8zzzr item 9): 50
    `quatro_encoste` e 51 `quatro_figura` em `desafio.tb901_tipo_desafio`. A faixa 40-49 está
-   cheia. Migração própria, porque a 0035 já está aplicada no `des`. ⬜ **Aplicar no `des` antes do
-   push que levar um dos dois ao ar** (comando do dono; nenhum código em execução depende dela
-   hoje).
+   cheia. Migração própria, porque a 0035 já está aplicada no `des`. ✅ **Aplicada no `des` pelo
+   dono em 22/10/2026**, antes do push que levou o Encoste ao ar (ver a entrada (6)). ⛔ No `prd`
+   não.
 2. **A receita** (`RECEITAS_FORA_DO_AR["quatro_encoste"]`): janela `lances_do_jogador` M,
    cláusula `pecas_encostadas >= pecas`. O `pecas` é absoluto e sai da posição, pela conta que já
    existia (`parametros_efetivos`: `E + a_mais`), com o `a_mais` escrito como `M + k`.
@@ -9753,8 +9753,10 @@ da janela") e o juiz que só olha o fim da janela (pego pelo "cumpriu e depois p
 veredito e no lance). No app, os sete vetores passam no juiz em Dart
 (`vetores_verificacao_test.dart`), com a cópia regerada.
 
-⚠️ **A `0037_tipos_quatro_meio` NÃO está aplicada no `des`** (conferido em 22/10: revisão
-`0036_log_aparelho`, sem os tipos 50 e 51). O push deste commit publica o job com o Encoste no ar,
-e o job gravaria um desafio de tipo 50 que o banco recusa. **O push espera o dono aplicar a
-migração** (runbook: `identificar_banco.py` → `alembic upgrade head` →
-`conferir_migracao_desafio.py`).
+⚠️ **A `0037_tipos_quatro_meio` vem ANTES do push**: o push publica o job com o Encoste no ar, e
+sem ela o job gravaria um desafio de tipo 50 que o banco recusa. Em 22/10 o `des` estava na
+`0036`, e o commit da promoção esperou. ✅ **O dono aplicou no mesmo dia**: `identificar_banco.py`
+disse DES; `upgrade` de `0036_log_aparelho` para `0037_tipos_quatro_meio`; o
+`conferir_migracao_desafio.py` fechou OK (20 tabelas, 20 VIEWs, 20/20 com as colunas na ordem,
+`tb901_tipo_desafio` com 26 linhas). Conferido depois por `consultar_des.py`: 50 `quatro_encoste`
+e 51 `quatro_figura`. Só então o push. ⛔ No `prd` não.
