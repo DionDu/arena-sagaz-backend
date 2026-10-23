@@ -8842,6 +8842,455 @@
         "veredito": "dado_invalido",
         "feitos": {}
       }
+    },
+    {
+      "id": "quatro-figura-no-ar-z-cumpriu",
+      "de_vetor": "A chegada da receita, com o Z com o apoio do adversario, em ate 4 lances: a figura fecha no 4o lance da pessoa (lance 7 da fita).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "XX.",
+              ".XX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 2,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-no-ar-igual-cumpriu",
+      "de_vetor": "A chegada da receita, com o igual com o meio do adversario, em ate 4 lances: a figura fecha no 4o lance da pessoa (lance 7 da fita).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "XX",
+              "..",
+              "XX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 2,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-no-ar-i-cumpriu",
+      "de_vetor": "A chegada da receita, com o i com a peca do adversario no meio, em ate 3 lances: a figura fecha no 3o lance da pessoa (lance 5 da fita).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X",
+              "O",
+              "X",
+              "X"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_encostadas": 2,
+          "pecas_encostadas_do_adversario": 0,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 3,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-no-ar-quadrado-cumpriu",
+      "de_vetor": "A chegada da receita, com o quadrado no chao, em ate 4 lances: a figura fecha no 4o lance da pessoa (lance 7 da fita).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s7"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 4
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "XX",
+              "XX"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_encostadas": 4,
+          "pecas_encostadas_do_adversario": 2,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 2,
+          "ameacas_bloqueadas": 0
+        }
+      }
+    },
+    {
+      "id": "quatro-figura-no-ar-xis-cumpriu",
+      "de_vetor": "A chegada da receita, com o xis com os tres apoios do adversario, em ate 5 lances: a figura fecha no 5o lance da pessoa (lance 9 da fita).",
+      "co_jogo": "quatro",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "sequencia_lances",
+      "js_posicao_inicial": {
+        "versao": 1,
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "sequencia_lances": [],
+        "co_lances": "",
+        "vez_de": 1
+      },
+      "nu_tipo_desafio": 51,
+      "co_tipo_desafio": "quatro_figura",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "s4"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "s5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "s3"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "s4"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "s5"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "s3"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "s1"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "s5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "figura",
+            "desenho": [
+              "X.X",
+              ".X.",
+              "X.X"
+            ],
+            "espelhar": false
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_encostadas": 5,
+          "pecas_encostadas_do_adversario": 3,
+          "vitoria_diagonal": 0,
+          "linhas_no_lance_final": 0,
+          "maior_linha": 0,
+          "lances_na_coluna_central": 1,
+          "ameacas_bloqueadas": 0
+        }
+      }
     }
   ],
   "sementes": [

@@ -197,10 +197,10 @@ def test_posicao_reprovada_na_prova_nao_chega_ao_gabarito(monkeypatch, capsys) -
 
 def test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato(monkeypatch) -> None:
     """No "Forme a figura" (T147) o prazo sai da posicao, e o teto do gabarito e
-    apertado a ele: `2M - 1` meios-lances. A variante 0 (o T, folga 2, desde a
-    triagem de 23/10/2026) declara 15, o teto do maior prazo; uma posicao com a
-    figura a 2 casas tem M = 4, e o gabarito so pode olhar 7 meios-lances
-    (depois disso a janela fechou)."""
+    apertado a ele: `2M - 1` meios-lances. A variante 0 (o Z, folga 3, desde a
+    regua de 18 dias de 23/10/2026) declara 17, o teto do maior prazo; uma
+    posicao com a figura a 2 casas tem M = 5, e o gabarito so pode olhar 9
+    meios-lances (depois disso a janela fechou)."""
     prazos: list[int] = []
     tetos: list[int] = []
 
@@ -219,9 +219,9 @@ def test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato(monkeypatch) -> 
 
     assert _gerar("quatro_figura", tentativas_por_candidato=6) == []
     assert tetos and len(tetos) == len(prazos)
-    assert tetos == [min(15, 2 * m - 1) for m in prazos]
+    assert tetos == [min(17, 2 * m - 1) for m in prazos]
     # E o aperto aconteceu de fato em alguma posicao (senao o caso nao mede nada).
-    assert any(teto < 15 for teto in tetos), prazos
+    assert any(teto < 17 for teto in tetos), prazos
 
 
 def test_vitoria_no_primeiro_lance_recusa_antes_da_prova(monkeypatch, capsys) -> None:
@@ -384,12 +384,12 @@ def test_o_teto_da_figura_e_o_do_maior_prazo_e_cabe_acima_do_piso() -> None:
         assert publicacao.nu_minimo_de_meios_lances <= publicacao.nu_maximo_de_meios_lances
 
 
-def test_as_variantes_da_figura_sao_as_14_da_triagem_e_do_catalogo() -> None:
+def test_as_variantes_da_figura_sao_as_8_da_regua_e_do_catalogo() -> None:
     """Os pares (figura, folga) do editorial sao escritos a mao desde a triagem
     de 23/10/2026. ⚠️ Um nome errado ("quadrada") nao daria erro na geracao: a
     variante so nunca acharia lugar, e o dia sairia sem candidato. Por isso cada
     figura tem de existir no catalogo, cada folga tem de ser uma das medidas, e
-    nenhum par se repete. Os 14 por extenso: a lista da triagem."""
+    nenhum par se repete. Os 8 por extenso: os que fizeram 12 de 18 na regua."""
     from job import figuras_quatro as fq
 
     pares = [
@@ -403,9 +403,8 @@ def test_as_variantes_da_figura_sao_as_14_da_triagem_e_do_catalogo() -> None:
         assert folga in fq.FOLGAS_DA_FIGURA, (figura, folga)
     assert sorted(pares) == sorted(
         [
-            ("t", 2), ("t", 3), ("z", 3), ("igual", 1), ("igual", 2),
-            ("losango", 1), ("losango", 2), ("c", 1), ("c", 3), ("i", 2),
-            ("i", 3), ("quadrado", 2), ("quadrado", 3), ("xis", 3),
+            ("z", 3), ("igual", 1), ("igual", 2), ("i", 2), ("i", 3),
+            ("quadrado", 2), ("quadrado", 3), ("xis", 3),
         ]
     )
 

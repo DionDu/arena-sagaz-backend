@@ -2410,8 +2410,28 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     # adversario, pouco para afirmar mais). As figuras continuam no catalogo
     # (`figuras_quatro.FIGURAS_QUATRO`); sai so a variante do editorial.
     #
-    # ⬜ As 14 vao aos 18 dias (os dias 10 a 18, `--do-dia=10`), criterio 12
-    # de 18, como o Encoste.
+    # ✅ As 14 foram aos 18 dias (23/10/2026; os dias 10 a 18 com o medidor
+    # retomavel, historico "2026-10-23 (5)"), criterio 12 de 18 dias na escada.
+    # Triagem + dias 10 a 18:
+    #
+    #     z 3         6 + 6 = 12  ✅ no limite
+    #     igual 1     6 + 8 = 14  ✅ (um dia com 1 candidato so)
+    #     igual 2     7 + 8 = 15  ✅
+    #     i 2         6 + 8 = 14  ✅
+    #     i 3         6 + 8 = 14  ✅
+    #     quadrado 2  7 + 8 = 15  ✅
+    #     quadrado 3  7 + 6 = 13  ✅
+    #     xis 3       7 + 6 = 13  ✅
+    #     t 2 · t 3   10 · 11     ⛔ saem
+    #     losango 1 · 2   9 · 10  ⛔ saem
+    #     c 1 · c 3   10 · 10     ⛔ saem
+    #
+    # Ficam 8 variantes de 5 figuras. ⚠️ Nos 18 dias, com a CACAU de
+    # adversario, 12 das 14 ficaram na escada em 0 a 2 dias de 4 (o quadrado,
+    # em 4 e 3); com o Magno, 2 a 4 de 4. A §8zzzr item 7 previa o contrario.
+    #
+    # ⬜ Promover (T150) so DEPOIS da T149: o backend recusa por no ar um tipo
+    # cuja frase de feito o app nao declara (`test_medidas_do_feito.py`).
     "quatro_figura": tuple(
         Publicacao(
             parametros={
@@ -2426,17 +2446,11 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         )
-        # Os pares (figura, folga) que passaram na triagem (a tabela acima).
+        # Os pares (figura, folga) que passaram nos 18 dias (a tabela acima).
         for nome, folga in (
-            ("t", 2),
-            ("t", 3),
             ("z", 3),
             ("igual", 1),
             ("igual", 2),
-            ("losango", 1),
-            ("losango", 2),
-            ("c", 1),
-            ("c", 3),
             ("i", 2),
             ("i", 3),
             ("quadrado", 2),

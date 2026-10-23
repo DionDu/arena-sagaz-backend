@@ -69,7 +69,7 @@ from job.semente import (  # noqa: E402
     SEMENTE_MINIMA,
     semente_do_lance,
 )
-from job.tipos_de_desafio import RECEITAS  # noqa: E402
+from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR  # noqa: E402
 from motores.damas.motor_damas import EstadoDamas, MotorDamas  # noqa: E402
 from motores.damas import feitos_damas  # noqa: E402
 from motores.pontinhos import feitos_pontinhos  # noqa: E402
@@ -2091,11 +2091,11 @@ def vetores_do_quatro_encoste() -> list[dict[str, Any]]:
 # A CLAUSULA `figura` (T146 da spec 010, §8zzzr item 10)
 # ═══════════════════════════════════════════════════════════════════════════
 #
-# ⚠️ **O tipo 51 (`quatro_figura`) ainda nao tem receita** (ela e a T147): as
-# chegadas daqui sao escritas a mao, no formato do contrato, e o que os vetores
-# conferem e a REGRA da clausula nos dois juizes - a translacao, o espelho, as
-# duas cores, a casa vazia, de quem e o desafio. A figura que for ao ar vem do
-# catalogo da T147, e a regra nao muda com a figura.
+# ⚠️ **As chegadas daqui sao escritas a mao**, no formato do contrato (nasceram
+# na T146, antes da receita): o que estes vetores conferem e a REGRA da clausula
+# nos dois juizes - a translacao, o espelho, as duas cores, a casa vazia, de
+# quem e o desafio. As figuras que o job publica tem vetores proprios, montados
+# pela receita (`vetores_das_figuras_no_ar`, T150).
 #
 # Os desenhos, de cima para baixo (`X` da pessoa, `O` do adversario, `_` vazia,
 # `.` fora da figura):
@@ -2109,15 +2109,10 @@ def vetores_do_quatro_encoste() -> list[dict[str, Any]]:
 # fita forma quatro em linha, de nenhum dos lados.
 
 
-class _TipoDaFigura:
-    """O que `_vetor_do_quatro` le de uma receita: o numero e o nome do tipo.
-
-    ⚠️ Existe so ate a T147 trazer a receita de `quatro_figura`; o numero e o da
-    migracao `0037_tipos_quatro_meio`, conferido em `test_receitas_do_quatro.py`.
-    """
-
-    nu_tipo_desafio = 51
-    co_tipo_desafio = "quatro_figura"
+#: A receita do `quatro_figura`, esteja ela fora do ar (ate a T150) ou no ar.
+#: ⚠️ Lida dos DOIS dicionarios para a promocao nao precisar mexer aqui: o tipo
+#: mora de um lado so (`test_cada_tipo_do_quatro_mora_de_UM_lado_so`).
+_RECEITA_DA_FIGURA = {**RECEITAS_FORA_DO_AR, **RECEITAS}["quatro_figura"]
 
 
 def _chegada_da_figura(desenho: list[str], lances: int, *, espelhar: bool = False) -> dict[str, Any]:
@@ -2131,7 +2126,8 @@ def _chegada_da_figura(desenho: list[str], lances: int, *, espelhar: bool = Fals
 
 def vetores_da_figura() -> list[dict[str, Any]]:
     """Os vetores da clausula `figura`."""
-    tipo = _TipoDaFigura()
+    # O numero (51) e o nome do tipo saem da receita (`_RECEITA_DA_FIGURA`).
+    tipo = _RECEITA_DA_FIGURA
     l_ = ["X.", "X.", "XX"]
     losango = [".X.", "XOX", ".X."]
     u_qualquer = ["X.X", "XXX"]
@@ -2282,6 +2278,56 @@ def vetores_da_figura() -> list[dict[str, Any]]:
     ]
 
 
+# ── As figuras NO AR (T150, 23/10/2026) ─────────────────────────────────────
+#
+# ⚠️ Os vetores acima conferem a REGRA da clausula com desenhos escritos a mao.
+# Estes conferem as figuras que o job PUBLICA, com a chegada montada pela
+# propria receita (`_RECEITA_DA_FIGURA.montar`): se o catalogo mudar um
+# desenho, o vetor muda junto, e o juiz em Dart tem de concordar de novo.
+#
+# Uma fita por figura, do tabuleiro vazio, com a janela exata (o numero de
+# lances da pessoa): a figura fecha no ultimo lance. Nenhuma fita forma quatro
+# em linha. Coordenadas `(coluna, linha)`, linha 1 embaixo.
+
+#: As fitas das cinco figuras no ar, e quantos lances a pessoa joga em cada.
+_FITAS_DAS_FIGURAS_NO_AR: dict[str, tuple[list[str], int, str]] = {
+    # X em (4,1) (5,1) e (3,2) (4,2); o (3,1) e do adversario, e da o apoio.
+    "z": (["s4", "s3", "s5", "s1", "s4", "s1", "s3"], 4, "o Z com o apoio do adversario"),
+    # X nas linhas 1 e 3 das colunas 3 e 4; a linha 2 do meio e do adversario.
+    "igual": (["s3", "s3", "s4", "s4", "s3", "s1", "s4"], 4, "o igual com o meio do adversario"),
+    # A coluna 4, de baixo para cima: X, X, O (o adversario) e X - o desenho
+    # `X / O / X / X`, lido de cima.
+    "i": (["s4", "s1", "s4", "s4", "s4"], 3, "o i com a peca do adversario no meio"),
+    # X em (3,1) (4,1) (3,2) (4,2).
+    "quadrado": (["s3", "s1", "s4", "s1", "s3", "s7", "s4"], 4, "o quadrado no chao"),
+    # X nos cantos (3,1) (5,1) (3,3) (5,3) e no centro (4,2); os apoios (4,1),
+    # (3,2) e (5,2) sao do adversario.
+    "xis": (
+        ["s3", "s4", "s5", "s3", "s4", "s5", "s3", "s1", "s5"],
+        5,
+        "o xis com os tres apoios do adversario",
+    ),
+}
+
+
+def vetores_das_figuras_no_ar() -> list[dict[str, Any]]:
+    """Um vetor por figura publicada: cumpre no ultimo lance da janela exata."""
+    receita = _RECEITA_DA_FIGURA
+    return [
+        _vetor_do_quatro(
+            receita,
+            receita.montar({"figura": nome, "lances": lances}),
+            f"quatro-figura-no-ar-{nome}-cumpriu",
+            f"A chegada da receita, com {descricao}, em ate {lances} lances: a "
+            f"figura fecha no {lances}o lance da pessoa (lance {len(fita)} da fita).",
+            [],
+            fita,
+            "cumpriu",
+        )
+        for nome, (fita, lances, descricao) in _FITAS_DAS_FIGURAS_NO_AR.items()
+    ]
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # ⛔ AS SEMENTES POR LANCE — o segundo bloco do documento (26/09/2026)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2394,6 +2440,8 @@ def montar() -> dict[str, Any]:
         + vetores_do_quatro_encoste()
         # A clausula `figura` (T146), no fim.
         + vetores_da_figura()
+        # As figuras no ar (T150), montadas pela receita, no fim.
+        + vetores_das_figuras_no_ar()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

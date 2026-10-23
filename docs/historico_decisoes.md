@@ -10080,3 +10080,61 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 São 14 × 9 = 126 unidades (43% do tempo de CPU da triagem). Eu leio
 `medicoes/medir_variantes_do_editorial/relatorio_quatro_figura.txt` e somo aos 9 dias daqui:
 12 de 18 promove (T150).
+
+## 2026-10-23 (5) — "Forme a figura": a régua de 18 dias, e a promoção espera o app (T148/T150 da spec 010)
+
+**Contexto.** Os dias 10 a 18 das 14 variantes rodaram (o relatório sobrescreveu o da
+triagem; os 9 primeiros estão na entrada anterior). Critério: 12 de 18 dias na escada.
+
+**O resultado** (triagem + dias 10 a 18):
+
+| variante | dias 1-9 | dias 10-18 | 18 dias |
+|---|---|---|---|
+| z 3 | 6 | 6 | **12** (no limite) |
+| igual 1 | 6 | 8 | **14** (um dia com 1 candidato só) |
+| igual 2 | 7 | 8 | **15** |
+| i 2 | 6 | 8 | **14** |
+| i 3 | 6 | 8 | **14** |
+| quadrado 2 | 7 | 8 | **15** |
+| quadrado 3 | 7 | 6 | **13** |
+| xis 3 | 7 | 6 | **13** |
+| t 2 · t 3 | 6 · 7 | 4 · 4 | 10 · 11 |
+| losango 1 · 2 | 7 · 6 | 2 · 4 | 9 · 10 |
+| c 1 · c 3 | 6 · 6 | 4 · 4 | 10 · 10 |
+
+**Passam 8 variantes, de 5 figuras** (z, igual, i, quadrado, xis). O editorial fica com elas,
+ainda fora do ar. O T, o losango e o C saem, como o mais, o L e o V grande na triagem; as onze
+figuras continuam no catálogo.
+
+**Por adversário, nos 18 dias** (o adversário é o mascote que falta na linha da régua): com a
+**Cacau** de adversário, 12 das 14 ficaram na escada em 0 a 2 dias de 4 (o quadrado, em 4 e 3);
+com o **Magno**, em 2 a 4 de 4. É o mesmo sinal da triagem, e o contrário do que a §8zzzr item
+7 previa ("só na escada contra os fracos"). Excluir a Cacau do adversário (como o "sem o meio",
+§8zzzp) é decisão do dono, e está perguntada.
+
+**A promoção (T150) espera a T149, e não o contrário.** Ao mover a receita e o editorial para o
+ar, cinco cadeados quebraram. Quatro são contas escritas à mão, que a promoção atualiza
+(`test_cada_tipo_do_quatro_mora_de_UM_lado_so`, `test_o_alvo_quatro_mede_os_tipos_fora_do_ar`,
+o `figura` nos parâmetros de exemplo de `test_a_receita_monta_uma_chegada_VALIDA`, e os dois de
+`test_tipos_propostos.py`: o "quem não fez nada" precisa entregar a grade, e o "nenhuma proposta
+repete a chegada" lê `comparador`, que a cláusula `figura` não tem). O quinto é a dependência
+real: `test_medidas_do_feito.py` recusa tipo no ar cuja frase de feito o app não declara
+(`desafioObjetivoQuatroFigura` em `medidasDoFeitoPorObjetivo`, e o manifesto regerado). Isso é
+a T149. A mudança foi desfeita; antes da T149, um push publicaria no `des` um desafio que o app
+mostraria como "atualize o app".
+
+**O que entra agora:**
+
+- o editorial com as 8 variantes (fora do ar), e o cadeado dos pares passa a 8;
+- o `test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato` lê 17, o teto da nova
+  variante 0 (Z, folga 3). ⚠️ Nas posições desse caso nenhum prazo chega a 8 lances, então o
+  15 também passaria: o caso trava o aperto para `2M - 1`, e não o teto declarado;
+- **cinco vetores novos, `quatro-figura-no-ar-*`**, um por figura que vai ao ar, com a chegada
+  montada pela própria receita (os 13 da T146 conferem a regra com desenhos escritos à mão). Se
+  o catálogo mudar um desenho, o vetor muda junto. O gerador lê a receita dos dois dicionários
+  (`_RECEITA_DA_FIGURA`), e a promoção não precisa mexer nele; o substituto `_TipoDaFigura` saiu.
+  Os 93 vetores antigos saíram idênticos; o juiz em Dart concorda nos 98.
+
+**Alternativas consideradas.** Promover agora e deixar o push esperar a T149 (como o Encoste
+esperou a 0037): não serve, porque o commit teria a suíte vermelha; segurar o push não segura
+o teste.
