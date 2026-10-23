@@ -91,7 +91,7 @@ DISTANCIA_MAXIMA_DA_FIGURA = 6
 #: que vao a regua para comparar as familias, os dois CONTROLES (os faceis, que
 #: todos tem de cumprir com folga larga: se nao cumprem, quem falhou foi a
 #: medicao) e o TETO (se ninguem as forma, a figura e dificil demais para o 7 x 6).
-FAMILIAS = ("lote", "controle", "teto")
+FAMILIAS = ("lote", "controle", "teto", "segundo_lote")
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,8 +135,26 @@ def _figura(nome: str, desenho: list[str], familia: str, espelhar: bool = False)
 #:     X X          X            X X          X X          · · X · ·      X · X
 #:                  X
 #:
-#: ⚠️ O "T" tem 5 pecas (a barra de 3 e a haste de 2, §8zzzr item 2), e o "U" e o
-#: triangulo ficaram fora do primeiro lote (o triangulo, por decisao do dono).
+#:     ⊥            piramide     u            v            escada
+#:     · X ·        · X ·        X · X        X · X        · · X
+#:     · X ·        X X X        X X X        · X ·        · X X
+#:     X X X                                               X X ·
+#:
+#:     n (ponte)    i longo      = sanduiche
+#:     X X X        X            X X
+#:     X O X        O            O O
+#:                  X            X X
+#:                  X
+#:                  X
+#:
+#: ⚠️ O "T" tem 5 pecas (a barra de 3 e a haste de 2, §8zzzr item 2), e o
+#: triangulo saiu por decisao do dono. O "u" vale oco ou cheio (o miolo `.`
+#: aceita qualquer coisa, §8zzzr item 4).
+#:
+#: ⚠️ O SEGUNDO LOTE (23/10/2026) sao as oito figuras validas da proposta que o
+#: primeiro lote deixou para depois. O dono pediu as dezenove numa medicao so
+#: (DECISOES §8zzzs): o primeiro lote nao foi limite tecnico, foi escolha de
+#: planejamento.
 FIGURAS_QUATRO: dict[str, FiguraQuatro] = {
     f.nome: f
     for f in (
@@ -154,6 +172,15 @@ FIGURAS_QUATRO: dict[str, FiguraQuatro] = {
         # O teto.
         _figura("v_grande", ["X...X", ".X.X.", "..X.."], "teto"),
         _figura("xis", ["X.X", ".X.", "X.X"], "teto"),
+        # O segundo lote: as figuras validas da proposta ainda nao medidas.
+        _figura("t_invertido", [".X.", ".X.", "XXX"], "segundo_lote"),
+        _figura("piramide", [".X.", "XXX"], "segundo_lote"),
+        _figura("u", ["X.X", "XXX"], "segundo_lote"),
+        _figura("v", ["X.X", ".X."], "segundo_lote"),
+        _figura("escada", ["..X", ".XX", "XX."], "segundo_lote"),
+        _figura("n", ["XXX", "XOX"], "segundo_lote"),
+        _figura("i_longo", ["X", "O", "X", "X", "X"], "segundo_lote"),
+        _figura("igual_sanduiche", ["XX", "OO", "XX"], "segundo_lote"),
     )
 }
 

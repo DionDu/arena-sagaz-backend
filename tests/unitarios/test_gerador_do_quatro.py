@@ -197,9 +197,9 @@ def test_posicao_reprovada_na_prova_nao_chega_ao_gabarito(monkeypatch, capsys) -
 
 def test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato(monkeypatch) -> None:
     """No "Forme a figura" (T147) o prazo sai da posicao, e o teto do gabarito e
-    apertado a ele: `2M - 1` meios-lances. A variante 0 (o Z, folga 3, desde a
-    regua de 18 dias de 23/10/2026) declara 17, o teto do maior prazo; uma
-    posicao com a figura a 2 casas tem M = 5, e o gabarito so pode olhar 9
+    apertado a ele: `2M - 1` meios-lances. A variante 0 (o T, folga 1, com a
+    grade completa de 23/10/2026) declara 13, o teto do maior prazo; uma
+    posicao com a figura a 2 casas tem M = 3, e o gabarito so pode olhar 5
     meios-lances (depois disso a janela fechou)."""
     prazos: list[int] = []
     tetos: list[int] = []
@@ -219,9 +219,9 @@ def test_na_figura_o_teto_do_gabarito_e_o_prazo_DESTE_candidato(monkeypatch) -> 
 
     assert _gerar("quatro_figura", tentativas_por_candidato=6) == []
     assert tetos and len(tetos) == len(prazos)
-    assert tetos == [min(17, 2 * m - 1) for m in prazos]
+    assert tetos == [min(13, 2 * m - 1) for m in prazos]
     # E o aperto aconteceu de fato em alguma posicao (senao o caso nao mede nada).
-    assert any(teto < 17 for teto in tetos), prazos
+    assert any(teto < 13 for teto in tetos), prazos
 
 
 def test_vitoria_no_primeiro_lance_recusa_antes_da_prova(monkeypatch, capsys) -> None:
@@ -384,29 +384,21 @@ def test_o_teto_da_figura_e_o_do_maior_prazo_e_cabe_acima_do_piso() -> None:
         assert publicacao.nu_minimo_de_meios_lances <= publicacao.nu_maximo_de_meios_lances
 
 
-def test_as_variantes_da_figura_sao_as_8_da_regua_e_do_catalogo() -> None:
-    """Os pares (figura, folga) do editorial sao escritos a mao desde a triagem
-    de 23/10/2026. ⚠️ Um nome errado ("quadrada") nao daria erro na geracao: a
-    variante so nunca acharia lugar, e o dia sairia sem candidato. Por isso cada
-    figura tem de existir no catalogo, cada folga tem de ser uma das medidas, e
-    nenhum par se repete. Os 8 por extenso: os que fizeram 12 de 18 na regua."""
+def test_as_variantes_da_figura_sao_a_grade_completa_do_catalogo() -> None:
+    """Durante a medicao de 36 dias (DECISOES §8zzzs) o editorial mede TODA
+    figura do catalogo com cada folga: 19 x 3 = 57 variantes, sem repeticao.
+    ⚠️ Os numeros por extenso: uma figura que sumisse do catalogo, ou uma
+    folga a menos, deixaria de ser medida sem ninguem ver."""
     from job import figuras_quatro as fq
 
     pares = [
         (p.parametros[fq.CHAVE_FIGURA], p.parametros[fq.CHAVE_FOLGA_DA_FIGURA])
         for p in EDITORIAL_DO_QUATRO["quatro_figura"]
     ]
-    # Sem repeticao: um par duplicado pesaria em dobro no rodizio de variantes.
-    assert len(pares) == len(set(pares))
-    for figura, folga in pares:
-        assert figura in fq.FIGURAS_QUATRO, figura
-        assert folga in fq.FOLGAS_DA_FIGURA, (figura, folga)
-    assert sorted(pares) == sorted(
-        [
-            ("z", 3), ("igual", 1), ("igual", 2), ("i", 2), ("i", 3),
-            ("quadrado", 2), ("quadrado", 3), ("xis", 3),
-        ]
-    )
+    # Sem repeticao: um par duplicado seria medido (e pesaria) em dobro.
+    assert len(pares) == len(set(pares)) == 57
+    assert {figura for figura, _ in pares} == set(fq.FIGURAS_QUATRO)
+    assert {folga for _, folga in pares} == {1, 2, 3}
 
 
 def test_o_teto_do_encoste_e_a_JANELA_e_cabe_acima_do_piso() -> None:

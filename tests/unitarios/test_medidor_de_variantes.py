@@ -1000,3 +1000,86 @@ def test_o_piso_ZERO_chega_ao_gerador(monkeypatch):
         "quatro_encoste", sem_piso.parametros, botoes, date(2026, 10, 1), com_regua=False
     )
     assert pedidos[0]["minimo_de_meios_lances"] == 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O resultado POR ADVERSARIO (23/10/2026, DECISOES §8zzzs)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ As linhas abaixo sao copiadas do relatorio real do "Forme a figura" (dias 10
+# a 18): o adversario e o mascote que a regua NAO cita.
+
+#: Um dia na escada contra o Tex (a linha cita cacau, pita e magno).
+LINHA_CONTRA_O_TEX = (
+    "      2026-10-10: ✅ candidato 2 de 3 NA ESCADA — cacau 0/10 · pita 3/10 · "
+    "magno 9/10 → media 0.40"
+)
+#: Um dia fora da escada contra a Cacau: a linha tem duas partes, e a segunda
+#: cita pita, tex e magno.
+LINHA_CONTRA_A_CACAU = (
+    "      2026-10-12: ⛔ NENHUM dos 3 na escada — o job publicaria errando por 0.07\n"
+    "         pita 0.10 ✅ · tex 0.40 ⛔(-0.05 de [0.45,0.85]) · "
+    "magno 0.60 ⛔(-0.15 de [0.75,1.00])"
+)
+
+
+def test_os_mascotes_do_relatorio_sao_os_da_escada():
+    """`MASCOTES` e escrito a mao no script (a regua puxa os motores); tem de ser
+    a mesma lista, na mesma ordem, da escada que decide."""
+    from job import regua as regua_mod
+
+    assert MEDIDOR.MASCOTES == tuple(regua_mod.ESCADA_ALVO)
+
+
+def test_o_adversario_e_o_mascote_que_a_regua_nao_cita():
+    assert MEDIDOR.adversario_da_linha(LINHA_CONTRA_O_TEX) == "tex"
+    assert MEDIDOR.adversario_da_linha(LINHA_CONTRA_A_CACAU) == "cacau"
+    # Sem linha (dia sem candidato), ou uma linha que nao cita tres mascotes:
+    # nao da para dizer, e o dia fica fora da conta por adversario.
+    assert MEDIDOR.adversario_da_linha(None) is None
+    assert MEDIDOR.adversario_da_linha("      2026-10-03: ✅ linha falsa") is None
+
+
+def test_por_adversario_conta_dentro_e_total_e_pula_o_dia_sem_candidato():
+    resultados = [
+        {"na_escada": True, "regua": LINHA_CONTRA_O_TEX},
+        {"na_escada": False, "regua": LINHA_CONTRA_A_CACAU},
+        {"na_escada": True, "regua": LINHA_CONTRA_O_TEX.replace("2026-10-10", "2026-10-14")},
+        # O dia sem candidato: sem regua, fora da conta por adversario.
+        {"na_escada": None, "regua": None},
+    ]
+    assert MEDIDOR.por_adversario(resultados) == {
+        "cacau": (0, 1),
+        "pita": (0, 0),
+        "tex": (2, 2),
+        "magno": (0, 0),
+    }
+
+
+def test_o_relatorio_traz_o_por_adversario_e_o_QUADRO(monkeypatch, tmp_path):
+    """A 1a variante: dia 3 na escada contra o Tex, dia 4 fora contra a Cacau.
+    A 2a: os mesmos adversarios, fora nos dois dias."""
+
+    def medir_um_dia(co_tipo, parametros, botoes, dia, *, com_regua):
+        primeira = parametros["ameacas"] == 2
+        contra_o_tex = dia.day == 3
+        return {
+            "candidatos": 3,
+            "lances_da_solucao": [9, 9, 9],
+            "na_escada": primeira and contra_o_tex,
+            "regua": LINHA_CONTRA_O_TEX if contra_o_tex else LINHA_CONTRA_A_CACAU,
+        }
+
+    monkeypatch.setattr(MEDIDOR, "medir_um_dia", medir_um_dia)
+    _rodar(tmp_path)
+    relatorio = (tmp_path / "relatorio_quatro_bloquear.txt").read_text(encoding="utf-8")
+
+    assert "por adversario do dia: cacau 0/1 · pita 0/0 · tex 1/1 · magno 0/0" in relatorio
+    assert "por adversario do dia: cacau 0/1 · pita 0/0 · tex 0/1 · magno 0/0" in relatorio
+    assert "QUADRO: dias na escada por variante" in relatorio
+    # Sem a Cacau sobra o dia contra o Tex: 1 de 1 na 1a, 0 de 1 na 2a.
+    assert relatorio.count("sem a Cacau: 1/1") == 1, relatorio
+    assert relatorio.count("sem a Cacau: 0/1") == 1, relatorio
+    # 1 de 2 nao chega a 2 de 3: nenhuma linha do quadro leva o ✅.
+    quadro = relatorio[relatorio.index("QUADRO"):relatorio.index("COMO LER")]
+    assert "✅ {" not in quadro, quadro

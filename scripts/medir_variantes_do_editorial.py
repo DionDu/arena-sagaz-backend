@@ -1542,6 +1542,52 @@ def nome_do_relatorio(alvo: str) -> str:
     return f"relatorio_{re.sub(r'[^0-9A-Za-z_-]', '_', alvo)}.txt"
 
 
+#: Os quatro mascotes, na ordem da escada (`job/regua.py`, `ESCADA_ALVO`). ⚠️
+#: Escritos aqui, e nao importados: a regua e importada so dentro da medicao (ela
+#: puxa os motores), e o relatorio tem de sair sem eles. O cadeado
+#: `test_os_mascotes_do_relatorio_sao_os_da_escada` confere que sao os mesmos.
+MASCOTES = ("cacau", "pita", "tex", "magno")
+
+
+def adversario_da_linha(regua: str | None) -> str | None:
+    """O adversario do dia, lido da linha da regua; `None` se nao der para ler.
+
+    ⚠️ **A regua NAO mede o adversario do dia** (`regua.medir_candidato`: quem
+    enfrenta nao se mede contra si). Entao a linha cita tres mascotes, e o que
+    falta e o adversario. E isso que permite separar o resultado por adversario
+    sem gravar nada a mais no diario, inclusive nas linhas antigas.
+    """
+    if not regua:
+        return None
+    # `\b` e a fronteira de palavra da regex: "pita" nao casa dentro de outra
+    # palavra.
+    citados = [m for m in MASCOTES if re.search(rf"\b{m}\b", regua)]
+    faltam = [m for m in MASCOTES if m not in citados]
+    return faltam[0] if len(faltam) == 1 else None
+
+
+def por_adversario(resultados: Sequence[Mapping[str, Any]]) -> dict[str, tuple[int, int]]:
+    """Por adversario do dia: (dias na escada, dias medidos).
+
+    Dia sem candidato nao tem linha de regua, e por isso nao tem adversario:
+    fica fora desta conta (no total ele continua contando como fora).
+    """
+    contas = {m: [0, 0] for m in MASCOTES}
+    for resultado in resultados:
+        adversario = adversario_da_linha(resultado.get("regua"))
+        if adversario is None:
+            continue
+        contas[adversario][1] += 1
+        if resultado.get("na_escada") is True:
+            contas[adversario][0] += 1
+    return {m: (dentro, total) for m, (dentro, total) in contas.items()}
+
+
+def _texto_por_adversario(contas: Mapping[str, tuple[int, int]]) -> str:
+    """`cacau 1/4 · pita 3/5 · tex 3/5 · magno 4/4`."""
+    return " · ".join(f"{m} {dentro}/{total}" for m, (dentro, total) in contas.items())
+
+
 def relatorio_da_rodada(
     unidades: Sequence[Mapping[str, Any]],
     feitas: Mapping[str, Mapping[str, Any]],
@@ -1571,6 +1617,8 @@ def relatorio_da_rodada(
     for unidade in unidades:
         grupos.setdefault((unidade["co_tipo"], unidade["nu_candidata"]), []).append(unidade)
 
+    # Uma linha por variante para o QUADRO do fim: o total e o por adversario.
+    quadro: list[str] = []
     tipo_anterior = None
     for (co_tipo, _), do_grupo in grupos.items():
         if co_tipo != tipo_anterior:
@@ -1598,7 +1646,33 @@ def relatorio_da_rodada(
                 f"     NA ESCADA em {na_escada} de {len(resultados)} dias "
                 f"(dias {do_dia} a {nu_dias}; dia sem candidato conta como fora)"
             )
+            contas = por_adversario(resultados)
+            linhas.append(f"     por adversario do dia: {_texto_por_adversario(contas)}")
             linhas += [r["regua"] for r in resultados if r["regua"] is not None]
+            # ✅ quando passa no criterio de sempre, 2 de 3 dias (12 de 18, 24 de 36).
+            passou = "✅" if 3 * na_escada >= 2 * len(resultados) else "  "
+            # Sem a Cacau de adversario: o que sobraria se o tipo a excluisse
+            # (`co_personagens`, como o "sem o meio"). ⚠️ E uma leitura dos MESMOS
+            # dias, e nao uma medicao com a restricao: com ela, o rodizio de
+            # adversarios mudaria de dia.
+            sem_cacau = [contas[m] for m in MASCOTES if m != "cacau"]
+            dentro_sem_cacau = sum(d for d, _ in sem_cacau)
+            total_sem_cacau = sum(t for _, t in sem_cacau)
+            quadro.append(
+                f"  {passou} {json.dumps(dict(do_grupo[0]['parametros']), ensure_ascii=False):34}"
+                f" {na_escada:>3}/{len(resultados):<3}  {_texto_por_adversario(contas)}"
+                f"   sem a Cacau: {dentro_sem_cacau}/{total_sem_cacau}"
+            )
+
+    if quadro:
+        linhas += [
+            "",
+            "═" * 75,
+            "QUADRO: dias na escada por variante, e por adversario do dia",
+            "  (✅ = 2 de 3 dias ou mais; o adversario e o mascote que a regua nao mede)",
+            "═" * 75,
+            *quadro,
+        ]
 
     linhas += [
         "",

@@ -2430,6 +2430,14 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     # adversario, 12 das 14 ficaram na escada em 0 a 2 dias de 4 (o quadrado,
     # em 4 e 3); com o Magno, 2 a 4 de 4. A §8zzzr item 7 previa o contrario.
     #
+    # ⚠️ **A grade volta a ser a COMPLETA** (23/10/2026, DECISOES §8zzzs): o
+    # dono pediu as dezenove figuras validas da proposta (as onze acima e as oito
+    # do segundo lote) numa medicao so, com 36 dias, em vez de lote a lote. Os
+    # numeros acima ficam como o registro das rodadas de 9 e de 18 dias; a
+    # rodada de 36 dias os substitui, e o editorial volta a ser podado por ela
+    # (criterio: 2/3 dos dias na escada, 24 de 36), olhando tambem o resultado
+    # POR ADVERSARIO, que o relatorio passou a separar.
+    #
     # ⬜ Promover (T150) so DEPOIS da T149: o backend recusa por no ar um tipo
     # cuja frase de feito o app nao declara (`test_medidas_do_feito.py`).
     "quatro_figura": tuple(
@@ -2446,17 +2454,9 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         )
-        # Os pares (figura, folga) que passaram nos 18 dias (a tabela acima).
-        for nome, folga in (
-            ("z", 3),
-            ("igual", 1),
-            ("igual", 2),
-            ("i", 2),
-            ("i", 3),
-            ("quadrado", 2),
-            ("quadrado", 3),
-            ("xis", 3),
-        )
+        # A grade completa: toda figura do catalogo, com cada folga.
+        for nome in figuras_quatro_mod.FIGURAS_QUATRO
+        for folga in figuras_quatro_mod.FOLGAS_DA_FIGURA
     ),
 }
 

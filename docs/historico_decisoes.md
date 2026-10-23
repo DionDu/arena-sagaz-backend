@@ -10138,3 +10138,46 @@ mostraria como "atualize o app".
 **Alternativas consideradas.** Promover agora e deixar o push esperar a T149 (como o Encoste
 esperou a 0037): não serve, porque o commit teria a suíte vermelha; segurar o push não segura
 o teste.
+
+## 2026-10-23 (6) — "Forme a figura": as dezenove figuras numa rodada de 36 dias (spec 010)
+
+**Contexto.** As duas rodadas anteriores mediram só o primeiro lote da proposta (11 das 19
+figuras válidas). O dono decidiu medir tudo de uma vez, com uma janela maior, e refinar depois
+(`DECISOES-do-dono.md` §8zzzs).
+
+**Decisão.**
+
+1. **O segundo lote entra no catálogo** (`job/figuras_quatro.py`, família `segundo_lote`): ⊥
+   (`t_invertido`), `piramide`, `u` (oco ou cheio), `v`, `escada`, `n`, `i_longo` e
+   `igual_sanduiche`, com os desenhos da tabela da proposta. Os números da tabela (peças, apoios,
+   maior linha, lugares) entram por extenso em `test_figuras_quatro.py`; as oito passam nas
+   recusas e se formam numa partida de verdade. A sondagem (1.722 posições): todas acham lugar,
+   de 58% (o `v`, que tem 3 peças) a 93% (o ⊥) das posições na faixa de 2 a 6.
+2. **O editorial volta à grade completa**, ainda fora do ar: 19 figuras × folga 1 a 3 = 57
+   variantes (o cadeado passa a ser a grade, com 57 por extenso). Os resultados das rodadas de
+   9 e 18 dias ficam no comentário como registro.
+3. **O relatório separa por adversário.** A régua não mede o adversário do dia
+   (`regua.medir_candidato`), então a linha cita três mascotes e o que falta é ele
+   (`adversario_da_linha`). Cada variante ganha a linha "por adversario do dia", e o fim do
+   relatório, um QUADRO com o total, o por adversário e o que sobraria **sem a Cacau** - uma
+   leitura dos mesmos dias, e não uma medição com a restrição (com ela, o rodízio de
+   adversários mudaria de dia). `MASCOTES` é escrito no script e conferido contra
+   `regua.ESCADA_ALVO`.
+
+**Fumaça.** Um dia, sem régua: o `v` (folga 2) gerou 2 de 3 candidatos em 65 s, e o igual
+sanduíche, 3 de 3 em 30 s.
+
+**Alternativas consideradas.** Medir só o segundo lote, e depois a restrição sem a Cacau numa
+rodada própria (eram duas rodadas a mais para o dono); manter 18 dias (com quatro adversários
+em rodízio, 4 ou 5 dias por adversário, pouco para decidir a restrição).
+
+**Comando do dono (36 dias; ~5 a 7 h, retomável - pode rodar à noite e ser interrompido):**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_figura --com-regua --dias=36
+```
+
+São 57 × 36 = 2.052 unidades. ⚠️ O catálogo e o editorial mudaram, então o diário não aproveita
+as rodadas anteriores: tudo é medido com o código de agora. Eu leio
+`medicoes/medir_variantes_do_editorial/relatorio_quatro_figura.txt`, começando pelo QUADRO.
