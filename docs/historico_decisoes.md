@@ -10006,7 +10006,7 @@ conta); `test_solucionadores.py` (a figura ligada). **Mutações 11/11.**
 ⚠️ **Nada vai ao ar com este push**: o tipo continua em `RECEITAS_FORA_DO_AR`. O perseguidor
 ligado só é usado quando o gerador gera a figura, o que hoje só o medidor faz.
 
-**Comando do dono (a triagem de 9 dias; ~1h30 a 2h30, retomável):**
+**Comando do dono (a triagem de 9 dias; ~40 min a 1h30, retomável):**
 
 ```powershell
 cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
@@ -10014,7 +10014,8 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 ```
 
 As 33 variantes (onze figuras × folga 1 a 3) em 9 dias: 297 unidades, contra as 36 do Encoste
-(~15 min). Pode ser interrompida com Ctrl+C e retomada com o mesmo comando. Critério da triagem, como no Encoste:
+(~15 min); uma unidade sozinha (quadrado, folga 2, 1º dia) levou 45 s e gerou os 3 candidatos
+com o piso ativo. Pode ser interrompida com Ctrl+C e retomada com o mesmo comando. Critério da triagem, como no Encoste:
 **6 de 9 dias na escada**; as que passarem vão aos 18 dias (12 de 18). ⚠️ Prioridade do dono
 (§8zzzr): figura que só ficar na escada contra os adversários fracos sobe com `co_personagens`
 restrito, em vez de ficar fora - a triagem diz qual.
