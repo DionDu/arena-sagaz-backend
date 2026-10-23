@@ -2315,7 +2315,19 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     # fecha no instante em que o alvo e alcancado, e a partida continua (o
     # cartao "Desafio resolvido" da T129). Preparo 10, o do `quatro_encostadas`.
     #
-    # ⬜ Nao medida: a medicao pareada do perseguidor e a regua sao da T143.
+    # ✅ Triagem com regua em 9 dias (22/10/2026, historico do backend
+    # "2026-10-22 (4)"), criterio 6 de 9 dias na escada. As seis em FOLGA (3 de
+    # 3 todos os dias); na escada:
+    #
+    #     M5 k1  5/9  ⛔ sai (a Pita fica alta: o pareado ja dava 0,77)
+    #     M5 k2  8/9  ✅
+    #     M6 k1  6/9  ✅
+    #     M6 k2  6/9  ✅
+    #     M7 k1  6/9  ✅
+    #     M7 k2  5/9  ⛔ sai
+    #
+    # ⬜ As quatro que ficaram vao aos 18 dias (12 de 18; DECISOES §8zzzr item
+    # 12), medindo so os dias 10 a 18 - os 1 a 9 sao os de cima.
     "quatro_encoste": tuple(
         Publicacao(
             parametros={"lances": lances, CHAVE_A_MAIS_ENCOSTADAS: lances + juntar},
@@ -2325,8 +2337,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             medidas=_medidas_do_quatro("pecas_encostadas"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
         )
-        for lances in (5, 6, 7)
-        for juntar in (1, 2)
+        # Os pares (M, k) que passaram na triagem; (5, 1) e (7, 2) sairam.
+        for lances, juntar in ((5, 2), (6, 1), (6, 2), (7, 1))
     ),
 }
 

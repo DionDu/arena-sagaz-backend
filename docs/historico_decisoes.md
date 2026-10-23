@@ -9632,3 +9632,77 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 Nove dias, e não dezoito: as seis variantes em 18 dias passariam de 25 minutos, e o medidor não é
 retomável (§8zzzm). Critério da triagem: **6 de 9 dias na escada**. As que passarem vão aos 18 dias
 (12 de 18), com o editorial já sem as que caíram.
+
+### O resultado da triagem (o dono rodou, 22/10; 1.816 s)
+
+As seis em FOLGA (3 de 3 todos os dias). Dias na escada, critério 6 de 9:
+
+| variante | na escada | |
+|---|---|---|
+| M5 k1 | 5 de 9 | ⛔ sai (a Pita fica alta; o pareado já dava 0,77) |
+| M5 k2 | **8 de 9** | ✅ |
+| M6 k1 | 6 de 9 | ✅ |
+| M6 k2 | 6 de 9 | ✅ |
+| M7 k1 | 6 de 9 | ✅ |
+| M7 k2 | 5 de 9 | ⛔ sai |
+
+Os erros vão aos dois lados, quase todos por 0,02 a 0,05. O dono escolheu os 18 dias para as
+quatro (`DECISOES-do-dono.md` §8zzzr item 12), e recusou promover já o M5 k2 pelos 8 de 9.
+
+## 2026-10-22 (5) — O medidor de variantes fica retomável, em processos e com arquivo (T143 da spec 010)
+
+**Contexto.** Os 18 dias do "Encoste" (§8zzzr item 12) caem na regra da §8zzzm (medição que passa
+de ~20 minutos é retomável, usa todos os núcleos e grava o relatório num arquivo), e o
+`scripts/medir_variantes_do_editorial.py` não tinha nenhuma das três. A triagem de 9 dias levou
+30 minutos, com a régua em 8 threads e os dias em série.
+
+**Decisões.**
+
+1. **A rodada COM RÉGUA é a retomável; a sem régua continua serial e só na tela.** A sem régua leva
+   segundos ou poucos minutos, e a maratona e os casos antigos dependem dela como está.
+2. **A unidade é uma variante num dia** (`medir_um_dia`), e é a mesma função nos dois caminhos: o
+   serial chama em laço, o retomável chama uma por processo. Os botões viajam como `dict` de valores
+   simples (`botoes_da_candidata`), porque vão para outro processo (pickle) e para a chave do diário
+   (JSON).
+3. **O diário** `medicoes/medir_variantes_do_editorial/diario.jsonl`: uma linha por unidade, com
+   `flush` na hora. Rodar o mesmo comando pula o que já está nele; uma linha cortada por Ctrl+C é
+   pulada na leitura e a unidade volta a ser medida. A chave é o que a unidade mede (tipo,
+   parâmetros, botões, dia, régua) e **a impressão do código** (SHA-256 dos `.py` de `job/` e
+   `motores/`): mudou o gerador, o editorial ou a régua, a linha antiga não vale mais. A ordem da
+   variante na grade fica fora da chave, para tirar uma variante não invalidar as outras.
+   ⚠️ A impressão não vê o executável compilado do motor Dart; se ele mudar sozinho, apague a pasta.
+4. **Processos** (`--processos=N`, padrão: os núcleos lógicos menos um). Dentro de cada processo a
+   régua roda em série (`DESAFIO_REGUA_PARALELA=1` no inicializador do pool): com a régua em 8
+   threads seriam 15 × 8 = 120 motores para 16 núcleos. Cada unidade roda numa thread que morre no
+   fim, e `liberar_de_threads_mortas` fecha o motor dela.
+5. **`--do-dia=N`**: mede só a partir do N-ésimo dia da mesma lista (`dias_da_rodada`). Com
+   `--dias=18 --do-dia=10`, os dias 10 a 18, que se somam aos 9 da triagem.
+6. **O relatório** `relatorio_<alvo>.txt` sai do diário inteiro e conta, por variante, **"NA ESCADA
+   em X de N dias"**, com o dia sem candidato contado como fora. O veredito vem da régua como
+   `bool` (`_regua_do_dia`), e não lido de volta do texto da linha.
+7. **A grade do "Encoste" no editorial ficou com as quatro** (M5 k2, M6 k1, M6 k2, M7 k1).
+
+**Testes.** `test_medidor_de_variantes.py` ganhou 14 casos (o `--do-dia` e o `--processos` com os
+inválidos; o corte dos dias na lista; os botões até o gerador, e as listas que voltam a tupla; o diário com uma linha por unidade;
+o retomar que não mede nada; o Ctrl+C que perde só a unidade em andamento e a linha cortada; a
+versão do código; a chave sem a ordem; a impressão; a régua em série no pool; o `principal` com
+régua indo ao retomável; o nome do relatório). **Mutações: 13 de 13 pegas.** Uma sobreviveu na
+primeira passada, e mostrou uma guarda dobrada: o filtro por versão nas linhas lidas repetia a
+versão que já está na chave. O filtro saiu, e a mutação passou a ser a da chave.
+
+**Fumaça** (as quatro variantes num dia, 4 processos): as quatro unidades em paralelo, com a régua "em 1 thread" dentro de cada
+processo; de 61 a 150 s por unidade (a de M5 k2 é a mais rápida: o primeiro candidato já cai na
+escada); 2,5 minutos no total; as quatro NA ESCADA no dia 1, como na triagem. Nenhum motor ficou
+vivo depois do fim. Com 36 unidades (4 variantes × 9 dias) em 15 processos são três levas: **~10 a
+15 minutos** (a régua em série divide os núcleos com mais processos, e cada unidade fica mais
+lenta que na fumaça).
+
+**Comando do dono:**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_encoste --com-regua --dias=18 --do-dia=10
+```
+
+Critério: **12 de 18 dias na escada**, somando os 9 da triagem aos 9 desta rodada (M5 k2 precisa
+de 4 de 9; M6 k1, M6 k2 e M7 k1, de 6 de 9).

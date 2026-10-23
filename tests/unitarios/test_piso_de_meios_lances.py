@@ -295,9 +295,12 @@ def test_o_MEDIDOR_passa_o_piso() -> None:
     from pathlib import Path
 
     fonte = Path("scripts/medir_variantes_do_editorial.py").read_text(encoding="utf-8")
-    assert "minimo_de_meios_lances=piso" in fonte
+    # ⚠️ Desde 22/10/2026 o piso viaja nos BOTOES da unidade (a rodada retomavel
+    # manda cada unidade a outro processo). A prova por comportamento, com o piso
+    # 0, esta em `test_medidor_de_variantes.py` (`test_o_piso_ZERO_chega_ao_gerador`).
+    assert 'minimo_de_meios_lances=botoes["piso"]' in fonte
     # ⛔ `or` seria errado: `0 or X` devolve X, e zero e um piso legitimo.
-    assert "publicacao.nu_minimo_de_meios_lances\n            if getattr(" in fonte
+    assert "publicacao.nu_minimo_de_meios_lances\n        if getattr(" in fonte
 
 
 # ═══════════════════════════════════════════════════════════════════════════

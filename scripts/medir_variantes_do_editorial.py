@@ -83,6 +83,35 @@ num molde nao serve para a fila.
 arquivo de saida fica vazio ate o fim.
 
 ═══════════════════════════════════════════════════════════════════════════
+⚠️ COM `--com-regua` A RODADA E RETOMAVEL, EM PROCESSOS, E GRAVA ARQUIVO
+═══════════════════════════════════════════════════════════════════════════
+
+Desde 22/10/2026 (`DECISOES-do-dono.md` §8zzzm e §8zzzr item 12): a rodada com
+regua passa de 20 minutos com facilidade, e ganhou as tres coisas da regra:
+
+- **diario** `medicoes/medir_variantes_do_editorial/diario.jsonl`, uma linha por
+  UNIDADE (uma variante num dia), gravada assim que a unidade acaba. Ctrl+C a
+  qualquer momento; rodar o MESMO comando pula o que ja esta no diario;
+- **processos**: uma unidade por processo, `--processos=N` (padrao: os nucleos
+  logicos menos um). Dentro de cada processo a regua roda em serie - senao seriam
+  15 processos x 8 threads, cada uma com o seu motor;
+- **relatorio** `relatorio_<alvo>.txt` na mesma pasta, reescrito no fim a partir
+  do diario inteiro, com o caminho impresso no comeco e no fim.
+
+⚠️ `--do-dia=N` mede so a partir do N-esimo dia (1 = o primeiro): com
+`--dias=18 --do-dia=10`, os dias 10 a 18, quando os 9 primeiros ja foram medidos
+por outra rodada. Os dias sao sempre os mesmos (`DIA_BASE`), entao o 10o dia
+daqui e o 10o de qualquer rodada de 18.
+
+⛔ **A linha do diario leva a impressao do codigo** (`impressao_do_codigo`, os
+`.py` de `job/` e `motores/`): mudou o gerador, o editorial ou a regua, as linhas
+antigas deixam de valer e a unidade e medida de novo - um diario que devolvesse
+o numero de antes da mudanca seria pior que nenhum.
+
+Sem `--com-regua` a rodada continua a de sempre: serial e so na tela (ela leva
+segundos ou poucos minutos).
+
+═══════════════════════════════════════════════════════════════════════════
 COMO LER O RESULTADO
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -97,16 +126,23 @@ numero — e a decisao fica registrada em `docs/historico_decisoes.md`.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import multiprocessing
+import os
+import re
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
 # ⚠️ Um script em `scripts/` nao e pacote: sem isto, `from job import ...` falha.
 # `parents[1]` sobe de `scripts/este_arquivo.py` para a raiz do backend.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+RAIZ = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(RAIZ))
 
 # ⛔ **O console do Windows fala cp1252, e este arquivo fala UTF-8.** Sem estas
 # duas linhas, o primeiro `═` do cabecalho derruba a medicao inteira com
@@ -119,6 +155,12 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 from job import editorial as editorial_mod  # noqa: E402
 from job import gerador as gerador_mod  # noqa: E402
 from job import tipos_de_desafio as tipos_de_desafio_mod  # noqa: E402
+from motores.nucleo import recursos_por_thread  # noqa: E402
+
+#: Onde a rodada retomavel grava o diario e o relatorio (§8zzzm). Fora do Git:
+#: `medicoes/` esta no `.gitignore`, porque e derivada - o que entra no Git e a
+#: decisao, no historico.
+PASTA_DAS_MEDICOES = RAIZ / "medicoes" / "medir_variantes_do_editorial"
 
 #: Quantos candidatos pedir por dia — o mesmo do job (`CANDIDATOS_POR_DIA`).
 #:
@@ -655,30 +697,18 @@ def so_as_de_botao_proprio(candidatas: Sequence["Candidata"]) -> list["Candidata
     ]
 
 
-def medir(
-    co_tipo: str,
-    variantes: Sequence["Candidata"],
-    *,
-    com_regua: bool = False,
-    nu_dias: int = DIAS_MEDIDOS,
-) -> float:
-    """Mede cada variante de um tipo e imprime o resultado, linha a linha.
+def _receita_e_publicacao(co_tipo: str):
+    """A receita, a publicacao de referencia e a receita em avaliacao de um tipo.
 
-    Args:
-        co_tipo: o tipo a medir.
-        variantes: as candidatas da tabela.
-        com_regua: tambem roda os tres mascotes no primeiro candidato de cada
-            dia. ⛔ **E a unica pergunta que decide o que vai ao ar** — ver
-            `BANDEIRA_COM_REGUA`.
-        nu_dias: em quantos dias medir (`PREFIXO_DOS_DIAS`). Os primeiros dias
-            sao sempre os mesmos: pedir 9 remede os 3 de sempre e mais 6.
+    Returns:
+        `(receita, publicacao, em_avaliacao)`. A publicacao e a de onde saem os
+        botoes que a candidata nao declara; `em_avaliacao` e `None` para o tipo
+        que ja esta no ar.
+
+    ⚠️ **Uma funcao so para os dois caminhos** (o serial e o retomavel): se cada
+    um decidisse a publicacao por conta propria, as duas rodadas poderiam medir
+    a mesma variante com botoes diferentes, sem erro nenhum.
     """
-    if not variantes:
-        return 0.0
-
-    # ⚠️ Devolvido para a previsao da rodada inteira, em `principal`.
-    comeco_do_tipo = time.time()
-
     # ⚠️ **Tipo em avaliacao nao tem editorial, e nao poderia ter:** o editorial
     # diz com que numeros o tipo VAI AO AR, e este ainda nao vai. Os botoes dele
     # sao os padroes, que e exatamente a pergunta que a medicao responde -
@@ -688,23 +718,200 @@ def medir(
         # ⚠️ **Tipo fora do ar COM editorial escrito** (o Quatro, T117): os
         # botoes que valem sao os de la - a variante 0, como no caminho
         # publicado -, porque e com eles que o tipo vai ao ar se passar.
-        receita = em_avaliacao
-        publicacao = editorial_mod.EDITORIAL_FORA_DO_AR[co_tipo][0]
-    elif em_avaliacao is not None:
-        receita = em_avaliacao
-        publicacao = editorial_mod.Publicacao(
+        return em_avaliacao, editorial_mod.EDITORIAL_FORA_DO_AR[co_tipo][0], em_avaliacao
+    if em_avaliacao is not None:
+        vazia = editorial_mod.Publicacao(
             parametros={},
             ic_chegada_encerra_partida=False,
             medidas=lambda p: [],
         )
-    else:
-        receita = gerador_mod.receita_de(co_tipo)
-        # ⚠️ Os dois botoes da geracao (preparo e teto) saem da variante **que
-        # esta no ar hoje**, e nao de numeros escritos aqui: medir com outros
-        # botoes daria uma taxa que descreve uma execucao que nao existe.
-        publicacao = editorial_mod.publicacao_de(co_tipo, 0)
+        return em_avaliacao, vazia, em_avaliacao
+    # ⚠️ Os dois botoes da geracao (preparo e teto) saem da variante **que
+    # esta no ar hoje**, e nao de numeros escritos aqui: medir com outros
+    # botoes daria uma taxa que descreve uma execucao que nao existe.
+    return gerador_mod.receita_de(co_tipo), editorial_mod.publicacao_de(co_tipo, 0), None
 
-    dias = _dias_do_jogo(receita.co_jogo, nu_dias)
+
+def botoes_da_candidata(candidata: "Candidata", publicacao) -> dict[str, Any]:
+    """Os botoes de geracao com que a candidata e medida, ja resolvidos.
+
+    ⚠️ **Um `dict` de valores simples (numero, lista, `None`), e nao objetos**:
+    ele viaja para outro processo (o `pickle` do `multiprocessing`) e entra na
+    chave do diario (o `json`). Uma tupla viraria lista no JSON e a chave de
+    ontem nao bateria com a de hoje; por isso as listas ja saem listas daqui.
+    """
+    # ⚠️ `None` herda o botao da publicacao no ar — que e o certo para toda
+    # candidata que so troca um numero da mesma tarefa.
+    preparo = candidata.nu_lances_de_preparo or publicacao.nu_lances_de_preparo
+    teto = candidata.nu_maximo_de_meios_lances or publicacao.nu_maximo_de_meios_lances
+    # ⚠️ `or` nao serve aqui: o piso legitimo pode ser 0 (desligado), e
+    # `0 or X` devolveria X. A pergunta e se a candidata DECLAROU um piso.
+    piso = (
+        publicacao.nu_minimo_de_meios_lances
+        if getattr(candidata, "nu_minimo_de_meios_lances", None) is None
+        else candidata.nu_minimo_de_meios_lances
+    )
+    # ⚠️ O acervo da candidata, e so dele: `None` quer dizer o da RECEITA,
+    # exatamente como no job (`Publicacao.moldes`). ⛔ **Nunca "herdar da
+    # publicacao no ar", como os outros botoes.** `publicacao` aqui e a VARIANTE
+    # 0 do tipo, e a variante 0 do `damas_capturar_multipla` tem acervo proprio:
+    # herdar dela fez a de TRES pecas ser medida em 30/09/2026 com os moldes da
+    # de DUAS - uma execucao que o job nao faz. `getattr`, e nao o campo direto:
+    # as candidatas em estudo de `EM_AVALIACAO` podem ser de outra forma.
+    moldes = getattr(candidata, "moldes", None)
+    # ⚠️ A mesma restricao de adversario da publicacao no ar: medir contra um
+    # adversario que o tipo nao publica descreveria outra execucao.
+    personagens = publicacao.co_personagens
+    return {
+        "preparo": preparo,
+        "teto": teto,
+        "piso": piso,
+        "moldes": None if moldes is None else list(moldes),
+        "personagens": None if personagens is None else list(personagens),
+    }
+
+
+def medir_um_dia(
+    co_tipo: str,
+    parametros: Mapping[str, Any],
+    botoes: Mapping[str, Any],
+    dia: date,
+    *,
+    com_regua: bool,
+) -> dict[str, Any]:
+    """Uma variante num dia: gera os candidatos e, com regua, mede-os.
+
+    ⚠️ **E a UNIDADE de trabalho dos dois caminhos.** O serial chama em laco; o
+    retomavel chama uma por processo e grava o resultado no diario. Um so lugar
+    que gera e mede e o que garante que as duas rodadas respondem a mesma
+    pergunta.
+
+    Returns:
+        `candidatos` (quantos sairam), `lances_da_solucao` (de cada um),
+        `na_escada` (`True`/`False` com regua e candidato; `None` sem regua ou
+        sem candidato) e `regua` (a linha do relatorio, ou `None`).
+    """
+    receita, _publicacao, em_avaliacao = _receita_e_publicacao(co_tipo)
+    # ⛔ **O tipo do dia tem de ser ESTE tipo.** `gerar_candidatos` reescolhe
+    # o tipo pela data, e num dia em que ele escolher o outro tipo do jogo a
+    # medicao estaria medindo o vizinho — com os parametros errados, e sem
+    # erro nenhum. `tipos_recentes` e o unico botao que forca a escolha:
+    # marcar os OUTROS como recentes deixa so este "fresco".
+    outros = [t for t in gerador_mod.tipos_do_jogo(receita.co_jogo) if t != co_tipo]
+    moldes = botoes["moldes"]
+    personagens = botoes["personagens"]
+    candidatos = gerador_mod.gerar_candidatos(
+        dia,
+        parametros=parametros,
+        quantos=QUANTOS_POR_DIA,
+        tipos_recentes=outros,
+        maximo_de_meios_lances=botoes["teto"],
+        # ⛔ **O mesmo piso da publicacao.** Medir sem ele diria que a
+        # variante gera com folga, e o job publicaria bem menos — que e
+        # a diferenca entre "gera" e "gera o que a gente quer".
+        minimo_de_meios_lances=botoes["piso"],
+        lances_de_preparo=botoes["preparo"],
+        # A lista volta a ser tupla: e a forma que o gerador e o job usam.
+        personagens_possiveis=None if personagens is None else tuple(personagens),
+        moldes=None if moldes is None else tuple(moldes),
+        # ⚠️ `None` para tudo o que ja esta no ar - e ai o gerador
+        # escolhe o tipo pelo dia e **exige o vetor**, como sempre.
+        receita_em_avaliacao=em_avaliacao,
+    )
+    resultado: dict[str, Any] = {
+        "candidatos": len(candidatos),
+        "lances_da_solucao": [c.nu_lances_solucao for c in candidatos],
+        "na_escada": None,
+        "regua": None,
+    }
+    # ⚠️ **A regua mede os candidatos do dia como o job faz** (o primeiro que
+    # cai na escada encerra o dia). Dia sem candidato fica `None`: na producao
+    # ele e um dia descoberto, e o relatorio o conta como fora da escada.
+    if com_regua and candidatos:
+        na_escada, linha = _regua_do_dia(candidatos, teto=botoes["teto"], dia=dia.isoformat())
+        resultado["na_escada"] = na_escada
+        resultado["regua"] = linha
+    return resultado
+
+
+def _linha_da_variante(
+    parametros: Mapping[str, Any],
+    por_dia: Sequence[int],
+    lances_da_solucao: Sequence[int],
+    segundos: float,
+    proprios: str,
+) -> str:
+    """A linha de uma variante no relatorio (o rotulo, os dias, a solucao)."""
+    dia_mais_fraco = min(por_dia) if por_dia else 0
+    media_da_solucao = (
+        sum(lances_da_solucao) / len(lances_da_solucao) if lances_da_solucao else 0.0
+    )
+    # ⚠️ **O DIA MAIS FRACO manda, e nao a media.** Uma variante com 3 num dia
+    # e 0 no outro publica dia descoberto a cada duas aparicoes, e a media de
+    # 1,5 esconderia isso.
+    selo, rotulo = _como_ler(dia_mais_fraco)
+    return (
+        f"  {selo} {rotulo:<12} {str(dict(parametros)):<32} "
+        f"no dia mais fraco: {dia_mais_fraco} de {QUANTOS_POR_DIA} · "
+        f"dias {list(por_dia)} · "
+        f"solucao {media_da_solucao:.1f} meios-lances · "
+        f"{segundos:.0f}s{proprios}"
+    )
+
+
+def _botoes_proprios(botoes: Mapping[str, Any], publicacao) -> str:
+    """Os botoes que DIFEREM da publicacao de referencia, para a linha.
+
+    ⚠️ Os botoes entram na linha **so quando diferem**: repeti-los em toda
+    linha esconderia justamente a que e diferente.
+    """
+    proprios = ""
+    if botoes["preparo"] != publicacao.nu_lances_de_preparo:
+        proprios += f" preparo={botoes['preparo']}"
+    if botoes["teto"] != publicacao.nu_maximo_de_meios_lances:
+        proprios += f" teto={botoes['teto']}"
+    return proprios
+
+
+def dias_da_rodada(co_jogo: str, nu_dias: int, do_dia: int = 1) -> list[date]:
+    """Os dias medidos: os `nu_dias` primeiros do jogo, a partir do `do_dia`-esimo.
+
+    ⚠️ **O corte e DEPOIS de escolher os dias, e nao um `DIA_BASE` deslocado.**
+    No Pontinhos e nas damas os dias pulam (sao os do rodizio); o 10o dia de uma
+    rodada de 18 so e o mesmo 10o de outra se as duas contarem da mesma lista.
+    """
+    return _dias_do_jogo(co_jogo, nu_dias)[do_dia - 1:]
+
+
+def medir(
+    co_tipo: str,
+    variantes: Sequence["Candidata"],
+    *,
+    com_regua: bool = False,
+    nu_dias: int = DIAS_MEDIDOS,
+    do_dia: int = 1,
+) -> float:
+    """Mede cada variante de um tipo em serie e imprime o resultado, linha a linha.
+
+    Args:
+        co_tipo: o tipo a medir.
+        variantes: as candidatas da tabela.
+        com_regua: tambem roda os tres mascotes nos candidatos de cada dia.
+            ⛔ **E a unica pergunta que decide o que vai ao ar** — ver
+            `BANDEIRA_COM_REGUA`. ⚠️ `principal` manda a rodada com regua para
+            `medir_retomavel`; aqui ela continua valendo para quem chama direto.
+        nu_dias: em quantos dias medir (`PREFIXO_DOS_DIAS`). Os primeiros dias
+            sao sempre os mesmos: pedir 9 remede os 3 de sempre e mais 6.
+        do_dia: o primeiro dia medido, contando de 1 (`PREFIXO_DO_PRIMEIRO_DIA`).
+    """
+    if not variantes:
+        return 0.0
+
+    # ⚠️ Devolvido para a previsao da rodada inteira, em `principal`.
+    comeco_do_tipo = time.time()
+
+    receita, publicacao, em_avaliacao = _receita_e_publicacao(co_tipo)
+    dias = dias_da_rodada(receita.co_jogo, nu_dias, do_dia)
 
     print()
     print("═" * 75)
@@ -721,23 +928,7 @@ def medir(
 
     for nu_candidata, candidata in enumerate(variantes, start=1):
         parametros = candidata.parametros
-        # ⚠️ `None` herda o botao da publicacao no ar — que e o certo para toda
-        # candidata que so troca um numero da mesma tarefa.
-        preparo = candidata.nu_lances_de_preparo or publicacao.nu_lances_de_preparo
-        teto = candidata.nu_maximo_de_meios_lances or publicacao.nu_maximo_de_meios_lances
-        # ⚠️ `or` nao serve aqui: o piso legitimo pode ser 0 (desligado), e
-        # `0 or X` devolveria X. A pergunta e se a candidata DECLAROU um piso.
-        piso = (
-            publicacao.nu_minimo_de_meios_lances
-            if getattr(candidata, "nu_minimo_de_meios_lances", None) is None
-            else candidata.nu_minimo_de_meios_lances
-        )
-        # ⛔ **O tipo do dia tem de ser ESTE tipo.** `gerar_candidatos` reescolhe
-        # o tipo pela data, e num dia em que ele escolher o outro tipo do jogo a
-        # medicao estaria medindo o vizinho — com os parametros errados, e sem
-        # erro nenhum. `tipos_recentes` e o unico botao que forca a escolha:
-        # marcar os OUTROS como recentes deixa so este "fresco".
-        outros = [t for t in gerador_mod.tipos_do_jogo(receita.co_jogo) if t != co_tipo]
+        botoes = botoes_da_candidata(candidata, publicacao)
 
         por_dia: list[int] = []
         lances_da_solucao: list[int] = []
@@ -753,44 +944,11 @@ def medir(
             flush=True,
         )
         for nu_dia, dia in enumerate(dias, start=1):
-            candidatos = gerador_mod.gerar_candidatos(
-                dia,
-                parametros=parametros,
-                quantos=QUANTOS_POR_DIA,
-                tipos_recentes=outros,
-                maximo_de_meios_lances=teto,
-                # ⛔ **O mesmo piso da publicacao.** Medir sem ele diria que a
-                # variante gera com folga, e o job publicaria bem menos — que e
-                # a diferenca entre "gera" e "gera o que a gente quer".
-                minimo_de_meios_lances=piso,
-                lances_de_preparo=preparo,
-                # ⚠️ A mesma restricao da publicacao no ar: medir contra um
-                # adversario que o tipo nao publica descreveria outra execucao.
-                personagens_possiveis=publicacao.co_personagens,
-                # ⚠️ O acervo da candidata, e so dele: `None` quer dizer o da
-                # RECEITA, exatamente como no job (`Publicacao.moldes`).
-                # ⛔ **Nunca "herdar da publicacao no ar", como os outros
-                # botoes.** `publicacao` aqui e a VARIANTE 0 do tipo, e a
-                # variante 0 do `damas_capturar_multipla` tem acervo proprio:
-                # herdar dela fez a de TRES pecas ser medida em 30/09/2026 com
-                # os moldes da de DUAS - uma execucao que o job nao faz.
-                # ⚠️ `getattr`, e nao o campo direto: as candidatas em estudo
-                # de `EM_AVALIACAO` podem ser de outra forma.
-                moldes=getattr(candidata, "moldes", None),
-                # ⚠️ `None` para tudo o que ja esta no ar - e ai o gerador
-                # escolhe o tipo pelo dia e **exige o vetor**, como sempre.
-                receita_em_avaliacao=em_avaliacao,
-            )
-            por_dia.append(len(candidatos))
-            lances_da_solucao.extend(c.nu_lances_solucao for c in candidatos)
-
-            # ⚠️ **So o PRIMEIRO candidato do dia**, que e o que o job olha
-            # primeiro. Medir os tres triplicaria o custo para responder a mesma
-            # pergunta: *"esta variante, nesta posicao, cai perto da banda?"*.
-            if com_regua and candidatos:
-                linhas_da_regua.append(
-                    _linha_da_regua(candidatos, teto=teto, dia=dia.isoformat())
-                )
+            resultado = medir_um_dia(co_tipo, parametros, botoes, dia, com_regua=com_regua)
+            por_dia.append(resultado["candidatos"])
+            lances_da_solucao.extend(resultado["lances_da_solucao"])
+            if resultado["regua"] is not None:
+                linhas_da_regua.append(resultado["regua"])
 
             # ⚠️ `flush=True` **nao e enfeite no Windows**: sem ele a linha fica
             # no buffer e a previsao so apareceria no fim — que e exatamente o
@@ -803,27 +961,14 @@ def medir(
                 flush=True,
             )
 
-        dia_mais_fraco = min(por_dia)
-        media_da_solucao = (
-            sum(lances_da_solucao) / len(lances_da_solucao) if lances_da_solucao else 0.0
-        )
-        # ⚠️ **O DIA MAIS FRACO manda, e nao a media.** Uma variante com 3 num dia
-        # e 0 no outro publica dia descoberto a cada duas aparicoes, e a media de
-        # 1,5 esconderia isso.
-        selo, rotulo = _como_ler(dia_mais_fraco)
-        # ⚠️ Os botoes entram na linha **so quando diferem** da publicacao no
-        # ar: repeti-los em toda linha esconderia justamente a que e diferente.
-        proprios = ""
-        if preparo != publicacao.nu_lances_de_preparo:
-            proprios += f" preparo={preparo}"
-        if teto != publicacao.nu_maximo_de_meios_lances:
-            proprios += f" teto={teto}"
         print(
-            f"  {selo} {rotulo:<12} {str(dict(parametros)):<32} "
-            f"no dia mais fraco: {dia_mais_fraco} de {QUANTOS_POR_DIA} · "
-            f"dias {por_dia} · "
-            f"solucao {media_da_solucao:.1f} meios-lances · "
-            f"{time.time() - inicio:.0f}s{proprios}"
+            _linha_da_variante(
+                parametros,
+                por_dia,
+                lances_da_solucao,
+                time.time() - inicio,
+                _botoes_proprios(botoes, publicacao),
+            )
         )
         # ⚠️ **Depois da linha da variante, e uma por dia.** Elas nao entram na
         # linha principal de proposito: a taxa de um dia nao resume os tres, e
@@ -1054,10 +1199,51 @@ def dias_pedidos(argumentos: Sequence[str]) -> int | None:
     if not pedidos:
         return DIAS_MEDIDOS
     texto = pedidos[-1][len(PREFIXO_DOS_DIAS):]
+    return _inteiro_positivo(texto)
+
+
+def _inteiro_positivo(texto: str) -> int | None:
+    """O texto como inteiro maior que zero, ou `None` se nao for um."""
     # `isdigit` recusa sinal, virgula e vazio; o `> 0` recusa o zero.
     if not texto.isdigit() or int(texto) <= 0:
         return None
     return int(texto)
+
+
+#: Mede a partir do N-esimo dia, e nao do primeiro: `--do-dia=10`.
+#:
+#: ⚠️ **Nasceu do "Encoste" do Quatro** (22/10/2026, `DECISOES-do-dono.md`
+#: §8zzzr item 12): a triagem de 9 dias ja tinha sido medida, e os 18 dias
+#: so precisavam dos dias 10 a 18. Remedir os nove primeiros custaria metade da
+#: rodada para reimprimir numeros que estao no historico.
+PREFIXO_DO_PRIMEIRO_DIA = "--do-dia="
+
+
+def primeiro_dia_pedido(argumentos: Sequence[str]) -> int | None:
+    """O primeiro dia pedido com `--do-dia=N` (contando de 1), 1 sem ele, `None` se invalido."""
+    pedidos = [a for a in argumentos if a.startswith(PREFIXO_DO_PRIMEIRO_DIA)]
+    if not pedidos:
+        return 1
+    return _inteiro_positivo(pedidos[-1][len(PREFIXO_DO_PRIMEIRO_DIA):])
+
+
+#: Quantos processos a rodada retomavel usa: `--processos=4`.
+#:
+#: ⚠️ Com `=`, como o `--dias=`: um `4` solto seria lido como o ALVO.
+PREFIXO_DOS_PROCESSOS = "--processos="
+
+
+def processos_padrao() -> int:
+    """Os nucleos logicos menos um (§8zzzm): sobra um para quem usa o computador."""
+    return max(1, (os.cpu_count() or 2) - 1)
+
+
+def processos_pedidos(argumentos: Sequence[str]) -> int | None:
+    """Os processos pedidos com `--processos=N`, o padrao sem ele, `None` se invalido."""
+    pedidos = [a for a in argumentos if a.startswith(PREFIXO_DOS_PROCESSOS)]
+    if not pedidos:
+        return processos_padrao()
+    return _inteiro_positivo(pedidos[-1][len(PREFIXO_DOS_PROCESSOS):])
 
 
 #: Quantas vezes cada mascote tenta, na medicao com regua.
@@ -1071,7 +1257,16 @@ EXECUCOES_DA_SONDA_DE_REGUA = 10
 
 
 def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
-    """Mede os candidatos do dia **como o job faz** e devolve a linha do relatorio.
+    """So a linha de `_regua_do_dia` (os casos antigos leem o texto)."""
+    return _regua_do_dia(candidatos, teto=teto, dia=dia)[1]
+
+
+def _regua_do_dia(candidatos: Sequence[Any], *, teto: int, dia) -> tuple[bool, str]:
+    """Mede os candidatos do dia **como o job faz**: o veredito e a linha do relatorio.
+
+    ⚠️ **O veredito sai daqui como `bool`, e nao lido de volta do texto** (22/10/2026,
+    rodada retomavel): o relatorio conta "na escada em X de N dias" a partir do
+    diario, e procurar um `✅` na linha faria um enfeite trocado mudar a conta.
 
     ⛔ **ATE 16/09/2026 ESTA FUNCAO MEDIA SO O PRIMEIRO CANDIDATO, e isso
     respondia a pergunta errada.** O job pede 3 e **escolhe**: percorre os
@@ -1099,8 +1294,9 @@ def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
     joga.
 
     Returns:
-        Uma linha por dia, dizendo **qual** candidato encaixou — ou, quando
-        nenhum encaixou, as taxas dos tres, que e o que aponta a causa.
+        `(na_escada, linha)`: se algum candidato caiu na escada, e a linha do
+        dia, dizendo **qual** candidato encaixou — ou, quando nenhum encaixou,
+        a escada do menos pior, que e o que aponta a causa.
     """
     from job import alvo_observado as alvo_mod
     from job import regua as regua_mod
@@ -1148,7 +1344,7 @@ def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
             # ⚠️ **Para aqui, como o job para.** Os candidatos seguintes nem sao
             # gerados na producao — medi-los daria um numero que nenhuma execucao
             # real produz.
-            return (
+            return True, (
                 f"      {dia}: ✅ candidato {ordem} de {len(candidatos)} "
                 f"NA ESCADA — {detalhe} → media {taxa:.2f}"
             )
@@ -1166,11 +1362,332 @@ def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
     # ⚠️ **So a escada do MENOS PIOR**, e nao as tres. E ele que o job publicaria,
     # e imprimir as outras duas enterraria a linha que importa no meio de ruido.
     _, escada_do_menos_pior = min(tentados, key=lambda par: par[0])
-    return (
+    return False, (
         f"      {dia}: ⛔ NENHUM dos {len(tentados)} na escada — o job publicaria "
         f"errando por {menor_erro:.2f}\n"
         f"         {escada_do_menos_pior}"
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A RODADA RETOMAVEL (com regua): diario, processos e relatorio em arquivo
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **A regra e do dono** (`DECISOES-do-dono.md` §8zzzm, 21/10/2026): medicao
+# que possa passar de ~20 minutos e interrompivel e retomavel, usa todos os
+# nucleos e grava o relatorio num arquivo. A rodada com regua deste script passa
+# disso com facilidade (a triagem do "Encoste" em 9 dias levou 30 minutos), e
+# entrou na regra quando o dono pediu os 18 dias (§8zzzr item 12).
+
+
+def impressao_do_codigo() -> str:
+    """Um resumo (SHA-256, 16 hexas) dos `.py` de `job/` e `motores/`.
+
+    ⛔ **Entra em toda linha do diario, e uma linha de outra impressao nao vale.**
+    O diario existe para nao medir de novo o que ja foi medido; mas se o gerador,
+    a prova, o editorial ou a regua mudaram, o numero antigo descreve outro
+    codigo - e um diario que o devolvesse calado faria o dono decidir em cima de
+    uma medicao que ninguem mais roda.
+
+    ⚠️ **O que ela NAO ve:** o executavel compilado do motor Dart (ele nao mora
+    em `motores/`). A troca do motor vem sempre com uma mudanca no `.py` que o
+    abre (a versao carimbada), mas se um dia vier sozinha, apague a pasta do
+    diario antes de medir.
+    """
+    resumo = hashlib.sha256()
+    for pasta in ("job", "motores"):
+        # `sorted` fixa a ordem: `rglob` devolve na ordem do sistema de arquivos,
+        # e a mesma arvore daria resumos diferentes em maquinas diferentes.
+        for arquivo in sorted((RAIZ / pasta).rglob("*.py")):
+            # O caminho entra junto do conteudo: renomear um arquivo muda o codigo.
+            resumo.update(arquivo.relative_to(RAIZ).as_posix().encode("utf-8"))
+            resumo.update(arquivo.read_bytes())
+    return resumo.hexdigest()[:16]
+
+
+def unidades_da_rodada(
+    por_tipo: Sequence[tuple[str, Sequence["Candidata"]]],
+    *,
+    nu_dias: int,
+    do_dia: int,
+    com_regua: bool,
+    versao: str,
+) -> list[dict[str, Any]]:
+    """As unidades de trabalho da rodada: cada variante em cada dia.
+
+    ⚠️ **A unidade e um `dict` de valores simples** (ver `botoes_da_candidata`):
+    ela vai para outro processo e vira a chave do diario.
+    """
+    unidades: list[dict[str, Any]] = []
+    for co_tipo, candidatas in por_tipo:
+        receita, publicacao, _ = _receita_e_publicacao(co_tipo)
+        dias = dias_da_rodada(receita.co_jogo, nu_dias, do_dia)
+        for nu_candidata, candidata in enumerate(candidatas):
+            botoes = botoes_da_candidata(candidata, publicacao)
+            for dia in dias:
+                unidades.append(
+                    {
+                        "co_tipo": co_tipo,
+                        # A ordem so serve para agrupar o relatorio; ela NAO entra
+                        # na chave (tirar uma variante da grade muda a ordem das
+                        # outras, e as medidas delas continuam valendo).
+                        "nu_candidata": nu_candidata,
+                        "parametros": dict(candidata.parametros),
+                        "botoes": botoes,
+                        "dia": dia.isoformat(),
+                        "com_regua": com_regua,
+                        "versao": versao,
+                    }
+                )
+    return unidades
+
+
+def chave_da_unidade(unidade: Mapping[str, Any]) -> str:
+    """A identidade da unidade no diario: o que ela mede, e com que codigo.
+
+    ⚠️ **Deterministica**: `sort_keys` fixa a ordem das chaves, e a semente sai
+    do dia - medir a mesma chave de novo daria as mesmas posicoes. E por isso
+    que "ja feito" pode ser comparacao exata de texto.
+    """
+    return json.dumps(
+        {k: unidade[k] for k in ("co_tipo", "parametros", "botoes", "dia", "com_regua", "versao")},
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+
+
+def ler_diario(diario: Path) -> list[dict[str, Any]]:
+    """As linhas ja gravadas (vazio na 1a execucao).
+
+    ⚠️ **Uma linha que nao e JSON e pulada, e nao derruba a leitura:** um Ctrl+C
+    no meio de um `write` pode deixar a ultima linha cortada. A unidade dela
+    simplesmente volta a ser medida.
+    """
+    if not diario.is_file():
+        return []
+    linhas: list[dict[str, Any]] = []
+    for texto in diario.read_text(encoding="utf-8").splitlines():
+        try:
+            linhas.append(json.loads(texto))
+        except json.JSONDecodeError:
+            continue
+    return linhas
+
+
+def _preparar_processo() -> None:
+    """Roda uma vez em cada processo do pool, antes da primeira unidade.
+
+    ⚠️ **A regua em SERIE dentro do processo.** Ela abre ate 8 threads por
+    candidato no Quatro e nas damas (`regua.trabalhadores_para`), cada uma com o
+    seu motor; com 15 processos seriam 120 motores disputando 16 nucleos. Um
+    processo por unidade ja ocupa a maquina.
+    """
+    from job import regua as regua_mod
+
+    os.environ[regua_mod.ENV_PARALELA] = "1"
+
+
+def _medir_unidade(unidade: Mapping[str, Any]) -> dict[str, Any]:
+    """Mede uma unidade e devolve a linha do diario (a unidade + o resultado).
+
+    ⚠️ **Numa thread propria que morre no fim**, como em
+    `diagnosticar_bloquear_quatro.py`: o motor Dart e um por THREAD, e com a
+    thread morta `liberar_de_threads_mortas` fecha o processo dele. Sem isso
+    cada processo do pool guardaria os seus motores ate o fim, e um Ctrl+C os
+    deixaria orfaos (memoria "pool fechado deixa os processos").
+    """
+    inicio = time.time()
+    with ThreadPoolExecutor(max_workers=1) as uma_thread:
+        resultado = uma_thread.submit(
+            medir_um_dia,
+            unidade["co_tipo"],
+            unidade["parametros"],
+            unidade["botoes"],
+            date.fromisoformat(unidade["dia"]),
+            com_regua=unidade["com_regua"],
+        ).result()
+    recursos_por_thread.liberar_de_threads_mortas()
+    return {
+        "chave": chave_da_unidade(unidade),
+        **unidade,
+        **resultado,
+        "segundos": round(time.time() - inicio, 1),
+    }
+
+
+def _resultados(faltam: Sequence[Mapping[str, Any]], processos: int) -> Iterator[dict[str, Any]]:
+    """As linhas do diario, na ordem em que as unidades terminam.
+
+    ⚠️ **Com um processo so, roda aqui mesmo, sem pool** - e a regua mantem as
+    threads dela. E o caminho dos testes, e o de quem quiser comparar com uma
+    rodada antiga sem paralelismo.
+    """
+    if processos <= 1:
+        for unidade in faltam:
+            yield _medir_unidade(unidade)
+        return
+    # `imap_unordered` entrega cada resultado assim que ele fica pronto, e nao na
+    # ordem do pedido: e o que deixa gravar no diario sem esperar a unidade mais
+    # lenta. O `with` termina os processos no fim - ou no Ctrl+C.
+    with multiprocessing.Pool(
+        min(processos, len(faltam)), initializer=_preparar_processo
+    ) as pool:
+        yield from pool.imap_unordered(_medir_unidade, faltam)
+
+
+def nome_do_relatorio(alvo: str) -> str:
+    """O nome do arquivo do relatorio daquele alvo (`no-ar:x` vira `no-ar_x`)."""
+    # Troca tudo o que nao e letra, numero, `-` ou `_` por `_`: o `:` do
+    # `no-ar:<tipo>` nao e aceito em nome de arquivo no Windows.
+    return f"relatorio_{re.sub(r'[^0-9A-Za-z_-]', '_', alvo)}.txt"
+
+
+def relatorio_da_rodada(
+    unidades: Sequence[Mapping[str, Any]],
+    feitas: Mapping[str, Mapping[str, Any]],
+    *,
+    alvo: str,
+    nu_dias: int,
+    do_dia: int,
+    ignoradas: int,
+) -> str:
+    """O relatorio da rodada, montado do DIARIO (inclusive o que veio de antes).
+
+    ⚠️ **"Na escada em X de N dias" e o numero que decide** (o criterio de
+    promocao e uma proporcao dele: 2 de 3, 6 de 9, 12 de 18). Dia sem candidato
+    conta como fora: na producao ele e um dia descoberto.
+    """
+    linhas: list[str] = [
+        f"medir_variantes_do_editorial · alvo {alvo} · dias {do_dia} a {nu_dias}",
+    ]
+    if ignoradas:
+        linhas.append(
+            f"⚠️ {ignoradas} linha(s) do diario sao de outra versao do codigo e "
+            "foram ignoradas (medidas de novo)."
+        )
+
+    # Agrupa as unidades por (tipo, variante), mantendo a ordem da grade.
+    grupos: dict[tuple[str, int], list[Mapping[str, Any]]] = {}
+    for unidade in unidades:
+        grupos.setdefault((unidade["co_tipo"], unidade["nu_candidata"]), []).append(unidade)
+
+    tipo_anterior = None
+    for (co_tipo, _), do_grupo in grupos.items():
+        if co_tipo != tipo_anterior:
+            receita, publicacao, em_avaliacao = _receita_e_publicacao(co_tipo)
+            selo_do_tipo = " ⚠️ EM AVALIACAO, NAO PUBLICAVEL" if em_avaliacao else ""
+            linhas += ["", "═" * 75, f"{co_tipo}  ({receita.co_jogo}){selo_do_tipo}", "═" * 75]
+            tipo_anterior = co_tipo
+        # Os dias em ordem de calendario: o diario os guarda na ordem em que
+        # terminaram, que com varios processos e qualquer uma.
+        resultados = sorted(
+            (feitas[chave_da_unidade(u)] for u in do_grupo), key=lambda r: r["dia"]
+        )
+        linhas.append(
+            _linha_da_variante(
+                do_grupo[0]["parametros"],
+                [r["candidatos"] for r in resultados],
+                [n for r in resultados for n in r["lances_da_solucao"]],
+                sum(r["segundos"] for r in resultados),
+                _botoes_proprios(do_grupo[0]["botoes"], publicacao),
+            )
+        )
+        if do_grupo[0]["com_regua"]:
+            na_escada = sum(1 for r in resultados if r["na_escada"] is True)
+            linhas.append(
+                f"     NA ESCADA em {na_escada} de {len(resultados)} dias "
+                f"(dias {do_dia} a {nu_dias}; dia sem candidato conta como fora)"
+            )
+            linhas += [r["regua"] for r in resultados if r["regua"] is not None]
+
+    linhas += [
+        "",
+        "COMO LER ESTE RELATORIO",
+        "  O job pede 3 candidatos por dia e publica UM: o primeiro que cai na",
+        "  escada dos mascotes. O numero que decide e o NA ESCADA (quantos dias),",
+        "  e o do DIA MAIS FRACO diz se sobra candidato para escolher.",
+        "",
+        "  ✅ FOLGA         3 de 3  sobra candidato; o job escolhe o mais bem calibrado",
+        "  ⚠️ APERTADO      2 de 3  ja publica, com menos escolha",
+        "  ⚠️ NO LIMITE     1 de 3  publica o unico que houver, calibrado ou nao",
+        "  ⛔ SEM DESAFIO   0 de 3  a fila fica com um dia vazio, e a pessoa ve na tela",
+    ]
+    return "\n".join(linhas) + "\n"
+
+
+def medir_retomavel(
+    por_tipo: Sequence[tuple[str, Sequence["Candidata"]]],
+    *,
+    alvo: str,
+    nu_dias: int,
+    do_dia: int,
+    com_regua: bool,
+    processos: int,
+    pasta: Path = PASTA_DAS_MEDICOES,
+) -> int:
+    """Mede o que falta no diario, em processos, e escreve o relatorio. Devolve 0.
+
+    ⚠️ **Rodar o mesmo comando de novo e o "retomar"**: as unidades ja no diario
+    (mesma chave, mesma impressao do codigo) sao puladas, e o relatorio sai do
+    diario inteiro - inclusive do que foi medido antes do Ctrl+C.
+    """
+    pasta.mkdir(parents=True, exist_ok=True)
+    diario = pasta / "diario.jsonl"
+    relatorio = pasta / nome_do_relatorio(alvo)
+    print(f"📄 diario:    {diario}")
+    print(f"📄 relatorio: {relatorio}")
+
+    versao = impressao_do_codigo()
+    unidades = unidades_da_rodada(
+        por_tipo, nu_dias=nu_dias, do_dia=do_dia, com_regua=com_regua, versao=versao
+    )
+    do_diario = ler_diario(diario)
+    # Um dicionario chave → linha: se a mesma unidade aparecer duas vezes (duas
+    # rodadas interrompidas no mesmo ponto), vale a ultima. ⚠️ A linha de outra
+    # versao do codigo fica no dicionario, mas nunca e achada: a versao faz parte
+    # da CHAVE (`chave_da_unidade`), e e ela, e so ela, que a invalida.
+    feitas = {linha["chave"]: linha for linha in do_diario}
+    # So para o aviso do relatorio.
+    ignoradas = sum(1 for linha in do_diario if linha.get("versao") != versao)
+    faltam = [u for u in unidades if chave_da_unidade(u) not in feitas]
+    print(
+        f"⏳ {len(unidades)} unidade(s) (variante x dia): {len(unidades) - len(faltam)} ja "
+        f"no diario, {len(faltam)} a medir em {min(processos, max(1, len(faltam)))} "
+        "processo(s). Ctrl+C a qualquer momento; o mesmo comando retoma.",
+        flush=True,
+    )
+
+    if faltam:
+        print("   ⚠️ a previsao aparece depois da primeira unidade medida", flush=True)
+        inicio = time.time()
+        with open(diario, "a", encoding="utf-8") as saida:
+            for feitas_agora, linha in enumerate(_resultados(faltam, processos), start=1):
+                # ⚠️ Gravada e descarregada NA HORA: e o que torna a rodada
+                # retomavel se a janela fechar no meio.
+                saida.write(json.dumps(linha, ensure_ascii=False) + "\n")
+                saida.flush()
+                feitas[linha["chave"]] = linha
+                # A previsao pela VAZAO (unidades por segundo da rodada inteira),
+                # e nao pelo tempo de uma unidade: com varios processos, cada
+                # uma leva o tempo dela, mas elas terminam juntas.
+                gasto = time.time() - inicio
+                restantes = len(faltam) - feitas_agora
+                print(
+                    f"   [{feitas_agora}/{len(faltam)}] {linha['co_tipo']} "
+                    f"{linha['parametros']} {linha['dia']} · {linha['segundos']:.0f}s · "
+                    f"{quanto_falta(gasto)} gastos · faltam "
+                    f"~{quanto_falta(gasto / feitas_agora * restantes)}",
+                    flush=True,
+                )
+
+    texto = relatorio_da_rodada(
+        unidades, feitas, alvo=alvo, nu_dias=nu_dias, do_dia=do_dia, ignoradas=ignoradas
+    )
+    relatorio.write_text(texto, encoding="utf-8")
+    print()
+    print(texto)
+    print(f"📄 relatorio gravado em {relatorio}")
+    return 0
 
 
 def principal(argumentos: Sequence[str]) -> int:
@@ -1180,6 +1697,19 @@ def principal(argumentos: Sequence[str]) -> int:
     nu_dias = dias_pedidos(argumentos)
     if nu_dias is None:
         print(f"⛔ {PREFIXO_DOS_DIAS}N pede um inteiro maior que zero (ex.: --dias=9).")
+        return 2
+    do_dia = primeiro_dia_pedido(argumentos)
+    # ⛔ Primeiro dia depois do ultimo e recusa, e nao rodada vazia: "mediu zero
+    # dias" sairia com cara de resultado.
+    if do_dia is None or do_dia > nu_dias:
+        print(
+            f"⛔ {PREFIXO_DO_PRIMEIRO_DIA}N pede um inteiro de 1 ate o {PREFIXO_DOS_DIAS} "
+            f"({nu_dias}); ex.: --dias=18 --do-dia=10."
+        )
+        return 2
+    processos = processos_pedidos(argumentos)
+    if processos is None:
+        print(f"⛔ {PREFIXO_DOS_PROCESSOS}N pede um inteiro maior que zero (ex.: --processos=8).")
         return 2
     posicionais = [a for a in argumentos if not a.startswith("-")]
     alvo = posicionais[0] if posicionais else "todos"
@@ -1212,7 +1742,6 @@ def principal(argumentos: Sequence[str]) -> int:
         )
 
     inicio = time.time()
-    medidas = 0
     tabela = {**A_MEDIR, **EM_AVALIACAO}
 
     # ⛔ **As candidatas sao escolhidas ANTES de medir, e nao durante.** Sem isto
@@ -1234,23 +1763,45 @@ def principal(argumentos: Sequence[str]) -> int:
         por_tipo.append((co_tipo, tuple(candidatas)))
 
     total_de_candidatas = sum(len(c) for _, c in por_tipo)
-    if total_de_candidatas:
+
+    # ⛔ Zero linhas com a bandeira ligada nao e "tudo certo": e a bandeira
+    # aplicada a um alvo que nao tem nenhuma candidata de botao proprio, e sem
+    # este aviso o relatorio sairia vazio e silencioso.
+    if not total_de_candidatas:
         print()
         print(
-            f"⏳ {total_de_candidatas} candidata(s) em {len(por_tipo)} tipo(s), "
-            f"{nu_dias} dias cada"
-            + (" · com regua (mais caro)" if com_regua else "")
+            f"⛔ nenhuma candidata de {alvo!r} mexe num botao de geracao. "
+            f"Rode sem {BANDEIRA_BOTAO_PROPRIO}."
         )
-        # ⛔ **Nenhuma previsao de tempo antes da primeira medida.** O custo por
-        # candidata varia de segundos a mais de dez minutos conforme o acervo, e
-        # um numero inventado aqui seria pior que a ausencia dele: o dono
-        # planejaria a janela em cima de um chute.
-        print("   ⚠️ a previsao aparece depois da primeira candidata medida")
+        return 2
+
+    # ⚠️ **Com regua, a rodada e a retomavel** (§8zzzm): diario, processos e
+    # relatorio em arquivo. Sem regua ela leva segundos ou poucos minutos, e
+    # segue serial e so na tela, como sempre.
+    if com_regua:
+        return medir_retomavel(
+            por_tipo,
+            alvo=alvo,
+            nu_dias=nu_dias,
+            do_dia=do_dia,
+            com_regua=com_regua,
+            processos=processos,
+        )
+
+    print()
+    print(
+        f"⏳ {total_de_candidatas} candidata(s) em {len(por_tipo)} tipo(s), "
+        f"dias {do_dia} a {nu_dias}"
+    )
+    # ⛔ **Nenhuma previsao de tempo antes da primeira medida.** O custo por
+    # candidata varia de segundos a mais de dez minutos conforme o acervo, e
+    # um numero inventado aqui seria pior que a ausencia dele: o dono
+    # planejaria a janela em cima de um chute.
+    print("   ⚠️ a previsao aparece depois da primeira candidata medida")
 
     ja_medidas = 0
     for co_tipo, candidatas in por_tipo:
-        medidas += len(candidatas)
-        medir(co_tipo, candidatas, com_regua=com_regua, nu_dias=nu_dias)
+        medir(co_tipo, candidatas, com_regua=com_regua, nu_dias=nu_dias, do_dia=do_dia)
         ja_medidas += len(candidatas)
 
         se_faltam = total_de_candidatas - ja_medidas
@@ -1263,17 +1814,6 @@ def principal(argumentos: Sequence[str]) -> int:
                 f"~{quanto_falta(gasto / ja_medidas * se_faltam)}",
                 flush=True,
             )
-
-    # ⛔ Zero linhas com a bandeira ligada nao e "tudo certo": e a bandeira
-    # aplicada a um alvo que nao tem nenhuma candidata de botao proprio, e sem
-    # este aviso o relatorio sairia vazio e silencioso.
-    if not medidas:
-        print()
-        print(
-            f"⛔ nenhuma candidata de {alvo!r} mexe num botao de geracao. "
-            f"Rode sem {BANDEIRA_BOTAO_PROPRIO}."
-        )
-        return 2
 
     print()
     print(f"total: {time.time() - inicio:.0f}s")
