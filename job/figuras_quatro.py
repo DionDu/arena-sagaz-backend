@@ -58,6 +58,7 @@ from typing import Any
 
 from motores.nucleo.chegada import ChegadaInvalida, ClausulaDeFigura
 from motores.quatro import contrato_quatro
+from motores.quatro import distancia_da_figura_quatro as distancia_mod
 from motores.quatro.motor_quatro import TabuleiroQuatro
 
 #: A chave da figura nos parametros publicados (o nome no catalogo). Mora aqui,
@@ -76,9 +77,14 @@ FOLGAS_DA_FIGURA = (1, 2, 3)
 #: figura que se forma num lance so (a proposta §2, recusa 5).
 DISTANCIA_MINIMA_DA_FIGURA = 2
 
-#: A maior distancia aceita. ⚠️ **Provisoria** (a proposta pede a sondagem de 3
-#: a 6, que e a T148): uma figura longe demais pediria um prazo em que a partida
-#: inteira caberia, e o desafio deixaria de fechar no meio.
+#: A maior distancia aceita: uma figura longe demais pediria um prazo em que a
+#: partida inteira caberia, e o desafio deixaria de fechar no meio. ✅ **Sondada
+#: na T148** (23/10/2026, `scripts/sondar_distancia_das_figuras_quatro.py`, 1.722
+#: posicoes distintas com 10 a 16 lances jogados): a faixa de 2 a 6 aceita de
+#: 41% (o V grande) a 98% (o "c") das posicoes, e nenhuma figura fica sem lugar.
+#: ⚠️ As distancias curtas (2 a 4) quase sempre se resolvem em menos de 5 lances
+#: e caem no piso de 9 meios-lances do gerador - que e o certo: e o desafio
+#: "resolvido em 10 segundos" que o dono recusou.
 DISTANCIA_MAXIMA_DA_FIGURA = 6
 
 #: A familia de cada figura no catalogo (a proposta, "Primeiro lote"): as sete
@@ -157,9 +163,9 @@ FIGURAS_QUATRO: dict[str, FiguraQuatro] = {
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def colunas(desenho: tuple[str, ...]) -> list[str]:
-    """O desenho lido por coluna, cada uma de CIMA para BAIXO."""
-    return ["".join(linha[j] for linha in desenho) for j in range(len(desenho[0]))]
+#: O desenho lido por coluna, cada uma de CIMA para BAIXO (a funcao mora no
+#: modulo do motor; este nome continua valendo para as contas de cima).
+colunas = distancia_mod.colunas
 
 
 def pecas(desenho: tuple[str, ...]) -> tuple[int, int]:
@@ -251,67 +257,20 @@ def recusas(figura: FiguraQuatro, dimensoes: contrato_quatro.DimensoesQuatro) ->
 
 def _desenhos(figura: FiguraQuatro) -> list[tuple[str, ...]]:
     """O desenho, e o espelho dele quando a figura aceita."""
-    saida = [figura.desenho]
-    if figura.espelhar:
-        saida.append(tuple(linha[::-1] for linha in figura.desenho))
-    return saida
-
-
-def _custo_do_lugar(
-    desenho: tuple[str, ...],
-    tabuleiro: TabuleiroQuatro,
-    quem: int,
-    coluna_esquerda: int,
-    linha_de_baixo: int,
-) -> int | None:
-    """Quantas casas faltam para a figura existir NESTE lugar; `None` = conflito.
-
-    `coluna_esquerda` e `linha_de_baixo` sao as do tabuleiro (1-based, a linha 1
-    no chao) onde fica o canto de baixo e da esquerda da figura.
-    """
-    altura = len(desenho)
-    custo = 0
-    for j, coluna in enumerate(colunas(desenho)):
-        c = coluna_esquerda + j
-        # A linha do tabuleiro de cada casa da coluna da figura: a de cima
-        # (indice 0) e a mais alta.
-        linha_de = {i: linha_de_baixo + (altura - 1 - i) for i in range(altura)}
-        casas_da_figura = set()
-        topo_com_peca = None
-        for i, simbolo in enumerate(coluna):
-            linha = linha_de[i]
-            dono = tabuleiro.peca((c, linha))
-            if simbolo == "X":
-                if dono == -quem:
-                    return None
-                custo += dono == 0
-            elif simbolo == "O":
-                if dono == quem:
-                    return None
-                custo += dono == 0
-            elif simbolo == "_":
-                if dono != 0:
-                    return None
-            if simbolo in "XO":
-                casas_da_figura.add(linha)
-                topo_com_peca = linha if topo_com_peca is None else max(topo_com_peca, linha)
-        # Os apoios: toda casa vazia abaixo da peca mais alta da coluna que nao
-        # e casa da figura (as da figura ja foram contadas acima).
-        if topo_com_peca is not None:
-            custo += sum(
-                1
-                for linha in range(1, topo_com_peca)
-                if linha not in casas_da_figura and tabuleiro.peca((c, linha)) == 0
-            )
-    return custo
+    return distancia_mod.desenhos(figura.desenho, figura.espelhar)
 
 
 def distancia(
     figura: FiguraQuatro,
     tabuleiro: TabuleiroQuatro,
     dimensoes: contrato_quatro.DimensoesQuatro,
+    quem: int | None = None,
 ) -> int | None:
-    """A menor distancia da [figura] no [tabuleiro], para quem tem a vez.
+    """A menor distancia da [figura] no [tabuleiro], com os `X` de [quem].
+
+    [quem] ausente = quem tem a vez (a pessoa, na posicao publicada). A conta
+    mora em `motores/quatro/distancia_da_figura_quatro.py`, porque o perseguidor
+    do motor tambem a usa (T148).
 
     Returns:
         O menor custo entre todos os lugares sem conflito (ver o cabecalho), ou
@@ -320,15 +279,10 @@ def distancia(
 
     ⚠️ Zero quer dizer que a figura JA esta no tabuleiro.
     """
-    quem = tabuleiro.vez
-    melhor: int | None = None
-    for desenho in _desenhos(figura):
-        largura, altura = len(desenho[0]), len(desenho)
-        for coluna_esquerda in range(1, dimensoes.largura - largura + 2):
-            for linha_de_baixo in range(1, dimensoes.altura - altura + 2):
-                custo = _custo_do_lugar(
-                    desenho, tabuleiro, quem, coluna_esquerda, linha_de_baixo
-                )
-                if custo is not None and (melhor is None or custo < melhor):
-                    melhor = custo
-    return melhor
+    return distancia_mod.distancia(
+        figura.desenho,
+        figura.espelhar,
+        tabuleiro,
+        dimensoes,
+        tabuleiro.vez if quem is None else quem,
+    )

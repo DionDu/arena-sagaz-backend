@@ -34,6 +34,13 @@ que ja esta la. O relatorio sai em `relatorio.txt`, na mesma pasta, e e
 reescrito a cada execucao a partir do diario inteiro. `--processos N` muda o
 numero de processos (padrao: todos os nucleos); `--posicoes N` quantas posicoes
 por tipo (padrao 30); `--tipos a,b` so alguns tipos.
+
+⚠️ **O "Forme a figura" (T148) e medido por VARIANTE**, e nao pelo tipo: cada
+figura e um desafio diferente. O alvo se escreve `quatro_figura:<figura>:<folga>`
+(`--tipos quatro_figura:quadrado:3,quatro_figura:l:3` sao os CONTROLES: figuras
+faceis com folga larga, que o perseguidor no nivel do Magno tem de formar quase
+sempre). Na figura nao ha o modo de controle "so vencer" (o controle sao essas
+duas figuras), e o teto de cada partida e o prazo do candidato (`2M - 1`).
 """
 
 from __future__ import annotations
@@ -52,6 +59,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 
 from job import editorial as editorial_mod  # noqa: E402
+from job import figuras_quatro as figuras_mod  # noqa: E402
 from job import posicao_inicial as posicao_inicial_mod  # noqa: E402
 from job import posicoes_de_autoplay_quatro as acervo_mod  # noqa: E402
 from job import provas_quatro as provas_mod  # noqa: E402
@@ -95,6 +103,14 @@ TIPOS = (
 #: do desafio.
 CONTROLE_PROPRIO = frozenset({"quatro_encoste"})
 
+#: O tipo do "Forme a figura", medido por variante (ver o cabecalho).
+TIPO_DA_FIGURA = "quatro_figura"
+
+#: Os CONTROLES da figura (a proposta §2, "Como medir", passo 5): o quadrado e o
+#: L, com a maior folga. Se o perseguidor-Magno nao os formar quase sempre, ele
+#: nao serve para medir as outras figuras.
+CONTROLES_DA_FIGURA = ("quatro_figura:quadrado:3", "quatro_figura:l:3")
+
 #: A semente da amostra: a mesma posicao a cada execucao (retomavel e pareado).
 SEMENTE = 20261021
 
@@ -137,24 +153,55 @@ def _receita(co_tipo: str):
     return RECEITAS.get(co_tipo) or RECEITAS_FORA_DO_AR[co_tipo]
 
 
-def _publicacao(co_tipo: str):
-    """A primeira variante do tipo (a medida pela regua de 20/10)."""
+def _tipo_do_alvo(alvo: str) -> str:
+    """`quatro_figura:quadrado:3` → `quatro_figura`; um tipo comum, ele mesmo."""
+    return alvo.split(":")[0]
+
+
+def _publicacao(alvo: str):
+    """A variante medida: a primeira do tipo, ou a da figura e da folga do alvo.
+
+    Raises:
+        KeyError: a figura ou a folga do alvo nao tem variante no editorial.
+    """
+    co_tipo = _tipo_do_alvo(alvo)
     tabela = (
         editorial_mod.EDITORIAL
         if co_tipo in editorial_mod.EDITORIAL
         else editorial_mod.EDITORIAL_FORA_DO_AR
     )
-    return tabela[co_tipo][0]
+    if co_tipo != TIPO_DA_FIGURA:
+        return tabela[co_tipo][0]
+    # `str.split(":")` com tres partes: o tipo, o nome da figura e a folga.
+    _, nome, folga = alvo.split(":")
+    for publicacao in tabela[co_tipo]:
+        p = publicacao.parametros
+        if (
+            p[figuras_mod.CHAVE_FIGURA] == nome
+            and p[figuras_mod.CHAVE_FOLGA_DA_FIGURA] == int(folga)
+        ):
+            return publicacao
+    raise KeyError(f"nenhuma variante de {alvo!r} no editorial")
 
 
-def _posicao(co_tipo: str, indice: int, provador) -> dict[str, Any] | None:
-    """A [indice]-esima posicao do tipo: do acervo, na faixa do preparo, provada.
+def _modos(alvo: str) -> tuple[str, ...]:
+    """Os modos do alvo: na figura nao ha o controle de "so vencer"."""
+    if _tipo_do_alvo(alvo) == TIPO_DA_FIGURA:
+        return tuple(m for m in MODOS if not m.startswith("controle"))
+    return MODOS
+
+
+def _posicao(alvo: str, indice: int, provador) -> dict[str, Any] | None:
+    """A [indice]-esima posicao do alvo: do acervo, na faixa do preparo, provada.
 
     ⚠️ Determinista pela semente: rodar de novo sorteia a MESMA posicao, e e isso
     que deixa o diario retomar sem mudar a amostra.
     """
-    publicacao = _publicacao(co_tipo)
-    sorteio = random.Random(f"{SEMENTE}:{co_tipo}:{indice}")
+    publicacao = _publicacao(alvo)
+    co_tipo = _tipo_do_alvo(alvo)
+    # ⚠️ A semente leva o ALVO inteiro: cada figura sorteia as suas posicoes, e
+    # nos tipos comuns o alvo e o proprio tipo (as sementes de antes valem).
+    sorteio = random.Random(f"{SEMENTE}:{alvo}:{indice}")
     motor = provador.arbitro
     for _ in range(TENTATIVAS_POR_POSICAO):
         sorteada = acervo_mod.sortear(
@@ -170,8 +217,19 @@ def _posicao(co_tipo: str, indice: int, provador) -> dict[str, Any] | None:
         encostadas = feitos_quatro.pecas_encostadas(
             motor.regras.dimensoes, tabuleiro, tabuleiro.vez
         )
+        # No "Forme a figura" o prazo sai da distancia nesta posicao, como no
+        # gerador; figura sem lugar livre de conflito: a posicao nao serve.
+        distancia = None
+        if editorial_mod.alvo_sai_da_figura(publicacao.parametros):
+            distancia = figuras_mod.distancia(
+                figuras_mod.FIGURAS_QUATRO[publicacao.parametros[figuras_mod.CHAVE_FIGURA]],
+                tabuleiro,
+                motor.regras.dimensoes,
+            )
+            if distancia is None:
+                continue
         parametros = editorial_mod.parametros_efetivos(
-            publicacao.parametros, encostadas=encostadas
+            publicacao.parametros, encostadas=encostadas, distancia=distancia
         )
         prova = provas_mod.provar(
             co_tipo, provador, estado, parametros, continuacao=sorteada.continuacao
@@ -183,6 +241,11 @@ def _posicao(co_tipo: str, indice: int, provador) -> dict[str, Any] | None:
             "chegada": _receita(co_tipo).montar(parametros),
             "teto": publicacao.nu_maximo_de_meios_lances,
         }
+        if distancia is not None:
+            # O teto apertado ao prazo deste candidato, como no gerador: depois
+            # do M-esimo lance da pessoa a janela fechou.
+            posicao["teto"] = min(posicao["teto"], 2 * parametros["lances"] - 1)
+            posicao["distancia"] = distancia
         if co_tipo in CONTROLE_PROPRIO:
             # O alvo de jogar colado: o que ja esta encostado mais um por lance.
             facil = {**parametros, "pecas": encostadas + parametros["lances"]}
@@ -291,7 +354,8 @@ def medir_unidade(unidade: tuple[str, int]) -> dict[str, Any]:
     ⚠️ Aberto e fechado pelo `with` (memoria "pool-fechado-deixa-os-processos"):
     o processo do motor nao sobrevive a unidade.
     """
-    co_tipo, indice = unidade
+    alvo, indice = unidade
+    co_tipo = _tipo_do_alvo(alvo)
     inicio = time.time()
     with JogadorDartQuatro() as motor_dart:
         jogador = JogadorQuatro(CO_MODALIDADE, motor_dart)
@@ -299,16 +363,20 @@ def medir_unidade(unidade: tuple[str, int]) -> dict[str, Any]:
             CO_MODALIDADE, motor_dart, teto_de_nos=TETO_DA_PROVA_DO_MAGNO
         )
         provador_da_amostra = provas_mod.ProvadorQuatro(CO_MODALIDADE, motor_dart)
-        posicao = _posicao(co_tipo, indice, provador_da_amostra)
-        linha: dict[str, Any] = {"co_tipo": co_tipo, "indice": indice}
+        posicao = _posicao(alvo, indice, provador_da_amostra)
+        # ⚠️ A chave do diario e o ALVO (no campo `co_tipo`, o nome de sempre):
+        # nos tipos comuns e o proprio tipo, e as linhas antigas continuam valendo.
+        linha: dict[str, Any] = {"co_tipo": alvo, "indice": indice}
         if posicao is None:
             linha["sem_posicao"] = True
         else:
             linha["lances"] = "".join(posicao["lances"])
+            if "distancia" in posicao:
+                linha["distancia"] = posicao["distancia"]
             nu_semente = int(
-                random.Random(f"{SEMENTE}:jogo:{co_tipo}:{indice}").getrandbits(31)
+                random.Random(f"{SEMENTE}:jogo:{alvo}:{indice}").getrandbits(31)
             )
-            for modo in MODOS:
+            for modo in _modos(alvo):
                 linha[modo] = _jogar(
                     jogador,
                     provador,
@@ -341,16 +409,26 @@ def relatorio(linhas: list[dict[str, Any]]) -> str:
         "contra o Magno que so vence (coluna 'venceu'). Perto = competente.",
         "⛔ No quatro_encoste o controle e o alvo de JOGAR COLADO (coluna",
         "'cumpriu' da linha de controle): perto de 1,00 = competente.",
+        "⛔ Na figura o controle sao o quadrado e o L com folga 3 (persegue_magno",
+        "perto de 1,00 = competente). `distancia`: a media nas posicoes medidas.",
         "",
     ]
-    for co_tipo in TIPOS:
+    # Os tipos de sempre, e depois os alvos de figura que estiverem no diario.
+    alvos = list(TIPOS) + sorted(
+        {l["co_tipo"] for l in linhas if l["co_tipo"].startswith(TIPO_DA_FIGURA + ":")}
+    )
+    for co_tipo in alvos:
         medidas = [l for l in linhas if l["co_tipo"] == co_tipo and not l.get("sem_posicao")]
         sem = sum(1 for l in linhas if l["co_tipo"] == co_tipo and l.get("sem_posicao"))
         if not medidas and not sem:
             continue
         n = len(medidas)
-        saida.append(f"{co_tipo}: {n} posicoes ({sem} sem posicao provada)")
-        for modo in MODOS:
+        cabeca = f"{co_tipo}: {n} posicoes ({sem} sem posicao provada)"
+        distancias = [l["distancia"] for l in medidas if "distancia" in l]
+        if distancias:
+            cabeca += f" · distancia media {sum(distancias) / len(distancias):.1f}"
+        saida.append(cabeca)
+        for modo in _modos(co_tipo):
             cumpriu = sum(l[modo]["cumpriu"] for l in medidas)
             venceu = sum(l[modo]["venceu"] for l in medidas)
             taxa = cumpriu / n if n else 0.0

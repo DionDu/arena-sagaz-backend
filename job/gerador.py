@@ -721,6 +721,13 @@ SOLUCIONADOR_POR_TIPO = {
     # perseguidor no nivel do Magno 30 de 30, contra 10 de 30 do Magno que so
     # vence. Historico do backend "2026-10-22 (4)".
     "quatro_encoste": solucionadores_mod.perseguidor_do_quatro("quatro_encoste"),
+    # ⚠️ O "Forme a figura" (T148, 23/10/2026): medido pareado em 30 posicoes
+    # por figura contra o Tex. O Magno que so vence forma a figura 0 a 0,20; o
+    # perseguidor no nivel do Magno, 0,77 a 0,83 nos controles (quadrado e L,
+    # folga 3) e 0,10 a 0,80 no lote (folga 2). O controle fica abaixo do
+    # "quase sempre" da proposta, e o porque esta no historico do backend
+    # "2026-10-23 (3)". Fora do ar: so a regua decide se uma figura sobe.
+    "quatro_figura": solucionadores_mod.perseguidor_do_quatro("quatro_figura"),
 }
 
 #: Tipos em que a recusa por erro do adversario NAO se aplica.

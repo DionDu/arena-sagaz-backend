@@ -9879,3 +9879,135 @@ formável num lance e a longe demais.
 ⚠️ **Nenhum candidato sai ainda, e é esperado**: o gabarito joga para vencer, e não para formar
 a figura. O perseguidor da figura, a sondagem e a régua são a T148. Nada vai ao ar com este
 push: o tipo está em `RECEITAS_FORA_DO_AR`.
+
+## 2026-10-23 (3) — "Forme a figura": a sondagem, o perseguidor e a medição pareada (T148 da spec 010)
+
+**Contexto.** Com o catálogo e a geração prontos (entrada anterior), faltavam os passos 3 a 6 da
+proposta (`PROPOSTA-revisao-catalogo-quatro.md` §2, "Como medir"): a sondagem da distância, a
+prova (ou a pescaria), o perseguidor com controle e a régua. Esta entrada fecha os três primeiros
+que cabem a mim; a régua é comando do dono.
+
+**1. A sondagem da distância** (`scripts/sondar_distancia_das_figuras_quatro.py`, 2 s). Controle:
+no tabuleiro vazio, a distância de cada figura é peças mais apoios (11 de 11). Nas 1.722 posições
+distintas que o gerador sorteia (10 a 16 lances jogados):
+
+| figura | 0-1 | 2-6 (a faixa) | 7+ ou sem lugar |
+|---|---|---|---|
+| t | 7 | 83% | 289 |
+| mais | 22 | 91% | 133 |
+| z | 285 | 83% | 0 |
+| igual | 325 | 81% | 0 |
+| losango | 327 | 80% | 19 |
+| c | 25 | 98% | 2 |
+| i | 891 | 48% | 0 |
+| quadrado | 192 | 88% | 7 |
+| l | 175 | 90% | 0 |
+| v_grande | 1 | 41% | 1.013 |
+| xis | 87 | 85% | 170 |
+
+Nenhuma figura fica sem lugar, e a pior (o V grande) ainda cai na faixa em 41% das posições: a
+faixa de 2 a 6 da T147 deixa de ser provisória e **fica como está**. ⚠️ O "i" e o L nunca passam
+de 4 casas (são 4 peças, e no chão não pedem apoio).
+
+**2. A prova forçável não serve à figura, e não foi adaptada.** A de hoje
+(`ProvadorQuatro.objetivo_forcavel`) poda pelos ramos em que a pessoa VENCE à força (toda folha
+dela é uma vitória do jeito pedido); a figura não pede vencer. Contra a defesa do jogo (toda
+resposta que não perde) a árvore teria fator ~7 nos dois lados e ⛔ quase nunca provaria nada: o
+adversário pode pôr a peça em qualquer casa da figura sem perder. A garantia de que a figura é
+alcançável fica com o **gabarito** (o perseguidor no nível do Magno tem de formá-la contra o
+adversário do dia) e a de que é justa, com a **régua**.
+
+**3. O perseguidor da figura** (`motores/quatro/perseguir_objetivo_quatro.py`):
+
+- a conta da distância desceu para `motores/quatro/distancia_da_figura_quatro.py`
+  (`motores/` não importa `job/`; o catálogo delega), com o `quem` **explícito**: depois do lance
+  da pessoa a vez é do adversário, e medir pela vez mediria a figura dele;
+- o `cumpre` passa a grade ao `avaliar` quando a chegada tem figura (sem ela, `ChegadaInvalida`);
+- `quatro_figura` em `FECHAM_NO_MEIO`;
+- a nota soma TODOS os lugares da figura (`1000 / 3^custo`), avaliados **depois do bloqueio**: se
+  o lance deixa a pessoa com uma só casa de vitória, o adversário (que não lê o objetivo, mas
+  bloqueia toda vitória pronta) põe a peça ali;
+- e o ramo de perseguir **não consulta a prova** na figura (`TIPOS_SEM_A_PROVA`).
+
+**A medição pareada, e o controle que não fechou.** `scripts/medir_perseguir_vs_vencer_quatro.py`
+aprendeu a figura por VARIANTE (`quatro_figura:<figura>:<folga>`; os controles são o quadrado e o
+L com folga 3). As versões medidas no controle (30 posições cada, contra o Tex):
+
+| versão da nota | quadrado | L |
+|---|---|---|
+| v1: só o lugar mais perto, com a prova | 19 | 22 |
+| soma dos lugares, com a prova | 20 | 21 |
+| pior caso depois da resposta (2 meios-lances) | 8 | 7 |
+| soma, sem a prova | 23 | 23 |
+| média depois da resposta, sem a prova | 24 | 24 |
+| **soma depois do bloqueio, sem a prova (a que ficou)** | **23** | **25** |
+
+O pior caso paralisa (qualquer figura se tapa com uma resposta, e todo lance passa a valer igual).
+⚠️ **O controle fica em ~0,80, abaixo do "quase sempre" que a proposta pedia.** O que se apurou:
+
+- a falha **não depende do adversário**: contra a Cacau, a Pita e o Magno o perseguidor-Magno
+  formou de 19 a 23 de 30, o mesmo que contra o Tex;
+- nem da posição de saída: o número de ameaças do adversário (0, 1, 2 ou mais: 73%, 77% e 73%
+  de cumprimento), o lado de quem resolve (68% e 80%) e a posição aberta ou já decidida pela busca
+  (69% e 64%) não separam as falhas;
+- o rastro lance a lance mostra o mecanismo: perseguindo a figura a pessoa arma as próprias
+  linhas de quatro, o adversário bloqueia a casa da figura, e dali em diante quase todo lance
+  entrega a vitória ou a ganha (vencer sem a figura também perde o desafio);
+- ⚠️ **e há margem**: uma busca exaustiva dos lances da pessoa contra as respostas REAIS do Tex
+  (determinísticas pela semente) formou o L em 5 das 6 falhas, quase sempre com poucas respostas.
+  Ela sabe o que o adversário vai jogar, e o perseguidor não pode saber; mas mostra que o teto
+  não é o da posição.
+
+**O lote** (folga 2; os controles na 3), cumpriu de 30:
+
+| figura | Magno que só vence | Cacau · Pita · Tex · Magno perseguindo |
+|---|---|---|
+| L (3) | 4 | 6 · 13 · 23 · **25** |
+| igual | 6 | 7 · 13 · 24 · **24** |
+| quadrado (3) | 2 | 7 · 11 · 18 · **23** |
+| i | 1 | 6 · 16 · 22 · **23** |
+| losango | 5 | 8 · 14 · 22 · **23** |
+| z | 5 | 4 · 13 · 15 · **19** |
+| c | 0 | 0 · 7 · 11 · **14** |
+| t | 0 | 0 · 3 · 8 · **9** |
+| v_grande | 0 | 0 · 1 · 7 · **7** |
+| xis | 2 | 4 · 3 · 7 · **7** |
+| mais | 0 | 0 · 1 · 3 · **3** |
+
+O ganho sobre o Magno que só vence é grande em todas (0 a 6 contra 3 a 25), e a escada sobe a
+cada degrau nas figuras de 4 peças: **ligado em `SOLUCIONADOR_POR_TIPO`**. As de 5 peças (c, t,
+mais, V, xis) ficam baixas para o próprio Magno.
+
+**4. O piso de 9 meios-lances, conferido no gerador.** Uma fumaça de 1 dia (quadrado, igual,
+losango e T, folga 2) com e sem o piso: sem ele, as soluções têm de 3 a 7 meios-lances (o desafio
+"de 10 segundos" que o dono recusou); com ele, os 3 candidatos saem igual, em 22 a 63 s, depois de
+descartar 12 a 22 posições curtas. O piso não mata o tipo: escolhe as posições em que formar a
+figura leva 5 lances ou mais, e nelas o gabarito já provou que o perseguidor-Magno forma. ⚠️ É
+nessas posições, e não nas 30 do pareado, que a régua mede.
+
+**Alternativas consideradas.** Adaptar a prova forçável à figura (a poda pela vitória não vale, e
+contra a defesa do jogo ela quase nunca provaria); um perseguidor com busca que consulte o
+adversário (ele conheceria a resposta do personagem do dia, e a régua mediria quem sabe o futuro,
+e não uma pessoa); mais variantes da nota (as cinco medidas param todas perto de 0,80).
+
+**Provas.** `test_perseguir_objetivo_quatro.py` (o lance que forma a figura achado com a grade; o
+Magno persegue sem pedir o lance do nível; a prova não é consultada; a soma vale mais com mais
+lugares; o bloqueio da vitória pronta entra na nota, e com duas não entra);
+`test_figuras_quatro.py` (o `quem` explícito vence a vez; os custos e a distância leem a mesma
+conta); `test_solucionadores.py` (a figura ligada). **Mutações 11/11.**
+
+⚠️ **Nada vai ao ar com este push**: o tipo continua em `RECEITAS_FORA_DO_AR`. O perseguidor
+ligado só é usado quando o gerador gera a figura, o que hoje só o medidor faz.
+
+**Comando do dono (a triagem de 9 dias; ~1h30 a 2h30, retomável):**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_figura --com-regua --dias=9
+```
+
+As 33 variantes (onze figuras × folga 1 a 3) em 9 dias: 297 unidades, contra as 36 do Encoste
+(~15 min). Pode ser interrompida com Ctrl+C e retomada com o mesmo comando. Critério da triagem, como no Encoste:
+**6 de 9 dias na escada**; as que passarem vão aos 18 dias (12 de 18). ⚠️ Prioridade do dono
+(§8zzzr): figura que só ficar na escada contra os adversários fracos sobe com `co_personagens`
+restrito, em vez de ficar fora - a triagem diz qual.

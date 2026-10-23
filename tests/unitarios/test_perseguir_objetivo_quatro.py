@@ -287,3 +287,127 @@ def test_no_encoste_o_lance_PROVADO_perdido_sai_mesmo_sendo_o_melhor() -> None:
     )
     # O que sobra de melhor e jogar colado (2 encostadas), e nao o s2.
     assert lance in {"s1", "s3", "s4"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# O "Forme a figura" (T148, 23/10/2026): fecha no meio, e a nota e a distancia
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: O quadrado, prazo 5. ⚠️ Fora do ar: a receita mora em `RECEITAS_FORA_DO_AR`.
+QUADRADO = RECEITAS_FORA_DO_AR["quatro_figura"].montar({"figura": "quadrado", "lances": 5})
+
+#: O jogador 1 com a vez, tres pecas do quadrado no canto esquerdo:
+#:
+#:     linha 2   X . . . . O .
+#:     linha 1   X X . . . O O
+#:               1 2 3 4 5 6 7
+#:
+#: So o s2 fecha o quadrado (a casa (2, 2)), e nenhum lance vence a partida.
+BASE_QUASE_QUADRADO = ["s1", "s7", "s2", "s6", "s1", "s6"]
+
+
+def _desafio_figura(base: list[str]) -> perseguir.Desafio:
+    return perseguir.desafio_de(MOTOR, "quatro_figura", base, QUADRADO)
+
+
+def _nota_da_figura(desafio: perseguir.Desafio, lances: tuple[str, ...]) -> float:
+    estado = EstadoQuatro("tradicional", lances)
+    return perseguir._potencial_da_figura(MOTOR, MOTOR.tabuleiro(estado), desafio)
+
+
+def test_na_figura_o_lance_que_FORMA_e_jogado_com_a_grade_ao_juiz() -> None:
+    """⛔ Sem a grade, o `avaliar` recusa a chegada com `figura`: o passo 1
+    quebraria em vez de achar o lance. Com ela, o s2 fecha o quadrado."""
+    agora, lances = perseguir.candidatos(MOTOR, _desafio_figura(BASE_QUASE_QUADRADO), [])
+    assert agora == "s2"
+    assert lances == ["s2"]
+
+
+def test_na_figura_o_magno_persegue_sem_pedir_o_lance_do_nivel() -> None:
+    """O "Forme a figura" fecha no meio (`FECHAM_NO_MEIO`): sem vitoria provada a
+    vista, ele escolhe pela nota, e nem pede o lance do nivel."""
+    assert "quatro_figura" in perseguir.FECHAM_NO_MEIO
+    # Duas pecas no chao (colunas 1 e 2): o quadrado fica a 2 casas, e so s1 e
+    # s2 o deixam a 1.
+    base = ["s1", "s7", "s2", "s7"]
+    lance = perseguir.lance_de_quem_persegue(
+        MOTOR,
+        _desafio_figura(base),
+        [],
+        nivel=NivelDeMotor.SAGAZ,
+        sorteio=random.Random(1),
+        lance_do_nivel=_nunca,
+        prova=lambda depois: None,
+    )
+    assert lance in {"s1", "s2"}
+
+
+def test_na_figura_a_PROVA_nao_e_consultada() -> None:
+    """⚠️ Na figura a prova tirava quase todo lance que constroi (o controle de
+    23/10/2026: 20-23 de 30 com ela, 23-25 sem). Quem chama ainda a passa; o
+    perseguidor a ignora neste tipo."""
+    assert "quatro_figura" in perseguir.TIPOS_SEM_A_PROVA
+
+    def prova(depois: EstadoQuatro) -> int | None:
+        raise AssertionError("a prova nao devia ter sido consultada na figura")
+
+    base = ["s1", "s7", "s2", "s7"]
+    lance = perseguir.lance_de_quem_persegue(
+        MOTOR,
+        _desafio_figura(base),
+        [],
+        nivel=NivelDeMotor.SAGAZ,
+        sorteio=random.Random(1),
+        lance_do_nivel=_nunca,
+        prova=prova,
+    )
+    assert lance in {"s1", "s2"}
+
+
+def test_a_nota_da_figura_SOMA_os_lugares_e_nao_so_o_mais_perto() -> None:
+    """Duas pecas soltas valem mais que uma: o quadrado fica a 3 casas nos dois
+    tabuleiros, mas no segundo ha mais lugares a 3 (o da coluna 4 tambem)."""
+    desafio = _desafio_figura(["s1", "s7"])
+    uma = _nota_da_figura(desafio, ("s1", "s7"))
+    duas = _nota_da_figura(desafio, ("s1", "s7", "s4", "s7"))
+    assert duas > uma
+
+
+def test_a_nota_da_figura_conta_o_BLOQUEIO_da_vitoria_pronta() -> None:
+    """⚠️ O adversario bloqueia toda vitoria pronta da pessoa. Com tres X no chao
+    (colunas 1 a 3) e a casa (4, 1) livre, o bloqueio cai ali; se o quadrado
+    precisasse dela, a nota ja o mede tapado.
+
+        linha 2   . . . . . . O
+        linha 1   X X X . . . O     (o 2 tem a vez, e vai bloquear em s4)
+    """
+    desafio = _desafio_figura(["s1", "s7", "s2", "s7"])
+    lances = ("s1", "s7", "s2", "s7", "s3")
+    tabuleiro = MOTOR.tabuleiro(EstadoQuatro("tradicional", lances))
+    depois_do_bloqueio = MOTOR.tabuleiro(EstadoQuatro("tradicional", lances + ("s4",)))
+    assert perseguir._potencial_da_figura(MOTOR, tabuleiro, desafio) == (
+        perseguir._soma_dos_lugares(MOTOR, depois_do_bloqueio, desafio)
+    )
+    # E o bloqueio MUDA a nota (senao o caso nao mede nada): a peca do 2 em
+    # (4, 1) tira os lugares do quadrado que passam por ela.
+    assert perseguir._soma_dos_lugares(MOTOR, tabuleiro, desafio) != (
+        perseguir._soma_dos_lugares(MOTOR, depois_do_bloqueio, desafio)
+    )
+
+
+def test_sem_vitoria_pronta_a_nota_da_figura_e_a_do_tabuleiro_de_agora() -> None:
+    desafio = _desafio_figura(["s1", "s7"])
+    tabuleiro = MOTOR.tabuleiro(EstadoQuatro("tradicional", ("s1", "s7", "s2", "s7")))
+    assert perseguir._potencial_da_figura(MOTOR, tabuleiro, desafio) == (
+        perseguir._soma_dos_lugares(MOTOR, tabuleiro, desafio)
+    )
+
+
+def test_com_DUAS_vitorias_prontas_o_bloqueio_nao_entra_na_nota() -> None:
+    """Tres X no chao nas colunas 2 a 4: a pessoa vence em s1 e em s5, e o
+    adversario so tapa uma. A nota e a do tabuleiro de agora."""
+    desafio = _desafio_figura(["s2", "s7"])
+    tabuleiro = MOTOR.tabuleiro(EstadoQuatro("tradicional", ("s2", "s7", "s3", "s7", "s4")))
+    assert perseguir._potencial_da_figura(MOTOR, tabuleiro, desafio) == (
+        perseguir._soma_dos_lugares(MOTOR, tabuleiro, desafio)
+    )

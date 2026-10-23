@@ -48,12 +48,12 @@ o dificil - mede a propria incompetencia.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Mapping, Sequence
 
 from motores.nucleo.chegada import LinhaDeChegada, avaliar
 from motores.nucleo.papeis import NivelDeMotor
-from motores.quatro import feitos_quatro
+from motores.quatro import distancia_da_figura_quatro, feitos_quatro
 from motores.quatro.motor_quatro import EstadoQuatro, MotorQuatro, TabuleiroQuatro
 
 #: Com que frequencia cada nivel joga o lance que persegue o objetivo (o resto
@@ -72,11 +72,25 @@ DIRECOES = ((0, 1), (1, 0), (1, 1), (1, -1))
 DIAGONAIS = ((1, 1), (1, -1))
 
 #: Os tipos cujo objetivo NAO e um jeito de vencer, e que fecham no meio da
-#: partida (T143, §8zzzr). ⚠️ Neles o ramo de perseguir nao espera uma vitoria
-#: provada para se afastar do lance do nivel: vencer nao e o objetivo, e esperar
-#: por ela faria o perseguidor jogar como quem so quer vencer (ver
-#: `lance_de_quem_persegue`).
-FECHAM_NO_MEIO = frozenset({"quatro_encoste"})
+#: partida (T143 e T148, §8zzzr): o "Encoste" e o "Forme a figura". ⚠️ Neles o
+#: ramo de perseguir nao espera uma vitoria provada para se afastar do lance do
+#: nivel: vencer nao e o objetivo, e esperar por ela faria o perseguidor jogar
+#: como quem so quer vencer (ver `lance_de_quem_persegue`).
+FECHAM_NO_MEIO = frozenset({"quatro_encoste", "quatro_figura"})
+
+#: O peso de um lugar da figura que falta uma casa (`_potencial_da_figura`). ⚠️
+#: Alto contra o `comum` (que raramente passa de algumas dezenas), como as
+#: encostadas no "Encoste": o prazo e curto, e o `comum` so desempata.
+PESO_DA_FIGURA = 1_000
+
+#: Os tipos em que o ramo de perseguir NAO consulta a prova (T148). ⚠️ No "Forme
+#: a figura" ela atrapalha: a prova e jogo perfeito, e nas posicoes do acervo
+#: (Magno x Tex, ja decididas) ela deixa poucos lances "nao perdidos", quase
+#: nenhum que constroi a figura. Medido em 23/10/2026 no controle (quadrado e
+#: L, folga 3, 30 posicoes, contra a Cacau e o Tex): sem a prova o Magno formou
+#: 23 a 25 de 30; com ela, 20 a 23. O passo 3 (nao entregar a vitoria pronta)
+#: continua valendo.
+TIPOS_SEM_A_PROVA = frozenset({"quatro_figura"})
 
 #: Quem responde "esta posicao e perdida a forca para quem tem a vez?". Na
 #: producao e o `ProvadorQuatro` (a busca do executavel); `None` desliga o passo.
@@ -131,7 +145,20 @@ def cumpre(motor: MotorQuatro, desafio: Desafio, fita: Sequence[str]) -> bool:
         motor, desafio.iniciais, fita, jogador=desafio.pessoa
     )
     predicados = feitos_quatro.responder_predicados(motor, desafio.iniciais, fita)
-    return avaliar(desafio.chegada, medidas, predicados=predicados)
+    # A grade so quando ha `figura` (T148): o juiz a pede por uma porta propria,
+    # e montar o tabuleiro custa uma reproducao da fita a mais.
+    grade = (
+        feitos_quatro.grade(motor, desafio.iniciais, fita)
+        if desafio.chegada.figuras
+        else None
+    )
+    return avaliar(
+        desafio.chegada,
+        medidas,
+        predicados=predicados,
+        grade=grade,
+        jogador=desafio.pessoa,
+    )
 
 
 def _vitoria_imediata(motor: MotorQuatro, estado: EstadoQuatro, quem: int) -> bool:
@@ -274,6 +301,70 @@ def _pontos_de_golpe_duplo(
     return sum(1 for n in contagem.values() if n >= 2)
 
 
+def _vence_ali(
+    motor: MotorQuatro, tabuleiro: TabuleiroQuatro, lance: tuple[str, int], quem: int
+) -> bool:
+    """[quem] venceria pondo a peca em [lance], neste [tabuleiro], se fosse a vez dele?
+
+    ⚠️ `dataclasses.replace` faz uma COPIA do tabuleiro com outro campo (a vez):
+    o arbitro so poe a peca de quem tem a vez, e aqui a vez e do adversario.
+    """
+    regras = motor.regras
+    desfecho = regras.desfecho(regras.aplicar(replace(tabuleiro, vez=quem), lance))
+    return desfecho is not None and desfecho.vencedor == quem
+
+
+def _soma_dos_lugares(
+    motor: MotorQuatro, tabuleiro: TabuleiroQuatro, desafio: Desafio
+) -> float:
+    """Todos os lugares da figura somados: cada um vale `PESO_DA_FIGURA / 3**custo`.
+
+    A 1 casa, 333; a 2, 111; a 3, 37. ⚠️ A soma, e nao so o lugar mais perto: com
+    o mais perto, os lances que nao o mudam valem todos igual, e quem escolhe
+    entre eles e o `comum` (jogar bem), e nao a figura. Medido em 23/10/2026 no
+    controle (quadrado e L, folga 3, 30 posicoes): a soma e o mais perto
+    deram o mesmo (19 e 20 de 30 no quadrado, 22 e 21 no L) - ela fica porque
+    da direcao onde o mais perto empata, e nao porque mediu melhor. E a mesma
+    ideia do [_potencial] das linhas, que soma todas as janelas abertas.
+    """
+    dimensoes = motor.regras.dimensoes
+    total = 0.0
+    for figura in desafio.chegada.figuras:
+        for custo in distancia_da_figura_quatro.custos(
+            figura.desenho, figura.espelhar, tabuleiro, dimensoes, desafio.pessoa
+        ):
+            total += PESO_DA_FIGURA / 3**custo
+    return total
+
+
+def _potencial_da_figura(
+    motor: MotorQuatro, tabuleiro: TabuleiroQuatro, desafio: Desafio
+) -> float:
+    """O quanto o [tabuleiro] aproxima a pessoa da figura, DEPOIS do bloqueio.
+
+    [tabuleiro] e o de depois do lance da pessoa (a vez e do adversario). ⚠️
+    **O modo de falha que isto ataca** (o rastro do controle, 23/10/2026):
+    construindo a figura, a pessoa arma as proprias linhas de quatro, e o
+    adversario - que nao le o objetivo, mas bloqueia toda vitoria pronta, como
+    qualquer motor - poe a peca justamente na casa que a figura pedia. Entao,
+    quando o lance deixa a pessoa com UMA casa de vitoria, a nota e a do
+    tabuleiro depois do bloqueio nela; com duas ou mais, o adversario nao
+    bloqueia tudo, e a nota e a de agora.
+
+    ⚠️ Os `X` sao da PESSOA, passada explicita: neste tabuleiro a vez ja e do
+    adversario.
+    """
+    regras = motor.regras
+    bloqueios = [
+        lance
+        for lance in regras.lances_legais(tabuleiro)
+        if _vence_ali(motor, tabuleiro, lance, desafio.pessoa)
+    ]
+    if len(bloqueios) == 1:
+        tabuleiro = regras.aplicar(tabuleiro, bloqueios[0])
+    return _soma_dos_lugares(motor, tabuleiro, desafio)
+
+
 def nota_do_objetivo(
     motor: MotorQuatro, tabuleiro: TabuleiroQuatro, desafio: Desafio
 ) -> float:
@@ -308,6 +399,8 @@ def nota_do_objetivo(
             motor.regras.dimensoes, tabuleiro, eu
         )
         return 100 * encostadas + comum
+    if tipo == "quatro_figura":
+        return _potencial_da_figura(motor, tabuleiro, desafio) + comum
     if tipo == "quatro_sem_o_meio":
         meio = _coluna_do_meio(motor)
         return _potencial(motor, tabuleiro, eu, proibida=meio) - _potencial(
@@ -386,6 +479,8 @@ def lance_de_quem_persegue(
     # prioridade sobre ele. Sem isso o perseguidor do "Encoste" jogaria o lance
     # do nivel quase sempre (sem vitoria provada a vista), e mediria o nivel
     # jogando para vencer - o defeito que este modulo veio atacar.
+    if desafio.co_tipo in TIPOS_SEM_A_PROVA:
+        prova = None
     if prova is not None and desafio.co_tipo in FECHAM_NO_MEIO:
         resultado = {l: prova(estado.com_lance(l)) for l in lances}
         lances = [l for l in lances if resultado[l] != -desafio.pessoa] or lances

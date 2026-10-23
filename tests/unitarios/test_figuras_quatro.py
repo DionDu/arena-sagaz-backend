@@ -312,3 +312,33 @@ def test_cada_figura_se_forma_numa_partida_e_o_prazo_conta(nome: str) -> None:
     # (a recusa 5), e ela e quem poe a ultima.
     assert no_prazo.nu_lance_cumpre_desafio == len(fita), (nome, fita)
     assert julgar(lances_da_pessoa - 1).veredito == NAO_CUMPRIU, (nome, fita)
+
+
+def test_o_quem_explicito_vence_a_vez_do_tabuleiro() -> None:
+    """⚠️ O perseguidor (T148) mede o tabuleiro DEPOIS do lance da pessoa, quando
+    a vez ja e do adversario: sem o `quem`, mediria a figura do lado errado.
+
+    O J1 com tres pecas do quadrado e a vez do J2: para o J1 falta 1 casa; para
+    o J2 (a vez), o quadrado mais perto e o das colunas 6 e 7, a 2."""
+    tabuleiro = _tabuleiro({1: "11", 2: "1", 7: "2", 6: "2"}, vez=-1)
+    quadrado = fq.FIGURAS_QUATRO["quadrado"]
+    assert fq.distancia(quadrado, tabuleiro, DIMENSOES, quem=1) == 1
+    assert fq.distancia(quadrado, tabuleiro, DIMENSOES) == 2
+    assert fq.distancia(quadrado, tabuleiro, DIMENSOES, quem=-1) == 2
+
+
+def test_os_custos_sao_um_por_lugar_e_a_distancia_e_o_menor() -> None:
+    """`custos` (a soma do perseguidor) e `distancia` (o prazo) leem a mesma conta."""
+    from motores.quatro import distancia_da_figura_quatro as dq
+
+    tabuleiro = _tabuleiro({1: "11", 2: "1", 7: "22", 6: "2"})
+    quadrado = fq.FIGURAS_QUATRO["quadrado"]
+    custos = dq.custos(quadrado.desenho, False, tabuleiro, DIMENSOES, 1)
+    # No 7 x 6 o quadrado tem 6 x 5 = 30 cantos; os que esbarram nas pecas do J2
+    # (colunas 6 e 7, linhas 1 e 2) sao conflito e ficam fora.
+    assert 0 < len(custos) < 30
+    assert min(custos) == fq.distancia(quadrado, tabuleiro, DIMENSOES) == 1
+    # Sem lugar livre: lista vazia, e a distancia `None`.
+    alta = fq.FiguraQuatro("alta", ("X", "O", "X", "O", "X", "O"), False, "lote")
+    cheio = _tabuleiro({j: "1" for j in range(1, 8)})
+    assert dq.custos(alta.desenho, False, cheio, DIMENSOES, 1) == []

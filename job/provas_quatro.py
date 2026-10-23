@@ -811,7 +811,7 @@ class ProvadorQuatro:
         nao lida dos parametros: a prova nao confia no numero de quem a chama.
         Recusa a figura sem lugar livre de conflito (ela nunca mais se forma), a
         ja formada ou formavel num lance (a proposta §2, recusa 5), a longe demais
-        (a faixa provisoria da T147), e o prazo menor que a distancia (recusa 6).
+        (a faixa da T147, sondada na T148), e o prazo menor que a distancia (recusa 6).
 
         ⚠️ Como no Encoste, e a conta de cima, e nao a prova de que a figura e
         alcancavel: quem diz isso e o gabarito, e quem diz se e dificil e a regua.
