@@ -9682,11 +9682,11 @@ de ~20 minutos é retomável, usa todos os núcleos e grava o relatório num arq
    `bool` (`_regua_do_dia`), e não lido de volta do texto da linha.
 7. **A grade do "Encoste" no editorial ficou com as quatro** (M5 k2, M6 k1, M6 k2, M7 k1).
 
-**Testes.** `test_medidor_de_variantes.py` ganhou 14 casos (o `--do-dia` e o `--processos` com os
+**Testes.** `test_medidor_de_variantes.py` ganhou 15 casos (o `--do-dia` e o `--processos` com os
 inválidos; o corte dos dias na lista; os botões até o gerador, e as listas que voltam a tupla; o diário com uma linha por unidade;
 o retomar que não mede nada; o Ctrl+C que perde só a unidade em andamento e a linha cortada; a
 versão do código; a chave sem a ordem; a impressão; a régua em série no pool; o `principal` com
-régua indo ao retomável; o nome do relatório). **Mutações: 13 de 13 pegas.** Uma sobreviveu na
+régua indo ao retomável; o nome do relatório; o piso 0 que chega ao gerador). O cadeado de texto de `test_piso_de_meios_lances.py` foi para a forma nova (`botoes["piso"]`). **Mutações: 14 de 14 pegas.** Uma sobreviveu na
 primeira passada, e mostrou uma guarda dobrada: o filtro por versão nas linhas lidas repetia a
 versão que já está na chave. O filtro saiu, e a mutação passou a ser a da chave.
 
