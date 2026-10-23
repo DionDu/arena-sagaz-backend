@@ -10249,3 +10249,49 @@ cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
 O relatório das 57 variantes ficou guardado em `medicoes/medir_variantes_do_editorial/relatorio_quatro_figura_57_variantes_36_dias.txt`
 (a rodada nova grava por cima do `relatorio_quatro_figura.txt`). Eu o leio direto: primeiro o
 QUADRO, e nele as 12 de controle.
+
+## 2026-10-23 (8) — "Forme a figura": a confirmação do resgate sem a Cacau (spec 010)
+
+**Contexto.** O dono rodou a confirmação da entrada anterior (20 variantes, 36 dias). Critério de
+sempre, 24 de 36 dias na escada (`DECISOES-do-dono.md` §8zzzt item 3). Relatório guardado em
+`medicoes/medir_variantes_do_editorial/relatorio_quatro_figura_confirmacao_20_variantes_36_dias.txt`.
+
+**O controle fechou.** As 12 aprovadas repetiram o QUADRO das 57 variantes número a número (os
+dias na escada, a divisão por adversário e o "sem a Cacau"): o medidor que aprendeu a ler a
+restrição por variante não mudou nada nas variantes sem restrição.
+
+**O resgate.** Sem a Cacau no rodízio de adversários (Pita, Tex e Magno, 12 dias cada):
+
+| variante | lida sem a Cacau (de 27) | medida (de 36) | |
+|---|---|---|---|
+| losango 1 | 18 | **29** | ✅ |
+| i_longo 1 | 19 | **26** | ✅ |
+| t 1 · 3 | 18 · 22 | 23 · 23 | ⛔ por um dia |
+| v_grande 3 | 18 | 23 | ⛔ por um dia |
+| igual_sanduiche 2 | 19 | 22 | ⛔ |
+| t 2 · piramide 1 | 20 · 21 | 20 · 20 | ⛔ |
+
+⚠️ **A releitura errou para os dois lados**: o losango, lido no limite, foi a melhor do resgate;
+o t 3, lido com folga, caiu. Com outros dias no rodízio o resultado muda mais do que a conta
+previa - foi o motivo da confirmação.
+
+⚠️ **No T o problema não é a Cacau**: por adversário do dia, o T 1 fica 6/12 contra a Pita, 8/12
+contra o Tex e 9/12 contra o Magno (o T 3: 6 · 7 · 10). Os dias que caem são de substitutos
+FORTES abaixo da faixa (o Magno em 0,40-0,70 onde a faixa pede 0,75), e não de fracos acima.
+Restringir aos adversários fracos não o salvaria.
+
+**Decisão (aplica o critério já escrito).** O editorial do `quatro_figura` fica com **14
+variantes de 8 figuras**, ainda fora do ar: as 12 com os quatro adversários e o losango 1 e o
+i_longo 1 sem a Cacau. Saem t 1 · 2 · 3, piramide 1, igual_sanduiche 2 e v_grande 3 (as figuras
+continuam no catálogo). Cadeados atualizados: `test_as_variantes_da_figura_sao_as_da_poda_dos_36_dias`
+e `RESGATE_DA_FIGURA_SEM_A_CACAU` (mutação "losango sem restrição" pega pelos dois).
+
+**Alternativas consideradas.** Afrouxar o critério para o T, que perdeu por um dia em duas
+folgas (recusada: o limiar foi escrito antes da medição, e é o mesmo dos outros tipos); restringir
+o T aos adversários Tex e Magno (a releitura dá 17 de 24, mas tira justamente o adversário fácil
+que o dono quis garantir no §8zzzr item 7, e precisaria de outra confirmação) - fica como pergunta
+ao dono, sem nada mudado.
+
+**Próximo.** T149 (o app: frase do feito, objetivo, capacidade, miniatura do artefato), depois a
+T150 promove as 14 com os vetores `quatro-figura-no-ar-*` das figuras novas (i_longo,
+igual_sanduiche, losango).

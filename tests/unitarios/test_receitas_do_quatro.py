@@ -314,11 +314,9 @@ RESTRICOES_DE_PERSONAGEM = {
 #: As variantes do "Forme a figura" que vao sem a Cacau (DECISOES §8zzzt,
 #: 23/10/2026): a restricao e POR VARIANTE, e as outras ficam no rodizio. Nos
 #: 36 dias, contra a Cacau de adversario os substitutos fortes resolveram menos
-#: do que a faixa deles; lidas sem esses dias, estas oito passaram de 18 de 27.
-RESGATE_DA_FIGURA_SEM_A_CACAU = {
-    ("t", 1), ("t", 2), ("t", 3), ("piramide", 1), ("i_longo", 1),
-    ("igual_sanduiche", 2), ("losango", 1), ("v_grande", 3),
-}
+#: do que a faixa deles; lidas sem esses dias, oito passaram de 18 de 27, e a
+#: rodada de confirmacao sem a Cacau aprovou estas duas (24 de 36 ou mais).
+RESGATE_DA_FIGURA_SEM_A_CACAU = {("i_longo", 1), ("losango", 1)}
 
 
 def test_so_os_tipos_restritos_fogem_do_rodizio() -> None:

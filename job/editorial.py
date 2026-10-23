@@ -2466,6 +2466,21 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     # Saem nas tres folgas, mesmo sem a Cacau: mais, c, l, t_invertido, u, v,
     # escada e n (continuam no catalogo; sai so a variante).
     #
+    # ✅ **A confirmacao do resgate** (23/10/2026, historico do backend
+    # "2026-10-23 (8)"), as 20 variantes em 36 dias. As doze de controle
+    # repetiram os numeros de cima, uma a uma. Das oito sem a Cacau, passam DUAS:
+    #
+    #     losango 1   29          i_longo 1   26
+    #
+    # e saem as outras seis, que ficaram abaixo dos 24 de 36:
+    #
+    #     t 1 · 2 · 3   23 · 20 · 23     piramide 1         20
+    #     v_grande 3    23               igual_sanduiche 2  22
+    #
+    # ⚠️ A releitura errou para os dois lados (o losango, 18 de 27 lido, mediu
+    # 29 de 36; o t 3, 22 de 27, mediu 23): o rodizio em outros dias pesa mais
+    # do que a conta previa, e e por isso que a confirmacao existiu.
+    #
     # ⬜ Promover (T150) so DEPOIS da T149: o backend recusa por no ar um tipo
     # cuja frase de feito o app nao declara (`test_medidas_do_feito.py`).
     "quatro_figura": tuple(
@@ -2500,15 +2515,9 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             ("i_longo", 2, None),
             ("i_longo", 3, None),
             ("igual_sanduiche", 3, None),
-            # As oito do resgate, sem a Cacau, em confirmacao.
-            ("t", 1, _FIGURA_SEM_A_CACAU),
-            ("t", 2, _FIGURA_SEM_A_CACAU),
-            ("t", 3, _FIGURA_SEM_A_CACAU),
-            ("piramide", 1, _FIGURA_SEM_A_CACAU),
+            # As duas do resgate que a confirmacao aprovou, sem a Cacau.
             ("i_longo", 1, _FIGURA_SEM_A_CACAU),
-            ("igual_sanduiche", 2, _FIGURA_SEM_A_CACAU),
             ("losango", 1, _FIGURA_SEM_A_CACAU),
-            ("v_grande", 3, _FIGURA_SEM_A_CACAU),
         )
     ),
 }

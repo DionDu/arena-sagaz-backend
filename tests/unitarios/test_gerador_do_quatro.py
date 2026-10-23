@@ -386,7 +386,8 @@ def test_o_teto_da_figura_e_o_do_maior_prazo_e_cabe_acima_do_piso() -> None:
 
 def test_as_variantes_da_figura_sao_as_da_poda_dos_36_dias() -> None:
     """A poda dos 36 dias (DECISOES §8zzzt): as 12 aprovadas com os quatro
-    adversarios e as 8 do resgate, sem a Cacau, em confirmacao.
+    adversarios e as 2 do resgate que a confirmacao sem a Cacau aprovou (o
+    losango 1 e o i longo 1; as outras seis ficaram abaixo dos 24 de 36).
     ⚠️ Os pares por extenso, cada um com os seus adversarios: uma variante que
     perdesse a restricao (ou a ganhasse) mudaria o que o job publica sem
     ninguem ver."""
@@ -414,14 +415,8 @@ def test_as_variantes_da_figura_sao_as_da_poda_dos_36_dias() -> None:
         ("i_longo", 2, None),
         ("i_longo", 3, None),
         ("igual_sanduiche", 3, None),
-        ("t", 1, sem_a_cacau),
-        ("t", 2, sem_a_cacau),
-        ("t", 3, sem_a_cacau),
-        ("piramide", 1, sem_a_cacau),
         ("i_longo", 1, sem_a_cacau),
-        ("igual_sanduiche", 2, sem_a_cacau),
         ("losango", 1, sem_a_cacau),
-        ("v_grande", 3, sem_a_cacau),
     ]
     # Sem repeticao: um par duplicado seria medido (e pesaria) em dobro.
     pares = [(figura, folga) for figura, folga, _ in trios]
