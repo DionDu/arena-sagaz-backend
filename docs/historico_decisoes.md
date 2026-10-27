@@ -10330,3 +10330,43 @@ fontes para o mesmo desenho, que divergiriam em silêncio. Ficou uma fonte para 
 `DECISOES-do-dono.md` §8zzzt item 7): o T fica **fora da 1.4.0**, sem a restrição a Tex e
 Magno e sem nova confirmação. Continua no catálogo, sem variante no editorial. A T150 promove
 as 14 variantes de 8 figuras.
+
+## 2026-10-27 (2) — "Forme a figura": a exclamação vai à régua, e a figura em metade dos dias do Quatro (spec 010)
+
+**Contexto.** Antes da T150, o dono viu o que ela poria no ar e pediu duas coisas
+(`DECISOES-do-dono.md` §8zzzu, no frontend): a exclamação, que nunca foi medida, e que a
+figura não fosse rara. Com um tipo entre dez, sem peso, ela sairia em menos de 1 dia por mês
+no começo da adoção do Quatro (1 dia em 6 do calendário) e em 1 por mês no rodízio pleno.
+
+**Decisão 1: a exclamação entra no catálogo e é medida antes da T150.** O desenho é
+`X X X O X`, de cima para baixo, numa coluna (`job/figuras_quatro.py`, família
+`terceiro_lote`). A casa entre o ponto e a haste é `O`, e não `.`: com a peça da pessoa ali a
+coluna viraria uma torre de 4 (vitória) antes de a figura fechar. As contas são as do i longo
+(4 X, 1 O, nenhum apoio, maior linha 3, 14 lugares), de que ela é o espelho vertical. As três
+folgas entram no `EDITORIAL_FORA_DO_AR`, com os quatro adversários, depois das 14 aprovadas.
+
+**Comando do dono (17 variantes × 36 dias; ~1 h a 1 h 15, retomável):**
+
+```powershell
+cd D:\Desenvolvimento\arena-sagaz\arena-sagaz-backend
+.venv\Scripts\python -u scripts\medir_variantes_do_editorial.py quatro_figura --com-regua --dias=36
+```
+
+A impressão do código mudou, então o diário não aproveita nada: as 14 aprovadas são medidas
+de novo e servem de CONTROLE (a medição é determinística; diferença nelas é defeito do
+medidor). O relatório grava por cima de `relatorio_quatro_figura.txt`; os das duas rodadas
+anteriores estão guardados com nome próprio na mesma pasta. Critério de sempre: 24 de 36
+dias na escada. A variante da exclamação que não passar sai do editorial antes da promoção.
+
+⚠️ **Enquanto a medição roda, nada muda em `job/` nem em `motores/` nesta pasta**: a
+impressão cobre esses `.py`, e os processos do medidor importam o código. A regra da
+frequência e a T150 são escritas num *worktree* e entram depois.
+
+**Decisão 2: a figura ocupa metade dos dias do Quatro.** O Pontinhos e as damas continuam
+com os mesmos dias; o que muda é a divisão dos dias do Quatro (um sim, um não para a figura).
+Em 30 dias do Desafio do Dia: 2 a 3 dias de figura no começo, 5 no rodízio pleno. A regra entra
+com a T150.
+
+**Alternativas consideradas.** Medir a exclamação depois da 1.4.0 (cabe, a figura é dado; o
+dono preferiu antes) e não incluí-la. Para a frequência: deixar sem peso, 2 de cada 3 dias e
+todos os dias do Quatro (os outros nove tipos ficariam raros ou sairiam).

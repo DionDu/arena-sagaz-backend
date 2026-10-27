@@ -417,6 +417,10 @@ def test_as_variantes_da_figura_sao_as_da_poda_dos_36_dias() -> None:
         ("igual_sanduiche", 3, None),
         ("i_longo", 1, sem_a_cacau),
         ("losango", 1, sem_a_cacau),
+        # Em medicao (DECISOES §8zzzu item 3).
+        ("exclamacao", 1, None),
+        ("exclamacao", 2, None),
+        ("exclamacao", 3, None),
     ]
     # Sem repeticao: um par duplicado seria medido (e pesaria) em dobro.
     pares = [(figura, folga) for figura, folga, _ in trios]

@@ -91,7 +91,9 @@ DISTANCIA_MAXIMA_DA_FIGURA = 6
 #: que vao a regua para comparar as familias, os dois CONTROLES (os faceis, que
 #: todos tem de cumprir com folga larga: se nao cumprem, quem falhou foi a
 #: medicao) e o TETO (se ninguem as forma, a figura e dificil demais para o 7 x 6).
-FAMILIAS = ("lote", "controle", "teto", "segundo_lote")
+#: O `terceiro_lote` (27/10/2026) e a exclamacao, pedida pelo dono ao ver a
+#: grade da T150 (DECISOES §8zzzu).
+FAMILIAS = ("lote", "controle", "teto", "segundo_lote", "terceiro_lote")
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,12 +142,18 @@ def _figura(nome: str, desenho: list[str], familia: str, espelhar: bool = False)
 #:     · X ·        X X X        X X X        · X ·        · X X
 #:     X X X                                               X X ·
 #:
-#:     n (ponte)    i longo      = sanduiche
-#:     X X X        X            X X
-#:     X O X        O            O O
-#:                  X            X X
-#:                  X
-#:                  X
+#:     n (ponte)    i longo      = sanduiche    !  (exclamacao)
+#:     X X X        X            X X            X
+#:     X O X        O            O O            X
+#:                  X            X X            X
+#:                  X                           O
+#:                  X                           X
+#:
+#: ⚠️ A exclamacao e o i longo de cabeca para baixo, e o ponto e separado da
+#: haste por uma peca do ADVERSARIO, e nao por "qualquer coisa" (`.`): com a
+#: peca da pessoa ali a coluna viraria uma torre de 4 (vitoria) antes de a
+#: figura fechar, e o desafio nunca se cumpriria por esse caminho
+#: (DECISOES §8zzzu item 3).
 #:
 #: ⚠️ O "T" tem 5 pecas (a barra de 3 e a haste de 2, §8zzzr item 2), e o
 #: triangulo saiu por decisao do dono. O "u" vale oco ou cheio (o miolo `.`
@@ -181,6 +189,8 @@ FIGURAS_QUATRO: dict[str, FiguraQuatro] = {
         _figura("n", ["XXX", "XOX"], "segundo_lote"),
         _figura("i_longo", ["X", "O", "X", "X", "X"], "segundo_lote"),
         _figura("igual_sanduiche", ["XX", "OO", "XX"], "segundo_lote"),
+        # O terceiro lote: a exclamacao, pedida pelo dono (27/10/2026).
+        _figura("exclamacao", ["X", "X", "X", "O", "X"], "terceiro_lote"),
     )
 }
 

@@ -59,12 +59,16 @@ TABELA_DA_PROPOSTA = {
     "n": (5, 1, 0, 3, 25),
     "i_longo": (4, 1, 0, 3, 14),
     "igual_sanduiche": (4, 2, 0, 2, 24),
+    # O terceiro lote (27/10/2026, DECISOES §8zzzu): fora da proposta, pedida
+    # pelo dono. E o i longo de cabeca para baixo, entao as contas sao as dele.
+    "exclamacao": (4, 1, 0, 3, 14),
 }
 
 
-def test_o_catalogo_tem_as_dezenove_da_proposta_e_as_familias_certas() -> None:
-    """O primeiro lote (sete), os dois controles, os dois do teto e o segundo
-    lote (oito): as dezenove figuras validas da proposta."""
+def test_o_catalogo_tem_as_vinte_figuras_e_as_familias_certas() -> None:
+    """O primeiro lote (sete), os dois controles, os dois do teto, o segundo
+    lote (oito) - as dezenove figuras validas da proposta - e o terceiro lote,
+    a exclamacao que o dono pediu."""
     assert set(fq.FIGURAS_QUATRO) == set(TABELA_DA_PROPOSTA)
     familias = {nome: f.familia for nome, f in fq.FIGURAS_QUATRO.items()}
     assert {n for n, fam in familias.items() if fam == "lote"} == {
@@ -75,7 +79,8 @@ def test_o_catalogo_tem_as_dezenove_da_proposta_e_as_familias_certas() -> None:
     assert {n for n, fam in familias.items() if fam == "segundo_lote"} == {
         "t_invertido", "piramide", "u", "v", "escada", "n", "i_longo", "igual_sanduiche",
     }
-    assert len(fq.FIGURAS_QUATRO) == 19
+    assert {n for n, fam in familias.items() if fam == "terceiro_lote"} == {"exclamacao"}
+    assert len(fq.FIGURAS_QUATRO) == 20
 
 
 @pytest.mark.parametrize("nome", sorted(TABELA_DA_PROPOSTA))

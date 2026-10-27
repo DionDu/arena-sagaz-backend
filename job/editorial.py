@@ -2518,6 +2518,14 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             # As duas do resgate que a confirmacao aprovou, sem a Cacau.
             ("i_longo", 1, _FIGURA_SEM_A_CACAU),
             ("losango", 1, _FIGURA_SEM_A_CACAU),
+            # ⬜ EM MEDICAO (27/10/2026, DECISOES §8zzzu item 3): a exclamacao,
+            # pedida pelo dono, nas tres folgas e com os quatro adversarios.
+            # Criterio de sempre, 24 de 36 dias na escada; as 14 de cima vao na
+            # mesma rodada como CONTROLE (tem de repetir os numeros). A que nao
+            # passar sai daqui antes da T150 promover o tipo.
+            ("exclamacao", 1, None),
+            ("exclamacao", 2, None),
+            ("exclamacao", 3, None),
         )
     ),
 }
