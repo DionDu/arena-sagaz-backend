@@ -29,6 +29,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from job.figuras_quatro import CHAVE_FIGURA
 from job.gravacao import montar_linha
 from job.medidas_do_feito import (
     MANIFESTO,
@@ -58,8 +59,14 @@ def _janela_da_receita(receita) -> str:
     cada tipo pede os seus. Um `defaultdict` que devolve 1 para qualquer chave
     serve a todos: o que se le aqui e a FORMA da chegada, e ela ⛔ depende do
     valor.
+
+    ⚠️ **Menos a figura** (`quatro_figura`, T147): o parametro dela e um NOME do
+    catalogo, e nao uma contagem - com 1 a receita nao acharia figura nenhuma.
+    O quadrado e o controle do catalogo; a forma da chegada nao depende de qual.
     """
-    chegada = receita.montar(defaultdict(lambda: 1))
+    parametros = defaultdict(lambda: 1)
+    parametros[CHAVE_FIGURA] = "quadrado"
+    chegada = receita.montar(parametros)
     return chegada["janela"]["tipo"]
 
 
@@ -142,9 +149,9 @@ def test_o_tipo_FORA_DO_AR_com_entrada_tem_o_mesmo_jogo_e_janela(co_tipo: str) -
 
 
 def test_os_nove_tipos_do_Quatro_com_texto_tem_entrada() -> None:
-    """🔒 Os dez do Quatro tem frase de feito (os nove de 20/10 e o "Encoste" da
-    T144, 22/10/2026); a unica coluna, aposentada
-    (`DECISOES-do-dono.md` §8zzzl), nao tem.
+    """🔒 Os onze do Quatro tem frase de feito (os nove de 20/10, o "Encoste" da
+    T144, 22/10/2026, e o "Forme a figura" da T149, 27/10/2026); a unica
+    coluna, aposentada (`DECISOES-do-dono.md` §8zzzl), nao tem.
 
     ⚠️ Sem este caso, o parametrizado acima passaria com ZERO tipos se o
     manifesto perdesse as entradas do Quatro.
@@ -156,11 +163,10 @@ def test_os_nove_tipos_do_Quatro_com_texto_tem_entrada() -> None:
     com_entrada = {
         t for t in do_quatro if todas[t].co_chave_objetivo in frases_declaradas()
     }
-    # ⚠️ O "Forme a figura" (T147) ainda nao tem frase de feito: ela nasce no
-    # app com o resto do texto do tipo (T149), e o manifesto e regerado de la.
-    # Tipo fora do ar sem entrada e aceito (o cadeado acima so cobra quem tem).
-    assert do_quatro - com_entrada == {"quatro_unica_coluna", "quatro_figura"}
-    assert len(com_entrada) == 10
+    # O "Forme a figura" ganhou a frase de feito no app na T149 (27/10/2026),
+    # ainda fora do ar: a T150 o promove.
+    assert do_quatro - com_entrada == {"quatro_unica_coluna"}
+    assert len(com_entrada) == 11
 
 
 def test_toda_medida_exigida_e_do_catalogo_e_do_TABULEIRO() -> None:

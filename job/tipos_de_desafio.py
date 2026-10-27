@@ -3131,9 +3131,17 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
                 figuras_quatro_mod.FIGURAS_QUATRO[p[figuras_quatro_mod.CHAVE_FIGURA]].clausula()
             ],
         },
+        # ⚠️ **E o desenho viaja TAMBEM no enunciado** (`figura`, T149,
+        # 27/10/2026): a frase nao nomeia a figura, e o app a desenha ao lado
+        # dela em todo lugar - inclusive onde so o objetivo chega, sem a
+        # chegada (o Historico, pelo `meu-mes`). Sai do MESMO item do catalogo
+        # que a clausula, e `test_figuras_quatro.py` confere os dois.
         valores_da_frase=lambda p, personagem: {
             "lances": p["lances"],
             "personagem": personagem,
+            "figura": list(
+                figuras_quatro_mod.FIGURAS_QUATRO[p[figuras_quatro_mod.CHAVE_FIGURA]].desenho
+            ),
         },
     ),
 }

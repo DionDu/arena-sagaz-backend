@@ -10295,3 +10295,33 @@ ao dono, sem nada mudado.
 **Próximo.** T149 (o app: frase do feito, objetivo, capacidade, miniatura do artefato), depois a
 T150 promove as 14 com os vetores `quatro-figura-no-ar-*` das figuras novas (i_longo,
 igual_sanduiche, losango).
+
+## 2026-10-27 — "Forme a figura": o desenho viaja também no enunciado (T149 da spec 010)
+
+**Contexto.** A frase do tipo é uma só para todas as figuras (*"Forme esta figura em até 5 lances
+contra Tex"*), e o app desenha a figura ao lado dela em sete lugares (o artefato
+`design/arena-q4-figura*.jsx`). Até aqui o desenho só viajava na chegada (a cláusula `figura`,
+T146). ⚠️ Mas o Histórico lê os dias do mês pelo `meu-mes`, que traz o OBJETIVO de cada dia e
+não a chegada: o dia passado de figura sairia com *"Forme esta figura"* e figura nenhuma.
+
+**Decisão (minha, técnica).** A receita `quatro_figura` passa a pôr o desenho também em
+`js_objetivo.figura` (a lista de linhas, como na cláusula), lido do MESMO item do catálogo
+(`job/figuras_quatro.py`). O app MOSTRA pelo enunciado, em toda tela, e JULGA pela chegada. O
+novo cadeado `test_o_enunciado_leva_o_MESMO_desenho_da_chegada` (as 19 figuras) trava que os
+dois sejam iguais: divergindo, a pessoa veria uma figura e seria julgada por outra.
+
+- O `js_objetivo` já levava o que não é espaço de frase (`variante`, `modalidade`); o ICU
+  ignora valor que a frase não usa.
+- Nada publicado muda: o tipo está fora do ar (a T150 o promove), e nenhum desafio de figura
+  foi gravado com o `js_objetivo` antigo.
+- No mesmo passo: a frase de feito do app (`desafioFeitoQuatroFiguraEmLances`, só a janela
+  gasta) entrou no manifesto `contratos/medidas_do_feito.json`, a cópia
+  `contratos/frases_objetivo_pt.json` foi regerada, e `test_medidas_do_feito.py` deixou de
+  esperar a figura sem entrada (o auxiliar `_janela_da_receita` passa um nome de figura do
+  catálogo, porque o parâmetro dela é um nome, e não uma contagem).
+
+**Alternativas consideradas.** (a) Mandar a chegada no `meu-mes` - mudaria a rota e o
+consumidor do mês para servir a um tipo só, e a chegada é mais do que a tela precisa; (b) o
+Histórico sem a figura - o pedido do dono é a miniatura "em todo lugar onde a frase aparece"
+(T149); (c) o app mostrar pela chegada onde ela existe e pelo enunciado no Histórico - duas
+fontes para o mesmo desenho, que divergiriam em silêncio. Ficou uma fonte para mostrar.

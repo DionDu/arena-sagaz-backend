@@ -136,6 +136,25 @@ def test_a_clausula_da_figura_e_a_do_juiz() -> None:
     ]
 
 
+@pytest.mark.parametrize("nome", sorted(fq.FIGURAS_QUATRO))
+def test_o_enunciado_leva_o_MESMO_desenho_da_chegada(nome: str) -> None:
+    """🔒 O app desenha a figura a partir do enunciado (`js_objetivo.figura`,
+    T149) e a julga pela chegada: os dois desenhos saem do mesmo item do
+    catalogo, e este caso trava que continuem iguais. Divergindo, a pessoa veria
+    uma figura e seria julgada por outra.
+    """
+    parametros = editorial_mod.parametros_efetivos(
+        {"figura": nome, "folga": 1}, encostadas=0, distancia=3
+    )
+    receita = RECEITAS_FORA_DO_AR["quatro_figura"]
+    (clausula,) = receita.montar(parametros)["clausulas"]
+    valores = receita.valores_da_frase(parametros, "tex")
+    assert valores["figura"] == clausula["desenho"]
+    # Uma LISTA de textos, como o JSON a leva ao app (e nao a tupla do catalogo).
+    assert isinstance(valores["figura"], list)
+    assert valores["lances"] == 4
+
+
 def test_o_prazo_sem_a_distancia_falha_alto() -> None:
     with pytest.raises(TypeError, match="distancia"):
         editorial_mod.parametros_efetivos({"figura": "t", "folga": 1}, encostadas=4)

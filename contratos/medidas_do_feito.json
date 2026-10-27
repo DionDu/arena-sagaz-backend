@@ -103,6 +103,13 @@
       "valores_do_objetivo": []
     },
     {
+      "co_chave_objetivo": "desafioObjetivoQuatroFigura",
+      "co_jogo": "quatro",
+      "medidas": [],
+      "janela_gasta": true,
+      "valores_do_objetivo": []
+    },
+    {
       "co_chave_objetivo": "desafioObjetivoQuatroGolpeDuplo",
       "co_jogo": "quatro",
       "medidas": [
