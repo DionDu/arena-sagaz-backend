@@ -712,6 +712,130 @@ def damas(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Quatro em Linha (27/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **O Quatro grava o MESMO formato do Pontinhos** (`sequencia_lances`), com
+# `co_jogo: "quatro"` e a lista em `sequencia_lances` (`["s4", "s4", ...]`). Ate
+# 27/10/2026 o painel mandava toda `sequencia_lances` para o desenho do
+# Pontinhos, e o primeiro dia do Quatro no calendario respondia 500.
+#
+# ⚠️ **Aqui a posicao NAO e a lista de lances**: `s4` diz a coluna, e em que
+# casa a peca para depende das que ja estao la. Isso e REGRA (a gravidade), e
+# o topo deste modulo manda pedir regra ao arbitro, e nao reescreve-la. Entao
+# quem monta o tabuleiro e o `MotorQuatro` (`motores/quatro/motor_quatro.py`),
+# o mesmo arbitro do juiz e do job. ⚠️ Ele so usa a biblioteca padrao, e o
+# contrato que ele le viaja na imagem da API (`espelho_laboratorio/`); mesmo
+# assim o import fica DENTRO da funcao, e qualquer falha vira o aviso desenhado,
+# nunca um 500.
+
+
+def _lances_do_quatro(posicao: Mapping[str, Any]) -> list[str]:
+    """Os lances da posicao publicada do Quatro (`["s4", "s4", ...]`).
+
+    ⚠️ Le `sequencia_lances` (a forma de `MotorQuatro.para_dado`) e, na falta
+    dela, `co_lances` (a mesma sequencia concatenada).
+    """
+    lista = posicao.get("sequencia_lances")
+    if isinstance(lista, list):
+        return [str(lance) for lance in lista]
+    concatenada = posicao.get("co_lances")
+    if isinstance(concatenada, str) and concatenada:
+        # Letra seguida de digitos: `s4s10s3` → `["s4", "s10", "s3"]`.
+        import re
+
+        return re.findall(r"[a-z]\d+", concatenada)
+    return []
+
+
+def eh_do_quatro(posicao: Mapping[str, Any] | None) -> bool:
+    """A posicao e do Quatro? (O formato e o mesmo do Pontinhos.)"""
+    return bool(posicao) and posicao.get("co_jogo") == "quatro"
+
+
+def quatro(
+    posicao: Mapping[str, Any],
+    *,
+    lances_extras: Sequence[str] = (),
+    destaque: str | None = None,
+    maior: bool = False,
+) -> str:
+    """Desenha o tabuleiro do Quatro: a grade e as pecas, J1 azul e J2 vermelho.
+
+    Args:
+        posicao: o `js_posicao_inicial` do Quatro.
+        lances_extras: lances jogados DEPOIS da posicao publicada (os quadros
+            da fita: o gabarito ou a partida de alguem).
+        destaque: o ultimo lance (`s4`): a peca que ele soltou ganha o aro de
+            ouro, como a "ultima jogada" do aplicativo.
+        maior: o tamanho do cartao e da fita; sem ele, a miniatura.
+
+    Returns:
+        O `<svg>`, ou o aviso desenhado quando o arbitro recusa a sequencia (e
+        o motivo dele vai escrito, para o dono saber o que esta torto).
+    """
+    co_modalidade = str(posicao.get("co_modalidade") or "")
+    lances = _lances_do_quatro(posicao) + [str(l) for l in lances_extras]
+    try:
+        # Importado aqui: ver o bloco acima.
+        from motores.quatro.motor_quatro import MotorQuatro
+
+        motor = MotorQuatro(co_modalidade)
+        tabuleiro = motor.tabuleiro(motor.estado_de_sequencia("".join(lances)))
+        dimensoes = motor.regras.dimensoes
+    except Exception as erro:  # noqa: BLE001 - o painel nao cai por uma linha torta
+        return _svg_vazio(f"Quatro: {str(erro)[:60]}")
+
+    casa = 40 if maior else 26
+    margem = 6
+    largura = dimensoes.largura * casa + 2 * margem
+    altura = dimensoes.altura * casa + 2 * margem + (14 if maior else 0)
+    raio = casa * 0.38
+
+    # A casa onde o ultimo lance pousou: o topo da coluna dele, DEPOIS do lance.
+    pouso: tuple[int, int] | None = None
+    if destaque and len(destaque) > 1 and destaque[1:].isdigit():
+        coluna = int(destaque[1:])
+        if 1 <= coluna <= dimensoes.largura:
+            pouso = (coluna, len(tabuleiro.colunas[coluna - 1]))
+
+    partes = [
+        f'<svg viewBox="0 0 {largura} {altura}" width="{largura}" '
+        f'height="{altura}" role="img" aria-label="tabuleiro do Quatro em Linha">',
+        # O tabuleiro de madeira, com os furos.
+        f'<rect x="{margem - 3}" y="{margem - 3}" width="{dimensoes.largura * casa + 6}" '
+        f'height="{dimensoes.altura * casa + 6}" rx="8" fill="{MADEIRA}" '
+        f'stroke="{MADEIRA_ESC}" stroke-width="2"/>',
+    ]
+    for coluna in range(1, dimensoes.largura + 1):
+        for linha in range(1, dimensoes.altura + 1):
+            # A linha 1 e a de BAIXO (o chao): no SVG o y cresce para baixo.
+            cx = margem + (coluna - 0.5) * casa
+            cy = margem + (dimensoes.altura - linha + 0.5) * casa
+            dono = tabuleiro.peca((coluna, linha))
+            cor = PAPEL if dono == 0 else _cor_do_jogador(dono)
+            partes.append(
+                f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio:.1f}" fill="{cor}" '
+                f'stroke="{MADEIRA_ESC}" stroke-width="1"/>'
+            )
+            if pouso == (coluna, linha):
+                partes.append(
+                    f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio + 2:.1f}" '
+                    f'fill="none" stroke="{OURO}" stroke-width="3"/>'
+                )
+    if maior:
+        # O numero de cada coluna embaixo: e o que `s4` quer dizer.
+        for coluna in range(1, dimensoes.largura + 1):
+            cx = margem + (coluna - 0.5) * casa
+            partes.append(
+                f'<text x="{cx:.1f}" y="{altura - 2}" text-anchor="middle" '
+                f'font-size="11" fill="{TINTA_SUAVE}">{coluna}</text>'
+            )
+    partes.append("</svg>")
+    return "".join(partes)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # A porta de entrada
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -759,6 +883,9 @@ def posicao(
     para ver a linha torta.
     """
     js_posicao_inicial = js_posicao_inicial or {}
+    # ⚠️ ANTES do Pontinhos: o Quatro grava o mesmo formato (ver o bloco dele).
+    if co_formato == "sequencia_lances" and eh_do_quatro(js_posicao_inicial):
+        return quatro(js_posicao_inicial, maior=maior)
     if co_formato == "sequencia_lances":
         return pontinhos(
             js_posicao_inicial,
@@ -943,6 +1070,17 @@ def _quadros(
         ]
         for indice, lance in enumerate(lances, start=1):
             quadro = base(indice, lance)
+            if eh_do_quatro(js_posicao_inicial):
+                # ⚠️ O Quatro: a posicao publicada mais os `indice` primeiros
+                # lances, montada pelo arbitro (ver o bloco do Quatro).
+                quadro["svg"] = quatro(
+                    js_posicao_inicial,
+                    lances_extras=[str(l.get("lance", "")) for l in lances[:indice]],
+                    destaque=quadro["lance"],
+                    maior=True,
+                )
+                quadros.append(quadro)
+                continue
             # ⚠️ Nenhuma regra e aplicada: a posicao do Pontinhos E a lista de
             # tracos, e quem decide a posse das caixas e `_donos_das_caixas`.
             ate_aqui = iniciais + lances[:indice]

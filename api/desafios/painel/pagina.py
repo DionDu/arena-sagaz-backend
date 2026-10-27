@@ -101,8 +101,10 @@ from api.desafios.painel.vigilancia import (
 BASE = "/painel/desafios"
 
 #: Como cada jogo aparece por extenso e na celula do calendario (que e estreita).
-ROTULO_DO_JOGO = {"pontinhos": "Pontinhos", "damas": "Damas"}
-SIGLA_DO_JOGO = {"pontinhos": "Pont", "damas": "Dama"}
+#: ⚠️ O Quatro entrou em 27/10/2026, quando o 1o dia dele no calendario do
+#: painel apareceu com o codigo cru (`quatro`) no lugar do nome.
+ROTULO_DO_JOGO = {"pontinhos": "Pontinhos", "damas": "Damas", "quatro": "Quatro em Linha"}
+SIGLA_DO_JOGO = {"pontinhos": "Pont", "damas": "Dama", "quatro": "Q4"}
 
 #: O estado de curadoria como o dono le. ⚠️ `candidato` virou "aguardando":
 #: desde 02/10/2026 so os candidatos ANTIGOS existem, e o nome tecnico fazia

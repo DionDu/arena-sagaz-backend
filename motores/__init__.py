@@ -9,10 +9,15 @@ os motores dos jogos da Arena atrás de uma fronteira declarada (RF-DES-160). El
 é **importada**, nunca chamada por HTTP: ⛔ **nenhum endpoint de motor existe
 nesta entrega** (RF-DES-166, determinação do dono de 04/09/2026).
 
-Nesta feature o motor tem exatamente dois consumidores, ambos no mesmo processo:
+Nesta feature o motor tem tres consumidores, todos por import no mesmo processo:
 
     job/gerador.py   → usa o papel JOGADOR  (gera candidatos, mede a régua)
     job/auditoria.py → usa o papel ÁRBITRO  (audita a resolução que chegou)
+    api/desafios/painel/desenho.py → o ÁRBITRO do Quatro, só para montar o
+                       tabuleiro que o painel desenha (27/10/2026). ⚠️ Import
+                       DENTRO da função, e só do Quatro, que usa a biblioteca
+                       padrão: o motor do Pontinhos puxa a inferência, que a
+                       imagem da API não instala.
 
 ═══════════════════════════════════════════════════════════════════════════
 AS TRÊS REGRAS QUE ESTA CAMADA NÃO PODE QUEBRAR

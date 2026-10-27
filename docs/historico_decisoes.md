@@ -10516,3 +10516,39 @@ caso esticava o plano dos testes seguintes (o caso dos pedidos que sobram viu 9 
 7). Agora `setenv` vem antes do `delenv`, ali e no arquivo novo. Mutações: 6 de 6 no painel; no job, 2 de 3 na primeira rodada (a
 reprise no pedido sobreviveu, porque no duble ela falhava sozinha; o caso ganhou uma reprise que
 sempre dá certo e passou a pegá-la) e 1 equivalente (não parar no fim da lista só imprime).
+
+
+## 2026-10-27 (5) — O painel desenha o Quatro em Linha (o dia do Quatro respondia 500)
+
+**Contexto.** Relato do dono: ao clicar em 28/10/2026 no calendário do painel, o primeiro dia
+do Quatro no `des`, a página respondia *Internal Server Error*. Reproduzido com os dados do
+`des` (leitura): `desenho.posicao` mandava toda posição `sequencia_lances` para o desenho do
+Pontinhos, e o Quatro grava o MESMO formato (com `co_jogo: "quatro"` e `["s4", ...]`); o
+Pontinhos tentou ler `s4` como traço (`H_0_1`) e estourou com `ValueError`.
+
+**Decisão.** O desenho desvia para `desenho.quatro` quando a posição diz `co_jogo: "quatro"`,
+na porta de entrada (`posicao`) e na fita (`_quadros`, que serve o gabarito e a partida de
+alguém). ⚠️ **Quem monta o tabuleiro é o árbitro** (`MotorQuatro.tabuleiro`): no Quatro a
+posição não é a lista de lances, porque a casa onde a peça para depende da gravidade, e o topo
+de `desenho.py` manda pedir regra ao árbitro em vez de reescrevê-la. O import fica dentro da
+função, e qualquer recusa do árbitro (sequência torta, modalidade desconhecida) vira o aviso
+desenhado com o motivo, nunca um 500. O calendário ganhou o nome e a sigla do jogo
+(`ROTULO_DO_JOGO`, `SIGLA_DO_JOGO`). `motores/__init__.py` registra o terceiro consumidor.
+
+**Alternativas consideradas.** Aplicar a gravidade no próprio desenho (contar as peças da
+coluna): seria a segunda escrita de uma regra, que é o defeito que o projeto persegue. Criar
+um formato próprio do Quatro no banco: pediria migração e mudaria o que o app e o juiz já leem.
+
+**O que ficou de fora, e por quê.** O raio-x do painel para uma tentativa do Quatro continua
+sem quadros: `quadro.SQL_LANCES` junta só as jogadas do Pontinhos e das damas, e para o Quatro
+o `co_lance` vem nulo (a fita fica vazia, e o painel diz que não dá para montar; não quebra).
+A mesma consulta serve o Raio-X do APP, que também não tem replay do Quatro (`replayDoHub`
+devolve `null` para ele). As duas metades são uma tarefa só, de produto, e foram levadas ao
+dono antes de entrarem.
+
+**Testes.** `tests/unitarios/test_desenho_quatro_no_painel.py` (8): o dia do relato abre; as
+peças são as do árbitro (8 azuis e 7 vermelhas, 27 furos vazios); a peça cai no chão; a fita
+quadro a quadro com o aro de ouro no último lance e "você" para o `vez_de`; sequência torta e
+modalidade desconhecida viram aviso; a sequência concatenada vale sem a lista; e o controle
+(o Pontinhos continua indo para o Pontinhos). Mutações: 2 de 2 (o desvio na porta de entrada e
+na fita).
