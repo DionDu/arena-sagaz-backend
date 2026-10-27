@@ -830,6 +830,16 @@ def medir_um_dia(
     # erro nenhum. `tipos_recentes` e o unico botao que forca a escolha:
     # marcar os OUTROS como recentes deixa so este "fresco".
     outros = [t for t in gerador_mod.tipos_do_jogo(receita.co_jogo) if t != co_tipo]
+    # ⛔ **E o tipo em destaque tem um botao proprio** (DECISOES §8zzzu): num
+    # jogo com destaque no ar, `escolher_tipo` exige a fila. Medindo o destaque,
+    # a fila "sem vizinhos" o escolhe; medindo outro tipo, "ontem foi o
+    # destaque" o tira, e a `tipos_recentes` acima escolhe este.
+    destaque = None
+    tipo_em_destaque = gerador_mod.TIPO_EM_DESTAQUE.get(receita.co_jogo)
+    if tipo_em_destaque in gerador_mod.tipos_do_jogo(receita.co_jogo):
+        destaque = gerador_mod.VizinhosDoDestaque(
+            anterior_e_destaque=co_tipo != tipo_em_destaque
+        )
     moldes = botoes["moldes"]
     personagens = botoes["personagens"]
     candidatos = gerador_mod.gerar_candidatos(
@@ -849,6 +859,7 @@ def medir_um_dia(
         # ⚠️ `None` para tudo o que ja esta no ar - e ai o gerador
         # escolhe o tipo pelo dia e **exige o vetor**, como sempre.
         receita_em_avaliacao=em_avaliacao,
+        destaque=destaque,
     )
     resultado: dict[str, Any] = {
         "candidatos": len(candidatos),

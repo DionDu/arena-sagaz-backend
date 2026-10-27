@@ -394,6 +394,15 @@ PREDICADOS_DE_QUEM_NAO_JOGOU: dict[str, object] = {
     "quatro_perdeu": None,
 }
 
+#: O tabuleiro de quem nao jogou, para a clausula `figura` ("Forme a figura",
+#: no ar desde a T150): o 7 x 6 vazio, linhas de cima para baixo, `0` em cada
+#: casa (`motores.nucleo.chegada.figura_formada`).
+#:
+#: ⚠️ **Sem grade o avaliador recusa a chegada** (grade ausente e erro, como a
+#: medida ausente), e o cadeado quebraria por falta de dado, e nao por achar o
+#: defeito. Os outros tipos nao leem a grade.
+GRADE_DE_QUEM_NAO_JOGOU: list[list[int]] = [[0] * 7 for _ in range(6)]
+
 
 @pytest.mark.parametrize(
     "co_tipo, receita",
@@ -450,6 +459,7 @@ def test_e_nenhum_tipo_NO_AR_tambem_e_cumprido_por_quem_nao_fez_nada(co_tipo):
             chegada,
             MEDIDAS_DE_QUEM_NAO_JOGOU,
             predicados=PREDICADOS_DE_QUEM_NAO_JOGOU,
+            grade=GRADE_DE_QUEM_NAO_JOGOU,
         ), (
             f"⛔ {co_tipo} {dict(variante.parametros)} esta NO AR e e cumprido "
             "por quem nao fez nada."
@@ -503,16 +513,20 @@ def test_nenhuma_proposta_repete_a_CHEGADA_de_um_tipo_que_ja_esta_no_ar():
     """
     from job import editorial as editorial_mod
 
+    def identidade(clausula):
+        """O que identifica uma clausula na forma: chave e comparador.
+
+        ⚠️ A `figura` (T150) nao tem nenhum dos dois: o desenho e PARAMETRO
+        (dado, como os numeros), e a forma dela e so ser uma figura."""
+        if clausula["tipo"] == "figura":
+            return ("figura", "")
+        return (clausula.get("chave"), clausula["comparador"])
+
     def forma(js_chegada):
         janela = js_chegada["janela"]
         return (
             janela["tipo"],
-            tuple(
-                sorted(
-                    (c.get("chave"), c["comparador"])
-                    for c in js_chegada["clausulas"]
-                )
-            ),
+            tuple(sorted(identidade(c) for c in js_chegada["clausulas"])),
         )
 
     no_ar: dict[tuple, str] = {}

@@ -148,8 +148,9 @@ def test_cada_tipo_do_quatro_mora_de_UM_lado_so() -> None:
     # (T124c, defeito 1), e o golpe duplo e a linha de cinco, que passaram com a
     # posicao do banco pescado (T124c, 21/10), e o "sem o meio", com o piso de
     # 9 lances da pessoa (T124c, 22/10), e o "Encoste N em ate M", o primeiro
-    # que fecha no meio, com a regua de 18 dias (T143, 22/10). Promover outro
-    # tipo e atualizar este conjunto na mesma resposta.
+    # que fecha no meio, com a regua de 18 dias (T143, 22/10), e o "Forme a
+    # figura", com a regua de 36 dias e o resgate sem a Cacau (T150, 27/10).
+    # Promover outro tipo e atualizar este conjunto na mesma resposta.
     assert no_ar == {
         "quatro_virada",
         "quatro_vencer_em_n",
@@ -158,6 +159,7 @@ def test_cada_tipo_do_quatro_mora_de_UM_lado_so() -> None:
         "quatro_encostadas",
         "quatro_golpe_duplo",
         "quatro_linha_de_cinco",
+        "quatro_figura",
         "quatro_sem_o_meio",
         "quatro_encoste",
     }
@@ -336,6 +338,28 @@ def test_so_os_tipos_restritos_fogem_do_rodizio() -> None:
                     ("pita", "tex", "magno") if par in RESGATE_DA_FIGURA_SEM_A_CACAU else None
                 )
             assert publicacao.co_personagens == esperado, co_tipo
+
+
+def test_figuras_vizinhas_no_editorial_sao_diferentes() -> None:
+    """🔒 A ordem do editorial da figura e a ordem em que ela aparece (§8zzzu).
+
+    ⚠️ Desde a T150 o "Forme a figura" e o tipo em destaque do Quatro e anda
+    UMA variante por aparicao (`gerador.escolher_variante`). Duas casas
+    vizinhas com a mesma figura (as folgas 1, 2 e 3 do igual em fila, como era
+    a ordem da poda) seriam a mesma figura em dois dias de figura seguidos. E a
+    ultima com a primeira tambem conta: a volta recomeca do zero.
+    """
+    figuras = [p.parametros["figura"] for p in EDITORIAL_DO_QUATRO["quatro_figura"]]
+    # `figuras[1:] + figuras[:1]` e a lista girada de uma casa: o `zip` junta
+    # cada figura com a seguinte, e a ultima com a primeira.
+    vizinhas = list(zip(figuras, figuras[1:] + figuras[:1]))
+    assert all(antes != depois for antes, depois in vizinhas), vizinhas
+    # E as "em pe" (uma coluna so) nunca ficam lado a lado: o i, o i longo e a
+    # exclamacao se parecem entre si mais do que com as outras. A exclamacao
+    # ficou fora do ar na regua de 27/10, mas continua no catalogo: se voltar,
+    # a regra ja vale para ela.
+    em_pe = {"i", "i_longo", "exclamacao"}
+    assert not any(a in em_pe and b in em_pe for a, b in vizinhas), vizinhas
 
 
 @pytest.mark.parametrize(("co_tipo", "publicacao"), VARIANTES, ids=_id)

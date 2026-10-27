@@ -22,7 +22,7 @@ import pytest
 
 from job import editorial as editorial_mod
 from job import figuras_quatro as fq
-from job.tipos_de_desafio import RECEITAS_FORA_DO_AR
+from job.tipos_de_desafio import RECEITAS
 from motores.juiz import julgar_desafio
 from motores.nucleo.medidor_por_fita import CUMPRIU, NAO_CUMPRIU
 from motores.quatro import contrato_quatro
@@ -134,7 +134,7 @@ def test_a_clausula_da_figura_e_a_do_juiz() -> None:
     )
     assert parametros["lances"] == 6
     assert parametros[editorial_mod.DISTANCIA_DA_FIGURA] == 4
-    chegada = RECEITAS_FORA_DO_AR["quatro_figura"].montar(parametros)
+    chegada = RECEITAS["quatro_figura"].montar(parametros)
     assert chegada["janela"] == {"tipo": "lances_do_jogador", "n": 6}
     assert chegada["clausulas"] == [
         {"tipo": "figura", "desenho": [".X.", "XOX", ".X."], "espelhar": False}
@@ -151,7 +151,7 @@ def test_o_enunciado_leva_o_MESMO_desenho_da_chegada(nome: str) -> None:
     parametros = editorial_mod.parametros_efetivos(
         {"figura": nome, "folga": 1}, encostadas=0, distancia=3
     )
-    receita = RECEITAS_FORA_DO_AR["quatro_figura"]
+    receita = RECEITAS["quatro_figura"]
     (clausula,) = receita.montar(parametros)["clausulas"]
     valores = receita.valores_da_frase(parametros, "tex")
     assert valores["figura"] == clausula["desenho"]
@@ -333,7 +333,7 @@ def test_cada_figura_se_forma_numa_partida_e_o_prazo_conta(nome: str) -> None:
         return julgar_desafio(
             co_jogo="quatro",
             js_posicao_inicial=posicao,
-            js_chegada=RECEITAS_FORA_DO_AR["quatro_figura"].montar(
+            js_chegada=RECEITAS["quatro_figura"].montar(
                 {"figura": nome, "lances": prazo}
             ),
             fita=[

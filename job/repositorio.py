@@ -72,6 +72,7 @@ from api.desafios.modelos_producao import (
 
 from . import compactar_fila as compactar_mod
 from . import vizinhanca as vizinhanca_mod
+from .gerador import VizinhosDoDestaque
 from .gravacao import SQL_PUBLICAR_O_DIA, LinhaDeDesafio
 from .regua import Medicao
 
@@ -341,6 +342,53 @@ SELECT t.co_tipo_desafio
  WHERE d.co_jogo = :co_jogo
    AND dia.dt_dia BETWEEN :dt_inicio AND :dt_fim
  ORDER BY dia.dt_dia DESC
+"""
+
+#: O tipo do dia daquele jogo IMEDIATAMENTE ANTES de um dia, na fila - o
+#: insumo do tipo em destaque (`gerador.TIPO_EM_DESTAQUE`, DECISOES §8zzzu).
+#:
+#: ⚠️ **Sem janela**, ao contrario da `SQL_TIPOS_RECENTES`: o que importa e o
+#: dia anterior DAQUELE jogo, e no comeco da adocao o Quatro tem um dia em seis;
+#: uma janela curta acharia "nenhum", e o destaque sairia duas vezes seguidas.
+#: `LIMIT 1` com a ordem decrescente fica so com o mais perto.
+SQL_TIPO_DO_DIA_ANTERIOR_DO_JOGO = f"""
+SELECT t.co_tipo_desafio
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d      ON d.id_desafio      = dia.id_desafio
+  JOIN {VW_TIPO_DESAFIO} t ON t.nu_tipo_desafio = d.nu_tipo_desafio
+ WHERE d.co_jogo = :co_jogo
+   AND dia.dt_dia < :dt_dia
+ ORDER BY dia.dt_dia DESC
+ LIMIT 1
+"""
+
+#: O tipo do dia daquele jogo IMEDIATAMENTE DEPOIS de um dia, se a fila ja o
+#: tiver. ⚠️ So acha alguma coisa quando o dia e um buraco no MEIO da fila (a
+#: compactacao move desafios de data); no fim da fila, que e o caso comum, nao
+#: ha dia depois.
+SQL_TIPO_DO_DIA_SEGUINTE_DO_JOGO = f"""
+SELECT t.co_tipo_desafio
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d      ON d.id_desafio      = dia.id_desafio
+  JOIN {VW_TIPO_DESAFIO} t ON t.nu_tipo_desafio = d.nu_tipo_desafio
+ WHERE d.co_jogo = :co_jogo
+   AND dia.dt_dia > :dt_dia
+ ORDER BY dia.dt_dia ASC
+ LIMIT 1
+"""
+
+#: Quantas vezes um tipo ja saiu ANTES de um dia: o contador da variante do
+#: tipo em destaque (`gerador.escolher_variante`, `vezes_do_destaque`).
+#:
+#: ⚠️ **O historico inteiro, e nao uma janela**: o contador tem de crescer de um
+#: em um a cada aparicao, ou a variante voltaria ao comeco a cada janela.
+SQL_VEZES_DO_TIPO_ANTES_DO_DIA = f"""
+SELECT COUNT(*) AS nu_vezes
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d      ON d.id_desafio      = dia.id_desafio
+  JOIN {VW_TIPO_DESAFIO} t ON t.nu_tipo_desafio = d.nu_tipo_desafio
+ WHERE t.co_tipo_desafio = :co_tipo_desafio
+   AND dia.dt_dia < :dt_dia
 """
 
 
@@ -655,6 +703,46 @@ class RepositorioDoJob:
             {"co_jogo": co_jogo, "dt_inicio": dt_inicio, "dt_fim": dt_fim},
         )
         return [linha["co_tipo_desafio"] for linha in resultado.mappings().all()]
+
+    async def vizinhos_do_destaque(
+        self, *, co_jogo: str, co_tipo_em_destaque: str, dt_dia: date
+    ) -> VizinhosDoDestaque:
+        """O que a fila diz do tipo em destaque do jogo ao redor de [dt_dia]
+        (`gerador.TIPO_EM_DESTAQUE`, DECISOES §8zzzu).
+
+        Tres leituras curtas (`LIMIT 1` e um `COUNT`): o tipo do dia anterior
+        daquele jogo, o do seguinte (se a fila ja o tiver) e quantas vezes o
+        destaque ja saiu antes deste dia. ⚠️ Sem linha, a resposta e "nao" e
+        zero - que e o caso do primeiro dia do jogo, e do banco vazio.
+        """
+        parametros = {"co_jogo": co_jogo, "dt_dia": dt_dia}
+        anterior = (
+            await self.sessao.execute(text(SQL_TIPO_DO_DIA_ANTERIOR_DO_JOGO), parametros)
+        ).mappings().first()
+        seguinte = (
+            await self.sessao.execute(text(SQL_TIPO_DO_DIA_SEGUINTE_DO_JOGO), parametros)
+        ).mappings().first()
+        vezes = (
+            await self.sessao.execute(
+                text(SQL_VEZES_DO_TIPO_ANTES_DO_DIA),
+                {"co_tipo_desafio": co_tipo_em_destaque, "dt_dia": dt_dia},
+            )
+        ).mappings().first()
+        return VizinhosDoDestaque(
+            # `anterior is not None and ...`: sem linha, nao ha dia anterior, e
+            # portanto ele nao foi do destaque.
+            anterior_e_destaque=(
+                anterior is not None
+                and anterior["co_tipo_desafio"] == co_tipo_em_destaque
+            ),
+            seguinte_e_destaque=(
+                seguinte is not None
+                and seguinte["co_tipo_desafio"] == co_tipo_em_destaque
+            ),
+            # `int(...)`: o driver devolve o `COUNT` como inteiro, mas o duble de
+            # teste pode devolver o que quiser; o `else 0` cobre a linha ausente.
+            vezes_publicado=int(vezes["nu_vezes"]) if vezes is not None else 0,
+        )
 
     async def assinatura_ja_publicada(
         self,

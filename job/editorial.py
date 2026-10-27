@@ -2291,98 +2291,6 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
         # Os pares (M, k) que passaram na triagem; (5, 1) e (7, 2) sairam.
         for lances, juntar in ((5, 2), (6, 1), (6, 2), (7, 1))
     ),
-}
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# O EDITORIAL FORA DO AR: os numeros dos tipos que ainda nao sao publicaveis
-# ═══════════════════════════════════════════════════════════════════════════
-#
-# ⚠️ **E o irmao de `tipos_de_desafio.RECEITAS_FORA_DO_AR`**, e mora separado
-# pela mesma razao: `EDITORIAL` so aceita tipo que tem receita no ar (cadeado
-# `test_o_editorial_NAO_publica_tipo_sem_receita`). Quando um tipo do Quatro for
-# promovido (vetor, frase declarada e a regua), as variantes dele saem daqui e
-# entram em `EDITORIAL` na mesma resposta em que a receita entra em `RECEITAS`.
-#
-# ⚠️ **AS VARIANTES DAQUI FORAM MEDIDAS EM 20/10/2026, e NAO PASSARAM** (a
-# rodada da T117; tabela no `historico_decisoes.md`, entrada "2026-10-20 (5)").
-# Nos tipos que pedem um jeito de vencer, a regua nao mede (o personagem nao
-# persegue o objetivo); nos outros, faltou candidato. O que fazer com cada um e a
-# T124c, e a falta de candidato ja foi atacada nela (preparo e orcamento, 21/10):
-# o Segure e o *"venca em ate 7"* passaram na remedicao e sairam daqui para o
-# `EDITORIAL`. A regra do `EDITORIAL` continua valendo: nenhuma variante vai ao ar sem
-# a rodada de `scripts/medir_variantes_do_editorial.py` anotada ao lado. Os
-# numeros abaixo sao o palpite de partida, escolhido pela FAIXA DO HUB:
-#
-#   · o Quatro alterna estritamente, como as damas, entao a faixa de 5 a 10
-#     lances do jogador e a de 9 a 20 meios-lances, e os tipos herdam o piso e
-#     o teto padrao (sem a excecao do Pontinhos);
-#   · por isso o `vencer_em_n` comecou em 5 (e, depois da remedicao, so o 7
-#     ficou; ver o `EDITORIAL`): *"venca em ate 5 lances"* tem
-#     gabarito de exatamente 9 meios-lances (5 seus e 4 do adversario, e a
-#     geracao prova que nao se vence em 4), que e o piso. *"Em 3"* caberia em 5
-#     meios-lances, abaixo do piso, e nunca geraria candidato.
-#
-# ⚠️ **Os botoes de GERACAO (preparo e teto), escolhidos na T117** - palpite de
-# partida, tambem a medir:
-#
-#   · o PREPARO e o inicio de uma faixa de seis lances (`gerador.
-#     JANELA_DO_PREPARO_QUATRO`), sorteada das partidas Magno × Tex;
-#   · ⛔ **os tipos julgados no FIM da partida** - os tres de "nao perca"
-#     (Segure, Unica coluna, Bloqueie) e os que pedem uma FORMA de vencer
-#     (diagonal, golpe duplo, linha de cinco, encostadas, virada) - nao cabem
-#     no teto padrao de 20 meios-lances: o predicado `quatro_perdeu` so responde
-#     com a partida acabada, a vitoria vem quando vier, e de uma posicao com 10
-#     lances jogados ainda restam ate 32. Com 20, o gabarito muitas vezes nao
-#     chegaria ao fim, e o tipo sairia SEM DESAFIO por um botao, e nao por ele.
-#     O teto deles e `CASAS_DO_TRADICIONAL - preparo`: tudo o que pode faltar.
-#     Ficam de fora o `vencer_em_n` (a prova fixa a distancia em 9 ou 11
-#     meios-lances, e o teto padrao de 20 cobre) e o `sem_o_meio` (o teto e o
-#     da prova, 8 lances).
-
-#: ⚠️ `CASAS_DO_TRADICIONAL` mora no topo do arquivo desde a T124b: a virada,
-#: no `EDITORIAL`, ja o le na montagem do dicionario.
-# ⚠️ **Os tipos sem numero na frase tem `parametros` vazio**, e e verdade: em
-# *"segure o Magno"* nao ha o que variar alem da posicao. ⛔ O cadeado do
-# `EDITORIAL` que exige parametros (`test_principal_do_job.py`) precisa aprender
-# isso no dia da promocao - com o piso e o teto como o botao desses tipos -, e
-# nao ganhar um numero de enfeite.
-#
-# ⚠️ **`ic_chegada_encerra_partida` e TRUE nos dez**, e a razao e a mesma em
-# todos: cada chegada tem `vitoria` ou o predicado `quatro_perdeu`, e os dois so
-# respondem com a partida terminada. ⛔ `chegada_encerra_partida()` (que deriva o
-# valor) ainda nao sabe disso do predicado - ela so conhece os marcos `vitoria`
-# e `empate` - e o teste deste editorial confere os dez pela leitura da chegada.
-
-EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
-    "quatro_unica_coluna": (
-        Publicacao(
-            # ⛔ APOSENTADA (§8zzzl). Preparo 14: cada coluna precisa de desfecho
-            # provado.
-            parametros={},
-            nu_lances_de_preparo=14,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 14,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro(None),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
-    "quatro_bloquear": (
-        Publicacao(
-            # ⛔ APOSENTADA (§8zzzo, 21/10/2026). O diagnostico pelo caminho da
-            # regua (`scripts/diagnosticar_bloquear_quatro.py`) deu Cacau 0,00 ·
-            # Pita 0,01 · Tex 0,04 · Magno 0,17: o adversario cria 1 a 2 ameacas
-            # tapaveis por partida, e com 1 ou 2 ameacas o Magno tambem nao chega.
-            # Tres ameacas: o numero do enunciado aprovado (§8zzz).
-            parametros={"ameacas": 3},
-            # Preparo 8: as ameacas a bloquear estao no resto da partida.
-            nu_lances_de_preparo=8,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 8,
-            ic_chegada_encerra_partida=True,
-            medidas=_medidas_do_quatro("ameacas_bloqueadas"),
-            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
-        ),
-    ),
     # ─────────────────────────────────────────────────────────────────────────
     # "Forme a figura" (T147, §8zzzr): a segunda forma que fecha no meio, e a
     # prioridade do dono (*"sera o mais legal do App"*, item 7).
@@ -2481,8 +2389,17 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     # 29 de 36; o t 3, 22 de 27, mediu 23): o rodizio em outros dias pesa mais
     # do que a conta previa, e e por isso que a confirmacao existiu.
     #
-    # ⬜ Promover (T150) so DEPOIS da T149: o backend recusa por no ar um tipo
-    # cuja frase de feito o app nao declara (`test_medidas_do_feito.py`).
+    # ✅ **No ar desde 27/10/2026** (T150, depois da T149): as variantes que a
+    # regua aprovou sairam de `EDITORIAL_FORA_DO_AR` para ca (promover e mover).
+    #
+    # ⚠️ **A ORDEM daqui e a ordem em que as figuras aparecem** (DECISOES
+    # §8zzzu): o "Forme a figura" e o tipo em destaque do Quatro e anda UMA
+    # variante por aparicao (`gerador.escolher_variante`, `vezes_do_destaque`),
+    # e nao pelo odometro da data. Por isso a lista INTERCALA as figuras: as "em
+    # pe" (i, i longo) se alternam com as outras, e duas casas
+    # vizinhas nunca tem a mesma figura - nem a ultima com a primeira, porque a
+    # volta recomeca. Cadeado: `test_receitas_do_quatro.py`
+    # (`test_figuras_vizinhas_no_editorial_sao_diferentes`).
     "quatro_figura": tuple(
         Publicacao(
             parametros={
@@ -2501,32 +2418,123 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
         )
         # ⚠️ A variante 0 continua o Z com folga 3: e dela que saem os botoes de
         # referencia do medidor e do teste do teto (17).
+        #
+        # As doze aprovadas nos 36 dias jogam contra os quatro adversarios; as
+        # duas do resgate (i_longo 1 e losango 1), sem a Cacau.
+        #
+        # A exclamacao (DECISOES §8zzzu item 3) foi medida em 27/10/2026 e NAO
+        # entrou: 11, 19 e 21 de 36 dias na escada nas folgas 1, 2 e 3 (o
+        # criterio e 24). Na mesma rodada as 14 daqui, medidas de novo como
+        # controle, repetiram os numeros da confirmacao de 23/10. Ela continua
+        # no catalogo (`figuras_quatro.py`), como o T e o "+".
         for nome, folga, personagens in (
-            # As doze aprovadas nos 36 dias, contra os quatro adversarios.
             ("z", 3, None),
-            ("igual", 1, None),
-            ("igual", 2, None),
-            ("igual", 3, None),
-            ("i", 2, None),
-            ("i", 3, None),
-            ("quadrado", 2, None),
-            ("quadrado", 3, None),
-            ("xis", 3, None),
             ("i_longo", 2, None),
-            ("i_longo", 3, None),
-            ("igual_sanduiche", 3, None),
-            # As duas do resgate que a confirmacao aprovou, sem a Cacau.
-            ("i_longo", 1, _FIGURA_SEM_A_CACAU),
+            ("igual", 1, None),
+            ("quadrado", 2, None),
+            ("i", 2, None),
             ("losango", 1, _FIGURA_SEM_A_CACAU),
-            # ⬜ EM MEDICAO (27/10/2026, DECISOES §8zzzu item 3): a exclamacao,
-            # pedida pelo dono, nas tres folgas e com os quatro adversarios.
-            # Criterio de sempre, 24 de 36 dias na escada; as 14 de cima vao na
-            # mesma rodada como CONTROLE (tem de repetir os numeros). A que nao
-            # passar sai daqui antes da T150 promover o tipo.
-            ("exclamacao", 1, None),
-            ("exclamacao", 2, None),
-            ("exclamacao", 3, None),
+            ("i_longo", 3, None),
+            ("igual", 2, None),
+            ("igual_sanduiche", 3, None),
+            ("i", 3, None),
+            ("xis", 3, None),
+            ("i_longo", 1, _FIGURA_SEM_A_CACAU),
+            ("quadrado", 3, None),
+            ("igual", 3, None),
         )
+    ),
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O EDITORIAL FORA DO AR: os numeros dos tipos que ainda nao sao publicaveis
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **E o irmao de `tipos_de_desafio.RECEITAS_FORA_DO_AR`**, e mora separado
+# pela mesma razao: `EDITORIAL` so aceita tipo que tem receita no ar (cadeado
+# `test_o_editorial_NAO_publica_tipo_sem_receita`). Quando um tipo do Quatro for
+# promovido (vetor, frase declarada e a regua), as variantes dele saem daqui e
+# entram em `EDITORIAL` na mesma resposta em que a receita entra em `RECEITAS`.
+#
+# ⚠️ **AS VARIANTES DAQUI FORAM MEDIDAS EM 20/10/2026, e NAO PASSARAM** (a
+# rodada da T117; tabela no `historico_decisoes.md`, entrada "2026-10-20 (5)").
+# Nos tipos que pedem um jeito de vencer, a regua nao mede (o personagem nao
+# persegue o objetivo); nos outros, faltou candidato. O que fazer com cada um e a
+# T124c, e a falta de candidato ja foi atacada nela (preparo e orcamento, 21/10):
+# o Segure e o *"venca em ate 7"* passaram na remedicao e sairam daqui para o
+# `EDITORIAL`. A regra do `EDITORIAL` continua valendo: nenhuma variante vai ao ar sem
+# a rodada de `scripts/medir_variantes_do_editorial.py` anotada ao lado. Os
+# numeros abaixo sao o palpite de partida, escolhido pela FAIXA DO HUB:
+#
+#   · o Quatro alterna estritamente, como as damas, entao a faixa de 5 a 10
+#     lances do jogador e a de 9 a 20 meios-lances, e os tipos herdam o piso e
+#     o teto padrao (sem a excecao do Pontinhos);
+#   · por isso o `vencer_em_n` comecou em 5 (e, depois da remedicao, so o 7
+#     ficou; ver o `EDITORIAL`): *"venca em ate 5 lances"* tem
+#     gabarito de exatamente 9 meios-lances (5 seus e 4 do adversario, e a
+#     geracao prova que nao se vence em 4), que e o piso. *"Em 3"* caberia em 5
+#     meios-lances, abaixo do piso, e nunca geraria candidato.
+#
+# ⚠️ **Os botoes de GERACAO (preparo e teto), escolhidos na T117** - palpite de
+# partida, tambem a medir:
+#
+#   · o PREPARO e o inicio de uma faixa de seis lances (`gerador.
+#     JANELA_DO_PREPARO_QUATRO`), sorteada das partidas Magno × Tex;
+#   · ⛔ **os tipos julgados no FIM da partida** - os tres de "nao perca"
+#     (Segure, Unica coluna, Bloqueie) e os que pedem uma FORMA de vencer
+#     (diagonal, golpe duplo, linha de cinco, encostadas, virada) - nao cabem
+#     no teto padrao de 20 meios-lances: o predicado `quatro_perdeu` so responde
+#     com a partida acabada, a vitoria vem quando vier, e de uma posicao com 10
+#     lances jogados ainda restam ate 32. Com 20, o gabarito muitas vezes nao
+#     chegaria ao fim, e o tipo sairia SEM DESAFIO por um botao, e nao por ele.
+#     O teto deles e `CASAS_DO_TRADICIONAL - preparo`: tudo o que pode faltar.
+#     Ficam de fora o `vencer_em_n` (a prova fixa a distancia em 9 ou 11
+#     meios-lances, e o teto padrao de 20 cobre) e o `sem_o_meio` (o teto e o
+#     da prova, 8 lances).
+
+#: ⚠️ `CASAS_DO_TRADICIONAL` mora no topo do arquivo desde a T124b: a virada,
+#: no `EDITORIAL`, ja o le na montagem do dicionario.
+# ⚠️ **Os tipos sem numero na frase tem `parametros` vazio**, e e verdade: em
+# *"segure o Magno"* nao ha o que variar alem da posicao. ⛔ O cadeado do
+# `EDITORIAL` que exige parametros (`test_principal_do_job.py`) precisa aprender
+# isso no dia da promocao - com o piso e o teto como o botao desses tipos -, e
+# nao ganhar um numero de enfeite.
+#
+# ⚠️ **`ic_chegada_encerra_partida` e TRUE nos dez**, e a razao e a mesma em
+# todos: cada chegada tem `vitoria` ou o predicado `quatro_perdeu`, e os dois so
+# respondem com a partida terminada. ⛔ `chegada_encerra_partida()` (que deriva o
+# valor) ainda nao sabe disso do predicado - ela so conhece os marcos `vitoria`
+# e `empate` - e o teste deste editorial confere os dez pela leitura da chegada.
+
+EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
+    "quatro_unica_coluna": (
+        Publicacao(
+            # ⛔ APOSENTADA (§8zzzl). Preparo 14: cada coluna precisa de desfecho
+            # provado.
+            parametros={},
+            nu_lances_de_preparo=14,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 14,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro(None),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    "quatro_bloquear": (
+        Publicacao(
+            # ⛔ APOSENTADA (§8zzzo, 21/10/2026). O diagnostico pelo caminho da
+            # regua (`scripts/diagnosticar_bloquear_quatro.py`) deu Cacau 0,00 ·
+            # Pita 0,01 · Tex 0,04 · Magno 0,17: o adversario cria 1 a 2 ameacas
+            # tapaveis por partida, e com 1 ou 2 ameacas o Magno tambem nao chega.
+            # Tres ameacas: o numero do enunciado aprovado (§8zzz).
+            parametros={"ameacas": 3},
+            # Preparo 8: as ameacas a bloquear estao no resto da partida.
+            nu_lances_de_preparo=8,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 8,
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_quatro("ameacas_bloqueadas"),
+            co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
     ),
 }
 

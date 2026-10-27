@@ -2289,7 +2289,7 @@ def vetores_da_figura() -> list[dict[str, Any]]:
 # lances da pessoa): a figura fecha no ultimo lance. Nenhuma fita forma quatro
 # em linha. Coordenadas `(coluna, linha)`, linha 1 embaixo.
 
-#: As fitas das cinco figuras no ar, e quantos lances a pessoa joga em cada.
+#: As fitas das figuras no ar (uma por figura), e quantos lances a pessoa joga.
 _FITAS_DAS_FIGURAS_NO_AR: dict[str, tuple[list[str], int, str]] = {
     # X em (4,1) (5,1) e (3,2) (4,2); o (3,1) e do adversario, e da o apoio.
     "z": (["s4", "s3", "s5", "s1", "s4", "s1", "s3"], 4, "o Z com o apoio do adversario"),
@@ -2307,6 +2307,31 @@ _FITAS_DAS_FIGURAS_NO_AR: dict[str, tuple[list[str], int, str]] = {
         5,
         "o xis com os tres apoios do adversario",
     ),
+    # As do segundo lote que a regua aprovou (T150, 27/10/2026).
+    #
+    # A coluna 4, de baixo para cima: X, X, X, O (o adversario) e X - o desenho
+    # `X / O / X / X / X`, lido de cima. Os outros lances do adversario vao para
+    # a coluna 1, longe da figura.
+    "i_longo": (
+        ["s4", "s1", "s4", "s1", "s4", "s4", "s4"],
+        4,
+        "o i longo com a peca do adversario no meio",
+    ),
+    # X em (3,1) (4,1) e (3,3) (4,3); a linha 2, entre elas, e do adversario.
+    "igual_sanduiche": (
+        ["s3", "s1", "s4", "s3", "s3", "s4", "s4"],
+        4,
+        "o igual com o recheio do adversario",
+    ),
+    # X em (4,1), (3,2), (5,2) e (4,3); o centro (4,2) e do adversario, e os
+    # apoios (3,1) e (5,1) tambem.
+    "losango": (
+        ["s4", "s3", "s3", "s4", "s4", "s5", "s5"],
+        4,
+        "o losango com o centro do adversario",
+    ),
+    # A exclamacao (DECISOES §8zzzu) nao tem vetor: a regua de 27/10/2026 a
+    # deixou fora do ar (11, 19 e 21 de 36), e esta tabela e so das publicadas.
 }
 
 

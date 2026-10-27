@@ -387,10 +387,15 @@ def test_o_teto_da_figura_e_o_do_maior_prazo_e_cabe_acima_do_piso() -> None:
 def test_as_variantes_da_figura_sao_as_da_poda_dos_36_dias() -> None:
     """A poda dos 36 dias (DECISOES §8zzzt): as 12 aprovadas com os quatro
     adversarios e as 2 do resgate que a confirmacao sem a Cacau aprovou (o
-    losango 1 e o i longo 1; as outras seis ficaram abaixo dos 24 de 36).
+    losango 1 e o i longo 1; as outras seis ficaram abaixo dos 24 de 36). A
+    exclamacao (§8zzzu item 3) foi medida em 27/10 e ficou fora (11, 19 e 21
+    de 36).
     ⚠️ Os pares por extenso, cada um com os seus adversarios: uma variante que
     perdesse a restricao (ou a ganhasse) mudaria o que o job publica sem
-    ninguem ver."""
+    ninguem ver.
+    ⚠️ E NA ORDEM do editorial: desde a T150 ela e a ordem em que as figuras
+    aparecem (o destaque anda uma variante por aparicao, §8zzzu), intercalando
+    as "em pe" (i, i longo) com as outras."""
     from job import figuras_quatro as fq
 
     sem_a_cacau = ("pita", "tex", "magno")
@@ -404,23 +409,19 @@ def test_as_variantes_da_figura_sao_as_da_poda_dos_36_dias() -> None:
     ]
     assert trios == [
         ("z", 3, None),
-        ("igual", 1, None),
-        ("igual", 2, None),
-        ("igual", 3, None),
-        ("i", 2, None),
-        ("i", 3, None),
-        ("quadrado", 2, None),
-        ("quadrado", 3, None),
-        ("xis", 3, None),
         ("i_longo", 2, None),
-        ("i_longo", 3, None),
-        ("igual_sanduiche", 3, None),
-        ("i_longo", 1, sem_a_cacau),
+        ("igual", 1, None),
+        ("quadrado", 2, None),
+        ("i", 2, None),
         ("losango", 1, sem_a_cacau),
-        # Em medicao (DECISOES §8zzzu item 3).
-        ("exclamacao", 1, None),
-        ("exclamacao", 2, None),
-        ("exclamacao", 3, None),
+        ("i_longo", 3, None),
+        ("igual", 2, None),
+        ("igual_sanduiche", 3, None),
+        ("i", 3, None),
+        ("xis", 3, None),
+        ("i_longo", 1, sem_a_cacau),
+        ("quadrado", 3, None),
+        ("igual", 3, None),
     ]
     # Sem repeticao: um par duplicado seria medido (e pesaria) em dobro.
     pares = [(figura, folga) for figura, folga, _ in trios]
@@ -649,9 +650,9 @@ def test_o_alvo_quatro_mede_os_tipos_fora_do_ar() -> None:
     # diagonal e as encostadas com o perseguidor (T124c, defeito 1), e o golpe
     # duplo e a linha de cinco com o banco pescado (T124c, 21/10), e o "sem o
     # meio" com o piso de 9 (T124c, 22/10), e o "Encoste N em ate M" com a
-    # regua de 18 dias (T143, 22/10). Sobram os dois aposentados, e o "Forme a
-    # figura" (T147, 23/10), que espera a regua da T148.
-    assert len(tipos) == 3
+    # regua de 18 dias (T143, 22/10), e o "Forme a figura" com a regua de 36
+    # dias (T150, 27/10). Sobram os dois aposentados.
+    assert len(tipos) == 2
     assert MEDIDOR.tipos_do_alvo("quatro_bloquear") == ["quatro_bloquear"]
     # ⛔ E o `todos` de rotina continua sem eles.
     assert not set(MEDIDOR.tipos_do_alvo("todos")) & set(tipos)
@@ -746,6 +747,9 @@ def test_o_tipo_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
     from job.adocao import Frequencia
 
     frequencias = {"quatro": Frequencia(um_dia_em=3)}
+    # ⚠️ Um dia de "nao" para o tipo em destaque (§8zzzu): com a figura no ar,
+    # `escolher_tipo` exige a fila, e o caso mede o rodizio dos outros tipos.
+    destaque = gerador.VizinhosDoDestaque(anterior_e_destaque=True)
     # ⚠️ O primeiro dia do Quatro cujo tipo NAO vem do banco pescado: os tipos do
     # banco (`TIPOS_DO_BANCO`) nao passam pela prova da geracao que este caso
     # anota, e sim pelo banco. Ate 22/10/2026 o primeiro dia do Quatro caia num
@@ -754,7 +758,8 @@ def test_o_tipo_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
         d
         for d in (DIA.fromordinal(DIA.toordinal() + n) for n in range(90))
         if gerador.escolher_jogo(d, frequencias=frequencias) == "quatro"
-        and gerador.escolher_tipo("quatro", d) not in banco_mod.TIPOS_DO_BANCO
+        and gerador.escolher_tipo("quatro", d, destaque=destaque)
+        not in banco_mod.TIPOS_DO_BANCO
     )
     escolhidos: list[str] = []
 
@@ -765,7 +770,7 @@ def test_o_tipo_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
     monkeypatch.setattr(gerador.provas_quatro_mod, "provar", anota)
     monkeypatch.setattr(gerador.provas_quatro_mod, "ProvadorQuatro", lambda *a, **k: None)
     monkeypatch.setattr(JogadorQuatro, "motor_dart", property(lambda self: None))
-    co_tipo = gerador.escolher_tipo("quatro", dia)
+    co_tipo = gerador.escolher_tipo("quatro", dia, destaque=destaque)
     assert RECEITAS[co_tipo].co_jogo == "quatro"
     publicacao = editorial_mod.EDITORIAL[co_tipo][0]
     assert (
@@ -778,6 +783,7 @@ def test_o_tipo_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
             lances_de_preparo=publicacao.nu_lances_de_preparo,
             maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
             minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
+            destaque=destaque,
         )
         == []
     )

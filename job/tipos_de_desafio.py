@@ -2983,6 +2983,48 @@ RECEITAS: dict[str, Receita] = {
             "personagem": personagem,
         },
     ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_figura": Receita(
+        nu_tipo_desafio=51,
+        co_tipo_desafio="quatro_figura",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroFigura",
+        # ✅ **No ar desde 27/10/2026** (T150): as variantes que a regua aprovou
+        # sairam de `RECEITAS_FORA_DO_AR` para ca (promover e mover). ⚠️ E o
+        # TIPO EM DESTAQUE do Quatro (`gerador.TIPO_EM_DESTAQUE`, DECISOES
+        # §8zzzu): fica com metade dos dias do jogo.
+        # "Forme a figura em ate M lances" (T147 da spec 010, `DECISOES-do-dono.md`
+        # §8zzzr; a proposta em `PROPOSTA-revisao-catalogo-quatro.md` §2). Fecha NO
+        # MEIO da partida, como o Encoste: a chegada e so a clausula `figura`
+        # (T146), dentro da janela de M lances.
+        #
+        # ⚠️ **O desenho viaja na chegada**, lido do catalogo pelo nome
+        # (`job/figuras_quatro.py`): a frase e uma so para todas as figuras, e o
+        # aplicativo desenha a figura a partir da chegada (T149). Figura nova e
+        # uma linha no catalogo, sem versao nova do app.
+        #
+        # ⚠️ **O M e absoluto, e sai da posicao** (`editorial.parametros_efetivos`):
+        # a distancia da figura na posicao publicada mais a folga da variante.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "lances_do_jogador", "n": p["lances"]},
+            "clausulas": [
+                figuras_quatro_mod.FIGURAS_QUATRO[p[figuras_quatro_mod.CHAVE_FIGURA]].clausula()
+            ],
+        },
+        # ⚠️ **E o desenho viaja TAMBEM no enunciado** (`figura`, T149,
+        # 27/10/2026): a frase nao nomeia a figura, e o app a desenha ao lado
+        # dela em todo lugar - inclusive onde so o objetivo chega, sem a
+        # chegada (o Historico, pelo `meu-mes`). Sai do MESMO item do catalogo
+        # que a clausula, e `test_figuras_quatro.py` confere os dois.
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "personagem": personagem,
+            "figura": list(
+                figuras_quatro_mod.FIGURAS_QUATRO[p[figuras_quatro_mod.CHAVE_FIGURA]].desenho
+            ),
+        },
+    ),
 }
 
 
@@ -3104,44 +3146,6 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         valores_da_frase=lambda p, personagem: {
             "ameacas": p["ameacas"],
             "personagem": personagem,
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_figura": Receita(
-        nu_tipo_desafio=51,
-        co_tipo_desafio="quatro_figura",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroFigura",
-        # "Forme a figura em ate M lances" (T147 da spec 010, `DECISOES-do-dono.md`
-        # §8zzzr; a proposta em `PROPOSTA-revisao-catalogo-quatro.md` §2). Fecha NO
-        # MEIO da partida, como o Encoste: a chegada e so a clausula `figura`
-        # (T146), dentro da janela de M lances.
-        #
-        # ⚠️ **O desenho viaja na chegada**, lido do catalogo pelo nome
-        # (`job/figuras_quatro.py`): a frase e uma so para todas as figuras, e o
-        # aplicativo desenha a figura a partir da chegada (T149). Figura nova e
-        # uma linha no catalogo, sem versao nova do app.
-        #
-        # ⚠️ **O M e absoluto, e sai da posicao** (`editorial.parametros_efetivos`):
-        # a distancia da figura na posicao publicada mais a folga da variante.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "lances_do_jogador", "n": p["lances"]},
-            "clausulas": [
-                figuras_quatro_mod.FIGURAS_QUATRO[p[figuras_quatro_mod.CHAVE_FIGURA]].clausula()
-            ],
-        },
-        # ⚠️ **E o desenho viaja TAMBEM no enunciado** (`figura`, T149,
-        # 27/10/2026): a frase nao nomeia a figura, e o app a desenha ao lado
-        # dela em todo lugar - inclusive onde so o objetivo chega, sem a
-        # chegada (o Historico, pelo `meu-mes`). Sai do MESMO item do catalogo
-        # que a clausula, e `test_figuras_quatro.py` confere os dois.
-        valores_da_frase=lambda p, personagem: {
-            "lances": p["lances"],
-            "personagem": personagem,
-            "figura": list(
-                figuras_quatro_mod.FIGURAS_QUATRO[p[figuras_quatro_mod.CHAVE_FIGURA]].desenho
-            ),
         },
     ),
 }

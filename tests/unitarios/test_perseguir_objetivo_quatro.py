@@ -293,8 +293,8 @@ def test_no_encoste_o_lance_PROVADO_perdido_sai_mesmo_sendo_o_melhor() -> None:
 # O "Forme a figura" (T148, 23/10/2026): fecha no meio, e a nota e a distancia
 # ─────────────────────────────────────────────────────────────────────────────
 
-#: O quadrado, prazo 5. ⚠️ Fora do ar: a receita mora em `RECEITAS_FORA_DO_AR`.
-QUADRADO = RECEITAS_FORA_DO_AR["quatro_figura"].montar({"figura": "quadrado", "lances": 5})
+#: O quadrado, prazo 5. A receita mora em `RECEITAS` desde a T150 (27/10/2026).
+QUADRADO = RECEITAS["quatro_figura"].montar({"figura": "quadrado", "lances": 5})
 
 #: O jogador 1 com a vez, tres pecas do quadrado no canto esquerdo:
 #:

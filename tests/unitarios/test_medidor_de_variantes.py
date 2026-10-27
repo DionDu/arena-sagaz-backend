@@ -802,11 +802,12 @@ def test_cada_variante_chega_ao_gerador_com_os_ADVERSARIOS_dela(monkeypatch):
 def test_as_candidatas_do_editorial_levam_os_ADVERSARIOS_de_cada_variante():
     """🔒 O "Forme a figura" tem variantes com e sem a Cacau no mesmo tipo.
 
-    ⚠️ Ele esta FORA do ar, e e por `candidatas_fora_do_ar` que o medidor o le;
-    o caminho do editorial no ar passa pela mesma `candidata_da_publicacao`.
+    ⚠️ Ele esta NO AR desde a T150 (27/10/2026), e e por `candidatas_do_editorial`
+    que o medidor o le; o caminho fora do ar passa pela mesma
+    `candidata_da_publicacao`.
     """
-    candidatas = MEDIDOR.candidatas_fora_do_ar("quatro_figura")
-    variantes = editorial_mod.EDITORIAL_FORA_DO_AR["quatro_figura"]
+    candidatas = MEDIDOR.candidatas_do_editorial("quatro_figura")
+    variantes = editorial_mod.variantes_de("quatro_figura")
     assert [c.personagens for c in candidatas] == [v.co_personagens for v in variantes]
     # ⚠️ As duas formas presentes: sem isto o caso passaria por vacuidade.
     assert {c.personagens for c in candidatas} == {None, ("pita", "tex", "magno")}

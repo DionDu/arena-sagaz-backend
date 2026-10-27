@@ -176,6 +176,7 @@ def test_a_receita_monta_uma_chegada_VALIDA() -> None:
         "entregar": 1,   # damas_sacrificio e damas_sobreviver
         "linhas": 2,     # quatro_golpe_duplo (no ar desde 21/10/2026)
         "tamanho": 5,    # quatro_linha_de_cinco (no ar desde 21/10/2026)
+        "figura": "quadrado",  # quatro_figura (no ar desde 27/10/2026, T150)
     }
     for codigo, receita in RECEITAS.items():
         chegada = LinhaDeChegada.de_dado(receita.montar(parametros))

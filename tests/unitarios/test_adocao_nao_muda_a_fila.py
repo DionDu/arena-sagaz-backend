@@ -293,10 +293,16 @@ async def test_cobrir_um_dia_entrega_a_mesma_adocao_as_duas_escolhas(monkeypatch
     assert vistos[0]["frequencias"] is frequencias
     # E o jogo escolhido por fora já foi o Quatro: é com ele que o rodízio de
     # tipos é consultado.
+    # ⚠️ Tres consultas, todas do Quatro: a janela dos tipos recentes e, desde
+    # a §8zzzu, os dois vizinhos do tipo em destaque (o dia anterior e o
+    # seguinte do jogo na fila).
     jogos_consultados = [
         p["co_jogo"] for sql, p in sessao.executadas if p and "d.co_jogo = :co_jogo" in sql
     ]
-    assert jogos_consultados == ["quatro"]
+    assert jogos_consultados == ["quatro", "quatro", "quatro"]
+    # E o que a fila disse do destaque chega a geracao (o banco falso esta
+    # vazio: nenhum vizinho, nenhuma vez).
+    assert vistos[0]["destaque"] == gerador_mod.VizinhosDoDestaque()
 
 
 def test_o_gerador_escolhe_o_jogo_com_a_adocao_que_recebe(monkeypatch):
@@ -310,11 +316,16 @@ def test_o_gerador_escolhe_o_jogo_com_a_adocao_que_recebe(monkeypatch):
         raise gerador_mod.SemCandidato("parar aqui")
 
     monkeypatch.setattr(gerador_mod, "receita_de", receita_espia)
+    # ⚠️ Um dia de "nao" para o destaque (§8zzzu): o Quatro tem a figura no
+    # ar, e `escolher_tipo` exige a fila.
+    destaque = gerador_mod.VizinhosDoDestaque(anterior_e_destaque=True)
     with pytest.raises(gerador_mod.SemCandidato):
-        gerador_mod.gerar_candidatos(dia, parametros={}, frequencias=frequencias)
-    # ⚠️ O tipo e o que o rodizio escolhe NAQUELE dia: desde a T124c sao tres
+        gerador_mod.gerar_candidatos(
+            dia, parametros={}, frequencias=frequencias, destaque=destaque
+        )
+    # ⚠️ O tipo e o que o rodizio escolhe NAQUELE dia: desde a T124c ha varios
     # tipos do Quatro no ar, e o caso so prova que o jogo do dia foi o Quatro.
-    assert escolhidos == [escolher_tipo("quatro", dia)]
+    assert escolhidos == [escolher_tipo("quatro", dia, destaque=destaque)]
     assert escolhidos[0].startswith("quatro_")
 
 

@@ -486,7 +486,23 @@ async def cobrir_um_dia(
         co_jogo=co_jogo, dt_inicio=dt_dia - janela, dt_fim=dt_dia + janela
     )
 
-    co_tipo = gerador_mod.escolher_tipo(co_jogo, dt_dia, tipos_recentes=recentes)
+    # ── O TIPO EM DESTAQUE: metade dos dias do jogo (DECISOES §8zzzu) ───────
+    #
+    # ⚠️ **Lido so quando o jogo TEM destaque no ar**: nos outros jogos as
+    # consultas nao rodam, e a execucao deles fica exatamente como era (os
+    # testes que leem `executadas` por posicao continuam medindo o mesmo).
+    # ⚠️ E, como a `tipos_recentes`, lido UMA vez e passado as tres escolhas que
+    # dependem dele: o tipo aqui, o tipo de novo dentro de `gerar`, e a variante.
+    tipo_em_destaque = gerador_mod.TIPO_EM_DESTAQUE.get(co_jogo)
+    destaque = None
+    if tipo_em_destaque in gerador_mod.tipos_do_jogo(co_jogo):
+        destaque = await repositorio.vizinhos_do_destaque(
+            co_jogo=co_jogo, co_tipo_em_destaque=tipo_em_destaque, dt_dia=dt_dia
+        )
+
+    co_tipo = gerador_mod.escolher_tipo(
+        co_jogo, dt_dia, tipos_recentes=recentes, destaque=destaque
+    )
 
     # ── A VARIANTE DE PARAMETROS do dia (T049f) ─────────────────────────────
     #
@@ -505,7 +521,16 @@ async def cobrir_um_dia(
     # vao ao ar.
     variantes = editorial_mod.variantes_de(co_tipo)
     nu_variante = gerador_mod.escolher_variante(
-        co_jogo, dt_dia, quantas_variantes=len(variantes)
+        co_jogo,
+        dt_dia,
+        quantas_variantes=len(variantes),
+        # O destaque anda uma variante por aparicao (ver `escolher_variante`);
+        # os outros tipos, pelo odometro da data, como sempre.
+        vezes_do_destaque=(
+            destaque.vezes_publicado
+            if destaque is not None and co_tipo == tipo_em_destaque
+            else None
+        ),
     )
     publicacao = variantes[nu_variante]
     if len(variantes) > 1:
@@ -576,6 +601,10 @@ async def cobrir_um_dia(
         # do dia pelo rodizio antigo, e o tipo do Quatro escolhido aqui iria
         # para uma posicao do Pontinhos.
         frequencias=frequencias,
+        # ⛔ **E o MESMO destaque** (§8zzzu): sem ele o gerador recusaria o dia
+        # do Quatro (`escolher_tipo` exige a fila), e com outro valor escolheria
+        # outro tipo que o daqui.
+        destaque=destaque,
     )
     if not candidatos:
         return await _tentar_reprisar(

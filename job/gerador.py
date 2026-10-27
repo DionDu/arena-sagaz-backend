@@ -111,6 +111,50 @@ JOGOS_EM_ADOCAO = ("quatro",)
 #: Os quatro mascotes, na ordem da escada de dificuldade.
 PERSONAGENS = ("cacau", "pita", "tex", "magno")
 
+#: O TIPO EM DESTAQUE de cada jogo: o que ocupa METADE dos dias dele.
+#:
+#: ⚠️ **Decisão do dono, 27/10/2026** (`DECISOES-do-dono.md` §8zzzu, no
+#: frontend): *"Este desafio das figuras será um dos mais legais do App. Eu
+#: gostaria que ele aparecesse mais vezes, que não fosse tão raro."* Sem peso, o
+#: "Forme a figura" seria 1 tipo entre 10 do Quatro, e sairia em menos de 1 dia
+#: por mês no começo da adoção.
+#:
+#: ⚠️ **"Metade" é dos dias DAQUELE jogo**, e não do calendário: o destaque não
+#: toma dia de outro jogo. Quem decide o jogo do dia continua sendo
+#: `escolher_jogo`; isto só decide como os dias do jogo se dividem entre o
+#: destaque (um sim, um não) e os outros tipos dele (a outra metade, no rodízio
+#: de sempre).
+#:
+#: ⚠️ **Só vale enquanto o tipo estiver no ar** (`tipos_do_jogo`): antes da
+#: promoção a entrada aqui não muda nada.
+TIPO_EM_DESTAQUE: dict[str, str] = {"quatro": "quatro_figura"}
+
+
+@dataclass(frozen=True, slots=True)
+class VizinhosDoDestaque:
+    """O que a FILA diz do tipo em destaque ao redor de um dia.
+
+    É lido do banco UMA vez por dia gerado (`job.repositorio`), antes da
+    geração, e passado às duas escolhas que dependem dele: a do tipo
+    (`escolher_tipo`, que o job chama e a geração chama de novo) e a da variante
+    (`escolher_variante`). Pela mesma razão da `tipos_recentes`: se cada lado
+    lesse a fila por conta própria, os dois poderiam discordar.
+
+    Atributos:
+        anterior_e_destaque: o dia DAQUELE jogo imediatamente antes deste, na
+            fila, foi do tipo em destaque.
+        seguinte_e_destaque: o dia daquele jogo imediatamente DEPOIS deste já
+            está na fila e é do destaque. ⚠️ Só acontece quando o dia é um
+            buraco no meio da fila (a compactação move desafios de data); sem
+            olhar para a frente, o buraco poderia virar o segundo dia seguido.
+        vezes_publicado: quantas vezes o destaque já saiu ANTES deste dia. É o
+            contador da variante dele (ver `escolher_variante`).
+    """
+
+    anterior_e_destaque: bool = False
+    seguinte_e_destaque: bool = False
+    vezes_publicado: int = 0
+
 #: As modalidades que cada jogo rodizia. Tupla vazia = o jogo nao tem modalidade.
 #:
 #: ⚠️ **Decisao do dono, 10/09/2026: "quanto mais variado, melhor"** — e a medicao
@@ -354,11 +398,26 @@ def escolher_jogo(
     )
 
 
-def escolher_tipo(co_jogo: str, dt_dia: date, *, tipos_recentes: Sequence[str] = ()) -> str:
+def escolher_tipo(
+    co_jogo: str,
+    dt_dia: date,
+    *,
+    tipos_recentes: Sequence[str] = (),
+    destaque: VizinhosDoDestaque | None = None,
+) -> str:
     """O tipo do dia, sem repetir os recentes.
 
     Args:
         tipos_recentes: os tipos ja publicados nos ultimos dias daquele jogo.
+        destaque: o que a fila diz do tipo em destaque do jogo
+            (`TIPO_EM_DESTAQUE`). ⛔ **Obrigatorio quando o jogo tem destaque no
+            ar**, e sem valor padrao que o substitua: um padrao "sem vizinhos"
+            poria o destaque em TODO dia do jogo, e nada denunciaria (o desafio
+            sairia bem formado, so que sempre do mesmo tipo). Nos jogos sem
+            destaque, `None` e o normal.
+
+    Raises:
+        ValueError: se o jogo tem destaque no ar e `destaque` nao veio.
 
     ⚠️ **O rodizio existe para o dia nao parecer o de ontem.** Dois desafios
     seguidos de *"feche N caixas"* fazem a coisa toda parecer uma tarefa so, e a
@@ -367,6 +426,11 @@ def escolher_tipo(co_jogo: str, dt_dia: date, *, tipos_recentes: Sequence[str] =
     ⚠️ Se todos os tipos forem recentes, o rodizio **ignora a restricao** em vez
     de falhar: um jogo com poucos tipos publicaveis (hoje, dois por jogo) nao
     pode ficar sem desafio por causa de uma regra de variedade.
+
+    ⚠️ **O destaque fica com metade dos dias do jogo** (§8zzzu): ele sai sempre
+    que o dia anterior daquele jogo na fila NAO foi dele, e o seguinte (quando
+    ja existe) tambem nao. No fim da fila, que e o caso de todo dia, isso da
+    exatamente um sim, um nao. A outra metade e o rodizio de sempre, sem ele.
     """
     disponiveis = tipos_do_jogo(co_jogo)
     if not disponiveis:
@@ -374,6 +438,23 @@ def escolher_tipo(co_jogo: str, dt_dia: date, *, tipos_recentes: Sequence[str] =
             f"o jogo {co_jogo!r} nao tem tipo publicavel. ⛔ Tipo entra com "
             "receita E vetor, nunca com uma so das duas."
         )
+
+    # ── O tipo em destaque, um dia sim, um dia nao ──────────────────────────
+    #
+    # `.get` devolve `None` para o jogo sem destaque, e `None in disponiveis` e
+    # sempre falso: o bloco inteiro so vale para quem tem destaque NO AR.
+    tipo_em_destaque = TIPO_EM_DESTAQUE.get(co_jogo)
+    if tipo_em_destaque in disponiveis and len(disponiveis) > 1:
+        if destaque is None:
+            raise ValueError(
+                f"o jogo {co_jogo!r} tem o tipo em destaque {tipo_em_destaque!r} "
+                "no ar, e a fila nao foi consultada (`destaque` nao veio). ⛔ Sem "
+                "ela o destaque sairia em todo dia do jogo."
+            )
+        if not (destaque.anterior_e_destaque or destaque.seguinte_e_destaque):
+            return tipo_em_destaque
+        # Dia de "nao": o rodizio de sempre, so com os outros tipos do jogo.
+        disponiveis = [t for t in disponiveis if t != tipo_em_destaque]
 
     frescos = [t for t in disponiveis if t not in tipos_recentes] or disponiveis
     dias = (dt_dia - EPOCA_DO_RODIZIO).days
@@ -436,7 +517,13 @@ def escolher_modalidade(
     )
 
 
-def escolher_variante(co_jogo: str, dt_dia: date, *, quantas_variantes: int) -> int:
+def escolher_variante(
+    co_jogo: str,
+    dt_dia: date,
+    *,
+    quantas_variantes: int,
+    vezes_do_destaque: int | None = None,
+) -> int:
     """Qual VARIANTE de parametros aquele tipo usa hoje (T049f).
 
     Args:
@@ -447,6 +534,16 @@ def escolher_variante(co_jogo: str, dt_dia: date, *, quantas_variantes: int) -> 
             se conhecesse, o gerador passaria a depender de com que numeros as
             coisas vao ao ar, que e exatamente a fronteira que `editorial.py`
             existe para desenhar.
+        vezes_do_destaque: quando o tipo do dia e o EM DESTAQUE do jogo
+            (`TIPO_EM_DESTAQUE`), quantas vezes ele ja saiu antes deste dia
+            (`VizinhosDoDestaque.vezes_publicado`); `None` para os outros tipos.
+            ⚠️ **O destaque nao usa o odometro pela data**: ele sai em metade dos
+            dias do jogo, e a variante pela data so troca a cada volta completa
+            dos tipos (no Quatro, ~18 dias de calendario) - a mesma figura
+            sairia tres vezes seguidas. Com o contador de aparicoes, a variante
+            anda UMA casa a cada vez que o destaque sai, e passa por todas antes
+            de repetir. A ordem das casas e a do editorial, que intercala as
+            figuras (cadeado em `test_receitas_do_quatro.py`).
 
     Returns:
         O indice da variante, de `0` a `quantas_variantes - 1`.
@@ -488,6 +585,11 @@ def escolher_variante(co_jogo: str, dt_dia: date, *, quantas_variantes: int) -> 
         # ⚠️ Um tipo com uma variante so nao precisa de conta nenhuma — e e o
         # caso das damas hoje, enquanto as candidatas nao forem medidas.
         return 0
+
+    if vezes_do_destaque is not None:
+        # Uma casa por aparicao: a 1a vez e a variante 0, a 2a e a 1, ..., e o
+        # resto (`%`) recomeca a volta quando todas ja sairam.
+        return vezes_do_destaque % quantas_variantes
 
     dias = (dt_dia - EPOCA_DO_RODIZIO).days
     vez_do_jogo = dias // len(JOGOS_DO_RODIZIO)
@@ -987,6 +1089,7 @@ def gerar_candidatos(
     moldes: Sequence[str] | None = None,
     vizinhanca: "vizinhanca_mod.Vizinhanca | None" = None,
     frequencias: "Mapping[str, adocao_mod.Frequencia] | None" = None,
+    destaque: VizinhosDoDestaque | None = None,
 ) -> list[Candidato]:
     """Gera candidatos para um dia.
 
@@ -1042,6 +1145,11 @@ def gerar_candidatos(
             só um dos lados a recebesse, o dia do Quatro sairia com o tipo do
             Quatro escolhido lá fora e o jogo do Pontinhos escolhido aqui.
             `None` = nenhum jogo novo.
+        destaque: o que a fila diz do tipo em destaque (§8zzzu), o MESMO que
+            `cobrir_um_dia` passou a `escolher_tipo` - pela razão da
+            `tipos_recentes`: com dois valores, o dia sairia com os parâmetros
+            de um tipo e a linha de chegada de outro. `None` só serve a jogo
+            sem destaque no ar (ver `escolher_tipo`).
 
     Returns:
         Os candidatos encontrados. Pode vir menos que `quantos` — e pode vir
@@ -1091,7 +1199,9 @@ def gerar_candidatos(
         co_jogo = escolher_jogo(
             dt_dia, evitar=vizinhos.jogos, frequencias=frequencias
         )
-        co_tipo = escolher_tipo(co_jogo, dt_dia, tipos_recentes=tipos_recentes)
+        co_tipo = escolher_tipo(
+            co_jogo, dt_dia, tipos_recentes=tipos_recentes, destaque=destaque
+        )
         receita = receita_de(co_tipo)
         exigir_vetor(co_tipo)
 

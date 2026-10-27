@@ -10370,3 +10370,74 @@ com a T150.
 **Alternativas consideradas.** Medir a exclamação depois da 1.4.0 (cabe, a figura é dado; o
 dono preferiu antes) e não incluí-la. Para a frequência: deixar sem peso, 2 de cada 3 dias e
 todos os dias do Quatro (os outros nove tipos ficariam raros ou sairiam).
+
+## 2026-10-27 (3) — "Forme a figura" no ar, e em metade dos dias do Quatro (T150 da spec 010)
+
+**Contexto.** A T149 pôs a figura no app; a T150 a promove. Antes dela, o dono pediu que a figura
+não fosse rara (entrada anterior; `DECISOES-do-dono.md` §8zzzu item 4). Escrito num *worktree*
+(`arena-sagaz-backend-t150`, branch `t150-figura`) enquanto a régua da exclamação rodava na pasta
+principal: a impressão do código do medidor cobre `job/` e `motores/`.
+
+**Decisão 1: a promoção.** `quatro_figura` saiu de `RECEITAS_FORA_DO_AR` e de
+`EDITORIAL_FORA_DO_AR` e entrou em `RECEITAS` e `EDITORIAL` (promover é mover). Vetores
+`quatro-figura-no-ar-*` novos para o i longo, o igual sanduíche e o losango (uma fita por
+figura, do tabuleiro vazio, que fecha no último lance da janela); o juiz em Dart concorda nos
+três (`test/core/desafios/vetores_verificacao_test.dart`). Cadeados atualizados:
+os que a retomada de 23/10 listava (`test_cada_tipo_do_quatro_mora_de_UM_lado_so`,
+`test_o_alvo_quatro_mede_os_tipos_fora_do_ar` 3 → 2, `test_a_receita_monta_uma_chegada_VALIDA`
+com `figura`, e os dois de `test_tipos_propostos.py`: a grade vazia de quem não jogou e a forma
+de uma cláusula `figura`, que não tem chave nem comparador).
+
+**Decisão 2: o tipo em destaque** (`gerador.TIPO_EM_DESTAQUE = {"quatro": "quatro_figura"}`).
+- **O tipo:** `escolher_tipo` devolve a figura quando o dia anterior do Quatro na fila NÃO foi de
+  figura e o seguinte (se já existir: buraco no meio da fila) também não; senão, o rodízio de
+  sempre sem ela. No fim da fila, que é o caso de todo dia, isso é exatamente um sim, um não.
+- **A fila** é lida por `RepositorioDoJob.vizinhos_do_destaque`: o tipo do dia anterior e do
+  seguinte daquele jogo (`LIMIT 1`, **sem janela**: no começo da adoção o Quatro tem um dia em
+  seis, e a janela de 30 dias da `tipos_recentes` não serve para "o anterior") e quantas vezes a
+  figura já saiu. Só roda no dia de um jogo com destaque no ar; os outros jogos ficam exatamente
+  como eram (sem consulta a mais). ⛔ Sem a fila, `escolher_tipo` recusa alto o jogo com
+  destaque: um padrão "sem vizinhos" poria a figura em todo dia do Quatro, calado.
+- **A variante:** o destaque anda UMA variante por aparição (`escolher_variante`,
+  `vezes_do_destaque`), e não pelo odômetro da data. Pela data, a variante só trocaria a cada
+  volta dos tipos (no Quatro, ~18 dias de calendário), e com a figura em metade dos dias a mesma
+  figura sairia três vezes seguidas. Por isso a **ordem do editorial virou a ordem em que as
+  figuras aparecem**, e foi intercalada: vizinhas nunca são a mesma figura (nem a última com a
+  primeira), e as "em pé" (i, i longo, exclamação) nunca ficam lado a lado. A variante 0
+  continua o Z 3 (os botões de referência do medidor).
+- O medidor de variantes ganhou o botão do destaque (medindo a figura, "sem vizinhos"; medindo
+  outro tipo do Quatro, "ontem foi figura").
+
+Testes: `tests/unitarios/test_tipo_em_destaque.py` (19: a regra, a simulação de 40 dias do Quatro
+com exatamente 20 de figura alternados, duas voltas de variantes sem figura repetida em dias
+seguidos, as três consultas, e a ligação em `cobrir_um_dia`) e
+`test_figuras_vizinhas_no_editorial_sao_diferentes`. Mutações 6/6.
+
+**Alternativas consideradas.** Decidir a metade pela data (a paridade da vez do Quatro): os dias
+do Quatro saem de uma conta de adoção que muda de faixa, e a paridade trocaria de fase a cada
+mudança, com duas figuras seguidas ou nenhuma por semanas; a fila diz o que de fato saiu.
+Guardar o índice da variante no banco para o rodízio da figura: pediria migração, e a contagem
+das aparições dá o mesmo número sem ela. Deixar o odômetro da data para a variante da figura:
+recusada pelo efeito na tela (a mesma figura três vezes seguidas).
+
+**Decisão 3: a régua da exclamação (entrada anterior) a deixou FORA.** Os 36 dias com as 17
+variantes (`medicoes/medir_variantes_do_editorial/relatorio_quatro_figura.txt`, 27/10):
+
+| variante | dias na escada | por adversário (cacau · pita · tex · magno) | sem a Cacau |
+|---|---|---|---|
+| exclamação 1 | 11 de 36 | 0 · 4 · 2 · 5 de 9 | 11 de 27 |
+| exclamação 2 | 19 de 36 | 1 · 5 · 6 · 7 de 9 | 18 de 27 |
+| exclamação 3 | 21 de 36 | 3 · 4 · 7 · 7 de 9 | 18 de 27 |
+
+O critério é 24 de 36 com os quatro adversários (`DECISOES-do-dono.md` §8zzzu item 3), e
+nenhuma folga chega. As 14 aprovadas, medidas de novo na mesma rodada como CONTROLE,
+repetiram número por número o quadro da confirmação de 23/10: a impressão do código mudou e o
+medidor continua determinístico. Saíram do editorial as três folgas e o vetor da exclamação
+(que nunca chegou a um commit); a figura continua no catálogo (`job/figuras_quatro.py`), como
+o T e o "+". O editorial fica com **14 variantes de 8 figuras**, na ordem intercalada.
+
+**Alternativa considerada:** o resgate sem a Cacau, como no losango e no i longo 1. As folgas 2
+e 3 ficam exatamente no limiar lido (18 de 27), mas a fraqueza não é a Cacau: é a Pita (4 e 5
+de 9), que seria uma das substitutas nos dias da Cacau, e o T mostrou na confirmação de 23/10
+que substituta fraca derruba o resgate. Ficaria para outra rodada de ~1 h, que o dono não
+pediu; a figura é dado, e pode voltar depois da 1.4.0 sem versão nova do app.
