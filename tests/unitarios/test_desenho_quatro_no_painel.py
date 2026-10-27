@@ -53,7 +53,7 @@ def _tabuleiro(lances: list[str]):
 
 def _pecas(svg: str, cor: str) -> int:
     """Quantos furos estao pintados com [cor]."""
-    return svg.count(f'fill="{cor}" stroke="{desenho.MADEIRA_ESC}"')
+    return svg.count(f'fill="{cor}" stroke="{desenho.BORDA_QUATRO}"')
 
 
 def test_o_dia_do_QUATRO_abre_no_painel() -> None:
@@ -141,3 +141,14 @@ def test_o_PONTINHOS_continua_indo_para_o_pontinhos() -> None:
     assert desenho.posicao("sequencia_lances", POSICAO_PONTINHOS) == desenho.pontinhos(
         POSICAO_PONTINHOS
     )
+
+
+def test_a_madeira_e_a_CLARA_do_aplicativo() -> None:
+    """🔒 Pedido do dono (27/10/2026): o tabuleiro saia muito escuro.
+
+    A placa e a borda sao as do tema claro do app; a madeira escura dos outros
+    jogos nao aparece no desenho do Quatro.
+    """
+    svg = desenho.posicao("sequencia_lances", POSICAO_QUATRO, maior=True)
+    assert f'fill="{desenho.PLACA_QUATRO}"' in svg
+    assert desenho.MADEIRA not in svg and desenho.MADEIRA_ESC not in svg

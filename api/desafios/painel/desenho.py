@@ -730,6 +730,16 @@ def damas(
 # nunca um 500.
 
 
+#: A madeira do tabuleiro do Quatro: a faia clara do tema "papel" do aplicativo
+#: (`CoresTabuleiroQuatro.clara`, `placa` e `borda`, em
+#: `lib/modulos/jogos/quatro/widgets/cores_tabuleiro_quatro.dart`).
+#: ⚠️ Pedido do dono (27/10/2026): com a `MADEIRA` escura dos outros jogos, o
+#: tabuleiro saia "muito escuro" na fita do gabarito. Se o app mudar a placa,
+#: estes dois mudam junto.
+PLACA_QUATRO = "#D4B07C"
+BORDA_QUATRO = "#8A6236"
+
+
 def _lances_do_quatro(posicao: Mapping[str, Any]) -> list[str]:
     """Os lances da posicao publicada do Quatro (`["s4", "s4", ...]`).
 
@@ -804,8 +814,8 @@ def quatro(
         f'height="{altura}" role="img" aria-label="tabuleiro do Quatro em Linha">',
         # O tabuleiro de madeira, com os furos.
         f'<rect x="{margem - 3}" y="{margem - 3}" width="{dimensoes.largura * casa + 6}" '
-        f'height="{dimensoes.altura * casa + 6}" rx="8" fill="{MADEIRA}" '
-        f'stroke="{MADEIRA_ESC}" stroke-width="2"/>',
+        f'height="{dimensoes.altura * casa + 6}" rx="8" fill="{PLACA_QUATRO}" '
+        f'stroke="{BORDA_QUATRO}" stroke-width="2"/>',
     ]
     for coluna in range(1, dimensoes.largura + 1):
         for linha in range(1, dimensoes.altura + 1):
@@ -816,7 +826,7 @@ def quatro(
             cor = PAPEL if dono == 0 else _cor_do_jogador(dono)
             partes.append(
                 f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio:.1f}" fill="{cor}" '
-                f'stroke="{MADEIRA_ESC}" stroke-width="1"/>'
+                f'stroke="{BORDA_QUATRO}" stroke-width="1"/>'
             )
             if pouso == (coluna, linha):
                 partes.append(
