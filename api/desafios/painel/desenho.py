@@ -738,6 +738,10 @@ def damas(
 #: estes dois mudam junto.
 PLACA_QUATRO = "#D4B07C"
 BORDA_QUATRO = "#8A6236"
+#: O aro da ultima jogada: o ouro da marca e o contorno escuro dela, tambem do
+#: app (`CoresTabuleiroQuatro.ouroDaMarca` e `contornoDaMarca`).
+ARO_QUATRO = "#E9B44C"
+CONTORNO_DO_ARO_QUATRO = "#2B2218"
 
 
 def _lances_do_quatro(posicao: Mapping[str, Any]) -> list[str]:
@@ -840,9 +844,14 @@ def quatro(
                 f'stroke="{BORDA_QUATRO}" stroke-width="1"/>'
             )
             if pouso == (coluna, linha):
+                # ⚠️ O aro da "ultima jogada" como o app o desenha: ouro sobre um
+                # contorno escuro. So o ouro some na madeira clara (relato do
+                # dono, 27/10/2026: a peca jogada deixou de aparecer).
                 partes.append(
-                    f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio + 2:.1f}" '
-                    f'fill="none" stroke="{OURO}" stroke-width="3"/>'
+                    f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio + 3:.1f}" '
+                    f'fill="none" stroke="{CONTORNO_DO_ARO_QUATRO}" stroke-width="6"/>'
+                    f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio + 3:.1f}" '
+                    f'fill="none" stroke="{ARO_QUATRO}" stroke-width="3"/>'
                 )
     if maior:
         # O numero de cada coluna embaixo: e o que `s4` quer dizer.

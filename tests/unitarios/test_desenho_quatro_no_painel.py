@@ -113,7 +113,12 @@ def test_a_fita_do_gabarito_sai_QUADRO_A_QUADRO_com_o_aro_no_ultimo_lance() -> N
     ]
     assert totais == [15, 16, 17, 18]
     # O aro de ouro so nos quadros de lance, e um por quadro.
-    assert [q["svg"].count(f'stroke="{desenho.OURO}"') for q in quadros] == [0, 1, 1, 1]
+    assert [q["svg"].count(f'stroke="{desenho.ARO_QUATRO}"') for q in quadros] == [0, 1, 1, 1]
+    # 🔒 E o contorno escuro por baixo: so o ouro sumia na madeira clara.
+    assert [
+        q["svg"].count(f'stroke="{desenho.CONTORNO_DO_ARO_QUATRO}" stroke-width="6"')
+        for q in quadros
+    ] == [0, 1, 1, 1]
     # Quem resolve e o `vez_de` (-1): o 1o lance e "voce", e a peca dele e AZUL
     # (o aro de ouro fica em volta dela).
     assert quadros[1]["de_quem"] == "voce"
