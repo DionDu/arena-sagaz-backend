@@ -209,6 +209,9 @@ class RaioX:
     lances: tuple[dict[str, Any], ...] = ()
     extrato: tuple[dict[str, Any], ...] = ()
     poderes: tuple[dict[str, Any], ...] = ()
+    #: A linha de chegada do desafio: com ela o quadro do lance que cumpriu o
+    #: objetivo contorna o feito (T154).
+    js_chegada: dict[str, Any] = field(default_factory=dict)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -384,7 +387,8 @@ SELECT t.id_tentativa,
        u.no_exibicao,
        d.co_formato_posicao,
        d.js_posicao_inicial,
-       d.co_variante
+       d.co_variante,
+       d.js_chegada
   FROM {VW_TENTATIVA} t
   LEFT JOIN {VW_RESOLUCAO} r
     ON r.id_tentativa = t.id_tentativa
@@ -558,4 +562,5 @@ class EstatisticasDoDia:
             lances=tuple(lances),
             extrato=tuple(extrato),
             poderes=tuple(poderes),
+            js_chegada=c.get("js_chegada") or {},
         )

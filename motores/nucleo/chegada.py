@@ -452,6 +452,57 @@ def figura_formada(
             a direita, com `+1`, `-1` ou `0` (vazia) em cada casa.
         jogador: de quem e o desafio. `X` e dele; `O`, do outro.
 
+    ⚠️ E [encontrar_figura] com a resposta reduzida a sim ou nao: o juiz so
+    precisa saber SE; o painel, para realcar, precisa saber ONDE (T154). E o
+    mesmo par do app (`figuraFormada` e `encontrarFigura`, em
+    `lib/core/desafios/chegada.dart`).
+    """
+    return encontrar_figura(figura, grade, jogador) is not None
+
+
+@dataclass(frozen=True, slots=True)
+class FiguraEncontrada:
+    """Onde a figura se formou: o canto de cima e da esquerda, e o desenho que
+    casou (o original, ou o espelho quando a figura aceita espelho).
+
+    Atributos:
+        topo: a linha do canto, contada de CIMA (0 = a linha do alto da grade).
+        esquerda: a coluna do canto, contada da esquerda (0 = a primeira).
+        desenho: as linhas do desenho que casou, de cima para baixo.
+    """
+
+    topo: int
+    esquerda: int
+    desenho: tuple[str, ...]
+
+    def casas(self) -> tuple[tuple[int, int], ...]:
+        """As casas da figura na grade, `(linha, coluna)` contadas de 0.
+
+        Sao as casas do desenho que NAO sao `.` (as pecas das duas cores e as
+        vazias exigidas), deslocadas para o canto em que a figura casou - as
+        mesmas que o app contorna (`RealceDaFiguraQuatro.de`).
+        """
+        return tuple(
+            (self.topo + i, self.esquerda + j)
+            for i, linha in enumerate(self.desenho)
+            for j, simbolo in enumerate(linha)
+            if simbolo != "."
+        )
+
+
+def encontrar_figura(
+    figura: ClausulaDeFigura,
+    grade: Sequence[Sequence[int]],
+    jogador: int,
+) -> FiguraEncontrada | None:
+    """ONDE o desenho da [figura] aparece na [grade], ou `None` se nao aparece.
+
+    Os parametros sao os de [figura_formada]. Havendo mais de um lugar, vale o
+    primeiro na ordem da busca (o desenho original antes do espelho; de cima
+    para baixo; da esquerda para a direita) - a mesma ordem do app
+    (`encontrarFigura`), para o painel contornar as casas que o telefone
+    contorna.
+
     A busca e a forca bruta: cada canto de cima e da esquerda possivel, e cada
     casa do desenho conferida. No 7 x 6 sao no maximo 42 cantos, e o desenho tem
     poucas casas - nao vale um algoritmo mais esperto.
@@ -475,8 +526,8 @@ def figura_formada(
                     for i, linha in enumerate(desenho)
                     for j, simbolo in enumerate(linha)
                 ):
-                    return True
-    return False
+                    return FiguraEncontrada(topo, esquerda, tuple(desenho))
+    return None
 
 
 def avaliar(

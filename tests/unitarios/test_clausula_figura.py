@@ -26,6 +26,7 @@ from motores.nucleo.chegada import (
     LinhaDeChegada,
     avaliar,
     chegada_encerra_partida,
+    encontrar_figura,
     figura_formada,
     ler_clausula,
 )
@@ -183,6 +184,66 @@ def test_a_casa_vazia_tem_de_estar_vazia_e_o_ponto_aceita_tudo() -> None:
     assert figura_formada(u_oco, oco, 1)
     assert not figura_formada(u_oco, cheio_do_adversario, 1)
     assert not figura_formada(u_oco, cheio_da_pessoa, 1)
+
+
+def test_ONDE_a_figura_se_formou_sao_as_casas_do_desenho_sem_o_ponto() -> None:
+    """T154: o painel contorna as casas que a busca devolve.
+
+    O L no canto de baixo e da direita: o canto do desenho e a linha 1, coluna
+    3 (contadas de 0, de cima), e as casas sao as quatro `X`, sem os `.`.
+    """
+    grade = _grade(
+        ".....",
+        "...1.",
+        "...1.",
+        "...11",
+    )
+    achada = encontrar_figura(_figura(["X.", "X.", "XX"]), grade, 1)
+    assert achada is not None
+    assert (achada.topo, achada.esquerda) == (1, 3)
+    assert achada.casas() == ((1, 3), (2, 3), (3, 3), (3, 4))
+    # A casa VAZIA exigida (`_`) e da figura; o `.` nao e.
+    vazia = encontrar_figura(_figura(["X_X", "XXX"]), _grade("1.1", "111"), 1)
+    assert vazia is not None and (0, 1) in vazia.casas()
+    assert len(vazia.casas()) == 6
+    # E sem figura, nada: o `None` que o `figura_formada` le como "nao".
+    assert encontrar_figura(_figura(["XX"]), _grade("1.", ".1"), 1) is None
+
+
+def test_ONDE_o_espelho_casou_devolve_o_desenho_ESPELHADO() -> None:
+    """O J (espelho do L) devolve o desenho que casou, e nao o original: o
+    contorno do painel tem de cair no J, e nao onde o L estaria."""
+    o_j = _grade(
+        ".1",
+        ".1",
+        "11",
+    )
+    achada = encontrar_figura(_figura(["X.", "X.", "XX"], espelhar=True), o_j, 1)
+    assert achada is not None
+    assert achada.desenho == (".X", ".X", "XX")
+    assert achada.casas() == ((0, 1), (1, 1), (2, 0), (2, 1))
+
+
+def test_dois_lugares_vale_o_PRIMEIRO_da_busca_como_no_app() -> None:
+    """De cima para baixo, da esquerda para a direita, e o original antes do
+    espelho: a ordem do `encontrarFigura` do app, para o painel contornar o
+    mesmo lugar que o telefone."""
+    duas = _grade(
+        "....",
+        "11..",
+        "..11",
+    )
+    achada = encontrar_figura(_figura(["XX"]), duas, 1)
+    assert achada is not None and (achada.topo, achada.esquerda) == (1, 0)
+    # O original (o L) casa antes do espelho (o J) quando os dois estao la.
+    l_e_j = _grade(
+        "1..1",
+        "1..1",
+        "1111",
+    )
+    achada = encontrar_figura(_figura(["X.", "X.", "XX"], espelhar=True), l_e_j, 1)
+    assert achada is not None and achada.desenho == ("X.", "X.", "XX")
+    assert (achada.topo, achada.esquerda) == (0, 0)
 
 
 def test_a_figura_maior_que_o_tabuleiro_nunca_aparece() -> None:

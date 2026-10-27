@@ -29,6 +29,13 @@ sao praticas:
 decidir se um lance e legal, a peca certa e o arbitro — e o desenho passa a
 receber o resultado pronto, nao a recalcula-lo.
 
+⚠️ **Esse dia chegou com o Quatro em Linha (27/10/2026).** A posicao dele e uma
+lista de colunas, e onde a peca pousa e regra (a gravidade): quem monta o
+tabuleiro e o arbitro (`MotorQuatro`). E o realce do feito no quadro-chave
+(T154) pergunta ao juiz onde esta a figura (`encontrar_figura`) e ao arbitro
+qual e a linha vencedora. Os dois so usam a biblioteca padrao, e o import fica
+DENTRO da funcao: uma falha vira o aviso desenhado, e nao derruba o modulo.
+
 ═══════════════════════════════════════════════════════════════════════════
 AS CORES SAO AS DO APLICATIVO, E ISSO NAO E ENFEITE
 ═══════════════════════════════════════════════════════════════════════════
@@ -41,8 +48,10 @@ contrario do que os jogadores vao ver.
 
 from __future__ import annotations
 
+import math
+from dataclasses import dataclass
 from html import escape
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 # ── A paleta, espelhada de `lib/core/tema/app_colors.dart` ───────────────────
 AZUL_J1 = "#2A6F8E"
@@ -742,6 +751,199 @@ BORDA_QUATRO = "#8A6236"
 #: app (`CoresTabuleiroQuatro.ouroDaMarca` e `contornoDaMarca`).
 ARO_QUATRO = "#E9B44C"
 CONTORNO_DO_ARO_QUATRO = "#2B2218"
+#: O contorno da FIGURA formada (T154): a salvia de todo "cumprido" do desafio,
+#: a faixa escura por baixo dela e o veu fraco sobre as casas, do tema claro do
+#: app (`CoresTabuleiroQuatro.clara`: `contornoDaFigura`, `sombraDoContorno` a
+#: .62 e `preenchimentoDaFigura` a .11). ⚠️ Salvia, e nunca o ouro: o ouro e da
+#: vitoria (a capsula da linha) e do aro da ultima jogada.
+CONTORNO_DA_FIGURA_QUATRO = "#6E9573"
+SOMBRA_DO_CONTORNO_QUATRO = "#2B2218"
+OPACIDADE_DA_SOMBRA_DO_CONTORNO = 0.62
+OPACIDADE_DO_VEU_DA_FIGURA = 0.11
+
+
+@dataclass(frozen=True, slots=True)
+class FeitoNoQuatro:
+    """As casas do feito num quadro do Quatro: o que o contorno abraca (T154).
+
+    As casas vem na notacao do arbitro, `(coluna, linha)` contadas de 1, com a
+    linha 1 EMBAIXO (o chao), como `TabuleiroQuatro.peca` as le.
+
+    Atributos:
+        figura: as casas da figura formada (as pecas das duas cores e as vazias
+            que ela exige), vazia quando o objetivo nao tem figura.
+        linhas: as linhas vencedoras (de 4 ou mais), cada uma com as casas na
+            ordem da direcao. Um lance pode fechar duas.
+    """
+
+    figura: tuple[tuple[int, int], ...] = ()
+    linhas: tuple[tuple[tuple[int, int], ...], ...] = ()
+
+
+def feito_no_quatro(
+    motor: Any,
+    tabuleiro: Any,
+    js_chegada: Mapping[str, Any] | None,
+    pessoa: int,
+) -> FeitoNoQuatro:
+    """O que realcar no quadro do lance que cumpre o objetivo (T154).
+
+    ⚠️ **Ninguem aqui decide o que e figura nem o que e linha**: a figura e a
+    MESMA busca do juiz (`encontrar_figura`, de `motores/nucleo/chegada.py`,
+    espelho do `encontrarFigura` do app), com a clausula que o juiz julgou e o
+    lado de quem resolve (`vez_de`, o `jogador` com que o job julga); a linha e
+    o desfecho do arbitro do Quatro (`regras.desfecho`). Reescrever qualquer
+    das duas aqui faria o painel contornar uma figura que o juiz nao achou.
+
+    Args:
+        motor: o `MotorQuatro` da modalidade.
+        tabuleiro: o `TabuleiroQuatro` do quadro.
+        js_chegada: a linha de chegada do desafio, como esta no banco.
+        pessoa: o sinal, no motor, de quem resolve (o `vez_de` publicado).
+
+    Returns:
+        A figura, se o objetivo tem clausula `figura` e ela esta no tabuleiro;
+        senao, as linhas vencedoras, se a partida acabou com vitoria; senao,
+        nada (um "Encoste" se cumpre no meio, sem figura e sem linha).
+    """
+    from motores.nucleo.chegada import ChegadaInvalida, LinhaDeChegada, encontrar_figura
+
+    dimensoes = motor.regras.dimensoes
+    figuras = ()
+    if js_chegada:
+        try:
+            figuras = LinhaDeChegada.de_dado(js_chegada).figuras
+        except ChegadaInvalida:
+            # Uma chegada que o juiz recusaria nao derruba o painel: o quadro
+            # sai sem o realce, e o cartao do desafio mostra a chegada crua.
+            figuras = ()
+    if figuras:
+        # A grade que a clausula le: linhas de CIMA para baixo, colunas da
+        # esquerda para a direita (`range(altura, 0, -1)` = 6, 5, ..., 1). E a
+        # forma de `feitos_quatro.grade`, feita aqui sobre o tabuleiro pronto.
+        grade = [
+            [tabuleiro.peca((coluna, linha)) for coluna in range(1, dimensoes.largura + 1)]
+            for linha in range(dimensoes.altura, 0, -1)
+        ]
+        for figura in figuras:
+            achada = encontrar_figura(figura, grade, pessoa)
+            if achada is not None:
+                # Da grade (linha de cima = 0) para o arbitro (linha de baixo =
+                # 1): a linha `i` de cima e a `altura - i` de baixo.
+                return FeitoNoQuatro(
+                    figura=tuple(
+                        (coluna + 1, dimensoes.altura - linha)
+                        for linha, coluna in achada.casas()
+                    )
+                )
+        # Clausula de figura sem a figura no tabuleiro: o quadro-chave de um
+        # gabarito torto. Cai na linha (se houver) para nao contornar o vazio.
+    desfecho = motor.regras.desfecho(tabuleiro)
+    if desfecho is not None and desfecho.linhas:
+        return FeitoNoQuatro(linhas=tuple(tuple(l) for l in desfecho.linhas))
+    return FeitoNoQuatro()
+
+
+def _contorno_da_figura(
+    casas: Sequence[tuple[int, int]],
+    centro: Callable[[int, int], tuple[float, float]],
+    casa: float,
+) -> list[str]:
+    """O contorno da figura formada, como o app o desenha (T149 no app).
+
+    O app desenha a UNIAO das casas engordada, menos a uniao: uma faixa que
+    abraca a forma inteira, sem tracos por dentro. No SVG a mesma faixa sai
+    de tres camadas da mesma uniao, de fora para dentro, ANTES das pecas: a
+    sombra escura (a maior), a salvia, e a placa por cima do miolo (com o veu
+    salvia fraco) - o que sobra das duas primeiras e o anel. As pecas, pintadas
+    depois, ficam por cima.
+
+    Cada camada da uniao e o que o app faz em `_uniao`: um quadrado arredondado
+    por casa e um retangulo emendando cada par de vizinhas (a direita e embaixo),
+    para a faixa nao entrar entre duas casas da figura.
+    """
+    ocupadas = set(casas)
+    k = max(2.0, casa * 0.07)  # a grossura da faixa salvia
+    u = max(1.4, casa * 0.035)  # a sombra a mais, por fora dela
+    fora = casa * 0.05  # o contorno fica um pouco FORA da casa
+
+    def uniao(engorda: float, cor: str, opacidade: float = 1.0) -> list[str]:
+        # `a` e quanto o quadrado da casa encolhe (negativo = cresce).
+        a = -fora - engorda
+        lado = casa - 2 * a
+        raio = max(0.0, casa * 0.32 + engorda + fora)
+        estilo = f'fill="{cor}"'
+        partes: list[str] = []
+        for coluna, linha in casas:
+            cx, cy = centro(coluna, linha)
+            x0, y0 = cx - casa / 2, cy - casa / 2  # o canto de cima da casa
+            partes.append(
+                f'<rect x="{x0 + a:.1f}" y="{y0 + a:.1f}" width="{lado:.1f}" '
+                f'height="{lado:.1f}" rx="{raio:.1f}" {estilo}/>'
+            )
+            # A vizinha da direita: a emenda vai do meio desta ao meio dela.
+            if (coluna + 1, linha) in ocupadas:
+                partes.append(
+                    f'<rect x="{cx:.1f}" y="{y0 + a:.1f}" width="{casa:.1f}" '
+                    f'height="{lado:.1f}" {estilo}/>'
+                )
+            # A vizinha de BAIXO: no arbitro e a linha de numero menor.
+            if (coluna, linha - 1) in ocupadas:
+                partes.append(
+                    f'<rect x="{x0 + a:.1f}" y="{cy:.1f}" width="{lado:.1f}" '
+                    f'height="{casa:.1f}" {estilo}/>'
+                )
+        # ⚠️ Com a opacidade em cada forma, a emenda (que se sobrepoe ao
+        # quadrado da casa) sairia mais escura: o GRUPO leva a opacidade uma
+        # vez so, sobre as formas cheias, e a uniao sai de um tom so.
+        if opacidade < 1:
+            return [f'<g opacity="{opacidade:.2f}">{"".join(partes)}</g>']
+        return partes
+
+    return [
+        *uniao(k + u, SOMBRA_DO_CONTORNO_QUATRO, OPACIDADE_DA_SOMBRA_DO_CONTORNO),
+        *uniao(k, CONTORNO_DA_FIGURA_QUATRO),
+        # O miolo volta a ser placa, e o veu salvia fraco por cima dele.
+        *uniao(0, PLACA_QUATRO),
+        *uniao(0, CONTORNO_DA_FIGURA_QUATRO, OPACIDADE_DO_VEU_DA_FIGURA),
+    ]
+
+
+def _capsula_da_linha(
+    linha: Sequence[tuple[int, int]],
+    centro: Callable[[int, int], tuple[float, float]],
+    raio: float,
+) -> str:
+    """A capsula de ouro em volta da linha vencedora, como a do app (T063).
+
+    E um "estadio" (dois semicirculos ligados por duas retas) que passa em volta
+    das pecas da primeira a ultima casa, com o contorno escuro por baixo do
+    ouro, como o aro da ultima jogada: so o ouro some na madeira clara.
+
+    A conta: `d` e a direcao da linha (o vetor da primeira a ultima casa, de
+    tamanho 1) e `n` a perpendicular a ela; os lados da capsula sao as duas
+    retas afastadas `w` do eixo, e os arcos fecham nas pontas.
+    """
+    x1, y1 = centro(*linha[0])
+    x2, y2 = centro(*linha[-1])
+    comprimento = math.hypot(x2 - x1, y2 - y1) or 1.0
+    dx, dy = (x2 - x1) / comprimento, (y2 - y1) / comprimento
+    nx, ny = -dy, dx  # girar 90 graus: a perpendicular
+    w = raio + 4  # a capsula passa um pouco por fora da peca
+    caminho = (
+        f"M {x1 + nx * w:.1f} {y1 + ny * w:.1f} "
+        f"L {x2 + nx * w:.1f} {y2 + ny * w:.1f} "
+        # `A rx ry rotacao arco-grande sentido x y`: o semicirculo da ponta.
+        f"A {w:.1f} {w:.1f} 0 0 0 {x2 - nx * w:.1f} {y2 - ny * w:.1f} "
+        f"L {x1 - nx * w:.1f} {y1 - ny * w:.1f} "
+        f"A {w:.1f} {w:.1f} 0 0 0 {x1 + nx * w:.1f} {y1 + ny * w:.1f} Z"
+    )
+    return (
+        f'<path d="{caminho}" fill="none" stroke="{CONTORNO_DO_ARO_QUATRO}" '
+        f'stroke-width="6" stroke-linejoin="round"/>'
+        f'<path d="{caminho}" fill="none" stroke="{ARO_QUATRO}" '
+        f'stroke-width="3" stroke-linejoin="round"/>'
+    )
 
 
 def _lances_do_quatro(posicao: Mapping[str, Any]) -> list[str]:
@@ -773,6 +975,7 @@ def quatro(
     lances_extras: Sequence[str] = (),
     destaque: str | None = None,
     maior: bool = False,
+    chegada: Mapping[str, Any] | None = None,
 ) -> str:
     """Desenha o tabuleiro do Quatro: a grade e as pecas, QUEM RESOLVE em azul.
 
@@ -791,6 +994,10 @@ def quatro(
         destaque: o ultimo lance (`s4`): a peca que ele soltou ganha o aro de
             ouro, como a "ultima jogada" do aplicativo.
         maior: o tamanho do cartao e da fita; sem ele, a miniatura.
+        chegada: o `js_chegada` do desafio, passado SO no quadro do lance que
+            cumpre o objetivo (T154): o feito ganha o contorno - a figura
+            formada em salvia, ou a linha vencedora na capsula de ouro (ver
+            `feito_no_quatro`). Sem ele, nada e realcado.
 
     Returns:
         O `<svg>`, ou o aviso desenhado quando o arbitro recusa a sequencia (e
@@ -816,6 +1023,27 @@ def quatro(
     # Quem resolve: o `vez_de` da posicao publicada (sem ele, o J1 do motor).
     pessoa = posicao.get("vez_de") if posicao.get("vez_de") in (1, -1) else 1
 
+    def centro(coluna: int, linha: int) -> tuple[float, float]:
+        """O centro da casa `(coluna, linha)` do arbitro, em px do SVG.
+
+        A linha 1 e a de BAIXO (o chao), e no SVG o y cresce para baixo: por
+        isso a linha entra como `altura - linha`.
+        """
+        return (
+            margem + (coluna - 0.5) * casa,
+            margem + (dimensoes.altura - linha + 0.5) * casa,
+        )
+
+    # O feito do quadro-chave (T154). Sem `chegada`, nenhum.
+    feito = FeitoNoQuatro()
+    if chegada is not None:
+        try:
+            feito = feito_no_quatro(motor, tabuleiro, chegada, pessoa)
+        except Exception:  # noqa: BLE001 - sem o realce, mas com o tabuleiro
+            # O realce e um acrescimo: se o juiz ou o arbitro falharem nele, o
+            # quadro sai sem contorno, e nunca como um 500 na pagina do dia.
+            feito = FeitoNoQuatro()
+
     # A casa onde o ultimo lance pousou: o topo da coluna dele, DEPOIS do lance.
     pouso: tuple[int, int] | None = None
     if destaque and len(destaque) > 1 and destaque[1:].isdigit():
@@ -831,11 +1059,13 @@ def quatro(
         f'height="{dimensoes.altura * casa + 6}" rx="8" fill="{PLACA_QUATRO}" '
         f'stroke="{BORDA_QUATRO}" stroke-width="2"/>',
     ]
+    # O contorno da figura vai ANTES das pecas: ele e um anel em volta das
+    # casas, e as pecas, pintadas depois, ficam por cima dele.
+    if feito.figura:
+        partes.extend(_contorno_da_figura(feito.figura, centro, casa))
     for coluna in range(1, dimensoes.largura + 1):
         for linha in range(1, dimensoes.altura + 1):
-            # A linha 1 e a de BAIXO (o chao): no SVG o y cresce para baixo.
-            cx = margem + (coluna - 0.5) * casa
-            cy = margem + (dimensoes.altura - linha + 0.5) * casa
+            cx, cy = centro(coluna, linha)
             dono = tabuleiro.peca((coluna, linha))
             # Azul para quem resolve, vermelho para o adversario (ver acima).
             cor = PAPEL if dono == 0 else _cor_do_jogador(1 if dono == pessoa else -1)
@@ -853,6 +1083,10 @@ def quatro(
                     f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio + 3:.1f}" '
                     f'fill="none" stroke="{ARO_QUATRO}" stroke-width="3"/>'
                 )
+    # A capsula da linha vencedora vai DEPOIS das pecas: ela passa por fora
+    # delas, e por cima da placa entre uma e outra.
+    for linha_vencedora in feito.linhas:
+        partes.append(_capsula_da_linha(linha_vencedora, centro, raio))
     if maior:
         # O numero de cada coluna embaixo: e o que `s4` quer dizer.
         for coluna in range(1, dimensoes.largura + 1):
@@ -1036,6 +1270,7 @@ def _quadros(
     n_chave: Any,
     rotulos: tuple[str, str],
     co_variante: Optional[str] = None,
+    js_chegada: Optional[Mapping[str, Any]] = None,
 ) -> list[dict[str, Any]]:
     """Os quadros de uma sequencia de lances — gabarito ou partida de alguem.
 
@@ -1051,6 +1286,9 @@ def _quadros(
         co_variante: o tamanho do tabuleiro do Pontinhos. ⚠️ Todos os quadros
             saem do MESMO tamanho; deduzido de cada um, o quadro de cedo
             (menos tracos) sairia menor que o do fim.
+        js_chegada: a linha de chegada do desafio. No Quatro, o quadro do lance
+            que cumpre o objetivo contorna o feito com ela (T154); nos outros
+            jogos ainda nao e usada.
 
     Returns:
         Os quadros, cada um `{"n", "tipo", "titulo", "lance", "jogador",
@@ -1158,6 +1396,10 @@ def _quadros(
                     lances_extras=[str(l.get("lance", "")) for l in lances[:indice]],
                     destaque=quadro["lance"],
                     maior=True,
+                    # ⚠️ So o quadro-chave leva a chegada: e nele que o feito
+                    # aconteceu (T154). `{}` e nao `None` quando o desafio nao
+                    # a trouxe, para a linha vencedora ainda ser contornada.
+                    chegada=(js_chegada or {}) if quadro["chave"] else None,
                 )
                 quadros.append(quadro)
                 continue
@@ -1185,10 +1427,13 @@ def fita_da_solucao(
     js_solucao: Mapping[str, Any] | None,
     *,
     co_variante: Optional[str] = None,
+    js_chegada: Optional[Mapping[str, Any]] = None,
 ) -> list[dict[str, Any]]:
     """Os quadros da solucao de referencia (o gabarito).
 
     `co_variante` e a do desafio: no Pontinhos, o tamanho do tabuleiro.
+    `js_chegada` e a linha de chegada: no Quatro, o feito sai contornado no
+    quadro do `lance_chave` (T154).
 
     Returns:
         Os quadros (ver `_quadros`). ⛔ **Lista vazia quando nao da para montar**
@@ -1226,6 +1471,7 @@ def fita_da_solucao(
         n_chave=js_solucao.get("lance_chave"),
         rotulos=ROTULOS_DO_GABARITO,
         co_variante=co_variante,
+        js_chegada=js_chegada,
     )
 
 
@@ -1236,6 +1482,7 @@ def fita_da_partida(
     *,
     nu_lance_cumpre_desafio: Optional[int] = None,
     co_variante: Optional[str] = None,
+    js_chegada: Optional[Mapping[str, Any]] = None,
 ) -> list[dict[str, Any]]:
     """Os quadros da partida de UMA pessoa — o raio-x do painel (02/10/2026).
 
@@ -1249,6 +1496,8 @@ def fita_da_partida(
             `-1` do vocabulario do gabarito.
         nu_lance_cumpre_desafio: o lance em que o objetivo foi cumprido.
         co_variante: a variante do desafio (o tamanho, no Pontinhos).
+        js_chegada: a linha de chegada do desafio; no Quatro, o feito sai
+            contornado no quadro do `nu_lance_cumpre_desafio` (T154).
 
     ⚠️ **Nas damas a FEN de DEPOIS de um lance e a de ANTES do seguinte** —
     o log so guarda a de antes. O ultimo lance fica sem "depois", e por isso
@@ -1285,4 +1534,5 @@ def fita_da_partida(
         n_chave=nu_lance_cumpre_desafio,
         rotulos=ROTULOS_DA_PARTIDA,
         co_variante=co_variante,
+        js_chegada=js_chegada,
     )

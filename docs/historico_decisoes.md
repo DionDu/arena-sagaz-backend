@@ -10575,3 +10575,52 @@ contradizia o botão logo acima).
 resolve, 8 vermelhas do personagem que abriu; na fita, a peça de cada lance seu entra azul), a
 figura com os quatro símbolos e o cartão que a mostra, e a madeira clara. Mutação: as cores
 cruas do motor reprovam 2 casos.
+
+## 2026-10-27 (7) — O painel realça o feito no quadro do lance que cumpre o objetivo (T154 da spec 010)
+
+**Contexto.** Pedido do dono (27/10/2026, `DECISOES-do-dono.md` §8zzzx): na fita do painel, o
+quadro do lance que cumpre o objetivo devia mostrar O QUÊ foi cumprido, como o app mostra (a
+figura contornada desde a T149, a linha vencedora desde a T063). Até aqui o quadro-chave tinha só
+a borda dourada e o aro da última jogada; num "Forme a figura" de 9 lances, o dono procurava o Z
+no tabuleiro.
+
+**Decisão.** No Quatro, o quadro-chave (o `lance_chave` do gabarito, o
+`nu_lance_cumpre_desafio` da partida de quem jogou) contorna o feito:
+
+1. **A FIGURA**, quando a chegada tem cláusula `figura`: as casas são as da MESMA busca do juiz.
+   `motores/nucleo/chegada.py` ganhou `encontrar_figura` (o ONDE, com o canto e o desenho que
+   casou, original ou espelho), e `figura_formada` passou a ser ela reduzida a sim ou não - o par
+   exato do app (`encontrarFigura` e `figuraFormada`). O lado é o `vez_de`, o mesmo `jogador`
+   com que o job julga. O desenho é o do app: a faixa sálvia sobre uma faixa escura, abraçando a
+   UNIÃO das casas (as emendas entre vizinhas), por baixo das peças.
+2. **A LINHA VENCEDORA**, senão: as linhas do desfecho do árbitro (`regras.desfecho`), todas -
+   o golpe duplo sai com as duas -, numa cápsula de ouro com o contorno escuro por baixo (o ouro
+   sozinho some na madeira clara, como o aro), por cima das peças.
+3. **Nada**, quando o quadro-chave não tem nem uma nem outra (o "Encoste", que fecha no meio).
+
+Para isso o painel passou a ler `js_chegada` (pela VIEW `desafio.vw001_desafio`, que já a
+expunha): no `DesafioNoPainel` (as três consultas que o montam) e no `RaioX`.
+
+**Alternativas.** (a) Usar o `figura` do enunciado (`js_objetivo.figura`), que o painel já lia:
+recusada - ele não traz o `espelhar`, e o realce tem de ser o que o JUIZ julgou; (b) contornar
+o feito em todo quadro em que ele aparece: recusada - na partida de quem continuou depois do
+objetivo (RF-DES-213), o contorno marca o INSTANTE do feito, e não onde o Z ainda está; (c) uma
+busca da figura própria do painel: recusada - seria uma segunda escrita da regra, a forma de
+todos os episódios de divergência.
+
+**Falha.** Chegada que o juiz recusaria, ou um erro no juiz ou no árbitro durante o realce: o
+quadro sai sem o contorno, nunca um 500 na página do dia. Figura pedida que não está no
+tabuleiro (um gabarito torto) não contorna o vazio, e a linha vencedora, havendo, continua
+contornada.
+
+**Conferência.** Os 14 desafios do Quatro do `des` desenhados no quadro-chave e convertidos em
+imagem com o Chrome headless: o xis, o Z e o losango (com o vermelho do meio dentro do
+contorno) em sálvia; a vitória, a diagonal, a linha de cinco e as duas linhas do golpe duplo na
+cápsula; o "Encoste" e o "Segurar o Magno" sem realce.
+
+**Testes.** `test_clausula_figura.py` (+3: as casas sem o `.`, o desenho espelhado que casou, o
+primeiro lugar da busca como no app) e `test_desenho_quatro_no_painel.py` (+13: o Z real do
+`des` e o lado de quem resolve, só no quadro-chave e por baixo das peças, a geometria da emenda,
+a vitória e a cápsula por cima, a linha sem a chegada, as duas linhas do golpe duplo, o
+"Encoste", a figura ausente, a chegada inválida, o raio-x que continua depois do objetivo, a
+página e o banco entregando a chegada). Mutações: 16 de 16 pegas.

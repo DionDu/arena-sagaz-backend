@@ -675,6 +675,7 @@ def _fita_da_solucao(item: DesafioNoPainel) -> str:
         item.js_posicao_inicial,
         item.js_solucao,
         co_variante=item.co_variante,
+        js_chegada=item.js_chegada,
     )
     if not quadros:
         return (
@@ -1297,6 +1298,7 @@ def render_raio_x(raio: Optional[RaioX]) -> str:
         raio.lances,
         nu_lance_cumpre_desafio=raio.nu_lance_cumpre_desafio,
         co_variante=raio.co_variante,
+        js_chegada=raio.js_chegada,
     )
     if quadros:
         partes.append(

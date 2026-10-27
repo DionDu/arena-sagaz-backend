@@ -25,7 +25,7 @@ falhasse.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Optional
 from uuid import UUID
@@ -155,6 +155,9 @@ class DesafioNoPainel:
     #: O vinculo com o dia — e por ele que as estatisticas do dia sao lidas.
     #: `None` quando o desafio esta sem data.
     id_desafio_dia: Optional[UUID] = None
+    #: A linha de chegada: e com ela que a fita do gabarito contorna o feito no
+    #: quadro do lance-chave (T154). Vazia so em quem monta a mao (os testes).
+    js_chegada: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,7 +235,8 @@ _COLUNAS_DO_DESAFIO = """
        d.id_desafio_origem,
        d.dh_geracao,
        dia.dt_dia,
-       dia.id_desafio_dia
+       dia.id_desafio_dia,
+       d.js_chegada
 """
 
 _SQL_FILA = f"""
