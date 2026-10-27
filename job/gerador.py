@@ -1090,6 +1090,7 @@ def gerar_candidatos(
     vizinhanca: "vizinhanca_mod.Vizinhanca | None" = None,
     frequencias: "Mapping[str, adocao_mod.Frequencia] | None" = None,
     destaque: VizinhosDoDestaque | None = None,
+    tipo_forcado: str | None = None,
 ) -> list[Candidato]:
     """Gera candidatos para um dia.
 
@@ -1150,6 +1151,12 @@ def gerar_candidatos(
             `tipos_recentes`: com dois valores, o dia sairia com os parâmetros
             de um tipo e a linha de chegada de outro. `None` só serve a jogo
             sem destaque no ar (ver `escolher_tipo`).
+        tipo_forcado: o tipo pedido pela SEQUENCIA (`job/sequencia_de_tipos.py`,
+            27/10/2026). Com ele, o jogo e o tipo saem do pedido, e nao da data:
+            ⛔ e o mesmo tipo que `cobrir_um_dia` escolheu la fora, pelo motivo
+            da `tipos_recentes` (os dois lados precisam concordar). ⚠️ So tipo
+            NO AR: ele passa pelo `receita_de` e pelo `exigir_vetor` como
+            qualquer outro. `None` = o rodizio de sempre.
 
     Returns:
         Os candidatos encontrados. Pode vir menos que `quantos` — e pode vir
@@ -1195,6 +1202,12 @@ def gerar_candidatos(
             f"⚠️ [medicao] {co_tipo}: tipo EM AVALIACAO, sem vetor de verificacao. "
             "⛔ Este candidato NAO e publicavel."
         )
+    elif tipo_forcado is not None:
+        # A sequencia pediu este tipo: o jogo vem dele, e nao do rodizio.
+        receita = receita_de(tipo_forcado)
+        co_tipo = tipo_forcado
+        co_jogo = receita.co_jogo
+        exigir_vetor(co_tipo)
     else:
         co_jogo = escolher_jogo(
             dt_dia, evitar=vizinhos.jogos, frequencias=frequencias

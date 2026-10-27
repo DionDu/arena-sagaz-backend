@@ -10441,3 +10441,78 @@ e 3 ficam exatamente no limiar lido (18 de 27), mas a fraqueza não é a Cacau: 
 de 9), que seria uma das substitutas nos dias da Cacau, e o T mostrou na confirmação de 23/10
 que substituta fraca derruba o resgate. Ficaria para outra rodada de ~1 h, que o dono não
 pediu; a figura é dado, e pode voltar depois da 1.4.0 sem versão nova do app.
+
+
+## 2026-10-27 (4) — O painel inverte datas e esvazia o calendário; o modo de teste do `des`; a geração em sequência
+
+**Contexto.** O dono quer testar no aparelho todos os tipos de desafio do Quatro antes da 1.4.0:
+resolver o de hoje, limpar as resoluções, trazer outro tipo para hoje, resolver de novo. Três
+travas do painel impediam o ciclo, e a fila do job não sabia gerar um tipo escolhido. As
+decisões do dono estão em `DECISOES-do-dono.md` §8zzzv do app.
+
+**Decisão 1: inverter duas datas (`servico.inverter_dias`, rota `/painel/desafios/inverter`), no
+`des` e no `prd`.** Os dois desafios saem do seu dia, então as travas de produção valem para os
+DOIS: dia passado, dia com tentativa, janela baixada e "só aprovado vai a um dia". O
+`id_desafio_dia` de cada um é preservado (`UPDATE` do vínculo, e não `DELETE` + `INSERT`).
+⚠️ **A troca é em três passos, com um dia de estacionar (`DIA_DE_ESTACIONAR`, 01/01/1900)**:
+`un001_dia` não é `DEFERRABLE`, e o Postgres confere a unicidade a cada linha, então um `UPDATE`
+que trocasse as duas datas de uma vez recusaria a primeira linha. Cada passo confere a data de
+origem no `WHERE`; se algum não acha a linha (outra aba mexeu), a transação é desfeita e a rota
+responde 409.
+
+**Decisão 2: esvaziar (`servico.esvaziar`, rota `/painel/desafios/esvaziar`), no `prd` também.**
+Descarta (⛔ não apaga, RF-DES-012c) e desagenda todo desafio do primeiro dia destravado em
+diante: o dia seguinte ao fim da janela baixada; no modo de teste, hoje. Motivo e confirmação
+são exigidos pelo SERVIÇO, e não só pelo `required` do HTML. Fora do modo de teste, um desafio
+com tentativa depois da janela para tudo antes de escrever (não deveria existir).
+
+**Decisão 3: o modo de teste (`api/desafios/painel/modo_de_teste.py`).** Libera a janela baixada
+para inverter e esvaziar, e acrescenta "Limpar resoluções" (`servico.limpar_resolucoes`), o único
+ponto do painel que apaga. ⛔ Dia passado nunca é tocado, e dia com tentativa só troca de data
+depois de limpo. **Duas travas**, porque o painel roda em dois lugares e o local aponta para o
+banco que o dono escolher no pórtico: (1) `PAINEL_MODO_DE_TESTE`, que o supervisor do pórtico
+liga só quando o banco escolhido é o `des` (e remove quando é o `prd`, mesmo herdada); (2)
+`configuracoes.eh_producao` falso (`AMBIENTE=producao` no serviço `prd` do Railway).
+A limpeza apaga, nesta ordem: `tb003_resolucao` (o `CASCADE` leva `tb004` da resolução, `tb006`
+e `tb008`), o resto de `tb004_xp_desafio` do dia (consolo e AJUSTE do teto, sem âncora), as
+`tb002_tentativa` (o `CASCADE` leva `tb005` e o consolo) e `tb007_desafio_impedido` (aponta para
+o vínculo sem `CASCADE`; ganhou a constante `TB_DESAFIO_IMPEDIDO` em `modelos_evento.py`). As
+partidas do log ficam (append-only). ⚠️ **O XP já somado em `progressao.tb001_progressao_usuario`
+não volta**: é um total sem extrato por dia. ⚠️ **O teto de 30 XP é por VÍNCULO** (`_creditar`
+lê o já creditado pelo `id_desafio_dia`), então cada desafio trazido para hoje paga o seu XP.
+O SQL novo foi planejado (`EXPLAIN`, sem executar) contra o `des` numa transação somente-leitura:
+os sete comandos sem erro.
+
+**Decisão 4: a geração em sequência (`job/sequencia_de_tipos.py`).** `rodar_job_local.py
+--sequencia "quatro_figura[figura=z], quatro_segurar_magno, quatro_vencer_em_n@tex"` gera
+aqueles tipos, um por dia livre, na ordem; `--jogo quatro` sozinho, um de cada tipo no ar. Só no
+`des`. Genérica: o nome do tipo diz o jogo. Escolhas: sem colchetes vale a PRIMEIRA variante do
+editorial (e não o odômetro da data: quem testa quer saber o que sai); a lista é conferida
+inteira ANTES do motor (tipo fora do ar, variante inexistente, personagem recusado, jogo
+errado, todos numa mensagem); o tipo forçado chega ao `gerar_candidatos` (`tipo_forcado`) para as
+duas escolhas concordarem; pedido que falha NÃO é reprisado e passa o dia ao pedido seguinte;
+acabada a lista o job para de gerar; a fila NÃO é compactada nessa execução (a compactação
+puxaria desafios de depois para os dias livres); sem `--dias`, o plano vai ao teto (30). Pedido
+que falhou ou sobrou sai com código 1.
+
+**Alternativas consideradas.** Apagar os desafios ao esvaziar (o pedido original do dono):
+recusada por ele mesmo, depois da proposta — o descarte tem o mesmo efeito na tela e não exige
+apagar régua e medições em cascata. Tornar `un001_dia` `DEFERRABLE` para trocar num `UPDATE` só:
+pediria migração numa tabela que já está no `prd`, por uma troca que três `UPDATE` resolvem.
+Limpar só as resoluções do dono: recusada por ele. Escolher a variante pelo odômetro da data
+dentro da sequência: tornaria imprevisível o que sai.
+
+**Testes.** `tests/unitarios/test_painel_troca_e_modo_de_teste.py` (41: as duas travas, a troca
+com as travas dos dois lados, a troca interrompida desfeita, a limpeza, o esvaziamento nos dois
+modos, a página e as rotas) e `tests/unitarios/test_sequencia_de_tipos.py` (22: a leitura, a
+conferência, a ordem, a falha sem reprise, a lista que acaba, a que sobra, a fila sem
+compactação, e o controle com compactação). `tests/unitarios/test_rodar_job_local.py` ganhou
+os casos das opções novas (o `prd` recusa, não se combinam com `--forcar-jogo`, a ordem chega
+ao job, o plano vai a 30, e a sequência inválida para ANTES do motor), e
+`painel/testes/test_supervisor.py` o do modo de teste só com o `des`. ⚠️ **Um vazamento
+antigo apareceu na suíte inteira**: a fixture do lançador fazia `delenv` de
+`DESAFIO_DIAS_A_COBRIR` ausente, o que não registra nada para desfazer, e o `--dias 10` de um
+caso esticava o plano dos testes seguintes (o caso dos pedidos que sobram viu 9 dias em vez de
+7). Agora `setenv` vem antes do `delenv`, ali e no arquivo novo. Mutações: 6 de 6 no painel; no job, 2 de 3 na primeira rodada (a
+reprise no pedido sobreviveu, porque no duble ela falhava sozinha; o caso ganhou uma reprise que
+sempre dá certo e passou a pegá-la) e 1 equivalente (não parar no fim da lista só imprime).

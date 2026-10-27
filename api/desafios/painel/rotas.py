@@ -57,6 +57,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.desafios.painel import execucao_do_job, pagina
 from api.desafios.painel.datas import data_br, ler_data
 from api.desafios.painel.estatisticas import EstatisticasDoDia
+from api.desafios.painel.modo_de_teste import modo_de_teste_ligado
 from api.desafios.painel.repositorio import RepositorioPainel
 from api.desafios.painel.seguranca import (
     NOME_DO_COOKIE,
@@ -495,6 +496,83 @@ async def desagendar(
         resultado = await servico.desagendar(id_desafio, dt_hoje=hoje_utc())
     except ErroNegocio as erro:
         return _voltar(erro.detalhe, erro=True, campos=campos)
+    return _voltar(resultado.mensagem, campos=campos)
+
+
+@router.post("/desafios/inverter", include_in_schema=False)
+async def inverter(
+    request: Request,
+    _autorizado: bool = Depends(exigir_curador),
+    servico: ServicoCuradoria = Depends(obter_servico),
+) -> RedirectResponse:
+    """Troca o dia do desafio com o do desafio que mora na data escolhida (27/10/2026).
+
+    ⚠️ Vale no `prd`, com as travas de sempre para os DOIS desafios; o modo de
+    teste (`modo_de_teste.py`) so libera a janela baixada.
+    """
+    campos: dict[str, str] = {}
+    try:
+        campos = await campos_do_formulario(request)
+        id_desafio = _uuid_do_formulario(campos)
+        dt_destino = _data_do_formulario(campos)
+        resultado = await servico.inverter_dias(
+            id_desafio,
+            dt_destino=dt_destino,
+            dt_hoje=hoje_utc(),
+            modo_de_teste=modo_de_teste_ligado(),
+        )
+    except ErroNegocio as erro:
+        return _voltar(erro.detalhe, erro=True, campos=campos)
+    log.info(
+        "painel: datas invertidas",
+        extra={"id_desafio": str(id_desafio), "dt_destino": dt_destino.isoformat()},
+    )
+    # ⚠️ Volta para o dia de DESTINO, que e onde o desafio movido mora agora.
+    return _voltar(resultado.mensagem, campos={**campos, "voltar": dt_destino.isoformat()})
+
+
+@router.post("/desafios/limpar-resolucoes", include_in_schema=False)
+async def limpar_resolucoes(
+    request: Request,
+    _autorizado: bool = Depends(exigir_curador),
+    servico: ServicoCuradoria = Depends(obter_servico),
+) -> RedirectResponse:
+    """⛔ So no modo de teste: apaga as tentativas e resolucoes do dia do desafio."""
+    campos: dict[str, str] = {}
+    try:
+        campos = await campos_do_formulario(request)
+        id_desafio = _uuid_do_formulario(campos)
+        resultado = await servico.limpar_resolucoes(
+            id_desafio, dt_hoje=hoje_utc(), modo_de_teste=modo_de_teste_ligado()
+        )
+    except ErroNegocio as erro:
+        return _voltar(erro.detalhe, erro=True, campos=campos)
+    # ⚠️ `warning`, e nao `info`: e a unica acao do painel que apaga dado de
+    # alguem, e o log precisa destaca-la de uma aprovacao comum.
+    log.warning("painel: resolucoes apagadas", extra={"id_desafio": str(id_desafio)})
+    return _voltar(resultado.mensagem, campos=campos)
+
+
+@router.post("/desafios/esvaziar", include_in_schema=False)
+async def esvaziar(
+    request: Request,
+    _autorizado: bool = Depends(exigir_curador),
+    servico: ServicoCuradoria = Depends(obter_servico),
+) -> RedirectResponse:
+    """Descarta todo desafio do primeiro dia destravado em diante (27/10/2026)."""
+    campos: dict[str, str] = {}
+    try:
+        campos = await campos_do_formulario(request)
+        resultado = await servico.esvaziar(
+            dt_hoje=hoje_utc(),
+            motivo=campos.get("motivo", ""),
+            # A caixa marcada chega como `confirmo=1`; desmarcada, nem chega.
+            confirmado=campos.get("confirmo") == "1",
+            modo_de_teste=modo_de_teste_ligado(),
+        )
+    except ErroNegocio as erro:
+        return _voltar(erro.detalhe, erro=True, campos=campos)
+    log.warning("painel: calendario esvaziado", extra={"recado": resultado.mensagem})
     return _voltar(resultado.mensagem, campos=campos)
 
 

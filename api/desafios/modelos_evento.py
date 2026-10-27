@@ -85,6 +85,11 @@ TB_REACAO = "desafio_dia.tb006_reacao"
 #: aplicativo - ver o cabecalho da `0026` para o porque de a tabela morar neste
 #: schema mesmo assim.
 TB_NOTIFICACAO_REACAO = "desafio_dia.tb008_notificacao_reacao"
+#: O registro de que a pessoa nao pôde jogar o dia (RF-DES-024, `0021`). Quem o
+#: escreve e `api/desafios/impedido.py`; a constante existe para o modo de teste
+#: do painel (27/10/2026) apagar as linhas do dia antes de desfazer o vinculo,
+#: que esta tabela referencia sem `ON DELETE`.
+TB_DESAFIO_IMPEDIDO = "desafio_dia.tb007_desafio_impedido"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

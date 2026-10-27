@@ -83,6 +83,8 @@ from . import perfil as perfil_mod
 from . import posicao_inicial as posicao_mod
 from . import regua as regua_mod
 from . import reprise as reprise_mod
+from . import sequencia_de_tipos as sequencia_mod
+from . import tipos_de_desafio as tipos_mod
 from .banco import BancoNaoConfigurado, abrir_sessao
 from .repositorio import RepositorioDoJob
 
@@ -255,6 +257,17 @@ class Relatorio:
     repetidos: list[str] = field(default_factory=list)
     nao_cobertos: list[str] = field(default_factory=list)
 
+    #: A sequencia pedida (`--sequencia`/`--jogo`, 27/10/2026): o que saiu em
+    #: cada dia (`["2026-10-28: quatro_figura[figura=z]"]`) e o que falhou, com
+    #: o motivo. ⚠️ Pedido que falhou NAO e dia descoberto: o dia passa ao
+    #: proximo pedido. Mas ele sai com 1 (`codigo_de_saida`), porque quem pediu
+    #: aquele tipo precisa saber que ele nao veio.
+    sequencia_gerada: list[str] = field(default_factory=list)
+    sequencia_falhou: list[str] = field(default_factory=list)
+    #: Os pedidos que nem chegaram a ser tentados porque os dias do plano
+    #: acabaram antes da lista.
+    sequencia_sobrou: list[str] = field(default_factory=list)
+
     #: A adoção lida nesta execução, uma linha por jogo novo (T120):
     #: `["quatro (>= 1.4.0): 312 de 780 aparelhos -> 1 dia em 4"]`.
     #:
@@ -292,6 +305,9 @@ class Relatorio:
         alguem trapaceando — e ele continua no ar enquanto ninguem olhar.
         """
         if self.nao_cobertos:
+            return CODIGO_DIVERGIU
+        # A sequencia pedida que nao veio inteira tambem acende a luz.
+        if self.sequencia_falhou or self.sequencia_sobrou:
             return CODIGO_DIVERGIU
         # ⛔ **`fora_da_banda` NAO entra aqui, e isso foi medido.** Ate 10/09/2026
         # ele saia com 1, e a primeira execucao completa mostrou o preco: **seis
@@ -372,6 +388,19 @@ class Relatorio:
                 f"⛔ [job] DIAS SEM DESAFIO: {self.nao_cobertos}. A fila tem "
                 "buraco, e o aplicativo vai mostrar dia vazio."
             )
+        if self.sequencia_gerada:
+            linhas.append(f"[job] sequencia gerada: {self.sequencia_gerada}")
+        if self.sequencia_falhou:
+            linhas.append(
+                f"⛔ [job] SEQUENCIA - pedidos que NAO sairam: {self.sequencia_falhou}. "
+                "O dia de cada um passou ao pedido seguinte."
+            )
+        if self.sequencia_sobrou:
+            linhas.append(
+                f"⛔ [job] SEQUENCIA - pedidos sem dia livre no plano: "
+                f"{self.sequencia_sobrou}. Peca mais dias (--dias) ou esvazie o "
+                "calendario."
+            )
         return "\n".join(linhas)
 
 
@@ -434,6 +463,7 @@ async def cobrir_um_dia(
     nu_execucoes_da_regua: int = regua_mod.EXECUCOES_PADRAO,
     alvo: Optional[alvo_mod.Alvo] = None,
     frequencias: Optional[dict[str, adocao_mod.Frequencia]] = None,
+    pedido: Optional[sequencia_mod.PedidoDoDia] = None,
 ) -> Optional[str]:
     """Gera, mede e grava o desafio de um dia. Ou reprisa, se nao der.
 
@@ -455,6 +485,12 @@ async def cobrir_um_dia(
         frequencias: a faixa de adoção de cada jogo novo, lida UMA vez por
             `executar` (`ler_frequencias`). `None` = nenhum jogo novo, que é o
             rodízio de antes da T120.
+        pedido: o que a SEQUENCIA pediu para este dia (`job/sequencia_de_tipos.py`,
+            27/10/2026). Com ele, o tipo, a variante e o personagem saem do
+            pedido, e nao da data. ⚠️ **E o dia que nao sair NAO e reprisado**:
+            quem pediu uma sequencia quer aqueles tipos, e uma reprise no lugar
+            tomaria o dia do proximo item. Quem decide o que fazer com a falha e
+            `executar` (o proximo pedido tenta o mesmo dia).
 
     Returns:
         `None` quando o dia foi coberto; o motivo, quando nao foi.
@@ -478,9 +514,13 @@ async def cobrir_um_dia(
     # ⚠️ E ela importa so quando o dia e um buraco **no meio** da fila: no fim
     # da fila nao ha vizinho a frente, e o rodizio pela data decide sozinho.
     vizinhos = await repositorio.vizinhanca(dt_dia)
-    co_jogo = gerador_mod.escolher_jogo(
-        dt_dia, evitar=vizinhos.jogos, frequencias=frequencias
-    )
+    if pedido is not None:
+        # ⚠️ A sequencia escolheu o tipo: o jogo e o dele.
+        co_jogo = tipos_mod.receita_de(pedido.co_tipo).co_jogo
+    else:
+        co_jogo = gerador_mod.escolher_jogo(
+            dt_dia, evitar=vizinhos.jogos, frequencias=frequencias
+        )
     janela = timedelta(days=JANELA_DO_RODIZIO_EM_DIAS)
     recentes = await repositorio.tipos_recentes(
         co_jogo=co_jogo, dt_inicio=dt_dia - janela, dt_fim=dt_dia + janela
@@ -495,14 +535,19 @@ async def cobrir_um_dia(
     # dependem dele: o tipo aqui, o tipo de novo dentro de `gerar`, e a variante.
     tipo_em_destaque = gerador_mod.TIPO_EM_DESTAQUE.get(co_jogo)
     destaque = None
-    if tipo_em_destaque in gerador_mod.tipos_do_jogo(co_jogo):
+    # ⚠️ Com um pedido, o destaque nao decide nada (o tipo ja veio escolhido), e
+    # a consulta nem roda.
+    if pedido is None and tipo_em_destaque in gerador_mod.tipos_do_jogo(co_jogo):
         destaque = await repositorio.vizinhos_do_destaque(
             co_jogo=co_jogo, co_tipo_em_destaque=tipo_em_destaque, dt_dia=dt_dia
         )
 
-    co_tipo = gerador_mod.escolher_tipo(
-        co_jogo, dt_dia, tipos_recentes=recentes, destaque=destaque
-    )
+    if pedido is not None:
+        co_tipo = pedido.co_tipo
+    else:
+        co_tipo = gerador_mod.escolher_tipo(
+            co_jogo, dt_dia, tipos_recentes=recentes, destaque=destaque
+        )
 
     # ── A VARIANTE DE PARAMETROS do dia (T049f) ─────────────────────────────
     #
@@ -520,24 +565,44 @@ async def cobrir_um_dia(
     # conhece o editorial**: ele sabe montar candidatos, nao com que numeros eles
     # vao ao ar.
     variantes = editorial_mod.variantes_de(co_tipo)
-    nu_variante = gerador_mod.escolher_variante(
-        co_jogo,
-        dt_dia,
-        quantas_variantes=len(variantes),
-        # O destaque anda uma variante por aparicao (ver `escolher_variante`);
-        # os outros tipos, pelo odometro da data, como sempre.
-        vezes_do_destaque=(
-            destaque.vezes_publicado
-            if destaque is not None and co_tipo == tipo_em_destaque
-            else None
-        ),
-    )
-    publicacao = variantes[nu_variante]
-    if len(variantes) > 1:
+    if pedido is not None:
+        # ⚠️ A variante do PEDIDO (a primeira que casa com o filtro e com o
+        # personagem), e nao a do odometro: ver `sequencia_de_tipos`.
+        publicacao = sequencia_mod.variante_do_pedido(pedido)
         print(
-            f"[job] {dt_dia}: {co_tipo} variante {nu_variante + 1}/{len(variantes)} "
+            f"[job] {dt_dia}: sequencia pede {pedido.descrever()} "
             f"— {dict(publicacao.parametros)}"
         )
+    else:
+        nu_variante = gerador_mod.escolher_variante(
+            co_jogo,
+            dt_dia,
+            quantas_variantes=len(variantes),
+            # O destaque anda uma variante por aparicao (ver
+            # `escolher_variante`); os outros tipos, pelo odometro da data.
+            vezes_do_destaque=(
+                destaque.vezes_publicado
+                if destaque is not None and co_tipo == tipo_em_destaque
+                else None
+            ),
+        )
+        publicacao = variantes[nu_variante]
+        if len(variantes) > 1:
+            print(
+                f"[job] {dt_dia}: {co_tipo} variante {nu_variante + 1}/{len(variantes)} "
+                f"— {dict(publicacao.parametros)}"
+            )
+
+    # ⚠️ O personagem fixado pelo pedido entra como a UNICA possibilidade: o
+    # `escolher_personagem` do gerador, com um nome so, devolve esse nome.
+    personagens_possiveis = (
+        (pedido.co_personagem,)
+        if pedido is not None and pedido.co_personagem
+        else publicacao.co_personagens
+    )
+    # ⚠️ O tipo forcado so vai ao `gerar` quando ha pedido: os dubles de teste do
+    # rodizio de sempre nao conhecem o argumento, e nao precisam conhecer.
+    extras_do_pedido = {"tipo_forcado": co_tipo} if pedido is not None else {}
 
     # ── ⛔ SOLTAR A CONEXAO ANTES DO TRECHO CARO (T049j) ────────────────────
     #
@@ -591,7 +656,7 @@ async def cobrir_um_dia(
         lances_de_preparo=publicacao.nu_lances_de_preparo,
         # ⚠️ **Nem todo tipo cabe contra todo adversario** - ver o campo no
         # editorial. `None` mantem o rodizio dos quatro.
-        personagens_possiveis=publicacao.co_personagens,
+        personagens_possiveis=personagens_possiveis,
         # ⚠️ **O acervo da VARIANTE, quando ela tem um** (30/09/2026). `None`
         # herda o da receita - ver `editorial.Publicacao.moldes`.
         moldes=publicacao.moldes,
@@ -605,8 +670,12 @@ async def cobrir_um_dia(
         # do Quatro (`escolher_tipo` exige a fila), e com outro valor escolheria
         # outro tipo que o daqui.
         destaque=destaque,
+        **extras_do_pedido,
     )
     if not candidatos:
+        if pedido is not None:
+            # ⛔ Sem reprise na sequencia (ver a docstring).
+            return f"{co_tipo}: sem candidato"
         return await _tentar_reprisar(
             sessao, dt_dia=dt_dia, relatorio=relatorio, porque=f"{co_tipo}: sem candidato"
         )
@@ -753,6 +822,9 @@ async def cobrir_um_dia(
 
     if escolhido is None:
         if reserva is None:
+            if pedido is not None:
+                # ⛔ Sem reprise na sequencia (ver a docstring).
+                return f"{co_tipo}: nenhum candidato chegou a estado terminal"
             return await _tentar_reprisar(
                 sessao,
                 dt_dia=dt_dia,
@@ -936,6 +1008,7 @@ async def executar(
     nu_execucoes_da_regua: int = regua_mod.EXECUCOES_PADRAO,
     alvo: Optional[alvo_mod.Alvo] = None,
     frequencias_forcadas: Optional[dict[str, adocao_mod.Frequencia]] = None,
+    sequencia: Optional[Sequence[sequencia_mod.PedidoDoDia]] = None,
 ) -> Relatorio:
     """Roda o job inteiro sobre uma sessao ja aberta.
 
@@ -950,6 +1023,16 @@ async def executar(
             passa isto, e ele recusa o `prd`**: o Railway chama `principal()`
             sem argumento, e nenhuma variavel de ambiente chega aqui - a fila de
             producao nunca sai de uma adocao inventada.
+        sequencia: os tipos pedidos, um por dia livre, na ordem
+            (`job/sequencia_de_tipos.py`, 27/10/2026). ⛔ So o `rodar_job_local.py`
+            passa, e so para o `des`. Com ela:
+              · **a fila NAO e compactada**: quem pede uma sequencia quer os
+                tipos nos dias LIVRES, e a compactacao puxaria desafios de
+                depois para os buracos, empurrando a sequencia para a frente;
+              · **a adocao nao e lida**: o jogo de cada dia vem do pedido;
+              · **pedido que falha passa o dia ao seguinte** (sem reprise), e
+                **acabada a lista, a execucao para de gerar** - os dias livres
+                que sobrarem ficam para a execucao normal.
 
     Returns:
         O [Relatorio], **sempre** — inclusive quando dias falharam.
@@ -1009,9 +1092,16 @@ async def executar(
     # o ponto: a compactacao muda quais dias estao cobertos, e ler antes faria o
     # job gerar para um dia que ele mesmo acabou de preencher — pagando minutos
     # de Railway por um desafio que seria descartado na gravacao.
-    await _compactar_a_fila(
-        repositorio, dias=dias, dt_hoje=dt_hoje, relatorio=relatorio
-    )
+    if sequencia is None:
+        await _compactar_a_fila(
+            repositorio, dias=dias, dt_hoje=dt_hoje, relatorio=relatorio
+        )
+    else:
+        print(
+            f"[job] SEQUENCIA de {len(sequencia)} pedido(s): "
+            + ", ".join(p.descrever() for p in sequencia)
+            + ". A fila NAO e compactada nesta execucao."
+        )
 
     publicados = await repositorio.dias_publicados(
         dt_inicio=dias[0], dt_fim=dias[-1]
@@ -1053,7 +1143,11 @@ async def executar(
     # mesma razao da banda acima, e por uma a mais: a idempotencia (T038). Se cada
     # dia lesse a amostra por conta propria, dois dias da mesma execucao poderiam
     # cair em faixas diferentes, e o log nao saberia dizer qual valeu.
-    if frequencias_forcadas is not None:
+    if sequencia is not None:
+        # ⚠️ Com a sequencia, o jogo de cada dia vem do pedido: a adocao nao
+        # decide nada e nem e lida.
+        frequencias = None
+    elif frequencias_forcadas is not None:
         # ⚠️ Forcada: nada e lido, e o log diz isso com todas as letras, para
         # ninguem confundir a fila do `des` gerada assim com a adocao real.
         frequencias = frequencias_forcadas
@@ -1067,41 +1161,36 @@ async def executar(
         )
 
     # ── 4. Cobrir dia a dia ─────────────────────────────────────────────────
-    for numero, passo in enumerate(plano, start=1):
-        if not passo.precisa_gerar:
-            continue
+    async def cobrir_cronometrado(
+        dt_dia: date, pedido: Optional[sequencia_mod.PedidoDoDia] = None
+    ) -> Optional[str]:
+        """Cobre um dia (com o [pedido], se houver), contando o tempo e
+        engolindo o estouro. Devolve o motivo, quando o dia nao saiu.
 
-        # ⚠️ **Uma linha ANTES de comecar o dia, e nao so depois.** Gerar e medir
-        # um candidato leva minutos: sem este aviso, o log fica parado e um job
-        # sadio fica indistinguivel de um pendurado. ⛔ E foi exatamente o que
-        # aconteceu na primeira operacao real (10/09/2026) — o painel do Railway
-        # mostrava a tela vazia enquanto o container trabalhava.
-        print(
-            f"[job] dia {numero}/{len(plano)} — {passo.dt_dia}: gerando e medindo…"
-        )
-
-        # ⚠️ **O relogio comeca aqui e para no `finally`**, para o dia que
-        # estourou tambem ser cronometrado: um dia que consome minutos e falha
-        # custa o mesmo que um que consome minutos e publica.
+        ⚠️ **O relogio comeca aqui e para no `finally`**, para o dia que
+        estourou tambem ser cronometrado: um dia que consome minutos e falha
+        custa o mesmo que um que consome minutos e publica. ⚠️ E SOMA: na
+        sequencia, o mesmo dia pode ser tentado por mais de um pedido.
+        """
         comecou_em = time.monotonic()
         try:
-            motivo = await cobrir_um_dia(
+            return await cobrir_um_dia(
                 sessao,
                 repositorio,
-                dt_dia=passo.dt_dia,
+                dt_dia=dt_dia,
                 relatorio=relatorio,
                 gerar=gerar,
                 bancada_de=bancada_de,
                 nu_execucoes_da_regua=nu_execucoes_da_regua,
                 alvo=alvo,
                 frequencias=frequencias,
+                pedido=pedido,
             )
-        except Exception as erro:  # noqa: BLE001 - ver a docstring
+        except Exception as erro:  # noqa: BLE001 - ver a docstring de `executar`
             # ⚠️ **Amplo de proposito, e so aqui.** Este laco fala com dois
             # motores, com o juiz e com o banco; enumerar as excecoes deles seria
             # uma lista que envelhece, e a que faltasse derrubaria a execucao
             # inteira por causa de um dia.
-            motivo = f"{type(erro).__name__}: {erro}"
             traceback.print_exc()
             # ⚠️ **Desfaz o que o dia deixou pela metade, antes do proximo.**
             # Uma excecao do banco (a `fk001_perfil` do Quatro, no `des` em
@@ -1114,16 +1203,64 @@ async def executar(
                 await sessao.rollback()
             except Exception:  # noqa: BLE001 - a conexao pode ter caido junto
                 traceback.print_exc()
+            return f"{type(erro).__name__}: {erro}"
         finally:
-            relatorio.segundos_por_dia[passo.dt_dia.isoformat()] = (
-                time.monotonic() - comecou_em
-            )
+            chave = dt_dia.isoformat()
+            relatorio.segundos_por_dia[chave] = relatorio.segundos_por_dia.get(
+                chave, 0.0
+            ) + (time.monotonic() - comecou_em)
 
-        if motivo:
-            relatorio.nao_cobertos.append(f"{passo.dt_dia}: {motivo}")
-            print(f"⛔ [job] {passo.dt_dia} sem desafio: {motivo}", file=sys.stderr)
-        else:
-            print(f"[job] dia {numero}/{len(plano)} — {passo.dt_dia}: pronto ✅")
+    # A fila de pedidos que ainda nao tiveram dia (vazia sem sequencia).
+    pendentes = list(sequencia or ())
+    for numero, passo in enumerate(plano, start=1):
+        if not passo.precisa_gerar:
+            continue
+        if sequencia is not None and not pendentes:
+            # ⚠️ Acabou a lista: os dias livres que sobram ficam para a execucao
+            # normal (ver a docstring).
+            break
+
+        # ⚠️ **Uma linha ANTES de comecar o dia, e nao so depois.** Gerar e medir
+        # um candidato leva minutos: sem este aviso, o log fica parado e um job
+        # sadio fica indistinguivel de um pendurado. ⛔ E foi exatamente o que
+        # aconteceu na primeira operacao real (10/09/2026) — o painel do Railway
+        # mostrava a tela vazia enquanto o container trabalhava.
+        print(
+            f"[job] dia {numero}/{len(plano)} — {passo.dt_dia}: gerando e medindo…"
+        )
+
+        if sequencia is None:
+            motivo = await cobrir_cronometrado(passo.dt_dia)
+            if motivo:
+                relatorio.nao_cobertos.append(f"{passo.dt_dia}: {motivo}")
+                print(f"⛔ [job] {passo.dt_dia} sem desafio: {motivo}", file=sys.stderr)
+            else:
+                print(f"[job] dia {numero}/{len(plano)} — {passo.dt_dia}: pronto ✅")
+            continue
+
+        # ── A sequencia: os pedidos tentam ESTE dia ate um sair ─────────────
+        while pendentes:
+            pedido = pendentes.pop(0)
+            motivo = await cobrir_cronometrado(passo.dt_dia, pedido)
+            if motivo:
+                relatorio.sequencia_falhou.append(
+                    f"{passo.dt_dia}: {pedido.descrever()}: {motivo}"
+                )
+                print(
+                    f"⛔ [job] {passo.dt_dia}: {pedido.descrever()} nao saiu "
+                    f"({motivo}); o dia passa ao proximo pedido.",
+                    file=sys.stderr,
+                )
+                continue
+            relatorio.sequencia_gerada.append(f"{passo.dt_dia}: {pedido.descrever()}")
+            print(
+                f"[job] dia {numero}/{len(plano)} — {passo.dt_dia}: "
+                f"{pedido.descrever()} pronto ✅"
+            )
+            break
+
+    # Pedidos que os dias do plano nao alcancaram.
+    relatorio.sequencia_sobrou.extend(p.descrever() for p in pendentes)
 
     # ── 5. Auditar as resolucoes pendentes ──────────────────────────────────
     relatorio.auditoria = await auditoria_mod.auditar_lote(sessao)
@@ -1134,11 +1271,15 @@ async def executar(
 async def _executar_com_banco(
     dt_hoje: Optional[date] = None,
     frequencias_forcadas: Optional[dict[str, adocao_mod.Frequencia]] = None,
+    sequencia: Optional[Sequence[sequencia_mod.PedidoDoDia]] = None,
 ) -> Relatorio:
     """Abre a conexao, roda, e fecha a engine ao sair."""
     async with abrir_sessao() as sessao:
         return await executar(
-            sessao, dt_hoje=dt_hoje, frequencias_forcadas=frequencias_forcadas
+            sessao,
+            dt_hoje=dt_hoje,
+            frequencias_forcadas=frequencias_forcadas,
+            sequencia=sequencia,
         )
 
 
@@ -1146,18 +1287,22 @@ def principal(
     dt_hoje: Optional[date] = None,
     *,
     frequencias_forcadas: Optional[dict[str, adocao_mod.Frequencia]] = None,
+    sequencia: Optional[Sequence[sequencia_mod.PedidoDoDia]] = None,
 ) -> int:
     """Roda o job e devolve o codigo de saida do processo.
 
     Args:
         frequencias_forcadas: ver `executar`. ⛔ So o `rodar_job_local.py`
             passa, e so para o `des`.
+        sequencia: ver `executar`. ⛔ Idem.
 
     ⚠️ **Devolve numero, e nao chama `sys.exit`.** Funcao que encerra o processo
     derruba o pytest junto; quem sai e o `if __name__ == "__main__"` la embaixo.
     """
     try:
-        relatorio = asyncio.run(_executar_com_banco(dt_hoje, frequencias_forcadas))
+        relatorio = asyncio.run(
+            _executar_com_banco(dt_hoje, frequencias_forcadas, sequencia)
+        )
     except BancoNaoConfigurado as erro:
         # ⚠️ Sem `traceback`: a causa e uma Variable esquecida no console, e o
         # rastro de pilha so afogaria o recado que diz onde arrumar.

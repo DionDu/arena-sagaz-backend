@@ -78,6 +78,7 @@ from api.desafios.painel.datas import (
     duracao_br,
     momento_br,
 )
+from api.desafios.painel.modo_de_teste import modo_de_teste_ligado
 from api.desafios.painel.estatisticas import (
     LinhaDoQuadro,
     QuemNaoResolveu,
@@ -359,6 +360,45 @@ def _secao_gerar() -> str:
     nasce <strong>aprovado</strong> &mdash; descarte o que nao servir.</p>
     <p class="nota" id="estado-geracao" data-rodando="{"1" if estado.rodando else "0"}">
     Ultima execucao: {_txt(estado.resumo)}</p>
+  </section>"""
+
+
+def _secao_esvaziar(
+    *,
+    dt_hoje: date,
+    dt_fim_janela_baixada: date,
+    calendario: Sequence[DiaNoCalendario],
+) -> str:
+    """O botao que descarta todo desafio do primeiro dia destravado em diante.
+
+    ⚠️ Vale no `prd` (27/10/2026), e o primeiro dia destravado e o seguinte ao
+    fim da janela baixada; no modo de teste e hoje. A caixa "entendi" e o motivo
+    sao obrigatorios - e o servico os exige de novo, porque o `required` do HTML
+    nao segura um `curl`.
+
+    ⚠️ A contagem e a do CALENDARIO mostrado (ate o fim do mes seguinte), e e
+    so um aviso: quem descarta e o servico, sobre o que o banco tiver.
+    """
+    teste = modo_de_teste_ligado()
+    dt_de = dt_hoje if teste else dt_fim_janela_baixada + timedelta(days=1)
+    quantos = sum(1 for dia in calendario if dia.dt_dia >= dt_de)
+    complemento = (
+        " No modo de teste comeca HOJE e apaga antes as resolucoes de cada dia."
+        if teste
+        else " Os dias ate la ja podem estar nos aparelhos, e ficam."
+    )
+    return f"""
+  <section class="bloco">
+    <h2>Esvaziar o calendario</h2>
+    <form class="acoes" method="post" action="{BASE}/esvaziar">
+      <input type="text" name="motivo" required maxlength="500"
+             value="Calendario esvaziado pelo painel">
+      <label><input type="checkbox" name="confirmo" value="1" required>
+      Entendi: descartar os {quantos} desafio(s) de {data_br(dt_de)} em diante</label>
+      <button class="perigo" type="submit">Esvaziar</button>
+    </form>
+    <p class="nota">Descarta (nao apaga) e libera os dias para a proxima
+    geracao.{_txt(complemento)}</p>
   </section>"""
 
 
@@ -660,6 +700,77 @@ def _acoes(
         else f'<input type="hidden" name="voltar_desafio" value="{id_txt}">'
     )
     oculto = f'<input type="hidden" name="id_desafio" value="{id_txt}">{voltar}'
+    # ⚠️ O modo de teste (so no `des`) poe a SUA caixa antes das acoes de
+    # sempre, e as de sempre continuam com as travas de sempre.
+    teste = modo_de_teste_ligado()
+    caixa_de_teste = (
+        _acoes_de_teste(item, dt_hoje=dt_hoje, oculto=oculto) if teste else ""
+    )
+    return caixa_de_teste + _acoes_de_sempre(
+        item,
+        dt_hoje=dt_hoje,
+        dt_sugerida=dt_sugerida,
+        dt_fim_janela_baixada=dt_fim_janela_baixada,
+        qt_tentativas=qt_tentativas,
+        oculto=oculto,
+        # No modo de teste a troca de datas mora na caixa de teste.
+        oferecer_inversao=not teste,
+    )
+
+
+def _form_inverter(
+    oculto: str, *, valor: Optional[date] = None, rotulo: str = "Inverter com o dia"
+) -> str:
+    """O formulario que troca o dia do desafio com o do desafio de outra data.
+
+    Args:
+        valor: a data ja preenchida. Com ela, o campo vai OCULTO, e o botao vira
+            um atalho ("Trazer para hoje").
+    """
+    if valor is not None:
+        campo = f'<input type="hidden" name="dt_dia" value="{_txt(valor.isoformat())}">'
+    else:
+        campo = '<input type="date" name="dt_dia" required>'
+    return (
+        f'<form class="acoes" method="post" action="{BASE}/inverter">{oculto}'
+        f'{campo}<button type="submit">{_txt(rotulo)}</button></form>'
+    )
+
+
+def _acoes_de_teste(item: DesafioNoPainel, *, dt_hoje: date, oculto: str) -> str:
+    """A caixa do modo de teste (27/10/2026): limpar, trazer para hoje, inverter.
+
+    ⛔ Dia passado nao ganha caixa: nem o modo de teste toca a historia de quem
+    jogou. ⚠️ As regras de verdade estao em `servico.py`; isto so as espelha.
+    """
+    if item.dt_dia is None or item.dt_dia < dt_hoje:
+        return ""
+    partes = [
+        '<p class="nota"><strong>Modo de teste (des).</strong> Limpar apaga as '
+        "tentativas e resolucoes de TODOS neste dia; o XP ja somado nas contas "
+        "fica.</p>",
+        f'<form class="acoes" method="post" action="{BASE}/limpar-resolucoes">'
+        f'{oculto}<button class="perigo" type="submit">Limpar resolucoes</button>'
+        "</form>",
+    ]
+    if item.co_curadoria == "aprovado":
+        if item.dt_dia > dt_hoje:
+            partes.append(_form_inverter(oculto, valor=dt_hoje, rotulo="Trazer para hoje"))
+        partes.append(_form_inverter(oculto))
+    return '<div class="caixa-acoes teste">' + "".join(partes) + "</div>"
+
+
+def _acoes_de_sempre(
+    item: DesafioNoPainel,
+    *,
+    dt_hoje: date,
+    dt_sugerida: date,
+    dt_fim_janela_baixada: date,
+    qt_tentativas: int,
+    oculto: str,
+    oferecer_inversao: bool,
+) -> str:
+    """As acoes de curadoria de sempre, com as travas de producao."""
     # ⛔ Dia jogado (passado, ou hoje com tentativa) nao se descarta nem se move:
     # espelho de `servico._exigir_dia_nao_jogado`, que e quem recusa de fato.
     ja_jogado = item.dt_dia is not None and (
@@ -713,6 +824,10 @@ def _acoes(
             + "</button></form>"
         )
         if item.dt_dia:
+            if oferecer_inversao:
+                # ⚠️ A troca com OUTRO desafio (27/10/2026): sem ela, adiantar um
+                # desafio do futuro perdia o que estava no dia de destino.
+                partes.append(_form_inverter(oculto))
             partes.append(
                 f'<form class="acoes" method="post" action="{BASE}/desagendar">'
                 f'{oculto}<button type="submit">Tirar do calendario</button></form>'
@@ -1348,6 +1463,7 @@ table.ranking { width: 100%; }
 
 /* OS FORMULARIOS */
 .caixa-acoes { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--borda); }
+.caixa-acoes.teste { border-top: 2px dashed var(--terracota); }
 form.acoes, form.gerar { display: flex; gap: 8px; flex-wrap: wrap;
   align-items: center; margin: 6px 0; }
 form.acoes input[type=text] { flex: 1 1 260px; }
@@ -1502,6 +1618,16 @@ def render(
         if recado
         else ""
     )
+    # ⚠️ A faixa diz, no topo de toda pagina, que as travas estao afrouxadas:
+    # quem abre o painel precisa saber em qual dos dois esta antes de clicar.
+    faixa_de_teste = (
+        '<div class="aviso critico"><strong>MODO DE TESTE (banco des)</strong>'
+        "<small>Limpar resolucoes, trazer para hoje e esvaziar desde hoje estao "
+        "liberados. A janela baixada nao trava trocas nem o esvaziamento.</small>"
+        "</div>"
+        if modo_de_teste_ligado()
+        else ""
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -1517,6 +1643,7 @@ def render(
   <h1>Gestao do Desafio do Dia</h1>
   <p>Hoje e {_txt(dia_por_extenso(dt_hoje))} (o dia do desafio e o dia UTC).</p>
 </header>
+{faixa_de_teste}
 {bloco_recado}
 <div class="grade">
   <aside class="lateral">
@@ -1526,6 +1653,7 @@ def render(
       {_calendario(calendario, dt_hoje=dt_hoje, dt_selecionado=dt_selecionado)}
     </section>
     {_secao_pendencias(candidatos=candidatos, candidatos_agendados=candidatos_agendados, reserva=reserva, descartados=descartados)}
+    {_secao_esvaziar(dt_hoje=dt_hoje, dt_fim_janela_baixada=dt_fim_janela_baixada, calendario=calendario)}
     <section class="bloco"><h2>Divergencias de julgamento</h2>
       {_secao_divergencias(contagem, divergencias)}
     </section>

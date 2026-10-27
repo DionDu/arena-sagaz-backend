@@ -386,7 +386,7 @@ async def test_a_faixa_forcada_pula_a_leitura_e_vai_ao_log(monkeypatch):
 def test_o_principal_entrega_a_faixa_forcada(monkeypatch):
     recebido: list[Any] = []
 
-    async def executar_com_banco_espiao(dt_hoje, frequencias_forcadas):
+    async def executar_com_banco_espiao(dt_hoje, frequencias_forcadas, sequencia=None):
         recebido.append(frequencias_forcadas)
         return principal_mod.Relatorio()
 

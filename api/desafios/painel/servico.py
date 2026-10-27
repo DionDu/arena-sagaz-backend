@@ -31,6 +31,22 @@ AS TRES REGRAS, E O QUE CADA UMA IMPEDE
    guarda hoje e os proximos dias para jogar sem rede; descartar ou mover um
    desses faria o resultado de quem jogou sem rede ser recusado, ou cair no
    quadro de outro dia. A regra e o porque estao em `api/desafios/janela_baixada.py`.
+
+═══════════════════════════════════════════════════════════════════════════
+AS TRES ACOES DE 27/10/2026 (pedido do dono)
+═══════════════════════════════════════════════════════════════════════════
+
+5. **Inverter duas datas.** Ate aqui, adiantar um bom desafio do futuro exigia
+   tirar o mais proximo do calendario - e ele se perdia, em vez de ir para o
+   dia que vagou. Agora os dois trocam de dia. Vale no `prd`, com as travas de
+   cima para OS DOIS desafios (cada um sai do seu dia).
+6. **Esvaziar daqui em diante.** Descarta (⛔ nao apaga) todo desafio a partir
+   do primeiro dia destravado, para a proxima geracao preencher. Vale no `prd`,
+   so depois da janela baixada.
+7. ⛔ **Limpar as resolucoes de um dia: so no modo de teste**
+   (`modo_de_teste.py`). E o unico ponto do painel que APAGA, e por isso so
+   existe no `des`. No modo de teste, a regra 4 tambem cai para inverter e
+   esvaziar; ⛔ a regra do dia ja PASSADO nunca cai.
 """
 
 from __future__ import annotations
@@ -39,9 +55,11 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from uuid import UUID
 
+from typing import Optional
+
 from api.desafios.janela_baixada import DIAS_DE_CACHE, na_janela_baixada
 from api.desafios.painel.datas import data_br
-from api.desafios.painel.repositorio import RepositorioPainel
+from api.desafios.painel.repositorio import RepositorioPainel, VinculoDoDia
 from api.nucleo.excecoes import ErroNegocio
 
 #: Tamanho maximo do motivo de descarte.
@@ -60,6 +78,27 @@ MAX_MOTIVO = 500
 DIAS_MAXIMOS_A_FRENTE = 30
 
 
+def _motivo_valido(motivo: Optional[str]) -> str:
+    """O motivo de descarte, aparado e cortado em [MAX_MOTIVO].
+
+    ⚠️ Uma funcao so para o descarte de um desafio e o esvaziamento do
+    calendario: os dois gravam no mesmo `de_motivo_descarte`, sob o mesmo
+    `CHECK`.
+
+    Raises:
+        ErroNegocio: motivo vazio (RF-DES-012c).
+    """
+    motivo = (motivo or "").strip()
+    if not motivo:
+        raise ErroNegocio(
+            "Descartar exige um motivo: e ele que ensina o gerador a nao "
+            "repetir a familia de posicao que saiu ruim.",
+            "motivo_ausente",
+            status_http=400,
+        )
+    return motivo[:MAX_MOTIVO]
+
+
 @dataclass(frozen=True, slots=True)
 class ResultadoDaAcao:
     """O que aconteceu, em forma de frase para a tela.
@@ -74,7 +113,7 @@ class ResultadoDaAcao:
 
 
 class ServicoCuradoria:
-    """As tres acoes do painel, com as regras aplicadas antes do banco."""
+    """As acoes do painel, com as regras aplicadas antes do banco."""
 
     def __init__(self, repo: RepositorioPainel) -> None:
         self.repo = repo
@@ -202,15 +241,7 @@ class ServicoCuradoria:
             ErroNegocio: motivo vazio (RF-DES-012c), dia ja jogado, ou dia ja
                 baixado.
         """
-        motivo = (motivo or "").strip()
-        if not motivo:
-            raise ErroNegocio(
-                "Descartar exige um motivo: e ele que ensina o gerador a nao "
-                "repetir a familia de posicao que saiu ruim.",
-                "motivo_ausente",
-                status_http=400,
-            )
-        motivo = motivo[:MAX_MOTIVO]
+        motivo = _motivo_valido(motivo)
 
         # ⛔ Dia ja jogado nao se descarta (ver `_exigir_dia_nao_jogado`), nem o
         # que ja esta nos aparelhos (ver `_exigir_fora_da_janela_baixada`).
@@ -329,5 +360,271 @@ class ServicoCuradoria:
                 "Desafio tirado do calendario (segue aprovado, sem data)."
                 if mudou
                 else "Este desafio ja estava sem data."
+            ),
+        )
+
+    # ── As acoes de 27/10/2026 ──────────────────────────────────────────────
+
+    async def inverter_dias(
+        self,
+        id_desafio: UUID,
+        *,
+        dt_destino: date,
+        dt_hoje: date,
+        modo_de_teste: bool = False,
+    ) -> ResultadoDaAcao:
+        """Troca o dia do desafio com o do desafio que mora em [dt_destino].
+
+        ⚠️ **Os dois saem do seu dia**, e por isso as travas valem para os DOIS:
+        nenhum pode ter ido ao ar (dia passado, ou hoje com tentativa), e,
+        fora do modo de teste, nenhum pode estar na janela baixada. ⚠️ Os dois
+        precisam estar aprovados: um candidato ou descartado que fosse parar
+        num dia seria um dia que o endpoint nao serve.
+
+        Args:
+            dt_destino: o dia do OUTRO desafio. ⚠️ Dia vazio e recusado: para
+                ele, o caminho e "Trocar a data" ([agendar]).
+            modo_de_teste: o painel do `des` (`modo_de_teste.py`). Libera a
+                janela baixada; ⛔ nao libera dia passado nem dia com tentativa
+                (no `des`, limpe as resolucoes primeiro).
+
+        Raises:
+            ErroNegocio: o que cada trava acima recusa, ou a troca que parou no
+                meio porque outra aba mexeu num dos dois.
+        """
+        a = await self.repo.vinculo_do_desafio(id_desafio)
+        if a is None:
+            raise ErroNegocio(
+                "Este desafio esta sem data: para por-lhe um dia, use Agendar.",
+                "desafio_sem_dia",
+                status_http=400,
+            )
+        if dt_destino == a.dt_dia:
+            raise ErroNegocio(
+                f"O desafio ja mora em {data_br(dt_destino)}.",
+                "mesmo_dia",
+                status_http=400,
+            )
+        if dt_destino < dt_hoje:
+            raise ErroNegocio(
+                f"{data_br(dt_destino)} ja passou: o desafio de la e a historia "
+                "de quem jogou.",
+                "dia_no_passado",
+                status_http=400,
+            )
+        if (dt_destino - dt_hoje).days > DIAS_MAXIMOS_A_FRENTE:
+            raise ErroNegocio(
+                f"{data_br(dt_destino)} esta a mais de {DIAS_MAXIMOS_A_FRENTE} dias.",
+                "dia_longe_demais",
+                status_http=400,
+            )
+        no_destino = await self.repo.vinculos(dt_de=dt_destino, dt_ate=dt_destino)
+        if not no_destino:
+            raise ErroNegocio(
+                f"{data_br(dt_destino)} esta vazio: nao ha com quem trocar. Para "
+                "mover o desafio para um dia vazio, use Trocar a data.",
+                "dia_vazio",
+                status_http=400,
+            )
+        b = no_destino[0]
+
+        dt_fim_janela = (
+            None if modo_de_teste else await self.repo.fim_da_janela_baixada(dt_hoje)
+        )
+        for vinculo in (a, b):
+            self._exigir_que_pode_sair_do_dia(
+                vinculo,
+                dt_hoje=dt_hoje,
+                dt_fim_janela=dt_fim_janela,
+                modo_de_teste=modo_de_teste,
+            )
+
+        if not await self.repo.inverter_dias(a, b):
+            # ⛔ Algum passo nao achou a linha: os que deram certo nao ficam.
+            await self.repo.desfazer()
+            raise ErroNegocio(
+                "Um dos dois desafios mudou de dia enquanto a pagina estava "
+                "aberta. Nada foi trocado; recarregue e tente de novo.",
+                "troca_interrompida",
+                status_http=409,
+            )
+        await self.repo.confirmar()
+        return ResultadoDaAcao(
+            mudou=True,
+            mensagem=(
+                f"Trocados: o desafio de {data_br(a.dt_dia)} foi para "
+                f"{data_br(b.dt_dia)}, e o de {data_br(b.dt_dia)} veio para "
+                f"{data_br(a.dt_dia)}."
+            ),
+        )
+
+    @staticmethod
+    def _exigir_que_pode_sair_do_dia(
+        vinculo: VinculoDoDia,
+        *,
+        dt_hoje: date,
+        dt_fim_janela: Optional[date],
+        modo_de_teste: bool,
+    ) -> None:
+        """As travas de UM dos desafios de uma troca (ver [inverter_dias]).
+
+        Args:
+            dt_fim_janela: o fim da janela baixada; `None` no modo de teste,
+                em que ela nao vale.
+        """
+        dia = data_br(vinculo.dt_dia)
+        if vinculo.dt_dia < dt_hoje:
+            raise ErroNegocio(
+                f"O desafio de {dia} ja foi ao ar: ele e a historia de quem jogou.",
+                "dia_ja_jogado",
+                status_http=400,
+            )
+        if vinculo.qt_tentativas:
+            raise ErroNegocio(
+                f"O desafio de {dia} ja tem {vinculo.qt_tentativas} tentativa(s)."
+                + (
+                    " Limpe as resolucoes dele antes de troca-lo de dia."
+                    if modo_de_teste
+                    else " Ele nao sai do dia: tiraria o dia de quem esta jogando."
+                ),
+                "dia_ja_jogado",
+                status_http=400,
+            )
+        if vinculo.co_curadoria != "aprovado":
+            raise ErroNegocio(
+                f"O desafio de {dia} nao esta aprovado: so aprovado vai a um dia.",
+                "desafio_nao_aprovado",
+                status_http=400,
+            )
+        if dt_fim_janela is not None and na_janela_baixada(
+            vinculo.dt_dia, dt_hoje=dt_hoje, dt_fim=dt_fim_janela
+        ):
+            raise ErroNegocio(
+                f"O desafio de {dia} ja pode estar guardado nos aparelhos (o app "
+                f"baixa hoje e os {DIAS_DE_CACHE} proximos dias). A troca vale de "
+                f"{data_br(dt_fim_janela + timedelta(days=1))} em diante.",
+                "dia_ja_baixado",
+                status_http=400,
+            )
+
+    async def limpar_resolucoes(
+        self, id_desafio: UUID, *, dt_hoje: date, modo_de_teste: bool
+    ) -> ResultadoDaAcao:
+        """⛔ Apaga as tentativas e resolucoes de TODAS as pessoas no dia do desafio.
+
+        So no modo de teste: e o unico ponto do painel que apaga dado de
+        alguem. ⛔ Dia ja passado nunca e limpo, nem no `des`.
+
+        ⚠️ **O XP que ja entrou na conta de cada pessoa NAO volta**
+        (`progressao.tb001_progressao_usuario`): ele e um total, sem extrato por
+        dia de onde se possa subtrair. No `des` isso so infla o XP de quem
+        testa.
+
+        Raises:
+            ErroNegocio: modo de teste desligado, desafio sem dia, ou dia passado.
+        """
+        if not modo_de_teste:
+            raise ErroNegocio(
+                "Limpar resolucoes so existe no modo de teste do painel (banco des).",
+                "modo_de_teste_desligado",
+                status_http=403,
+            )
+        vinculo = await self.repo.vinculo_do_desafio(id_desafio)
+        if vinculo is None:
+            raise ErroNegocio(
+                "Este desafio esta sem data: nao ha resolucao para limpar.",
+                "desafio_sem_dia",
+                status_http=400,
+            )
+        if vinculo.dt_dia < dt_hoje:
+            raise ErroNegocio(
+                f"O desafio de {data_br(vinculo.dt_dia)} ja foi ao ar. Dia passado "
+                "nao se limpa, nem no modo de teste.",
+                "dia_ja_jogado",
+                status_http=400,
+            )
+        contagem = await self.repo.apagar_resolucoes(vinculo.id_desafio_dia)
+        await self.repo.confirmar()
+        return ResultadoDaAcao(
+            mudou=any(contagem.values()),
+            mensagem=(
+                f"Dia {data_br(vinculo.dt_dia)} limpo: "
+                f"{contagem.get('tentativas', 0)} tentativa(s), "
+                f"{contagem.get('resolucoes', 0)} resolucao(oes) e "
+                f"{contagem.get('xp', 0)} linha(s) de XP apagadas (as reacoes e "
+                "as dicas foram junto). O XP ja somado nas contas fica."
+            ),
+        )
+
+    async def esvaziar(
+        self,
+        *,
+        dt_hoje: date,
+        motivo: str,
+        confirmado: bool,
+        modo_de_teste: bool = False,
+    ) -> ResultadoDaAcao:
+        """Descarta (⛔ nao apaga) todo desafio do primeiro dia destravado em diante.
+
+        Fora do modo de teste, o primeiro dia destravado e o seguinte ao fim da
+        janela baixada. No modo de teste e HOJE, e as resolucoes de cada dia
+        sao limpas antes (sem isso o banco recusaria tirar o vinculo).
+
+        Args:
+            motivo: o motivo gravado em cada descarte (obrigatorio, RF-DES-012c).
+            confirmado: a caixa "entendi" do formulario. ⚠️ A regra mora aqui, e
+                nao so no `required` do HTML: um `curl` passa pelo HTML.
+
+        Raises:
+            ErroNegocio: sem confirmacao ou sem motivo.
+        """
+        if not confirmado:
+            raise ErroNegocio(
+                "Marque a confirmacao: esvaziar descarta todos os desafios do "
+                "periodo de uma vez.",
+                "sem_confirmacao",
+                status_http=400,
+            )
+        motivo = _motivo_valido(motivo)
+
+        if modo_de_teste:
+            dt_de = dt_hoje
+        else:
+            dt_de = await self.repo.fim_da_janela_baixada(dt_hoje) + timedelta(days=1)
+
+        vinculos = await self.repo.vinculos(dt_de=dt_de)
+        # ⛔ Fora do modo de teste, depois da janela, nao ha tentativa. Se houver,
+        # algo esta errado no calendario, e parar ANTES de escrever e o certo.
+        com_tentativa = [v for v in vinculos if v.qt_tentativas]
+        if com_tentativa and not modo_de_teste:
+            raise ErroNegocio(
+                f"O desafio de {data_br(com_tentativa[0].dt_dia)} tem tentativa e "
+                "esta depois da janela baixada. Nada foi esvaziado.",
+                "dia_ja_jogado",
+                status_http=409,
+            )
+        for vinculo in vinculos:
+            if modo_de_teste:
+                # ⚠️ Antes de tirar o vinculo: as tentativas e os "impedido"
+                # apontam para ele sem `CASCADE`.
+                await self.repo.apagar_resolucoes(vinculo.id_desafio_dia)
+            # Um descartado que ainda tinha dia (anterior a 02/10/2026) so sai do
+            # dia: descarta-lo de novo trocaria o motivo antigo pelo de hoje.
+            if vinculo.co_curadoria != "descartado":
+                await self.repo.descartar(vinculo.id_desafio, de_motivo=motivo)
+            await self.repo.desagendar(vinculo.id_desafio)
+        await self.repo.confirmar()
+
+        if not vinculos:
+            return ResultadoDaAcao(
+                mudou=False,
+                mensagem=f"Nada a esvaziar de {data_br(dt_de)} em diante.",
+            )
+        return ResultadoDaAcao(
+            mudou=True,
+            mensagem=(
+                f"{len(vinculos)} desafio(s) descartado(s), de {data_br(dt_de)} "
+                "em diante (as linhas continuam no banco, com o motivo). Os dias "
+                "ficaram livres para a proxima geracao."
             ),
         )

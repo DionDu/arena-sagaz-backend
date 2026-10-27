@@ -53,6 +53,18 @@ toma um dia sim, e o dia seguinte volta ao rodizio de sempre). ⚠️ So os dias
 AINDA NAO COBERTOS sao gerados: com a fila cheia ate D+7, `--dias 3` nao gera
 nada - peca dias alem do fim da fila.
 
+⚠️ **`--sequencia` e `--jogo` (27/10/2026) tambem sao so do `des`**: em vez do
+rodizio, o job gera os tipos pedidos, um por dia livre, na ordem
+(`job/sequencia_de_tipos.py` tem a forma e o porque):
+
+    python scripts/rodar_job_local.py --jogo quatro
+        → um desafio de CADA tipo no ar do Quatro, nos proximos dias livres
+    python scripts/rodar_job_local.py --sequencia "quatro_figura[figura=z], quatro_segurar_magno, quatro_vencer_em_n@tex"
+        → exatamente estes, nesta ordem
+
+Sem `--dias`, o plano vai ate o teto (30 dias), para a lista caber mesmo com
+dias ja ocupados no meio; acabada a lista, o job para de gerar.
+
 ⚠️ **E mesmo no `prd` o estrago possivel e pequeno, de proposito:** tudo o que o
 job grava nasce `candidato` (RF-DES-012a), e nada vai ao ar sem o dono aprovar no
 painel de curadoria. ⛔ O que ele **nao** faz e apagar ou alterar desafio
@@ -118,6 +130,38 @@ def frequencias_forcadas(co_jogo: str) -> dict:
             f"({', '.join(gerador_mod.JOGOS_EM_ADOCAO)})."
         )
     return {co_jogo: Frequencia(um_dia_em=1)}
+
+
+def montar_sequencia(texto: str | None, co_jogo: str | None) -> list | None:
+    """Os pedidos da linha de comando, ja conferidos (27/10/2026).
+
+    Args:
+        texto: o `--sequencia`, ou `None`.
+        co_jogo: o `--jogo`, ou `None`. Sozinho, vira um pedido por tipo no ar
+            do jogo; com [texto], exige que todos sejam dele.
+
+    Returns:
+        A lista de `PedidoDoDia`, ou `None` quando nenhum dos dois veio (o job
+        roda como sempre).
+
+    Raises:
+        SystemExit: com todos os motivos, quando a sequencia nao pode ser gerada.
+    """
+    if texto is None and co_jogo is None:
+        return None
+    # Importado aqui, pelo mesmo motivo de `frequencias_forcadas`.
+    from job import sequencia_de_tipos as sequencia_mod
+
+    try:
+        pedidos = (
+            sequencia_mod.ler_sequencia(texto)
+            if texto is not None
+            else sequencia_mod.pedidos_do_jogo(co_jogo)
+        )
+        sequencia_mod.conferir(pedidos, co_jogo=co_jogo)
+    except sequencia_mod.SequenciaInvalida as erro:
+        raise SystemExit(f"⛔ {erro}") from None
+    return pedidos
 
 
 def url_do_ambiente(co_ambiente: str) -> str:
@@ -241,7 +285,39 @@ def main() -> int:
             "sem esperar a adocao. ⛔ Recusado com `--ambiente prd`."
         ),
     )
+    ap.add_argument(
+        "--sequencia",
+        default=None,
+        metavar="TIPOS",
+        help=(
+            "so no des: gera estes tipos, um por dia livre, nesta ordem. Forma: "
+            '"tipo[parametro=valor]@personagem, ..." (colchetes e @ opcionais).'
+        ),
+    )
+    ap.add_argument(
+        "--jogo",
+        default=None,
+        metavar="JOGO",
+        help=(
+            "so no des: sozinho, gera um desafio de cada tipo no ar do jogo; com "
+            "--sequencia, exige que todos os tipos sejam dele."
+        ),
+    )
     args = ap.parse_args()
+
+    # ── ⛔ A sequencia nunca vai ao `prd` ────────────────────────────────────
+    #
+    # ⚠️ Pela razao do `--forcar-jogo`: e coisa de quem esta testando, e no `prd`
+    # tiraria do rodizio a fila de quem joga de verdade.
+    if (args.sequencia or args.jogo) and args.ambiente == "prd":
+        raise SystemExit(
+            "⛔ `--sequencia` e `--jogo` sao so do `des`. Nem a confirmacao os libera."
+        )
+    if args.forcar_jogo and (args.sequencia or args.jogo):
+        raise SystemExit(
+            "⛔ `--forcar-jogo` e `--sequencia`/`--jogo` nao se combinam: a "
+            "sequencia ja diz o jogo de cada dia."
+        )
 
     # ── ⛔ O jogo forcado nunca vai ao `prd` ─────────────────────────────────
     #
@@ -280,6 +356,19 @@ def main() -> int:
     forcadas = frequencias_forcadas(args.forcar_jogo) if args.forcar_jogo else None
     if forcadas:
         print(f"[rodar_job_local] ⚠️ jogo FORCADO: {args.forcar_jogo} (sem esperar a adocao)")
+    # ⚠️ A sequencia e conferida ANTES do motor e da geracao: um erro de
+    # digitacao no 7o item nao pode custar seis dias de geracao.
+    sequencia = montar_sequencia(args.sequencia, args.jogo)
+    if sequencia is not None:
+        print(
+            f"[rodar_job_local] ⚠️ SEQUENCIA de {len(sequencia)} tipo(s): "
+            + ", ".join(p.descrever() for p in sequencia)
+        )
+        if args.dias is None:
+            # Sem `--dias`, o teto: a lista precisa de dias livres para caber.
+            from job import gravacao as gravacao_mod
+
+            os.environ["DESAFIO_DIAS_A_COBRIR"] = str(gravacao_mod.DIAS_MAXIMOS)
     conferir_o_motor()
 
     print(
@@ -295,7 +384,7 @@ def main() -> int:
     # existe para o container do Railway morrer) nao nos atrapalha aqui.
     from job.__main__ import principal
 
-    return principal(frequencias_forcadas=forcadas)
+    return principal(frequencias_forcadas=forcadas, sequencia=sequencia)
 
 
 if __name__ == "__main__":

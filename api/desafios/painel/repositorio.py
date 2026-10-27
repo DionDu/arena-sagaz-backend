@@ -34,6 +34,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.desafios.modelos_evento import (
+    TB_DESAFIO_IMPEDIDO,
+    TB_RESOLUCAO,
+    TB_TENTATIVA,
+    TB_XP_DESAFIO,
     VW_DESAFIO_DIA,
     VW_RESOLUCAO,
     VW_TENTATIVA,
@@ -61,8 +65,34 @@ __all__ = [
     "DesafioSemDia",
     "MedicaoNoPainel",
     "RepositorioPainel",
+    "VinculoDoDia",
     "encerramento_do_dia",
 ]
+
+#: O dia em que um desafio mora durante a troca de datas (27/10/2026).
+#:
+#: ⚠️ **Existe porque `un001_dia` NAO e adiavel** (`DEFERRABLE`): o Postgres
+#: confere a unicidade a cada linha, e um `UPDATE` que troca as duas datas de
+#: uma vez recusaria a primeira linha por bater na segunda. Entao a troca
+#: estaciona um dos desafios aqui, move o outro e volta.
+#: ⚠️ **Nenhum leitor ve este dia**: os tres `UPDATE` moram na mesma transacao,
+#: e quem consulta de fora so enxerga o antes ou o depois.
+DIA_DE_ESTACIONAR = date(1900, 1, 1)
+
+
+@dataclass(frozen=True, slots=True)
+class VinculoDoDia:
+    """Onde um desafio mora no calendario, e quantas tentativas ja recebeu.
+
+    ⚠️ Leve de proposito: e o que as acoes de troca, limpeza e esvaziamento
+    precisam para decidir, sem carregar posicao, gabarito e regua.
+    """
+
+    id_desafio: UUID
+    id_desafio_dia: UUID
+    dt_dia: date
+    co_curadoria: str
+    qt_tentativas: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -396,6 +426,92 @@ SELECT dia.dt_dia,
  ORDER BY dia.dt_dia
 """
 
+#: Os vinculos de um intervalo de dias, com as tentativas de cada um — a troca
+#: de datas, a limpeza e o esvaziamento (27/10/2026) decidem por eles.
+#:
+#: ⚠️ `:dt_ate` pode ser nulo ("dali em diante"): o `IS NULL` no `WHERE` faz o
+#: mesmo SQL servir as duas perguntas, sem montar texto de consulta em Python.
+_SQL_VINCULOS = f"""
+SELECT dia.id_desafio,
+       dia.id_desafio_dia,
+       dia.dt_dia,
+       d.co_curadoria,
+       (SELECT COUNT(*)
+          FROM {VW_TENTATIVA} t
+         WHERE t.id_desafio_dia = dia.id_desafio_dia) AS qt_tentativas
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d
+    ON d.id_desafio = dia.id_desafio
+ WHERE dia.dt_dia >= :dt_de
+   AND (CAST(:dt_ate AS DATE) IS NULL OR dia.dt_dia <= CAST(:dt_ate AS DATE))
+ ORDER BY dia.dt_dia
+"""
+
+#: O vinculo de UM desafio (a mesma forma de `_SQL_VINCULOS`).
+_SQL_VINCULO_DO_DESAFIO = f"""
+SELECT dia.id_desafio,
+       dia.id_desafio_dia,
+       dia.dt_dia,
+       d.co_curadoria,
+       (SELECT COUNT(*)
+          FROM {VW_TENTATIVA} t
+         WHERE t.id_desafio_dia = dia.id_desafio_dia) AS qt_tentativas
+  FROM {VW_DESAFIO_DIA} dia
+  JOIN {VW_DESAFIO} d
+    ON d.id_desafio = dia.id_desafio
+ WHERE dia.id_desafio = :id_desafio
+"""
+
+#: Muda o dia de UM vinculo, conferindo onde ele estava.
+#:
+#: ⚠️ **O `dt_dia = :dt_de` no `WHERE` e a guarda contra a corrida**: se outra
+#: aba (ou o job) mexeu no vinculo depois que o servico leu, o `UPDATE` nao acha
+#: a linha, devolve zero, e a troca inteira e desfeita.
+_SQL_MOVER_VINCULO = f"""
+UPDATE {TB_DESAFIO_DIA}
+   SET dt_dia = :dt_para,
+       dh_encerramento = :dh_encerramento
+ WHERE id_desafio = :id_desafio
+   AND dt_dia = :dt_de
+RETURNING id_desafio_dia
+"""
+
+#: ⛔ **A limpeza do modo de teste** (27/10/2026): apaga o que as pessoas fizeram
+#: num dia. Uma constante por tabela, na ORDEM em que o banco aceita:
+#:
+#:   1. as resolucoes - o `ON DELETE CASCADE` leva junto o XP delas
+#:      (`tb004`), as reacoes (`tb006`) e as notificacoes das reacoes (`tb008`);
+#:   2. o XP que sobrou no dia - o consolo e o AJUSTE do teto, que nao tem
+#:      resolucao nem tentativa como ancora (ver `servico_envio._creditar`);
+#:   3. as tentativas - o `CASCADE` leva as dicas gastas (`tb005`) e o XP de
+#:      consolo que ainda apontasse para elas;
+#:   4. os "impedido" (`tb007`), que apontam para o vinculo sem `CASCADE`.
+#:
+#: ⚠️ A resolucao vem ANTES da tentativa porque aponta para ela sem `CASCADE`:
+#: na ordem inversa, o banco recusaria. ⛔ As partidas (`partida.tb001_partida`)
+#: ficam: o log e append-only, e a tentativa e quem apontava para a partida,
+#: e nao o contrario.
+_SQL_APAGAR_RESOLUCOES = f"""
+DELETE FROM {TB_RESOLUCAO}
+ WHERE id_desafio_dia = :id_desafio_dia
+RETURNING id_resolucao
+"""
+_SQL_APAGAR_XP_DO_DIA = f"""
+DELETE FROM {TB_XP_DESAFIO}
+ WHERE id_desafio_dia = :id_desafio_dia
+RETURNING id_desafio_dia
+"""
+_SQL_APAGAR_TENTATIVAS = f"""
+DELETE FROM {TB_TENTATIVA}
+ WHERE id_desafio_dia = :id_desafio_dia
+RETURNING id_tentativa
+"""
+_SQL_APAGAR_IMPEDIDOS = f"""
+DELETE FROM {TB_DESAFIO_IMPEDIDO}
+ WHERE id_desafio_dia = :id_desafio_dia
+RETURNING id_desafio_dia
+"""
+
 #: Quantos desafios **aprovados e ainda sem dia** existem — a folga real da fila.
 _SQL_APROVADOS_SEM_DIA = f"""
 SELECT COUNT(*) AS qt
@@ -611,6 +727,95 @@ class RepositorioPainel:
         )
         return resultado.first() is not None
 
+    # ── A troca de datas, a limpeza e o esvaziamento (27/10/2026) ─────────────
+
+    @staticmethod
+    def _vinculo(linha: Any) -> VinculoDoDia:
+        """Uma linha de `_SQL_VINCULOS` virando [VinculoDoDia]."""
+        return VinculoDoDia(
+            id_desafio=linha["id_desafio"],
+            id_desafio_dia=linha["id_desafio_dia"],
+            dt_dia=linha["dt_dia"],
+            co_curadoria=linha["co_curadoria"],
+            qt_tentativas=int(linha["qt_tentativas"] or 0),
+        )
+
+    async def vinculo_do_desafio(self, id_desafio: UUID) -> Optional[VinculoDoDia]:
+        """Onde o desafio mora; `None` quando ele esta sem data."""
+        resultado = await self.sessao.execute(
+            text(_SQL_VINCULO_DO_DESAFIO), {"id_desafio": id_desafio}
+        )
+        linha = resultado.mappings().first()
+        return None if linha is None else self._vinculo(linha)
+
+    async def vinculos(
+        self, *, dt_de: date, dt_ate: Optional[date] = None
+    ) -> list[VinculoDoDia]:
+        """Os vinculos de `dt_de` ate `dt_ate` (inclusive; `None` = sem fim)."""
+        resultado = await self.sessao.execute(
+            text(_SQL_VINCULOS), {"dt_de": dt_de, "dt_ate": dt_ate}
+        )
+        return [self._vinculo(linha) for linha in resultado.mappings().all()]
+
+    async def _mover_vinculo(
+        self, id_desafio: UUID, *, dt_de: date, dt_para: date
+    ) -> bool:
+        """Muda o dia de um vinculo que ainda esta em `dt_de`. `False` se nao estava."""
+        resultado = await self.sessao.execute(
+            text(_SQL_MOVER_VINCULO),
+            {
+                "id_desafio": id_desafio,
+                "dt_de": dt_de,
+                "dt_para": dt_para,
+                "dh_encerramento": encerramento_do_dia(dt_para),
+            },
+        )
+        return resultado.first() is not None
+
+    async def inverter_dias(self, a: VinculoDoDia, b: VinculoDoDia) -> bool:
+        """Troca os dias de dois vinculos, preservando o `id_desafio_dia` de cada um.
+
+        ⚠️ Tres passos, pelo motivo de [DIA_DE_ESTACIONAR]: `a` estaciona, `b`
+        vai para o dia de `a`, e `a` vai para o dia de `b`.
+
+        Returns:
+            `False` se algum dos dois ja nao estava onde o servico leu (outra aba,
+            ou o job, mexeu no meio). ⚠️ Nesse caso quem chama DESFAZ a
+            transacao: os passos que deram certo nao podem ficar.
+        """
+        return (
+            await self._mover_vinculo(
+                a.id_desafio, dt_de=a.dt_dia, dt_para=DIA_DE_ESTACIONAR
+            )
+            and await self._mover_vinculo(b.id_desafio, dt_de=b.dt_dia, dt_para=a.dt_dia)
+            and await self._mover_vinculo(
+                a.id_desafio, dt_de=DIA_DE_ESTACIONAR, dt_para=b.dt_dia
+            )
+        )
+
+    async def apagar_resolucoes(self, id_desafio_dia: UUID) -> dict[str, int]:
+        """⛔ Apaga o que as pessoas fizeram num dia. So o modo de teste chama.
+
+        Returns:
+            Quantas linhas sairam de cada tabela apagada diretamente
+            (`resolucoes`, `xp`, `tentativas`, `impedidos`). ⚠️ As que o `CASCADE`
+            levou junto (reacoes, notificacoes, dicas) nao entram na conta: o
+            banco nao as devolve no `RETURNING` de outra tabela.
+        """
+        contagem: dict[str, int] = {}
+        # A ordem e a de `_SQL_APAGAR_RESOLUCOES` (ver o comentario la).
+        for nome, sql in (
+            ("resolucoes", _SQL_APAGAR_RESOLUCOES),
+            ("xp", _SQL_APAGAR_XP_DO_DIA),
+            ("tentativas", _SQL_APAGAR_TENTATIVAS),
+            ("impedidos", _SQL_APAGAR_IMPEDIDOS),
+        ):
+            resultado = await self.sessao.execute(
+                text(sql), {"id_desafio_dia": id_desafio_dia}
+            )
+            contagem[nome] = len(resultado.all())
+        return contagem
+
     async def confirmar(self) -> None:
         """Fecha a transacao da acao.
 
@@ -618,3 +823,7 @@ class RepositorioPainel:
         chama isto sozinho.
         """
         await self.sessao.commit()
+
+    async def desfazer(self) -> None:
+        """Desfaz a transacao da acao - a troca de datas que parou no meio."""
+        await self.sessao.rollback()
