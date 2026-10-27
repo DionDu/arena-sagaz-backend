@@ -10325,3 +10325,8 @@ consumidor do mês para servir a um tipo só, e a chegada é mais do que a tela 
 Histórico sem a figura - o pedido do dono é a miniatura "em todo lugar onde a frase aparece"
 (T149); (c) o app mostrar pela chegada onde ela existe e pelo enunciado no Histórico - duas
 fontes para o mesmo desenho, que divergiriam em silêncio. Ficou uma fonte para mostrar.
+
+**Fecha a pergunta do T da entrada "2026-10-23 (8)"** (decisão do dono, 27/10/2026,
+`DECISOES-do-dono.md` §8zzzt item 7): o T fica **fora da 1.4.0**, sem a restrição a Tex e
+Magno e sem nova confirmação. Continua no catálogo, sem variante no editorial. A T150 promove
+as 14 variantes de 8 figuras.
