@@ -75,14 +75,21 @@ def test_o_dia_do_QUATRO_abre_no_painel() -> None:
     assert 'aria-label="tabuleiro do Quatro em Linha"' in html
 
 
-def test_as_pecas_sao_as_que_o_ARBITRO_diz_nas_cores_dos_jogadores() -> None:
+def test_as_pecas_sao_as_do_ARBITRO_e_QUEM_RESOLVE_e_azul() -> None:
+    """🔒 Relato do dono (27/10/2026): as cores saiam trocadas.
+
+    No app, quem resolve e sempre o J1 da tela (azul). Aqui a vez e do `-1` do
+    motor: as 7 pecas dele sao as de quem resolve, e saem AZUIS; as 8 do `+1`
+    (o personagem, que abriu) saem vermelhas.
+    """
     svg = desenho.posicao("sequencia_lances", POSICAO_QUATRO, maior=True)
     tabuleiro = _tabuleiro(LANCES_DO_RELATO)
-    j1 = sum(p == 1 for coluna in tabuleiro.colunas for p in coluna)
-    j2 = sum(p == -1 for coluna in tabuleiro.colunas for p in coluna)
-    assert (j1, j2) == (8, 7)  # 15 lances, o J1 abriu
-    assert _pecas(svg, desenho.AZUL_J1) == j1
-    assert _pecas(svg, desenho.VERMELHO_J2) == j2
+    mais = sum(p == 1 for coluna in tabuleiro.colunas for p in coluna)
+    menos = sum(p == -1 for coluna in tabuleiro.colunas for p in coluna)
+    assert (mais, menos) == (8, 7)  # 15 lances, o +1 abriu
+    assert _pecas(svg, desenho.AZUL_J1) == menos
+    assert _pecas(svg, desenho.VERMELHO_J2) == mais
+    j1, j2 = mais, menos
     # E o resto dos 42 furos, vazio.
     assert _pecas(svg, desenho.PAPEL) == 42 - j1 - j2
 
@@ -107,8 +114,11 @@ def test_a_fita_do_gabarito_sai_QUADRO_A_QUADRO_com_o_aro_no_ultimo_lance() -> N
     assert totais == [15, 16, 17, 18]
     # O aro de ouro so nos quadros de lance, e um por quadro.
     assert [q["svg"].count(f'stroke="{desenho.OURO}"') for q in quadros] == [0, 1, 1, 1]
-    # Quem resolve e o `vez_de` (-1): o 1o lance e "voce".
+    # Quem resolve e o `vez_de` (-1): o 1o lance e "voce", e a peca dele e AZUL
+    # (o aro de ouro fica em volta dela).
     assert quadros[1]["de_quem"] == "voce"
+    novas_azuis = [_pecas(q["svg"], desenho.AZUL_J1) for q in quadros]
+    assert novas_azuis == [7, 8, 8, 9]
     assert quadros[3]["chave"]
 
 
@@ -152,3 +162,27 @@ def test_a_madeira_e_a_CLARA_do_aplicativo() -> None:
     svg = desenho.posicao("sequencia_lances", POSICAO_QUATRO, maior=True)
     assert f'fill="{desenho.PLACA_QUATRO}"' in svg
     assert desenho.MADEIRA not in svg and desenho.MADEIRA_ESC not in svg
+
+
+def test_a_FIGURA_e_desenhada_com_os_quatro_simbolos() -> None:
+    """Pedido do dono: *"Forme a figura. Que figura e esta?"*"""
+    svg = desenho.figura_quatro(["XO.", "_XX"])
+    assert svg.count(f'fill="{desenho.AZUL_J1}"') == 3  # X: quem resolve
+    assert svg.count(f'fill="{desenho.VERMELHO_J2}"') == 1  # O: o adversario
+    assert svg.count(f'fill="{desenho.PAPEL}"') == 1  # _: casa vazia
+    assert svg.count('stroke-dasharray="2 3"') == 1  # .: qualquer coisa
+
+
+def test_o_cartao_do_desafio_de_FIGURA_mostra_o_desenho() -> None:
+    item = replace(
+        _desafio(co_curadoria="aprovado", co_jogo="quatro", posicao=POSICAO_QUATRO,
+                 co_formato="sequencia_lances"),
+        co_tipo_desafio="quatro_figura",
+        co_chave_objetivo="desafioObjetivoQuatroFigura",
+        js_objetivo={"figura": ["XX.", ".XX"], "lances": 7, "personagem": "magno"},
+        js_solucao=SOLUCAO_QUATRO,
+        co_modalidade="tradicional",
+    )
+    html = pagina._frase_do_desafio(item)
+    assert 'aria-label="a figura a formar"' in html
+    assert "azul = voce" in html

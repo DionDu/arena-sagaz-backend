@@ -578,6 +578,16 @@ def _frase_do_desafio(item: DesafioNoPainel) -> str:
     frase = frase_objetivo.frase_do_desafio(item.co_chave_objetivo, item.js_objetivo)
     if not frase:
         return ""
+    # ⚠️ "Forme esta figura" sem a figura nao diz nada (relato do dono,
+    # 27/10/2026): o desenho vai junto da frase, nas cores da tela do app.
+    figura = (item.js_objetivo or {}).get("figura")
+    if item.co_jogo == "quatro" and isinstance(figura, list):
+        return (
+            f'<p class="frase">{_txt(frase)}</p>'
+            f'<div class="figura">{desenho.figura_quatro(figura)}'
+            '<span class="nota">azul = voce (quem resolve) &middot; vermelho = o '
+            "adversario &middot; pontilhado = qualquer coisa</span></div>"
+        )
     return f'<p class="frase">{_txt(frase)}</p>'
 
 
@@ -717,6 +727,7 @@ def _acoes(
         oculto=oculto,
         # No modo de teste a troca de datas mora na caixa de teste.
         oferecer_inversao=not teste,
+        modo_de_teste=teste,
     )
 
 
@@ -771,6 +782,7 @@ def _acoes_de_sempre(
     qt_tentativas: int,
     oculto: str,
     oferecer_inversao: bool,
+    modo_de_teste: bool = False,
 ) -> str:
     """As acoes de curadoria de sempre, com as travas de producao."""
     # ⛔ Dia jogado (passado, ou hoje com tentativa) nao se descarta nem se move:
@@ -794,7 +806,15 @@ def _acoes_de_sempre(
             '<p class="nota">&#128274; Este dia ja pode estar guardado nos aparelhos '
             "(o app baixa hoje e os proximos dias para jogar sem rede): nao se "
             "descarta, nao se move e nao sai do calendario. A curadoria vale de "
-            f"{_txt(data_br(dt_fim_janela_baixada + timedelta(days=1)))} em diante.</p>"
+            f"{_txt(data_br(dt_fim_janela_baixada + timedelta(days=1)))} em diante."
+            # ⚠️ No modo de teste a caixa de cima move o dia, e o aviso diria o
+            # contrario dela (relato do dono, 27/10/2026).
+            + (
+                " No modo de teste, a caixa acima libera a troca de datas."
+                if modo_de_teste
+                else ""
+            )
+            + "</p>"
         )
         # ⚠️ Aprovar um CANDIDATO continua possivel: o `/proximos` nao o entrega,
         # entao ele nao esta em aparelho nenhum, e aprova-lo so evita um dia em
@@ -1424,6 +1444,7 @@ details summary { cursor: pointer; color: var(--tinta-suave); font-size: 13px; p
 .etiqueta.reprise { background: var(--azul); color: #fff; }
 /* ⛔ A FRASE DO DESAFIO (T040b): o texto mais importante do cartao, e por isso
    maior que os dados e sem a fonte monoespacada. */
+.figura { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
 p.frase { margin: 8px 0 10px; font-size: 16px; line-height: 1.4;
   padding: 8px 12px; border-left: 3px solid var(--ouro);
   background: var(--papel-2); border-radius: 0 8px 8px 0; }

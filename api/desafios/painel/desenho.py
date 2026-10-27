@@ -770,7 +770,15 @@ def quatro(
     destaque: str | None = None,
     maior: bool = False,
 ) -> str:
-    """Desenha o tabuleiro do Quatro: a grade e as pecas, J1 azul e J2 vermelho.
+    """Desenha o tabuleiro do Quatro: a grade e as pecas, QUEM RESOLVE em azul.
+
+    ⚠️ **As cores sao as da TELA do app, e nao o sinal do motor** (relato do
+    dono, 27/10/2026). No desafio, quem resolve e sempre o J1 do aplicativo
+    (azul) e o personagem o J2 (vermelho), seja quem for que abriu a partida: o
+    app traduz o sinal do motor pela vez da posicao publicada
+    (`EstadoPartidaQuatro.jogadorDoSinalDoMotor`). Com o sinal cru, um desafio
+    publicado com `vez_de = -1` saia aqui com as cores trocadas, e o dono via de
+    vermelho as pecas que no telefone sao azuis.
 
     Args:
         posicao: o `js_posicao_inicial` do Quatro.
@@ -801,6 +809,8 @@ def quatro(
     largura = dimensoes.largura * casa + 2 * margem
     altura = dimensoes.altura * casa + 2 * margem + (14 if maior else 0)
     raio = casa * 0.38
+    # Quem resolve: o `vez_de` da posicao publicada (sem ele, o J1 do motor).
+    pessoa = posicao.get("vez_de") if posicao.get("vez_de") in (1, -1) else 1
 
     # A casa onde o ultimo lance pousou: o topo da coluna dele, DEPOIS do lance.
     pouso: tuple[int, int] | None = None
@@ -823,7 +833,8 @@ def quatro(
             cx = margem + (coluna - 0.5) * casa
             cy = margem + (dimensoes.altura - linha + 0.5) * casa
             dono = tabuleiro.peca((coluna, linha))
-            cor = PAPEL if dono == 0 else _cor_do_jogador(dono)
+            # Azul para quem resolve, vermelho para o adversario (ver acima).
+            cor = PAPEL if dono == 0 else _cor_do_jogador(1 if dono == pessoa else -1)
             partes.append(
                 f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio:.1f}" fill="{cor}" '
                 f'stroke="{BORDA_QUATRO}" stroke-width="1"/>'
@@ -841,6 +852,56 @@ def quatro(
                 f'<text x="{cx:.1f}" y="{altura - 2}" text-anchor="middle" '
                 f'font-size="11" fill="{TINTA_SUAVE}">{coluna}</text>'
             )
+    partes.append("</svg>")
+    return "".join(partes)
+
+
+def figura_quatro(linhas: Sequence[str]) -> str:
+    """Desenha a FIGURA do "Forme a figura", como a frase do objetivo a pede.
+
+    Args:
+        linhas: o desenho da clausula `figura`, de CIMA para baixo
+            (`["XX.", ".XX"]`), com os simbolos de `job/figuras_quatro.py`:
+            `X` peca de quem resolve (azul), `O` peca do adversario (vermelho),
+            `_` casa vazia, `.` qualquer coisa (a casa nao e da figura).
+
+    ⚠️ Pedido do dono (27/10/2026): *"Forme a figura. Que figura e esta?"* - o
+    painel so mostrava `['XX.', '.XX']`. As cores sao as da tela do app, como
+    no tabuleiro (`quatro`).
+    """
+    linhas = [str(l) for l in linhas if isinstance(l, str)]
+    if not linhas:
+        return _svg_vazio("figura sem desenho")
+    casa, margem = 22, 4
+    largura = max(len(l) for l in linhas) * casa + 2 * margem
+    altura = len(linhas) * casa + 2 * margem
+    partes = [
+        f'<svg viewBox="0 0 {largura} {altura}" width="{largura}" height="{altura}" '
+        f'role="img" aria-label="a figura a formar">'
+    ]
+    for i, linha in enumerate(linhas):
+        for j, simbolo in enumerate(linha):
+            cx = margem + (j + 0.5) * casa
+            cy = margem + (i + 0.5) * casa
+            r = casa * 0.4
+            if simbolo in ("X", "O"):
+                cor = AZUL_J1 if simbolo == "X" else VERMELHO_J2
+                partes.append(
+                    f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{cor}" '
+                    f'stroke="{BORDA_QUATRO}" stroke-width="1"/>'
+                )
+            elif simbolo == "_":
+                partes.append(
+                    f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{PAPEL}" '
+                    f'stroke="{BORDA_QUATRO}" stroke-width="1"/>'
+                )
+            else:
+                # `.`: a casa nao faz parte da figura; so o contorno pontilhado,
+                # para a forma ficar no lugar certo.
+                partes.append(
+                    f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="none" '
+                    f'stroke="{TINTA_SUAVE}" stroke-width="1" stroke-dasharray="2 3"/>'
+                )
     partes.append("</svg>")
     return "".join(partes)
 

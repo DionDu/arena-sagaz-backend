@@ -10552,3 +10552,26 @@ quadro a quadro com o aro de ouro no último lance e "você" para o `vez_de`; se
 modalidade desconhecida viram aviso; a sequência concatenada vale sem a lista; e o controle
 (o Pontinhos continua indo para o Pontinhos). Mutações: 2 de 2 (o desvio na porta de entrada e
 na fita).
+
+
+## 2026-10-27 (6) — O painel pinta o Quatro com as cores da TELA, e desenha a figura
+
+**Contexto.** Olhando a fita do gabarito de um "Forme a figura" (vez do `-1`), o dono perguntou
+que figura era aquela e por que o último lance também era vermelho. O último lance é mesmo de
+quem resolve (são 9 lances, 5 dele e 4 do Magno, e o juiz só fecha a figura num lance de quem
+resolve); o defeito era a COR: o painel pintava com o sinal cru do motor, e no app quem resolve
+é sempre o J1 da tela, azul (`EstadoPartidaQuatro.jogadorDoSinalDoMotor` traduz pela vez da
+posição publicada). Com `vez_de = -1`, as cores do painel saíam trocadas em relação ao telefone.
+
+**Decisão.** `desenho.quatro` pinta pelo PAPEL: azul para quem tem a vez na posição publicada,
+vermelho para o adversário. A figura do objetivo (`js_objetivo.figura`) passa a ser desenhada
+ao lado da frase no cartão (`desenho.figura_quatro`: `X` azul, `O` vermelho, `_` vazia, `.`
+pontilhada), com a legenda. A madeira do tabuleiro virou a faia clara do app (`PLACA_QUATRO`,
+`BORDA_QUATRO`, de `CoresTabuleiroQuatro.clara`), a pedido do dono (estava escura). E, no modo de
+teste, o aviso da janela baixada passou a dizer que a caixa de teste libera a troca (antes
+contradizia o botão logo acima).
+
+**Testes.** `test_desenho_quatro_no_painel.py` ganhou as cores pelo papel (7 azuis de quem
+resolve, 8 vermelhas do personagem que abriu; na fita, a peça de cada lance seu entra azul), a
+figura com os quatro símbolos e o cartão que a mostra, e a madeira clara. Mutação: as cores
+cruas do motor reprovam 2 casos.
