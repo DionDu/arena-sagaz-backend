@@ -2588,6 +2588,30 @@ def publicacao_de(co_tipo_desafio: str, nu_variante: int) -> Publicacao:
     return variantes_de(co_tipo_desafio)[nu_variante]
 
 
+def codigos_das_figuras_no_ar() -> tuple[str, ...]:
+    """Os codigos das figuras que o "Forme a figura" do Quatro poe no ar.
+
+    Sao os nomes do catalogo (`figuras_quatro.FIGURAS_QUATRO`) que alguma
+    variante de `EDITORIAL["quatro_figura"]` publica, sem repeticao e em ordem
+    alfabetica. ⚠️ So as do ar: as de `EDITORIAL_FORA_DO_AR` e as que ficaram so
+    no catalogo (o T, o "+", a exclamacao) nao entram.
+
+    E a lista do manifesto `contratos/figuras_quatro_no_ar.json` (T152,
+    `DECISOES-do-dono.md` §8zzzw), que o app copia: o cadeado de la exige o NOME
+    de cada uma nos tres `.arb`. ⛔ O cadeado mora no app, e nao aqui - travar o
+    job impediria publicar a figura antes da versao nova; sem o nome, o app
+    mostra a frase generica.
+    """
+    return tuple(
+        sorted(
+            {
+                str(p.parametros[figuras_quatro_mod.CHAVE_FIGURA])
+                for p in EDITORIAL.get("quatro_figura", ())
+            }
+        )
+    )
+
+
 __all__ = [
     "EDITORIAL",
     "EDITORIAL_FORA_DO_AR",
@@ -2598,6 +2622,7 @@ __all__ = [
     "VERSAO_MINIMA_DOS_TIPOS_FUNDADORES",
     "VERSAO_MINIMA_DO_QUATRO",
     "Publicacao",
+    "codigos_das_figuras_no_ar",
     "TipoSemEditorial",
     "publicacao_de",
     "variantes_de",

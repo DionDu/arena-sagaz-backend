@@ -19,7 +19,8 @@ COMO SE USA
 
     .venv\\Scripts\\python scripts\\gerar_frases_objetivo.py
 
-⚠️ **Rode-o sempre que uma chave `desafioObjetivo*` nascer ou mudar de texto**, na
+⚠️ **Rode-o sempre que uma chave `desafioObjetivo*`, `desafioQuatroFiguraNomeada`
+ou `desafioNomeFiguraQuatro*` nascer ou mudar de texto**, na
 mesma resposta — e a mesma regra dos tres `.arb`. O teste avisa se alguem
 esquecer, mas avisar depois custa uma rodada.
 
@@ -41,7 +42,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from api.desafios.painel.frase_objetivo import (  # noqa: E402
     CAMINHO_DAS_FRASES,
-    PREFIXO,
+    PREFIXOS_DA_COPIA,
 )
 
 #: O `.arb` de autoria, no repositorio do aplicativo.
@@ -51,12 +52,17 @@ ARB_DE_ORIGEM = (
 
 
 def frases_do_arb(caminho: Path) -> dict[str, str]:
-    """As chaves `desafioObjetivo*` daquele `.arb`, sem os metadados `@chave`."""
+    """As chaves da copia (`PREFIXOS_DA_COPIA`) daquele `.arb`, sem os
+    metadados `@chave`.
+
+    ⚠️ Desde a T152 nao sao so as `desafioObjetivo*`: entram tambem a frase
+    nomeada do "Forme a figura" e os nomes das figuras.
+    """
     dados = json.loads(caminho.read_text(encoding="utf-8"))
     return {
         chave: texto
         for chave, texto in sorted(dados.items())
-        if chave.startswith(PREFIXO) and not chave.startswith("@")
+        if chave.startswith(PREFIXOS_DA_COPIA) and not chave.startswith("@")
     }
 
 
@@ -71,7 +77,7 @@ def main() -> int:
 
     frases = frases_do_arb(ARB_DE_ORIGEM)
     if not frases:
-        raise SystemExit(f"⛔ nenhuma chave `{PREFIXO}*` em {ARB_DE_ORIGEM}")
+        raise SystemExit(f"⛔ nenhuma chave {PREFIXOS_DA_COPIA} em {ARB_DE_ORIGEM}")
 
     CAMINHO_DAS_FRASES.parent.mkdir(parents=True, exist_ok=True)
     # ⚠️ `ensure_ascii=False` e `\n` no fim: o arquivo e lido por humanos numa

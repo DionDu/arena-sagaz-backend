@@ -66,6 +66,14 @@ from motores.quatro.motor_quatro import TabuleiroQuatro
 #: editorial ja importa as receitas.
 CHAVE_FIGURA = "figura"
 
+#: A chave do CODIGO da figura no enunciado (`js_objetivo`), que o app traduz
+#: para o nome no idioma da pessoa (T152, `DECISOES-do-dono.md` §8zzzw).
+#: ⚠️ **O codigo E o nome do catalogo** (`z`, `igual`, `i_longo`): ele ja e o
+#: identificador estavel da figura. ⛔ Por isso um nome do catalogo nao se
+#: renomeia - o app que conhece `igual` deixaria de achar o nome dela.
+#: (Em `js_objetivo` a chave `figura` ja e o DESENHO, desde a T149.)
+CHAVE_CODIGO_DA_FIGURA = "codigo_figura"
+
 #: A folga da variante: `M = distancia + folga`. E o botao da dificuldade, no
 #: lugar de um M fixo (a proposta §2, recusa 6).
 CHAVE_FOLGA_DA_FIGURA = "folga"

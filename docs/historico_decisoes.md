@@ -10624,3 +10624,43 @@ primeiro lugar da busca como no app) e `test_desenho_quatro_no_painel.py` (+13: 
 a vitória e a cápsula por cima, a linha sem a chegada, as duas linhas do golpe duplo, o
 "Encoste", a figura ausente, a chegada inválida, o raio-x que continua depois do objetivo, a
 página e o banco entregando a chegada). Mutações: 16 de 16 pegas.
+
+## 2026-10-27 (8) — O "Forme a figura" diz o NOME da figura (T152 da spec 010)
+
+**Contexto.** O dono tinha pedido que a frase do desafio trouxesse a figura como parâmetro, como
+traz o número de lances (`DECISOES-do-dono.md` §8zzzw). A T149 fixara uma frase só para todas as
+figuras ("Forme esta figura…"), e no painel ele não sabia qual era a figura sem olhar o desenho.
+
+**Decisão.**
+
+1. **O job publica o CÓDIGO da figura** no enunciado: `codigo_figura` no `js_objetivo` de toda
+   variante de `quatro_figura` (`CHAVE_CODIGO_DA_FIGURA` em `job/figuras_quatro.py`). O código é o
+   nome do catálogo (`z`, `igual`, `i_longo`…), que já era o identificador estável - por isso um
+   nome do catálogo não se renomeia. Sem migração: `js_objetivo` é JSONB.
+2. **A chave gravada continua `desafioObjetivoQuatroFigura`** (a genérica). Quem lê troca para a
+   nomeada, `desafioQuatroFiguraNomeada` ("Forme {figura} em até…"), quando conhece o código: o
+   app pelos três `.arb`, e o painel pela cópia `contratos/frases_objetivo_pt.json`, que passou a
+   levar também a frase nomeada e os nomes (`PREFIXOS_DA_COPIA` em
+   `api/desafios/painel/frase_objetivo.py`). A chave do nome é `desafioNomeFiguraQuatro` mais o
+   código em PascalCase (`chave_do_nome_da_figura`), a mesma regra do app.
+3. **Código ausente ou desconhecido cai na frase genérica**, no app e no painel: figura nova vai
+   ao ar sem versão nova do app, e só o nome espera a versão seguinte.
+4. **O manifesto das figuras no ar**: `contratos/figuras_quatro_no_ar.json`, gerado por
+   `scripts/gerar_figuras_quatro_no_ar.py` a partir de `editorial.codigos_das_figuras_no_ar()`,
+   com cópia byte-idêntica no app (`specs/010-jogo-quatro-em-linha/contracts/figuras-quatro-no-ar.json`).
+   O cadeado que exige o nome nos três idiomas mora no APP: travar o job impediria publicar a
+   figura antes da versão nova.
+
+**Alternativas.** (a) O nome pronto, em português, no `js_objetivo`: recusada - sairia num idioma
+só; (b) `{figura}` dentro da própria `desafioObjetivoQuatroFigura`: recusada - quando o app não
+conhece o código não há o que pôr no lugar de `{figura}`, e a frase sem nome tem de continuar
+existindo (a 1.4.0 em campo, diante de uma figura que só a 1.5.0 nomeia); (c) o artigo na frase ("Forme um {figura}"): recusada - o artigo muda com
+a figura em pt e es; (d) o cadeado no backend: recusada, pelo item 4.
+
+**Operação.** Os dias de figura gerados ANTES deste deploy não têm o código e mostram a frase
+genérica (no app e no painel). No `des`, gerar de novo a sequência depois do push.
+
+**Testes.** `test_figuras_quatro_no_ar.py` (o manifesto bate com o editorial; o código vai em
+toda variante) e `test_frases_objetivo.py` (+12: o nome sai, o código composto, ausente /
+desconhecido / não-texto caem na genérica, a cópia sem a frase nomeada, só o "Forme a figura"
+troca, o PascalCase, a chave igual à do job, toda figura no ar com nome na cópia).

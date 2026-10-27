@@ -84,3 +84,5 @@ contratos/vetores-paridade-pontinhos.json -text
 # laboratorio e comparados com a copia da spec 010 do app.
 contratos/vetores-paridade-quatro.json -text
 contratos/bancada-paridade-quatro.json -text
+# As figuras do Quatro no ar (T152): o app guarda uma copia, comparada por bytes.
+contratos/figuras_quatro_no_ar.json -text

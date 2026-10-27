@@ -70,6 +70,31 @@ CAMINHO_DAS_FRASES = (
 #: O prefixo das chaves que descrevem objetivo de desafio.
 PREFIXO = "desafioObjetivo"
 
+#: A frase do "Forme a figura" que NAO diz o nome (a generica, "Forme esta
+#: figura...").
+CHAVE_DA_FIGURA_GENERICA = "desafioObjetivoQuatroFigura"
+
+#: A frase do "Forme a figura" que DIZ o nome: "Forme {figura} em ate...". ⚠️ Ela
+#: nao comeca por `desafioObjetivo` porque nao e a chave de objetivo de nenhum
+#: desafio: o job grava sempre `desafioObjetivoQuatroFigura`, e e quem le (o app,
+#: e este painel) que troca para esta quando conhece o codigo da figura (T152,
+#: `DECISOES-do-dono.md` §8zzzw).
+CHAVE_DA_FIGURA_NOMEADA = "desafioQuatroFiguraNomeada"
+
+#: O comeco da chave do NOME de cada figura: `desafioNomeFiguraQuatroZ` = "um Z".
+PREFIXO_DO_NOME_DA_FIGURA = "desafioNomeFiguraQuatro"
+
+#: Tudo o que a copia carrega do `.arb`: as frases de objetivo, a frase nomeada e
+#: os nomes das figuras. ⚠️ Uma tupla porque `str.startswith` aceita varias de
+#: uma vez - o gerador e o cadeado da copia usam esta mesma tupla.
+PREFIXOS_DA_COPIA = (PREFIXO, CHAVE_DA_FIGURA_NOMEADA, PREFIXO_DO_NOME_DA_FIGURA)
+
+#: A chave do codigo da figura no `js_objetivo`. ⚠️ E a mesma de
+#: `job/figuras_quatro.py` (`CHAVE_CODIGO_DA_FIGURA`); escrita aqui, e nao
+#: importada, porque o painel nao importa do job (a imagem da API o carrega, mas
+#: o painel nao depende dele para abrir). O teste confere que as duas batem.
+CHAVE_CODIGO_DA_FIGURA = "codigo_figura"
+
 
 class FraseInvalida(ValueError):
     """A frase usa um recurso de ICU que este renderizador nao cobre."""
@@ -88,6 +113,19 @@ def carregar_frases(caminho: Optional[Path] = None) -> dict[str, str]:
         return {}
     dados = json.loads(alvo.read_text(encoding="utf-8"))
     return {chave: texto for chave, texto in dados.items() if not chave.startswith("@")}
+
+
+def chave_do_nome_da_figura(codigo: str) -> str:
+    """A chave do `.arb` com o nome da figura `codigo`.
+
+    E a regra que o app tambem segue (`nome_da_figura_do_quatro.dart`): o prefixo
+    mais o codigo em PascalCase, cada pedaco separado por `_` com a inicial
+    maiuscula - `i_longo` → `desafioNomeFiguraQuatroILongo`, `z` →
+    `desafioNomeFiguraQuatroZ`.
+    """
+    return PREFIXO_DO_NOME_DA_FIGURA + "".join(
+        pedaco[:1].upper() + pedaco[1:] for pedaco in codigo.split("_")
+    )
 
 
 def _um_nivel(texto: str, inicio: int) -> tuple[str, int]:
@@ -216,13 +254,29 @@ def frase_do_desafio(
     ⚠️ **O personagem entra com inicial maiuscula.** No banco ele e `magno`
     (codigo); na tela do aplicativo e **Magno** (nome proprio), e a frase diz
     *"contra {personagem}"*.
+
+    ⚠️ **O "Forme a figura" diz o NOME da figura quando a copia o tem** (T152):
+    *"Forme um Z em ate 7 lances contra Magno"*, como o app. Codigo ausente ou
+    sem nome na copia cai na frase generica, *"Forme esta figura..."* - que e o
+    que o app de quem ainda nao tem o nome mostra.
     """
     tabela = carregar_frases() if frases is None else frases
-    modelo = tabela.get(co_chave_objetivo)
+    valores = dict(js_objetivo)
+
+    chave = co_chave_objetivo
+    if chave == CHAVE_DA_FIGURA_GENERICA:
+        codigo = valores.get(CHAVE_CODIGO_DA_FIGURA)
+        # `isinstance`: o valor vem do JSON do banco, e um que nao e texto e
+        # "nao sei o nome", como no app - e nao um erro.
+        nome = tabela.get(chave_do_nome_da_figura(codigo)) if isinstance(codigo, str) else None
+        if nome is not None and CHAVE_DA_FIGURA_NOMEADA in tabela:
+            chave = CHAVE_DA_FIGURA_NOMEADA
+            valores["figura"] = nome
+
+    modelo = tabela.get(chave)
     if modelo is None:
         return None
 
-    valores = dict(js_objetivo)
     personagem = valores.get("personagem")
     if isinstance(personagem, str):
         valores["personagem"] = personagem[:1].upper() + personagem[1:]

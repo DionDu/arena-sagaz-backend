@@ -30,9 +30,11 @@ import pytest
 
 from api.desafios.painel.frase_objetivo import (
     CAMINHO_DAS_FRASES,
-    PREFIXO,
+    CHAVE_CODIGO_DA_FIGURA,
+    PREFIXOS_DA_COPIA,
     FraseInvalida,
     carregar_frases,
+    chave_do_nome_da_figura,
     frase_do_desafio,
     renderizar,
 )
@@ -59,8 +61,9 @@ def test_a_copia_BATE_com_o_arb_do_aplicativo() -> None:
     repositório do aplicativo não existe - ler o `.arb` em runtime funcionaria na
     máquina do dono e falharia em produção, que é o pior modo de falhar que há.
 
-    ⛔ **Quem editar uma chave `desafioObjetivo*` roda
-    `scripts/gerar_frases_objetivo.py` na mesma resposta.** É a mesma regra dos
+    ⛔ **Quem editar uma chave `desafioObjetivo*` (ou a frase nomeada e os nomes
+    das figuras do Quatro, T152) roda `scripts/gerar_frases_objetivo.py` na mesma
+    resposta.** É a mesma regra dos
     três `.arb`, e este teste é quem a cobra.
     """
     if not ARB_DE_ORIGEM.exists():
@@ -74,7 +77,7 @@ def test_a_copia_BATE_com_o_arb_do_aplicativo() -> None:
         for chave, texto in json.loads(
             ARB_DE_ORIGEM.read_text(encoding="utf-8")
         ).items()
-        if chave.startswith(PREFIXO) and not chave.startswith("@")
+        if chave.startswith(PREFIXOS_DA_COPIA) and not chave.startswith("@")
     }
     da_copia = carregar_frases()
 
@@ -255,3 +258,124 @@ def test_a_copia_esta_no_lugar_que_o_painel_procura() -> None:
         "Rode `python scripts/gerar_frases_objetivo.py`."
     )
     assert carregar_frases(), "a copia existe mas esta vazia"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. 🔒 O nome da figura do "Forme a figura" (T152, §8zzzw)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Um `js_objetivo` do "Forme a figura" como o job o grava (sem o desenho, que a
+#: frase não usa).
+_FIGURA = {"lances": 7, "personagem": "magno", "variante": "classico"}
+
+
+def test_a_figura_CONHECIDA_sai_com_o_nome() -> None:
+    """🔒 Com o código, o painel lê a frase como o app: "Forme um Z...".
+
+    ⚠️ O job grava a chave GENÉRICA (`desafioObjetivoQuatroFigura`); quem troca
+    para a nomeada é quem lê. Um painel que não trocasse mostraria "Forme esta
+    figura" num dia em que o app diz "Forme um Z" - e a frase do painel deixaria
+    de ser a que a pessoa lê.
+    """
+    montada = frase_do_desafio(
+        "desafioObjetivoQuatroFigura", {**_FIGURA, CHAVE_CODIGO_DA_FIGURA: "z"}
+    )
+    assert montada == "Forme um Z em até 7 lances contra Magno"
+
+
+def test_o_nome_de_CODIGO_COMPOSTO_tambem_sai() -> None:
+    """🔒 `i_longo` vira `ILongo` na chave: o PascalCase pega cada pedaço."""
+    montada = frase_do_desafio(
+        "desafioObjetivoQuatroFigura",
+        {**_FIGURA, "lances": 1, CHAVE_CODIGO_DA_FIGURA: "i_longo"},
+    )
+    assert montada == "Forme um i longo em até 1 lance contra Magno"
+
+
+@pytest.mark.parametrize(
+    "codigo",
+    [None, "figura_que_ainda_nao_tem_nome", 7],
+    ids=["ausente", "desconhecido", "nao_e_texto"],
+)
+def test_sem_nome_cai_na_frase_GENERICA(codigo: object) -> None:
+    """🔒 ⚠️ Figura nova vai ao ar sem versão nova do app: sem nome, a genérica.
+
+    É o que o app de quem ainda não tem o nome mostra - e o painel mostra o
+    mesmo, em vez de cair para a chave crua (`None`).
+    """
+    valores = dict(_FIGURA)
+    if codigo is not None:
+        valores[CHAVE_CODIGO_DA_FIGURA] = codigo
+    montada = frase_do_desafio("desafioObjetivoQuatroFigura", valores)
+    assert montada == "Forme esta figura em até 7 lances contra Magno"
+
+
+def test_copia_SEM_a_frase_nomeada_cai_na_GENERICA() -> None:
+    """🔒 Cópia com o nome e sem a frase nomeada (meio regerada) não derruba a
+    frase: sai a genérica, como quando o nome falta."""
+    frases = {
+        "desafioObjetivoQuatroFigura": "Forme esta figura em {lances} lances",
+        "desafioNomeFiguraQuatroZ": "um Z",
+    }
+    montada = frase_do_desafio(
+        "desafioObjetivoQuatroFigura",
+        {**_FIGURA, CHAVE_CODIGO_DA_FIGURA: "z"},
+        frases=frases,
+    )
+    assert montada == "Forme esta figura em 7 lances"
+
+
+def test_so_o_FORME_A_FIGURA_troca_de_frase() -> None:
+    """🔒 Um `codigo_figura` perdido em outro desafio não troca a frase dele."""
+    montada = frase_do_desafio(
+        "desafioObjetivoCoroarEmLances",
+        {
+            "damas": 1,
+            "lances": 6,
+            "personagem": "magno",
+            CHAVE_CODIGO_DA_FIGURA: "z",
+        },
+    )
+    assert montada == "Coroe 1 dama em até 6 lances contra Magno"
+
+
+@pytest.mark.parametrize(
+    ("codigo", "chave"),
+    [
+        ("z", "desafioNomeFiguraQuatroZ"),
+        ("i_longo", "desafioNomeFiguraQuatroILongo"),
+        ("igual_sanduiche", "desafioNomeFiguraQuatroIgualSanduiche"),
+    ],
+)
+def test_a_chave_do_nome_e_o_codigo_em_PASCALCASE(codigo: str, chave: str) -> None:
+    """🔒 A mesma regra do app (`nome_da_figura_do_quatro.dart`)."""
+    assert chave_do_nome_da_figura(codigo) == chave
+
+
+def test_a_chave_do_codigo_e_a_MESMA_do_job() -> None:
+    """🔒 ⚠️ O painel escreve a chave à mão (não importa do job); aqui as duas
+    se encontram. Divergir faria o painel nunca achar o código, e a frase
+    genérica sairia todo dia sem ninguém notar."""
+    from job import figuras_quatro
+
+    assert CHAVE_CODIGO_DA_FIGURA == figuras_quatro.CHAVE_CODIGO_DA_FIGURA
+
+
+def test_TODA_figura_no_ar_tem_nome_na_COPIA() -> None:
+    """🔒 Cada figura que o editorial põe no ar sai com nome no painel.
+
+    ⚠️ O cadeado do app cobra o nome nos três `.arb`; este cobra que a cópia do
+    painel o trouxe (o gerador pega os prefixos certos).
+    """
+    from job import editorial
+
+    frases = carregar_frases()
+    sem_nome = [
+        codigo
+        for codigo in editorial.codigos_das_figuras_no_ar()
+        if chave_do_nome_da_figura(codigo) not in frases
+    ]
+    assert not sem_nome, (
+        f"figuras no ar sem nome na copia: {sem_nome}. "
+        "Rode `python scripts/gerar_frases_objetivo.py`."
+    )

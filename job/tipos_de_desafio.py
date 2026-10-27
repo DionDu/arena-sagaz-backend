@@ -2999,9 +2999,9 @@ RECEITAS: dict[str, Receita] = {
         # (T146), dentro da janela de M lances.
         #
         # ⚠️ **O desenho viaja na chegada**, lido do catalogo pelo nome
-        # (`job/figuras_quatro.py`): a frase e uma so para todas as figuras, e o
-        # aplicativo desenha a figura a partir da chegada (T149). Figura nova e
-        # uma linha no catalogo, sem versao nova do app.
+        # (`job/figuras_quatro.py`), e o aplicativo desenha a figura a partir
+        # dela (T149). Figura nova e uma linha no catalogo, sem versao nova do
+        # app: so o NOME dela na frase espera a versao seguinte (T152, abaixo).
         #
         # ⚠️ **O M e absoluto, e sai da posicao** (`editorial.parametros_efetivos`):
         # a distancia da figura na posicao publicada mais a folga da variante.
@@ -3013,16 +3013,24 @@ RECEITAS: dict[str, Receita] = {
             ],
         },
         # ⚠️ **E o desenho viaja TAMBEM no enunciado** (`figura`, T149,
-        # 27/10/2026): a frase nao nomeia a figura, e o app a desenha ao lado
-        # dela em todo lugar - inclusive onde so o objetivo chega, sem a
-        # chegada (o Historico, pelo `meu-mes`). Sai do MESMO item do catalogo
+        # 27/10/2026): o app a desenha ao lado da frase em todo lugar -
+        # inclusive onde so o objetivo chega, sem a chegada (o Historico, pelo
+        # `meu-mes`). Sai do MESMO item do catalogo
         # que a clausula, e `test_figuras_quatro.py` confere os dois.
+        #
+        # ⚠️ **E o CODIGO da figura vai junto** (`codigo_figura`, T152,
+        # `DECISOES-do-dono.md` §8zzzw): a frase passa a dizer QUAL e a figura
+        # (*"Forme um Z em ate 7 lances"*). ⛔ O codigo, e nao o nome: o nome muda
+        # com o idioma, e quem o traduz e o app (os tres `.arb`). Codigo que o
+        # app nao conhece cai na frase generica ("Forme esta figura..."), e a
+        # figura nova vai ao ar sem esperar versao.
         valores_da_frase=lambda p, personagem: {
             "lances": p["lances"],
             "personagem": personagem,
             "figura": list(
                 figuras_quatro_mod.FIGURAS_QUATRO[p[figuras_quatro_mod.CHAVE_FIGURA]].desenho
             ),
+            figuras_quatro_mod.CHAVE_CODIGO_DA_FIGURA: p[figuras_quatro_mod.CHAVE_FIGURA],
         },
     ),
 }

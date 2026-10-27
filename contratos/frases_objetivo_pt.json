@@ -1,4 +1,12 @@
 {
+  "desafioNomeFiguraQuatroI": "um i",
+  "desafioNomeFiguraQuatroILongo": "um i longo",
+  "desafioNomeFiguraQuatroIgual": "um sinal de igual",
+  "desafioNomeFiguraQuatroIgualSanduiche": "um sanduíche",
+  "desafioNomeFiguraQuatroLosango": "um losango",
+  "desafioNomeFiguraQuatroQuadrado": "um quadrado",
+  "desafioNomeFiguraQuatroXis": "um X",
+  "desafioNomeFiguraQuatroZ": "um Z",
   "desafioObjetivoCadeiaLonga": "Capture {caixas} ou mais caixas em sequência contra {personagem}",
   "desafioObjetivoCapturaMultipla": "{pecas, plural, =1{Capture 1 peça} other{Capture {pecas} peças}} num só lance, em até {lances, plural, =1{1 lance} other{{lances} lances}}, contra {personagem}",
   "desafioObjetivoChegarAoPlacar": "Chegue a {caixas} caixas contra {personagem}",
@@ -20,5 +28,6 @@
   "desafioObjetivoQuatroVirada": "Vire o jogo e vença {personagem}",
   "desafioObjetivoSacrificio": "Troque {entregar, plural, =1{1 peça} other{{entregar} peças}} por {capturar, plural, =1{1 de} other{{capturar} de}} {personagem}",
   "desafioObjetivoSobreviver": "{lances, plural, =1{Resista 1 lance a {personagem} perdendo no máximo {perder, plural, =1{1 peça} other{{perder} peças}}} other{Resista {lances} lances a {personagem} perdendo no máximo {perder, plural, =1{1 peça} other{{perder} peças}}}}",
-  "desafioObjetivoTrocaFavoravel": "{ganhar, plural, =1{Feche 1 caixa} other{Feche {ganhar} caixas}} cedendo no máximo {ceder, plural, =1{1} other{{ceder}}} a {personagem}"
+  "desafioObjetivoTrocaFavoravel": "{ganhar, plural, =1{Feche 1 caixa} other{Feche {ganhar} caixas}} cedendo no máximo {ceder, plural, =1{1} other{{ceder}}} a {personagem}",
+  "desafioQuatroFiguraNomeada": "Forme {figura} em até {lances, plural, =1{1 lance} other{{lances} lances}} contra {personagem}"
 }

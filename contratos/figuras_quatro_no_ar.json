@@ -1,0 +1,15 @@
+{
+  "de_documento": "As figuras do 'Forme a figura' (Quatro em Linha) que o editorial do backend poe no ar. O app exige o nome de cada uma nos tres .arb (T152). Gerado por scripts/gerar_figuras_quatro_no_ar.py - NAO edite a mao.",
+  "co_fonte_da_verdade": "arena-sagaz-backend/job/editorial.py (EDITORIAL['quatro_figura'])",
+  "nu_versao": 1,
+  "co_figuras": [
+    "i",
+    "i_longo",
+    "igual",
+    "igual_sanduiche",
+    "losango",
+    "quadrado",
+    "xis",
+    "z"
+  ]
+}
