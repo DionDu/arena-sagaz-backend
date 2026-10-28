@@ -765,6 +765,63 @@ def test_o_numero_de_tentativas_SAI_DO_JOGO_quando_ninguem_o_passa() -> None:
     )
 
 
+def _tentativas_do_tipo_quatro(co_tipo: str, monkeypatch) -> int:
+    """Quantas posicoes o gerador tenta para [co_tipo] do Quatro, com a prova
+    recusando TODAS (o laco vai ate o fim do orcamento).
+
+    ⚠️ Conta pela semente, uma por tentativa, como o caso do Pontinhos acima: um
+    `assert` sobre o registro seria decorativo. A prova do tipo e trocada por
+    uma que sempre recusa, sem busca: o caso mede o orcamento, e nao o motor.
+    """
+    import job.gerador as gerador_mod
+    from job import provas_quatro
+
+    recusa = provas_quatro.ProvaQuatro(False, "recusada no teste")
+    monkeypatch.setitem(provas_quatro.PROVAS, co_tipo, lambda *_a: recusa)
+    tentadas: list[int] = []
+    original = gerador_mod.semente_mod.sortear
+
+    def _espiar(*a: object, **k: object) -> int:
+        tentadas.append(1)
+        return original(*a, **k)
+
+    monkeypatch.setattr(gerador_mod.semente_mod, "sortear", _espiar)
+    gerador_mod.gerar_candidatos(
+        date(2026, 10, 28),
+        parametros=dict(_publicacao_do_editorial(co_tipo).parametros),
+        quantos=1,
+        lances_de_preparo=16,
+        tipo_forcado=co_tipo,
+    )
+    return len(tentadas)
+
+
+def _publicacao_do_editorial(co_tipo: str):
+    """A variante 0 do tipo no editorial (os parametros com que ele vai ao ar)."""
+    from job import editorial as editorial_mod
+
+    return editorial_mod.publicacao_de(co_tipo, 0)
+
+
+def test_a_VIRADA_tenta_o_triplo_e_os_outros_do_quatro_nao(monkeypatch) -> None:
+    """🔒 O numero do TIPO vence o do jogo, e so para quem o tem.
+
+    ⚠️ A virada com a prova nova (27/10/2026) deixava 2 a 3 dias em 18 sem
+    candidato com as 40 tentativas do Quatro; com 120, nenhum. ⛔ E o
+    contrapeso: os outros tipos do Quatro continuam com as 40 do jogo - subir o
+    numero do jogo pagaria o triplo em todos para resolver um.
+    """
+    from job.gerador import TENTATIVAS_POR_TIPO
+
+    assert _tentativas_do_tipo_quatro("quatro_virada", monkeypatch) == (
+        TENTATIVAS_POR_TIPO["quatro_virada"]
+    )
+    assert TENTATIVAS_POR_TIPO["quatro_virada"] > TENTATIVAS_POR_JOGO["quatro"]
+    assert _tentativas_do_tipo_quatro("quatro_vencer_diagonal", monkeypatch) == (
+        TENTATIVAS_POR_JOGO["quatro"]
+    )
+
+
 def test_as_damas_continuam_com_o_numero_BAIXO() -> None:
     """🔒 ⛔ O contrapeso: nas damas cada tentativa custa ~30 s.
 

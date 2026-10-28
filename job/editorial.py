@@ -2069,9 +2069,15 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # adversario e heuristica de uma ameaca (historico do backend,
             # "2026-10-27 (11)"); as posicoes aprovadas mudaram, e a regua
             # precisa ser refeita antes de confiar no `[3, 3, 3]`.
+            # ⚠️ **Preparo 16, e nao 12, desde a prova nova** (historico,
+            # "2026-10-27 (13)"): com 12 a 18 lances jogados quase ninguem
+            # ameaca nada ainda, e o dia 28/10 ficou sem desafio. Medido em 18
+            # dias, sem regua, junto das 120 tentativas do tipo
+            # (`gerador.TENTATIVAS_POR_TIPO`): preparo 12 deixou 2 dias vazios;
+            # 16, nenhum, com solucoes de 9 a 25 meios-lances (mediana 13).
             parametros={},
-            nu_lances_de_preparo=12,
-            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 12,
+            nu_lances_de_preparo=16,
+            nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 16,
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro(None),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,

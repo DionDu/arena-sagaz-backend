@@ -756,10 +756,44 @@ def test_a_unidade_leva_os_BOTOES_da_variante_ate_o_gerador(monkeypatch):
         assert pedidos[-1]["maximo_de_meios_lances"] == 2 * lances - 1
         assert pedidos[-1]["minimo_de_meios_lances"] == 9
         assert pedidos[-1]["lances_de_preparo"] == 10
-        # No ar: o gerador escolhe pelo caminho normal, e exige o vetor.
+        # No ar: o gerador exige o vetor, e o tipo vai FORCADO, porque o Quatro
+        # nao e do rodizio (sem isto o gerador tiraria o jogo da data).
         assert pedidos[-1]["receita_em_avaliacao"] is None
+        assert pedidos[-1]["tipo_forcado"] == "quatro_encoste"
         recentes = pedidos[-1]["tipos_recentes"]
         assert recentes and "quatro_encoste" not in recentes
+
+
+def test_o_tipo_do_RODIZIO_nao_vai_forcado(monkeypatch):
+    """O contrapeso: no Pontinhos e nas damas o dia escolhe o tipo, como no job."""
+    pedidos: list[dict] = []
+
+    def espiao(_dia, **kwargs):
+        pedidos.append(kwargs)
+        return []
+
+    monkeypatch.setattr(MEDIDOR.gerador_mod, "gerar_candidatos", espiao)
+    co_tipo = "pontinhos_cadeia_longa"
+    _, publicacao, _ = MEDIDOR._receita_e_publicacao(co_tipo)
+    candidata = MEDIDOR.candidatas_do_editorial(co_tipo)[0]
+    botoes = MEDIDOR.botoes_da_candidata(candidata, publicacao)
+    MEDIDOR.medir_um_dia(
+        co_tipo, candidata.parametros, botoes, date(2026, 10, 10), com_regua=False
+    )
+    assert pedidos[0]["tipo_forcado"] is None
+
+
+def test_o_tipo_do_QUATRO_no_ar_se_mede_pelo_alvo_do_tipo():
+    """🔒 Ate 27/10/2026 o medidor recusava todo tipo do Quatro no ar, e a
+    virada nao pode ser remedida depois da prova nova.
+
+    Agora `no-ar:<tipo>` o aceita (o tipo vai forcado ao gerador); o nome sem o
+    prefixo, que e o caminho das candidatas de ESTUDO, recusa e diz o certo.
+    """
+    assert MEDIDOR.tipos_do_alvo(f"{MEDIDOR.PREFIXO_NO_AR_DE_UM_TIPO}quatro_virada") == [
+        "quatro_virada"
+    ]
+    assert MEDIDOR.principal(["quatro_virada"]) == 2
 
 
 def test_cada_variante_chega_ao_gerador_com_os_ADVERSARIOS_dela(monkeypatch):

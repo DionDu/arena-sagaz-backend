@@ -639,10 +639,9 @@ def _dias_do_jogo(co_jogo: str, quantos: int) -> list[date]:
     ⚠️ **Jogo FORA do rodizio (o Quatro, que entra pela adocao - T120) mede em
     dias seguidos.**
     Ele nunca e o jogo do dia, e o laco abaixo nao terminaria; e nem precisa:
-    tipo em avaliacao vem com a receita, e `gerar_candidatos` tira o jogo dela,
-    e nao da data. O dia so muda a semente - e e isso que da posicoes diferentes.
-    ⛔ O tipo dele que ja esta NO AR nao chega aqui: ver
-    `no_ar_e_fora_do_rodizio`.
+    tipo em avaliacao vem com a receita, e o tipo no ar vai forcado
+    (`tipo_forcado`), entao `gerar_candidatos` tira o jogo do tipo, e nao da
+    data. O dia so muda a semente - e e isso que da posicoes diferentes.
     """
     if co_jogo not in gerador_mod.JOGOS_DO_RODIZIO:
         return [DIA_BASE + timedelta(days=passo) for passo in range(quantos)]
@@ -842,6 +841,11 @@ def medir_um_dia(
         )
     moldes = botoes["moldes"]
     personagens = botoes["personagens"]
+    # ⚠️ O tipo no ar de jogo fora do rodizio (o Quatro) vai FORCADO: sem isto o
+    # gerador tiraria o jogo da data, e mediria outro jogo (ver
+    # `no_ar_e_fora_do_rodizio`). Com ele, `tipos_recentes` e `destaque` nao
+    # escolhem nada, e o gerador exige o vetor como no job.
+    tipo_forcado = co_tipo if no_ar_e_fora_do_rodizio(co_tipo) else None
     candidatos = gerador_mod.gerar_candidatos(
         dia,
         parametros=parametros,
@@ -860,6 +864,7 @@ def medir_um_dia(
         # escolhe o tipo pelo dia e **exige o vetor**, como sempre.
         receita_em_avaliacao=em_avaliacao,
         destaque=destaque,
+        tipo_forcado=tipo_forcado,
     )
     resultado: dict[str, Any] = {
         "candidatos": len(candidatos),
@@ -1087,16 +1092,21 @@ def candidatas_do_editorial(co_tipo: str) -> tuple["Candidata", ...]:
 def no_ar_e_fora_do_rodizio(co_tipo: str) -> bool:
     """O tipo esta em `RECEITAS`, e o JOGO dele ainda nao e sorteado pelo job?
 
-    ⛔ **Esse tipo nao se mede pelos alvos `no-ar`** (T124b da spec 010, a
-    virada do Quatro): no caminho normal o gerador tira o jogo da DATA
-    (`escolher_jogo`, que so conhece `gerador.JOGOS_DO_RODIZIO`), e o caminho de
-    "tipo em avaliacao" recusa o tipo que ja esta em `RECEITAS`. Sem esta
-    recusa, a rodada mediria um desafio de Pontinhos ou de damas com o nome do
-    tipo - sem erro, e com um numero que nao quer dizer nada. ⚠️ **Desde a T120
-    isto e permanente**: o Quatro nunca entra em `JOGOS_DO_RODIZIO` (ele toma
-    dias pela adocao, `gerador.JOGOS_EM_ADOCAO`), e este medidor nao passa faixa
-    nenhuma ao `escolher_jogo`. Ensinar-lhe a faixa e o caminho para remedir a
-    virada no ar; a medicao dela e a de 20/10/2026.
+    ⚠️ **Esse tipo so se mede com o tipo FORCADO** (`medir_um_dia` passa
+    `tipo_forcado` ao gerador). No caminho normal o gerador tira o jogo da DATA
+    (`escolher_jogo`, que so conhece `gerador.JOGOS_DO_RODIZIO`), e o Quatro
+    nunca entra nele (desde a T120 ele toma dias pela adocao,
+    `gerador.JOGOS_EM_ADOCAO`): sem o tipo forcado, a rodada mediria um desafio
+    de Pontinhos ou de damas com o nome do tipo - sem erro, e com um numero que
+    nao quer dizer nada.
+
+    ⚠️ Ate 27/10/2026 a resposta aqui era recusar, e nenhum tipo do Quatro no ar
+    podia ser remedido. O dono esbarrou nisso ao remedir a virada depois da
+    prova nova (historico do backend, "2026-10-27 (13)"). O `tipo_forcado`
+    nasceu no mesmo dia, para a geracao em sequencia, e serve aqui sem mudar.
+
+    ⛔ **O alvo `no-ar` (todos os jogos) continua sem eles**, por preco: o
+    Quatro se remede pelo tipo, com `no-ar:<tipo>`.
     """
     receita = tipos_de_desafio_mod.RECEITAS.get(co_tipo)
     return receita is not None and receita.co_jogo not in gerador_mod.JOGOS_DO_RODIZIO
@@ -1136,12 +1146,9 @@ def tipos_do_alvo(alvo: str) -> list[str]:
         co_tipo = alvo[len(PREFIXO_NO_AR_DE_UM_TIPO):]
         # ⛔ Tipo sem variante publicada devolve vazio, e quem chama sai com 2 -
         # um nome digitado errado nao pode virar uma rodada que nao mede nada.
-        # ⛔ E o tipo no ar de jogo fora do rodizio tambem (`principal` explica).
-        if (
-            co_tipo in tipos_de_desafio_mod.RECEITAS
-            and editorial_mod.variantes_de(co_tipo)
-            and not no_ar_e_fora_do_rodizio(co_tipo)
-        ):
+        # ⚠️ O tipo de jogo fora do rodizio (o Quatro) entra: `medir_um_dia`
+        # forca o tipo no gerador (ver `no_ar_e_fora_do_rodizio`).
+        if co_tipo in tipos_de_desafio_mod.RECEITAS and editorial_mod.variantes_de(co_tipo):
             return [co_tipo]
         return []
 
@@ -1161,7 +1168,8 @@ def tipos_do_alvo(alvo: str) -> list[str]:
             co_tipo
             for co_tipo in sorted(tipos_de_desafio_mod.RECEITAS)
             if editorial_mod.variantes_de(co_tipo)
-            # ⛔ Ver `no_ar_e_fora_do_rodizio`: mediria outro jogo.
+            # ⛔ Ver `no_ar_e_fora_do_rodizio`: fora por preco, e o Quatro se
+            # remede pelo tipo (`no-ar:<tipo>`).
             and not no_ar_e_fora_do_rodizio(co_tipo)
             and (
                 so_do_jogo is None
@@ -1828,11 +1836,11 @@ def principal(argumentos: Sequence[str]) -> int:
     tipos = tipos_do_alvo(alvo)
     pedido = alvo[len(PREFIXO_NO_AR_DE_UM_TIPO):] if alvo.startswith(PREFIXO_NO_AR_DE_UM_TIPO) else alvo
     if not tipos and no_ar_e_fora_do_rodizio(pedido):
+        # O nome sem o prefixo: e o caminho das candidatas de ESTUDO, e o tipo
+        # do Quatro no ar se mede pelo que esta publicado.
         print(
-            f"⛔ {pedido} esta no ar, mas o jogo dele nao e do rodizio do job "
-            "(ele entra pela adocao, T120): o gerador sorteia o jogo pela data, e a rodada "
-            "mediria outro jogo com o nome dele. A medicao dele e a de "
-            "20/10/2026 (historico do backend, entrada \"2026-10-20 (5)\")."
+            f"⛔ {pedido} esta no ar: meca o que esta publicado com "
+            f"`{PREFIXO_NO_AR_DE_UM_TIPO}{pedido}`."
         )
         return 2
     if not tipos:

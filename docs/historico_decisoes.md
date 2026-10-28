@@ -10788,3 +10788,44 @@ descarta com ele; hoje com tentativa manda limpar; o dia passado é recusado; a 
 descarte só no modo de teste, só ele, e mantém o "Aprovar" do candidato; e a rota passa o modo
 adiante. Mutações conferidas: sem o argumento na rota cai 1 caso; com a guarda sempre ligada
 caem 4.
+
+## 2026-10-27 (13) — A virada nova não achava posição: preparo 16 e 120 tentativas só para ela; e o medidor remede o Quatro no ar
+
+**Contexto.** Depois da prova nova (entrada (11)) e do descarte da virada de 28/10, o dono relatou:
+*"Não está gerando o novo desafio do dia"*. O 28/10 (o "hoje" do app, em UTC) ficou vazio: com
+todos os outros tipos do Quatro nos dias vizinhos, o rodízio escolhe a virada para ele, e ela
+não achava posição. Simulado sem gravar (`medir_um_dia` com o gerador de verdade): com o preparo
+12 e as 40 tentativas do Quatro (× 3 candidatos = 120 posições), saíram 0, 0, 1, 1, 0 e 3
+candidatos em seis dias. Nos motivos, ~70% das posições sem ameaça a mais do adversário, ~20% sem
+a heurística de uma ameaça, ~10% sem a vitória provada, e as provadas, muitas vezes, com a solução
+contra o adversário do dia abaixo do piso de 9 meios-lances.
+
+No mesmo pedido, o medidor recusou `no-ar:quatro_virada`: nenhum tipo do Quatro no ar podia ser
+remedido, porque o gerador tiraria o jogo da data e o Quatro não é do rodízio (T120).
+
+**Medido em 18 dias (28/10 a 14/11), sem régua, dias sem candidato:** preparo 14, 16 e 18 com 120
+posições: 2, 2 e 3. Preparo 12 com 360: 2 (soluções de 9 a 27 meios-lances, 7,5 s por dia).
+**Preparo 16 com 360: nenhum**, 2 a 3 candidatos por dia, soluções de 9 a 25 (mediana 13), 2,3 s
+por dia.
+
+**Decisão.** (1) `gerador.TENTATIVAS_POR_TIPO = {"quatro_virada": 120}`, que vence o número do
+jogo; (2) o editorial da virada passa ao preparo 16 (teto `CASAS - 16`); (3) o medidor passa
+`tipo_forcado` ao gerador para o tipo no ar de jogo fora do rodízio (o mesmo parâmetro da geração
+em sequência, entrada (4)), e `no-ar:<tipo>` o aceita. O alvo `no-ar` de todos os jogos continua
+sem o Quatro, por preço; o nome sem prefixo recusa e indica o `no-ar:<tipo>`.
+
+**Alternativas.** (a) Subir o número do JOGO: recusada - pagaria o triplo em todos os tipos do
+Quatro para resolver um. (b) Banco pescado, como o golpe duplo (§8zzzn): mais robusto, mas pede
+uma pescaria offline, e as 360 tentativas já cobriram os 18 dias. Fica como o passo seguinte se a
+régua mostrar dias vazios. (c) Preparo 12 com 360: soluções mais longas, mas dias vazios e três
+vezes o tempo. (d) Afrouxar a heurística e manter só as ameaças: não medido; mexeria no critério
+visual que o dono aprovou.
+
+⚠️ No caminho, uma pista falsa: rodadas com o `timeout` do shell em volta acusaram "o motor Dart
+não respondeu". Era o `timeout` encerrando o motor antes do Python; sem ele, a mesma rodada fecha,
+e a memória do motor ficou estável em ~37 MB.
+
+**Testes.** `test_gerador_de_candidatos.py`: a virada tenta 120 posições e a diagonal 40 (contadas
+pela semente, com a prova trocada por uma que sempre recusa). `test_medidor_de_variantes.py`: o
+tipo do Quatro vai forçado, o do rodízio não, e `no-ar:quatro_virada` é aceito. ⬜ Falta a régua
+(`medir_variantes_do_editorial.py no-ar:quatro_virada --com-regua`), com o dono.

@@ -779,6 +779,21 @@ TENTATIVAS_POR_JOGO = {
 #: Quantas tentativas para um jogo que nao esta em [TENTATIVAS_POR_JOGO].
 TENTATIVAS_PADRAO = 6
 
+#: As excecoes POR TIPO, que valem acima do numero do jogo dele.
+#:
+#: ⚠️ **Existe porque uma prova pode recusar quase tudo num jogo em que as
+#: outras nao recusam.** A virada do Quatro passou a exigir que a desvantagem se
+#: VEJA (o adversario com mais ameacas e a heuristica de uma ameaca, 27/10/2026,
+#: `DECISOES-do-dono.md` §8zzzy), e so ~10% das posicoes sorteadas passam nas
+#: contas baratas. Com as 40 do jogo, 2 a 3 dias em 18 ficaram sem candidato,
+#: com qualquer preparo; com 120 e o preparo 16, nenhum dos 18 (2 a 3
+#: candidatos por dia, ~2,3 s por dia). Historico do backend, "2026-10-27 (13)".
+#: ⛔ Subir o numero do JOGO pagaria o triplo em todos os tipos do Quatro para
+#: resolver um so.
+TENTATIVAS_POR_TIPO = {
+    "quatro_virada": 120,
+}
+
 #: Quem procura a solucao, quando o SAGAZ nao serve.
 #:
 #: ⛔ **O Sagaz busca a vitoria, e nem todo desafio pede vitoria.** Na cadeia
@@ -1281,8 +1296,11 @@ def gerar_candidatos(
 
     # ⚠️ **Depois de `co_jogo`, e nao no valor padrao da assinatura**: um
     # padrao de assinatura e avaliado antes de existir jogo nenhum.
+    # O numero do TIPO, quando ele tem um, vence o do jogo (ver [TENTATIVAS_POR_TIPO]).
     if tentativas_por_candidato is None:
-        tentativas_por_candidato = TENTATIVAS_POR_JOGO.get(co_jogo, TENTATIVAS_PADRAO)
+        tentativas_por_candidato = TENTATIVAS_POR_TIPO.get(
+            co_tipo, TENTATIVAS_POR_JOGO.get(co_jogo, TENTATIVAS_PADRAO)
+        )
 
     encontrados: list[Candidato] = []
 

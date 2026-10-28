@@ -790,14 +790,17 @@ def test_o_tipo_no_ar_gera_pelo_caminho_NORMAL_quando_o_quatro_for_do_dia(
     assert escolhidos and set(escolhidos) == {co_tipo}
 
 
-def test_o_medidor_RECUSA_medir_a_virada_pelo_alvo_no_ar() -> None:
-    """⛔ O gerador mediria outro jogo com o nome dela (ver
-    `no_ar_e_fora_do_rodizio` no medidor): os alvos `no-ar` a deixam de fora
-    (desde a T120, para sempre: o Quatro entra pela adocao, e nao pelo rodizio),
-    e o pedido pelo nome sai vazio."""
+def test_o_medidor_mede_a_virada_SO_pelo_alvo_do_tipo() -> None:
+    """A virada esta no ar num jogo fora do rodizio (desde a T120, para sempre: o
+    Quatro entra pela adocao). Ate 27/10/2026 o medidor a recusava em todo
+    alvo; desde entao `no-ar:quatro_virada` a mede com o tipo FORCADO no gerador
+    (historico do backend, "2026-10-27 (13)").
+
+    ⛔ O alvo `no-ar` de todos os jogos continua sem ela, por preco, e o nome
+    sem o prefixo (o caminho das candidatas de estudo) sai vazio."""
     assert MEDIDOR.no_ar_e_fora_do_rodizio("quatro_virada")
     assert not MEDIDOR.no_ar_e_fora_do_rodizio("quatro_bloquear")  # fora do ar
     assert not MEDIDOR.no_ar_e_fora_do_rodizio("damas_sobreviver")
     assert "quatro_virada" not in MEDIDOR.tipos_do_alvo("no-ar")
-    assert MEDIDOR.tipos_do_alvo("no-ar:quatro_virada") == []
+    assert MEDIDOR.tipos_do_alvo("no-ar:quatro_virada") == ["quatro_virada"]
     assert MEDIDOR.tipos_do_alvo("quatro_virada") == []
