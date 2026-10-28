@@ -808,10 +808,12 @@ def _acoes_de_sempre(
             "(o app baixa hoje e os proximos dias para jogar sem rede): nao se "
             "descarta, nao se move e nao sai do calendario. A curadoria vale de "
             f"{_txt(data_br(dt_fim_janela_baixada + timedelta(days=1)))} em diante."
-            # ⚠️ No modo de teste a caixa de cima move o dia, e o aviso diria o
-            # contrario dela (relato do dono, 27/10/2026).
+            # ⚠️ No modo de teste a caixa de cima move o dia, e o descarte vem
+            # logo abaixo; o aviso diria o contrario deles (relatos do dono,
+            # 27/10/2026).
             + (
-                " No modo de teste, a caixa acima libera a troca de datas."
+                " No modo de teste, a caixa acima libera a troca de datas, e o "
+                "descarte fica liberado aqui."
                 if modo_de_teste
                 else ""
             )
@@ -820,15 +822,24 @@ def _acoes_de_sempre(
         # ⚠️ Aprovar um CANDIDATO continua possivel: o `/proximos` nao o entrega,
         # entao ele nao esta em aparelho nenhum, e aprova-lo so evita um dia em
         # branco. (Desde 02/10/2026 nada nasce candidato; e o caso raro.)
-        if item.co_curadoria == "candidato":
-            return (
-                '<div class="caixa-acoes">'
-                f'<form class="acoes" method="post" action="{BASE}/aprovar">{oculto}'
-                '<button class="principal" type="submit">Aprovar</button></form>'
-                + nota_baixado
-                + "</div>"
-            )
-        return nota_baixado
+        aprovar = (
+            f'<form class="acoes" method="post" action="{BASE}/aprovar">{oculto}'
+            '<button class="principal" type="submit">Aprovar</button></form>'
+            if item.co_curadoria == "candidato"
+            else ""
+        )
+        # No modo de teste (so no `des`) a janela nao trava o descarte: espelho de
+        # `servico.descartar(modo_de_teste=True)`. Os outros atos daqui (trocar a
+        # data, tirar do calendario) continuam travados, e a troca mora na caixa
+        # de teste.
+        descartar = (
+            _form_descartar(oculto)
+            if modo_de_teste and item.co_curadoria != "descartado"
+            else ""
+        )
+        if not aprovar and not descartar:
+            return nota_baixado
+        return '<div class="caixa-acoes">' + aprovar + nota_baixado + descartar + "</div>"
 
     partes: list[str] = []
     if item.co_curadoria != "aprovado":
@@ -856,15 +867,24 @@ def _acoes_de_sempre(
                 f'{oculto}<button type="submit">Tirar do calendario</button></form>'
             )
     if item.co_curadoria != "descartado":
-        partes.append(
-            f'<form class="acoes" method="post" action="{BASE}/descartar">{oculto}'
-            '<input type="text" name="motivo" required maxlength="500" '
-            'placeholder="por que este nao serve (obrigatorio)">'
-            '<button class="perigo" type="submit">Descartar</button></form>'
-            '<p class="nota">Descartar tira o desafio do dia; a proxima geracao '
-            "tapa primeiro o buraco mais proximo.</p>"
-        )
+        partes.append(_form_descartar(oculto))
     return '<div class="caixa-acoes">' + "".join(partes) + "</div>"
+
+
+def _form_descartar(oculto: str) -> str:
+    """O formulario de descarte, com o motivo obrigatorio (RF-DES-012c).
+
+    Mora numa funcao porque aparece em dois lugares: nas acoes de sempre e, no
+    modo de teste, no dia que esta na janela baixada.
+    """
+    return (
+        f'<form class="acoes" method="post" action="{BASE}/descartar">{oculto}'
+        '<input type="text" name="motivo" required maxlength="500" '
+        'placeholder="por que este nao serve (obrigatorio)">'
+        '<button class="perigo" type="submit">Descartar</button></form>'
+        '<p class="nota">Descartar tira o desafio do dia; a proxima geracao '
+        "tapa primeiro o buraco mais proximo.</p>"
+    )
 
 
 def _momento_do_dia(dt_dia: Optional[date], dt_hoje: date) -> str:

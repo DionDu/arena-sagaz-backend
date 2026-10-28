@@ -148,7 +148,7 @@ class ServicoCuradoria:
         )
 
     async def _exigir_dia_nao_jogado(
-        self, id_desafio: UUID, dt_hoje: date, *, ato: str
+        self, id_desafio: UUID, dt_hoje: date, *, ato: str, modo_de_teste: bool = False
     ) -> None:
         """Recusa mexer no dia de um desafio que ja foi jogado (02/10/2026).
 
@@ -163,6 +163,11 @@ class ServicoCuradoria:
           · ⛔ **trocar a data e pior, porque o banco ACEITA**: o `UPDATE` move o
             vinculo, e as tentativas de quem jogou passam a pertencer a outro
             dia — o historico de cada pessoa mudaria de data sem nada acusar.
+
+        Args:
+            modo_de_teste: o painel do `des` (`modo_de_teste.py`). Nao libera
+                nada aqui: so troca o fim da mensagem do dia com tentativa, que
+                la tem conserto (o botao "Limpar resolucoes").
 
         Raises:
             ErroNegocio: o dia ja passou, ou ja tem tentativa hoje.
@@ -181,7 +186,11 @@ class ServicoCuradoria:
         if qt_tentativas:
             raise ErroNegocio(
                 f"{qt_tentativas} tentativa(s) ja foram feitas neste desafio hoje. "
-                f"Nao da para {ato} agora: tiraria o dia de quem esta jogando.",
+                + (
+                    f"Limpe as resolucoes dele antes de {ato}."
+                    if modo_de_teste
+                    else f"Nao da para {ato} agora: tiraria o dia de quem esta jogando."
+                ),
                 "dia_ja_jogado",
                 status_http=400,
             )
@@ -224,7 +233,7 @@ class ServicoCuradoria:
             )
 
     async def descartar(
-        self, id_desafio: UUID, *, motivo: str, dt_hoje: date
+        self, id_desafio: UUID, *, motivo: str, dt_hoje: date, modo_de_teste: bool = False
     ) -> ResultadoDaAcao:
         """Descarta com motivo, e **tira do calendario** se estava agendado.
 
@@ -236,6 +245,12 @@ class ServicoCuradoria:
                 e o de um dia que ja esta nos aparelhos (ver o bloco abaixo).
                 ⚠️ Obrigatorio desde 07/10/2026: opcional, um chamador que o
                 esquecesse passaria pelas duas guardas sem nada acusar.
+            modo_de_teste: o painel do `des` (`modo_de_teste.py`). Libera a
+                janela baixada, como no inverter e no esvaziar (pedido do dono,
+                27/10/2026: o descarte travava as viradas antigas do Quatro nos
+                proximos dias). ⛔ O dia passado e o de hoje com tentativa
+                continuam recusados. ⚠️ O padrao `False` e o lado seguro: quem
+                esquecer o argumento fica com a trava de producao.
 
         Raises:
             ErroNegocio: motivo vazio (RF-DES-012c), dia ja jogado, ou dia ja
@@ -245,8 +260,15 @@ class ServicoCuradoria:
 
         # ⛔ Dia ja jogado nao se descarta (ver `_exigir_dia_nao_jogado`), nem o
         # que ja esta nos aparelhos (ver `_exigir_fora_da_janela_baixada`).
-        await self._exigir_dia_nao_jogado(id_desafio, dt_hoje, ato="descartar")
-        await self._exigir_fora_da_janela_baixada(id_desafio, dt_hoje, ato="descartar")
+        # No modo de teste (so no `des`) a janela baixada nao vale: os aparelhos
+        # de teste sao do dono, que sabe o que descartou.
+        await self._exigir_dia_nao_jogado(
+            id_desafio, dt_hoje, ato="descartar", modo_de_teste=modo_de_teste
+        )
+        if not modo_de_teste:
+            await self._exigir_fora_da_janela_baixada(
+                id_desafio, dt_hoje, ato="descartar"
+            )
 
         # ⚠️ A ORDEM IMPORTA: desagendar primeiro deixaria uma janela em que o dia
         # esta livre e o desafio ainda aprovado. Descartar primeiro fecha a porta

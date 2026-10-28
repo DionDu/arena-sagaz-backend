@@ -16,8 +16,10 @@ producao (o porque de cada uma esta em `servico.py` e em
   2. **o que ja esta nos aparelhos** nao sai do dia dele;
   3. **ninguem apaga resolucao** - ela e a historia de quem jogou.
 
-No modo de teste, a 2 deixa de valer para trocar datas e esvaziar o
-calendario, e a 3 ganha um botao ("Limpar resolucoes"). ⛔ A 1 continua: um
+No modo de teste, a 2 deixa de valer para trocar datas, esvaziar o
+calendario e descartar (este desde o fim do mesmo dia: as viradas antigas do
+Quatro estavam nos proximos dias e nao saiam), e a 3 ganha um botao ("Limpar
+resolucoes"). ⛔ A 1 continua: um
 dia ja PASSADO nunca e tocado, e o dia de hoje com tentativa so se move
 depois de limpo.
 

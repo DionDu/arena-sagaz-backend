@@ -10763,3 +10763,28 @@ fonte Dart; e com o executável, a posição do desafio recusado agora reprova, 
 **Pendente.** Remedir a variante com a régua (`medir_variantes_do_editorial.py quatro
 --com-regua`), porque as posições aprovadas mudam; e descartar no painel as quatro viradas antigas
 do `des`.
+
+## 2026-10-27 (12) — No modo de teste do painel, a janela baixada também não trava o DESCARTE
+
+**Contexto.** Para tirar do `des` as viradas antigas do Quatro (entrada (11)), o dono tentou
+descartá-las e o painel recusou: *"O painel, mesmo no ambiente DES não está deixando eu descartar
+desafios"*. O modo de teste (entrada (4), `DECISOES-do-dono.md` §8zzzv) liberou a janela baixada
+para inverter datas e esvaziar, mas não para o descarte de um desafio só, e as viradas estavam
+nos próximos dias.
+
+**Decisão.** `ServicoCuradoria.descartar` ganha `modo_de_teste` (padrão `False`, o lado seguro):
+com ele, a guarda `_exigir_fora_da_janela_baixada` não roda. A rota passa
+`modo_de_teste_ligado()`, e a página mostra o formulário de descarte no dia da janela, com a nota
+dizendo que ele está liberado ali. Continuam valendo o dia passado (nunca se toca) e o de hoje com
+tentativa: a mensagem, no modo de teste, manda limpar as resoluções antes. Trocar a data e tirar
+do calendário, no dia da janela, continuam travados (a troca mora na caixa de teste).
+
+**Alternativas.** (a) Descartar pelo "Esvaziar de hoje em diante": recusada - leva junto os
+desafios bons dos outros tipos. (b) Descartar por SQL: recusada - escrita em dado é comando do
+dono, e o painel já tem o ato com motivo.
+
+**Testes.** `test_painel_troca_e_modo_de_teste.py` (+9): o serviço recusa na janela sem o modo e
+descarta com ele; hoje com tentativa manda limpar; o dia passado é recusado; a página oferece o
+descarte só no modo de teste, só ele, e mantém o "Aprovar" do candidato; e a rota passa o modo
+adiante. Mutações conferidas: sem o argumento na rota cai 1 caso; com a guarda sempre ligada
+caem 4.

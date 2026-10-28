@@ -432,7 +432,11 @@ async def descartar(
         campos = await campos_do_formulario(request)
         id_desafio = _uuid_do_formulario(campos)
         resultado = await servico.descartar(
-            id_desafio, motivo=campos.get("motivo", ""), dt_hoje=hoje_utc()
+            id_desafio,
+            motivo=campos.get("motivo", ""),
+            dt_hoje=hoje_utc(),
+            # No `des` a janela baixada nao trava o descarte (`modo_de_teste.py`).
+            modo_de_teste=modo_de_teste_ligado(),
         )
     except ErroNegocio as erro:
         return _voltar(erro.detalhe, erro=True, campos=campos)

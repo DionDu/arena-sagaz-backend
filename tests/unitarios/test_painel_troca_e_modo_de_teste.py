@@ -7,6 +7,8 @@ O que estes casos protegem, em uma frase cada:
     (no modo de teste, so a janela baixada cai; o dia passado e o dia com
     tentativa, nunca);
   · **limpar** so existe no modo de teste, e nunca toca dia passado;
+  · **descartar** no modo de teste ignora a janela baixada (pedido do dono,
+    27/10/2026), e continua recusando o dia passado e o de hoje com tentativa;
   · **esvaziar** descarta (nao apaga) do primeiro dia destravado em diante,
     com confirmacao e motivo exigidos pelo SERVICO, e nao so pelo HTML;
   · **a pagina** espelha cada regra (o botao aparece onde o servico aceita).
@@ -85,6 +87,12 @@ class RepoDoCalendario:
             ),
             key=lambda v: v.dt_dia,
         )
+
+    async def situacao_no_calendario(self, id_desafio: UUID) -> Optional[tuple[date, int]]:
+        """`(dia, tentativas)`, como o repositorio de verdade; e o que o descarte
+        pergunta antes de recusar (dia jogado, janela baixada)."""
+        vinculo = self.por_id.get(id_desafio)
+        return None if vinculo is None else (vinculo.dt_dia, vinculo.qt_tentativas)
 
     async def fim_da_janela_baixada(self, dt_hoje: date) -> date:
         return dt_hoje + timedelta(days=3)
@@ -405,6 +413,67 @@ async def test_tentativa_DEPOIS_da_janela_para_tudo_antes_de_escrever() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 4b. Descartar no modo de teste (27/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Um dia DENTRO da janela baixada (hoje + 2), e por isso travado no `prd`.
+NA_JANELA = HOJE + timedelta(days=2)
+
+
+@pytest.mark.asyncio
+async def test_descartar_na_JANELA_fora_do_modo_de_teste_e_recusado() -> None:
+    """🔒 A trava de producao: o dia pode estar num aparelho."""
+    alvo = _vinculo(NA_JANELA)
+    repo = RepoDoCalendario(alvo)
+    with pytest.raises(ErroNegocio) as erro:
+        await ServicoCuradoria(repo).descartar(
+            alvo.id_desafio, motivo="nao parece virada", dt_hoje=HOJE
+        )
+    assert erro.value.codigo == "dia_ja_baixado"
+    assert not repo.descartados and not repo.desagendados and not repo.commits
+
+
+@pytest.mark.asyncio
+async def test_descartar_na_JANELA_no_modo_de_teste_descarta_e_tira_do_dia() -> None:
+    """O pedido do dono: as viradas antigas do `des` estavam nos proximos dias."""
+    alvo = _vinculo(NA_JANELA)
+    repo = RepoDoCalendario(alvo)
+    resultado = await ServicoCuradoria(repo).descartar(
+        alvo.id_desafio, motivo="nao parece virada", dt_hoje=HOJE, modo_de_teste=True
+    )
+    assert repo.descartados == [(alvo.id_desafio, "nao parece virada")]
+    assert repo.desagendados == [alvo.id_desafio]
+    assert repo.commits == 1
+    assert resultado.mudou
+
+
+@pytest.mark.asyncio
+async def test_descartar_HOJE_com_tentativa_no_modo_de_teste_manda_limpar_antes() -> None:
+    """⛔ As tentativas apontam para o dia: o modo de teste diz o conserto."""
+    alvo = _vinculo(HOJE, tentativas=1)
+    repo = RepoDoCalendario(alvo)
+    with pytest.raises(ErroNegocio) as erro:
+        await ServicoCuradoria(repo).descartar(
+            alvo.id_desafio, motivo="x", dt_hoje=HOJE, modo_de_teste=True
+        )
+    assert erro.value.codigo == "dia_ja_jogado"
+    assert "Limpe as resolucoes" in erro.value.detalhe
+    assert not repo.descartados
+
+
+@pytest.mark.asyncio
+async def test_descartar_dia_PASSADO_e_recusado_mesmo_no_modo_de_teste() -> None:
+    alvo = _vinculo(HOJE - timedelta(days=1))
+    repo = RepoDoCalendario(alvo)
+    with pytest.raises(ErroNegocio) as erro:
+        await ServicoCuradoria(repo).descartar(
+            alvo.id_desafio, motivo="x", dt_hoje=HOJE, modo_de_teste=True
+        )
+    assert erro.value.codigo == "dia_ja_jogado"
+    assert not repo.descartados
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # 5. A pagina espelha as regras
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -474,6 +543,32 @@ def test_no_teste_o_dia_PASSADO_nao_ganha_caixa(com_modo_de_teste) -> None:
     assert "/inverter" not in html
 
 
+def test_fora_do_teste_o_dia_na_janela_NAO_oferece_descartar(sem_modo_de_teste) -> None:
+    html = _detalhe(_desafio(co_curadoria="aprovado", dt_dia=NA_JANELA))
+    assert f"{pagina.BASE}/descartar" not in html
+    assert "nao se descarta" in html
+
+
+def test_no_teste_o_dia_na_janela_oferece_DESCARTAR(com_modo_de_teste) -> None:
+    html = _detalhe(_desafio(co_curadoria="aprovado", dt_dia=NA_JANELA))
+    assert html.count(f"{pagina.BASE}/descartar") == 1
+    assert "o descarte fica liberado aqui" in html
+    # So o descarte: trocar a data e tirar do calendario continuam travados.
+    assert f"{pagina.BASE}/agendar" not in html
+    assert f"{pagina.BASE}/desagendar" not in html
+
+
+def test_no_teste_o_CANDIDATO_na_janela_oferece_aprovar_E_descartar(com_modo_de_teste) -> None:
+    html = _detalhe(_desafio(co_curadoria="candidato", dt_dia=NA_JANELA))
+    assert f"{pagina.BASE}/aprovar" in html
+    assert f"{pagina.BASE}/descartar" in html
+
+
+def test_no_teste_o_JA_DESCARTADO_nao_oferece_descartar_de_novo(com_modo_de_teste) -> None:
+    html = _detalhe(_desafio(co_curadoria="descartado", dt_dia=NA_JANELA))
+    assert f"{pagina.BASE}/descartar" not in html
+
+
 def test_a_faixa_do_MODO_DE_TESTE_so_aparece_nele(monkeypatch) -> None:
     monkeypatch.delenv(ENV_MODO_DE_TESTE, raising=False)
     assert "MODO DE TESTE" not in _pagina_inteira()
@@ -516,6 +611,30 @@ def test_inverter_volta_para_o_dia_de_DESTINO(cliente, monkeypatch) -> None:  # 
     assert resposta.status_code == 303
     assert f"dia={DEPOIS.isoformat()}" in resposta.headers["location"]
     assert "erro=1" not in resposta.headers["location"]
+
+
+@pytest.mark.parametrize("modo_de_teste", [False, True])
+def test_a_rota_de_descartar_passa_o_MODO_DE_TESTE(
+    cliente, monkeypatch, modo_de_teste  # noqa: F811
+) -> None:
+    """Sem o argumento na rota, o servico ficaria com a trava de producao no `des`."""
+    monkeypatch.setattr("api.desafios.painel.rotas.hoje_utc", lambda: HOJE)
+    if modo_de_teste:
+        monkeypatch.setenv(ENV_MODO_DE_TESTE, "1")
+        monkeypatch.setattr(configuracoes, "AMBIENTE", "desenvolvimento")
+    else:
+        monkeypatch.delenv(ENV_MODO_DE_TESTE, raising=False)
+    alvo = _vinculo(NA_JANELA)
+    repo = RepoDoCalendario(alvo)
+    app.dependency_overrides[obter_servico] = lambda: ServicoCuradoria(repo)
+    resposta = cliente.post(
+        "/painel/desafios/descartar",
+        headers=CABECALHOS,
+        content=f"id_desafio={alvo.id_desafio}&motivo=teste",
+    )
+    assert resposta.status_code == 303
+    assert ("erro=1" in resposta.headers["location"]) is not modo_de_teste
+    assert bool(repo.descartados) is modo_de_teste
 
 
 def test_limpar_sem_modo_de_teste_volta_com_ERRO(cliente, monkeypatch) -> None:  # noqa: F811
