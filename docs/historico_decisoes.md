@@ -10827,5 +10827,18 @@ e a memória do motor ficou estável em ~37 MB.
 
 **Testes.** `test_gerador_de_candidatos.py`: a virada tenta 120 posições e a diagonal 40 (contadas
 pela semente, com a prova trocada por uma que sempre recusa). `test_medidor_de_variantes.py`: o
-tipo do Quatro vai forçado, o do rodízio não, e `no-ar:quatro_virada` é aceito. ⬜ Falta a régua
-(`medir_variantes_do_editorial.py no-ar:quatro_virada --com-regua`), com o dono.
+tipo do Quatro vai forçado, o do rodízio não, e `no-ar:quatro_virada` é aceito.
+
+**Régua (rodada pelo dono em 28/10/2026, `medir_variantes_do_editorial.py no-ar:quatro_virada
+--com-regua`, dias 1 a 3 de outubro, 26 s):** ✅ **FOLGA** - 3 candidatos em cada um dos 3 dias, e
+a escada Pita < Tex < Magno em **3 de 3**. Vitórias em 10 partidas de cada mascote a partir da
+posição publicada (o adversário do dia é o que a régua não mede):
+
+| dia | adversário | candidato | Cacau | Pita | Tex | Magno |
+|---|---|---|---|---|---|---|
+| 01/10 | Pita | 1º de 3 | 1/10 | - | 8/10 | 9/10 |
+| 02/10 | Tex | 1º de 3 | 2/10 | 2/10 | - | 10/10 |
+| 03/10 | Magno | 2º de 3 | 0/10 | 2/10 | 5/10 | - |
+
+Solução média de 16,3 meios-lances. A Cacau fica entre 0 e 2 em 10: a virada é difícil para quem
+joga ao acaso, como o tipo pede. O banco pescado (alternativa (b)) não é necessário.
