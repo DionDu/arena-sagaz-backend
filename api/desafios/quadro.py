@@ -93,7 +93,12 @@ SELECT dia.id_desafio_dia,
        d.co_jogo,
        d.co_modalidade,
        d.co_formato_posicao,
-       d.js_posicao_inicial
+       d.js_posicao_inicial,
+       -- ⚠️ **E a LINHA DE CHEGADA** (T156 da spec 010, 28/10/2026): o replay
+       -- do Quatro realca o feito (a figura formada) na parada do objetivo, e
+       -- so a chegada diz QUAL figura o desafio pedia. Pelo mesmo motivo dos
+       -- quatro de cima: quem abre o Raio-X pelo quadro nao tem o desafio.
+       d.js_chegada
   FROM {VW_DESAFIO_DIA} dia
   JOIN {VW_DESAFIO} d
     ON d.id_desafio = dia.id_desafio
@@ -395,6 +400,11 @@ class ContextoDoQuadro:
     co_modalidade: Optional[str]
     co_formato_posicao: str
     js_posicao_inicial: Optional[dict[str, Any]]
+    #: A linha de chegada do desafio (`js_chegada`), servida no replay dos dois
+    #: ramos (T156 da spec 010): e nela que o aplicativo le a figura que o
+    #: "Forme a figura" pedia, para realca-la no Raio-X. ⚠️ Com padrao `None`
+    #: so para os duplos de teste que nao a usam; o repositorio sempre a le.
+    js_chegada: Optional[dict[str, Any]] = None
 
 
 class RepositorioQuadro:
@@ -423,6 +433,7 @@ class RepositorioQuadro:
             co_modalidade=linha["co_modalidade"],
             co_formato_posicao=linha["co_formato_posicao"],
             js_posicao_inicial=linha["js_posicao_inicial"],
+            js_chegada=linha["js_chegada"],
         )
 
     async def medicoes(self, id_desafio: UUID) -> list[dict[str, Any]]:

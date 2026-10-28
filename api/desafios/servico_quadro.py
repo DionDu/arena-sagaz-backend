@@ -382,7 +382,8 @@ class ServicoQuadro:
 
     @staticmethod
     def _de_onde_se_parte(contexto: ContextoDoQuadro) -> dict[str, Any]:
-        """O jogo, o regulamento e a posicao inicial — os campos do replay.
+        """O jogo, o regulamento, a posicao inicial e a linha de chegada — os
+        campos do replay.
 
         ⚠️ **Escrito uma vez porque os DOIS ramos o servem**: quem jogou e o
         gabarito comecam da mesma posicao, e e isso que permite comparar os dois
@@ -417,6 +418,14 @@ class ServicoQuadro:
             "formato_posicao": contexto.co_formato_posicao,
             "tabuleiro": tabuleiro,
             "posicao": posicao,
+            # ⚠️ **A linha de chegada, com o MESMO nome do desafio publicado**
+            # (`parametros`, T156 da spec 010, 28/10/2026). O Raio-X do Quatro
+            # realca a figura formada na parada do objetivo, como a partida
+            # realcou, e e daqui que o aplicativo sabe QUAL figura procurar - o
+            # mesmo juiz (`encontrarFigura`) sobre a mesma clausula. ⚠️ Campo
+            # ADITIVO: aplicativo antigo o ignora. Nao revela nada novo: o
+            # desafio publicado ja leva a chegada, e o replay so abre depois.
+            "parametros": contexto.js_chegada,
         }
 
     async def replay(

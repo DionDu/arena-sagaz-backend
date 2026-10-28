@@ -66,7 +66,11 @@ class RepoFalso:
         posicao_inicial=None,
         extrato=None,
         quem_reagiu=None,
+        chegada=None,
     ) -> None:
+        # A linha de chegada do desafio (`js_chegada`, T156): `None` nos casos
+        # que nao a olham.
+        self._chegada = chegada
         self._adversario = adversario
         # `{id_resolucao: [linhas do SQL_QUEM_REAGIU]}` - por resolucao, para o
         # duplo honrar o filtro como os irmaos de reacao honram o `ids`.
@@ -108,6 +112,7 @@ class RepoFalso:
             co_modalidade=self._modalidade,
             co_formato_posicao=self._formato_posicao,
             js_posicao_inicial=self._posicao_inicial,
+            js_chegada=self._chegada,
         )
 
     async def medicoes(self, id_desafio):
@@ -1399,6 +1404,84 @@ async def test_o_replay_diz_QUEM_foi_o_adversario():
 
 
 @pytest.mark.asyncio
+async def test_o_replay_leva_a_LINHA_DE_CHEGADA_nos_dois_ramos():
+    """⚠️ A chegada viaja no replay de quem jogou E no do gabarito (T156).
+
+    O Raio-X do Quatro realca a figura formada na parada do objetivo, e so a
+    chegada diz QUAL figura o "Forme a figura" pedia. Viaja com o nome do
+    desafio publicado (`parametros`), e o MESMO dicionario do banco: o
+    aplicativo o le com o leitor que ja tem.
+    """
+    chegada = {
+        "versao": 1,
+        "janela": {"tipo": "lances_do_jogador", "n": 4},
+        "clausulas": [
+            {"tipo": "figura", "desenho": ["X.X", ".X."], "espelhar": False}
+        ],
+    }
+    repo = RepoFalso(
+        minha=_minha(),
+        partida=_partida_de(jogo="quatro"),
+        gabarito={"js_solucao": {"lances": ["s4"]}, "nu_lances_solucao": 1},
+        jogo="quatro",
+        posicao_inicial={"lances": [], "vez_de": 1},
+        chegada=chegada,
+    )
+    servico = ServicoQuadro(repo)
+
+    de_quem_jogou = await servico.replay(
+        id_desafio=ID_DESAFIO, sujeito="eu", id_usuario=EU, agora=AGORA
+    )
+    do_gabarito = await servico.replay(
+        id_desafio=ID_DESAFIO,
+        sujeito="desafio",
+        id_usuario=None,
+        agora=ENCERRA + timedelta(minutes=1),
+    )
+
+    assert de_quem_jogou["parametros"] == chegada
+    assert do_gabarito["parametros"] == chegada
+
+
+@pytest.mark.asyncio
+async def test_o_repositorio_LE_a_chegada_da_linha_do_banco():
+    """🔒 O SQL pede `d.js_chegada`, e o repositorio a passa ao contexto (T156).
+
+    Os duplos acima nascem do `ContextoDoQuadro` pronto; sem este caso, um
+    `js_chegada` lido e esquecido no meio do caminho sairia como `None` no
+    replay - o Raio-X sem o contorno da figura, e nenhum erro.
+    """
+    from api.desafios.quadro import RepositorioQuadro, SQL_DIA_DO_DESAFIO
+
+    from tests.unitarios.fakes_desafio import FakeSessaoSQL
+
+    chegada = {"versao": 1, "janela": {"tipo": "partida"}, "clausulas": []}
+    linha = {
+        "id_desafio_dia": ID_DIA,
+        "dt_dia": None,
+        "dh_encerramento": ENCERRA,
+        "id_desafio": ID_DESAFIO,
+        "nu_tempo_piso_ms": 8_000,
+        "nu_tempo_teto_ms": 90_000,
+        "co_personagem": "tex",
+        "co_jogo": "quatro",
+        "co_modalidade": "tradicional",
+        "co_formato_posicao": "sequencia_lances",
+        "js_posicao_inicial": {"sequencia_lances": ["s4"], "vez_de": -1},
+        "js_chegada": chegada,
+    }
+    # O trecho que so a consulta do dia tem: a linha de chegada.
+    sessao = FakeSessaoSQL(respostas={"d.js_chegada": [linha]})
+
+    contexto = await RepositorioQuadro(sessao).contexto(ID_DESAFIO)
+
+    assert sessao.sql_executado("d.js_chegada")
+    assert sessao.executadas[0][0] == SQL_DIA_DO_DESAFIO
+    assert contexto is not None
+    assert contexto.js_chegada == chegada
+
+
+@pytest.mark.asyncio
 async def test_o_jogo_sai_do_DESAFIO_e_nao_da_partida():
     """⛔ Duas fontes para um fato so discordam em silencio.
 
@@ -1507,6 +1590,8 @@ def test_o_SQL_do_dia_traz_o_que_o_replay_passou_a_servir():
         "d.co_modalidade",
         "d.co_formato_posicao",
         "d.js_posicao_inicial",
+        # T156 da spec 010: a figura do "Forme a figura" mora na chegada.
+        "d.js_chegada",
     ):
         assert coluna in SQL_DIA_DO_DESAFIO, coluna
 

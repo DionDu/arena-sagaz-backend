@@ -10842,3 +10842,34 @@ posição publicada (o adversário do dia é o que a régua não mede):
 
 Solução média de 16,3 meios-lances. A Cacau fica entre 0 e 2 em 10: a virada é difícil para quem
 joga ao acaso, como o tipo pede. O banco pescado (alternativa (b)) não é necessário.
+
+## 2026-10-28 — O replay serve a linha de chegada: o Raio-X do Quatro realça o feito (T156 da spec 010)
+
+**Contexto.** O dono formou o losango num "Forme a figura" (28/10/2026, `DECISOES-do-dono.md`
+§8zzzz item 2): na partida o losango ficou contornado, e no Raio-X (T153) a parada do objetivo
+mostrava só o tabuleiro com o aro da última peça. O app sabe achar a figura (`encontrarFigura`, o
+juiz comum, T149) e sabe em que parada o objetivo caiu (`nu_lance_objetivo`), mas não sabia QUAL
+figura o desafio pedia: a resposta do replay não trazia a linha de chegada, e o Raio-X abre por
+portas que não têm o desafio em mãos (o quadro, o histórico, a notificação) - o mesmo motivo que
+já tinha trazido a modalidade (18/09) e o personagem (T085m).
+
+**Decisão.** `_de_onde_se_parte` (`api/desafios/servico_quadro.py`), que monta os campos comuns
+aos dois ramos do replay, passa a servir **`parametros`**: o `js_chegada` do desafio, com o MESMO
+nome do desafio publicado, lido por `SQL_DIA_DO_DESAFIO` (`d.js_chegada`, da
+`desafio.vw001_desafio`) e guardado em `ContextoDoQuadro.js_chegada`. O app o lê com o leitor que
+já tinha (`LinhaDeChegada.doJson`). Campo ADITIVO: app antigo o ignora; app novo com servidor antigo
+fica sem o contorno da figura (a linha da vitória continua, porque sai da partida). Não revela nada:
+o desafio publicado já leva a chegada, e o replay só abre depois de a trava de spoiler soltar.
+
+No gabarito, a parada do feito é o `lance_chave` do `js_solucao` (que o replay já servia dentro de
+`lances`): o `nu_lance_objetivo` dele continua `None`, de propósito (sem estrela na barra).
+
+**Alternativas.** (a) Servir só o desenho da figura (`figura`): recusada - uma forma reduzida
+própria desta rota, e o app teria um segundo leitor; com a chegada inteira, uma cláusula nova do
+mesmo tipo chega sem mudar o servidor. (b) O app buscar o desafio pelo id antes de montar o
+replay: recusada - mais uma ida à rede por porta, e o histórico olha um dia que o app não guarda.
+(c) O servidor achar a figura e mandar as casas: recusada - seria a terceira escrita da busca da
+figura (já são duas, Dart e Python, presas por vetores), e o app é quem desenha.
+
+**Testes.** `test_quadro_do_dia.py` (+1: `test_o_replay_leva_a_LINHA_DE_CHEGADA_nos_dois_ramos`; e
+`d.js_chegada` entrou no cadeado das colunas do `SQL_DIA_DO_DESAFIO`). O app, mesma data, no front.
