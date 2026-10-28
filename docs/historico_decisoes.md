@@ -10664,3 +10664,38 @@ genérica (no app e no painel). No `des`, gerar de novo a sequência depois do p
 toda variante) e `test_frases_objetivo.py` (+12: o nome sai, o código composto, ausente /
 desconhecido / não-texto caem na genérica, a cópia sem a frase nomeada, só o "Forme a figura"
 troca, o PascalCase, a chave igual à do job, toda figura no ar com nome na cópia).
+
+## 2026-10-27 (9) — O Raio-X do Quatro: o servidor entrega os lances (T153 da spec 010)
+
+**Contexto.** Quem resolvia um desafio do Quatro e abria o Raio-X não via a partida. O
+`SQL_LANCES` (`api/desafios/quadro.py`) juntava só as extensões do Pontinhos e das damas, e para
+o Quatro o `co_lance` vinha `NULL`; o raio-x do painel, que lê o mesmo SQL
+(`painel/estatisticas.py`), ficava sem quadros pelo mesmo motivo. O dono decidiu que é
+imprescindível na 1.4.0 (`DECISOES-do-dono.md` §8zzzx).
+
+**Decisão.**
+
+1. **O `SQL_LANCES` junta `jogo_quatro.vw002_jogada`** (a VIEW, que já traz o tipo por extenso) e
+   escreve o lance na notação do motor: a letra do tipo colada na coluna (`'s' || 4` = `s4`), a
+   forma do gabarito e da posição publicada. O mesmo tocador serve aos três sujeitos, e o painel
+   não precisou mudar.
+2. **A letra mora em `LETRA_DO_TIPO_DE_LANCE_QUATRO`** (`{"soltar": "s"}`), e o `CASE` do SQL é
+   montado dele. A fonte da verdade continua o contrato (`tipos_de_lance`); o dicionário existe
+   porque `api/` não importa `motores/`. O cadeado `test_a_letra_do_lance_do_quatro_e_a_do_contrato`
+   compara os dois e exige uma letra por tipo em todas as modalidades (o log guarda o tipo, e não a
+   modalidade junto).
+3. **Tipo sem letra sai `NULL`** (o sentinela `desconhecido` do ingestor): o `||` com `NULL` dá
+   `NULL`, nunca um `4` sem tipo, e o app recusa o replay em que falta um lance.
+
+**Alternativas.** (a) Montar o texto em Python, depois da consulta, lendo o contrato pelos motores:
+recusada - o SQL tem dois consumidores (o Raio-X e o painel), e a API passaria a depender da camada
+dos motores; (b) uma coluna `co_letra` na dimensão `tb903_tipo_lance`: recusada - migração para
+um dado que o contrato já tem, e que passaria a existir em dois lugares sem cadeado; (c) servir
+`co_tipo_lance` e `nu_coluna` separados e o app montar: recusada - o app teria de saber de onde
+veio cada lance, que é o `if` por sujeito que `lance_do_replay.dart` existe para evitar.
+
+**Conferido no `des`** (somente leitura, `consultar_des.py`): a partida de desafio do Quatro mais
+recente devolveu os 12 lances, `s2`, `s1`, `s1`, `s4`..., em ordem.
+
+**Testes.** `test_quadro_do_dia.py` (+2: o `JOIN` com a VIEW e a letra no `co_lance`; a letra é a
+do contrato). O app ganhou o `case 'quatro'` em `replayDoHub` (front, mesma data).

@@ -276,11 +276,58 @@ SELECT r.id_resolucao, r.id_usuario, r.id_partida, p.co_jogo,
    AND r.id_usuario = :id_usuario
 """
 
+#: A LETRA de cada tipo de lance do Quatro, na notacao do motor (`s4` e
+#: "soltar na coluna 4") - T153 da spec 010.
+#:
+#: ⚠️ **O log do Quatro nao guarda o lance escrito**: guarda o tipo por extenso
+#: (`co_tipo_lance`, `'soltar'`) e a coluna (`nu_coluna`, a partir de 1), em
+#: duas colunas. O replay, o gabarito (`js_solucao`) e a posicao publicada falam
+#: a notacao do motor, e e aqui que as duas colunas voltam a ser um texto.
+#:
+#: ⚠️ **A fonte da verdade e o contrato** (`tipos_de_lance` de cada
+#: modalidade, `contratos/contrato_quatro.json`), e nao este dicionario. Ele
+#: existe porque `api/` nao importa `motores/` (a camada dos motores e irma, e
+#: nao dependencia, da API); o cadeado
+#: `test_a_letra_do_lance_do_quatro_e_a_do_contrato` compara os dois e falha
+#: no dia em que uma modalidade nova trouxer um tipo (a Pop Out, com "tirar").
+#:
+#: Tipo fora daqui (o sentinela `desconhecido` do ingestor) sai sem letra: o
+#: `co_lance` vem `NULL`, e o app recusa o replay com o buraco (a ordem dos
+#: lances deixa de ser seguida), em vez de reproduzir uma partida errada.
+LETRA_DO_TIPO_DE_LANCE_QUATRO: dict[str, str] = {"soltar": "s"}
+
+# O `CASE` que traduz o tipo por extenso na letra, montado do dicionario acima
+# para que a letra exista num lugar so: `CASE q.co_tipo_lance WHEN 'soltar'
+# THEN 's' END`. Os valores sao constantes do codigo (nunca dado de fora), e
+# por isso podem entrar no texto do SQL sem parametro.
+_LETRA_DO_LANCE_QUATRO_SQL = (
+    "CASE q.co_tipo_lance "
+    + " ".join(
+        f"WHEN '{tipo}' THEN '{letra}'"
+        for tipo, letra in LETRA_DO_TIPO_DE_LANCE_QUATRO.items()
+    )
+    + " END"
+)
+
 #: Os lances de um replay, no vocabulario do log. Mesma forma da auditoria.
-SQL_LANCES = """
+#:
+#: ⚠️ **Um `LEFT JOIN` por jogo, e o `co_lance` e o primeiro que nao vier
+#: nulo** (`COALESCE`): cada jogada mora na extensao de UM jogo, e as outras
+#: duas linhas do `JOIN` vem vazias. O Quatro entrou na T153: antes dela o
+#: `co_lance` dele vinha `NULL`, e o Raio-X do app e o do painel abriam sem
+#: partida nenhuma.
+#:
+#: No Quatro a letra e a coluna se juntam (`'s' || 4` = `s4`): o `||` do
+#: Postgres converte o inteiro em texto, e com a letra `NULL` o resultado
+#: inteiro e `NULL` (nunca um `4` sem tipo).
+SQL_LANCES = f"""
 SELECT j.nu_ordem,
        j.nu_jogador,
-       COALESCE(p.co_aresta, dm.co_lance) AS co_lance,
+       COALESCE(
+           p.co_aresta,
+           dm.co_lance,
+           ({_LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna
+       ) AS co_lance,
        -- ⚠️ **A POSICAO ANTES DAQUELE LANCE** (T074a), e so as damas a gravam.
        -- Ela e o que torna o replay TRUNCADO possivel (RF-DES-039): com o
        -- comeco da partida cortado, ⛔ nao ha posicao inicial de onde reproduzir
@@ -295,6 +342,9 @@ SELECT j.nu_ordem,
   FROM partida.tb002_jogada j
   LEFT JOIN jogo_pontinhos.tb002_jogada p ON p.id_jogada = j.id_jogada
   LEFT JOIN jogo_damas.tb002_jogada dm    ON dm.id_jogada = j.id_jogada
+  -- A VIEW, e nao a tabela: e ela que traz o tipo por extenso (o JOIN com a
+  -- dimensao `tb903_tipo_lance` ja esta la dentro).
+  LEFT JOIN jogo_quatro.vw002_jogada q    ON q.id_jogada = j.id_jogada
  WHERE j.id_partida = :id_partida
  ORDER BY j.nu_ordem ASC
 """

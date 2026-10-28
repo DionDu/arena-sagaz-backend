@@ -1454,6 +1454,49 @@ def test_o_SQL_dos_lances_traz_a_posicao_ANTES_de_cada_um():
     assert "dm.co_fen_antes" in SQL_LANCES
 
 
+def test_o_SQL_dos_lances_junta_as_jogadas_do_QUATRO():
+    """🔒 T153 da spec 010: sem o `JOIN` com o Quatro, o `co_lance` dele vem
+    `NULL`, e o Raio-X (do app e do painel) abre sem partida nenhuma - que era
+    o estado ate 27/10/2026, e nada denunciava.
+
+    ⚠️ O lance sai na notacao do motor (`s4`): a letra do tipo colada na
+    coluna. E a forma do gabarito e da posicao publicada, e e por isso que o
+    mesmo tocador de replay serve aos tres.
+    """
+    from api.desafios.quadro import SQL_LANCES
+
+    # A VIEW (regra do ecossistema), e nao a tabela.
+    assert "LEFT JOIN jogo_quatro.vw002_jogada q" in SQL_LANCES
+    # A letra do tipo e a coluna, juntas no `COALESCE` do `co_lance`.
+    assert "WHEN 'soltar' THEN 's'" in SQL_LANCES
+    assert "|| q.nu_coluna" in SQL_LANCES
+
+
+def test_a_letra_do_lance_do_quatro_e_a_do_contrato():
+    """🔒 O dicionario da API e a COPIA do contrato do Quatro, e o contrato manda.
+
+    `api/` nao importa `motores/`, e por isso a letra mora duas vezes; este
+    caso compara as duas. Uma modalidade nova com um tipo novo (a Pop Out, que
+    tira peca) falha aqui, e nao no Raio-X de quem jogou, onde o lance dela
+    sairia `NULL`.
+
+    ⚠️ E confere tambem que um tipo tem UMA letra em todas as modalidades: o
+    log guarda o tipo por extenso, e nao a modalidade junto, entao duas letras
+    para o mesmo tipo nao teriam como ser escritas de volta.
+    """
+    from api.desafios.quadro import LETRA_DO_TIPO_DE_LANCE_QUATRO
+    from motores.quatro.contrato_quatro import modalidades_declaradas, tipos_de_lance
+
+    do_contrato: dict[str, str] = {}
+    for modalidade in modalidades_declaradas():
+        # O contrato vai da letra ao tipo (`{"s": "soltar"}`); aqui, o inverso.
+        for letra, tipo in tipos_de_lance(modalidade).items():
+            assert do_contrato.setdefault(tipo, letra) == letra, (
+                f"o tipo {tipo!r} tem duas letras no contrato"
+            )
+    assert LETRA_DO_TIPO_DE_LANCE_QUATRO == do_contrato
+
+
 def test_o_SQL_do_dia_traz_o_que_o_replay_passou_a_servir():
     """🔒 Sem estas quatro colunas, o servico leria dados que **existem** como
     `None` — e a tela abriria sem tabuleiro nenhum, ⛔ sem erro nenhum."""
