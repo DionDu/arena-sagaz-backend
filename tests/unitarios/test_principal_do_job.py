@@ -19,7 +19,7 @@ T034, com geracao de verdade e `scope="module"`.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -1624,3 +1624,76 @@ def test_DIAS_A_COBRIR_dentro_da_folga_e_aceito(monkeypatch, bruto, esperado) ->
     """🔒 Os extremos da folga valem, e o espaco em volta e tolerado."""
     monkeypatch.setenv(principal_mod.ENV_DIAS_A_COBRIR, bruto)
     assert principal_mod.dias_a_cobrir_configurados() == esperado
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔒 O "HOJE" DO JOB E O DIA UTC, e nao o do computador (27/10/2026)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# > *"O painel de curadoria dos desafios considera `Hoje` utilizando fuso horario
+# > do meu PC, enquanto o App (que esta correto) considera o fuso em Greenwich."*
+# > — o dono, 27/10/2026
+#
+# ⚠️ A pagina do painel ja usava UTC; quem lia o relogio do PC era o JOB, que o
+# botao "Gerar desafios" roda na maquina do dono: `date.today()`.
+
+
+def test_hoje_utc_as_21h30_de_BRASILIA_ja_e_o_dia_SEGUINTE() -> None:
+    """🔒 O caso que o dono viu: noite em Brasilia, madrugada em Greenwich.
+
+    ⚠️ `timezone(timedelta(hours=-3))` e o fuso de Brasilia escrito como
+    deslocamento fixo - o mesmo jeito de `api/desafios/painel/datas.py`.
+    """
+    brasilia = timezone(timedelta(hours=-3))
+    noite_em_brasilia = datetime(2026, 10, 27, 21, 30, tzinfo=brasilia)
+
+    assert principal_mod.hoje_utc(noite_em_brasilia) == date(2026, 10, 28), (
+        "21h30 de 27/10 em Brasilia e 00h30 de 28/10 em UTC: o job tem de "
+        "chamar de hoje o dia 28, o mesmo do app."
+    )
+    # O outro lado da fronteira: 20h59 ainda e 23h59 em UTC, o mesmo dia.
+    assert principal_mod.hoje_utc(
+        datetime(2026, 10, 27, 20, 59, tzinfo=brasilia)
+    ) == date(2026, 10, 27)
+
+
+def test_hoje_utc_sem_argumento_le_o_relogio_EM_UTC() -> None:
+    """🔒 Sem instante, a conta e a do relogio em UTC - e nao `date.today()`.
+
+    ⚠️ As duas leituras do relogio podem cair em lados opostos da meia-noite
+    UTC; por isso o caso aceita o dia de antes e o de depois da chamada.
+    """
+    antes = datetime.now(timezone.utc).date()
+    dia = principal_mod.hoje_utc()
+    depois = datetime.now(timezone.utc).date()
+
+    assert dia in (antes, depois)
+
+
+@pytest.mark.asyncio
+async def test_executar_sem_dt_hoje_usa_o_hoje_UTC(monkeypatch) -> None:
+    """🔒 `executar()` sem `dt_hoje` (o Railway e o painel local) pergunta ao `hoje_utc`.
+
+    ⚠️ O dia falso fica longe do calendario real (2026-09-20): se o job voltasse a
+    ler outro relogio, os dias planejados sairiam perto de hoje, e nao dele.
+    """
+    dia_falso = date(2026, 9, 20)
+    monkeypatch.setattr(principal_mod, "hoje_utc", lambda: dia_falso)
+
+    relatorio = await principal_mod.executar(
+        _sessao_com_fila([]),
+        gerar=_gerar_um,
+        bancada_de=lambda _c: _Bancada(),
+        alvo=BANDA_LARGA,
+        nu_execucoes_da_regua=1,
+    )
+
+    assert relatorio.segundos_por_dia, "nenhum dia foi planejado"
+    # As chaves podem vir como `date` ou como texto ISO: o `str()` iguala as duas.
+    primeiro = min(str(dia) for dia in relatorio.segundos_por_dia)
+    assert primeiro >= dia_falso.isoformat(), (
+        f"o job planejou {primeiro}, antes do 'hoje' que recebeu ({dia_falso})"
+    )
+    assert primeiro <= (dia_falso + timedelta(days=DIAS_MINIMOS)).isoformat(), (
+        f"o job planejou a partir de {primeiro}: nao leu o hoje_utc"
+    )

@@ -10699,3 +10699,27 @@ recente devolveu os 12 lances, `s2`, `s1`, `s1`, `s4`..., em ordem.
 
 **Testes.** `test_quadro_do_dia.py` (+2: o `JOIN` com a VIEW e a letra no `co_lance`; a letra é a
 do contrato). O app ganhou o `case 'quatro'` em `replayDoHub` (front, mesma data).
+
+## 2026-10-27 (10) — O "hoje" do job é o dia UTC, e não o do computador
+
+**Contexto.** O dono relatou: *"O painel de curadoria dos desafios considera `Hoje` utilizando
+fuso horário do meu PC, enquanto o App (que está correto) considera o fuso em Greenwich."* A
+página do painel já usava UTC (`hoje_utc` em `api/desafios/painel/rotas.py`; conferido às 21h03
+de Brasília, ela dizia 28/10). Quem lia o relógio do PC era o **job**: `executar()` fazia
+`dt_hoje = dt_hoje or date.today()`, e o docstring prometia "em UTC". No Railway as duas contas
+coincidem (o fuso do container é UTC); no botão "Gerar desafios" do painel local, que roda o job
+na máquina do dono (UTC-3), das 21h à meia-noite o job planejava os dias e compactava a fila a
+partir de **ontem**.
+
+**Decisão.** `job/__main__.py` ganha `hoje_utc(agora=None)`: o instante convertido para UTC e só
+então a data. `executar()` sem `dt_hoje` pergunta a ela. O parâmetro `agora` existe para o teste
+fingir "21h30 em Brasília" sem congelar o relógio do processo.
+
+**Alternativas.** (a) Fixar `TZ=UTC` no `painel-local.cmd` e no supervisor do pórtico: recusada -
+conserta um caminho de execução e deixa o defeito para o próximo (`rodar_job_local.py` direto do
+PowerShell), e esconde a dependência; (b) importar o `hoje_utc` do painel: recusada - `job/` não
+importa de `api/desafios/painel/`, e são duas linhas.
+
+**Testes.** `test_principal_do_job.py` (+3): 21h30 de 27/10 em Brasília é 28/10 e 20h59 ainda é
+27/10; sem argumento, o relógio em UTC; e `executar()` sem `dt_hoje` planeja a partir do que o
+`hoje_utc` devolveu. Mutação conferida: com `date.today()` de volta, o terceiro cai.

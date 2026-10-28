@@ -65,7 +65,7 @@ import sys
 import time
 import traceback
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional, Sequence
 
 from . import adocao as adocao_mod
@@ -999,6 +999,31 @@ async def _compactar_a_fila(
         print(f"[job] fila compactada: {compactar_mod.resumo(mudancas)}")
 
 
+def hoje_utc(agora: Optional[datetime] = None) -> date:
+    """O dia corrente **em UTC** - o mesmo dia que o app e o painel chamam de hoje.
+
+    ⚠️ **Nao e `date.today()`**, e o motivo apareceu em 27/10/2026: `date.today()`
+    le o relogio no fuso do **computador**. No Railway o fuso e UTC e as duas
+    contas coincidem; mas o botao "Gerar desafios" do painel local roda o job no
+    PC do dono, em Brasilia (UTC-3), e das 21h a meia-noite o job achava que
+    ainda era ONTEM - enquanto o app e o painel (`api/desafios/painel/rotas.py`,
+    `hoje_utc`) ja estavam no dia seguinte. O dia do desafio e o dia UTC (ver
+    `api/desafios/repositorio.py`), e o job e quem o grava.
+
+    Args:
+        agora: o instante a converter, com fuso. `None` le o relogio. ⚠️ Existe
+            para o teste fingir "21h30 em Brasilia" sem mexer no relogio do
+            processo inteiro.
+
+    Returns:
+        A data do instante, vista em UTC.
+    """
+    # `astimezone(timezone.utc)` reescreve o instante no fuso UTC: 21h30 de 27/10
+    # em Brasilia vira 00h30 de 28/10, e o `.date()` pega so o dia dessa leitura.
+    momento = agora if agora is not None else datetime.now(timezone.utc)
+    return momento.astimezone(timezone.utc).date()
+
+
 async def executar(
     sessao: Any,
     *,
@@ -1014,8 +1039,9 @@ async def executar(
 
     Args:
         sessao: a sessao do banco.
-        dt_hoje: o dia da execucao. `None` usa a data de hoje — ⚠️ **em UTC**,
-            que e o fuso do Railway, e e o mesmo que decide `dt_dia`.
+        dt_hoje: o dia da execucao. `None` usa a data de hoje — ⚠️ **em UTC**
+            (`hoje_utc`), que e o fuso que decide `dt_dia`, e nao o do
+            computador onde o job roda.
         gerar: a funcao de geracao, injetavel para teste.
         nu_execucoes_da_regua: quantas vezes cada mascote tenta.
         frequencias_forcadas: a faixa de cada jogo novo, no lugar da adocao
@@ -1046,7 +1072,7 @@ async def executar(
     o motivo no log, e a execucao segue: seis dias publicados e um com defeito e
     muito melhor que sete dias sem nada porque o quarto tinha uma posicao torta.
     """
-    dt_hoje = dt_hoje or date.today()
+    dt_hoje = dt_hoje or hoje_utc()
     relatorio = Relatorio()
     repositorio = RepositorioDoJob(sessao)
 
