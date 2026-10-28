@@ -10723,3 +10723,43 @@ importa de `api/desafios/painel/`, e são duas linhas.
 **Testes.** `test_principal_do_job.py` (+3): 21h30 de 27/10 em Brasília é 28/10 e 20h59 ainda é
 27/10; sem argumento, o relógio em UTC; e `executar()` sem `dt_hoje` planeja a partir do que o
 `hoje_utc` devolveu. Mutação conferida: com `date.today()` de volta, o terceiro cai.
+
+## 2026-10-27 (11) — A virada do Quatro tem de PARECER perdida à vista (ameaça a mais e heurística de uma ameaça)
+
+**Contexto.** O dono recusou no painel o desafio de virada de 28/10 no `des` (174ed86e,
+`s4s5s4s4s1s5s4s5s5s3s6s4s6`): a Cacau não parecia estar ganhando. A prova
+(`ProvadorQuatro.virada`) pedia só a heurística abaixo de zero para a pessoa. Com a vez da
+pessoa, o adversário tem quase sempre uma peça a mais, e a heurística sai a favor dele por poucos
+pontos: aquela posição deu +2 para a Cacau, sem ameaça de nenhum lado. As outras três viradas do
+`des` davam +11, +20 e +22, nenhuma com o valor de uma ameaça na linha certa (32). A régua as
+aprovou porque mede a dificuldade, e não a premissa.
+
+**Decisão** (dono, `DECISOES-do-dono.md` §8zzzy: *"precisa ficar visualmente claro para o
+usuário que ele está em clara desvantagem"*). A virada pede, antes da busca:
+
+1. o adversário com **mais casas de ameaça** que a pessoa (`feitos_quatro.casas_de_ameaca`,
+   todas as casas vazias, e não só as jogáveis);
+2. a heurística a favor dele de pelo menos `LIMIAR_DA_VIRADA` = `PESO_AMEACA_NA_PARIDADE` = 32,
+   espelho de `pesoAmeacaNaParidadeQuatro` (um teste lê o fonte Dart).
+
+As duas contas são baratas e vêm antes da busca; os `dados` da prova levam as duas contagens.
+
+**Medido no acervo de autoplay (5.707 posições distintas com 12 lances ou mais).** A aparência
+antiga: 3.232. A nova: 1.224 (870 tinham a ameaça a mais sem a heurística, 30 o contrário). Com a
+vitória forçada da pessoa provada: 184, das quais 22 vencem no 1º lance e o gerador já as
+descarta (`vitoria_imediata_quatro`). Sobram ~160, ~2,8% do acervo: com 40 × 3 tentativas, ~3
+candidatos por dia de virada.
+
+**Alternativas.** (a) Só subir o limiar da heurística: recusada - a heurística soma a posição das
+peças, que a pessoa não enxerga; a ameaça é o que se vê. (b) A pessoa sem ameaça nenhuma: a mais
+clara, mas deixa 50 posições (~0,9%), ~1 por 120 tentativas, com o risco de dia sem virada.
+Fica como o próximo passo se as aprovadas ainda não parecerem claras.
+
+**Testes.** `test_provas_quatro.py`: sem ameaça a mais recusa antes da busca (inclusive com as
+ameaças empatadas); o limite 31/32; a aparência sem vitória provada reprova; o limiar é o peso do
+fonte Dart; e com o executável, a posição do desafio recusado agora reprova, e a nova
+`VIRADA_A_VISTA` (5 ameaças contra 1, -63, vence em 3) passa.
+
+**Pendente.** Remedir a variante com a régua (`medir_variantes_do_editorial.py quatro
+--com-regua`), porque as posições aprovadas mudam; e descartar no painel as quatro viradas antigas
+do `des`.

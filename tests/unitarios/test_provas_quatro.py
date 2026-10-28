@@ -181,14 +181,77 @@ def test_unica_coluna_com_uma_coluna_INDECISA_reprova() -> None:
     assert prova.dados == {"salvam": ["s1"], "perdem": []}
 
 
-def test_virada_com_heuristica_ZERO_nao_e_virada() -> None:
-    """Zero não favorece ninguém: a posição não parece do adversário."""
-    provador = pq.ProvadorQuatro(MODALIDADE, _DuploPorPosicao({"s4s4": 990}, heuristica=0))
-    prova = provador.virada(_estado("s4s4"))
-    assert not prova.passou and "não favorece" in prova.motivo
-    # O controle: a mesma posição, com a heurística contra, passa.
-    provador = pq.ProvadorQuatro(MODALIDADE, _DuploPorPosicao({"s4s4": 990}, heuristica=-1))
-    assert provador.virada(_estado("s4s4")).passou
+#: O jogador 1 com três peças no chão (colunas 1 a 3) e o 2 com duas na coluna
+#: 7; a vez é do 2. O adversário (o 1) ameaça a casa (4, 1); a pessoa, nada.
+ADVERSARIO_AMEACA = "s1s7s2s7s3"
+#: Os dois com três no chão, de lados opostos, e os dois ameaçando a MESMA casa
+#: (4, 1): uma ameaça para cada lado. A vez é do 1.
+AMEACAS_EMPATADAS = "s1s7s2s6s3s5"
+
+
+def test_virada_sem_ameaca_a_mais_do_adversario_nao_e_virada() -> None:
+    """A heurística dando tudo ao adversário não basta: a pessoa tem de VER a
+    desvantagem. Em `s4s4` ninguém ameaça nada, e com as ameaças empatadas a
+    posição também não parece perdida.
+
+    ⚠️ Com o critério antigo (só a heurística abaixo de zero) as duas passavam -
+    era o caso do desafio de 28/10/2026, publicado com +2 para a Cacau e nenhuma
+    ameaça no tabuleiro.
+    """
+    for sequencia in ("s4s4", AMEACAS_EMPATADAS):
+        # Heurística de 500 a favor do adversário, do lado que for: só as ameaças
+        # podem recusar. O sinal sai de quem joga (`vez_de`), para não supor.
+        quem = MotorQuatro(MODALIDADE).vez_de(_estado(sequencia))
+        duplo = _DuploPorPosicao({sequencia: quem * 990}, heuristica=-quem * 500)
+        prova = pq.ProvadorQuatro(MODALIDADE, duplo).virada(_estado(sequencia))
+        assert not prova.passou and "não tem mais ameaças" in prova.motivo, sequencia
+        # As contas baratas recusam ANTES da busca: nenhuma pergunta foi feita.
+        assert duplo.perguntas == [], sequencia
+    empatadas = pq.ProvadorQuatro(
+        MODALIDADE, _DuploPorPosicao({}, heuristica=500)
+    ).virada(_estado(AMEACAS_EMPATADAS))
+    assert empatadas.dados == {"ameacas_adversario": 1, "ameacas_pessoa": 1}
+
+
+def test_virada_pede_a_heuristica_de_UMA_AMEACA_e_o_limite_entra() -> None:
+    """Com a ameaça a mais do adversário, a heurística ainda precisa dar a ele o
+    peso de uma ameaça na linha certa: 31 recusa, 32 passa.
+
+    A vez é do jogador 2 (a pessoa); a heurística vem do ponto de vista do 1,
+    então um valor POSITIVO é a vantagem do adversário.
+    """
+    vitoria_da_pessoa = {ADVERSARIO_AMEACA: -990}
+    quase = pq.ProvadorQuatro(
+        MODALIDADE, _DuploPorPosicao(vitoria_da_pessoa, heuristica=pq.LIMIAR_DA_VIRADA - 1)
+    ).virada(_estado(ADVERSARIO_AMEACA))
+    assert not quase.passou and "vantagem de uma ameaça" in quase.motivo
+    no_limite = pq.ProvadorQuatro(
+        MODALIDADE, _DuploPorPosicao(vitoria_da_pessoa, heuristica=pq.LIMIAR_DA_VIRADA)
+    ).virada(_estado(ADVERSARIO_AMEACA))
+    assert no_limite.passou
+    assert no_limite.dados["ameacas_adversario"] == 1
+    assert no_limite.dados["ameacas_pessoa"] == 0
+    assert no_limite.dados["heuristica"] == -pq.LIMIAR_DA_VIRADA
+
+
+def test_virada_que_so_parece_perdida_sem_vitoria_provada_reprova() -> None:
+    """As duas aparências fecham, e a busca não decide: não é virada."""
+    prova = pq.ProvadorQuatro(
+        MODALIDADE, _DuploPorPosicao({}, heuristica=500)
+    ).virada(_estado(ADVERSARIO_AMEACA))
+    assert not prova.passou and "não foi provada" in prova.motivo
+
+
+def test_o_limiar_da_virada_e_o_peso_de_ameaca_do_fonte_dart() -> None:
+    """Mudou o peso em `heuristica_quatro.dart`? O limiar passa a medir outra coisa."""
+    fonte = (
+        contrato_quatro.ESPELHO / "jogos" / "jogo_quatro" / "motor_dart" / "lib"
+        / "heuristica_quatro.dart"
+    ).read_text(encoding="utf-8")
+    achado = re.search(r"const int pesoAmeacaNaParidadeQuatro = ([^;]+);", fonte)
+    assert achado, "pesoAmeacaNaParidadeQuatro sumiu de heuristica_quatro.dart"
+    assert achado.group(1).strip() == str(pq.PESO_AMEACA_NA_PARIDADE)
+    assert pq.LIMIAR_DA_VIRADA == pq.PESO_AMEACA_NA_PARIDADE
 
 
 def test_sem_o_meio_recusa_largura_par() -> None:
@@ -207,6 +270,13 @@ def test_sem_o_meio_recusa_largura_par() -> None:
 #: Achadas em partidas do motor. Os comentários dizem o que cada uma prova.
 VENCE_EM_5_E_PARECE_PERDIDA = "s4s4s4s4s4s6s3s2s2s6s6"  # heurística -12
 ABERTA_SEM_VITORIA = "s4s4s4s4s4s6s3s2"  # nada forçado; heurística +4
+#: A virada que se vê: o adversário com 5 casas de ameaça contra 1 da pessoa,
+#: heurística -63 para ela, e a vitória forçada em 3 lances. Achada no acervo
+#: de autoplay em 27/10/2026.
+VIRADA_A_VISTA = "s4s4s4s4s4s6s2s3s2s6s3s3s3s7s2"
+#: O desafio de 28/10/2026 no `des` (174ed86e): vitória forçada da pessoa, mas
+#: nenhuma ameaça dos dois lados e heurística +2 para a Cacau.
+VIRADA_SO_NA_CONTA = "s4s5s4s4s1s5s4s5s5s3s6s4s6"
 PROVADA_PERDIDA = "s4s4s4s4s4s6s3s2s2s6s6s7"  # o jogador 1 perde à força
 SEGURE_5_DE_6 = "s1s5s4s4s4s4s5s5s5s2s4s5s7s7s7s7s1s1s7s4"
 SEGURE_SO_3_DE_6 = "s4s4s4s4s3s5s5s5s5s3s6s6s7s4s4s2s2s6s2"
@@ -286,10 +356,19 @@ def test_sem_o_meio_acha_a_vitoria_fora_da_coluna_4(provador) -> None:
 
 
 def test_virada_quer_a_aparencia_contra_e_a_vitoria_a_favor(provador) -> None:
-    prova = _prova(provador, "quatro_virada", VENCE_EM_5_E_PARECE_PERDIDA)
-    assert prova.passou and prova.dados["heuristica"] < 0 and prova.dados["lances"] == 5
-    aparencia_boa = _prova(provador, "quatro_virada", ABERTA_SEM_VITORIA)
-    assert not aparencia_boa.passou and "não favorece o adversário" in aparencia_boa.motivo
+    prova = _prova(provador, "quatro_virada", VIRADA_A_VISTA)
+    assert prova.passou
+    assert prova.dados == {
+        "ameacas_adversario": 5, "ameacas_pessoa": 1, "heuristica": -63, "lances": 3,
+    }
+    # A posição do desafio de 28/10/2026 que o dono recusou no painel: a busca
+    # prova a vitória da pessoa, mas ninguém ameaça nada, e a heurística dava +2
+    # à Cacau. Com o critério antigo ela passava.
+    so_na_conta = _prova(provador, "quatro_virada", VIRADA_SO_NA_CONTA)
+    assert not so_na_conta.passou and "não tem mais ameaças" in so_na_conta.motivo
+    # A antiga posição deste teste: vence em 5, heurística -12, e nenhuma ameaça.
+    antiga = _prova(provador, "quatro_virada", VENCE_EM_5_E_PARECE_PERDIDA)
+    assert not antiga.passou
 
 
 @pytest.mark.parametrize(

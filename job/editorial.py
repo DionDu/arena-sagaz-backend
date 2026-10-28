@@ -2064,6 +2064,11 @@ EDITORIAL: dict[str, tuple[Publicacao, ...]] = {
             # objetivo e vencer, que e o que os personagens tentam.
             # A prova nao limita a distancia da vitoria: o teto e o que resta
             # do tabuleiro.
+            # ⚠️ **A medicao acima e da prova ANTIGA** (so a heuristica abaixo
+            # de zero). Desde 27/10/2026 a virada pede ameaca a mais do
+            # adversario e heuristica de uma ameaca (historico do backend,
+            # "2026-10-27 (11)"); as posicoes aprovadas mudaram, e a regua
+            # precisa ser refeita antes de confiar no `[3, 3, 3]`.
             parametros={},
             nu_lances_de_preparo=12,
             nu_maximo_de_meios_lances=CASAS_DO_TRADICIONAL - 12,

@@ -82,6 +82,15 @@ LIMIAR_DECIDIDO = VALOR_VITORIA - 64
 #: chegou até ele parou por ele, e não por ter visto o fim de tudo.
 PROFUNDIDADE_MAXIMA = 100
 
+#: O peso de uma ameaça na linha da paridade certa para o dono dela
+#: (`pesoAmeacaNaParidadeQuatro`, em `heuristica_quatro.dart`).
+PESO_AMEACA_NA_PARIDADE = 32
+
+#: Quanto a heurística tem de dar ao adversário para a posição PARECER dele, na
+#: prova da virada: o valor de uma ameaça na linha certa. Abaixo disso a
+#: diferença é de posição das peças, e a pessoa não a enxerga (27/10/2026).
+LIMIAR_DA_VIRADA = PESO_AMEACA_NA_PARIDADE
+
 #: Quantos nós cada pergunta à busca pode gastar. ⚠️ Aqui não há aparelho
 #: esperando: o teto é do JOB, e é alto para a prova terminar na maior parte das
 #: posições de fim de meio-jogo. A conta: a ~3 milhões de nós por segundo no
@@ -623,32 +632,67 @@ class ProvadorQuatro:
         return [neto for neto, r in resultados if r.meios_lances == mais_longe]
 
     def virada(self, estado: EstadoQuatro) -> ProvaQuatro:
-        """À primeira vista a posição é do adversário, e a busca prova a da pessoa.
+        """A posição PARECE do adversário, à vista, e a busca prova a da pessoa.
 
-        "À primeira vista" é a HEURÍSTICA do motor (o comando `avaliar`): o mesmo
-        número que a busca usa quando a visão acaba. Negativa para a pessoa =
-        a posição parece perdida.
+        "Parece" são duas condições, e as duas valem (decisão do dono em
+        27/10/2026: *"precisa ficar visualmente claro para o usuário que ele está
+        em clara desvantagem"*):
+
+          1. **o adversário tem MAIS AMEAÇAS que a pessoa** - casas vazias onde
+             uma peça dele fecharia quatro (`feitos_quatro.casas_de_ameaca`). É
+             o que se vê no tabuleiro sem calcular nada;
+          2. **a heurística do motor** (o comando `avaliar`, o "à primeira
+             vista" que a busca usa quando a visão acaba) dá ao adversário pelo
+             menos [LIMIAR_DA_VIRADA]: o peso de uma ameaça na linha certa.
+
+        ⚠️ Até 27/10/2026 bastava a heurística abaixo de zero, e isso não
+        filtrava nada: com a vez da pessoa, o adversário tem quase sempre uma
+        peça a mais no tabuleiro, e a heurística sai a favor dele por poucos
+        pontos (uma peça no meio vale 7). Um desafio publicado com +2 para a
+        Cacau, sem ameaça nenhuma dos dois lados, foi o que o dono viu no painel.
+        Medido no acervo naquele dia: 3.232 de 5.707 posições passavam no
+        critério antigo, e 1.224 passam no novo (antes da busca).
+
+        As duas contas baratas vêm antes da busca, que é a única cara.
         """
         quem = self.arbitro.vez_de(estado)
+        tabuleiro = self.arbitro.tabuleiro(estado)
+        dimensoes = self.arbitro.regras.dimensoes
+        # `-quem` é o adversário: as peças são +1 e -1, e trocar o sinal troca o lado.
+        ameacas_dele = len(feitos_quatro.casas_de_ameaca(dimensoes, tabuleiro, -quem))
+        ameacas_minhas = len(feitos_quatro.casas_de_ameaca(dimensoes, tabuleiro, quem))
+        ameacas = {"ameacas_adversario": ameacas_dele, "ameacas_pessoa": ameacas_minhas}
+        if ameacas_dele <= ameacas_minhas:
+            return ProvaQuatro(
+                False,
+                f"o adversário não tem mais ameaças que a pessoa "
+                f"({ameacas_dele} contra {ameacas_minhas})",
+                ameacas,
+            )
+        # A heurística vem do ponto de vista do jogador 1; multiplicar por `quem`
+        # a põe do ponto de vista da pessoa (negativa = ruim para ela).
         aparencia = quem * self.oraculo.avaliar(
             lances=estado.sequencia, co_modalidade=self.co_modalidade
         )
-        if aparencia >= 0:
+        if aparencia > -LIMIAR_DA_VIRADA:
             return ProvaQuatro(
-                False, f"a heurística não favorece o adversário ({aparencia:+d})",
-                {"heuristica": aparencia},
+                False,
+                f"a heurística não dá ao adversário a vantagem de uma ameaça "
+                f"({aparencia:+d}, e a virada pede {-LIMIAR_DA_VIRADA:+d} ou menos)",
+                {**ameacas, "heuristica": aparencia},
             )
         achado = self.resultado(estado)
         if achado.vencedor != quem:
             return ProvaQuatro(
                 False, "a posição parece perdida, mas a vitória forçada não foi provada",
-                {"heuristica": aparencia},
+                {**ameacas, "heuristica": aparencia},
             )
         return ProvaQuatro(
             True,
-            f"parece do adversário ({aparencia:+d}) e a pessoa vence à força em "
+            f"parece do adversário ({aparencia:+d}, {ameacas_dele} ameaça(s) contra "
+            f"{ameacas_minhas}) e a pessoa vence à força em "
             f"{(achado.meios_lances + 1) // 2} lances",
-            {"heuristica": aparencia, "lances": (achado.meios_lances + 1) // 2},
+            {**ameacas, "heuristica": aparencia, "lances": (achado.meios_lances + 1) // 2},
         )
 
     # ── As cinco do "objetivo ao alcance" ───────────────────────────────────
