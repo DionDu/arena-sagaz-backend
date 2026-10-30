@@ -10873,3 +10873,53 @@ figura (já são duas, Dart e Python, presas por vetores), e o app é quem desen
 
 **Testes.** `test_quadro_do_dia.py` (+1: `test_o_replay_leva_a_LINHA_DE_CHEGADA_nos_dois_ramos`; e
 `d.js_chegada` entrou no cadeado das colunas do `SQL_DIA_DO_DESAFIO`). O app, mesma data, no front.
+
+## 2026-10-30 — A recusa da reconciliação e do merge do convidado vai para o log (T166 da spec 010)
+
+**Contexto.** Em 9 das 47 contas do `prd`, o bônus de XP das conquistas dos jogos não chega ao
+servidor nem ao ranking. A causa é o 2º defeito de progressão da 1.4.0
+(`arena-sagaz-frontend/specs/010-jogo-quatro-em-linha/RETOMADA-progressao-1.4.0.md` §2): o
+`POST /v1/sincronizacao/reconciliar` recusa o retrato do aparelho com 422
+`progressao_inconsistente` (vitórias + derrotas + empates passam das partidas) a cada
+sincronização, e para sempre, porque os contadores só sobem. Ninguém via a recusa:
+`log.tb001_evento_sync_rejeitado` só recebia os eventos do LOTE reprovados e continuava com 0
+linhas no `prd`. O dono esperava ver ali as recusas de progressão
+(`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzz9).
+
+**Decisão.** `ServicoSincronizacao._arquivar_recusa` (`api/sincronizacao/servico.py`): quando a
+validação recusa a reconciliação ou o merge do convidado, o serviço grava a linha pelo
+`arquivar_evento_rejeitado` de sempre e **faz o `commit` antes de levantar o 422**. A rota só
+confirma no sucesso; sem esse `commit`, a sessão fecharia no erro e o banco desfaria a linha.
+Confirmar ali é seguro porque a validação é o primeiro passo dos dois casos de uso: não há outra
+escrita pendente na sessão. As colunas seguem as linhas do lote: `co_tipo` = `reconciliacao` |
+`merge_convidado`, `co_motivo` = `rejeitado_contrato` (a categoria de toda reprovação na
+validação), `de_codigo` = o código do 422, `js_payload` = o retrato, e no merge `co_evento` = o
+`co_lote_migracao`. **A resposta não muda**: se arquivar ou confirmar falhar, a sessão é
+desfeita, o servidor anota a pilha no log, e o app recebe o mesmo 422 (a 1.3.1 em campo não
+enxerga diferença). Sem migração: a tabela não tem `CHECK` em `co_tipo` nem em `co_motivo`.
+⛔ A validação (`validacao.py`) não mudou.
+
+Uma linha por recusa, sem filtrar repetição (decisão do dono, 30/10/2026): a contagem diz quantas
+vezes cada aparelho tentou, e mostra os aparelhos com app antigo que continuarem presos. A
+estimativa pelas partidas das 9 contas é de menos de 200 linhas por dia.
+
+**Alternativas.** (a) `co_motivo` = o código da validação (como sugeria o documento de retomada):
+recusada - as linhas do lote já guardam o código em `de_codigo` e a categoria em `co_motivo`, e o
+índice `(co_motivo, dh_registro)` seria partido por código. (b) Uma sessão própria para o log:
+recusada - mais uma conexão por recusa e um caminho que os testes de contrato não alcançam; o
+`commit` na sessão da requisição basta, porque nada mais está pendente nela. (c) Uma linha por
+conta, tipo, código e dia: recusada pelo dono - perde a contagem de tentativas, com volume baixo.
+
+**Achado na mesma consulta (para a T170).** Em 2 contas a linha do próprio servidor já não fecha a
+soma (`c1d497ac`: 56 + 90 + 8 = 154 em 152 partidas; `1ca98aad`: 40 em 39): a reconciliação
+também faz `GREATEST` campo a campo, e dois blocos que fecham sozinhos, juntados assim, deixam de
+fechar.
+
+**Testes.** `tests/contratos/test_recusa_de_progressao_arquivada.py` (27): o retrato real da conta
+A, um caso por código de recusa nas duas rotas, o 422 igual com o log falhando no INSERT e no
+`commit`, a ordem arquivar → confirmar → recusar, e a rota real sobre um SQLite de memória em que
+a linha sobrevive ao 422 (com o controle de que, sem `commit`, a linha some). Controles: a
+reconciliação e o merge aceitos não arquivam, o 400 sem lote não arquiva, e o lote de eventos
+segue com um `commit` só. Mutação: 11 de 11 mortas (sem o `commit`, sem arquivar em cada rota, o
+`commit` antes de arquivar, as colunas trocadas, sem o `rollback`, o log relançando o erro); o
+teste do SQLite, sozinho, derruba as duas do `commit`.

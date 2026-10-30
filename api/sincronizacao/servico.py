@@ -10,6 +10,7 @@ O ``id_usuario`` do dono NUNCA vem do cliente: vem do token (resolvido em
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Protocol
 
 from api.nucleo.dependencias_conta_nuvem import UsuarioAutenticado
@@ -21,6 +22,8 @@ from api.sincronizacao.validacao import (
     validar_progressao_convidado,
     validar_reconciliacao,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RepositorioSincronizacaoProtocolo(Protocol):
@@ -236,6 +239,16 @@ class ServicoSincronizacao:
         # conta (o merge é o vetor mais perigoso). Recusa valores absurdos/forjados.
         codigo = validar_progressao_convidado(resumo)
         if codigo is not None:
+            # A recusa fica registrada ANTES do 422 (T166 da spec 010) - ver
+            # `_arquivar_recusa`. O lote vai no lugar do `co_evento`: é ele que
+            # liga a linha do log ao convidado que tentou migrar.
+            await self._arquivar_recusa(
+                usuario,
+                co_tipo="merge_convidado",
+                co_evento=co_lote,
+                codigo=codigo,
+                payload=resumo,
+            )
             raise ErroNegocio(
                 "Progressão do convidado inválida ou fora dos limites.",
                 codigo,
@@ -261,6 +274,15 @@ class ServicoSincronizacao:
         resumo = corpo.get("progressao") or {}
         codigo = validar_reconciliacao(resumo)
         if codigo is not None:
+            # A recusa fica registrada ANTES do 422 (T166 da spec 010). A
+            # reconciliação não tem identificador próprio: `co_evento` vai nulo.
+            await self._arquivar_recusa(
+                usuario,
+                co_tipo="reconciliacao",
+                co_evento=None,
+                codigo=codigo,
+                payload=resumo,
+            )
             raise ErroNegocio(
                 "Progressão inválida ou fora dos limites.",
                 codigo,
@@ -272,6 +294,61 @@ class ServicoSincronizacao:
         )
         progressao = await self.repo.obter_progressao(usuario.id_usuario)
         return {"progressao": progressao}
+
+    async def _arquivar_recusa(
+        self,
+        usuario: UsuarioAutenticado,
+        *,
+        co_tipo: str,
+        co_evento: str | None,
+        codigo: str,
+        payload: Any,
+    ) -> None:
+        """Registra em ``log.tb001_evento_sync_rejeitado`` a recusa (422) de um
+        retrato de progressão - a reconciliação ou o merge do convidado.
+
+        **Por que existe (T166 da spec 010, 30/10/2026).** Até aqui só os eventos
+        do LOTE reprovados iam para o log. A recusa da reconciliação levantava o
+        422 e não deixava rastro: em 9 contas do ``prd`` ela era recusada a cada
+        sincronização (``progressao_inconsistente``), o bônus das conquistas nunca
+        chegava ao ranking, e a tabela que o dono consultava estava vazia.
+
+        **Por que faz ``commit`` aqui, e não na rota.** A rota só confirma a
+        transação quando dá certo; com o 422, a sessão fecha sem ``commit`` e o
+        banco desfaz tudo - inclusive esta linha. Confirmar aqui é seguro porque a
+        validação é o PRIMEIRO passo dos dois casos de uso: neste instante não há
+        outra escrita pendente na sessão além da do log.
+
+        ⚠️ **O diagnóstico nunca troca a resposta.** Se arquivar ou confirmar
+        falhar, a sessão é desfeita, o servidor anota um aviso, e quem chamou
+        levanta o MESMO 422 de sempre - o app (inclusive a 1.3.1 em campo) não
+        enxerga diferença nenhuma.
+
+        As colunas seguem as linhas que o lote já grava: ``co_motivo`` é a
+        categoria (``rejeitado_contrato``, a de toda reprovação na validação) e o
+        código da ``validacao.py`` vai em ``de_codigo``; quem distingue a
+        reconciliação do merge e das partidas é o ``co_tipo``.
+        """
+        try:
+            await self.repo.arquivar_evento_rejeitado(
+                id_usuario=usuario.id_usuario,
+                co_evento=co_evento,
+                co_tipo=co_tipo,
+                co_motivo="rejeitado_contrato",
+                de_codigo=codigo,
+                payload=payload,
+            )
+            await self.sessao.commit()
+        except Exception:  # noqa: BLE001 - o log não pode derrubar a resposta
+            # `exception` anota a pilha no log do servidor (Railway). O
+            # `rollback` limpa a sessão, que pode ter ficado num estado de erro.
+            logger.exception(
+                "Não foi possível arquivar a recusa de %s (%s)", co_tipo, codigo
+            )
+            try:
+                await self.sessao.rollback()
+            except Exception:  # noqa: BLE001
+                logger.exception("O rollback depois do arquivamento falhou")
 
     async def estado(self, usuario: UsuarioAutenticado) -> dict[str, Any]:
         """Estado atual da progressão no servidor."""

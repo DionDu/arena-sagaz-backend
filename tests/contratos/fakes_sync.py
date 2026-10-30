@@ -30,6 +30,13 @@ class FakeRepoSincronizacao:
         self._progressao: dict[str, dict[str, Any]] = {}
         # Diagnóstico: eventos arquivados no log (motivo → lista de co_evento).
         self.arquivados: list[dict[str, Any]] = []
+        # Os mesmos arquivamentos com TODAS as colunas (T166 da spec 010): a
+        # recusa da reconciliação e do merge precisa ser conferida pelo tipo,
+        # pelo dono e pelo retrato. Lista à parte para os testes antigos, que
+        # comparam `arquivados` por igualdade, continuarem como estão.
+        self.arquivados_completos: list[dict[str, Any]] = []
+        # Gatilho de teste: arquivar LANÇA (simula o banco do log fora do ar).
+        self.falhar_ao_arquivar = False
         # Gatilho de teste: co_eventos que devem LANÇAR ao gravar (simula o 500
         # que a blindagem por SAVEPOINT deve capturar como `falha_processamento`).
         self.falhar_em: set[str] = set()
@@ -148,6 +155,18 @@ class FakeRepoSincronizacao:
         de_codigo: str | None,
         payload: Any,
     ) -> None:
+        if self.falhar_ao_arquivar:
+            raise RuntimeError("falha simulada ao arquivar")
         self.arquivados.append(
             {"co_evento": co_evento, "co_motivo": co_motivo, "de_codigo": de_codigo}
+        )
+        self.arquivados_completos.append(
+            {
+                "id_usuario": id_usuario,
+                "co_evento": co_evento,
+                "co_tipo": co_tipo,
+                "co_motivo": co_motivo,
+                "de_codigo": de_codigo,
+                "payload": payload,
+            }
         )

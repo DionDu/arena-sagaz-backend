@@ -1405,7 +1405,12 @@ class RepositorioSincronizacao:
         """Grava em ``log.tb001_evento_sync_rejeitado`` um evento que NÃO pôde ser
         aplicado (``co_motivo`` = ``rejeitado_contrato`` ou ``falha_processamento``).
         É append-only: nunca falha por duplicidade. O ``payload`` é serializado em
-        texto e truncado (dado não-confiável)."""
+        texto e truncado (dado não-confiável).
+
+        Desde 30/10/2026 (T166 da spec 010) recebe também a recusa da
+        reconciliação e do merge do convidado (``co_tipo = 'reconciliacao'`` ou
+        ``'merge_convidado'``), e quem confirma essa linha é o serviço, antes do
+        422 - ver ``ServicoSincronizacao._arquivar_recusa``."""
         import json
 
         try:
