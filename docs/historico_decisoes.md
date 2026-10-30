@@ -11070,7 +11070,7 @@ Suíte completa do backend: **4.478 verdes** (38 pulados).
 
 ---
 
-## 2026-10-30 — Reconciliação de progressão: contadores `(partidas, V, D, E)` em bloco e auto-reparo (T170)
+## 2026-10-30 (4) — Reconciliação de progressão: contadores `(partidas, V, D, E)` em bloco e auto-reparo (T170 da spec 010)
 
 **Contexto.** Na releitura de `progressao.tb001_progressao_usuario` no `prd` em 30/10/2026
 (`RETOMADA-progressao-1.4.0.md` §2 e §3.E), duas das 47 contas já estavam com
@@ -11125,3 +11125,58 @@ transação desfeita: `scripts/conferir_juncao_em_bloco_t170.py` (`(a)..(f)` ver
 individual, `>=` no lugar de `>` no SQL e na função pura, remover auto-reparo no SQL e na função
 pura, e `FakeRepoSincronizacao` campo a campo). Suíte completa do backend: **4.496 verdes**
 (38 pulados).
+
+---
+
+## 2026-10-30 (5) — Backfill dinâmico do bônus de conquistas nas 9 contas abaixo de zero (T171 da spec 010)
+
+**Contexto.** Antes da T167 (30/10/2026), o servidor só creditava na inserção o bônus das conquistas do
+Desafio do Dia (`desafio_%`); o bônus das conquistas dos jogos e da conta dependia de
+`POST /v1/sincronizacao/reconciliar`. Nas contas cuja reconciliação foi recusada com 422
+(`V + D + E > partidas`, defeito 2) ou que fecharam o app antes de reconciliar, as conquistas entraram
+em `progressao.tb002_conquista_usuario`, mas `nu_xp_total` ficou atrás de
+`partidas_xp + desafio_xp + bonus_total` em **9 das 47 contas** do `prd`.
+
+**Por que não creditar `-diferença` nem filtrar por `dh_desbloqueio > dh_atualizacao`.**
+1. Creditar `-diferença` às cegas inflaria o XP acima do aparelho: na Conta A do dono (`3fc7be86`),
+   `nu_xp_total` no servidor é `5.660`, a fórmula dá `-345`, mas o iPhone real tem **`5.960`** (faltam
+   `300`, exatamente as 3 conquistas não-desafio desbloqueadas após `03/09`; os `-45` são resíduo
+   histórico que não existe nem no aparelho — creditar `345` levaria o servidor a `6.005 > 5.960`, e o
+   app adotaria por `GREATEST`). O mesmo ocorre em `bdc1ee66` (`diferença = -200`, últimas 3 conquistas
+   não-desafio somam `150`, resíduo `-50`).
+2. Filtrar por `c.dh_desbloqueio > g.dh_atualizacao` tampouco funciona: toda partida e toda resolução de
+   desafio atualiza `tb001_progressao_usuario.dh_atualizacao = now()` sem pagar conquistas pendentes
+   (na Conta A `dh_atualizacao` é `2026-10-30 13:36:52`, posterior às 3 conquistas perdidas — daria `0`).
+
+**Decisão** (dono, 30/10/2026, `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzz10 — **Opção A**):
+SQL 100% dinâmico (sem `id_usuario` nem valores fixos), entregue junto do reparo de `V/D/E` da T170 em
+`arena-sagaz-frontend/specs/010-jogo-quatro-em-linha/backfill-progressao-t170-t171.sql` e no executor
+transacional `scripts/aplicar_backfill_progressao_t171.py` (rodado pelo dono no `prd` na T174, depois da
+migração `0038` e do deploy do backend com T166-T170):
+1. Para cada conta com `falta = -(nu_xp_total - partidas_xp - desafio_xp - bonus_total) > 0`, agrupa as
+   conquistas não-desafio (`co_conquista NOT LIKE 'desafio_%'`) por instante `dh_desbloqueio`, acumula de
+   trás para frente (`ORDER BY dh_desbloqueio DESC`) e escolhe o **maior sufixo cronológico `<= falta`**
+   (`credito_sufixo`);
+2. Se `credito_sufixo = 0` e a conta possui lote de merge de convidado em
+   `progressao.tb003_lote_migracao` e ao menos uma conquista não-desafio (caso de `462775e9`, em que
+   `+151` de XP pré-log do convidado reduziu o buraco de `-290` para `-139`, menor que o último lote
+   `220`), credita `MIN(falta, total_bonus_nao_desafio)`.
+
+**Créditos medidos em somente-leitura nas 47 contas do `prd` (`consultar_prd.py`, 30/10/2026):**
+- `c1d497ac`: `2.720 + 1.530 = 4.250` (`dif: -1.530 → 0`) + V/D/E `152: 56/90/8 → 56/90/6`;
+- `2985d614`: `155 + 390 = 545` (`dif: -390 → 0`);
+- `3fc7be86` (Conta A): `5.660 + 300 = 5.960` (`dif: -345 → -45`);
+- `59094f79`: `3.464 + 240 = 3.704` (`dif: -240 → 0`);
+- `1ca98aad`: `2.180 + 220 = 2.400` (`dif: -220 → 0`) + V/D/E `39: 16/14/10 → 16/14/9`;
+- `bdc1ee66`: `11.470 + 150 = 11.620` (`dif: -200 → -50`);
+- `51f1d858`: `6.385 + 170 = 6.555` (`dif: -170 → 0`);
+- `4fa4623c`: `37.720 + 150 = 37.870` (`dif: -150 → 0`);
+- `462775e9`: `2.522 + 139 = 2.661` (`dif: -139 → 0`);
+- Demais 38 contas: `0`. Segunda execução: **`0` linhas** (idempotente).
+
+**Testes.** `tests/unitarios/test_backfill_progressao_t171.py` (6 testes cobrindo cadeado entre o `.sql`
+da spec, o executor Python e as 91 conquistas de `BONUS_DAS_CONQUISTAS`, simulação em SQLite das 9
+contas reais do `prd` + 5 controles + idempotência, filtros de `vw001_partida`, guarda de excesso do log
+e travas de ambiente/transação). Prova contra o Postgres real do `des` em transação desfeita:
+`scripts/conferir_backfill_t171.py` (`(a)..(f)` verdes e `0` rastros após `ROLLBACK`). Mutação:
+**10 de 10 mortas**. Suíte completa do backend: **4.502 verdes** (38 pulados).
