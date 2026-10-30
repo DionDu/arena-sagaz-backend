@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from api.sincronizacao.repositorio import desfecho_da_partida
+
 
 def _zerado() -> dict[str, Any]:
     return {
@@ -60,13 +62,14 @@ class FakeRepoSincronizacao:
         partida = payload.get("partida") or {}
         if partida.get("ic_pontua"):
             xp = sum(int(x.get("nu_xp", 0)) for x in payload.get("xp", []))
-            j1 = int(partida.get("nu_placar_j1", 0))
-            j2 = int(partida.get("nu_placar_j2", 0))
+            # T168: reaproveita a função pura do repositório real, para o falso
+            # nunca divergir da regra de `co_resultado` + fallback pelo placar.
+            vit, der, emp = desfecho_da_partida(partida)
             prog["nu_xp_total"] += xp
             prog["nu_partidas"] += 1
-            prog["nu_vitorias"] += 1 if j1 > j2 else 0
-            prog["nu_derrotas"] += 1 if j1 < j2 else 0
-            prog["nu_empates"] += 1 if j1 == j2 else 0
+            prog["nu_vitorias"] += vit
+            prog["nu_derrotas"] += der
+            prog["nu_empates"] += emp
         return True
 
     async def gravar_conquista(

@@ -10991,3 +10991,79 @@ nada paga em dobro, o que o servidor antigo também cumpria). Mutação: 11 de 1
 `DO UPDATE`, crédito no `DO NOTHING` do merge, merge sem crédito, crédito na reconciliação, crédito
 de zero, valor trocado, código faltando, código a mais, sem a guarda do tipo, só o desafio pagando)
 e 3 de 3 no app (bônus mudado no catálogo, no arquivo, código faltando no arquivo).
+
+## 2026-10-30 (3) — O resultado explícito da partida em `partida.tb001_partida` (T168 da spec 010)
+
+**Contexto.** A causa raiz do 2º defeito de progressão da 1.4.0
+(`arena-sagaz-frontend/specs/010-jogo-quatro-em-linha/RETOMADA-progressao-1.4.0.md` §2 e §3.D):
+nas damas, `nu_placar_j1` e `nu_placar_j2` guardam o número de **peças restantes** no fim da
+partida. Um empate legítimo por repetição ou lances sem captura com 5×3 peças era contado como
+`empate` no aparelho (`ProgressaoProvider.registrarPartida`) e como **vitória** no servidor
+(`_incrementar_progressao` e `partida.vw001_partida`, que olhavam só para o placar). Na junção
+campo a campo por `GREATEST`, `V + D + E` passava de `nu_partidas` e o
+`POST /v1/sincronizacao/reconciliar` passava a recusar o retrato do aparelho com 422 para sempre.
+
+**Decisão.** (Folha de aval assinada pelo dono em 30/10/2026,
+`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzz10 e `data-model.md` §10.)
+
+1. **Migração `0038_resultado_da_partida`** (`down_revision = "0037_tipos_quatro_meio"`):
+   - `partida.tb001_partida` ganha `co_resultado VARCHAR(10)` anulável, **sem `DEFAULT`**, com
+     `ck_partida_resultado CHECK (co_resultado IS NULL OR co_resultado IN ('venceu_j1', 'venceu_j2', 'empate'))`
+     (sempre do ponto de vista do Jogador 1; em `vs_cpu` o humano é o J1). `NULL` distingue com
+     honestidade "o app não informou" (histórico, `1.3.1` em campo, ou 1ª leva `em_andamento`) de
+     resultado informado.
+   - `partida.vw001_partida` é atualizada por `CREATE OR REPLACE VIEW` listando as 18 colunas
+     anteriores por nome (sem `p.*`, que duplicaria `co_resultado`), preservando na posição 19
+     `COALESCE(p.co_resultado, CASE WHEN p.nu_placar_j1 > p.nu_placar_j2 THEN 'venceu_j1' WHEN p.nu_placar_j2 > p.nu_placar_j1 THEN 'venceu_j2' ELSE 'empate' END)::text AS co_resultado`
+     (o `::text` mantém o tipo `text` da VIEW anterior), na posição 20 `(p.qt_usos_poder > 0) AS ic_com_poder`
+     e acrescentando na 21ª posição `(p.co_resultado IS NOT NULL) AS ic_resultado_informado`.
+     Conferido via `pg_depend` no `des` e no `prd` que nenhuma outra VIEW depende de
+     `partida.vw001_partida` (`jogo_damas.vw003_recusa` faz JOIN direto com `partida.tb001_partida`).
+2. **Ingestão e contagem (`api/sincronizacao/repositorio.py`)**:
+   - `normalizar_resultado_partida` sanitiza `co_resultado` antes do SQL: valores fora dos três
+     códigos válidos (caixa errada, espaço, número, booleano, estrutura) viram `None` com
+     `logger.warning`. Nunca recusa na validação (`validacao.py` não mudou) e nunca deixa estourar o
+     `CHECK` no `SAVEPOINT` (o que jogaria o evento em `falhas` e faria o app apagar a partida da
+     outbox para sempre).
+   - `gravar_evento` grava `:co_resultado` no `INSERT` e `co_resultado = EXCLUDED.co_resultado` no
+     `ON CONFLICT (co_evento) DO UPDATE ... WHERE co_status = 'em_andamento'` (a 2ª leva do desafio
+     fecha a partida trazendo o desfecho).
+   - `desfecho_da_partida` alimenta `_incrementar_progressao` (e `FakeRepoSincronizacao`): quando
+     `co_resultado` vem válido, **confia** nele sem cruzar com o placar (pois o objetivo é contar o
+     mesmo desfecho que o app contou, e `co_resultado` só move V/D/E — o XP continua vindo das
+     parcelas validadas); quando é `None`, deduz do placar como hoje.
+   - `vitorias_por_jogo` já lia `co_resultado = 'venceu_j1'` de `partida.vw001_partida`, passando
+     automaticamente a refletir o `COALESCE` (um empate de damas 5×3 deixa de inflar as vitórias de
+     damas). A chama (`recalcular_chama`) só usa dias locais jogados (`co_status = 'concluida'`) e
+     não depende de `co_resultado`.
+
+**O que muda para quem NÃO atualizar (`1.3.1` e anteriores).** Zero regressão (§8zzzz10): a `1.3.1`
+não envia `co_resultado`, a coluna grava `NULL`, `desfecho_da_partida` e `vw001_partida` caem na
+comparação do placar e devolvem exatamente os mesmos números de hoje.
+
+**Alternativas.** (a) Recusar `co_resultado` inválido em `validacao.py`: recusada - `rejeitados` é
+descartado da outbox pelo app, perdendo a partida; sanitizar para `NULL` preserva a partida e cai
+no fallback da `1.3.1`. (b) Cruzar `co_resultado` com o placar nos jogos que não são damas:
+recusada - criaria lista de jogos por nome no ingestor genérico e poderia divergir de uma variante
+futura cujo placar não seja o critério único de vitória. (c) `DROP VIEW` + `CREATE VIEW` no
+`upgrade()`: recusada - `CREATE OR REPLACE VIEW` com a coluna nova na 21ª posição evita janela sem
+a VIEW durante o deploy (`DROP VIEW` fica só no `downgrade()` local).
+
+**Testes.** `tests/unitarios/test_resultado_da_partida.py` (56 casos): funções puras e sanitização,
+`validar_evento` intacta, parâmetros SQL do repositório real (corpos exatos da `1.3.1`, empate de
+damas 5×3 na `1.4.0`, derrota com mais peças, 8 tipos inválidos, `pvp_local`, duas levas, cadeado
+das colunas SQL), migração `0038` (anulável sem `DEFAULT`, `CHECK`, execução real do `SELECT` da
+VIEW num SQLite de memória conferindo as 21 colunas na ordem e os 6 cenários do `COALESCE`,
+`downgrade`) e rota HTTP `POST /v1/sincronizacao/eventos`. `tests/unitarios/test_vitorias_por_jogo.py`
+(+3 casos com a VIEW real em SQLite: empate 5×3 não conta vitória, controle sem `co_resultado`
+vale o placar, vitória com menos peças prevalece) e `test_ingestor_e_expiracao.py` (`co_resultado`
+no cadeado do `DO UPDATE`). Aplicada no `des` (`0038_resultado_da_partida (head)`) e provada em
+transação desfeita por `scripts/conferir_resultado_da_partida_t168.py`: `(a)` `1.3.1` idêntica e
+`ic_resultado_informado = False`, `(b)` empate de damas 5×3 dá `E=1, V=0, vitorias_por_jogo={}` e
+`/reconciliar` 200, `(c)` inválido sanitizado para `NULL` com `ck_partida_resultado` ativo no
+Postgres, `(d)` duas levas + trava `WHERE co_status = 'em_andamento'`, `(e)` `vitorias_por_jogo`
+por jogo, `(f)` controle 5×3 sem `co_resultado` dá `V=1`, `(g)` 0 contas e 0 partidas no `des` após
+o `ROLLBACK`. Mutação: **9 de 9 mortas** (sem normalização, sem coluna no `INSERT`, sem coluna no
+`DO UPDATE`, progressão só pelo placar, sem fallback da `1.3.1`, `COALESCE` invertido na VIEW, sem
+`ic_resultado_informado`, sem `ck_partida_resultado`, `FakeRepoSincronizacao` só pelo placar).
+Suíte completa do backend: **4.478 verdes** (38 pulados).

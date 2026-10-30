@@ -72,17 +72,45 @@ async def sessao():
         # `ATTACH` dá ao SQLite um segundo banco com apelido - e é esse apelido
         # que faz `partida.vw001_partida` ser um nome válido aqui, como o schema
         # do Postgres é lá.
+        # Desde a T168 (migração 0038), criamos a tabela base `tb001_partida` e
+        # uma VIEW real `vw001_partida` com a mesma expressão `COALESCE` da
+        # migração (resultado informado pelo app, senão dedução pelo placar).
         await s.execute(text("ATTACH DATABASE ':memory:' AS partida"))
         await s.execute(
             text(
                 """
-                CREATE TABLE partida.vw001_partida (
+                CREATE TABLE partida.tb001_partida (
                     id_usuario   TEXT,
                     co_jogo      TEXT,
                     co_modo      TEXT,
                     co_status    TEXT,
+                    nu_placar_j1 INTEGER NOT NULL DEFAULT 1,
+                    nu_placar_j2 INTEGER NOT NULL DEFAULT 0,
                     co_resultado TEXT
                 )
+                """
+            )
+        )
+        await s.execute(
+            text(
+                """
+                CREATE VIEW partida.vw001_partida AS
+                SELECT p.id_usuario,
+                       p.co_jogo,
+                       p.co_modo,
+                       p.co_status,
+                       p.nu_placar_j1,
+                       p.nu_placar_j2,
+                       COALESCE(
+                           p.co_resultado,
+                           CASE
+                               WHEN p.nu_placar_j1 > p.nu_placar_j2 THEN 'venceu_j1'
+                               WHEN p.nu_placar_j2 > p.nu_placar_j1 THEN 'venceu_j2'
+                               ELSE 'empate'
+                           END
+                       ) AS co_resultado,
+                       (p.co_resultado IS NOT NULL) AS ic_resultado_informado
+                  FROM partida.tb001_partida p
                 """
             )
         )
@@ -97,23 +125,29 @@ async def _gravar(
     jogo: str,
     modo: str = "vs_cpu",
     status: str = "concluida",
-    resultado: str = "venceu_j1",
+    resultado: str | None = "venceu_j1",
+    placar: tuple[int, int] = (1, 0),
     dono: str = DONO,
 ) -> None:
-    """Grava [quantas] partidas iguais. Os defaults são a partida que CONTA -
-    assim cada caso só escreve o que ele quer mudar."""
+    """Grava [quantas] partidas iguais na `tb001_partida` para a VIEW derivar.
+
+    Os defaults são a partida que CONTA - assim cada caso só escreve o que ele
+    quer mudar. Passar ``resultado=None`` imita a 1.3.1 em campo (sem a chave
+    ``co_resultado``), forçando a VIEW a deduzir o desfecho pelo [placar]."""
     for _ in range(quantas):
         await sessao.execute(
             text(
-                "INSERT INTO partida.vw001_partida "
-                "(id_usuario, co_jogo, co_modo, co_status, co_resultado) "
-                "VALUES (:dono, :jogo, :modo, :status, :resultado)"
+                "INSERT INTO partida.tb001_partida "
+                "(id_usuario, co_jogo, co_modo, co_status, nu_placar_j1, nu_placar_j2, co_resultado) "
+                "VALUES (:dono, :jogo, :modo, :status, :j1, :j2, :resultado)"
             ),
             {
                 "dono": dono,
                 "jogo": jogo,
                 "modo": modo,
                 "status": status,
+                "j1": placar[0],
+                "j2": placar[1],
                 "resultado": resultado,
             },
         )
@@ -222,3 +256,52 @@ async def test_quem_nunca_venceu_recebe_o_mapa_vazio(sessao):
     repo = RepositorioSincronizacao(sessao)
 
     assert await repo.vitorias_por_jogo(DONO) == {}
+
+
+@pytest.mark.asyncio
+async def test_empate_informado_com_placar_a_favor_nao_conta_vitoria(sessao):
+    """T168 (spec 010): nas damas o placar é peças restantes. Um empate 5×3
+    informado pelo app (`co_resultado = 'empate'`) não pode inflar as vitórias
+    por jogo — senão o aparelho adotaria por GREATEST uma vitória que nunca
+    aconteceu."""
+    await _gravar(
+        sessao, quantas=1, jogo="damas", resultado="empate", placar=(5, 3)
+    )
+
+    repo = RepositorioSincronizacao(sessao)
+
+    assert await repo.vitorias_por_jogo(DONO) == {}
+
+
+@pytest.mark.asyncio
+async def test_controle_sem_resultado_informado_vale_o_placar_como_na_1_3_1(sessao):
+    """Controle do caso acima (§8zzzz10): quando a 1.3.1 em campo não envia
+    `co_resultado` (`NULL` na tabela), a VIEW cai na comparação de placares e
+    devolve exatamente os mesmos números de hoje."""
+    await _gravar(
+        sessao, quantas=1, jogo="damas", resultado=None, placar=(5, 3)
+    )
+    await _gravar(
+        sessao, quantas=2, jogo="damas", resultado=None, placar=(3, 5)
+    )
+    await _gravar(
+        sessao, quantas=1, jogo="damas", resultado=None, placar=(2, 2)
+    )
+
+    repo = RepositorioSincronizacao(sessao)
+
+    assert await repo.vitorias_por_jogo(DONO) == {"damas": 1}
+
+
+@pytest.mark.asyncio
+async def test_vitoria_informada_prevalece_sobre_o_placar(sessao):
+    """Simétrico do empate de damas: se o app informar `venceu_j1` mesmo com
+    menos peças no tabuleiro (ex.: adversário bloqueado sem lance legal tendo
+    mais pedras), a VIEW obedece ao `co_resultado` explícito."""
+    await _gravar(
+        sessao, quantas=1, jogo="damas", resultado="venceu_j1", placar=(2, 4)
+    )
+
+    repo = RepositorioSincronizacao(sessao)
+
+    assert await repo.vitorias_por_jogo(DONO) == {"damas": 1}

@@ -110,6 +110,10 @@ _CAMPOS_GENERICOS_DA_PARTIDA = frozenset(
         # maior que zero: o app o omite no caso comum, para o payload dos jogos
         # sem poder continuar byte a byte igual ao que ja esta em campo.
         "qt_usos_poder",
+        # Resultado explicito da partida do ponto de vista do J1 (T168 da spec
+        # 010): 'venceu_j1' | 'venceu_j2' | 'empate'. Opcional: a 1.3.1 em campo
+        # nao envia, e uma partida em_andamento na 1a leva tambem nao.
+        "co_resultado",
         # Campo de app antigo: a coluna sumiu na migracao 0007 e o valor e
         # ignorado, mas ele ainda chega. Listar aqui evita um warning inutil a
         # cada partida de quem nao atualizou.
@@ -245,6 +249,67 @@ def _inteiro_nao_negativo(valor: Any, *, teto: int = 999) -> int:
     return valor if 0 <= valor <= teto else 0
 
 
+#: Os três únicos valores aceitos por ``ck_partida_resultado`` (migração 0038),
+#: sempre do ponto de vista do Jogador 1 (azul; humano em ``vs_cpu``).
+RESULTADOS_VALIDOS_PARTIDA = frozenset({"venceu_j1", "venceu_j2", "empate"})
+
+
+def normalizar_resultado_partida(valor: Any) -> str | None:
+    """Sanitiza ``co_resultado`` do payload da partida antes de ir ao SQL.
+
+    Devolve o código somente quando [valor] é uma ``str`` pertencente a
+    :data:`RESULTADOS_VALIDOS_PARTIDA`. Qualquer outra coisa — chave ausente,
+    ``None``, caixa diferente (``"EMPATE"``), espaço sobrando, número, booleano
+    ou estrutura — vira ``None``.
+
+    ⚠️ **Por que sanitizar em vez de recusar ou confiar no CHECK do banco.**
+    Se um valor fora dos três chegasse ao ``INSERT``, ``ck_partida_resultado``
+    explodiria dentro do ``SAVEPOINT`` do lote, o evento cairia em ``falhas``
+    (``falha_processamento``) e o app **apagaria** a partida da fila de envio
+    para sempre. E recusar na validação teria o mesmo efeito (``rejeitados``
+    também é descartado pelo app). Gravando ``None``, a partida é preservada e
+    a contagem cai na dedução pelo placar, exatamente como na 1.3.1.
+    """
+    if isinstance(valor, str) and valor in RESULTADOS_VALIDOS_PARTIDA:
+        return valor
+    return None
+
+
+def desfecho_da_partida(partida: dict[str, Any]) -> tuple[int, int, int]:
+    """Devolve ``(vit, der, emp)`` do ponto de vista do J1 para a progressão.
+
+    Regra da T168 (spec 010):
+
+    * Quando ``co_resultado`` vem válido, o servidor **confia** nele sem cruzar
+      com o placar. Nas damas o placar é o número de peças restantes no fim da
+      partida, então um empate legítimo por repetição ou lances sem captura com
+      5×3 peças precisa contar como ``empate`` (``(0, 0, 1)``), igual ao que o
+      próprio app contou em ``ProgressaoProvider.registrarPartida``. Não há
+      vetor de fraude de XP aqui: ``co_resultado`` só move o contador V/D/E,
+      enquanto o XP vem das parcelas validadas em ``validacao.py``.
+    * Quando ``co_resultado`` não vem (app 1.3.1 e anteriores) ou é descartado
+      por inválido, vale a comparação de ``nu_placar_j1`` e ``nu_placar_j2``,
+      dando exatamente os mesmos números de hoje (§8zzzz10).
+
+    A soma da tupla devolvida é sempre ``1``.
+    """
+    informado = normalizar_resultado_partida(partida.get("co_resultado"))
+    if informado == "venceu_j1":
+        return (1, 0, 0)
+    if informado == "venceu_j2":
+        return (0, 1, 0)
+    if informado == "empate":
+        return (0, 0, 1)
+
+    j1 = int(partida.get("nu_placar_j1", 0))
+    j2 = int(partida.get("nu_placar_j2", 0))
+    return (
+        1 if j1 > j2 else 0,
+        1 if j1 < j2 else 0,
+        1 if j1 == j2 else 0,
+    )
+
+
 def calcular_sequencia_de_dias(dias: list[date]) -> int:
     """Calcula a "chama" (sequência) a partir da lista de **dias LOCAIS distintos**
     em que o jogador jogou, em ordem CRESCENTE.
@@ -352,6 +417,21 @@ class RepositorioSincronizacao:
         #    transação que a travou. Sem isso não daria para saber se este envio
         #    é o primeiro (grava tudo) ou a completação (grava só o que falta) — e
         #    gravar tudo de novo duplicaria o XP da partida.
+        # Sanitiza `co_resultado` (T168) antes do SQL: qualquer valor fora dos
+        # três permitidos pelo CHECK vira NULL, registrando aviso sem nunca
+        # derrubar nem recusar a partida. Ausência/None (caso da 1.3.1 e da 1ª
+        # leva `em_andamento`) é normal e não gera aviso.
+        bruto_resultado = partida.get("co_resultado")
+        co_resultado = normalizar_resultado_partida(bruto_resultado)
+        if bruto_resultado is not None and co_resultado is None:
+            logger.warning(
+                "co_resultado invalido na partida %r: %r. Gravado como NULL "
+                "(contagem cai no placar) para nao estourar o CHECK nem perder "
+                "a partida.",
+                partida.get("id_partida"),
+                bruto_resultado,
+            )
+
         sql_partida = text(
             """
             INSERT INTO partida.tb001_partida
@@ -359,20 +439,21 @@ class RepositorioSincronizacao:
                id_usuario_j2, co_dificuldade, nu_placar_j1,
                nu_placar_j2, ic_pontua, co_status, co_lote_migracao,
                dh_inicio, dh_fim, nu_offset_minuto_j1, nu_offset_minuto_j2,
-               qt_usos_poder)
+               qt_usos_poder, co_resultado)
             VALUES
               (:id_partida, :co_evento, :co_jogo, :co_variante, :co_modo,
                :id_usuario, :id_usuario_j2, :co_dificuldade,
                :nu_placar_j1, :nu_placar_j2, :ic_pontua, :co_status,
                :co_lote_migracao, :dh_inicio, :dh_fim,
                :nu_offset_minuto_j1, :nu_offset_minuto_j2,
-               :qt_usos_poder)
+               :qt_usos_poder, :co_resultado)
             ON CONFLICT (co_evento) DO UPDATE
-               SET co_status    = EXCLUDED.co_status,
-                   dh_fim       = EXCLUDED.dh_fim,
-                   nu_placar_j1 = EXCLUDED.nu_placar_j1,
-                   nu_placar_j2 = EXCLUDED.nu_placar_j2,
-                   qt_usos_poder = EXCLUDED.qt_usos_poder
+               SET co_status     = EXCLUDED.co_status,
+                   dh_fim        = EXCLUDED.dh_fim,
+                   nu_placar_j1  = EXCLUDED.nu_placar_j1,
+                   nu_placar_j2  = EXCLUDED.nu_placar_j2,
+                   qt_usos_poder = EXCLUDED.qt_usos_poder,
+                   co_resultado  = EXCLUDED.co_resultado
              WHERE partida.tb001_partida.co_status = 'em_andamento'
             RETURNING id_partida, (xmax = 0) AS ic_inserida
             """
@@ -416,6 +497,10 @@ class RepositorioSincronizacao:
                 # "voltar jogada" desfaz duas jogadas, e um poder futuro pode nao
                 # desfazer nenhuma.
                 "qt_usos_poder": _inteiro_nao_negativo(partida.get("qt_usos_poder")),
+                # Resultado informado pelo app (T168): 'venceu_j1' | 'venceu_j2' |
+                # 'empate', ou None quando o app não informou (1.3.1 ou partida
+                # ainda aberta).
+                "co_resultado": co_resultado,
             },
         )
         linha = resultado.first()
@@ -1107,11 +1192,9 @@ class RepositorioSincronizacao:
         if not partida.get("ic_pontua"):
             return
         xp_ganho = sum(int(p.get("nu_xp", 0)) for p in xp)
-        j1 = int(partida.get("nu_placar_j1", 0))
-        j2 = int(partida.get("nu_placar_j2", 0))
-        vit = 1 if j1 > j2 else 0
-        der = 1 if j1 < j2 else 0
-        emp = 1 if j1 == j2 else 0
+        # T168: usa `co_resultado` quando válido; senão, deduz do placar como a
+        # 1.3.1 em campo espera.
+        vit, der, emp = desfecho_da_partida(partida)
         # Dia da partida (da data de fim, ou início): avança dt_ultimo_dia_jogado
         # sem nunca retroceder (GREATEST). Mantém a coluna "fresca" a cada partida
         # sincronizada, mesmo sem a reconciliação rodar.
@@ -1602,9 +1685,11 @@ class RepositorioSincronizacao:
           ``ic_pontua``: ele já é consequência do modo, e depender dele aqui
           criaria uma segunda regra para a mesma coisa.
         * ``co_status = 'concluida'`` - o mesmo recorte de [recalcular_chama].
-          Contra a CPU a partida só sobe terminada, mas ``co_resultado`` é
-          derivado do placar: uma linha em andamento com o humano à frente
-          contaria como vitória, e o filtro fecha essa porta antes de ela existir.
+          Contra a CPU a partida só sobe terminada, mas nas partidas sem
+          ``co_resultado`` explícito (app 1.3.1 ou partida em andamento) a VIEW
+          deduz ``co_resultado`` do placar (migração 0038, T168): uma linha em
+          andamento com o humano à frente contaria como vitória, e o filtro
+          fecha essa porta antes de ela existir.
         * ``co_resultado = 'venceu_j1'`` - contra a CPU **o humano é sempre o
           J1** (regra canônica do projeto: J1 = azul = humano).
 

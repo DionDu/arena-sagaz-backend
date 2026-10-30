@@ -94,7 +94,7 @@ def test_o_WHERE_impede_que_isso_vire_o_ultimo_envio_manda():
 
 
 def test_as_cinco_colunas_do_requisito_estao_no_UPDATE():
-    """`co_status`, `dh_fim`, os dois placares e `qt_usos_poder`.
+    """`co_status`, `dh_fim`, os dois placares, `qt_usos_poder` e `co_resultado` (T168).
 
     ⚠️ **E so elas.** `co_modo`, `ic_pontua` e `dh_inicio` ficam de fora de
     proposito: um envio que mudasse o modo de uma partida ja gravada trocaria a
@@ -109,6 +109,7 @@ def test_as_cinco_colunas_do_requisito_estao_no_UPDATE():
         "nu_placar_j1",
         "nu_placar_j2",
         "qt_usos_poder",
+        "co_resultado",
     ):
         assert coluna in trecho, f"{coluna} ficou de fora do UPDATE"
     assert "co_modo" not in trecho
