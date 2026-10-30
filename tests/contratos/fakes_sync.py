@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from api.sincronizacao.repositorio import desfecho_da_partida
+from api.sincronizacao.repositorio import (
+    desfecho_da_partida,
+    escolher_bloco_contadores_reconciliacao,
+)
 
 
 def _zerado() -> dict[str, Any]:
@@ -97,16 +100,31 @@ class FakeRepoSincronizacao:
     ) -> None:
         prog = self._progressao.setdefault(id_usuario, _zerado())
         r = snapshot
-        # GREATEST em cada contador (nunca regride).
-        for c in (
-            "nu_xp_total",
-            "nu_partidas",
-            "nu_vitorias",
-            "nu_derrotas",
-            "nu_empates",
-            "nu_sequencia_atual",
-        ):
-            prog[c] = max(prog[c], int(r.get(c, 0)))
+        # XP e sequência continuam por GREATEST; o bloco (partidas, V, D, E)
+        # entra de um lado só (T170 da spec 010), pela mesma função pura do
+        # repositório real.
+        prog["nu_xp_total"] = max(prog["nu_xp_total"], int(r.get("nu_xp_total", 0)))
+        prog["nu_sequencia_atual"] = max(
+            prog["nu_sequencia_atual"], int(r.get("nu_sequencia_atual", 0))
+        )
+        part, vit, der, emp = escolher_bloco_contadores_reconciliacao(
+            atual=(
+                prog["nu_partidas"],
+                prog["nu_vitorias"],
+                prog["nu_derrotas"],
+                prog["nu_empates"],
+            ),
+            recebido=(
+                int(r.get("nu_partidas", 0)),
+                int(r.get("nu_vitorias", 0)),
+                int(r.get("nu_derrotas", 0)),
+                int(r.get("nu_empates", 0)),
+            ),
+        )
+        prog["nu_partidas"] = part
+        prog["nu_vitorias"] = vit
+        prog["nu_derrotas"] = der
+        prog["nu_empates"] = emp
         dia = r.get("dt_ultimo_dia_jogado")
         if dia is not None:
             atual = prog["dt_ultimo_dia_jogado"]

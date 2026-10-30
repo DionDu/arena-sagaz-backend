@@ -11067,3 +11067,61 @@ o `ROLLBACK`. Mutação: **9 de 9 mortas** (sem normalização, sem coluna no `I
 `DO UPDATE`, progressão só pelo placar, sem fallback da `1.3.1`, `COALESCE` invertido na VIEW, sem
 `ic_resultado_informado`, sem `ck_partida_resultado`, `FakeRepoSincronizacao` só pelo placar).
 Suíte completa do backend: **4.478 verdes** (38 pulados).
+
+---
+
+## 2026-10-30 — Reconciliação de progressão: contadores `(partidas, V, D, E)` em bloco e auto-reparo (T170)
+
+**Contexto.** Na releitura de `progressao.tb001_progressao_usuario` no `prd` em 30/10/2026
+(`RETOMADA-progressao-1.4.0.md` §2 e §3.E), duas das 47 contas já estavam com
+`nu_vitorias + nu_derrotas + nu_empates > nu_partidas` na própria linha do servidor:
+`c1d497ac-76d8-4273-a743-a1356de6b64a` (`152` partidas, `56 + 90 + 8 = 154`) e
+`1ca98aad-afe0-4352-8594-79fd4459039c` (`39` partidas, `16 + 14 + 10 = 40`). Em ambas, 100% das
+partidas que pontuam estão no log (`partida.vw001_partida`: `152 = 56/90/6` e `39 = 16/14/9`). Quem
+produziu o excesso foi `RepositorioSincronizacao.reconciliar_progressao`, que aplicava `GREATEST`
+campo a campo sobre dois retratos que fechavam a soma isoladamente (o do servidor deduzido pelo
+placar das damas e o do aparelho contando os empates reais), e devolvia a linha quebrada para o app.
+
+**Decisão** (dono, 30/10/2026, `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzz10):
+1. **`validacao.py` permanece intocada** — `validar_reconciliacao` e `validar_progressao_convidado`
+   continuam recusando `nu_vitorias + nu_derrotas + nu_empates > nu_partidas` com 422
+   (`progressao_inconsistente`).
+2. **`RepositorioSincronizacao.reconciliar_progressao` (`api/sincronizacao/repositorio.py`)**:
+   - `nu_xp_total`, `nu_sequencia_atual` e `dt_ultimo_dia_jogado` continuam por `GREATEST`, e
+     `conquistas` por união sem pagamento de bônus;
+   - o bloco `(nu_partidas, nu_vitorias, nu_derrotas, nu_empates)` passa a ser atualizado **de um
+     lado só** (`escolher_bloco_contadores_reconciliacao`): como `EXCLUDED` já passou por
+     `validar_reconciliacao` (é sempre consistente), as quatro colunas mudam juntas para `EXCLUDED`
+     quando `EXCLUDED.nu_partidas > prog.nu_partidas` (evento de partida perdido) **ou** quando a
+     linha atual do servidor está inconsistente (`prog.nu_vitorias + prog.nu_derrotas +
+     prog.nu_empates > prog.nu_partidas`, auto-reparo); nos demais casos o servidor preserva o seu
+     bloco atual inteiro.
+3. **Reparo das 2 linhas existentes no `prd` (comando do dono)**: como os aparelhos de `c1d497ac` e
+   `1ca98aad` já receberam a resposta inconsistente no passado, o dono roda junto do backfill (T171)
+   um `UPDATE` dinâmico que recalcula `nu_vitorias`, `nu_derrotas` e `nu_empates` a partir de
+   `partida.vw001_partida` (`WHERE ic_pontua AND co_status = 'concluida'`) exclusivamente para linhas
+   com `WHERE (nu_vitorias + nu_derrotas + nu_empates) > nu_partidas` (sem números fixos).
+
+**O que muda para quem NÃO atualizar (`1.3.1` e anteriores).** Zero regressão (§8zzzz10): o corpo de
+`POST /v1/sincronizacao/reconciliar` não muda; quando uma `1.3.1` envia um retrato que fecha a soma
+com distribuição V/D/E diferente da do servidor no mesmo número de partidas, o XP/chama/data/
+conquistas sobem normalmente e o servidor **não** fabrica mais uma linha com `V + D + E > partidas`.
+
+**Alternativas.** (a) Afrouxar `validacao.py` para aceitar `V + D + E > partidas`: recusada — ela é a
+barreira anti-fraude que impediu linhas contaminadas pelo defeito 1 de subirem ao servidor.
+(b) Trocar o bloco no empate `EXCLUDED.nu_partidas >= prog.nu_partidas`: recusada — permitiria que um
+app `1.3.1` sem eventos perdidos sobrescrevesse a contagem derivada do log do servidor a cada
+reconciliação ociosa.
+
+**Testes.** `tests/unitarios/test_juncao_em_bloco_t170.py`: cadeado de `validacao.py` (Conta A
+inconsistente e Conta B contaminada recusadas; Conta A consertada aceita), funções puras, SQL real de
+`reconciliar_progressao` em SQLite de memória (corpo exato da `1.3.1`, aparelho atrasado com V/D/E
+maiores, aparelho à frente substituindo o bloco inteiro inclusive reduzindo contadores individuais,
+auto-reparo de `c1d497ac` e `1ca98aad`, Conta A subindo a 5.960 XP sem dobrar bônus, primeira linha)
+e paridade de `FakeRepoSincronizacao` na rota HTTP. Prova contra o Postgres real do `des` em
+transação desfeita: `scripts/conferir_juncao_em_bloco_t170.py` (`(a)..(f)` verdes, incluindo o
+`UPDATE` dinâmico do dono e `0` rastros após `ROLLBACK`). Mutação: **10 de 10 mortas** (afrouxar
+`validacao.py`, travar `nu_partidas`, voltar `nu_vitorias`/`nu_derrotas`/`nu_empates` para `GREATEST`
+individual, `>=` no lugar de `>` no SQL e na função pura, remover auto-reparo no SQL e na função
+pura, e `FakeRepoSincronizacao` campo a campo). Suíte completa do backend: **4.496 verdes**
+(38 pulados).

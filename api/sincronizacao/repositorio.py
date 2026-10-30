@@ -310,6 +310,57 @@ def desfecho_da_partida(partida: dict[str, Any]) -> tuple[int, int, int]:
     )
 
 
+def bloco_contadores_consistente(
+    partidas: int, vitorias: int, derrotas: int, empates: int
+) -> bool:
+    """``True`` quando o bloco ``(partidas, V, D, E)`` fecha a soma exigida por
+    ``validacao.py``: contadores não-negativos e ``V + D + E <= partidas``."""
+    return (
+        partidas >= 0
+        and vitorias >= 0
+        and derrotas >= 0
+        and empates >= 0
+        and (vitorias + derrotas + empates) <= partidas
+    )
+
+
+def escolher_bloco_contadores_reconciliacao(
+    *,
+    atual: tuple[int, int, int, int],
+    recebido: tuple[int, int, int, int],
+) -> tuple[int, int, int, int]:
+    """Escolhe o bloco ``(nu_partidas, nu_vitorias, nu_derrotas, nu_empates)``
+    de UM lado só na reconciliação do servidor (T170 da spec 010).
+
+    Até 30/10/2026 ``reconciliar_progressao`` aplicava ``GREATEST`` campo a
+    campo: dois retratos que fechavam a soma sozinhos (ex.: servidor ``152 / 56 /
+    90 / 6`` pelo placar das damas e aparelho ``152 / 54 / 90 / 8`` pelo empate)
+    viravam ``152 / 56 / 90 / 8`` (soma ``154 > 152``), fabricando linha
+    inconsistente no servidor.
+
+    O ``recebido`` chega aqui depois de passar por ``validar_reconciliacao``
+    (portanto sempre fecha a soma ``V + D + E <= partidas``). O servidor adota o
+    bloco ``recebido`` inteiro quando:
+
+    1. o aparelho conhece MAIS partidas que o servidor (``rec_part > atu_part``:
+       algum evento de partida se perdeu antes de chegar); OU
+    2. a linha atual do servidor já está inconsistente
+       (``atu_vit + atu_der + atu_emp > atu_part``) — auto-reparo mesmo quando o
+       aparelho manda igual ou menor número de partidas.
+
+    Caso contrário (servidor consistente e ``atu_part >= rec_part``), preserva o
+    bloco atual do servidor inteiro, sem misturar campos.
+    """
+    atu_part, atu_vit, atu_der, atu_emp = atual
+    rec_part, _, _, _ = recebido
+    atual_fecha = bloco_contadores_consistente(
+        atu_part, atu_vit, atu_der, atu_emp
+    )
+    if rec_part > atu_part or not atual_fecha:
+        return recebido
+    return atual
+
+
 def calcular_sequencia_de_dias(dias: list[date]) -> int:
     """Calcula a "chama" (sequência) a partir da lista de **dias LOCAIS distintos**
     em que o jogador jogou, em ordem CRESCENTE.
@@ -1426,7 +1477,13 @@ class RepositorioSincronizacao:
         ``GREATEST`` (nunca regridem — fecham o buraco de eventos perdidos sem
         duplicar), a "chama"/última data idem, e as conquistas entram por união.
         Roda quando a outbox está sem pendências, então o servidor já tem os
-        eventos confirmados e o ``GREATEST`` é no-op quando nada se perdeu."""
+        eventos confirmados e o ``GREATEST`` é no-op quando nada se perdeu.
+
+        Desde a T170 da spec 010 (30/10/2026), ``(nu_partidas, nu_vitorias,
+        nu_derrotas, nu_empates)`` entram **em bloco de um lado só** (ver
+        :func:`escolher_bloco_contadores_reconciliacao`): ``EXCLUDED`` substitui
+        o bloco inteiro quando tem mais partidas ou quando a linha atual do
+        servidor já está inconsistente (``V + D + E > partidas``)."""
         r = snapshot
         await self.sessao.execute(
             text(
@@ -1440,10 +1497,33 @@ class RepositorioSincronizacao:
                    :der, :emp, :seq, :dia, now())
                 ON CONFLICT (id_usuario) DO UPDATE SET
                   nu_xp_total = GREATEST(prog.nu_xp_total, EXCLUDED.nu_xp_total),
-                  nu_partidas = GREATEST(prog.nu_partidas, EXCLUDED.nu_partidas),
-                  nu_vitorias = GREATEST(prog.nu_vitorias, EXCLUDED.nu_vitorias),
-                  nu_derrotas = GREATEST(prog.nu_derrotas, EXCLUDED.nu_derrotas),
-                  nu_empates = GREATEST(prog.nu_empates, EXCLUDED.nu_empates),
+                  -- T170 (spec 010): (partidas, V, D, E) em bloco de UM lado só.
+                  -- No Postgres e no SQLite todas as expressões do SET leem os
+                  -- valores de prog.* de antes da atualização.
+                  nu_partidas = CASE
+                      WHEN EXCLUDED.nu_partidas > prog.nu_partidas
+                        OR (prog.nu_vitorias + prog.nu_derrotas + prog.nu_empates) > prog.nu_partidas
+                      THEN EXCLUDED.nu_partidas
+                      ELSE prog.nu_partidas
+                  END,
+                  nu_vitorias = CASE
+                      WHEN EXCLUDED.nu_partidas > prog.nu_partidas
+                        OR (prog.nu_vitorias + prog.nu_derrotas + prog.nu_empates) > prog.nu_partidas
+                      THEN EXCLUDED.nu_vitorias
+                      ELSE prog.nu_vitorias
+                  END,
+                  nu_derrotas = CASE
+                      WHEN EXCLUDED.nu_partidas > prog.nu_partidas
+                        OR (prog.nu_vitorias + prog.nu_derrotas + prog.nu_empates) > prog.nu_partidas
+                      THEN EXCLUDED.nu_derrotas
+                      ELSE prog.nu_derrotas
+                  END,
+                  nu_empates = CASE
+                      WHEN EXCLUDED.nu_partidas > prog.nu_partidas
+                        OR (prog.nu_vitorias + prog.nu_derrotas + prog.nu_empates) > prog.nu_partidas
+                      THEN EXCLUDED.nu_empates
+                      ELSE prog.nu_empates
+                  END,
                   nu_sequencia_atual = GREATEST(
                       prog.nu_sequencia_atual, EXCLUDED.nu_sequencia_atual),
                   dt_ultimo_dia_jogado = GREATEST(
