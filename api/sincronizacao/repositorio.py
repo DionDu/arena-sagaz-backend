@@ -38,7 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.desafios.repositorio_envio import SQL_CREDITAR_NA_CONTA
 from api.sincronizacao import dimensoes
-from api.sincronizacao.conquistas_do_desafio import bonus_da_conquista_do_desafio
+from api.sincronizacao.bonus_das_conquistas import bonus_da_conquista
 
 logger = logging.getLogger(__name__)
 
@@ -1235,26 +1235,33 @@ class RepositorioSincronizacao:
                 ),
                 {"id_usuario": id_usuario, "co_conquista": co_conquista},
             )
-            # ⚠️ **O bônus das conquistas do DESAFIO entra aqui também** (05/10/2026).
+            # ⚠️ **O bônus da conquista entra aqui também** (o do desafio desde
+            # 05/10/2026; o dos jogos desde a T167 da spec 010, 30/10/2026).
             # A migração do convidado roda ANTES de a fila dele subir
             # (`migrarConvidado` no app: merge, depois sincroniza): se só o evento
             # creditasse, ele chegaria depois desta linha, acharia a conquista já
             # gravada e não pagaria nada - e o bônus que o convidado viu na
             # celebração nunca chegaria ao ranking. `RETURNING` só devolve linha
             # numa inserção nova (`DO NOTHING` não devolve), então o crédito
-            # continua sendo um só, venha ela por onde vier.
+            # continua sendo um só, venha ela por onde vier. Conquista que a
+            # CONTA já tinha não é paga de novo: o app também não a soma duas
+            # vezes (o re-key local fica com a linha de maior XP, sem somar).
             if resultado.first() is not None:
-                await self._creditar_bonus_do_desafio(id_usuario, co_conquista)
+                await self._creditar_bonus_da_conquista(id_usuario, co_conquista)
         return True
 
-    async def _creditar_bonus_do_desafio(
+    async def _creditar_bonus_da_conquista(
         self, id_usuario: str, co_conquista: object
     ) -> None:
-        """Soma ao XP da conta o bônus de uma conquista do Desafio do Dia que
-        ACABOU de ser inserida - ver ``conquistas_do_desafio.py``.
+        """Soma ao XP da conta o bônus de uma conquista que ACABOU de ser
+        inserida - ver ``bonus_das_conquistas.py``.
 
-        Conquista de jogo dá bônus zero e não toca no banco: o bônus dela já veio
-        na partida (``co_tipo_xp = 'conquista'``), e somar aqui pagaria duas vezes.
+        Até a T167 da spec 010 (30/10/2026) só as conquistas do Desafio do Dia
+        pagavam aqui, e um comentário dizia que o bônus das dos jogos "já veio
+        na partida". ⚠️ Não vinha: ele só chegava pela reconciliação, e quando
+        ela era recusada (422) não chegava nunca. Agora toda conquista da tabela
+        paga; código desconhecido (de um app mais novo) dá zero e não toca no
+        banco.
 
         ⚠️ **Só quem inseriu chama isto.** A reconciliação (``reconciliar_progressao``)
         de propósito não chama: ela aplica ``GREATEST`` com o total do aparelho,
@@ -1265,7 +1272,7 @@ class RepositorioSincronizacao:
         joga o desafio e nunca pontuou numa partida - um ``UPDATE`` sozinho
         perderia esse bônus em silêncio.
         """
-        bonus = bonus_da_conquista_do_desafio(co_conquista)
+        bonus = bonus_da_conquista(co_conquista)
         if bonus <= 0:
             return
         await self.sessao.execute(
@@ -1285,10 +1292,11 @@ class RepositorioSincronizacao:
         ``(id_usuario, co_conquista)`` — reenviar o mesmo desbloqueio não duplica.
         Devolve ``True`` se inseriu.
 
-        O XP das conquistas **dos jogos** NÃO entra aqui: já sobe nas parcelas de
-        XP da partida. ⚠️ **As do Desafio do Dia são a exceção** (05/10/2026): não
-        há partida que carregue o bônus delas, e é na INSERÇÃO desta linha que o
-        servidor o credita - ver ``conquistas_do_desafio.py``."""
+        ⚠️ **É na INSERÇÃO desta linha que o servidor credita o bônus da
+        conquista** - ver ``bonus_das_conquistas.py``. As do Desafio do Dia desde
+        05/10/2026; as dos jogos desde a T167 da spec 010 (30/10/2026): o evento
+        de partida nunca levou parcela de conquista, e o bônus delas só chegava
+        pela reconciliação, que em algumas contas é recusada."""
         conquista = payload.get("conquista") or {}
         # Conflito: mantém a MENOR data de desbloqueio (a PRIMEIRA vez que o humano
         # a atingiu, em qualquer aparelho) — não a primeira a CHEGAR ao servidor.
@@ -1318,7 +1326,7 @@ class RepositorioSincronizacao:
         # vinda de um segundo aparelho) cai no `DO UPDATE` da data, devolve
         # `inserido = False`, e não paga o bônus outra vez.
         if inserido:
-            await self._creditar_bonus_do_desafio(
+            await self._creditar_bonus_da_conquista(
                 id_usuario, conquista.get("co_conquista")
             )
         return inserido
@@ -1372,6 +1380,10 @@ class RepositorioSincronizacao:
             },
         )
         # Conquistas: união idempotente (mesma chave do merge).
+        # ⛔ **Sem crédito de bônus aqui, de propósito, nem quando a conquista é
+        # nova**: o `nu_xp_total` acima já é o GREATEST com o total do
+        # aparelho, que inclui o bônus; creditar também pagaria duas vezes
+        # (risco R2 da T167, `bonus_das_conquistas.py`).
         for co_conquista in r.get("conquistas", []) or []:
             await self.sessao.execute(
                 text(

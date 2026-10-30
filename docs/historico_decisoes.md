@@ -10923,3 +10923,71 @@ reconciliação e o merge aceitos não arquivam, o 400 sem lote não arquiva, e 
 segue com um `commit` só. Mutação: 11 de 11 mortas (sem o `commit`, sem arquivar em cada rota, o
 `commit` antes de arquivar, as colunas trocadas, sem o `rollback`, o log relançando o erro); o
 teste do SQLite, sozinho, derruba as duas do `commit`.
+
+## 2026-10-30 (2) — O servidor credita o bônus de TODAS as conquistas ao inseri-las (T167 da spec 010)
+
+**Contexto.** O 2º defeito de progressão da 1.4.0: o bônus de XP das conquistas dos jogos só
+chegava ao servidor pela reconciliação (`GREATEST` do total do aparelho), e em 9 contas do `prd`
+ela é recusada com 422 - o bônus nunca chegava ao ranking (a conta A tem 345 XP a menos). O
+cabeçalho de `conquistas_do_desafio.py` e a docstring de `gravar_conquista` diziam que o bônus dos
+jogos "já subia como parcela da partida"; ⚠️ não subia: `partida.tb003_xp_partida` com
+`nu_tipo_xp = 5` nunca teve uma linha no `prd`. Só as conquistas do Desafio do Dia eram creditadas
+pelo servidor (desde 05/10/2026).
+
+**Decisão.** (Decisões técnicas delegadas pelo dono, `DECISOES-do-dono.md` §8zzzz10 do app.)
+
+1. **Uma tabela só, com as 91 conquistas**: `api/sincronizacao/bonus_das_conquistas.py`
+   (`git mv` de `conquistas_do_desafio.py`, porque o nome antigo ficaria falso), com
+   `BONUS_DAS_CONQUISTAS` e `bonus_da_conquista`. `_creditar_bonus_do_desafio` virou
+   `_creditar_bonus_da_conquista`.
+2. **O crédito acontece na INSERÇÃO**, pelos dois caminhos que já creditavam o desafio: o evento
+   `conquista` (`xmax = 0`) e o merge do convidado (`RETURNING` do `DO NOTHING`). ⛔ **A
+   reconciliação nunca credita** (risco R2): o total dela já é o `GREATEST` com o total do
+   aparelho, que inclui o bônus. O reenvio e o segundo aparelho caem no `DO UPDATE`/`DO NOTHING` e
+   não pagam de novo. Código desconhecido (de um app mais novo) grava e dá zero.
+3. **O cadeado é um arquivo comum**, `arena-sagaz-frontend/test/core/progressao/bonus_das_conquistas.json`:
+   o app compara o `catalogoConquistas` com ele (`bonus_das_conquistas_test.dart`), e
+   `tests/unitarios/test_bonus_das_conquistas.py` compara esta tabela com ele. A expressão regular
+   de antes só enxergava as 6 conquistas do desafio (o catálogo é montado por funções atalho).
+4. ⛔ **O valor de uma conquista publicada não muda mais**, e os 91 números estão congelados à mão
+   no teste. O app em campo soma o bônus do catálogo DELE; mudar os dois lados juntos deixaria o
+   cadeado do arquivo verde e o app antigo mostrando um número diferente do ranking - um problema
+   novo para quem não atualizou, que o dono proibiu (§8zzzz10). Conferido no histórico de
+   `conquistas.dart`: nenhum valor mudou desde a primeira versão (só a forma de escrever), e desde a
+   1.3.1 só entraram as do Quatro.
+
+**O que muda para quem NÃO atualizar (1.3.1 e anteriores).** O corpo dos eventos não mudou; o
+servidor passa a creditar o mesmo número que o aparelho já soma. Nas contas com a reconciliação
+aceita, o total do servidor termina igual ao do aparelho, em qualquer ordem (provado no `des`). Nas
+9 contas com a reconciliação recusada, cada conquista NOVA passa a chegar ao ranking; as antigas
+esperam o backfill (T171). O total do servidor não passa do do aparelho: o app adota por
+`GREATEST` e nunca soma. A única forma de o servidor ficar acima é o merge de um convidado numa
+conta que já tinha progresso no aparelho (o re-key local fica com a linha de maior XP, sem somar);
+ali o servidor já ficava acima antes, pelo XP das partidas do convidado, e o bônus que ele passa a
+pagar é o das conquistas que o convidado de fato trouxe.
+
+**Risco que fica (já existia).** Forjar eventos de conquista rende no máximo a soma da tabela
+(18.290 XP), uma vez por conta - o que a reconciliação aceita já permitia.
+
+**Alternativas.** (a) Uma tabela irmã só dos jogos, ao lado da do desafio: recusada - duas tabelas
+para a mesma regra, e um código podia cair nas duas ou em nenhuma. (b) O servidor ler o catálogo
+do app em tempo de execução: recusada - o servidor não tem o app ao lado em produção. (c) Mandar o
+bônus no evento: recusada - o valor viria do aparelho, e o servidor perderia a autoridade sobre ele.
+(d) Creditar também na reconciliação quando a conquista é nova: recusada - pagaria em dobro.
+
+**Testes.** `tests/unitarios/test_bonus_das_conquistas.py` (111, com os casos do crédito que
+moravam em `test_conquistas_do_desafio.py`; "conquista de jogo não paga" virou "agora paga"): as 91
+conquistas pelo evento, o reenvio, o código desconhecido, o merge (paga só o que inseriu, não paga o
+retry do lote), a reconciliação que nunca paga, a tabela = o arquivo comum, os valores congelados.
+`scripts/conferir_bonus_das_conquistas_t167.py`: o app real contra o `des` numa transação desfeita,
+com os corpos e cabeçalhos da 1.3.1 - (a) evento antes da reconciliação 90/90, (b) reconciliação
+antes do evento 90/90, (c) reenvio e segundo aparelho 60, (d) a conta recusada recebe 170 pelo
+evento e a recusa fica no log (a T166 no Postgres), (e) o merge paga 80 → 180 sem repetir o
+`nivel_5`, e o retry e os eventos do convidado ficam em 180, (f) código desconhecido 50, (g) 0
+contas e 0 linhas de log depois do `ROLLBACK`. **Controle da prova:** rodada com o servidor de
+antes (só o desafio paga), ela reprova (a), (c), (d) e (e) onde o bônus não chegava - (d) dá 50 no
+lugar de 170, o defeito das 9 contas -, e (b) e (f) passam nos dois, como devem (eles conferem que
+nada paga em dobro, o que o servidor antigo também cumpria). Mutação: 11 de 11 no backend (sem crédito, crédito no
+`DO UPDATE`, crédito no `DO NOTHING` do merge, merge sem crédito, crédito na reconciliação, crédito
+de zero, valor trocado, código faltando, código a mais, sem a guarda do tipo, só o desafio pagando)
+e 3 de 3 no app (bônus mudado no catálogo, no arquivo, código faltando no arquivo).
