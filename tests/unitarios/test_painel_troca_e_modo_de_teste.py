@@ -664,7 +664,13 @@ def test_esvaziar_sem_a_CAIXA_marcada_volta_com_ERRO(cliente) -> None:  # noqa: 
     assert not repo.desagendados
 
 
-def test_esvaziar_com_a_caixa_marcada_descarta(cliente) -> None:  # noqa: F811
+def test_esvaziar_com_a_caixa_marcada_descarta(cliente, monkeypatch) -> None:  # noqa: F811
+    # ⚠️ A rota lê o dia de `hoje_utc()`, o relógio REAL, e o calendário dos
+    # dublês é montado em torno de HOJE (27/10/2026). Sem prender o relógio da
+    # rota, o caso passou até o fim de outubro e começou a falhar sozinho em
+    # novembro: todos os dias do calendário ficaram no passado, e não sobrava
+    # nada para desagendar (achado em 03/11/2026). Mesmo molde das linhas acima.
+    monkeypatch.setattr("api.desafios.painel.rotas.hoje_utc", lambda: HOJE)
     repo = RepoDoCalendario(*_calendario_cheio())
     app.dependency_overrides[obter_servico] = lambda: ServicoCuradoria(repo)
     resposta = cliente.post(
