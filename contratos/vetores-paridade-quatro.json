@@ -2,7 +2,7 @@
   "de_documento": "Vetores de paridade do Quatro em Linha (spec 010, T106). GERADO por ia/jogos/jogo_quatro/motor_dart/bin/gerar_vetores_paridade_quatro.dart - nao edite a mao. Conferidos pelo backend (tests/unitarios/test_regras_quatro_vetores.py) e pelo app (test/modulos/jogos/quatro/vetores_desafio_quatro_test.dart). Depois do fim da partida nenhum lance e legal; a pessoa de uma fita e quem tem a vez na posicao publicada.",
   "versao": 1,
   "motor": {"quatro":"f33b8f571c031169ee88828bd9df7b48613fc671372d201b7736ab8c70ef2a4c"},
-  "contrato_sha256": "dc65bda71af3a780dbf92a9d206a4eeb00d858d314fc903848fccd27cdcb02f9",
+  "contrato_sha256": "ab801b19b397e8e33f5cfac2b6945ce792e65b3737103397f26382572a2586d6",
   "regras": [
     {"modalidade":"tradicional","lances":"","legais":["s1","s2","s3","s4","s5","s6","s7"],"desfecho":null,"ameacas":[]},
     {"modalidade":"tradicional","lances":"s4","legais":["s1","s2","s3","s4","s5","s6","s7"],"desfecho":null,"ameacas":[]},

@@ -3,7 +3,7 @@
   "versao": 1,
   "motor": {
     "quatro": "f33b8f571c031169ee88828bd9df7b48613fc671372d201b7736ab8c70ef2a4c",
-    "contrato": "dc65bda71af3a780dbf92a9d206a4eeb00d858d314fc903848fccd27cdcb02f9"
+    "contrato": "ab801b19b397e8e33f5cfac2b6945ce792e65b3737103397f26382572a2586d6"
   },
   "partidas": [
     {
@@ -1996,11 +1996,11 @@
       "argumentos": {
         "personagem": "magno",
         "tetoDeNos": 216496,
-        "epsilon": 0.015,
+        "epsilon": 0.01,
         "percebe": {
           "vencer": 1.0,
-          "bloquear": 0.97,
-          "nao_jogar_sob_ameaca": 0.95
+          "bloquear": 0.985,
+          "nao_jogar_sob_ameaca": 0.98
         },
         "aberturaDoMagno": {
           "1": 0.005,
@@ -2070,8 +2070,8 @@
         {
           "n": 7,
           "semente": 2098752734,
-          "lance": "s3",
-          "acao": "epsilon_aleatorio",
+          "lance": "s5",
+          "acao": "busca_melhor",
           "nos": 216496,
           "profundidade": 12,
           "motivo": "nos"
@@ -2079,53 +2079,53 @@
         {
           "n": 8,
           "semente": 458221199,
-          "lance": "s3",
+          "lance": "s5",
           "acao": "busca_melhor",
           "nos": 216496,
-          "profundidade": 14,
+          "profundidade": 12,
           "motivo": "nos"
         },
         {
           "n": 9,
           "semente": 965173312,
-          "lance": "s3",
+          "lance": "s5",
           "acao": "busca_melhor",
           "nos": 216496,
-          "profundidade": 13,
+          "profundidade": 12,
           "motivo": "nos"
         },
         {
           "n": 10,
           "semente": 1472125425,
-          "lance": "s5",
+          "lance": "s3",
           "acao": "busca_melhor",
           "nos": 216496,
-          "profundidade": 13,
+          "profundidade": 12,
           "motivo": "nos"
         },
         {
           "n": 11,
           "semente": 1979077538,
-          "lance": "s4",
+          "lance": "s6",
           "acao": "busca_melhor",
           "nos": 216496,
-          "profundidade": 14,
+          "profundidade": 12,
           "motivo": "nos"
         },
         {
           "n": 12,
           "semente": 338546003,
-          "lance": "s2",
+          "lance": "s6",
           "acao": "empate_sorteado",
           "nos": 216496,
-          "profundidade": 14,
+          "profundidade": 12,
           "motivo": "nos"
         },
         {
           "n": 13,
           "semente": 845498116,
-          "lance": "s5",
-          "acao": "busca_melhor",
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
           "nos": 216496,
           "profundidade": 14,
           "motivo": "nos"
@@ -2133,7 +2133,7 @@
         {
           "n": 14,
           "semente": 1352450229,
-          "lance": "s3",
+          "lance": "s4",
           "acao": "busca_melhor",
           "nos": 216496,
           "profundidade": 13,
@@ -2142,17 +2142,17 @@
         {
           "n": 15,
           "semente": 1859402342,
-          "lance": "s2",
-          "acao": "busca_melhor",
+          "lance": "s1",
+          "acao": "empate_sorteado",
           "nos": 216496,
-          "profundidade": 14,
+          "profundidade": 13,
           "motivo": "nos"
         },
         {
           "n": 16,
           "semente": 218870807,
-          "lance": "s5",
-          "acao": "busca_melhor",
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
           "nos": 216496,
           "profundidade": 17,
           "motivo": "nos"
@@ -2160,7 +2160,7 @@
         {
           "n": 17,
           "semente": 725822920,
-          "lance": "s5",
+          "lance": "s1",
           "acao": "busca_melhor",
           "nos": 216496,
           "profundidade": 16,
@@ -2169,86 +2169,212 @@
         {
           "n": 18,
           "semente": 1232775033,
-          "lance": "s5",
+          "lance": "s1",
           "acao": "busca_melhor",
-          "nos": 113233,
+          "nos": 216496,
           "profundidade": 16,
-          "motivo": "decidido"
+          "motivo": "nos"
         },
         {
           "n": 19,
           "semente": 1739727146,
           "lance": "s1",
-          "acao": "empate_sorteado",
-          "nos": 90965,
+          "acao": "busca_melhor",
+          "nos": 216496,
           "profundidade": 15,
-          "motivo": "decidido"
+          "motivo": "nos"
         },
         {
           "n": 20,
           "semente": 99195611,
-          "lance": "s1",
+          "lance": "s4",
           "acao": "busca_melhor",
-          "nos": 54410,
-          "profundidade": 14,
-          "motivo": "decidido"
+          "nos": 216496,
+          "profundidade": 15,
+          "motivo": "nos"
         },
         {
           "n": 21,
           "semente": 606147724,
-          "lance": "s4",
-          "acao": "empate_sorteado",
-          "nos": 40784,
-          "profundidade": 13,
-          "motivo": "decidido"
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 15,
+          "motivo": "nos"
         },
         {
           "n": 22,
           "semente": 1113099837,
-          "lance": "s3",
-          "acao": "busca_melhor",
-          "nos": 13335,
-          "profundidade": 12,
-          "motivo": "decidido"
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 16,
+          "motivo": "nos"
         },
         {
           "n": 23,
           "semente": 1620051950,
-          "lance": "s6",
+          "lance": "s2",
           "acao": "empate_sorteado",
-          "nos": 6999,
-          "profundidade": 11,
+          "nos": 85131,
+          "profundidade": 17,
           "motivo": "decidido"
         },
         {
           "n": 24,
           "semente": 2127004063,
-          "lance": "s6",
-          "acao": "busca_melhor",
-          "nos": 3215,
-          "profundidade": 10,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 75064,
+          "profundidade": 16,
           "motivo": "decidido"
         },
         {
           "n": 25,
           "semente": 486472528,
-          "lance": "s2",
-          "acao": "jogou_sob_ameaca",
-          "nos": 2197,
-          "profundidade": 9,
+          "lance": "s3",
+          "acao": "bloqueio_imediato",
+          "nos": 17341,
+          "profundidade": 15,
           "motivo": "decidido"
         },
         {
           "n": 26,
           "semente": 993424641,
-          "lance": "s2",
+          "lance": "s3",
+          "acao": "bloqueio_imediato",
+          "nos": 17251,
+          "profundidade": 14,
+          "motivo": "decidido"
+        },
+        {
+          "n": 27,
+          "semente": 1500376754,
+          "lance": "s3",
+          "acao": "bloqueio_imediato",
+          "nos": 17167,
+          "profundidade": 13,
+          "motivo": "decidido"
+        },
+        {
+          "n": 28,
+          "semente": 2007328867,
+          "lance": "s3",
+          "acao": "busca_melhor",
+          "nos": 24454,
+          "profundidade": 12,
+          "motivo": "decidido"
+        },
+        {
+          "n": 29,
+          "semente": 366797332,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 8253,
+          "profundidade": 11,
+          "motivo": "decidido"
+        },
+        {
+          "n": 30,
+          "semente": 873749445,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 2596,
+          "profundidade": 10,
+          "motivo": "decidido"
+        },
+        {
+          "n": 31,
+          "semente": 1380701558,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 2067,
+          "profundidade": 9,
+          "motivo": "decidido"
+        },
+        {
+          "n": 32,
+          "semente": 1887653671,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 565,
+          "profundidade": 8,
+          "motivo": "decidido"
+        },
+        {
+          "n": 33,
+          "semente": 247122136,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 525,
+          "profundidade": 7,
+          "motivo": "decidido"
+        },
+        {
+          "n": 34,
+          "semente": 754074249,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 490,
+          "profundidade": 6,
+          "motivo": "decidido"
+        },
+        {
+          "n": 35,
+          "semente": 1261026362,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 304,
+          "profundidade": 5,
+          "motivo": "decidido"
+        },
+        {
+          "n": 36,
+          "semente": 1767978475,
+          "lance": "s1",
+          "acao": "busca_melhor",
+          "nos": 92,
+          "profundidade": 4,
+          "motivo": "decidido"
+        },
+        {
+          "n": 37,
+          "semente": 127446940,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 31,
+          "profundidade": 3,
+          "motivo": "decidido"
+        },
+        {
+          "n": 38,
+          "semente": 634399053,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 11,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 39,
+          "semente": 1141351166,
+          "lance": "s5",
+          "acao": "busca_melhor",
+          "nos": 2,
+          "profundidade": 1,
+          "motivo": "decidido"
+        },
+        {
+          "n": 40,
+          "semente": 1648303279,
+          "lance": "s5",
           "acao": "vitoria_imediata",
           "nos": 0,
           "profundidade": 1,
           "motivo": "decidido"
         }
       ],
-      "co_lances_finais": "s4s4s4s4s3s5s3s3s3s5s4s2s5s3s2s5s5s5s1s1s4s3s6s6s2s2",
+      "co_lances_finais": "s4s4s4s4s3s5s5s5s5s3s6s6s7s4s1s2s1s1s1s4s7s2s2s2s3s3s3s3s6s6s7s7s7s7s1s1s6s6s5s5",
       "co_desfecho": "alinhou",
       "vencedor": -1
     },
@@ -2262,11 +2388,11 @@
       "argumentos": {
         "personagem": "magno",
         "tetoDeNos": 216496,
-        "epsilon": 0.015,
+        "epsilon": 0.01,
         "percebe": {
           "vencer": 1.0,
-          "bloquear": 0.97,
-          "nao_jogar_sob_ameaca": 0.95
+          "bloquear": 0.985,
+          "nao_jogar_sob_ameaca": 0.98
         },
         "aberturaDoMagno": {
           "1": 0.005,
@@ -2654,11 +2780,11 @@
       "argumentos": {
         "personagem": "magno",
         "tetoDeNos": 216496,
-        "epsilon": 0.015,
+        "epsilon": 0.01,
         "percebe": {
           "vencer": 1.0,
-          "bloquear": 0.97,
-          "nao_jogar_sob_ameaca": 0.95
+          "bloquear": 0.985,
+          "nao_jogar_sob_ameaca": 0.98
         },
         "aberturaDoMagno": {
           "1": 0.005,
@@ -2809,8 +2935,8 @@
         {
           "n": 16,
           "semente": 1373815575,
-          "lance": "s3",
-          "acao": "jogou_sob_ameaca",
+          "lance": "s2",
+          "acao": "busca_melhor",
           "nos": 216496,
           "profundidade": 14,
           "motivo": "nos"
@@ -2818,16 +2944,223 @@
         {
           "n": 17,
           "semente": 1880767688,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 19,
+          "motivo": "nos"
+        },
+        {
+          "n": 18,
+          "semente": 240236153,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 17,
+          "motivo": "nos"
+        },
+        {
+          "n": 19,
+          "semente": 747188266,
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 20,
+          "motivo": "nos"
+        },
+        {
+          "n": 20,
+          "semente": 1254140379,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 216496,
+          "profundidade": 19,
+          "motivo": "nos"
+        },
+        {
+          "n": 21,
+          "semente": 1761092492,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 106630,
+          "profundidade": 19,
+          "motivo": "decidido"
+        },
+        {
+          "n": 22,
+          "semente": 120560957,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 61933,
+          "profundidade": 18,
+          "motivo": "decidido"
+        },
+        {
+          "n": 23,
+          "semente": 627513070,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 50473,
+          "profundidade": 17,
+          "motivo": "decidido"
+        },
+        {
+          "n": 24,
+          "semente": 1134465183,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 45640,
+          "profundidade": 16,
+          "motivo": "decidido"
+        },
+        {
+          "n": 25,
+          "semente": 1641417296,
+          "lance": "s2",
+          "acao": "empate_sorteado",
+          "nos": 20164,
+          "profundidade": 15,
+          "motivo": "decidido"
+        },
+        {
+          "n": 26,
+          "semente": 885761,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 10518,
+          "profundidade": 14,
+          "motivo": "decidido"
+        },
+        {
+          "n": 27,
+          "semente": 507837874,
+          "lance": "s7",
+          "acao": "empate_sorteado",
+          "nos": 5856,
+          "profundidade": 13,
+          "motivo": "decidido"
+        },
+        {
+          "n": 28,
+          "semente": 1014789987,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 1637,
+          "profundidade": 12,
+          "motivo": "decidido"
+        },
+        {
+          "n": 29,
+          "semente": 1521742100,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 1491,
+          "profundidade": 11,
+          "motivo": "decidido"
+        },
+        {
+          "n": 30,
+          "semente": 2028694213,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 1160,
+          "profundidade": 10,
+          "motivo": "decidido"
+        },
+        {
+          "n": 31,
+          "semente": 388162678,
+          "lance": "s1",
+          "acao": "bloqueio_imediato",
+          "nos": 511,
+          "profundidade": 9,
+          "motivo": "decidido"
+        },
+        {
+          "n": 32,
+          "semente": 895114791,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 466,
+          "profundidade": 8,
+          "motivo": "decidido"
+        },
+        {
+          "n": 33,
+          "semente": 1402066904,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 356,
+          "profundidade": 7,
+          "motivo": "decidido"
+        },
+        {
+          "n": 34,
+          "semente": 1909019017,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 112,
+          "profundidade": 6,
+          "motivo": "decidido"
+        },
+        {
+          "n": 35,
+          "semente": 268487482,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 69,
+          "profundidade": 5,
+          "motivo": "decidido"
+        },
+        {
+          "n": 36,
+          "semente": 775439595,
+          "lance": "s5",
+          "acao": "empate_sorteado",
+          "nos": 41,
+          "profundidade": 4,
+          "motivo": "decidido"
+        },
+        {
+          "n": 37,
+          "semente": 1282391708,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 11,
+          "profundidade": 3,
+          "motivo": "decidido"
+        },
+        {
+          "n": 38,
+          "semente": 1789343821,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 5,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 39,
+          "semente": 148812286,
+          "lance": "s3",
+          "acao": "bloqueio_imediato",
+          "nos": 0,
+          "profundidade": 0,
+          "motivo": "lance_unico"
+        },
+        {
+          "n": 40,
+          "semente": 655764399,
           "lance": "s3",
           "acao": "vitoria_imediata",
           "nos": 0,
-          "profundidade": 1,
-          "motivo": "decidido"
+          "profundidade": 0,
+          "motivo": "lance_unico"
         }
       ],
-      "co_lances_finais": "s4s4s4s4s3s5s5s5s5s3s6s4s4s6s7s3s3",
+      "co_lances_finais": "s4s4s4s4s3s5s5s5s5s3s6s4s4s6s7s2s2s2s2s5s1s1s7s2s2s1s7s7s7s1s1s7s1s6s6s5s6s6s3s3",
       "co_desfecho": "alinhou",
-      "vencedor": 1
+      "vencedor": -1
     },
     {
       "id": "quatro-tradicional-sagaz-publicada-697571591",
@@ -2839,11 +3172,11 @@
       "argumentos": {
         "personagem": "magno",
         "tetoDeNos": 216496,
-        "epsilon": 0.015,
+        "epsilon": 0.01,
         "percebe": {
           "vencer": 1.0,
-          "bloquear": 0.97,
-          "nao_jogar_sob_ameaca": 0.95
+          "bloquear": 0.985,
+          "nao_jogar_sob_ameaca": 0.98
         },
         "aberturaDoMagno": {
           "1": 0.005,
@@ -2913,8 +3246,8 @@
         {
           "n": 7,
           "semente": 2098752734,
-          "lance": "s5",
-          "acao": "epsilon_aleatorio",
+          "lance": "s1",
+          "acao": "busca_melhor",
           "nos": 216496,
           "profundidade": 19,
           "motivo": "nos"
@@ -2922,82 +3255,82 @@
         {
           "n": 8,
           "semente": 458221199,
-          "lance": "s1",
-          "acao": "busca_melhor",
-          "nos": 152491,
-          "profundidade": 18,
-          "motivo": "decidido"
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 216496,
+          "profundidade": 20,
+          "motivo": "nos"
         },
         {
           "n": 9,
           "semente": 965173312,
-          "lance": "s4",
-          "acao": "empate_sorteado",
-          "nos": 115268,
-          "profundidade": 17,
-          "motivo": "decidido"
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 216496,
+          "profundidade": 19,
+          "motivo": "nos"
         },
         {
           "n": 10,
           "semente": 1472125425,
-          "lance": "s1",
-          "acao": "empate_sorteado",
-          "nos": 71737,
-          "profundidade": 16,
-          "motivo": "decidido"
+          "lance": "s2",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 18,
+          "motivo": "nos"
         },
         {
           "n": 11,
           "semente": 1979077538,
-          "lance": "s7",
-          "acao": "empate_sorteado",
-          "nos": 39931,
-          "profundidade": 15,
-          "motivo": "decidido"
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 216496,
+          "profundidade": 18,
+          "motivo": "nos"
         },
         {
           "n": 12,
           "semente": 338546003,
           "lance": "s5",
           "acao": "empate_sorteado",
-          "nos": 33994,
-          "profundidade": 14,
-          "motivo": "decidido"
+          "nos": 216496,
+          "profundidade": 18,
+          "motivo": "nos"
         },
         {
           "n": 13,
           "semente": 845498116,
-          "lance": "s7",
-          "acao": "empate_sorteado",
-          "nos": 15835,
-          "profundidade": 13,
+          "lance": "s5",
+          "acao": "bloqueio_imediato",
+          "nos": 138595,
+          "profundidade": 22,
           "motivo": "decidido"
         },
         {
           "n": 14,
           "semente": 1352450229,
-          "lance": "s1",
-          "acao": "empate_sorteado",
-          "nos": 13053,
-          "profundidade": 12,
+          "lance": "s4",
+          "acao": "busca_melhor",
+          "nos": 158256,
+          "profundidade": 21,
           "motivo": "decidido"
         },
         {
           "n": 15,
           "semente": 1859402342,
           "lance": "s1",
-          "acao": "bloqueio_imediato",
-          "nos": 4759,
-          "profundidade": 11,
+          "acao": "empate_sorteado",
+          "nos": 117115,
+          "profundidade": 20,
           "motivo": "decidido"
         },
         {
           "n": 16,
           "semente": 218870807,
-          "lance": "s4",
+          "lance": "s5",
           "acao": "empate_sorteado",
-          "nos": 5329,
-          "profundidade": 10,
+          "nos": 81312,
+          "profundidade": 19,
           "motivo": "decidido"
         },
         {
@@ -3005,53 +3338,53 @@
           "semente": 725822920,
           "lance": "s7",
           "acao": "empate_sorteado",
-          "nos": 2014,
-          "profundidade": 9,
+          "nos": 30168,
+          "profundidade": 18,
           "motivo": "decidido"
         },
         {
           "n": 18,
           "semente": 1232775033,
-          "lance": "s7",
-          "acao": "bloqueio_imediato",
-          "nos": 934,
-          "profundidade": 8,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 28769,
+          "profundidade": 17,
           "motivo": "decidido"
         },
         {
           "n": 19,
           "semente": 1739727146,
-          "lance": "s5",
+          "lance": "s1",
           "acao": "empate_sorteado",
-          "nos": 1140,
-          "profundidade": 7,
+          "nos": 12156,
+          "profundidade": 16,
           "motivo": "decidido"
         },
         {
           "n": 20,
           "semente": 99195611,
-          "lance": "s1",
+          "lance": "s6",
           "acao": "empate_sorteado",
-          "nos": 475,
-          "profundidade": 6,
+          "nos": 13452,
+          "profundidade": 15,
           "motivo": "decidido"
         },
         {
           "n": 21,
           "semente": 606147724,
-          "lance": "s7",
-          "acao": "empate_sorteado",
-          "nos": 210,
-          "profundidade": 5,
+          "lance": "s6",
+          "acao": "bloqueio_imediato",
+          "nos": 7864,
+          "profundidade": 14,
           "motivo": "decidido"
         },
         {
           "n": 22,
           "semente": 1113099837,
-          "lance": "s1",
+          "lance": "s5",
           "acao": "empate_sorteado",
-          "nos": 129,
-          "profundidade": 4,
+          "nos": 8550,
+          "profundidade": 13,
           "motivo": "decidido"
         },
         {
@@ -3059,39 +3392,129 @@
           "semente": 1620051950,
           "lance": "s7",
           "acao": "empate_sorteado",
-          "nos": 36,
-          "profundidade": 3,
+          "nos": 2777,
+          "profundidade": 12,
           "motivo": "decidido"
         },
         {
           "n": 24,
           "semente": 2127004063,
-          "lance": "s5",
-          "acao": "busca_melhor",
-          "nos": 13,
-          "profundidade": 2,
+          "lance": "s6",
+          "acao": "bloqueio_imediato",
+          "nos": 1394,
+          "profundidade": 11,
           "motivo": "decidido"
         },
         {
           "n": 25,
           "semente": 486472528,
           "lance": "s2",
-          "acao": "jogou_sob_ameaca",
-          "nos": 2,
-          "profundidade": 1,
+          "acao": "epsilon_aleatorio",
+          "nos": 1545,
+          "profundidade": 10,
           "motivo": "decidido"
         },
         {
           "n": 26,
           "semente": 993424641,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 1091,
+          "profundidade": 10,
+          "motivo": "decidido"
+        },
+        {
+          "n": 27,
+          "semente": 1500376754,
+          "lance": "s1",
+          "acao": "empate_sorteado",
+          "nos": 576,
+          "profundidade": 9,
+          "motivo": "decidido"
+        },
+        {
+          "n": 28,
+          "semente": 2007328867,
           "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 118,
+          "profundidade": 8,
+          "motivo": "decidido"
+        },
+        {
+          "n": 29,
+          "semente": 366797332,
+          "lance": "s2",
+          "acao": "bloqueio_imediato",
+          "nos": 94,
+          "profundidade": 7,
+          "motivo": "decidido"
+        },
+        {
+          "n": 30,
+          "semente": 873749445,
+          "lance": "s6",
+          "acao": "empate_sorteado",
+          "nos": 75,
+          "profundidade": 6,
+          "motivo": "decidido"
+        },
+        {
+          "n": 31,
+          "semente": 1380701558,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 31,
+          "profundidade": 5,
+          "motivo": "decidido"
+        },
+        {
+          "n": 32,
+          "semente": 1887653671,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 21,
+          "profundidade": 4,
+          "motivo": "decidido"
+        },
+        {
+          "n": 33,
+          "semente": 247122136,
+          "lance": "s7",
+          "acao": "bloqueio_imediato",
+          "nos": 13,
+          "profundidade": 3,
+          "motivo": "decidido"
+        },
+        {
+          "n": 34,
+          "semente": 754074249,
+          "lance": "s7",
+          "acao": "busca_melhor",
+          "nos": 7,
+          "profundidade": 2,
+          "motivo": "decidido"
+        },
+        {
+          "n": 35,
+          "semente": 1261026362,
+          "lance": "s6",
+          "acao": "busca_melhor",
+          "nos": 0,
+          "profundidade": 0,
+          "motivo": "lance_unico"
+        },
+        {
+          "n": 36,
+          "semente": 1767978475,
+          "lance": "s6",
           "acao": "vitoria_imediata",
           "nos": 0,
-          "profundidade": 1,
-          "motivo": "decidido"
+          "profundidade": 0,
+          "motivo": "lance_unico"
         }
       ],
-      "co_lances_finais": "s4s4s3s5s4s3s3s4s3s5s3s3s5s1s4s1s7s5s7s1s1s4s7s7s5s1s7s1s7s5s2s2",
+      "co_lances_finais": "s4s4s3s5s4s3s3s4s3s5s3s3s1s2s2s2s4s5s5s4s1s5s7s1s1s6s6s5s7s6s2s1s1s2s2s6s7s7s7s7s6s6",
       "co_desfecho": "alinhou",
       "vencedor": -1
     }
