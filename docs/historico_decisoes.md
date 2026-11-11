@@ -11180,3 +11180,42 @@ contas reais do `prd` + 5 controles + idempotência, filtros de `vw001_partida`,
 e travas de ambiente/transação). Prova contra o Postgres real do `des` em transação desfeita:
 `scripts/conferir_backfill_t171.py` (`(a)..(f)` verdes e `0` rastros após `ROLLBACK`). Mutação:
 **10 de 10 mortas**. Suíte completa do backend: **4.502 verdes** (38 pulados).
+
+## 2026-11-11 — O site deixa de ser só do Jogo dos Pontinhos: quatro jogos, Desafio do Dia e vídeo
+
+**Contexto.** A landing (`site/index.html`) nasceu em julho/2026, quando o app só tinha o Jogo dos
+Pontinhos, e continuava falando só dele (título, descrição, capturas, "rede neural") três versões
+depois: hoje são Damas, Jogo da Velha, Pontinhos e Quatro em Linha, mais o Desafio do Dia. O site é o
+"marketing URL" e a "Support URL" das duas lojas, então ele contradizia a ficha que as lojas exibem.
+
+**Decisão** (pedido do dono, 11/11/2026):
+1. **O copy sai das fichas das lojas da 1.4.0**
+   (`arena-sagaz-frontend/specs/010-jogo-quatro-em-linha/textos-fichas-lojas.md`), nos 3 idiomas, e
+   não é reescrito à parte: site e loja não podem prometer coisas diferentes.
+2. **Seções novas:** "Os jogos" (um cartão por jogo, com captura) e "Desafio do Dia"; o trio "por
+   dentro" virou arena + escolha do rival + ranking, e é a única vitrine que troca com o tema (as
+   capturas de partida dos jogos só existem no claro). FAQ ganhou "jogar com um amigo" e "preciso de
+   conta?"; a do "sem internet" passou a dizer que o desafio do dia chega pela rede.
+3. **Nenhum travessão longo (`—`) na página**, só o hífen comum (pedido do dono). Há teste.
+4. **Telas novas com nomes novos** (`jogo_<jogo>_<idioma>.webp`, `desafio_do_dia_<idioma>.webp`,
+   `vitrine_<tela>_<idioma>[_escuro].webp`), geradas das capturas cruas de iOS (1320x2868 → 440x956).
+   Reaproveitar `cap_<idioma>_<n>.webp` com outro conteúdo faria quem visitou no último dia ver a tela
+   antiga (cache de 1 dia). As 9 antigas foram **arquivadas** em `site/_arquivo/capturas_ago2026/` pelo
+   `mover_com_log.ps1` (fora de `site/img/`, logo não são servidas; e fora da imagem Docker pelo
+   `.dockerignore`).
+5. **Vídeo no hero:** a prévia da App Store (`previa_app_store_loja_<idioma>.mp4`, 886x1920, 27 s,
+   ~4,5 MB) dentro da moldura de celular, cuja proporção é praticamente a mesma. Sem autoplay e com
+   `preload="none"`: só baixa quem aperta o play. Rota nova `/video/{nome}` com lista de permissão,
+   servida do **disco** por `FileResponse`, que atende `Range` (206): o Safari do iPhone não toca
+   vídeo sem isso. Há teste para o 206.
+
+**Alternativas consideradas.**
+- *Vídeo do YouTube embutido:* derrubaria a regra do site autocontido (teste `..._nao_depende_de_CDN`)
+  e poria rastreamento de terceiros na página. Descartado.
+- *Os vídeos horizontais (YouTube 1920x1080, cabeçalho da Apple 3840x1646):* não cabem na linguagem
+  da página, que mostra o app sempre numa moldura de celular, e são 1,5x a 3x maiores.
+- *Vídeo na memória, como as imagens:* ~13 MB nos 3 idiomas, em cada processo da API, para um botão
+  que pouca gente aperta. O disco basta.
+- *Desenhar as seções novas no Claude Design antes:* as seções reaproveitam só peças que o site já
+  tinha (moldura `.fone`, `.ponto`, `.kicker`, grade do "Diferencial"). Se o dono quiser uma
+  reformulação visual de verdade, ela nasce lá.
