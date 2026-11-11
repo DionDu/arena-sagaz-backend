@@ -139,7 +139,12 @@ html.escuro .lvl-facil{color:#A6CBA9;} html.escuro .lvl-normal{color:#F0C877;} h
 .cap-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:28px; margin-top:40px;}
 .cap-item{display:flex; flex-direction:column; align-items:center; gap:16px;}
 .fone{width:100%; max-width:260px; aspect-ratio:390/844; border-radius:34px; padding:11px; background:linear-gradient(150deg,#A06B3C,#8A5A33 42%,#5E3D22); box-shadow:inset 0 3px 6px rgba(255,236,200,.4), inset 0 -4px 8px rgba(0,0,0,.4), 0 16px 30px rgba(43,34,24,.22); position:relative;}
-.fone::before{content:""; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:34%; height:6px; border-radius:99px; background:rgba(43,25,12,.5); z-index:2;}
+/* ⚠️ A moldura NÃO desenha notch próprio. Havia aqui um pseudo-elemento
+   "before" da moldura (uma pílula escura no topo) do tempo em que a moldura era genérica; mas as capturas
+   e o vídeo são telas cruas do iPhone e já trazem a Dynamic Island. Com as duas,
+   a tela ganhava um segundo notch, maior e fora do lugar (visto pelo dono em
+   11/11/2026). O celular desenhado do bloco "Sem internet" (`.fone-cerebro`) não
+   tem captura dentro, e por isso mantém o dele. Há teste. */
 .fone-tela{width:100%; height:100%; border-radius:24px; overflow:hidden; background:var(--sup); box-shadow:inset 0 0 0 2px rgba(43,25,12,.35); display:flex; align-items:center; justify-content:center;}
 .fone-tela img{width:100%; height:100%; object-fit:cover; display:block;}
 .slot-vazio{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; color:var(--texto2); padding:24px; inset:12px; border:2.5px dashed var(--borda); border-radius:18px; width:calc(100% - 24px); height:calc(100% - 24px);}
