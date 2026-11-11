@@ -189,6 +189,13 @@ def test_todo_idioma_tem_captura_e_selo(cliente: TestClient):
         assert cliente.get(f"/img/googleplay_{idioma}.png").status_code == 200
 
 
+def test_moldura_de_celular_sem_notch_proprio(cliente: TestClient):
+    """As capturas e o vídeo são telas cruas do iPhone, já com a Dynamic Island.
+    A moldura `.fone` desenhava uma pílula própria no topo, e a tela aparecia
+    com DOIS notches (visto pelo dono em 11/11/2026). Ela não pode voltar."""
+    assert ".fone::before" not in cliente.get("/").text
+
+
 def test_os_quatro_jogos_estao_na_pagina(cliente: TestClient):
     """O site nasceu quando só existia o Jogo dos Pontinhos e ficou três versões
     do app falando só dele. Este teste trava a vitrine dos quatro jogos: cada um
