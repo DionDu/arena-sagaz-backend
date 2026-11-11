@@ -11219,3 +11219,44 @@ depois: hoje são Damas, Jogo da Velha, Pontinhos e Quatro em Linha, mais o Desa
 - *Desenhar as seções novas no Claude Design antes:* as seções reaproveitam só peças que o site já
   tinha (moldura `.fone`, `.ponto`, `.kicker`, grade do "Diferencial"). Se o dono quiser uma
   reformulação visual de verdade, ela nasce lá.
+
+## 2026-11-11 (2) — `/baixar`: um link só, para as redes sociais, que leva cada celular à sua loja
+
+**Contexto.** A bio do Instagram, o sticker de link dos Stories, o Threads e a legenda do Status do
+WhatsApp aceitam **um** link, e quem toca nele pode ter iPhone ou Android. Até aqui não havia link
+nenhum que servisse aos dois: o site (`/`) obriga a rolar e escolher, e cada passo a mais entre o toque e
+a loja perde gente.
+
+**Decisão** (pedido do dono, 11/11/2026):
+1. `GET`/`HEAD` em **`/baixar`** (apelidos **`/download`** e **`/descargar`**) olha o User-Agent:
+   iPhone/iPad/iPod → App Store (`https://apps.apple.com/app/id6790198320`, **sem país**, para a Apple
+   mandar cada um à loja do seu país); Android → Google Play. Detecção pelo nome do **aparelho**, não do
+   navegador: o navegador interno do Instagram ("Instagram ..."), do Facebook ("FBAN"/"FB_IAB") e do
+   Threads ("Barcelona") acrescenta a marca dele, mas mantém "iPhone"/"Android".
+2. **302**, nunca 301 (o 301 fica guardado em navegadores e proxies e congelaria o destino), com
+   **`Cache-Control: no-store`** e **`Vary: User-Agent, Accept-Language`** (a mesma URL responde
+   diferente por aparelho; sem isso um cache no caminho poderia entregar a loja de um iPhone a um
+   Android).
+3. O resto (computador, robô de prévia de link, sem User-Agent) recebe uma **página pequena com os dois
+   selos** (`site/baixar.html`, montada no import nos 3 idiomas, escolhidos pelo `Accept-Language`),
+   com as tags `og:` para a prévia do WhatsApp/Instagram e `noindex`.
+4. **iPad moderno:** desde o iPadOS 13 ele se diz "Macintosh", igual a um Mac; o servidor não tem como
+   separar. A página de escolha traz um script que, com "Macintosh" **e** `navigator.maxTouchPoints > 1`,
+   faz `location.replace` para a App Store. A URL vai num atributo do `<html>`, não dentro do script,
+   porque lá o escape de `&` não seria decodificado (e a etapa de campanha vai pôr `&` na URL).
+5. Endereços **https** das lojas, não `itms-apps://`/`market://`: o https abre o app da loja quando ele
+   existe e não quebra quando não existe (ou num computador).
+6. **Isento do rate limit** (`api/nucleo/rate_limit.py`): o limite é por IP, e a operadora põe milhares
+   de celulares atrás do mesmo IP (CGNAT); um story que viraliza estouraria 120/min com gente de
+   verdade, e cada `429` é uma instalação perdida sem erro visível. A resposta não toca banco nem disco.
+7. **Sem banco.** Contagem de cliques não foi feita; se valer a pena, é proposta à parte.
+
+**Alternativas consideradas.**
+- *Encurtador de terceiros (bit.ly e afins):* põe um domínio alheio no meio do caminho de toda
+  instalação (se ele cair, mudar de plano ou de regra, o link da bio morre), mostra a marca dele em vez
+  da nossa e entrega os dados de clique a outra empresa. O nosso domínio já existe e já é confiável para
+  as lojas.
+- *Dois stickers/links (um por loja):* o Instagram só aceita um link na bio, o Status do WhatsApp mostra
+  um link por vez, e cada escolha a mais na frente do usuário custa toques e gente.
+- *Página só com os selos para todo mundo:* funciona, mas acrescenta um toque para 100% dos visitantes
+  de celular, que são quase todos. Ela ficou só para quem não dá para identificar.

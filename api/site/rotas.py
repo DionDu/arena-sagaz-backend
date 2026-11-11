@@ -47,6 +47,32 @@ catch-all), com duas diferenças, ambas de propósito:
   faixa, e todos os navegadores usam faixa para pular para o meio do vídeo. O
   ``FileResponse`` do Starlette já faz isso; um ``Response`` com os bytes, não.
 
+O ``/baixar`` (e os apelidos ``/download`` e ``/descargar``), decisão de
+2026-11-11: é **a porta de entrada das redes sociais**. A bio do Instagram, o
+sticker de link dos Stories, o Threads e a legenda do Status do WhatsApp aceitam
+UM link, e quem toca nele pode ter iPhone ou Android. O link olha o User-Agent e
+manda cada celular para a sua loja (a lógica pura mora em ``api/site/baixar.py``):
+
+- **iPhone/iPad/iPod → App Store; Android → Google Play**, com **302**, nunca
+  301. O 301 é "mudou para sempre": navegadores e servidores no meio do caminho
+  o guardam, e o destino ficaria congelado mesmo que um dia mudemos a loja, o
+  endereço ou a marcação de campanha. O 302 é perguntado de novo a cada toque.
+- **``Cache-Control: no-store`` e ``Vary: User-Agent, Accept-Language``** em
+  toda resposta. A MESMA URL dá respostas diferentes conforme o aparelho; sem
+  isso, um cache no caminho (o da operadora, um CDN) poderia guardar a resposta
+  de um iPhone e entregá-la a um Android, mandando-o para a App Store.
+- **Qualquer outro caso** (computador, robô de prévia de link, sem User-Agent)
+  → uma página pequena com os dois selos, no idioma do ``Accept-Language``.
+- **O iPad moderno se diz Mac** (desde o iPadOS 13, "Macintosh" no
+  User-Agent) e o servidor não consegue separá-lo de um Mac. Ele cai na página
+  de escolha, e um script curto nela (tela de toque + "Macintosh") leva o
+  próprio navegador para a App Store.
+- **``HEAD`` também é atendido**: alguns apps conferem o link antes de abri-lo,
+  e o ``@router.get`` do FastAPI não responde ``HEAD`` sozinho.
+
+A página de escolha é montada **uma vez por idioma, no import**, a partir do
+modelo ``site/baixar.html``, como o resto do site: nada de disco a cada clique.
+
 As fontes continuam **embutidas em base64** no HTML, de propósito: são o que a
 página precisa no primeiro quadro, e buscá-las de fora deixaria o texto invisível
 enquanto carregam. Há teste que falha se alguém trocar isso por um CDN.
@@ -58,8 +84,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Response
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi import APIRouter, Request, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+)
+
+from api.site import baixar
 
 router = APIRouter()
 
@@ -127,6 +160,31 @@ def _listar_videos() -> dict[str, Path]:
 _VIDEOS = _listar_videos()
 
 
+def _montar_paginas_baixar() -> dict[str, str]:
+    """Monta a página de escolha do `/baixar` nos três idiomas, uma vez só.
+
+    Sem o modelo `site/baixar.html` (um deploy sem a pasta), cai numa página
+    mínima com os dois links: o `/baixar` está na bio do Instagram e nunca pode
+    responder vazio.
+    """
+    modelo = _ler("baixar.html") or (
+        '<!DOCTYPE html><meta charset="UTF-8"><title>{{titulo}}</title>'
+        '<p><a href="{{loja_apple}}">App Store</a> · <a href="{{loja_play}}">Google Play</a></p>'
+    )
+    return {idioma: baixar.montar_pagina(modelo, idioma) for idioma in baixar.IDIOMAS}
+
+
+_PAGINAS_BAIXAR = _montar_paginas_baixar()
+
+# Cabeçalhos de TODA resposta do /baixar (o 302 e a página). Ver a docstring do
+# módulo: `no-store` proíbe qualquer cache de guardar a resposta, e o `Vary` avisa
+# que ela depende do aparelho e do idioma de quem pediu.
+_CABECALHOS_BAIXAR = {
+    "Cache-Control": "no-store",
+    "Vary": "User-Agent, Accept-Language",
+}
+
+
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def landing() -> HTMLResponse:
     """A landing page. `include_in_schema=False` mantém o OpenAPI só com a API."""
@@ -178,6 +236,27 @@ async def video(nome: str) -> Response:
         media_type="video/mp4",
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+# Um decorador por endereço: cada `api_route` registra a MESMA função num caminho,
+# e devolve a função intacta para o decorador de cima. São três caminhos
+# explícitos (nada de padrão "/{qualquer}"), então o 404 em JSON da API continua
+# valendo para todo o resto.
+@router.api_route("/baixar", methods=["GET", "HEAD"], include_in_schema=False)
+@router.api_route("/download", methods=["GET", "HEAD"], include_in_schema=False)
+@router.api_route("/descargar", methods=["GET", "HEAD"], include_in_schema=False)
+async def baixar_app(request: Request) -> Response:
+    """Leva o celular para a loja dele; o resto vê a página com os dois selos.
+
+    Está isento do rate limit (`api/nucleo/rate_limit.py`): um story que viraliza
+    traz muita gente de uma vez, e às vezes atrás do MESMO IP de operadora.
+    """
+    loja = baixar.loja_para(request.headers.get("user-agent"))
+    if loja is not None:
+        # 302 = "por enquanto está lá". Ver na docstring do módulo por que não 301.
+        return RedirectResponse(loja, status_code=302, headers=_CABECALHOS_BAIXAR)
+    idioma = baixar.escolher_idioma(request.headers.get("accept-language"))
+    return HTMLResponse(_PAGINAS_BAIXAR[idioma], headers=_CABECALHOS_BAIXAR)
 
 
 @router.get("/app-ads.txt", response_class=PlainTextResponse, include_in_schema=False)

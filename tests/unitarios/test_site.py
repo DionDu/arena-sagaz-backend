@@ -1,11 +1,13 @@
-"""Testes do site de apresentação (landing + app-ads.txt).
+"""Testes do site de apresentação (landing, app-ads.txt, imagens, vídeo e /baixar).
 
-Além de checar que as duas rotas respondem, estes testes guardam as DUAS
+Além de checar que as rotas respondem, estes testes guardam as DUAS
 armadilhas que quase nos pegaram ao colocar o site no mesmo serviço da API:
 
 1. o site NÃO pode sombrear as rotas da API (o 404 dela tem de continuar JSON);
 2. o ``app-ads.txt`` NÃO pode ser barrado pelo rate limit — se o rastreador do
    AdMob levar um 429, a validação dos vendedores falha em silêncio.
+
+Os testes do ``/baixar`` (o link das redes sociais) estão no fim do arquivo.
 """
 import pytest
 from fastapi.testclient import TestClient
@@ -262,3 +264,212 @@ def test_img_so_serve_o_que_esta_na_pasta(cliente: TestClient):
     # parâmetro, ele tem de ir percent-encoded, como abaixo.
     assert cliente.get("/img/%2e%2e%2fapp-ads.txt").status_code == 404
     assert cliente.get("/img/%2e%2e%2f%2e%2e%2fapi%2fmain.py").status_code == 404
+
+
+# ── O /baixar: um link só para as redes sociais ──────────────────────────────
+#
+# User-Agents no formato real de cada app. O que importa em todos: o navegador
+# interno do Instagram/Facebook/Threads ACRESCENTA a marca dele ("Instagram ...",
+# "FBAN/FBIOS", "FB_IAB/FB4A", "Barcelona"), mas mantém o "iPhone"/"Android" do
+# sistema, e é por ele que a rota decide.
+#
+# O WhatsApp não tem navegador próprio com marca: o link do Status abre no
+# navegador do sistema (Safari no iPhone, aba do Chrome no Android), então quem
+# toca chega com o User-Agent desses. O único User-Agent com "WhatsApp" é o do
+# ROBÔ que monta a prévia do link, e ele tem de receber a página (com as tags
+# og:), não um redirecionamento.
+
+UA_IPHONE_SAFARI = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1"
+)
+UA_IPAD_ANTIGO = (  # iOS 12: antes de o iPad passar a se dizer "Macintosh"
+    "Mozilla/5.0 (iPad; CPU OS 12_5_7 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/12.1.2 Mobile/15E148 Safari/604.1"
+)
+UA_ANDROID_CHROME = (
+    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/130.0.0.0 Mobile Safari/537.36"
+)
+UA_INSTAGRAM_IPHONE = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Mobile/15E148 Instagram 337.0.3.23.54 (iPhone14,5; iOS 17_5; "
+    "pt_BR; pt; scale=3.00; 1170x2532; 614950592; IABMV/1)"
+)
+UA_INSTAGRAM_ANDROID = (
+    "Mozilla/5.0 (Linux; Android 14; SM-S918B Build/UP1A.231005.007; wv) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/125.0.6422.165 Mobile "
+    "Safari/537.36 Instagram 334.0.0.42.95 Android (34/14; 480dpi; 1080x2340; samsung; "
+    "SM-S918B; dm3q; qcom; pt_BR; 609343004)"
+)
+UA_FACEBOOK_IPHONE = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Mobile/21E236 [FBAN/FBIOS;FBAV/459.0.0.31.110;"
+    "FBBV/612383011;FBDV/iPhone15,2;FBMD/iPhone;FBSN/iOS;FBSV/17.4;FBSS/3;FBID/phone;"
+    "FBLC/pt_BR;FBOP/5;FBRV/614091822]"
+)
+UA_FACEBOOK_ANDROID = (
+    "Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A.220624.014; wv) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.179 Mobile "
+    "Safari/537.36 [FB_IAB/FB4A;FBAV/464.0.0.58.110;]"
+)
+UA_THREADS_IPHONE = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Mobile/15E148 Barcelona 352.0.0.30.79 (iPhone16,2; iOS 18_0; "
+    "pt_BR; pt; scale=3.00; 1290x2796; 651108221)"
+)
+UA_WHATSAPP_ROBO_PREVIA = "WhatsApp/2.23.20.0 A"
+UA_WINDOWS_CHROME = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/130.0.0.0 Safari/537.36"
+)
+# Um Mac com Safari. O iPad moderno manda EXATAMENTE este mesmo texto.
+UA_MAC_SAFARI = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/18.1 Safari/605.1.15"
+)
+
+APPLE = "https://apps.apple.com/app/id6790198320"
+PLAY = "https://play.google.com/store/apps/details?id=com.santiagodata.arenasagaz"
+
+
+def _confere_cabecalhos_sem_cache(r) -> None:
+    """Toda resposta do /baixar: nenhum cache guarda, e ela depende do aparelho."""
+    assert r.headers["cache-control"] == "no-store"
+    assert "User-Agent" in r.headers["vary"]
+
+
+@pytest.mark.parametrize(
+    "user_agent, loja",
+    [
+        (UA_IPHONE_SAFARI, APPLE),
+        (UA_IPAD_ANTIGO, APPLE),
+        (UA_INSTAGRAM_IPHONE, APPLE),
+        (UA_FACEBOOK_IPHONE, APPLE),
+        (UA_THREADS_IPHONE, APPLE),
+        (UA_ANDROID_CHROME, PLAY),
+        (UA_INSTAGRAM_ANDROID, PLAY),
+        (UA_FACEBOOK_ANDROID, PLAY),
+    ],
+    ids=[
+        "iphone_e_status_whatsapp", "ipad_antigo", "instagram_iphone",
+        "facebook_iphone", "threads_iphone", "android_e_status_whatsapp",
+        "instagram_android", "facebook_android",
+    ],
+)
+def test_baixar_leva_o_celular_para_a_loja_dele(cliente: TestClient, user_agent: str, loja: str):
+    """Celular → 302 direto para a loja certa, inclusive de dentro dos apps."""
+    r = cliente.get("/baixar", headers={"User-Agent": user_agent}, follow_redirects=False)
+    # 302, e NUNCA 301: o 301 fica guardado e congelaria o destino para sempre.
+    assert r.status_code == 302
+    assert r.headers["location"] == loja
+    _confere_cabecalhos_sem_cache(r)
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [UA_WINDOWS_CHROME, UA_MAC_SAFARI, UA_WHATSAPP_ROBO_PREVIA, ""],
+    ids=["windows", "mac", "robo_previa_whatsapp", "sem_user_agent"],
+)
+def test_baixar_no_computador_mostra_os_dois_selos(cliente: TestClient, user_agent: str):
+    """Sem como saber o celular → 200 com a página dos dois selos e dos dois links.
+    Inclui o robô da prévia do WhatsApp: ele precisa da página para ler as og:."""
+    r = cliente.get("/baixar", headers={"User-Agent": user_agent}, follow_redirects=False)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    _confere_cabecalhos_sem_cache(r)
+    assert f'href="{APPLE}"' in r.text
+    assert f'href="{PLAY}"' in r.text
+    assert 'property="og:title"' in r.text
+    # Nenhuma lacuna do modelo pode sobrar sem preencher (o comentário do topo
+    # do modelo cita "{{chave}}" como exemplo, por isso a busca começa depois dele).
+    assert "{{" not in r.text.split("-->", 1)[1]
+
+
+@pytest.mark.parametrize(
+    "accept_language, idioma",
+    [
+        ("pt-BR,pt;q=0.9,en;q=0.8", "pt"),
+        ("en-US,en;q=0.9", "en"),
+        ("es-419,es;q=0.9", "es"),
+        # Francês primeiro (não temos), inglês depois: fica o inglês.
+        ("fr-FR,fr;q=0.9,en;q=0.5", "en"),
+        # O peso manda, não a ordem: espanhol com peso maior que inglês.
+        ("en;q=0.3,es;q=0.8", "es"),
+        ("de-DE", "pt"),  # nada que tenhamos → padrão
+        ("", "pt"),
+    ],
+)
+def test_pagina_de_escolha_segue_o_accept_language(cliente: TestClient, accept_language: str, idioma: str):
+    """O idioma da página (e dos selos, que trazem o texto desenhado) vem do
+    navegador. Padrão: português."""
+    r = cliente.get(
+        "/baixar",
+        headers={"User-Agent": UA_WINDOWS_CHROME, "Accept-Language": accept_language},
+    )
+    assert f'<html lang="{idioma}"' in r.text
+    assert f"/img/appstore_{idioma}.svg" in r.text
+    assert f"/img/googleplay_{idioma}.png" in r.text
+    assert "Accept-Language" in r.headers["vary"]
+
+
+def test_pagina_de_escolha_sem_travessao_longo(cliente: TestClient):
+    """A mesma regra do site (decisão do dono, 11/11/2026), nos três idiomas."""
+    for idioma in ("pt", "en", "es"):
+        r = cliente.get("/baixar", headers={"User-Agent": "", "Accept-Language": idioma})
+        assert "—" not in r.text, idioma
+
+
+def test_ipad_que_se_diz_mac_e_resolvido_no_navegador(cliente: TestClient):
+    """O iPad moderno manda o User-Agent de um Mac: o servidor mostra a página, e
+    ela traz o script que reconhece a tela de toque e vai para a App Store.
+
+    O endereço da loja vai num ATRIBUTO do <html> (o script o lê de lá), e não
+    escrito dentro do <script>: no atributo o navegador decodifica `&amp;`, e a
+    URL da loja ganha `&` quando houver marcação de campanha.
+    """
+    r = cliente.get("/baixar", headers={"User-Agent": UA_MAC_SAFARI})
+    assert r.status_code == 200
+    assert "navigator.maxTouchPoints > 1" in r.text
+    assert "indexOf('Macintosh')" in r.text
+    assert "location.replace" in r.text
+    assert f'data-loja-apple="{APPLE}"' in r.text
+
+
+@pytest.mark.parametrize("caminho", ["/download", "/descargar"])
+def test_apelidos_do_baixar(cliente: TestClient, caminho: str):
+    """/download (en) e /descargar (es) fazem exatamente o mesmo que /baixar."""
+    r = cliente.get(caminho, headers={"User-Agent": UA_INSTAGRAM_ANDROID}, follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == PLAY
+    _confere_cabecalhos_sem_cache(r)
+    r = cliente.get(caminho, headers={"User-Agent": UA_WINDOWS_CHROME})
+    assert r.status_code == 200
+
+
+def test_baixar_responde_head(cliente: TestClient):
+    """Alguns apps conferem o link com HEAD antes de abrir. O `@router.get` do
+    FastAPI não atende HEAD sozinho (daria 405), por isso a rota declara os dois."""
+    r = cliente.head("/baixar", headers={"User-Agent": UA_IPHONE_SAFARI}, follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == APPLE
+    r = cliente.head("/baixar", headers={"User-Agent": UA_WINDOWS_CHROME})
+    assert r.status_code == 200
+    assert r.content == b""  # HEAD não leva corpo
+
+
+def test_baixar_nao_virou_catch_all(cliente: TestClient):
+    """Três caminhos explícitos, nada de padrão: o resto continua com o 404 em
+    JSON da API (o contrato dos apps em campo)."""
+    for caminho in ("/v1/nao-existe", "/baixar/qualquer-coisa", "/baixarr"):
+        r = cliente.get(caminho, headers={"User-Agent": UA_IPHONE_SAFARI}, follow_redirects=False)
+        assert r.status_code == 404, caminho
+        assert r.headers["content-type"].startswith("application/json"), caminho
+
+
+def test_baixar_esta_isento_do_rate_limit():
+    """Um story que viraliza manda muita gente ao mesmo tempo, e a operadora põe
+    milhares de celulares atrás do mesmo IP (CGNAT). Um `429` no link da bio é
+    uma instalação perdida sem erro visível. Ver o comentário em `_ISENTOS`."""
+    for caminho in ("/baixar", "/download", "/descargar"):
+        assert caminho in _ISENTOS
