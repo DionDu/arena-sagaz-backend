@@ -356,6 +356,15 @@ class MotorQuatro:
     # ── A notação ───────────────────────────────────────────────────────────
 
     def _ler_lance(self, texto: str) -> tuple[str, int]:
+        # ⚠️ **Lance que nao e texto e lance fora da notacao**, e sai como
+        # `ValueError` — a recusa que o juiz traduz em "dado invalido". Sem esta
+        # guarda, um `None` (jogada do log sem extensao, ou tipo `desconhecido`)
+        # estourava `TypeError` dentro do `re.match`, que ninguem acima espera:
+        # foi o que derrubou o job do Desafio do Dia em 11/2026.
+        if not isinstance(texto, str):
+            raise ValueError(
+                f"lance fora da notação (letra + coluna a partir de 1): {texto!r}"
+            )
         achado = _LANCE.match(texto)
         if achado is None:
             raise ValueError(

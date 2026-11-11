@@ -305,7 +305,15 @@ LETRA_DO_TIPO_DE_LANCE_QUATRO: dict[str, str] = {"soltar": "s"}
 # para que a letra exista num lugar so: `CASE q.co_tipo_lance WHEN 'soltar'
 # THEN 's' END`. Os valores sao constantes do codigo (nunca dado de fora), e
 # por isso podem entrar no texto do SQL sem parametro.
-_LETRA_DO_LANCE_QUATRO_SQL = (
+#
+# ⚠️ **Publico desde 11/11/2026, e a auditoria do job o importa.** A `SQL_FITA`
+# de `job/auditoria.py` e irma da `SQL_LANCES` abaixo, e ficou sem o Quatro
+# quando a T153 o ensinou a esta: o lance chegava `NULL` ao juiz e o job caia
+# todo dia (`docs/historico_decisoes.md`, 11/11/2026). Um `CASE` so, usado
+# pelas duas consultas, e o que impede a terceira copia de esquecer de novo.
+# O alias `q` e a view `jogo_quatro.vw002_jogada` sao parte do contrato: quem
+# usa este texto faz o `LEFT JOIN` com esse alias.
+LETRA_DO_LANCE_QUATRO_SQL = (
     "CASE q.co_tipo_lance "
     + " ".join(
         f"WHEN '{tipo}' THEN '{letra}'"
@@ -331,7 +339,7 @@ SELECT j.nu_ordem,
        COALESCE(
            p.co_aresta,
            dm.co_lance,
-           ({_LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna
+           ({LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna
        ) AS co_lance,
        -- ⚠️ **A POSICAO ANTES DAQUELE LANCE** (T074a), e so as damas a gravam.
        -- Ela e o que torna o replay TRUNCADO possivel (RF-DES-039): com o

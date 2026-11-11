@@ -21,6 +21,75 @@ contexto, decisão, alternativas consideradas e motivo.
 
 ---
 
+## 2026-11-11 — ⛔ A auditoria do Desafio do Dia não conhecia o Quatro, e o job caía todo dia
+
+**Contexto.** O job do Desafio do Dia terminava em erro todo dia, em `des` e
+`prd` (no `prd`, pelo menos desde 09/11), com `TypeError: expected string or
+bytes-like object, got 'NoneType'` em `motor_quatro._ler_lance`. O dia **era**
+gerado e publicado (cada dia se confirma sozinho no `repositorio.py`); o que
+caía era o **último passo**, a auditoria das resoluções, e o job saía com código
+de erro. A mensagem dizia "a execução nem começou", o que confunde: o estouro
+foi no passo 5, não nos três primeiros.
+
+**Causa-raiz.** `SQL_FITA` (`job/auditoria.py`) juntava só as extensões de
+jogada do Pontinhos (`co_aresta`) e das damas (`co_lance`). O Quatro não guarda
+o lance escrito: guarda o tipo e a coluna (`jogo_quatro.vw002_jogada`). Então
+**todo lance do Quatro chegava `NULL`** ao juiz. A irmã dela, `SQL_LANCES` do
+replay (`api/desafios/quadro.py`), aprendeu o Quatro na T153; a auditoria ficou
+de fora. Bastou a primeira resolução de Desafio do Dia do Quatro entrar na fila
+(ordem por `dh_resolucao`) para o lote estourar nela, **todo dia**, e nenhuma
+resolução, de jogo nenhum, foi auditada depois dela.
+
+**Três camadas falharam juntas, e as três foram consertadas:**
+
+1. **A consulta.** `SQL_FITA` ganhou o `LEFT JOIN jogo_quatro.vw002_jogada q` e
+   o mesmo `CASE` do replay (`'s' || nu_coluna`). O `CASE` virou público
+   (`LETRA_DO_LANCE_QUATRO_SQL`) e a auditoria **importa** o do quadro, em vez
+   de copiar: são duas consultas e uma letra.
+2. **O motor.** `_ler_lance` recusa lance que não é texto com `ValueError`. É a
+   recusa que o juiz já traduz em **dado inválido** (divergente, "fita
+   irreproduzível"), que era o que o comentário da `SQL_FITA` sempre prometeu
+   para um `NULL`.
+3. **O lote.** A docstring de `auditar_lote` prometia "uma resolução que estoura
+   não derruba o lote", mas só o `AuditoriaImpossivel` era pego. Agora qualquer
+   exceção conta como **impossível**, a resolução fica **pendente** (o defeito é
+   do código, não da pessoa) e o rastro de pilha vai inteiro para o log.
+
+**E uma quarta, que só apareceria depois das três.** A auditoria julgava com
+`jogador = +1` fixo e com a fita nas **cores do app** (`nu_jogador` do log). O
+gerador e o app julgam com `jogador = vez_de` e a fita nos **sinais do motor**
+(`+1` = quem abriu a sequência). Nas damas e no Pontinhos as duas coisas
+coincidem; no Quatro, quando a posição publicada tem um número **ímpar** de
+lances, a pessoa (sempre o Jogador 1 do app) é o `-1` do motor. Consertado só o
+`NULL`, todas essas resoluções sairiam **divergentes** para sempre, acusando
+quem jogou. Agora `jogador_do_desafio` lê o `vez_de` (sem o campo, `+1`, como no
+app) e `fita_nos_sinais_do_motor_quatro` multiplica o sinal da fita do Quatro
+pelo `vez_de`. ⚠️ A tradução é **só do Quatro**: no Pontinhos o app põe a pessoa
+como Jogador 2 quando a vez é do `-1`, e o log já sai no sinal do jogo.
+
+**Alternativas consideradas.**
+- *Montar a letra em Python, a partir do contrato* (`motores/quatro/contrato_quatro.py`):
+  descartada porque criaria uma terceira cópia da tradução tipo→letra, e o
+  cadeado `test_a_letra_do_lance_do_quatro_e_a_do_contrato` já amarra a do
+  quadro ao contrato.
+- *Só o `try/except` genérico no lote*: descartada sozinha. O job pararia de
+  cair, mas toda resolução do Quatro ficaria pendente para sempre, sem ninguém
+  notar.
+
+**Efeito ao publicar.** As resoluções que ficaram pendentes desde a primeira do
+Quatro são auditadas na próxima execução, de uma vez (lote de `LOTE_PADRAO`).
+Se aparecer `divergentes` alto no Quatro, a próxima suspeita é a fita: a
+`SQL_FITA` nunca tinha visto uma partida de verdade do Quatro.
+
+**Cadeados.** `test_a_fita_une_a_coluna_dos_tres_jogos` (o SQL usa a view e o
+mesmo `CASE` do replay), `test_lance_NULO_do_quatro_e_divergencia_de_DADO_e_nao_estouro`
+(a regressão exata), `test_um_estouro_INESPERADO_tambem_NAO_derruba_o_lote`,
+`test_a_resolucao_do_QUATRO_confere_pelo_lote` e
+`test_no_QUATRO_a_pessoa_e_o_J1_do_app_mesmo_quando_e_o_menos_um_do_motor`
+(a fita montada como o log a entrega).
+
+---
+
 ## 2026-09-30 — `vitorias_por_jogo`: o CARIMBO DO JOGO passa a viajar com o número
 
 **Contexto.** O dono venceu uma partida de **damas** e recebeu a conquista

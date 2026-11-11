@@ -288,17 +288,50 @@ def test_a_fita_traduz_1_2_para_mais_e_menos_um():
     assert [linha["n"] for linha in fita] == [1, 2]
 
 
-def test_a_fita_une_a_coluna_dos_dois_jogos():
-    """⚠️ `co_aresta` no Pontinhos e `co_lance` nas damas — o `COALESCE` as une.
+def test_a_fita_une_a_coluna_dos_tres_jogos():
+    """⚠️ `co_aresta` no Pontinhos, `co_lance` nas damas e letra + coluna no
+    Quatro — o `COALESCE` as une.
 
     Os `LEFT JOIN` sao obrigatorios: uma jogada sem extensao precisa chegar como
     `NULL` para o julgamento acusar dado invalido, em vez de **sumir da fita**.
+
+    ⛔ **O Quatro faltou aqui ate 11/11/2026**, e o job do Desafio do Dia caiu
+    todo dia, em `des` e `prd`, na primeira resolucao do Quatro que entrou na
+    fila. Este caso e o cadeado: um jogo novo no hub que esquecer a auditoria
+    falha aqui, e nao no log do Railway.
     """
-    assert "COALESCE(p.co_aresta, dm.co_lance)" in auditoria.SQL_FITA
+    from api.desafios.quadro import LETRA_DO_LANCE_QUATRO_SQL, SQL_LANCES
+
     assert "LEFT JOIN jogo_pontinhos" in auditoria.SQL_FITA
     assert "LEFT JOIN jogo_damas" in auditoria.SQL_FITA
+    # A VIEW do Quatro (e nao a tabela): e ela que traz o tipo por extenso.
+    assert "LEFT JOIN jogo_quatro.vw002_jogada q" in auditoria.SQL_FITA
+    # ⚠️ O MESMO `CASE` do replay, e nao uma copia: a letra mora num lugar so.
+    assert f"({LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna" in auditoria.SQL_FITA
+    # A irma: o replay junta exatamente os mesmos tres jogos.
+    for juncao in ("jogo_pontinhos", "jogo_damas", "jogo_quatro.vw002_jogada"):
+        assert juncao in SQL_LANCES
     # ⛔ A ordem e por `nu_ordem`: sequencia continua que nunca recua nem repete.
     assert "ORDER BY j.nu_ordem ASC" in auditoria.SQL_FITA
+
+
+def test_lance_NULO_do_quatro_e_divergencia_de_DADO_e_nao_estouro():
+    """⛔ **A regressao exata de 11/2026.**
+
+    Com o Quatro fora da `SQL_FITA`, cada lance dele chegava `None`, e o motor o
+    entregava ao `re.match` — `TypeError`, que ninguem acima esperava, e o job
+    inteiro caia. Um lance `NULL` e jogada sem extensao: **dado invalido**, e a
+    resolucao sai divergente com o motivo, como qualquer fita irreproduzivel.
+    """
+    vetor = POR_ID["quatro-virada-cumpriu"]
+    fita = _fita(vetor)
+    fita[0] = {**fita[0], "lance": None}
+
+    veredito = auditar(linha=_linha_do_vetor(vetor), fita=fita)
+
+    assert veredito.co_auditoria == DIVERGENTE
+    assert "fita irreproduzivel" in veredito.de_auditoria
+    assert "None" in veredito.de_auditoria
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -376,6 +409,156 @@ async def test_uma_resolucao_torta_NAO_derruba_o_lote():
 
     assert contagem["impossiveis"] == 1
     assert contagem["conferem"] == 1
+
+
+@pytest.mark.asyncio
+async def test_um_estouro_INESPERADO_tambem_NAO_derruba_o_lote(monkeypatch, capsys):
+    """⛔ A promessa da docstring valia so para o erro esperado.
+
+    Ate 11/11/2026 o lote so pegava `AuditoriaImpossivel`, e um `TypeError` do
+    Quatro derrubou o job inteiro todo dia. Agora qualquer estouro conta como
+    impossivel, a resolucao fica PENDENTE (o defeito e do codigo, nao da
+    pessoa), o rastro de pilha vai para o log e o lote segue.
+    """
+    cumpre = POR_ID["P1-escada-fecha-4-em-1-turno-cumpre"]
+    torta = _linha_do_vetor(cumpre)
+    boa = _linha_do_vetor(cumpre, nu_lance=len(_fita(cumpre)))
+
+    auditar_de_verdade = auditoria.auditar
+
+    def auditar_que_estoura_na_torta(*, linha, fita):
+        # Um defeito qualquer do codigo, so na primeira resolucao. ⚠️ Pelo id, e
+        # nao por `is`: o lote copia cada linha (`dict(m)`) antes de auditar.
+        if linha["id_resolucao"] == torta["id_resolucao"]:
+            raise TypeError("defeito simulado")
+        return auditar_de_verdade(linha=linha, fita=fita)
+
+    monkeypatch.setattr(auditoria, "auditar", auditar_que_estoura_na_torta)
+
+    def jogadas(_parametros):
+        return [
+            {"nu_ordem": l["n"], "nu_jogador": 1 if l["jogador"] == 1 else 2,
+             "co_lance": l["lance"]}
+            for l in _fita(cumpre)
+        ]
+
+    sessao = FakeSessaoSQL(
+        respostas={
+            "co_auditoria = 'pendente'": [torta, boa],
+            "FROM partida.tb002_jogada": jogadas,
+            "UPDATE desafio_dia.tb003_resolucao": [{"id_resolucao": uuid4()}],
+        }
+    )
+
+    contagem = await auditar_lote(sessao)
+
+    assert contagem == {"conferem": 1, "divergentes": 0, "impossiveis": 1}
+    # A boa foi marcada e confirmada; a torta, nao (so um UPDATE, o da boa).
+    assert sessao.commits == 1
+    erros = capsys.readouterr().err
+    assert "erro inesperado" in erros
+    assert str(torta["id_resolucao"]) in erros
+    assert "Traceback" in erros
+
+
+@pytest.mark.asyncio
+async def test_a_resolucao_do_QUATRO_confere_pelo_lote():
+    """O caminho inteiro do Quatro: linha pendente → fita do log → juiz → CONFERE.
+
+    ⚠️ A fita chega do jeito que a `SQL_FITA` corrigida a entrega (`s5`, `s2`...,
+    a letra ja junta da coluna) — e e o mesmo vetor de T027 que o app usa.
+    """
+    vetor = POR_ID["quatro-virada-cumpriu"]
+    linha = _linha_do_vetor(vetor)
+
+    def jogadas(_parametros):
+        return [
+            {"nu_ordem": l["n"], "nu_jogador": 1 if l["jogador"] == 1 else 2,
+             "co_lance": l["lance"]}
+            for l in _fita(vetor)
+        ]
+
+    # O lance em que o objetivo caiu, pelo proprio juiz: o vetor nao o traz.
+    from motores.juiz import julgar_desafio
+
+    julgamento = julgar_desafio(
+        co_jogo="quatro",
+        js_posicao_inicial=vetor["js_posicao_inicial"],
+        js_chegada=vetor["js_chegada"],
+        fita=_fita(vetor),
+        co_modalidade=vetor["co_modalidade"],
+    )
+    linha["nu_lance_cumpre_desafio"] = julgamento.nu_lance_cumpre_desafio
+
+    sessao = FakeSessaoSQL(
+        respostas={
+            "co_auditoria = 'pendente'": [linha],
+            "FROM partida.tb002_jogada": jogadas,
+            "UPDATE desafio_dia.tb003_resolucao": [{"id_resolucao": uuid4()}],
+        }
+    )
+
+    contagem = await auditar_lote(sessao)
+
+    assert contagem == {"conferem": 1, "divergentes": 0, "impossiveis": 0}
+
+
+@pytest.mark.asyncio
+async def test_no_QUATRO_a_pessoa_e_o_J1_do_app_mesmo_quando_e_o_menos_um_do_motor():
+    """⚠️ A posicao publicada com numero IMPAR de lances: a vez e do `-1`.
+
+    O vetor traz a fita nos sinais do MOTOR (a pessoa e o `-1`). O log, nao: no
+    app a pessoa e sempre o Jogador 1, e e assim que ela chega da `SQL_FITA`
+    (`nu_jogador = 1`). Este caso monta a fita como o LOG a entrega e exige que
+    a auditoria a traduza e julgue com `jogador = vez_de`. Sem isso, o juiz
+    recusava a fita ("o desafio e do jogador +1, mas a vez e do -1") e metade das
+    resolucoes do Quatro sairia DIVERGENTE, acusando quem jogou.
+    """
+    vetor = POR_ID["quatro-virada-a-pessoa-e-o-J2"]
+    vez = vetor["js_posicao_inicial"]["vez_de"]
+    assert vez == -1  # a premissa do caso
+
+    from motores.juiz import julgar_desafio
+
+    julgamento = julgar_desafio(
+        co_jogo="quatro",
+        js_posicao_inicial=vetor["js_posicao_inicial"],
+        js_chegada=vetor["js_chegada"],
+        fita=_fita(vetor),
+        jogador=vez,
+        co_modalidade=vetor["co_modalidade"],
+    )
+    linha = _linha_do_vetor(vetor, nu_lance=julgamento.nu_lance_cumpre_desafio)
+
+    def jogadas(_parametros):
+        # A pessoa (o `vez_de` no motor) vira o Jogador 1 do app, e o
+        # personagem, o Jogador 2 — exatamente como o app grava o log.
+        return [
+            {"nu_ordem": l["n"], "nu_jogador": 1 if l["jogador"] == vez else 2,
+             "co_lance": l["lance"]}
+            for l in _fita(vetor)
+        ]
+
+    sessao = FakeSessaoSQL(
+        respostas={
+            "co_auditoria = 'pendente'": [linha],
+            "FROM partida.tb002_jogada": jogadas,
+            "UPDATE desafio_dia.tb003_resolucao": [{"id_resolucao": uuid4()}],
+        }
+    )
+
+    contagem = await auditar_lote(sessao)
+
+    assert contagem == {"conferem": 1, "divergentes": 0, "impossiveis": 0}
+
+
+def test_o_jogador_do_desafio_e_o_vez_de_e_sem_ele_o_mais_um():
+    """O mesmo numero do gerador e do app; a FEN das damas nao traz o campo."""
+    assert auditoria.jogador_do_desafio({"vez_de": -1}) == -1
+    assert auditoria.jogador_do_desafio({"vez_de": -1.0}) == -1
+    assert auditoria.jogador_do_desafio({"vez_de": 1}) == 1
+    assert auditoria.jogador_do_desafio({"fen": "W:W21:B12"}) == 1
+    assert auditoria.jogador_do_desafio({"vez_de": 7}) == 1
 
 
 @pytest.mark.asyncio

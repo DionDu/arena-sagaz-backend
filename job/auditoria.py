@@ -64,6 +64,10 @@ from typing import Any, Mapping, Optional, Sequence
 
 from api.desafios.modelos_evento import TB_RESOLUCAO, VW_DESAFIO_DIA, VW_RESOLUCAO
 from api.desafios.modelos_producao import VW_DESAFIO
+# O `CASE` que devolve a letra ao lance do Quatro. ⚠️ `quadro` so depende de
+# SQLAlchemy e dos modelos de desafio (nada de `fastapi`), e por isso cabe na
+# imagem enxuta do job (`requirements_job.txt`).
+from api.desafios.quadro import LETRA_DO_LANCE_QUATRO_SQL
 from motores.juiz import JogoDesconhecido, julgar_desafio
 from motores.nucleo.chegada import ChegadaInvalida
 from motores.nucleo.medidor_por_fita import CUMPRIU, DADO_INVALIDO
@@ -160,16 +164,36 @@ SELECT r.id_resolucao,
 #: nao conhece, e ela precisa chegar como `NULL` para o julgamento acusar dado
 #: invalido, em vez de sumir da fita.
 #:
+#: ⚠️ **O Quatro em Linha nao guarda o lance escrito** (`s4`): guarda o tipo por
+#: extenso e a coluna, em duas colunas, e e o `CASE` do quadro
+#: (`LETRA_DO_LANCE_QUATRO_SQL`) que as junta de volta (`'s' || 4` = `s4`). O
+#: `||` do Postgres converte o inteiro em texto, e com a letra `NULL` (tipo
+#: `desconhecido`) o resultado inteiro e `NULL` — nunca um `4` sem tipo.
+#:
+#: ⛔ **Ate 11/11/2026 o Quatro faltava aqui**, e cada lance dele chegava `NULL`.
+#: A primeira resolucao de Desafio do Dia do Quatro que entrou na fila derrubou
+#: o job inteiro, todo dia, em `des` e `prd` (`TypeError` no `_ler_lance`),
+#: e nenhuma resolucao — de jogo nenhum — foi auditada depois dela. A consulta
+#: irma, `SQL_LANCES` do replay, ja o conhecia desde a T153; por isso o `CASE`
+#: agora e importado de la, e nao copiado.
+#:
 #: ⛔ **`ORDER BY nu_ordem` e a fita.** `nu_ordem` e sequencia continua de
 #: eventos: nunca recua e nunca se repete. Ordenar por `dh_jogada` daria a mesma
 #: coisa quase sempre — e o "quase" seriam duas jogadas no mesmo milissegundo.
-SQL_FITA = """
+SQL_FITA = f"""
 SELECT j.nu_ordem,
        j.nu_jogador,
-       COALESCE(p.co_aresta, dm.co_lance) AS co_lance
+       COALESCE(
+           p.co_aresta,
+           dm.co_lance,
+           ({LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna
+       ) AS co_lance
   FROM partida.tb002_jogada j
   LEFT JOIN jogo_pontinhos.tb002_jogada p ON p.id_jogada = j.id_jogada
   LEFT JOIN jogo_damas.tb002_jogada dm    ON dm.id_jogada = j.id_jogada
+  -- A VIEW, e nao a tabela: e ela que traz o tipo por extenso (`soltar`), que
+  -- o `CASE` traduz na letra. A tabela so tem o numero da dimensao.
+  LEFT JOIN jogo_quatro.vw002_jogada q    ON q.id_jogada = j.id_jogada
  WHERE j.id_partida = :id_partida
  ORDER BY j.nu_ordem ASC
 """
@@ -213,6 +237,54 @@ def fita_do_log(linhas: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def jogador_do_desafio(js_posicao_inicial: Mapping[str, Any]) -> int:
+    """De quem e o desafio: o `vez_de` da posicao publicada, `+1` ou `-1`.
+
+    ⚠️ **E o mesmo numero com que o gerador julga** (`job/gerador.py`:
+    `jogador=js_posicao["vez_de"]`) e com que o app julga
+    (`jogadorDaPosicaoPublicada`, em `lib/core/desafios/desafio.dart`). A
+    auditoria passava `+1` fixo ate 11/11/2026: dava certo nas damas e no
+    Pontinhos, em que todo desafio publicado abre com o `+1`, e errado no Quatro,
+    em que a vez e do `-1` sempre que a posicao publicada tem um numero IMPAR de
+    lances.
+
+    ⚠️ **Sem o campo, `+1`**: a posicao das damas e so a FEN (a vez vem no prefixo
+    dela, e o medidor a le de la). Valor fora de `+1`/`-1` tambem cai no `+1`,
+    como no app: quem recusa desafio malformado e a geracao, e nao esta leitura.
+    """
+    vez = js_posicao_inicial.get("vez_de")
+    # `isinstance(..., (int, float))`: o JSON pode trazer `-1` ou `-1.0`.
+    return -1 if isinstance(vez, (int, float)) and int(vez) == -1 else 1
+
+
+def fita_nos_sinais_do_motor_quatro(
+    fita: Sequence[Mapping[str, Any]], *, jogador: int
+) -> list[dict[str, Any]]:
+    """Traduz a fita do Quatro das CORES DO APP para os SINAIS DO MOTOR.
+
+    Args:
+        fita: a fita de `fita_do_log`, com `jogador` nas cores do app (`+1` = o
+            Jogador 1, que no desafio e sempre a pessoa).
+        jogador: o `vez_de` da posicao publicada — o sinal da pessoa no motor.
+
+    Returns:
+        A mesma fita, com cada `jogador` no sinal do motor.
+
+    ⚠️ **Duas convencoes, e as duas estao certas no lugar delas.** O motor chama
+    de `+1` quem fez o 1o lance da sequencia INTEIRA (a posicao publicada
+    incluida); o log grava `nu_jogador` nas cores do app, e no app a pessoa e
+    sempre o Jogador 1 (`estado_partida_quatro.dart`, "quem abriu sai da
+    sequencia"). Entao, quando a posicao publicada tem um numero impar de lances,
+    a pessoa e o `-1` do motor e o personagem e o `+1`: o sinal do motor e o do
+    app multiplicado pelo `vez_de`. Com `vez_de = +1` nada muda.
+
+    ⛔ **So no Quatro.** No Pontinhos, quando a vez e do `-1`, o app poe a pessoa
+    como Jogador 2 (`partida_screen.dart` do Pontinhos), e o log ja sai no sinal
+    do jogo; multiplicar la inverteria uma fita que esta certa.
+    """
+    return [{**lance, "jogador": lance["jogador"] * jogador} for lance in fita]
+
+
 def auditar(
     *,
     linha: Mapping[str, Any],
@@ -222,7 +294,9 @@ def auditar(
 
     Args:
         linha: a resolucao com o desafio junto (uma linha de `SQL_PENDENTES`).
-        fita: os lances, ja no vocabulario do juiz.
+        fita: os lances, como `fita_do_log` os entrega (`jogador` nas cores do
+            app). ⚠️ No Quatro, a traducao para os sinais do motor e feita aqui
+            (`fita_nos_sinais_do_motor_quatro`).
 
     Returns:
         O veredito, `confere` ou `divergente`.
@@ -245,12 +319,18 @@ def auditar(
             "a partida da resolucao nao tem nenhuma jogada no log",
         )
 
+    # De quem e o desafio, e a fita nos sinais em que o juiz a le.
+    jogador = jogador_do_desafio(linha["js_posicao_inicial"])
+    if linha["co_jogo"] == "quatro":
+        fita = fita_nos_sinais_do_motor_quatro(fita, jogador=jogador)
+
     try:
         julgamento = julgar_desafio(
             co_jogo=linha["co_jogo"],
             js_posicao_inicial=linha["js_posicao_inicial"],
             js_chegada=linha["js_chegada"],
             fita=fita,
+            jogador=jogador,
             co_modalidade=linha["co_modalidade"] or "brasileira",
         )
     except ChegadaInvalida as erro:
@@ -331,6 +411,20 @@ async def auditar_lote(sessao: Any, *, limite: int = LOTE_PADRAO) -> dict[str, i
             contagem["impossiveis"] += 1
             _avisar(linha, erro)
             continue
+        except Exception as erro:  # noqa: BLE001 - e exatamente o que se quer pegar
+            # ⛔ **Um estouro que ninguem previu tambem nao derruba o lote.** Ate
+            # 11/11/2026 so o `AuditoriaImpossivel` era pego aqui, e um
+            # `TypeError` do Quatro (lance `NULL` na fita) derrubou o job inteiro
+            # todo dia: a promessa da docstring valia so para o erro esperado.
+            #
+            # ⚠️ Conta como **impossivel** e fica `pendente`, pelo mesmo motivo
+            # do bloco de cima: o defeito e NOSSO (codigo da auditoria), e nao
+            # da pessoa. Consertado o codigo, a proxima execucao a audita. O
+            # rastro de pilha vai inteiro para o log: sem ele, "impossivel"
+            # esconderia o lugar do defeito.
+            contagem["impossiveis"] += 1
+            _avisar(linha, erro, inesperado=True)
+            continue
 
         await sessao.execute(
             text(SQL_MARCAR),
@@ -346,17 +440,41 @@ async def auditar_lote(sessao: Any, *, limite: int = LOTE_PADRAO) -> dict[str, i
     return contagem
 
 
-def _avisar(linha: Mapping[str, Any], erro: Exception) -> None:
+def _avisar(
+    linha: Mapping[str, Any], erro: Exception, *, inesperado: bool = False
+) -> None:
     """Registra um desafio publicado que a auditoria nao consegue reproduzir.
+
+    Args:
+        linha: a resolucao que ficou pendente.
+        erro: o que estourou.
+        inesperado: `True` quando o erro NAO e um `AuditoriaImpossivel` — um
+            defeito do codigo da auditoria, e nao do desafio. Ai o aviso diz o
+            tipo do erro, a resolucao e a partida, e imprime o rastro de pilha:
+            e o que permite achar o defeito sem reproduzir o job.
 
     ⚠️ Vai para a saida de erro, que e onde o Railway destaca as linhas do log —
     e nao para o painel, porque o painel mostra divergencias **de julgamento**, e
     isto e outra coisa: um desafio quebrado no ar.
     """
     import sys
+    import traceback
+
+    if not inesperado:
+        print(
+            f"[auditoria] ⛔ desafio {linha.get('id_desafio')} nao e auditavel: "
+            f"{erro}",
+            file=sys.stderr,
+        )
+        return
 
     print(
-        f"[auditoria] ⛔ desafio {linha.get('id_desafio')} nao e auditavel: "
-        f"{erro}",
+        f"[auditoria] ⛔ erro inesperado ao auditar a resolucao "
+        f"{linha.get('id_resolucao')} (jogo {linha.get('co_jogo')}, partida "
+        f"{linha.get('id_partida')}): {type(erro).__name__}: {erro}. "
+        "Fica PENDENTE; o lote seguiu.",
         file=sys.stderr,
     )
+    # `print_exception` recebe o erro ja capturado (fora do `except`, o
+    # `print_exc` nao teria o que imprimir).
+    traceback.print_exception(erro, file=sys.stderr)
