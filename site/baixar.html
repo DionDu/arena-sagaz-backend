@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<!--
+  PÁGINA DE ESCOLHA DO /baixar (e dos apelidos /download e /descargar).
+
+  Só aparece para quem o servidor NÃO conseguiu identificar pelo User-Agent:
+  computador, iPad que se apresenta como Mac, robôs de prévia de link. Celular
+  (iPhone/Android, inclusive dentro do Instagram/Facebook/Threads) nunca vê esta
+  página: leva um 302 direto para a loja (ver api/site/rotas.py).
+
+  É um MODELO: cada {{chave}} é preenchida no servidor por idioma (pt/en/es), em
+  api/site/baixar.py → montar_pagina. Nada de fonte embutida aqui, de propósito:
+  a página tem de ser leve (quem chega aqui está a um toque de sair), então usa
+  as fontes do sistema, na mesma família arredondada do site.
+-->
+<html lang="{{idioma}}" data-loja-apple="{{loja_apple}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{titulo}}</title>
+<meta name="description" content="{{descricao}}">
+<!-- noindex: esta é uma porta de passagem, não uma página para o Google. Quem
+     busca "Arena Sagaz" deve achar o site (/), não o atalho de download. -->
+<meta name="robots" content="noindex">
+<!-- Open Graph: é o que o WhatsApp, o Instagram e o Threads leem para montar a
+     prévia do link. O robô deles não tem "iPhone"/"Android" no User-Agent,
+     então ele recebe ESTA página, e a prévia sai com título e descrição. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{titulo}}">
+<meta property="og:description" content="{{descricao}}">
+<meta name="theme-color" content="#2E4034">
+<script>
+  // PEGADINHA DO iPad: desde o iPadOS 13 o Safari do iPad diz "Macintosh" no
+  // User-Agent, igualzinho a um Mac, e o servidor não tem como separar os dois.
+  // O navegador tem: Mac não tem tela de toque, iPad tem (maxTouchPoints > 1).
+  // Roda no <head>, antes de a página aparecer, para o iPad não ver os selos
+  // piscando. `location.replace` não deixa esta página no histórico: o "voltar"
+  // da loja leva para onde a pessoa estava antes, e não de novo para cá.
+  // O endereço vem do atributo data-loja-apple do <html> (o navegador decodifica
+  // o escape do atributo; dentro do <script> ele não decodificaria).
+  (function () {
+    var ua = navigator.userAgent || '';
+    if (ua.indexOf('Macintosh') !== -1 && navigator.maxTouchPoints > 1) {
+      location.replace(document.documentElement.getAttribute('data-loja-apple'));
+    }
+  })();
+</script>
+<style>
+  /* As cores são os tokens do site (site/index.html): o "feltro" verde do tema
+     escuro como fundo, o creme do texto e o ouro da marca. */
+  :root {
+    --feltro: #2E4034; --feltro2: #3A5142; --creme: #F4EFE3; --creme2: #B9C4B4;
+    --ouro: #D9A441;
+    --display: 'Baloo 2', ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; min-height: 100dvh; /* dvh: altura real no celular, sem a barra do navegador */
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(120% 80% at 50% 0%, var(--feltro2), var(--feltro));
+    color: var(--creme); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    text-align: center; padding: 32px 16px;
+  }
+  main { max-width: 460px; }
+  .emblema { width: 120px; height: auto; color: var(--creme); }
+  h1 { font-family: var(--display); font-weight: 800; font-size: 32px; line-height: 1.1; margin: 18px 0 10px; }
+  p { color: var(--creme2); font-size: 17px; line-height: 1.5; margin: 0 0 26px; }
+  /* Os selos oficiais: arte intocável (nem cor, nem moldura), só o tamanho.
+     O PNG do Google traz 10px de margem transparente em cima e embaixo, então
+     a caixa dele é 64px para a ARTE ficar com os mesmos 52px do selo da Apple
+     (mesma conta do site principal). O espaço entre eles cumpre a área livre
+     que as duas marcas exigem. */
+  .lojas { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: center; }
+  .lojas a { display: inline-flex; align-items: center; height: 64px; }
+  .lojas .apple img { height: 52px; width: auto; }
+  .lojas .play img { height: 64px; width: auto; }
+  .site { display: inline-block; margin-top: 30px; color: var(--ouro); font-weight: 700; text-decoration: none; }
+  .site:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+  <!-- O emblema da marca, o mesmo do site (os pontinhos usam currentColor, que
+       aqui é o creme; a arena de madeira tem cor própria). -->
+  <svg class="emblema" width="200" height="170" viewBox="0 0 240 204" aria-hidden="true"><g><g stroke="currentColor" stroke-width="6" stroke-linecap="round"><line x1="68" y1="50" x2="104" y2="50"></line><line x1="136" y1="50" x2="172" y2="50"></line><line x1="68" y1="90" x2="104" y2="90"></line><line x1="136" y1="90" x2="172" y2="90"></line><line x1="60" y1="58" x2="60" y2="82"></line><line x1="180" y1="58" x2="180" y2="82"></line></g><rect x="114" y="54" width="12" height="32" rx="6" fill="#D9A441"></rect><circle cx="60" cy="50" r="8" fill="currentColor"></circle><circle cx="120" cy="50" r="8" fill="currentColor"></circle><circle cx="180" cy="50" r="8" fill="currentColor"></circle><circle cx="60" cy="90" r="8" fill="currentColor"></circle><circle cx="120" cy="90" r="8" fill="currentColor"></circle><circle cx="180" cy="90" r="8" fill="currentColor"></circle></g><g><path d="M 44 112 Q 120 96 196 112 L 196 148 L 44 148 Z" fill="#8A5A33" stroke="#5E3D22" stroke-width="3" stroke-linejoin="round"></path><path d="M 63 148 L 63 130 Q 72 120 81 130 L 81 148 Z" fill="#5E3D22"></path><path d="M 95 148 L 95 130 Q 104 120 113 130 L 113 148 Z" fill="#5E3D22"></path><path d="M 127 148 L 127 130 Q 136 120 145 130 L 145 148 Z" fill="#5E3D22"></path><path d="M 159 148 L 159 130 Q 168 120 177 130 L 177 148 Z" fill="#5E3D22"></path></g><g><path d="M 20 152 Q 120 138 220 152 L 220 196 L 20 196 Z" fill="#8A5A33" stroke="#5E3D22" stroke-width="3" stroke-linejoin="round"></path><path d="M 41 196 L 41 172 Q 52 160 63 172 L 63 196 Z" fill="#5E3D22"></path><path d="M 75 196 L 75 172 Q 86 160 97 172 L 97 196 Z" fill="#5E3D22"></path><path d="M 109 196 L 109 172 Q 120 160 131 172 L 131 196 Z" fill="#5E3D22"></path><path d="M 143 196 L 143 172 Q 154 160 165 172 L 165 196 Z" fill="#5E3D22"></path><path d="M 177 196 L 177 172 Q 188 160 199 172 L 199 196 Z" fill="#5E3D22"></path></g></svg>
+  <h1>{{titulo}}</h1>
+  <p>{{descricao}}</p>
+  <div class="lojas">
+    <a class="apple" id="linkApple" href="{{loja_apple}}"><img src="/img/appstore_{{idioma}}.svg" alt="{{alt_apple}}" width="156" height="52"></a>
+    <a class="play" id="linkPlay" href="{{loja_play}}"><img src="/img/googleplay_{{idioma}}.png" alt="{{alt_play}}" width="166" height="64"></a>
+  </div>
+  <a class="site" href="/">{{link_site}}</a>
+</main>
+</body>
+</html>

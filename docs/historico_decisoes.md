@@ -11249,3 +11249,83 @@ contas reais do `prd` + 5 controles + idempotência, filtros de `vw001_partida`,
 e travas de ambiente/transação). Prova contra o Postgres real do `des` em transação desfeita:
 `scripts/conferir_backfill_t171.py` (`(a)..(f)` verdes e `0` rastros após `ROLLBACK`). Mutação:
 **10 de 10 mortas**. Suíte completa do backend: **4.502 verdes** (38 pulados).
+
+## 2026-11-11 — O site deixa de ser só do Jogo dos Pontinhos: quatro jogos, Desafio do Dia e vídeo
+
+**Contexto.** A landing (`site/index.html`) nasceu em julho/2026, quando o app só tinha o Jogo dos
+Pontinhos, e continuava falando só dele (título, descrição, capturas, "rede neural") três versões
+depois: hoje são Damas, Jogo da Velha, Pontinhos e Quatro em Linha, mais o Desafio do Dia. O site é o
+"marketing URL" e a "Support URL" das duas lojas, então ele contradizia a ficha que as lojas exibem.
+
+**Decisão** (pedido do dono, 11/11/2026):
+1. **O copy sai das fichas das lojas da 1.4.0**
+   (`arena-sagaz-frontend/specs/010-jogo-quatro-em-linha/textos-fichas-lojas.md`), nos 3 idiomas, e
+   não é reescrito à parte: site e loja não podem prometer coisas diferentes.
+2. **Seções novas:** "Os jogos" (um cartão por jogo, com captura) e "Desafio do Dia"; o trio "por
+   dentro" virou arena + escolha do rival + ranking, e é a única vitrine que troca com o tema (as
+   capturas de partida dos jogos só existem no claro). FAQ ganhou "jogar com um amigo" e "preciso de
+   conta?"; a do "sem internet" passou a dizer que o desafio do dia chega pela rede.
+3. **Nenhum travessão longo (`—`) na página**, só o hífen comum (pedido do dono). Há teste.
+4. **Telas novas com nomes novos** (`jogo_<jogo>_<idioma>.webp`, `desafio_do_dia_<idioma>.webp`,
+   `vitrine_<tela>_<idioma>[_escuro].webp`), geradas das capturas cruas de iOS (1320x2868 → 440x956).
+   Reaproveitar `cap_<idioma>_<n>.webp` com outro conteúdo faria quem visitou no último dia ver a tela
+   antiga (cache de 1 dia). As 9 antigas foram **arquivadas** em `site/_arquivo/capturas_ago2026/` pelo
+   `mover_com_log.ps1` (fora de `site/img/`, logo não são servidas; e fora da imagem Docker pelo
+   `.dockerignore`).
+5. **Vídeo no hero:** a prévia da App Store (`previa_app_store_loja_<idioma>.mp4`, 886x1920, 27 s,
+   ~4,5 MB) dentro da moldura de celular, cuja proporção é praticamente a mesma. Sem autoplay e com
+   `preload="none"`: só baixa quem aperta o play. Rota nova `/video/{nome}` com lista de permissão,
+   servida do **disco** por `FileResponse`, que atende `Range` (206): o Safari do iPhone não toca
+   vídeo sem isso. Há teste para o 206.
+
+**Alternativas consideradas.**
+- *Vídeo do YouTube embutido:* derrubaria a regra do site autocontido (teste `..._nao_depende_de_CDN`)
+  e poria rastreamento de terceiros na página. Descartado.
+- *Os vídeos horizontais (YouTube 1920x1080, cabeçalho da Apple 3840x1646):* não cabem na linguagem
+  da página, que mostra o app sempre numa moldura de celular, e são 1,5x a 3x maiores.
+- *Vídeo na memória, como as imagens:* ~13 MB nos 3 idiomas, em cada processo da API, para um botão
+  que pouca gente aperta. O disco basta.
+- *Desenhar as seções novas no Claude Design antes:* as seções reaproveitam só peças que o site já
+  tinha (moldura `.fone`, `.ponto`, `.kicker`, grade do "Diferencial"). Se o dono quiser uma
+  reformulação visual de verdade, ela nasce lá.
+
+## 2026-11-11 (2) — `/baixar`: um link só, para as redes sociais, que leva cada celular à sua loja
+
+**Contexto.** A bio do Instagram, o sticker de link dos Stories, o Threads e a legenda do Status do
+WhatsApp aceitam **um** link, e quem toca nele pode ter iPhone ou Android. Até aqui não havia link
+nenhum que servisse aos dois: o site (`/`) obriga a rolar e escolher, e cada passo a mais entre o toque e
+a loja perde gente.
+
+**Decisão** (pedido do dono, 11/11/2026):
+1. `GET`/`HEAD` em **`/baixar`** (apelidos **`/download`** e **`/descargar`**) olha o User-Agent:
+   iPhone/iPad/iPod → App Store (`https://apps.apple.com/app/id6790198320`, **sem país**, para a Apple
+   mandar cada um à loja do seu país); Android → Google Play. Detecção pelo nome do **aparelho**, não do
+   navegador: o navegador interno do Instagram ("Instagram ..."), do Facebook ("FBAN"/"FB_IAB") e do
+   Threads ("Barcelona") acrescenta a marca dele, mas mantém "iPhone"/"Android".
+2. **302**, nunca 301 (o 301 fica guardado em navegadores e proxies e congelaria o destino), com
+   **`Cache-Control: no-store`** e **`Vary: User-Agent, Accept-Language`** (a mesma URL responde
+   diferente por aparelho; sem isso um cache no caminho poderia entregar a loja de um iPhone a um
+   Android).
+3. O resto (computador, robô de prévia de link, sem User-Agent) recebe uma **página pequena com os dois
+   selos** (`site/baixar.html`, montada no import nos 3 idiomas, escolhidos pelo `Accept-Language`),
+   com as tags `og:` para a prévia do WhatsApp/Instagram e `noindex`.
+4. **iPad moderno:** desde o iPadOS 13 ele se diz "Macintosh", igual a um Mac; o servidor não tem como
+   separar. A página de escolha traz um script que, com "Macintosh" **e** `navigator.maxTouchPoints > 1`,
+   faz `location.replace` para a App Store. A URL vai num atributo do `<html>`, não dentro do script,
+   porque lá o escape de `&` não seria decodificado (e a etapa de campanha vai pôr `&` na URL).
+5. Endereços **https** das lojas, não `itms-apps://`/`market://`: o https abre o app da loja quando ele
+   existe e não quebra quando não existe (ou num computador).
+6. **Isento do rate limit** (`api/nucleo/rate_limit.py`): o limite é por IP, e a operadora põe milhares
+   de celulares atrás do mesmo IP (CGNAT); um story que viraliza estouraria 120/min com gente de
+   verdade, e cada `429` é uma instalação perdida sem erro visível. A resposta não toca banco nem disco.
+7. **Sem banco.** Contagem de cliques não foi feita; se valer a pena, é proposta à parte.
+
+**Alternativas consideradas.**
+- *Encurtador de terceiros (bit.ly e afins):* põe um domínio alheio no meio do caminho de toda
+  instalação (se ele cair, mudar de plano ou de regra, o link da bio morre), mostra a marca dele em vez
+  da nossa e entrega os dados de clique a outra empresa. O nosso domínio já existe e já é confiável para
+  as lojas.
+- *Dois stickers/links (um por loja):* o Instagram só aceita um link na bio, o Status do WhatsApp mostra
+  um link por vez, e cada escolha a mais na frente do usuário custa toques e gente.
+- *Página só com os selos para todo mundo:* funciona, mas acrescenta um toque para 100% dos visitantes
+  de celular, que são quase todos. Ela ficou só para quem não dá para identificar.

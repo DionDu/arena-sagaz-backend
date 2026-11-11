@@ -78,3 +78,7 @@ espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/.dart_tool/
 espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/pubspec.lock
 espelho_laboratorio/jogos/jogo_quatro/motor_dart/.dart_tool/
 espelho_laboratorio/jogos/jogo_quatro/motor_dart/pubspec.lock
+
+# Capturas antigas do site, arquivadas (regra "nada e apagado"): ficam no Git,
+# mas nao servem para nada na imagem, e a rota /img/ so le site/img/.
+site/_arquivo/

@@ -40,7 +40,22 @@ _METODOS_ESCRITA = {"POST", "PUT", "PATCH", "DELETE"}
 # - `/` → a landing. Um `429` na página inicial é péssimo cartão de visita, e
 #   robôs de busca/prévia (Google, WhatsApp, LinkedIn) batem nela com frequência.
 #   Ela é servida da MEMÓRIA (o HTML é lido no import), então não custa I/O.
-_ISENTOS = {"/v1/health", "/health", "/app-ads.txt", "/"}
+# - `/baixar`, `/download`, `/descargar` → o link da bio do Instagram e dos
+#   Stories (decisão de 2026-11-11). O limite é por IP, e operadora de celular
+#   põe MILHARES de pessoas atrás do mesmo IP público (CGNAT): um story que
+#   viraliza poderia estourar as 120/min de um IP só com gente de verdade, e cada
+#   `429` aqui é uma instalação perdida, sem erro visível para ninguém. Custo do
+#   abuso: quase zero, porque a resposta é um 302 ou uma página já pronta na
+#   memória, sem banco nem disco (o mesmo raciocínio da `/`).
+_ISENTOS = {
+    "/v1/health",
+    "/health",
+    "/app-ads.txt",
+    "/",
+    "/baixar",
+    "/download",
+    "/descargar",
+}
 
 _JANELA_SEGUNDOS = 60.0
 
