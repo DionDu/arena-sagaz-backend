@@ -11403,3 +11403,23 @@ dono) precisa de uma leitura para desenhar os stories.
   em SQL; as partidas contra o Magno são poucas, e a página é aberta quatro vezes por semana.
 - *`zoneinfo("America/Sao_Paulo")`:* a imagem enxuta não garante a base de fusos; Brasília é UTC-3
   fixo desde 2019.
+
+## 2026-11-12 (3) — A página do card do dia servida em `/card-do-dia/`, e a grade do Quatro pela API
+
+**Contexto.** A página do card do dia (Flutter web, só do dono) precisava de um endereço, e o site
+do backend só tem rotas explícitas, sem *catch-all* (`api/site/rotas.py`).
+
+**Decisão.**
+1. **Um `StaticFiles` montado sob o prefixo `/card-do-dia`** (`api/site/pagina_card_do_dia.py`), e
+   não na raiz: só o que começa com o prefixo chega aos arquivos, e o resto continua com o 404 em JSON
+   da API. `X-Robots-Tag: noindex` e `Cache-Control: no-cache` em toda resposta. Sem o build na pasta,
+   nada é montado. O build (`site/card-do-dia/`, ~5,7 MB, sem o CanvasKit, que vem da CDN do Google, e
+   sem os assets pesados do app) é saída de `card-do-dia/publicar.ps1`, no repositório raiz.
+2. **`grade_quatro` na resposta do `/v1/card-do-dia`** (`api/card_do_dia/grade_quatro.py`): o motor
+   do Quatro do app usa inteiros de 64 bits e não compila para web; o árbitro daqui reproduz a posição,
+   como o painel de curadoria já faz para desenhar. A pessoa sai em azul.
+
+**Alternativas consideradas.**
+- *Hospedagem estática à parte (Cloudflare Pages, GitHub Pages):* exigiria CORS para a API e um
+  segundo lugar de deploy; servida daqui, a página fala com a mesma origem.
+- *Uma rota por arquivo do build:* frágil a cada versão do Flutter, que muda os nomes dos arquivos.
