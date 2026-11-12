@@ -11349,7 +11349,7 @@ mostraria o nome e a palavra em português.
 2. **A "etapa de campanha" prevista em 11/11 (2) entra:** o `/baixar` repassa à loja uma origem
    (`?o=`) de uma **lista fechada** (Google Play: `referrer=utm_source%3D<origem>`; App Store: link de
    campanha `ct=`/`pt=`). Quem conta são as lojas; o servidor **continua sem contar nem gravar nada**.
-   Ainda não implementado: é tarefa da spec dos cards.
+   **Implementado no mesmo dia** (entrada seguinte).
 
 **Alternativas consideradas.**
 - *Domínio próprio curto (`arenasagaz.app` / `sharparena.app`):* US$ 8,20 no 1º ano e US$ 14,20 depois,
@@ -11358,3 +11358,48 @@ mostraria o nome e a palavra em português.
 - *Um endereço só, em português, para todos os idiomas:* funciona, mas mostra a quem joga em inglês um
   nome que ele não vê no app.
 - *Repassar qualquer `?o=`:* deixaria qualquer um escrever o que quisesse nos relatórios das lojas.
+
+## 2026-11-12 (2) — A origem no `/baixar` e o `GET /v1/card-do-dia` (cards de compartilhamento)
+
+**Contexto.** Fase 1 do PRD dos cards (raiz, `docs/PRD_Cards_de_Compartilhamento.md`, §9): sem versão
+nova do app, o `/baixar` passa a repassar a origem, e a página do card do dia (Flutter web, só do
+dono) precisa de uma leitura para desenhar os stories.
+
+**Decisão.**
+1. **A origem (`?o=`).** Lista fechada `story`, `app-desafio`, `app-partida` (`api/site/baixar.py`,
+   `ORIGENS`); fora dela, ignorada em silêncio. Google Play: `&referrer=utm_source%3D<origem>`. App
+   Store: `?pt=<provedor>&ct=<origem>&mt=8`, **só quando `APPLE_PROVEDOR` estiver preenchido**: sem o
+   `pt` a Apple ignora o `ct`, então o iPhone vai para a loja pura. A página de escolha (computador)
+   passou a ser montada por (idioma, origem), 12 no total, e os selos dela também levam a origem.
+   O servidor continua sem contar nem gravar nada.
+2. **`GET /v1/card-do-dia`** (`api/card_do_dia/`), pública e só de leitura:
+   - o desafio vigente no **mesmo formato do `/hoje`** (`DesafioPublicado`), para a página reaproveitar
+     o código do app que o lê. ⚠️ **Não é o `/hoje` reaproveitado:** ele anota a visita do aparelho
+     (T118), e a página no navegador entraria na amostra de adoção como um aparelho que não existe;
+   - a **agenda** (`agenda.py`, pura): o **dia de publicação** é o dia de Brasília em que o desafio
+     começou às 21h, ou seja, o dia UTC do desafio menos um. Quarta, sexta, sábado e domingo; o
+     pedido de ajuda é o 2º story do domingo; o Magno numa quarta a cada 14 dias a partir de
+     18/11/2026. Layout (3) e papel (4) andam um passo por publicação, e nunca repetem em dois posts
+     seguidos. Os stories saem mesmo em dia de folga (a página tem "ver mesmo assim");
+   - os **números do Magno** (`magno.py`): só vs CPU, só sagaz, só concluída (os critérios de
+     `ferramentas/consultas_sql/partidas_por_nivel_dificuldade.sql`); a partida com "voltar jogada"
+     conta. Dias sem perder, recorde (maior intervalo entre derrotas) e o placar do período (o mês
+     corrente; na 1ª quinzena, o mês anterior inteiro), por jogo e para os quatro juntos. Cache de
+     10 min na memória do processo;
+   - `Cache-Control: no-store` (a página é aberta às 21h em ponto) e `X-Robots-Tag: noindex`.
+3. **O card D só sai quando impressiona**: a placa com 14 dias ou mais sem perder; o placar com 50
+   partidas ou mais e **nenhuma** derrota no período. Os quatro jogos juntos antes de um jogo só; a
+   placa e o placar se alternam. ⚠️ **Os dois limites são provisórios** (PRD §8): a consulta
+   `ferramentas/consultas_sql/card_do_dia_magno.sql` (raiz) mostra os números reais do prd para o
+   dono decidir. Sem número que valha, a quarta do Magno vira um convite comum.
+4. **As legendas** moram em `agenda.py` (rascunho meu, à espera do dono). As do convite têm as
+   lacunas `{objetivo}` e `{jogo}`, que a página preenche com o texto do app: o servidor não tem as
+   frases dos objetivos, e duplicá-las aqui faria as duas cópias divergirem.
+
+**Alternativas consideradas.**
+- *A agenda na página (Dart):* mudar um dia ou um limite exigiria um build novo da página; aqui é um
+  deploy do backend, e a regra se testa com `pytest`.
+- *Agregar os números do Magno no SQL:* a conta do recorde (intervalos entre derrotas) fica ilegível
+  em SQL; as partidas contra o Magno são poucas, e a página é aberta quatro vezes por semana.
+- *`zoneinfo("America/Sao_Paulo")`:* a imagem enxuta não garante a base de fusos; Brasília é UTC-3
+  fixo desde 2019.

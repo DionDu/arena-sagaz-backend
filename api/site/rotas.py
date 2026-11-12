@@ -160,8 +160,11 @@ def _listar_videos() -> dict[str, Path]:
 _VIDEOS = _listar_videos()
 
 
-def _montar_paginas_baixar() -> dict[str, str]:
-    """Monta a página de escolha do `/baixar` nos três idiomas, uma vez só.
+def _montar_paginas_baixar() -> dict[tuple[str, str | None], str]:
+    """Monta a página de escolha do `/baixar` para cada (idioma, origem), uma vez só.
+
+    São 3 idiomas × (3 origens + "sem origem") = 12 páginas pequenas, prontas no
+    import: os selos de cada uma já levam a marcação de campanha da origem.
 
     Sem o modelo `site/baixar.html` (um deploy sem a pasta), cai numa página
     mínima com os dois links: o `/baixar` está na bio do Instagram e nunca pode
@@ -171,7 +174,12 @@ def _montar_paginas_baixar() -> dict[str, str]:
         '<!DOCTYPE html><meta charset="UTF-8"><title>{{titulo}}</title>'
         '<p><a href="{{loja_apple}}">App Store</a> · <a href="{{loja_play}}">Google Play</a></p>'
     )
-    return {idioma: baixar.montar_pagina(modelo, idioma) for idioma in baixar.IDIOMAS}
+    # Compreensão de dicionário com dois `for`: percorre todas as combinações.
+    return {
+        (idioma, origem): baixar.montar_pagina(modelo, idioma, origem)
+        for idioma in baixar.IDIOMAS
+        for origem in (None, *sorted(baixar.ORIGENS))
+    }
 
 
 _PAGINAS_BAIXAR = _montar_paginas_baixar()
@@ -251,12 +259,17 @@ async def baixar_app(request: Request) -> Response:
     Está isento do rate limit (`api/nucleo/rate_limit.py`): um story que viraliza
     traz muita gente de uma vez, e às vezes atrás do MESMO IP de operadora.
     """
+    # `?o=` é a origem do link (o story, o card do app). Fora da lista fechada,
+    # vira None e o link segue sem marcação. Ver `baixar.ORIGENS`.
+    origem = baixar.origem_valida(request.query_params.get("o"))
     loja = baixar.loja_para(request.headers.get("user-agent"))
     if loja is not None:
         # 302 = "por enquanto está lá". Ver na docstring do módulo por que não 301.
-        return RedirectResponse(loja, status_code=302, headers=_CABECALHOS_BAIXAR)
+        return RedirectResponse(
+            baixar.com_origem(loja, origem), status_code=302, headers=_CABECALHOS_BAIXAR
+        )
     idioma = baixar.escolher_idioma(request.headers.get("accept-language"))
-    return HTMLResponse(_PAGINAS_BAIXAR[idioma], headers=_CABECALHOS_BAIXAR)
+    return HTMLResponse(_PAGINAS_BAIXAR[(idioma, origem)], headers=_CABECALHOS_BAIXAR)
 
 
 @router.get("/app-ads.txt", response_class=PlainTextResponse, include_in_schema=False)

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import html
 import re
+from urllib.parse import quote
 
 # ── As duas lojas ────────────────────────────────────────────────────────────
 #
@@ -28,6 +29,65 @@ import re
 # STORE_PLAY, no script da página). Se um app mudar de endereço, mudam os dois.
 LOJA_APPLE = "https://apps.apple.com/app/id6790198320"
 LOJA_PLAY = "https://play.google.com/store/apps/details?id=com.santiagodata.arenasagaz"
+
+# ── A origem de cada instalação (decisão de 12/11/2026) ──────────────────────
+#
+# Cada link que nós espalhamos leva `?o=<origem>` (o story do dono, o card que o
+# jogador compartilhou do desafio, o da partida). O `/baixar` REPASSA essa origem
+# à loja, e quem conta as instalações por origem são as próprias lojas (Play
+# Console e App Store Connect). Este servidor continua sem contar nem gravar nada.
+#
+# Só origens desta LISTA FECHADA passam. Qualquer outro valor é ignorado em
+# silêncio (o link funciona do mesmo jeito, só sem a marcação): assim ninguém
+# injeta texto arbitrário no endereço da loja, e o relatório das lojas não se
+# enche de origens inventadas.
+#
+# ⚠️ O app (cards A e B) e a página do card do dia escrevem estes mesmos nomes.
+# Mudar um aqui sem mudar lá faz a origem sumir dos relatórios, sem erro nenhum.
+ORIGENS = frozenset({"story", "app-desafio", "app-partida"})
+
+# O "provider token" (`pt`) da conta de desenvolvedor na Apple. A App Store só
+# atribui a campanha (`ct`) quando o link traz os dois. Não é segredo: aparece em
+# todo link de campanha público. Fica em App Store Connect → App Analytics →
+# "Gerar link de campanha" (o número depois de `pt=`).
+# `None` = ainda não preenchido: o iPhone vai para a loja SEM a campanha, como
+# antes. A Google Play não precisa de nada parecido.
+APPLE_PROVEDOR: str | None = None
+
+
+def origem_valida(valor: str | None) -> str | None:
+    """Devolve a origem se ela está na lista fechada; senão, ``None``.
+
+    Aceita maiúsculas e espaços em volta (``" Story "`` vale ``story``): quem
+    digita o link à mão erra assim, e não custa perdoar.
+    """
+    if not valor:
+        return None
+    limpo = valor.strip().lower()
+    return limpo if limpo in ORIGENS else None
+
+
+def com_origem(loja: str, origem: str | None) -> str:
+    """Acrescenta a marcação de campanha ao endereço de UMA das duas lojas.
+
+    - **Google Play:** o parâmetro ``referrer`` leva uma segunda query string
+      *codificada dentro da primeira*: ``utm_source=story`` vira
+      ``referrer=utm_source%3Dstory`` (o ``=`` de dentro precisa virar ``%3D``,
+      senão a Play leria ``utm_source`` como parâmetro dela e descartaria).
+    - **App Store:** ``pt`` (a conta) + ``ct`` (a campanha) + ``mt=8`` (o tipo
+      de mídia "app", que a própria Apple põe nos links que gera). Sem o ``pt``
+      preenchido, sai o endereço puro.
+
+    ``origem`` ``None`` (ausente ou fora da lista) devolve ``loja`` intacto.
+    """
+    if origem is None:
+        return loja
+    if loja == LOJA_PLAY:
+        # `quote` com safe="" codifica TAMBÉM o "=", que é o ponto todo.
+        return f"{loja}&referrer={quote('utm_source=' + origem, safe='')}"
+    if loja == LOJA_APPLE and APPLE_PROVEDOR:
+        return f"{loja}?pt={APPLE_PROVEDOR}&ct={origem}&mt=8"
+    return loja
 
 # ── Detecção pelo User-Agent ─────────────────────────────────────────────────
 #
@@ -134,19 +194,24 @@ TEXTOS = {
 }
 
 
-def montar_pagina(modelo: str, idioma: str) -> str:
-    """Preenche o modelo ``site/baixar.html`` para um idioma.
+def montar_pagina(modelo: str, idioma: str, origem: str | None = None) -> str:
+    """Preenche o modelo ``site/baixar.html`` para um idioma (e uma origem).
 
     O modelo marca cada lacuna como ``{{chave}}`` (chaves duplas, para não se
     confundir com as chaves do CSS). Cada valor passa por ``html.escape``, que
     troca ``<``, ``>``, ``&`` e aspas pelas formas seguras do HTML: os textos são
-    nossos, mas o hábito evita que um apóstrofo futuro quebre um atributo.
+    nossos, mas o hábito evita que um apóstrofo futuro quebre um atributo. É ele
+    também que escreve o ``&`` da marcação de campanha como ``&amp;``, a forma
+    correta dentro de um atributo (o navegador a decodifica ao seguir o link).
+
+    Com ``origem``, os dois selos levam a marcação: quem abriu o link no
+    computador e tocou no selo também conta como vindo daquela origem.
     """
     valores = {
         **TEXTOS[idioma],
         "idioma": idioma,
-        "loja_apple": LOJA_APPLE,
-        "loja_play": LOJA_PLAY,
+        "loja_apple": com_origem(LOJA_APPLE, origem),
+        "loja_play": com_origem(LOJA_PLAY, origem),
     }
     pagina = modelo
     for chave, valor in valores.items():

@@ -480,3 +480,73 @@ def test_baixar_esta_isento_do_rate_limit():
     uma instalação perdida sem erro visível. Ver o comentário em `_ISENTOS`."""
     for caminho in ("/baixar", "/download", "/descargar"):
         assert caminho in _ISENTOS
+
+
+# ── A origem de cada instalação (`?o=`, decisão de 12/11/2026) ──────────────
+#
+# O `/baixar` repassa a origem da lista fechada à loja; quem conta são as lojas.
+# Os testes usam `monkeypatch` (um recurso do pytest que troca um valor só
+# durante o teste e o devolve no fim) para simular o `pt` da Apple preenchido.
+
+from api.site import baixar as modulo_baixar  # noqa: E402 (import junto dos testes que o usam)
+
+
+@pytest.mark.parametrize("origem", ["story", "app-desafio", "app-partida"])
+def test_baixar_repassa_a_origem_a_google_play(cliente: TestClient, origem: str):
+    """Android: a origem vira `referrer=utm_source%3D<origem>`, com o `=` de
+    dentro codificado (senão a Play o leria como parâmetro dela)."""
+    r = cliente.get(f"/baixar?o={origem}", headers={"User-Agent": UA_ANDROID_CHROME}, follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == f"{PLAY}&referrer=utm_source%3D{origem}"
+    _confere_cabecalhos_sem_cache(r)
+
+
+def test_baixar_repassa_a_origem_a_app_store_quando_ha_provedor(cliente: TestClient, monkeypatch):
+    """iPhone: com o `pt` da conta preenchido, vai `pt` + `ct` + `mt=8`."""
+    monkeypatch.setattr(modulo_baixar, "APPLE_PROVEDOR", "123456")
+    r = cliente.get("/download?o=story", headers={"User-Agent": UA_INSTAGRAM_IPHONE}, follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == f"{APPLE}?pt=123456&ct=story&mt=8"
+
+
+def test_sem_provedor_a_app_store_vai_sem_campanha(cliente: TestClient, monkeypatch):
+    """Sem o `pt`, a Apple ignoraria o `ct`: melhor mandar o endereço puro."""
+    monkeypatch.setattr(modulo_baixar, "APPLE_PROVEDOR", None)
+    r = cliente.get("/baixar?o=story", headers={"User-Agent": UA_IPHONE_SAFARI}, follow_redirects=False)
+    assert r.headers["location"] == APPLE
+
+
+@pytest.mark.parametrize(
+    "consulta",
+    ["?o=inventada", "?o=", "?o=story%26x%3D1", "?o=<script>", "?outra=story"],
+    ids=["fora_da_lista", "vazia", "tentativa_de_injetar", "html", "parametro_errado"],
+)
+def test_origem_fora_da_lista_e_ignorada(cliente: TestClient, consulta: str):
+    """Qualquer coisa fora da lista fechada: o link funciona, só sem marcação."""
+    r = cliente.get(f"/baixar{consulta}", headers={"User-Agent": UA_ANDROID_CHROME}, follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == PLAY
+
+
+def test_origem_perdoa_maiusculas_e_espacos():
+    """Quem digita o link à mão escreve `Story`; vale o mesmo que `story`."""
+    assert modulo_baixar.origem_valida(" Story ") == "story"
+    assert modulo_baixar.origem_valida("APP-DESAFIO") == "app-desafio"
+    assert modulo_baixar.origem_valida(None) is None
+
+
+def test_pagina_de_escolha_leva_a_origem_nos_selos(cliente: TestClient):
+    """No computador, os selos da página também levam a origem. O `&` aparece
+    como `&amp;`, a forma correta dentro de um atributo HTML."""
+    r = cliente.get("/baixar?o=app-partida", headers={"User-Agent": UA_WINDOWS_CHROME})
+    assert r.status_code == 200
+    assert f'href="{PLAY}&amp;referrer=utm_source%3Dapp-partida"' in r.text
+    # Sem origem, os selos continuam puros (a página da bio do Instagram).
+    r = cliente.get("/baixar", headers={"User-Agent": UA_WINDOWS_CHROME})
+    assert f'href="{PLAY}"' in r.text
+
+
+def test_as_origens_sao_as_que_o_app_e_a_pagina_escrevem():
+    """Trava a lista: o app (cards A e B) e a página do card do dia escrevem
+    estes nomes. Mudar aqui exige mudar lá, senão a origem some dos relatórios."""
+    assert modulo_baixar.ORIGENS == {"story", "app-desafio", "app-partida"}

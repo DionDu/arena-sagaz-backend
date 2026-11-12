@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.aparelhos import rotas as rotas_aparelhos
+from api.card_do_dia import rotas as rotas_card_do_dia
 from api.configuracao import configuracoes
 from api.conta import rotas as rotas_conta
 from api.desafios import rotas as rotas_desafios
@@ -96,6 +97,10 @@ app.include_router(rotas_desafios.router, prefix="/v1/desafios")
 # aparelho. A VERSAO do dia nao depende desta rota - quem a grava e a leitura
 # do desafio de hoje, que o app 1.3 ja chama.
 app.include_router(rotas_aparelhos.router, prefix="/v1/aparelhos")
+# O card do dia (PRD dos cards de compartilhamento, §4): a leitura da página do
+# dono que desenha os stories. ⚠️ Pública e só de leitura, como o `/hoje`, e sem
+# anotar visita de aparelho (ver a docstring de `api/card_do_dia/rotas.py`).
+app.include_router(rotas_card_do_dia.router, prefix="/v1")
 # Documentos legais como páginas HTML públicas (G3) — fora de /v1, é conteúdo web
 # (URLs de privacidade/exclusão exigidas pelas lojas).
 app.include_router(rotas_legal.router, prefix="/legal")
