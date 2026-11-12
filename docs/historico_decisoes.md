@@ -11423,3 +11423,15 @@ do backend só tem rotas explícitas, sem *catch-all* (`api/site/rotas.py`).
 - *Hospedagem estática à parte (Cloudflare Pages, GitHub Pages):* exigiria CORS para a API e um
   segundo lugar de deploy; servida daqui, a página fala com a mesma origem.
 - *Uma rota por arquivo do build:* frágil a cada versão do Flutter, que muda os nomes dos arquivos.
+
+## 2026-11-12 (4) — Card do dia: as legendas aprovadas e o limite do Magno com os números do prd
+
+- **Legendas** (`api/card_do_dia/agenda.py`): aprovadas pelo dono. A do pedido de ajuda passa a abrir
+  com o texto dele, "Pode me dar uma ajuda a expandir meu App?".
+- **Limite da placa do Magno: 30 dias sem perder** (era 14, provisório). Os números do prd em
+  12/11/2026: os quatro jogos juntos, 8 dias (o Magno do Quatro perdeu 5 vezes em novembro, a última
+  em 04/11); Pontinhos, 104; damas, 54; velha, 36. "Há 14 dias" não impressiona, e com 30 ainda sobram
+  três jogos que valem. **O placar continua em 50 partidas e nenhuma derrota no período**: só o
+  Pontinhos de outubro passava (58 e 0). Na primeira quarta do Magno (18/11/2026), sai a placa do
+  Pontinhos (110 dias).
+- O `des` passou a rodar a branch `cards-compartilhamento` em 12/11/2026, para o teste no celular.

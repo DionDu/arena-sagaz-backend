@@ -65,8 +65,8 @@ LINK_DOS_STORIES = "https://arenasagaz.santiagodata.com/baixar?o=story"
 
 # ── As legendas prontas ──────────────────────────────────────────────────────
 #
-# ⚠️ RASCUNHO À ESPERA DO DONO (PRD §8: "os textos prontos, que o dono aprova
-# depois de escritos"). Regras: português, sem travessão longo, sem "o app que
+# ✅ APROVADAS PELO DONO em 12/11/2026 (a do pedido de ajuda com a abertura que
+# ele escreveu). Regras: português, sem travessão longo, sem "o app que
 # eu criei", e o link sempre no fim, numa linha só dele (no status do WhatsApp
 # ele fica tocável; no story do Instagram vai na figurinha).
 #
@@ -80,20 +80,25 @@ LEGENDAS_CONVITE = (
     "Duvido você resolver este. {objetivo}, no {jogo}. Tem até amanhã às 21h.",
 )
 LEGENDA_AJUDA = (
-    "Uma ajuda? Baixe a Arena Sagaz, jogue uma partida e, se curtir, deixe sua "
-    "avaliação na loja. Faz muita diferença pra um app pequeno."
+    "Pode me dar uma ajuda a expandir meu App? Baixe a Arena Sagaz, jogue uma "
+    "partida e, se curtir, deixe sua avaliação na loja. Faz muita diferença pra "
+    "um app pequeno."
 )
 LEGENDAS_MAGNO = (
     "Alguém se habilita a vencer o Magno? Ele é o mais difícil dos quatro.",
     "Será que você é quem vai quebrar a sequência do Magno?",
 )
 
-# ── Quando os números do Magno "impressionam" (PRD §8, EM ABERTO) ────────────
+# ── Quando os números do Magno "impressionam" ────────────────────────────────
 #
-# ⚠️ VALORES PROVISÓRIOS, à espera dos números reais do prd (consulta em
-# `ferramentas/consultas_sql/card_do_dia_magno.sql`, na raiz). Abaixo disso, o
+# Decididos com os números reais do prd em 12/11/2026
+# (`ferramentas/consultas_sql/card_do_dia_magno.sql`, na raiz): os quatro jogos
+# juntos estavam com 8 dias (o Magno do Quatro perdeu 5 vezes em novembro), o
+# Pontinhos com 104, as damas com 54 e a velha com 36. "Há 14 dias" não
+# impressiona; com 30, ainda sobram três jogos que valem. O placar do mês só
+# passava no Pontinhos de outubro (58 partidas, 0 derrotas). Abaixo disso, o
 # card do Magno não sai, e a quarta dele vira um convite comum.
-LIMITE_DIAS_SEM_PERDER = 14
+LIMITE_DIAS_SEM_PERDER = 30
 LIMITE_PARTIDAS_NO_PERIODO = 50
 
 Card = Literal["convite", "magno", "ajuda"]
