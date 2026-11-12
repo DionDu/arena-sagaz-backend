@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.card_do_dia import agenda as regras
 from api.card_do_dia import magno
+from api.card_do_dia.grade_quatro import grade_do_quatro
 from api.desafios.modelos_resposta import DesafioPublicado
 from api.desafios.publicacao import para_resposta
 from api.desafios.repositorio import RepositorioDesafio
@@ -99,6 +100,10 @@ class CardDoDia(BaseModel):
     #: `None` = o desafio de hoje não foi aprovado na curadoria; a página diz
     #: isso e não há post.
     desafio: Optional[DesafioPublicado] = None
+    #: Só no Quatro em Linha: a posição inicial já reproduzida, de cima para
+    #: baixo (`.` vazia, `a` azul = quem resolve, `v` vermelho). A página não
+    #: consegue reproduzi-la sozinha (ver `grade_quatro.py`).
+    grade_quatro: Optional[list[str]] = None
     stories: list[StoryDoDia]
     magno: Optional[MagnoDoDia] = None
 
@@ -179,6 +184,7 @@ async def card_do_dia(
         proxima_publicacao=plano.proxima_publicacao,
         link=regras.LINK_DOS_STORIES,
         desafio=para_resposta(linha_desafio, agora=agora) if linha_desafio else None,
+        grade_quatro=grade_do_quatro(linha_desafio) if linha_desafio else None,
         stories=[
             StoryDoDia(card=s.card, papel=s.papel, layout=s.layout, legenda=s.legenda)
             for s in plano.stories

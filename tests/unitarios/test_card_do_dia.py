@@ -299,3 +299,29 @@ def test_rota_na_quarta_do_magno_com_numeros(cliente: TestClient):
     assert corpo["stories"][0]["card"] == "magno"
     assert corpo["magno"]["dias_sem_perder"] == 100
     assert corpo["magno"]["periodo"] == "Em novembro"
+
+
+# ── A grade do Quatro ────────────────────────────────────────────────────────
+
+
+def test_grade_do_quatro_com_a_pessoa_em_azul():
+    """J1 joga a 4, J2 a 4, J1 a 3: a vez é do J2, que é quem resolve, então as
+    peças DELE saem azuis (`a`), como na tela do Quatro do app."""
+    from api.card_do_dia.grade_quatro import grade_do_quatro
+
+    linha = {"co_jogo": "quatro", "co_modalidade": "tradicional",
+             "js_posicao_inicial": {"sequencia_lances": ["s4", "s4", "s3"]}}
+    grade = grade_do_quatro(linha)
+    assert grade[-1] == "..vv..."  # o chão: as duas peças do J1, vermelhas
+    assert grade[-2] == "...a..."  # a do J2 (quem resolve), azul, em cima
+    assert all(l == "......." for l in grade[:-2])
+
+
+def test_grade_do_quatro_recusada_vira_none():
+    """Posição que o árbitro recusa: o card sai sem tabuleiro, e não um 500."""
+    from api.card_do_dia.grade_quatro import grade_do_quatro
+
+    torta = {"co_jogo": "quatro", "co_modalidade": "nao-existe",
+             "js_posicao_inicial": {"sequencia_lances": ["s4"]}}
+    assert grade_do_quatro(torta) is None
+    assert grade_do_quatro({"co_jogo": "damas"}) is None
