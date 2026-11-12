@@ -19,6 +19,7 @@ from api.nucleo.rate_limit import RateLimitMiddleware
 from api.nucleo import rotas as rotas_nucleo
 from api.ranking import rotas as rotas_ranking
 from api.sincronizacao import rotas as rotas_sync
+from api.site import pagina_card_do_dia
 from api.site import rotas as rotas_site
 
 log = obter_logger("api.main")
@@ -113,6 +114,11 @@ app.include_router(rotas_painel.router, prefix="/painel")
 # permite trocar os termos sem publicar uma build nova: o texto do app deixa de
 # ser um asset congelado e passa a ser baixado e cacheado.
 app.include_router(rotas_legal.router_api, prefix="/v1/legal")
+# A página do card do dia (build Flutter web), sob o prefixo `/card-do-dia`. ⚠️ É
+# um mount de arquivos, mas sob um PREFIXO próprio, e não na raiz: o resto
+# continua com o 404 em JSON da API. Sem o build na pasta, não monta nada. Ver
+# `api/site/pagina_card_do_dia.py`.
+pagina_card_do_dia.montar(app)
 # Site de apresentação (landing + app-ads.txt), na RAIZ. Registrado por ÚLTIMO,
 # depois de todas as rotas da API — assim ele nunca sombreia nada.
 # ⚠️ São rotas EXPLÍCITAS ("/" e "/app-ads.txt"), não um `StaticFiles` montado em
