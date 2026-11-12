@@ -11339,12 +11339,13 @@ joga em inglês conhece o app como **Sharp Arena**, e um link `arenasagaz.santia
 mostraria o nome e a palavra em português.
 
 **Decisão** (dono, 12/11/2026):
-1. **Um subdomínio novo, `sharparena.santiagodata.com`, no mesmo serviço da API do `prd`** (o site e a
-   API já são o mesmo serviço: `/v1/health` responde nos dois nomes). O link em inglês passa a ser
+1. **Um subdomínio novo, `sharparena.santiagodata.com`, que é só um redirecionamento da Cloudflare**
+   (`302`, preservando caminho e query) para `arenasagaz.santiagodata.com`. O link em inglês passa a ser
    `sharparena.santiagodata.com/download`; português e espanhol continuam em
-   `arenasagaz.santiagodata.com/baixar` e `/descargar`. Não exige código: as rotas não olham o `Host`.
-   DNS na Cloudflare, `CNAME` para a Railway, **sem proxy** (igual aos outros nomes). Passo a passo no
-   PRD, §5.3.
+   `arenasagaz.santiagodata.com/baixar` e `/descargar`. Não exige código. ⚠️ A primeira ideia era
+   pendurar o nome no serviço do `prd`, mas **o plano Hobby da Railway permite dois domínios próprios
+   por serviço**, e o `prd` já usa os dois (`arenasagaz.` e `api.arenasagaz.`). Passo a passo no PRD,
+   §5.3.
 2. **A "etapa de campanha" prevista em 11/11 (2) entra:** o `/baixar` repassa à loja uma origem
    (`?o=`) de uma **lista fechada** (Google Play: `referrer=utm_source%3D<origem>`; App Store: link de
    campanha `ct=`/`pt=`). Quem conta são as lojas; o servidor **continua sem contar nem gravar nada**.
