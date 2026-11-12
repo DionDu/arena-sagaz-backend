@@ -11329,3 +11329,31 @@ a loja perde gente.
   um link por vez, e cada escolha a mais na frente do usuário custa toques e gente.
 - *Página só com os selos para todo mundo:* funciona, mas acrescenta um toque para 100% dos visitantes
   de celular, que são quase todos. Ela ficou só para quem não dá para identificar.
+
+## 2026-11-12 — `sharparena.santiagodata.com` e a origem no `/baixar` (cards de compartilhamento)
+
+**Contexto.** O ecossistema vai ganhar cards de compartilhamento (PRD na raiz:
+`docs/PRD_Cards_de_Compartilhamento.md`): o jogador compartilha de dentro do app, e o dono publica
+um convite do Desafio do Dia nos stories dele. O link de cada card é o `/baixar` e seus apelidos. Quem
+joga em inglês conhece o app como **Sharp Arena**, e um link `arenasagaz.santiagodata.com/baixar`
+mostraria o nome e a palavra em português.
+
+**Decisão** (dono, 12/11/2026):
+1. **Um subdomínio novo, `sharparena.santiagodata.com`, no mesmo serviço da API do `prd`** (o site e a
+   API já são o mesmo serviço: `/v1/health` responde nos dois nomes). O link em inglês passa a ser
+   `sharparena.santiagodata.com/download`; português e espanhol continuam em
+   `arenasagaz.santiagodata.com/baixar` e `/descargar`. Não exige código: as rotas não olham o `Host`.
+   DNS na Cloudflare, `CNAME` para a Railway, **sem proxy** (igual aos outros nomes). Passo a passo no
+   PRD, §5.3.
+2. **A "etapa de campanha" prevista em 11/11 (2) entra:** o `/baixar` repassa à loja uma origem
+   (`?o=`) de uma **lista fechada** (Google Play: `referrer=utm_source%3D<origem>`; App Store: link de
+   campanha `ct=`/`pt=`). Quem conta são as lojas; o servidor **continua sem contar nem gravar nada**.
+   Ainda não implementado: é tarefa da spec dos cards.
+
+**Alternativas consideradas.**
+- *Domínio próprio curto (`arenasagaz.app` / `sharparena.app`):* US$ 8,20 no 1º ano e US$ 14,20 depois,
+  cada um, e soaria estranho no idioma errado. O link vai sempre num lugar tocável (legenda, sticker,
+  texto), então o comprimento não importa, e o subdomínio sai de graça.
+- *Um endereço só, em português, para todos os idiomas:* funciona, mas mostra a quem joga em inglês um
+  nome que ele não vê no app.
+- *Repassar qualquer `?o=`:* deixaria qualquer um escrever o que quisesse nos relatórios das lojas.
