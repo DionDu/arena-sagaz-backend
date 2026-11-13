@@ -50,9 +50,11 @@ ORIGENS = frozenset({"story", "app-desafio", "app-partida"})
 # atribui a campanha (`ct`) quando o link traz os dois. Não é segredo: aparece em
 # todo link de campanha público. Fica em App Store Connect → App Analytics →
 # "Gerar link de campanha" (o número depois de `pt=`).
-# `None` = ainda não preenchido: o iPhone vai para a loja SEM a campanha, como
-# antes. A Google Play não precisa de nada parecido.
-APPLE_PROVEDOR: str | None = None
+# Preenchido em 12/11/2026 com o número do link de campanha que o dono gerou
+# (`...id6790198320?pt=129098190&ct=story&mt=8`). `None` desligaria a campanha:
+# o iPhone iria para a loja SEM ela, como antes. A Google Play não precisa de
+# nada parecido.
+APPLE_PROVEDOR: str | None = "129098190"
 
 
 def origem_valida(valor: str | None) -> str | None:

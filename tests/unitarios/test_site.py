@@ -550,3 +550,16 @@ def test_as_origens_sao_as_que_o_app_e_a_pagina_escrevem():
     """Trava a lista: o app (cards A e B) e a página do card do dia escrevem
     estes nomes. Mudar aqui exige mudar lá, senão a origem some dos relatórios."""
     assert modulo_baixar.ORIGENS == {"story", "app-desafio", "app-partida"}
+
+
+def test_provedor_da_apple_e_o_da_conta():
+    """O ``pt`` é o da conta da Arena Sagaz (o link de campanha de 12/11/2026).
+
+    Cadeado contra um número trocado ou apagado sem querer: com ``None`` o
+    iPhone continua chegando à loja, mas as origens somem dos relatórios da
+    Apple sem erro nenhum.
+    """
+    assert modulo_baixar.APPLE_PROVEDOR == "129098190"
+    assert modulo_baixar.com_origem(modulo_baixar.LOJA_APPLE, "app-partida") == (
+        "https://apps.apple.com/app/id6790198320?pt=129098190&ct=app-partida&mt=8"
+    )
