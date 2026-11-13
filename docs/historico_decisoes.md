@@ -11435,3 +11435,16 @@ do backend só tem rotas explícitas, sem *catch-all* (`api/site/rotas.py`).
   Pontinhos de outubro passava (58 e 0). Na primeira quarta do Magno (18/11/2026), sai a placa do
   Pontinhos (110 dias).
 - O `des` passou a rodar a branch `cards-compartilhamento` em 12/11/2026, para o teste no celular.
+
+## 2026-11-12 (5) — Derrota do Magno no card do dia: só a vitória SEM poder
+
+**Decisão do dono.** No card D, a derrota do Magno é a vitória da pessoa **sem nenhum poder usado**
+(`co_resultado = 'venceu_j1' AND qt_usos_poder = 0`, em `api/card_do_dia/magno.py`); a partida com
+poder continua contando como partida. O card diz isso com um asterisco: "* derrotas sem uso de
+poderes". Inverte o que eu tinha escrito na entrada (2), em que a vitória com poder contava.
+
+**No prd, em 12/11/2026** (`scripts/consultar_prd.py`, só leitura): as 28 derrotas do Magno foram
+todas sem poder, e só 15 partidas contra ele usaram algum. A regra não muda nenhum número hoje.
+
+**Alternativa considerada:** contar toda vitória. O dono preferiu que o número diga "vencer o Magno
+sozinho", e o asterisco mantém o card honesto.

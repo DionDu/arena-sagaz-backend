@@ -18,11 +18,14 @@ apareceu com 22% de derrotas quando o real era 1 em 125):
   posição com vantagem e tem outro objetivo; o 2 jogadores não tem CPU;
 - só no nível **sagaz** (o Magno);
 - só **concluída**: a abandonada não tem vencedor;
-- derrota dele = `co_resultado = 'venceu_j1'` (contra a CPU o humano é sempre o J1).
+- derrota dele = `co_resultado = 'venceu_j1'` (contra a CPU o humano é sempre o J1)
+  **e sem nenhum poder usado** (`qt_usos_poder = 0`).
 
-⚠️ A partida em que a pessoa usou o poder "voltar jogada" **conta**, inclusive
-como derrota do Magno. O card fala do Magno ao público; esconder uma derrota
-porque veio com ajuda tornaria o número desonesto.
+⚠️ **Vitória com poder não é derrota do Magno** (decisão do dono, 12/11/2026). Os
+poderes (voltar jogada, jogada ideal, radar) mexem na partida; a vitória que o
+card conta é a da pessoa sozinha contra ele. Para o número continuar honesto, o
+card diz isso com um asterisco: "* derrotas sem uso de poderes". A partida com
+poder continua contando como PARTIDA contra o Magno (o placar do período).
 
 As datas viram **dias de Brasília** (UTC-3, sem horário de verão desde 2019):
 o card diz "há 12 dias", e a pessoa conta os dias no calendário dela.
@@ -53,7 +56,7 @@ SQL_PARTIDAS_DO_MAGNO = """
 SELECT p.co_jogo,
        p.dh_inicio,
        COALESCE(p.dh_fim, p.dh_inicio) AS dh_fim,
-       (p.co_resultado = 'venceu_j1') AS ic_derrota_do_magno
+       (p.co_resultado = 'venceu_j1' AND p.qt_usos_poder = 0) AS ic_derrota_do_magno
   FROM partida.vw001_partida AS p
  WHERE p.co_modo = 'vs_cpu'
    AND p.co_dificuldade = 'sagaz'

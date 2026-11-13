@@ -238,7 +238,9 @@ def test_dia_de_brasilia():
 def test_a_consulta_so_conta_o_que_conta():
     """O cadeado lê o texto da consulta: os quatro filtros e nenhum usuário."""
     sql = magno.SQL_PARTIDAS_DO_MAGNO
-    for filtro in ("co_modo = 'vs_cpu'", "co_dificuldade = 'sagaz'", "co_status = 'concluida'", "'venceu_j1'"):
+    # `qt_usos_poder = 0`: vitória com poder não é derrota do Magno (12/11/2026).
+    for filtro in ("co_modo = 'vs_cpu'", "co_dificuldade = 'sagaz'", "co_status = 'concluida'",
+                   "'venceu_j1'", "qt_usos_poder = 0"):
         assert filtro in sql
     assert "id_usuario" not in sql
 
