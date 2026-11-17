@@ -109,8 +109,10 @@ def test_versao_com_espaco_e_recusada():
 
 
 def test_jogo_desconhecido_e_recusado_com_a_lista_na_mensagem():
+    # ⚠️ O exemplo era "xadrez" até a spec 012, que o tornou um jogo conhecido
+    # (T063); o gamão não é jogo do hub.
     with pytest.raises(ValueError) as erro:
-        carimbo_de_damas(co_jogo="xadrez")
+        carimbo_de_damas(co_jogo="gamao")
     assert "pontinhos" in str(erro.value)  # a mensagem diz quais valem
 
 
