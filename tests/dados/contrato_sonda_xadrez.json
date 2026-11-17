@@ -1,0 +1,88 @@
+{
+  "_comentario": "CONTRATO SO DE TESTE (T023; research.md R-24; RF-XDR-013, SC-011). A modalidade de mentira 'sonda' e o xadrez tradicional com os 50 lances trocados por 30 e um nivel a menos (sem a Pita). Ela atravessa o motor inteiro (tests/sonda.rs) para provar que nenhuma regra depende do NOME da modalidade: se a sonda exigir mudanca em src/, o defeito e da producao. Este arquivo cresce nas fases 2, 3 e 5; nao se refaz.",
+  "versao": "1.0.0",
+  "formula_da_semente": "semente_do_lance = (mestra + ordem * 2654435761) & 0x7FFFFFFF; ordem a partir de 1 desde fen_inicial",
+  "magno_no_build": true,
+  "por_modalidade": {
+    "sonda": {
+      "fen_inicial": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "entradas_da_tt": 262144,
+      "fim": [
+        "xeque_mate",
+        "afogamento",
+        "material_insuficiente",
+        "repeticao_tripla",
+        "cinquenta_lances"
+      ],
+      "relogios_de_empate": {
+        "cinquenta_lances": {
+          "limite": 30,
+          "aviso_quando_faltam": 10,
+          "unidade": "lances_de_cada_lado"
+        },
+        "repeticao_tripla": {
+          "limite": 3,
+          "aviso_quando_faltam": 1,
+          "unidade": "ocorrencias"
+        }
+      },
+      "niveis": {
+        "cacau": {
+          "profundidade_maxima": 1,
+          "teto_de_nos": 5000,
+          "quiescencia": "nao",
+          "margem_do_erro_cp": 150,
+          "chance_do_erro_milesimos": 350,
+          "chance_da_cegueira_milesimos": 0,
+          "rede_de_tempo_s": 10,
+          "relogio_s": null
+        },
+        "tex": {
+          "profundidade_maxima": 64,
+          "teto_de_nos": 200000,
+          "quiescencia": "sim",
+          "margem_do_erro_cp": 30,
+          "chance_do_erro_milesimos": 50,
+          "chance_da_cegueira_milesimos": 0,
+          "rede_de_tempo_s": 15,
+          "relogio_s": 45
+        },
+        "magno": {
+          "profundidade_maxima": 64,
+          "teto_de_nos": 1000000,
+          "quiescencia": "sim",
+          "margem_do_erro_cp": 0,
+          "chance_do_erro_milesimos": 0,
+          "chance_da_cegueira_milesimos": 0,
+          "rede_de_tempo_s": 10,
+          "relogio_s": 40
+        },
+        "ideal": {
+          "profundidade_maxima": 64,
+          "teto_de_nos": 1000000,
+          "quiescencia": "sim",
+          "margem_do_erro_cp": 0,
+          "chance_do_erro_milesimos": 0,
+          "chance_da_cegueira_milesimos": 0,
+          "rede_de_tempo_s": 10,
+          "relogio_s": null
+        }
+      },
+      "guia": {
+        "pecas": [
+          "peao",
+          "cavalo",
+          "bispo",
+          "torre",
+          "dama",
+          "rei"
+        ],
+        "especiais": [
+          "roque",
+          "en_passant",
+          "promocao"
+        ]
+      }
+    }
+  }
+}

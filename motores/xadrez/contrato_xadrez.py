@@ -246,6 +246,13 @@ def parametros_do_nivel(
     entrada = _entrada(modalidade)
     personagem = PERSONAGEM_DO_NIVEL[nivel]
     caminho = f"por_modalidade.{modalidade}.niveis.{personagem}"
+    if personagem not in entrada["niveis"]:
+        # A modalidade não traz o personagem (a sonda não tem a Pita): é outra
+        # recusa que a do Magno fora do build, e a mensagem diz qual.
+        raise ContratoXadrezInvalido(
+            f"a modalidade {modalidade!r} não traz o nível {nivel.value!r} "
+            f"({personagem}). Traz: {', '.join(entrada['niveis'])}."
+        )
     if nivel not in niveis_disponiveis(modalidade):
         raise ContratoXadrezInvalido(
             f"o build não oferece o nível {nivel.value!r} ({personagem}) na "

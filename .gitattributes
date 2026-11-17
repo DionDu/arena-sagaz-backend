@@ -86,3 +86,9 @@ contratos/vetores-paridade-quatro.json -text
 contratos/bancada-paridade-quatro.json -text
 # As figuras do Quatro no ar (T152): o app guarda uma copia, comparada por bytes.
 contratos/figuras_quatro_no_ar.json -text
+
+# O contrato-sonda do xadrez (spec 012, T065): copia do laboratorio
+# (`ia/jogos/jogo_xadrez/motor_rust/tests/dados/`), conferida contra ele, e lida
+# pelo executavel, que anuncia o SHA-256 dos bytes. Mesma disciplina das outras
+# copias comparadas: nunca converter o fim de linha.
+tests/dados/contrato_sonda_xadrez.json -text
