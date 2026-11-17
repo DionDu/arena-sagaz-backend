@@ -56,7 +56,10 @@ SCHEMA_DA_VERDADE = "partida"
 #: ⚠️ Eles guardam o lance **daquele jogo** (`co_aresta`, `co_lance`), e isso nao
 #: e uma segunda fonte: a linha deles **nao existe** sem a jogada generica (a
 #: chave primaria e a FK para ela). Sao a mesma fita, com o detalhe do jogo.
-SCHEMAS_DE_EXTENSAO = frozenset({"jogo_pontinhos", "jogo_velha", "jogo_damas"})
+#:
+#: O xadrez entrou em 17/11/2026 (spec 012, 0039): `jogo_xadrez.tb002_jogada.co_lance`
+#: e a notacao interna (`e7e8q`) da mesma jogada, com a PK = FK para a generica.
+SCHEMAS_DE_EXTENSAO = frozenset({"jogo_pontinhos", "jogo_velha", "jogo_damas", "jogo_xadrez"})
 
 #: O que parece coluna de lance.
 #:

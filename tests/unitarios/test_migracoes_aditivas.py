@@ -128,6 +128,9 @@ DIMENSOES_SO_DO_SERVIDOR = {
     # que modalidade), sem codigo proprio. O destino de escape de quem aponta
     # para ela e o `9999` da `tb901_regra_recusa`, que ela referencia.
     "jogo_damas.tb903_regra_modalidade": "ligacao regra x modalidade, sem codigo proprio",
+    # A mesma ligacao no xadrez (0039, spec 012): o escape e o 9999 da
+    # `jogo_xadrez.tb901_regra_recusa`, que ela referencia.
+    "jogo_xadrez.tb903_regra_modalidade": "ligacao regra x modalidade, sem codigo proprio",
     "desafio.tb901_tipo_desafio": "o tipo do desafio: o job publica, o app le",
     "desafio.tb903_perfil_dificuldade": "com que numeros o job mediu a regua",
     "desafio.tb904_motor": "com que motor o job mediu (0022, T049e)",
