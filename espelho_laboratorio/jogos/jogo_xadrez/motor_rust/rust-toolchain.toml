@@ -1,0 +1,14 @@
+# O compilador do motor do xadrez, TRAVADO (spec 012, T004; research.md R-05).
+#
+# Por quê: o binário que vai ao app, aos testes e ao servidor tem de sair igual
+# em qualquer máquina. Um `rustup update` que trocasse o compilador poderia mudar
+# o código gerado (e, num caso de borda, o comportamento) sem nenhum `.rs`
+# mudar. Este arquivo entra no `fonteSha256` do manifesto: trocar o compilador
+# troca o carimbo, e o portão do build pede o binário regerado.
+#
+# Era o `rustc --version` desta máquina em 14/11/2026:
+#   rustc 1.98.0 (88d9e12ae 2026-08-18)
+[toolchain]
+channel = "1.98.0"
+# Os alvos que o build_android.ps1 usa (o rustup os instala junto com o canal).
+targets = ["aarch64-linux-android", "armv7-linux-androideabi", "x86_64-linux-android"]

@@ -368,6 +368,101 @@
       "tamanho_bytes": 1060
     },
     {
+      "caminho": "jogos/jogo_xadrez/motor_rust/Cargo.toml",
+      "sha256": "943361518643f739e8b5a095dca41b7fb70c7e310416fce02cc3b27ce12c0ef4",
+      "tamanho_bytes": 3199
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/Cargo.lock",
+      "sha256": "621a5c019bcc0ac3c0ff7f3fca0b95283c371edff4f6cc89c460383738b5a72b",
+      "tamanho_bytes": 3119
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/rust-toolchain.toml",
+      "sha256": "4f6d3eb728ef22477caa6633a376dfe8b14a57aac7bf332ef9a130f4c0c599df",
+      "tamanho_bytes": 763
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/aleatorio.rs",
+      "sha256": "0df9e5718499a466cc841cf53c7d6d9f72b99c4f03763cc9245503fab0b34ccb",
+      "tamanho_bytes": 2896
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/avaliacao.rs",
+      "sha256": "c49a6a82e2bb714159bbe2225050ecf7cf90f3cbf4a1748361ce8198015d4ab6",
+      "tamanho_bytes": 14377
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/busca.rs",
+      "sha256": "dba7cc2f4a4b2f87980458b061527cbbf383ea311f904271bd5a4fea68c3bee8",
+      "tamanho_bytes": 36170
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/contrato.rs",
+      "sha256": "a9ca458659fff74a3ad0a016624906e8a995c4aa53adfdfc7fbbda274982e4b3",
+      "tamanho_bytes": 11127
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/despacho.rs",
+      "sha256": "6c6b6add48fc24b8ec8629a08e62d21331357141bcb7337cdf38f8e376f0dd90",
+      "tamanho_bytes": 16367
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/fatos.rs",
+      "sha256": "f075323561db22b1798ccd95205bd7a4f5446a707256e44bc59d99fa5bd1158b",
+      "tamanho_bytes": 8767
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/ffi.rs",
+      "sha256": "f12e8b857879b78c3994f577173fec1d31f5aedbefa04f65f54534b34588785e",
+      "tamanho_bytes": 7327
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/fim_de_partida.rs",
+      "sha256": "8569369fb10e206957587a8eacb3dc3a3bb04d51e4bdb861241af896bc714b44",
+      "tamanho_bytes": 13419
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/lib.rs",
+      "sha256": "bfe503a33592e56d9c7d9e57ca178178464197fc625995ac34440faa367d0d12",
+      "tamanho_bytes": 1975
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/niveis.rs",
+      "sha256": "5836957d3b04602ef5cd789e759b7f8a0f2e000cb0670e2eca9593053b5dfb84",
+      "tamanho_bytes": 14813
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/posicao.rs",
+      "sha256": "d0442c3bd18ca216aca192af8c0d3be12b8271fb85b0cb9d6d2a5db867b87f98",
+      "tamanho_bytes": 17310
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/radar.rs",
+      "sha256": "093e09a6d5aae681db2bfc9062132d76425ab4db560318cc3f0e35b965045e29",
+      "tamanho_bytes": 3168
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/recusa.rs",
+      "sha256": "f7d5ac1d717eaf69a0b74be0ef1e87e874f80a14b1c0e16c61e8290e95e4d811",
+      "tamanho_bytes": 12345
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/relogio.rs",
+      "sha256": "e8b4618139162d2d55853d759eca7502892e67d819614a3b061a81e87027f32c",
+      "tamanho_bytes": 1720
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/motor_rust/src/bin/servidor_de_lances_xadrez.rs",
+      "sha256": "ef9d81a3084de531422fe1d6f63d5b81816331a8102b94680caf098fcc4bb873",
+      "tamanho_bytes": 21270
+    },
+    {
+      "caminho": "jogos/jogo_xadrez/contrato/contrato_xadrez.json",
+      "sha256": "3abb4d102b92481c802df4e2b8ec192011c803793721bdb5d8bb1b01b243a58e",
+      "tamanho_bytes": 3064
+    },
+    {
       "caminho": "contrato_dificuldade_pontinhos.json",
       "sha256": "0971d48f329419d6f71aa11de7aaa9e384c20bc1a15bda58eddf78ade0591c74",
       "tamanho_bytes": 7203

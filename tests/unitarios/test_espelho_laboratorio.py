@@ -238,6 +238,88 @@ def test_o_contrato_do_quatro_viaja_no_espelho():
     assert dados["por_modalidade"], "o contrato do Quatro veio sem modalidade"
 
 
+# ── O motor Rust do xadrez (spec 012, T060) ─────────────────────────────────
+
+CRATE_DO_XADREZ_NO_ESPELHO = ESPELHO / "jogos" / "jogo_xadrez" / "motor_rust"
+
+# Uma declaração de módulo em ARQUIVO PRÓPRIO: `mod busca;` ou `pub mod busca;`.
+# O `;` no fim é o que a separa de um módulo escrito ali mesmo (`mod testes {`),
+# que não tem arquivo. O grupo 1 é o nome do módulo.
+_MOD_RUST = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", re.M)
+
+
+def _onde_mora_o_modulo(arquivo: Path, nome: str) -> tuple[Path, Path]:
+    """Os dois lugares onde o Rust procura o `mod nome;` declarado em `arquivo`.
+
+    Numa **raiz de crate** (`lib.rs`, `main.rs`, cada `src/bin/*.rs`) e num
+    `mod.rs`, o módulo mora ao lado: `nome.rs` ou `nome/mod.rs`. Em qualquer
+    outro arquivo `x.rs`, ele mora numa pasta com o nome do arquivo: `x/nome.rs`.
+    """
+    raiz_de_crate = arquivo.name in ("lib.rs", "main.rs", "mod.rs") or (
+        arquivo.parent.name == "bin" and arquivo.parent.parent.name == "src"
+    )
+    pasta = arquivo.parent if raiz_de_crate else arquivo.parent / arquivo.stem
+    return pasta / f"{nome}.rs", pasta / nome / "mod.rs"
+
+
+def test_o_motor_rust_do_xadrez_tem_cada_modulo_dentro_do_espelho():
+    """A prova, do lado Rust, de que a LISTA de arquivos espelhados está completa.
+
+    O irmão Rust do teste dos imports Dart: todo `mod x;` de todo `.rs`
+    espelhado aponta para um arquivo que ESTÁ no espelho. Um módulo novo no
+    laboratório esquecido na lista faria o `cargo build` falhar no build da
+    imagem do Railway (T061), e não aqui.
+    """
+    src = CRATE_DO_XADREZ_NO_ESPELHO / "src"
+    assert (src / "lib.rs").is_file(), "o espelho não traz o motor Rust do xadrez"
+    assert (src / "bin" / "servidor_de_lances_xadrez.rs").is_file(), (
+        "o espelho não traz o executável do servidor (src/bin/)"
+    )
+    for compilacao in ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml"):
+        assert (CRATE_DO_XADREZ_NO_ESPELHO / compilacao).is_file(), compilacao
+
+    arquivos = sorted(src.rglob("*.rs"))
+    modulos = 0
+    for arquivo in arquivos:
+        for nome in _MOD_RUST.findall(arquivo.read_text("utf-8")):
+            modulos += 1
+            um, outro = _onde_mora_o_modulo(arquivo, nome)
+            assert um.is_file() or outro.is_file(), (
+                f"{arquivo.relative_to(ESPELHO)} declara `mod {nome};`, que não "
+                "está no espelho. Acrescente-o a `ARQUIVOS_ESPELHADOS` em "
+                f"`scripts/espelhar_laboratorio.py` e rode:\n"
+                f"  {COMANDO_PARA_REESPELHAR}"
+            )
+    # Sem esta guarda, uma expressão regular quebrada passaria sem achar módulo.
+    assert modulos >= 10, f"achei só {modulos} `mod` no crate do xadrez"
+
+
+def test_o_espelho_do_xadrez_e_exatamente_o_que_o_carimbo_le():
+    """Nada espelhado que o carimbo ignore, e nada que o carimbo leia faltando.
+
+    O `ProcessoDart` confere o executável contra o resumo de `PADROES_RUST`
+    sobre ESTA pasta. Um arquivo a mais no espelho (um teste, um script do app)
+    seria compilado sem entrar no resumo; um a menos faria o resumo descrever
+    outro motor. Os dois conjuntos têm de ser o mesmo.
+    """
+    from motores.nucleo.processo_dart import PADROES_RUST, hashes_dos_fontes
+
+    no_espelho = {
+        a.relative_to(CRATE_DO_XADREZ_NO_ESPELHO).as_posix()
+        for a in CRATE_DO_XADREZ_NO_ESPELHO.rglob("*")
+        if a.is_file()
+    }
+    assert set(hashes_dos_fontes(CRATE_DO_XADREZ_NO_ESPELHO, PADROES_RUST)) == no_espelho
+
+
+def test_o_contrato_do_xadrez_viaja_no_espelho():
+    """O executável do xadrez recebe o contrato por `--contrato`, como o Quatro."""
+    contrato = ESPELHO / "jogos" / "jogo_xadrez" / "contrato" / "contrato_xadrez.json"
+    assert contrato.is_file(), f"o espelho não traz {contrato.relative_to(ESPELHO)}"
+    dados = json.loads(contrato.read_text(encoding="utf-8"))
+    assert dados["por_modalidade"], "o contrato do xadrez veio sem modalidade"
+
+
 def test_o_espelho_nao_e_uma_dependencia_de_caminho_disfarcada():
     """⛔ O que não estiver no repositório do backend não existe na nuvem.
 

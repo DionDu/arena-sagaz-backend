@@ -246,6 +246,48 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     "jogos/jogo_quatro/motor_dart/bin/servidor_de_lances_quatro.dart",
     "jogos/jogo_quatro/motor_dart/bin/compilar_servidor_de_lances_quatro.dart",
     "jogos/jogo_quatro/contrato/contrato_quatro.json",
+    # ── O MOTOR RUST DO XADREZ (spec 012, T060, 17/11/2026) ────────────────
+    #
+    # ⚠️ **O primeiro motor em Rust do servidor**, e o mesmo crate que o app
+    # embarca (`libmotor_xadrez.so`): o executável `servidor_de_lances_xadrez`
+    # é compilado dentro da imagem do job a partir DESTES arquivos (T061), e o
+    # `ProcessoDart` recalcula o carimbo deles (`PADROES_RUST`,
+    # `motores/nucleo/processo_dart.py`).
+    #
+    # Vai só o que a compilação lê: `src/` inteiro (com `src/bin/`, de onde sai
+    # o executável), o `Cargo.toml`, o `Cargo.lock` (as versões travadas: sem
+    # ele a imagem poderia baixar outra `cozy-chess`) e o `rust-toolchain.toml`
+    # (a versão do compilador). ⛔ `tests/`, `target/` e os scripts de build do
+    # app ficam de fora: nenhuma linha do job os abre.
+    #
+    # ⚠️ A lista é escrita à mão como as outras, e um `.rs` novo no laboratório
+    # que não entre aqui é pego por `test_espelho_laboratorio.py` (a lista tem de
+    # ser exatamente o que o `PADROES_RUST` acha no crate).
+    "jogos/jogo_xadrez/motor_rust/Cargo.toml",
+    "jogos/jogo_xadrez/motor_rust/Cargo.lock",
+    "jogos/jogo_xadrez/motor_rust/rust-toolchain.toml",
+    "jogos/jogo_xadrez/motor_rust/src/aleatorio.rs",
+    "jogos/jogo_xadrez/motor_rust/src/avaliacao.rs",
+    "jogos/jogo_xadrez/motor_rust/src/busca.rs",
+    "jogos/jogo_xadrez/motor_rust/src/contrato.rs",
+    "jogos/jogo_xadrez/motor_rust/src/despacho.rs",
+    "jogos/jogo_xadrez/motor_rust/src/fatos.rs",
+    "jogos/jogo_xadrez/motor_rust/src/ffi.rs",
+    "jogos/jogo_xadrez/motor_rust/src/fim_de_partida.rs",
+    "jogos/jogo_xadrez/motor_rust/src/lib.rs",
+    "jogos/jogo_xadrez/motor_rust/src/niveis.rs",
+    "jogos/jogo_xadrez/motor_rust/src/posicao.rs",
+    "jogos/jogo_xadrez/motor_rust/src/radar.rs",
+    "jogos/jogo_xadrez/motor_rust/src/recusa.rs",
+    "jogos/jogo_xadrez/motor_rust/src/relogio.rs",
+    "jogos/jogo_xadrez/motor_rust/src/bin/servidor_de_lances_xadrez.rs",
+    # O contrato do xadrez, do laboratório (a fonte; a do app é cópia), que o
+    # executável recebe por `--contrato`, como no Quatro.
+    "jogos/jogo_xadrez/contrato/contrato_xadrez.json",
+    # ⏳ A base adiantada (`jogos/jogo_xadrez/posicoes/posicoes_adiantadas.txt`)
+    # entra aqui quando a T047 a gerar: o job sorteia dela as posições dos
+    # desafios (T073). Antes disso a origem não existe, e `copiar()` recusaria o
+    # espelho inteiro.
 )
 
 
