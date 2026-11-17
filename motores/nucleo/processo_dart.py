@@ -64,24 +64,73 @@ def sha256_do_arquivo(caminho: Path) -> str:
     return hashlib.sha256(caminho.read_bytes()).hexdigest()
 
 
-def hashes_dos_fontes(pasta: Path) -> dict[str, str]:
-    """O SHA-256 de cada `.dart` da pasta, por nome, em ordem alfabética.
+#: Os fontes de um motor Dart: os `.dart` da própria pasta, sem subpastas. É o
+#: padrão de `hashes_dos_fontes` e de `ProcessoDart`, e por isso as damas, o
+#: Pontinhos e o Quatro chamam como sempre chamaram.
+PADROES_DART: tuple[str, ...] = ("*.dart",)
 
-    A ordem é a do **nome**, e não a do sistema de arquivos: sem isso o mesmo
+#: Os fontes de um motor em Rust (o xadrez, spec 012): todo `.rs` de `src/`,
+#: inclusive `src/bin/` (o executável do servidor é feito de lá), e os três
+#: arquivos que fixam a compilação - as dependências declaradas, as travadas e a
+#: versão do compilador. ⚠️ `tests/` e `target/` ficam de fora: teste não entra
+#: no executável, e `target/` é saída da compilação.
+#:
+#: ⚠️ **Não é a receita do `fonteSha256` do manifesto do app**
+#: (`hash_das_fontes.ps1`): aquela deixa `src/bin/` de fora (o app não leva o
+#: executável) e lê os bytes sem o CR. Os dois números não se comparam; a prova
+#: de que o servidor joga o motor do app é o espelho igual ao laboratório
+#: (`test_espelho_laboratorio.py`) e o laboratório igual ao binário do app (o
+#: cadeado do manifesto, no frontend). Ver `research.md` R-20 da spec 012.
+PADROES_RUST: tuple[str, ...] = (
+    "src/**/*.rs",
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+)
+
+
+def hashes_dos_fontes(
+    pasta: Path, padroes: Sequence[str] = PADROES_DART
+) -> dict[str, str]:
+    """O SHA-256 de cada fonte da pasta, pelo caminho relativo, em ordem.
+
+    Args:
+        padroes: os padrões de arquivo, relativos à `pasta`, no formato do
+            `Path.glob`. O padrão (`*.dart`) lê só a pasta plana; um `**` desce
+            nas subpastas: o motor do xadrez passa `src/**/*.rs`, `Cargo.toml`,
+            `Cargo.lock` e `rust-toolchain.toml` (spec 012, T059, fricção F-3).
+
+    A chave é o caminho **relativo à pasta, com `/`** (`src/bin/servidor.rs`),
+    em qualquer sistema: com `\\` no Windows e `/` no Linux, o mesmo motor daria
+    dois resumos. Numa pasta plana, o caminho relativo **é** o nome do arquivo,
+    e por isso o resumo dos motores Dart não mudou com o parâmetro novo.
+
+    A ordem é a do **caminho**, e não a do sistema de arquivos: sem isso o mesmo
     conjunto de arquivos daria resumos diferentes em máquinas diferentes.
     """
+    # Um dicionário junta os arquivos de todos os padrões: um arquivo que case
+    # com dois padrões entra uma vez só. `is_file()` deixa de fora uma pasta que
+    # por acaso case com o padrão.
+    achados = {
+        arquivo.relative_to(pasta).as_posix(): arquivo
+        for padrao in padroes
+        for arquivo in pasta.glob(padrao)
+        if arquivo.is_file()
+    }
     return {
-        arquivo.name: sha256_do_arquivo(arquivo)
-        for arquivo in sorted(pasta.glob("*.dart"), key=lambda a: a.name)
+        relativo: sha256_do_arquivo(achados[relativo]) for relativo in sorted(achados)
     }
 
 
-def resumo_dos_fontes(pasta: Path) -> str:
+def resumo_dos_fontes(pasta: Path, padroes: Sequence[str] = PADROES_DART) -> str:
     """O resumo do conjunto - a MESMA fórmula do lado Dart.
 
     ⚠️ **Resume a LISTA, e não um arquivo concatenado.** Assim o resumo muda
     quando um arquivo é renomeado ou removido, e não só quando o conteúdo muda -
     um motor a que falte um arquivo é outro motor.
+
+    Args:
+        padroes: os fontes que entram (ver `hashes_dos_fontes`).
 
     Raises:
         MotorDartIndisponivel: a pasta dos fontes não está no disco. ⚠️ É o caso
@@ -95,7 +144,8 @@ def resumo_dos_fontes(pasta: Path) -> str:
             "  .venv\\Scripts\\python scripts\\espelhar_laboratorio.py"
         )
     material = "\n".join(
-        f"{nome}:{hash_}" for nome, hash_ in hashes_dos_fontes(pasta).items()
+        f"{nome}:{hash_}"
+        for nome, hash_ in hashes_dos_fontes(pasta, padroes).items()
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
@@ -147,7 +197,15 @@ def caminho_do_executavel(
 
 
 class ProcessoDart:
-    """Um processo do motor Dart, vivo, respondendo a pedidos.
+    """Um processo de um motor compilado, vivo, respondendo a pedidos.
+
+    ⚠️ **"Dart" ficou só no nome.** Nasceu para os motores Dart (damas,
+    Pontinhos, Quatro) e desde a spec 012 também abre o executável Rust do
+    xadrez (`servidor_de_lances_xadrez`): a fronteira é a mesma (uma linha de
+    JSON por pedido, a apresentação com `versao_do_protocolo` e
+    `resumo_do_motor`), e o que muda são os fontes que entram no resumo
+    (`padroes_dos_fontes`). Renomear a classe mexeria em três jogos em produção
+    sem mudar comportamento nenhum (fricção F-3).
 
     ⚠️ **O processo fica vivo de propósito.** A régua mede 20 execuções por
     mascote, e uma partida tem dezenas de lances: subir um processo por lance
@@ -172,6 +230,7 @@ class ProcessoDart:
         versao_do_protocolo: int,
         receita_de_conserto: str,
         argumentos: Sequence[str] = (),
+        padroes_dos_fontes: Sequence[str] = PADROES_DART,
     ) -> None:
         """Sobe o processo e confere a apresentação dele.
 
@@ -180,9 +239,14 @@ class ProcessoDart:
                 ⚠️ O Quatro em Linha recebe o contrato do jogo assim
                 (`--contrato <caminho>`); as damas e o Pontinhos não recebem
                 nada, e o padrão vazio os deixa como eram.
+            padroes_dos_fontes: quais arquivos de `fontes` entram no resumo
+                que se compara com o carimbo do executável (ver
+                `hashes_dos_fontes`). O padrão são os `.dart` da pasta; o
+                xadrez passa os do crate Rust.
         """
         self._caminho = caminho
         self._fontes = fontes
+        self._padroes = tuple(padroes_dos_fontes)
         self._versao_do_protocolo = versao_do_protocolo
         self._receita = receita_de_conserto
         self._processo = subprocess.Popen(
@@ -218,7 +282,7 @@ class ProcessoDart:
                 f"{self._versao_do_protocolo}. Recompile o motor.\n{self._receita}"
             )
 
-        esperado = resumo_dos_fontes(self._fontes)
+        esperado = resumo_dos_fontes(self._fontes, self._padroes)
         recebido = abertura.get("resumo_do_motor")
         if recebido != esperado:
             # ⚠️ A mensagem nomeia **quais** arquivos divergiram. "O resumo não
@@ -226,7 +290,7 @@ class ProcessoDart:
             # mudou - e costuma responder sozinho se falta recompilar ou falta
             # espelhar.
             do_exe: dict[str, str] = abertura.get("arquivos_do_motor", {})
-            daqui = hashes_dos_fontes(self._fontes)
+            daqui = hashes_dos_fontes(self._fontes, self._padroes)
             diferentes = sorted(
                 nome
                 for nome in set(do_exe) | set(daqui)
