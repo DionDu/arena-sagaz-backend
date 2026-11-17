@@ -79,6 +79,15 @@ espelho_laboratorio/jogos/jogo_pontinhos/motor_dart/pubspec.lock
 espelho_laboratorio/jogos/jogo_quatro/motor_dart/.dart_tool/
 espelho_laboratorio/jogos/jogo_quatro/motor_dart/pubspec.lock
 
+# O motor do xadrez (spec 012, T061). A imagem compila o executavel Linux ela
+# mesma (estagio `motor_xadrez`); o que a maquina do dono compila e um `.exe` de
+# Windows em `build/motor_xadrez/` (scripts/compilar_motor_xadrez.py), com ~90 MB
+# de dependencias compiladas que so pesariam no contexto do build. E um `target/`
+# esquecido dentro do espelho (um `cargo build` rodado ali a mao) entraria no
+# estagio do Rust e poderia ser reaproveitado no lugar de compilar.
+build/
+espelho_laboratorio/jogos/jogo_xadrez/motor_rust/target/
+
 # Capturas antigas do site, arquivadas (regra "nada e apagado"): ficam no Git,
 # mas nao servem para nada na imagem, e a rota /img/ so le site/img/.
 site/_arquivo/

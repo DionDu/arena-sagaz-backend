@@ -715,3 +715,114 @@ def test_o_lock_do_windows_nao_viaja_de_nenhum_motor(pasta: Path) -> None:
             assert f"{relativo}/{artefato}" in lista, (
                 f"falta `{relativo}/{artefato}` no {nome}"
             )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ⛔ O MOTOR DO XADREZ DENTRO DA IMAGEM (spec 012, T061)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# O primeiro motor em Rust: dois estágios a mais (o carimbo, em Python, e a
+# compilação, no Rust), e as mesmas três perguntas dos motores Dart - compila
+# pelo caminho que carimba? atravessa com a variável? o portão está no build?
+
+CRATE_DO_XADREZ = RAIZ / "espelho_laboratorio" / "jogos" / "jogo_xadrez" / "motor_rust"
+
+
+def instrucoes_inteiras(dockerfile: Path) -> list[str]:
+    """As instruções com as linhas continuadas (`\` no fim) juntadas numa só.
+
+    O `cargo build` do xadrez vem quebrado em duas linhas; procurado linha a
+    linha, o `CARIMBO_MOTOR_XADREZ` e o `--bin` ficariam em instruções
+    diferentes e o teste não saberia que são o mesmo `RUN`.
+    """
+    saida: list[str] = []
+    pendente = ""
+    for linha in linhas_de_instrucao(dockerfile):
+        if linha.endswith("\\"):
+            pendente += linha[:-1].strip() + " "
+            continue
+        saida.append(pendente + linha)
+        pendente = ""
+    return saida
+
+
+def canal_do_rust() -> str:
+    """A versão do compilador que o crate pede (`rust-toolchain.toml`)."""
+    texto = (CRATE_DO_XADREZ / "rust-toolchain.toml").read_text(encoding="utf-8")
+    achado = re.search(r'^channel\s*=\s*"([^"]+)"', texto, re.M)
+    assert achado, "o rust-toolchain.toml do xadrez nao declara o `channel`"
+    return achado.group(1)
+
+
+def test_o_rust_da_imagem_e_o_do_rust_toolchain_e_no_debian_do_job() -> None:
+    """🔒 A versão do compilador da imagem é a do crate, e o Debian é o mais antigo.
+
+    Outro compilador pode gerar outro binário dos mesmos fontes; e um binário
+    compilado num Debian mais novo que o do job pediria uma glibc que o job não
+    tem (`-bookworm`, ver o comentário do estágio).
+    """
+    canal = canal_do_rust()
+    instrucoes = instrucoes_inteiras(DOCKERFILE_JOB)
+    assert f"FROM rust:{canal}-slim-bookworm AS motor_xadrez" in instrucoes, (
+        f"o estagio do xadrez tem de ser `rust:{canal}-slim-bookworm` (o canal do "
+        f"rust-toolchain.toml). Os FROM sao: {[i for i in instrucoes if i.startswith('FROM ')]}"
+    )
+    assert f"ENV RUSTUP_TOOLCHAIN={canal}" in instrucoes, (
+        "falta o `ENV RUSTUP_TOOLCHAIN` com o mesmo canal: sem ele o rustup baixa "
+        "os alvos do Android que o rust-toolchain.toml pede"
+    )
+
+
+def test_o_carimbo_do_xadrez_sai_da_formula_do_backend_num_estagio_python() -> None:
+    """🔒 O carimbo é calculado pela função que confere a abertura, e não em shell."""
+    instrucoes = instrucoes_inteiras(DOCKERFILE_JOB)
+    assert "FROM python:3.11-slim AS carimbo_xadrez" in instrucoes
+    assert any(
+        i.startswith("RUN ") and "compilar_motor_xadrez.py --so-o-carimbo" in i for i in instrucoes
+    ), "o estagio do carimbo deixou de usar `compilar_motor_xadrez.py --so-o-carimbo`"
+    assert not any("sha256sum" in i for i in instrucoes), (
+        "uma segunda formula do resumo em shell e a segunda escrita que a trava existe para nao ter"
+    )
+
+
+def test_o_xadrez_e_compilado_com_o_carimbo_e_o_lock() -> None:
+    """🔒 O `cargo build` recebe o carimbo e não resolve dependência nova."""
+    compila = [
+        i for i in instrucoes_inteiras(DOCKERFILE_JOB)
+        if i.startswith("RUN ") and "cargo build" in i
+    ]
+    assert len(compila) == 1, f"esperava um `cargo build`, achei: {compila}"
+    linha = compila[0]
+    assert 'CARIMBO_MOTOR_XADREZ="$(cat /carimbo_xadrez.txt)"' in linha, (
+        "o `cargo build` do xadrez saiu sem o carimbo: o executavel diria "
+        "`sem_carimbo` e o portao o reprovaria"
+    )
+    for trecho in ("--release", "--locked", "--bin servidor_de_lances_xadrez"):
+        assert trecho in linha, f"falta `{trecho}` no `cargo build` do xadrez"
+
+
+def test_o_executavel_do_xadrez_atravessa_e_a_variavel_o_aponta() -> None:
+    """🔒 O binário chega à imagem final, na variável que o jogador consulta."""
+    from motores.xadrez.jogador_xadrez import VARIAVEL_DO_EXECUTAVEL
+
+    instrucoes = " ".join(linhas_de_instrucao(DOCKERFILE_JOB))
+    assert "COPY --from=motor_xadrez" in instrucoes
+    assert f"{VARIAVEL_DO_EXECUTAVEL}=/usr/local/bin/servidor_de_lances_xadrez" in instrucoes
+
+
+def test_o_portao_do_motor_do_xadrez_esta_no_build_depois_do_codigo() -> None:
+    """🔒 O portão do xadrez roda, e roda depois de o código entrar na imagem."""
+    instrucoes = linhas_de_instrucao(DOCKERFILE_JOB)
+    indice_copia = next(i for i, ln in enumerate(instrucoes) if ln.startswith("COPY . "))
+    portao = [i for i, ln in enumerate(instrucoes) if ln == "RUN python scripts/conferir_motor_xadrez.py"]
+    assert portao, "o Dockerfile.job perdeu o portao do motor do xadrez"
+    assert indice_copia < portao[0]
+
+
+def test_a_compilacao_local_do_xadrez_nao_vai_para_a_imagem() -> None:
+    """🔒 O `build/` da máquina do dono (~90 MB, um `.exe`) fica fora do contexto."""
+    padroes = padroes_do_dockerignore()
+    assert "build/" in padroes
+    assert "espelho_laboratorio/jogos/jogo_xadrez/motor_rust/target/" in padroes
+    # E o crate em si continua entrando: sem ele o estágio do Rust não compila.
+    assert not any(p.rstrip("/") in ("espelho_laboratorio", "espelho_laboratorio/jogos") for p in padroes)

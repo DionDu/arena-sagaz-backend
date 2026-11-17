@@ -108,6 +108,56 @@ RUN dart run bin/compilar_servidor_de_lances_quatro.dart
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# ESTÁGIO 1b — O CARIMBO DO MOTOR DO XADREZ (spec 012, T061)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# O executável do xadrez é Rust, e o Rust não calcula o resumo dos fontes (o
+# crate não leva um `sha2`, R-20): ele o RECEBE na compilação, pela variável
+# `CARIMBO_MOTOR_XADREZ`. Quem calcula é a MESMA função Python que depois confere
+# a abertura (`resumo_dos_fontes` com `PADROES_RUST`), por
+# `scripts/compilar_motor_xadrez.py --so-o-carimbo`.
+#
+# ⚠️ Por que um estágio só para isso: a imagem do Rust não tem Python, e uma
+# segunda fórmula escrita em shell (`sha256sum`) seria exatamente a segunda
+# escrita que a trava existe para não ter. A mesma base do job, para o Python
+# ser o mesmo.
+FROM python:3.11-slim AS carimbo_xadrez
+WORKDIR /app
+COPY motores/ motores/
+COPY scripts/compilar_motor_xadrez.py scripts/
+COPY espelho_laboratorio/jogos/jogo_xadrez/ espelho_laboratorio/jogos/jogo_xadrez/
+RUN python scripts/compilar_motor_xadrez.py --so-o-carimbo > /carimbo_xadrez.txt
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ESTÁGIO 1c — O MOTOR DO XADREZ, COMPILADO (spec 012, T061)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ A versão do Rust é a do `rust-toolchain.toml` do crate (1.98.0), e o teste
+# `test_imagem_do_job.py` reprova as duas divergindo: outro compilador pode
+# gerar outro binário a partir dos mesmos fontes.
+#
+# ⚠️ **`-bookworm`, e não o `-slim` sem sufixo**, por causa da glibc: o binário
+# compilado aqui roda no estágio do job (`python:3.11-slim`, que hoje é o Debian
+# trixie). Compilado num Debian mais NOVO que o do job, ele pediria uma glibc
+# que o job não tem; compilado no bookworm (mais antigo), roda nos dois.
+FROM rust:1.98.0-slim-bookworm AS motor_xadrez
+WORKDIR /motor/xadrez
+COPY espelho_laboratorio/jogos/jogo_xadrez/motor_rust/ ./
+COPY --from=carimbo_xadrez /carimbo_xadrez.txt /carimbo_xadrez.txt
+# ⚠️ `RUSTUP_TOOLCHAIN` passa por cima do `rust-toolchain.toml`: o arquivo pede
+# também os alvos do Android (para o `.so` do app), e o `rustup` os baixaria
+# aqui, centenas de MB que o servidor nunca usa. A versão é a mesma do arquivo.
+ENV RUSTUP_TOOLCHAIN=1.98.0
+# `--locked`: as dependências exatamente as do `Cargo.lock` espelhado; se ele não
+# bastasse, o build falha em vez de resolver outra `cozy-chess` (R-05).
+# O `$(cat ...)` entrega o carimbo do estágio 1b; vazio, o executável sairia
+# `"sem_carimbo"` e o portão do estágio 2 o reprovaria.
+RUN CARIMBO_MOTOR_XADREZ="$(cat /carimbo_xadrez.txt)" \
+    cargo build --release --locked --bin servidor_de_lances_xadrez
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ESTÁGIO 2 de 2 — O JOB
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -167,6 +217,11 @@ ENV MOTOR_DART_PONTINHOS=/usr/local/bin/servidor_de_lances_pontinhos
 # `motores/quatro/jogador_dart_quatro.py` consulta primeiro (T110 da spec 010).
 COPY --from=motor /motor/quatro/bin/servidor_de_lances_quatro /usr/local/bin/servidor_de_lances_quatro
 ENV MOTOR_DART_QUATRO=/usr/local/bin/servidor_de_lances_quatro
+
+# E o do xadrez (Rust, estágio 1c), com a variável que
+# `motores/xadrez/jogador_xadrez.py` consulta primeiro (T061 da spec 012).
+COPY --from=motor_xadrez /motor/xadrez/target/release/servidor_de_lances_xadrez /usr/local/bin/servidor_de_lances_xadrez
+ENV MOTOR_XADREZ=/usr/local/bin/servidor_de_lances_xadrez
 
 # ── 3. O PORTÃO DE BUILD (T001) ──────────────────────────────────────────────
 # ⚠️ ESTA LINHA É A ÚNICA EXECUÇÃO EM `linux/amd64` QUE O PROJETO TEM.
@@ -229,6 +284,16 @@ RUN python scripts/conferir_motor_dart_pontinhos.py
 # telemetria que o APARELHO gravou: o lance, a ação, os nós e a profundidade.
 # Um lance igual com nós diferentes já reprova.
 RUN python scripts/conferir_motor_dart_quatro.py
+
+# ── 3e. O PORTÃO DO MOTOR DO XADREZ (T061 da spec 012) ───────────────────────
+#
+# O quinto irmão, e o primeiro de um motor em Rust. Ele confere as três travas da
+# abertura (o carimbo contra o crate do espelho, o SHA-256 do contrato, a versão
+# do `Cargo.toml`), o perft da posição inicial a 4 meios-lances (197 281: o
+# gerador de lances desta compilação está certo) e o mate em um de cada
+# personagem do build. Os vetores de paridade, lance a lance, entram aqui quando
+# chegarem ao backend (T064).
+RUN python scripts/conferir_motor_xadrez.py
 
 # ── 4. Usuário sem privilégios ───────────────────────────────────────────────
 # Defesa em profundidade (MEL-01), a mesma do `Dockerfile` da API: se um dia
