@@ -24,7 +24,8 @@ use serde::Deserialize;
 
 use crate::busca::{Limites, Quiescencia};
 use crate::fim_de_partida::{Motivo, RegrasDoFim, MAIOR_LIMITE_DOS_CINQUENTA};
-use crate::niveis::Ruido;
+use crate::humano::{Caracteristica, NUMERO_DE_CARACTERISTICAS};
+use crate::niveis::{Ponderacao, Ruido};
 
 /// O nível que a operação `jogada_ideal` usa (R-28): a busca do Magno sem ruído,
 /// com os números dele no contrato. É nome de NÍVEL, e não de modalidade: toda
@@ -91,6 +92,44 @@ pub struct Modalidade {
     pub relogios_de_empate: BTreeMap<String, RelogioDeEmpate>,
     /// Os níveis, pelo nome (`cacau`, `pita`, `tex`, `magno`, `ideal`).
     pub niveis: BTreeMap<String, Nivel>,
+    /// Os pesos do modelo humano (T051c, motor 0.6.0; `humano.rs`). Opcional:
+    /// sem ele, nenhum nível pode pedir peso humano, e o erro é sorteado como
+    /// na 0.5.0. O `#[serde(default)]` diz ao `serde` que o campo ausente vira
+    /// `None` em vez de erro: é o que deixa o contrato de antes continuar valendo.
+    #[serde(default)]
+    pub modelo_humano: Option<ModeloHumano>,
+}
+
+/// O modelo humano de uma modalidade: o peso de cada característica do lance
+/// (`humano::Caracteristica`), pelo NOME, em centésimos de "nat" por unidade.
+/// Os pesos saem da Maia por regressão (T051d), e não são escritos à mão.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ModeloHumano {
+    /// Nome da característica → peso inteiro. Nome que não existe é recusado
+    /// ([`Contrato::ler`]); característica que não aparece pesa zero (assim um
+    /// contrato velho continua válido quando o motor ganha uma característica).
+    pub pesos: BTreeMap<String, i32>,
+}
+
+/// O maior peso (em valor absoluto) aceito numa característica, no
+/// `peso_humano_milesimos` e na `temperatura_do_erro_cp`. É folga larga para a
+/// regressão (que dá pesos de dezenas a centenas) e mantém toda a conta dos
+/// pontos dentro do `i64` (`humano::nota_humana`, `niveis::pontos_do_lance`).
+pub const MAIOR_NUMERO_DO_MODELO: i32 = 100_000;
+
+impl ModeloHumano {
+    /// Os pesos na ordem do vetor de características (o que falta é zero).
+    /// Os nomes já foram conferidos por [`Contrato::ler`]; um nome desconhecido
+    /// aqui seria ignorado.
+    pub fn vetor(&self) -> [i32; NUMERO_DE_CARACTERISTICAS] {
+        let mut vetor = [0; NUMERO_DE_CARACTERISTICAS];
+        for (nome, &peso) in &self.pesos {
+            if let Some(c) = Caracteristica::do_nome(nome) {
+                vetor[c as usize] = peso;
+            }
+        }
+        vetor
+    }
 }
 
 /// Um relógio de empate: o limite e quando o app começa a avisar.
@@ -111,8 +150,8 @@ pub enum QuiescenciaNoContrato {
     Sim,
 }
 
-/// Um nível (R-09). Os campos do ruído (margem, chances) vão para `niveis.rs`
-/// por [`Nivel::ruido`] (T038 e T039).
+/// Um nível (R-09). Os campos do ruído (margem, chances, ponderação) vão para
+/// `niveis.rs` por [`Modalidade::ruido_do_nivel`] (T038, T039 e T051c).
 #[derive(Debug, Clone, Deserialize)]
 pub struct Nivel {
     pub profundidade_maxima: u32,
@@ -127,17 +166,18 @@ pub struct Nivel {
     pub rede_de_tempo_s: Option<u64>,
     /// O relógio da pessoa no modo contra a CPU (pergunta B); `null` = sem.
     pub relogio_s: Option<u64>,
-}
-
-impl Nivel {
-    /// Os números do ruído deste nível, no formato que `niveis.rs` usa.
-    pub fn ruido(&self) -> Ruido {
-        Ruido {
-            margem_do_erro_cp: self.margem_do_erro_cp,
-            chance_do_erro_milesimos: self.chance_do_erro_milesimos,
-            chance_da_cegueira_milesimos: self.chance_da_cegueira_milesimos,
-        }
-    }
+    /// O sorteio do erro com PESO (T051c, motor 0.6.0): quantos centipeões da
+    /// nota da busca valem um "nat" de preferência. Menor = o personagem olha
+    /// mais a nota (erra menos feio). Vem junto com `peso_humano_milesimos`:
+    /// os dois ou nenhum. Sem os dois, o erro sorteia com a mesma chance entre
+    /// os plausíveis, como na 0.5.0.
+    #[serde(default)]
+    pub temperatura_do_erro_cp: Option<i32>,
+    /// Quanto do modelo humano entra no sorteio, em milésimos (1000 = a nota
+    /// humana inteira; 0 = só a nota da busca). Acima de 0 exige o
+    /// `modelo_humano` da modalidade.
+    #[serde(default)]
+    pub peso_humano_milesimos: Option<i32>,
 }
 
 impl Contrato {
@@ -154,8 +194,10 @@ impl Contrato {
                 return Err(ErroContrato::Invalido(format!("{nome_da_modalidade} sem niveis")));
             }
             validar_fim(nome_da_modalidade, modalidade)?;
+            validar_modelo_humano(nome_da_modalidade, modalidade)?;
             for (nome, nivel) in &modalidade.niveis {
                 validar_nivel(nome_da_modalidade, nome, nivel)?;
+                validar_ponderacao(nome_da_modalidade, nome, nivel, modalidade.modelo_humano.is_some())?;
             }
         }
         Ok(contrato)
@@ -175,6 +217,29 @@ impl Modalidade {
         self.niveis
             .get(nome)
             .ok_or_else(|| ErroContrato::NivelDesconhecido(nome.to_string()))
+    }
+
+    /// Os números do ruído de um nível desta modalidade, no formato que
+    /// `niveis.rs` usa. Mora na modalidade, e não no nível, porque o sorteio com
+    /// peso precisa dos pesos do `modelo_humano`, que são da modalidade.
+    pub fn ruido_do_nivel(&self, nivel: &Nivel) -> Ruido {
+        // `zip` junta os dois `Option`: só há ponderação com os dois campos (o
+        // `ler` já recusou o contrato que traz um sem o outro).
+        let ponderacao = nivel
+            .temperatura_do_erro_cp
+            .zip(nivel.peso_humano_milesimos)
+            .map(|(temperatura, peso_humano)| Ponderacao {
+                temperatura_do_erro_cp: temperatura,
+                peso_humano_milesimos: peso_humano,
+                // Sem modelo (só possível com peso humano zero), pesos zerados.
+                pesos: self.modelo_humano.as_ref().map_or([0; NUMERO_DE_CARACTERISTICAS], ModeloHumano::vetor),
+            });
+        Ruido {
+            margem_do_erro_cp: nivel.margem_do_erro_cp,
+            chance_do_erro_milesimos: nivel.chance_do_erro_milesimos,
+            chance_da_cegueira_milesimos: nivel.chance_da_cegueira_milesimos,
+            ponderacao,
+        }
     }
 
     /// Os limites de busca de um nível desta modalidade: profundidade, teto,
@@ -258,4 +323,49 @@ fn validar_nivel(modalidade: &str, nome: &str, nivel: &Nivel) -> Result<(), Erro
         return Err(ErroContrato::Invalido(format!("{onde}: margem_do_erro_cp negativa")));
     }
     Ok(())
+}
+
+/// Os pesos do modelo humano: todo nome tem de ser uma característica que o
+/// motor conhece, e todo peso cabe no teto.
+fn validar_modelo_humano(modalidade: &str, m: &Modalidade) -> Result<(), ErroContrato> {
+    let Some(modelo) = &m.modelo_humano else { return Ok(()) };
+    for (nome, &peso) in &modelo.pesos {
+        if Caracteristica::do_nome(nome).is_none() {
+            return Err(ErroContrato::Invalido(format!(
+                "{modalidade}.modelo_humano: caracteristica desconhecida: {nome}"
+            )));
+        }
+        // `unsigned_abs` dá o valor sem sinal sem estourar no menor `i32`.
+        if peso.unsigned_abs() > MAIOR_NUMERO_DO_MODELO as u32 {
+            return Err(ErroContrato::Invalido(format!(
+                "{modalidade}.modelo_humano: peso de {nome} fora de -{MAIOR_NUMERO_DO_MODELO} a {MAIOR_NUMERO_DO_MODELO}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// O sorteio com peso de um nível: os dois campos juntos, nas faixas, e o peso
+/// humano só com o modelo da modalidade presente.
+fn validar_ponderacao(modalidade: &str, nome: &str, nivel: &Nivel, tem_modelo: bool) -> Result<(), ErroContrato> {
+    let onde = format!("{modalidade}.{nome}");
+    let invalido = |motivo: &str| Err(ErroContrato::Invalido(format!("{onde}: {motivo}")));
+    match (nivel.temperatura_do_erro_cp, nivel.peso_humano_milesimos) {
+        (None, None) => Ok(()),
+        (Some(_), None) | (None, Some(_)) => {
+            invalido("temperatura_do_erro_cp e peso_humano_milesimos vem juntos")
+        }
+        (Some(temperatura), Some(peso_humano)) => {
+            if !(1..=MAIOR_NUMERO_DO_MODELO).contains(&temperatura) {
+                return invalido("temperatura_do_erro_cp fora de 1 a 100000");
+            }
+            if !(0..=MAIOR_NUMERO_DO_MODELO).contains(&peso_humano) {
+                return invalido("peso_humano_milesimos fora de 0 a 100000");
+            }
+            if peso_humano > 0 && !tem_modelo {
+                return invalido("peso_humano_milesimos sem o modelo_humano da modalidade");
+            }
+            Ok(())
+        }
+    }
 }

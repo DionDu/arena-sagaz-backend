@@ -1,7 +1,7 @@
 [package]
 name = "motor_xadrez"
 # ⚠️ Esta é a versão que `xadrez_versao()` devolve ao app - ela vem daqui, por
-# `env!("CARGO_PKG_VERSION")`, e o app a grava no log como `rust_0.5.0`.
+# `env!("CARGO_PKG_VERSION")`, e o app a grava no log como `rust_0.6.0`.
 # Suba-a sempre que o motor mudar de comportamento (outro lance em algum vetor de
 # paridade, R-05). Um binário que mente sobre a própria versão torna o log de
 # campo inútil.
@@ -27,7 +27,14 @@ name = "motor_xadrez"
 # 0.5.0 (17/11/2026): a T039 - a cegueira (`niveis::o_cego_nao_ve`): na
 # resposta do adversário, o personagem cego não vê as capturas de cavalo nem
 # as de peça em linha a 3 casas ou mais. Muda os lances da Pita.
-version = "0.5.0"
+# 0.6.0 (18/11/2026): a T051c - o modelo humano (`humano.rs`): as
+# características de cada lance, a nota humana e o sorteio do erro por softmax
+# inteiro, ligados pelos campos novos do contrato (`modelo_humano` na
+# modalidade; `temperatura_do_erro_cp` e `peso_humano_milesimos` no nível).
+# Com o contrato SEM esses campos, nenhum lance muda (os vetores de paridade e a
+# referência da bancada saíram iguais, só com a versão nova); a versão sobe
+# porque um binário 0.5.0 ignoraria os campos em silêncio e jogaria o uniforme.
+version = "0.6.0"
 edition = "2021"
 
 [lib]

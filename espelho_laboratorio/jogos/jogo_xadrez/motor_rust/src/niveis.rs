@@ -16,7 +16,11 @@
 //!    **plausíveis**, os lances com nota ≥ melhor − `margem_do_erro_cp`. Fica
 //!    de fora o lance que **desfaz** o último lance do próprio personagem (a
 //!    torre que vai e volta), quando ele não é o melhor: é o erro que parece
-//!    máquina quebrada, e não pessoa distraída.
+//!    máquina quebrada, e não pessoa distraída. **Qual** plausível sai: com a
+//!    mesma chance para todos (a 0.5.0), ou, quando o nível traz a
+//!    `temperatura_do_erro_cp` e o `peso_humano_milesimos` (T051c, motor
+//!    0.6.0), com peso: a nota da busca mais a naturalidade do lance para uma
+//!    pessoa (`humano.rs`), sorteados por softmax inteiro ([`Ponderacao`]).
 //! 5. **Sem erro**: a busca comum do nível (`busca::buscar`), e o melhor lance,
 //!    com o empate desfeito pela ordem estável (R-05).
 //! 6. **A cegueira** (R-10, T039; a `chance_da_cegueira_milesimos`): os passos 4
@@ -56,6 +60,7 @@ use crate::busca::{
     buscar, buscar_com_visao, chave_estavel, e_captura, notas_da_raiz_com_visao, Limites, Parada, Resultado,
     Visao, MATE,
 };
+use crate::humano::{caracteristicas, indice_sorteado, nota_humana, NUMERO_DE_CARACTERISTICAS};
 use crate::posicao::{lances_legais, Posicao};
 
 /// Os números do ruído de um nível, como o contrato os escreve (R-09). As
@@ -69,6 +74,37 @@ pub struct Ruido {
     pub chance_do_erro_milesimos: u32,
     /// Em quantos lances de cada 1000 o personagem fica "cego" (R-10).
     pub chance_da_cegueira_milesimos: u32,
+    /// O sorteio do erro com peso (T051c). `None` = a mesma chance para todo
+    /// plausível, como na 0.5.0.
+    pub ponderacao: Option<Ponderacao>,
+}
+
+/// Como o erro pesa cada plausível (T051c; `humano.rs`): os **pontos** de um
+/// lance são `nota × 100 / temperatura + peso_humano × nota_humana / 1000`, em
+/// centésimos de "nat", e o lance sai com chance proporcional a e^(pontos/100).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ponderacao {
+    /// Quantos centipeões da busca valem um "nat" (100 pontos).
+    pub temperatura_do_erro_cp: i32,
+    /// Quanto da nota humana entra, em milésimos.
+    pub peso_humano_milesimos: i32,
+    /// Os pesos do modelo humano da modalidade, na ordem das características.
+    pub pesos: [i32; NUMERO_DE_CARACTERISTICAS],
+}
+
+impl Ponderacao {
+    /// Os pontos de um plausível (ver o tipo). As divisões são por baixo
+    /// (`div_euclid`: −0,5 vira −1, e não 0), para os pontos negativos e os
+    /// positivos arredondarem para o mesmo lado. A nota humana só é calculada
+    /// quando entra na conta (`peso_humano_milesimos` acima de zero).
+    pub fn pontos_do_lance(&self, posicao: &Posicao, lance: Move, nota: i32) -> i64 {
+        let da_busca = (i64::from(nota) * 100).div_euclid(i64::from(self.temperatura_do_erro_cp));
+        if self.peso_humano_milesimos == 0 {
+            return da_busca;
+        }
+        let humana = nota_humana(&caracteristicas(posicao, lance), &self.pesos);
+        da_busca + (i64::from(self.peso_humano_milesimos) * humana).div_euclid(1000)
+    }
 }
 
 /// O que aconteceu na escolha do lance (o campo `acao` da resposta, §2.4).
@@ -306,8 +342,9 @@ fn escolher_com_visao(
     buscar_com_visao(posicao, limites, visao).map(Escolha::da_busca)
 }
 
-/// O passo do erro: busca a raiz inteira e sorteia entre os plausíveis.
-/// `None` se a busca não deu nenhuma nota.
+/// O passo do erro: busca a raiz inteira e sorteia entre os plausíveis (com a
+/// mesma chance, ou com o peso da [`Ponderacao`] do nível). `None` se a busca
+/// não deu nenhuma nota.
 fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteio: u64, visao: Visao) -> Option<Escolha> {
     let notas = notas_da_raiz_com_visao(posicao, limites, visao)?;
     let (melhor_lance, melhor_nota) = notas.melhor();
@@ -329,7 +366,19 @@ fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteio: u64, visa
         .collect();
     // O melhor sempre está na lista (a nota dele é o teto, e ele nunca é
     // excluído), então ela nunca é vazia e o resto da divisão existe.
-    let indice = (sorteio % plausiveis.len() as u64) as usize;
+    let indice = match &ruido.ponderacao {
+        // A 0.5.0: a mesma chance para todo plausível.
+        None => (sorteio % plausiveis.len() as u64) as usize,
+        // A 0.6.0 com a ponderação no contrato: o softmax dos pontos, com o
+        // MESMO número cru do sorteio (a sequência de sorteios não muda).
+        Some(ponderacao) => {
+            let pontos: Vec<i64> = plausiveis
+                .iter()
+                .map(|&(lance, nota)| ponderacao.pontos_do_lance(posicao, lance, nota))
+                .collect();
+            indice_sorteado(&pontos, sorteio)
+        }
+    };
     let (lance, nota) = plausiveis[indice];
     Some(Escolha {
         lance,

@@ -29,6 +29,9 @@ pub mod fatos;
 pub mod ffi;
 /// O fim da partida, a ordem das regras e o estado da posição (R-04).
 pub mod fim_de_partida;
+/// O modelo humano: as características de cada lance, a nota humana e o
+/// softmax inteiro do sorteio do erro (T051c, R-11).
+pub mod humano;
 /// O ruído dos níveis: o mate em um, o erro entre os plausíveis e a cegueira (R-09, R-10).
 pub mod niveis;
 /// A posição na fronteira (FEN inicial + lances), a notação interna e o perft.

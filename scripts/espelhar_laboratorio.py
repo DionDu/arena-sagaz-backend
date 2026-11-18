@@ -274,6 +274,9 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     "jogos/jogo_xadrez/motor_rust/src/fatos.rs",
     "jogos/jogo_xadrez/motor_rust/src/ffi.rs",
     "jogos/jogo_xadrez/motor_rust/src/fim_de_partida.rs",
+    # O modelo humano (T051c, motor 0.6.0, 18/11/2026): as características de
+    # cada lance e o softmax inteiro do sorteio do erro.
+    "jogos/jogo_xadrez/motor_rust/src/humano.rs",
     "jogos/jogo_xadrez/motor_rust/src/lib.rs",
     "jogos/jogo_xadrez/motor_rust/src/niveis.rs",
     "jogos/jogo_xadrez/motor_rust/src/posicao.rs",

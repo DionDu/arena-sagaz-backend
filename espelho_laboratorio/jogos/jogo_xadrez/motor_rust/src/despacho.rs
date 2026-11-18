@@ -308,7 +308,7 @@ fn responder_busca(pedido: &Pedido, nome_do_nivel: &str, semente: Option<u64>) -
     // As duas escolhas só devolvem `None` sem lance legal, e isso o fim da
     // partida já recusou acima; o `ok_or_else` fica como guarda.
     let escolha = match semente {
-        Some(semente) => escolher_lance(&posicao, &limites, &nivel.ruido(), semente),
+        Some(semente) => escolher_lance(&posicao, &limites, &modalidade.ruido_do_nivel(nivel), semente),
         None => buscar(&posicao, &limites).map(Escolha::da_busca),
     }
     .ok_or_else(|| erro("partida_terminada", "a partida ja terminou: nao ha lance legal"))?;
