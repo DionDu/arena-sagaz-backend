@@ -39,14 +39,17 @@
 //! avaliação: é a régua com que uma pessoa pensa "troquei bem ou mal", e deixa
 //! os pesos da regressão legíveis.
 
-use cozy_chess::{get_king_moves, BitBoard, Board, Color, File, Move, Piece, Rank, Square};
+use cozy_chess::{
+    get_bishop_moves, get_king_moves, get_knight_moves, get_pawn_attacks, get_rook_moves, BitBoard, Board, Color, File,
+    Move, Piece, Rank, Square,
+};
 
 use crate::avaliacao::valor_da_peca;
 use crate::busca::e_captura;
 use crate::posicao::{atacantes_da_casa, Posicao};
 
 /// Quantas características cada lance tem (o tamanho de [`Caracteristica::TODAS`]).
-pub const NUMERO_DE_CARACTERISTICAS: usize = 35;
+pub const NUMERO_DE_CARACTERISTICAS: usize = 42;
 
 /// Cada característica de um lance, na ordem fixa em que elas ficam no vetor.
 ///
@@ -145,6 +148,34 @@ pub enum Caracteristica {
     CapturaDefendidaPorRei,
     /// A distância entre esse defensor e a casa da captura (0 sem defensor).
     CapturaDefensorDistancia,
+    // ── Motor 0.8.0 (T051h, passo 5): as sete do diagnóstico ──────────────
+    // `calibracao/diagnosticar_modelo_humano.py` mediu 24 candidatas contra a
+    // Maia-2 abaixo de 1100, cada uma pela queda da entropia cruzada com as 35
+    // de cima juntas; estas são as sete da seleção gulosa (research.md R-11, "O
+    // diagnóstico"). No roque as cinco que falam da peça que anda ficam em zero,
+    // como as de geometria.
+    /// **O ataque**: o valor da peça inimiga mais valiosa (sem o rei) que a peça
+    /// movida ataca da casa de chegada. Gente abaixo de 1100 gosta de atacar
+    /// peça; foi a candidata que mais explicou sozinha (7,4% da distância).
+    AtacaValor,
+    /// 1 se, entre as peças inimigas atacadas pela peça movida, há uma que
+    /// ninguém defende (o "ataquei uma peça solta").
+    AtacaDesprotegida,
+    /// Quantas casas a peça movida ataca na chegada menos quantas atacava na
+    /// saída (a "peça ativa"); pode ser negativo. Peão e rei: 0.
+    MobilidadeGanha,
+    /// 1 se o peão que anda (sem promover) é passado na chegada: nenhum peão
+    /// inimigo na frente dele, na coluna dele e nas duas vizinhas.
+    PeaoPassado,
+    /// Na captura: o valor capturado menos o da peça que captura (o rei vale 0
+    /// aqui). Positivo é "ganhei na troca"; 0 sem captura.
+    CapturaGanho,
+    /// 1 se a captura é de uma peça do mesmo valor (a "troca"), fora o rei.
+    Troca,
+    /// O valor de [`Caracteristica::CaiEmPerigo`] quando o lance dá xeque: **o
+    /// xeque que entrega a peça**. O modelo é uma soma, e "xeque" mais "cair em
+    /// perigo" não diz que é a MESMA peça que dá xeque e fica pendurada.
+    XequeQueEntrega,
 }
 
 impl Caracteristica {
@@ -186,6 +217,13 @@ impl Caracteristica {
         Caracteristica::CapturaDefendidaPorLinha,
         Caracteristica::CapturaDefendidaPorRei,
         Caracteristica::CapturaDefensorDistancia,
+        Caracteristica::AtacaValor,
+        Caracteristica::AtacaDesprotegida,
+        Caracteristica::MobilidadeGanha,
+        Caracteristica::PeaoPassado,
+        Caracteristica::CapturaGanho,
+        Caracteristica::Troca,
+        Caracteristica::XequeQueEntrega,
     ];
 
     /// O nome no contrato (`modelo_humano.pesos`) e no executável da destilação.
@@ -226,6 +264,13 @@ impl Caracteristica {
             Caracteristica::CapturaDefendidaPorLinha => "captura_defendida_por_linha",
             Caracteristica::CapturaDefendidaPorRei => "captura_defendida_por_rei",
             Caracteristica::CapturaDefensorDistancia => "captura_defensor_distancia",
+            Caracteristica::AtacaValor => "ataca_valor",
+            Caracteristica::AtacaDesprotegida => "ataca_desprotegida",
+            Caracteristica::MobilidadeGanha => "mobilidade_ganha",
+            Caracteristica::PeaoPassado => "peao_passado",
+            Caracteristica::CapturaGanho => "captura_ganho",
+            Caracteristica::Troca => "troca",
+            Caracteristica::XequeQueEntrega => "xeque_que_entrega",
         }
     }
 
@@ -335,6 +380,36 @@ pub fn em_perigo(tabuleiro: &Board, casa: Square) -> Option<(Piece, Square)> {
     }
 }
 
+/// As casas que a peça de `casa` ataca (vazio sem peça). É a conta "de quem
+/// olha": o peão ataca as duas diagonais da frente (e não a casa em que anda), e
+/// as peças de linha param na primeira peça do caminho, de qualquer cor.
+fn ataques_da_peca(tabuleiro: &Board, casa: Square) -> BitBoard {
+    let (Some(peca), Some(cor)) = (tabuleiro.piece_on(casa), tabuleiro.color_on(casa)) else {
+        return BitBoard::EMPTY;
+    };
+    let ocupacao = tabuleiro.occupied();
+    match peca {
+        Piece::Pawn => get_pawn_attacks(casa, cor),
+        Piece::Knight => get_knight_moves(casa),
+        Piece::Bishop => get_bishop_moves(casa, ocupacao),
+        Piece::Rook => get_rook_moves(casa, ocupacao),
+        // `|` é a união: a dama anda como torre e como bispo.
+        Piece::Queen => get_bishop_moves(casa, ocupacao) | get_rook_moves(casa, ocupacao),
+        Piece::King => get_king_moves(casa),
+    }
+}
+
+/// O peão de `casa`, da cor `nos`, é passado? Nenhum peão do outro lado na
+/// coluna dele nem nas vizinhas, em fileira mais à frente (vista do lado dele).
+fn peao_passado(tabuleiro: &Board, casa: Square, nos: Color) -> bool {
+    let fileira = casa.rank().relative_to(nos) as i32;
+    let coluna = casa.file() as i32;
+    // `all`: verdadeiro se NENHUM peão inimigo bloqueia (vale para lista vazia).
+    tabuleiro.colored_pieces(!nos, Piece::Pawn).into_iter().all(|outro| {
+        (outro.file() as i32 - coluna).abs() > 1 || outro.rank().relative_to(nos) as i32 <= fileira
+    })
+}
+
 /// O grupo de quem ataca ou defende, como a pessoa os separa: o peão, o cavalo
 /// (que pula), as peças de linha (bispo, torre, dama) e o rei.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -412,6 +487,11 @@ pub fn caracteristicas(posicao: &Posicao, lance: Move) -> Caracteristicas {
             c.por(qual, risco);
             c.por(C::CapturaDefensorDistancia, distancia_do_rei(casa_do_defensor, lance.to));
         }
+        // O saldo da troca, na conta de escola (o rei vale 0: `valor_em_peoes`).
+        c.por(C::CapturaGanho, valor_em_peoes(capturada) - valor_em_peoes(peca));
+        if peca != Piece::King && valor_em_peoes(capturada) == valor_em_peoes(peca) {
+            c.por(C::Troca, 1);
+        }
     }
     if !depois.checkers().is_empty() {
         c.por(C::Xeque, 1);
@@ -470,6 +550,32 @@ pub fn caracteristicas(posicao: &Posicao, lance: Move) -> Caracteristicas {
         if em_perigo(&depois, lance.to).is_some() {
             c.por(C::CaiEmPerigo, depois.piece_on(lance.to).map_or(0, valor_em_peoes));
         }
+
+        // ── O ataque e a atividade da peça que chegou (motor 0.8.0) ──────────
+        // Na promoção, a peça na chegada já é a promovida: é ela que ataca.
+        let atacadas = ataques_da_peca(&depois, lance.to);
+        // As peças inimigas atacadas, sem o rei (o xeque é outra característica).
+        let alvos = atacadas & depois.colors(!nos) & !depois.pieces(Piece::King);
+        let mut ataca_valor = 0;
+        for alvo in alvos {
+            ataca_valor = ataca_valor.max(depois.piece_on(alvo).map_or(0, valor_em_peoes));
+            // Ninguém do outro lado defende o alvo: a peça está solta.
+            if atacantes_da_casa(&depois, alvo, !nos, depois.occupied()).is_empty() {
+                c.por(C::AtacaDesprotegida, 1);
+            }
+        }
+        c.por(C::AtacaValor, ataca_valor);
+        if peca != Piece::Pawn && peca != Piece::King {
+            // `len()` conta as casas do conjunto; antes, a peça atacava da saída.
+            c.por(C::MobilidadeGanha, atacadas.len() as i32 - ataques_da_peca(antes, lance.from).len() as i32);
+        }
+        if peca == Piece::Pawn && lance.promotion.is_none() && peao_passado(&depois, lance.to, nos) {
+            c.por(C::PeaoPassado, 1);
+        }
+    }
+    // O xeque que entrega a peça (no roque, `CaiEmPerigo` é 0, e esta também).
+    if c.valor(C::Xeque) == 1 {
+        c.por(C::XequeQueEntrega, c.valor(C::CaiEmPerigo));
     }
 
     // ── A percepção da ameaça, depois do lance ─────────────────────────────
@@ -517,7 +623,7 @@ pub fn caracteristicas(posicao: &Posicao, lance: Move) -> Caracteristicas {
 
 /// A nota humana de um lance: a soma de peso × característica, em centésimos
 /// de "nat" (ver o topo do arquivo). Em `i64`: com pesos de até 100 000 (o teto
-/// que o contrato aceita) e 35 características, a soma passaria do `i32`.
+/// que o contrato aceita) e 42 características, a soma passaria do `i32`.
 pub fn nota_humana(c: &Caracteristicas, pesos: &[i32; NUMERO_DE_CARACTERISTICAS]) -> i64 {
     // `zip` anda nas duas listas juntas, item a item.
     c.valores.iter().zip(pesos.iter()).map(|(&x, &w)| i64::from(x) * i64::from(w)).sum()

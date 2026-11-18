@@ -3,7 +3,7 @@
 //!
 //! | função | o que faz |
 //! |---|---|
-//! | `xadrez_versao()` | a versão do `Cargo.toml` (`"0.7.0"`), texto estático |
+//! | `xadrez_versao()` | a versão do `Cargo.toml` (`"0.8.0"`), texto estático |
 //! | `xadrez_pedir(json)` | um pedido JSON entra, uma resposta JSON sai |
 //! | `xadrez_liberar(ptr)` | devolve ao Rust a memória de uma resposta |
 //!
@@ -40,7 +40,7 @@ use crate::despacho::{despachar, erro};
 const RESPOSTA_DE_PANICO: &str =
     r#"{"ok":false,"erro":"panico","detalhe":"o motor entrou em panico; o pedido foi descartado"}"#;
 
-/// A versão do motor, para o app gravar no log (`rust_0.7.0`) e conferir.
+/// A versão do motor, para o app gravar no log (`rust_0.8.0`) e conferir.
 ///
 /// Devolve texto **estático**: o app lê e **não** deve passá-lo a
 /// [`xadrez_liberar`]. Liberar memória estática derruba o processo.
