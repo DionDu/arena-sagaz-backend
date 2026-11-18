@@ -463,6 +463,11 @@
       "tamanho_bytes": 3064
     },
     {
+      "caminho": "jogos/jogo_xadrez/posicoes/posicoes_adiantadas.txt",
+      "sha256": "807aeccf4840d24e23d6b2e525993228af13ea584f6dfb5721823a85f9e825ae",
+      "tamanho_bytes": 177494
+    },
+    {
       "caminho": "contrato_dificuldade_pontinhos.json",
       "sha256": "0971d48f329419d6f71aa11de7aaa9e384c20bc1a15bda58eddf78ade0591c74",
       "tamanho_bytes": 7203

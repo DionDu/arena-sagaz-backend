@@ -284,10 +284,12 @@ ARQUIVOS_ESPELHADOS: tuple[str, ...] = (
     # O contrato do xadrez, do laboratório (a fonte; a do app é cópia), que o
     # executável recebe por `--contrato`, como no Quatro.
     "jogos/jogo_xadrez/contrato/contrato_xadrez.json",
-    # ⏳ A base adiantada (`jogos/jogo_xadrez/posicoes/posicoes_adiantadas.txt`)
-    # entra aqui quando a T047 a gerar: o job sorteia dela as posições dos
-    # desafios (T073). Antes disso a origem não existe, e `copiar()` recusaria o
-    # espelho inteiro.
+    # A base adiantada (T047, 17/11/2026): 3 000 FEN equilibrados, um por
+    # linha, só LF. O job sorteia dela as posições dos desafios (T073), e é a
+    # mesma base que o app embarca (`assets/jogos/xadrez/`, T048): o FEN que vai
+    # ao log tem de existir dos dois lados. O espelho é `-text`, e o manifesto
+    # confere o SHA-256 dos bytes.
+    "jogos/jogo_xadrez/posicoes/posicoes_adiantadas.txt",
 )
 
 

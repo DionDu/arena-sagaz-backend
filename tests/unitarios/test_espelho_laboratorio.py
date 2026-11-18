@@ -320,6 +320,27 @@ def test_o_contrato_do_xadrez_viaja_no_espelho():
     assert dados["por_modalidade"], "o contrato do xadrez veio sem modalidade"
 
 
+def test_a_base_adiantada_do_xadrez_viaja_no_espelho():
+    """O job sorteia da base adiantada as posições dos desafios (T073).
+
+    São 3 000 FEN, um por linha, só LF (o app compara o SHA-256 da cópia dele
+    com a fonte, e a do servidor é a mesma fonte), sem repetida. O SHA-256
+    contra o laboratório é do manifesto, conferido nos casos acima.
+    """
+    base = ESPELHO / "jogos" / "jogo_xadrez" / "posicoes" / "posicoes_adiantadas.txt"
+    assert base.is_file(), f"o espelho não traz {base.relative_to(ESPELHO)}"
+    bytes_da_base = base.read_bytes()
+    # Um `\r` aqui mudaria o SHA-256 sem mudar uma posição (o Windows o põe sozinho).
+    assert b"\r" not in bytes_da_base, "a base do espelho tem \\r (deveria ser só LF)"
+    linhas = bytes_da_base.decode("utf-8").splitlines()
+    assert len(linhas) == 3000, f"a base tem {len(linhas)} posições, e não 3 000"
+    assert len(set(linhas)) == len(linhas), "a base tem posição repetida"
+    # Cada linha é um FEN de seis campos, com a vez (`w` ou `b`) no 2º.
+    for numero, fen in enumerate(linhas, start=1):
+        campos = fen.split(" ")
+        assert len(campos) == 6 and campos[1] in ("w", "b"), f"linha {numero}: {fen!r}"
+
+
 def test_o_espelho_nao_e_uma_dependencia_de_caminho_disfarcada():
     """⛔ O que não estiver no repositório do backend não existe na nuvem.
 
