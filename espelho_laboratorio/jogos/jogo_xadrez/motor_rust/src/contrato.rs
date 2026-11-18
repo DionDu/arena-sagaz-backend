@@ -93,9 +93,11 @@ pub struct Modalidade {
     /// Os níveis, pelo nome (`cacau`, `pita`, `tex`, `magno`, `ideal`).
     pub niveis: BTreeMap<String, Nivel>,
     /// Os pesos do modelo humano (T051c, motor 0.6.0; `humano.rs`). Opcional:
-    /// sem ele, nenhum nível pode pedir peso humano, e o erro é sorteado como
-    /// na 0.5.0. O `#[serde(default)]` diz ao `serde` que o campo ausente vira
-    /// `None` em vez de erro: é o que deixa o contrato de antes continuar valendo.
+    /// sem ele, só um nível com o modelo PRÓPRIO (`Nivel::modelo_humano`, T051h,
+    /// 0.7.0) pode pedir peso humano, e os outros sorteiam o erro como na 0.5.0.
+    /// É o modelo de todo nível que não traz o seu. O `#[serde(default)]` diz ao
+    /// `serde` que o campo ausente vira `None` em vez de erro: é o que deixa o
+    /// contrato de antes continuar valendo.
     #[serde(default)]
     pub modelo_humano: Option<ModeloHumano>,
 }
@@ -174,10 +176,20 @@ pub struct Nivel {
     #[serde(default)]
     pub temperatura_do_erro_cp: Option<i32>,
     /// Quanto do modelo humano entra no sorteio, em milésimos (1000 = a nota
-    /// humana inteira; 0 = só a nota da busca). Acima de 0 exige o
-    /// `modelo_humano` da modalidade.
+    /// humana inteira; 0 = só a nota da busca). Acima de 0 exige um
+    /// `modelo_humano`: o do nível ou, sem ele, o da modalidade.
     #[serde(default)]
     pub peso_humano_milesimos: Option<i32>,
+    /// O modelo humano PRÓPRIO do nível (T051h, motor 0.7.0): quando existe,
+    /// ele **substitui inteiro** o da modalidade para este nível (não se mistura
+    /// peso a peso: característica que falta aqui pesa zero, mesmo que a
+    /// modalidade lhe dê peso). Nasceu para a Cacau ter um modelo de iniciante
+    /// (destilado da Maia-2 abaixo de 1100) sem mexer na Pita e no Tex, que
+    /// continuam com o da modalidade. Opcional e aditivo: sem ele, tudo é como
+    /// na 0.6.0. Só faz sentido com a ponderação (os dois campos acima); um
+    /// modelo no nível sem ela não pesaria nada, e o `ler` o recusa.
+    #[serde(default)]
+    pub modelo_humano: Option<ModeloHumano>,
 }
 
 impl Contrato {
@@ -194,10 +206,17 @@ impl Contrato {
                 return Err(ErroContrato::Invalido(format!("{nome_da_modalidade} sem niveis")));
             }
             validar_fim(nome_da_modalidade, modalidade)?;
-            validar_modelo_humano(nome_da_modalidade, modalidade)?;
+            // `as_ref()` transforma `&Option<ModeloHumano>` em `Option<&ModeloHumano>`,
+            // que é o que a função recebe (ela só lê).
+            validar_modelo_humano(nome_da_modalidade, modalidade.modelo_humano.as_ref())?;
             for (nome, nivel) in &modalidade.niveis {
                 validar_nivel(nome_da_modalidade, nome, nivel)?;
-                validar_ponderacao(nome_da_modalidade, nome, nivel, modalidade.modelo_humano.is_some())?;
+                // O modelo do nível é conferido como o da modalidade, com o
+                // endereço completo na mensagem (`tradicional.cacau`).
+                validar_modelo_humano(&format!("{nome_da_modalidade}.{nome}"), nivel.modelo_humano.as_ref())?;
+                // O peso humano precisa de um modelo, venha de onde vier.
+                let tem_modelo = nivel.modelo_humano.is_some() || modalidade.modelo_humano.is_some();
+                validar_ponderacao(nome_da_modalidade, nome, nivel, tem_modelo)?;
             }
         }
         Ok(contrato)
@@ -221,8 +240,12 @@ impl Modalidade {
 
     /// Os números do ruído de um nível desta modalidade, no formato que
     /// `niveis.rs` usa. Mora na modalidade, e não no nível, porque o sorteio com
-    /// peso precisa dos pesos do `modelo_humano`, que são da modalidade.
+    /// peso pode precisar dos pesos do `modelo_humano` da modalidade (quando o
+    /// nível não traz o seu, T051h).
     pub fn ruido_do_nivel(&self, nivel: &Nivel) -> Ruido {
+        // O modelo que vale para este nível: o próprio, se houver; senão, o da
+        // modalidade. `or` fica com o primeiro `Some` dos dois `Option`.
+        let modelo = nivel.modelo_humano.as_ref().or(self.modelo_humano.as_ref());
         // `zip` junta os dois `Option`: só há ponderação com os dois campos (o
         // `ler` já recusou o contrato que traz um sem o outro).
         let ponderacao = nivel
@@ -231,8 +254,8 @@ impl Modalidade {
             .map(|(temperatura, peso_humano)| Ponderacao {
                 temperatura_do_erro_cp: temperatura,
                 peso_humano_milesimos: peso_humano,
-                // Sem modelo (só possível com peso humano zero), pesos zerados.
-                pesos: self.modelo_humano.as_ref().map_or([0; NUMERO_DE_CARACTERISTICAS], ModeloHumano::vetor),
+                // Sem modelo nenhum (só possível com peso humano zero), pesos zerados.
+                pesos: modelo.map_or([0; NUMERO_DE_CARACTERISTICAS], ModeloHumano::vetor),
             });
         Ruido {
             margem_do_erro_cp: nivel.margem_do_erro_cp,
@@ -325,32 +348,38 @@ fn validar_nivel(modalidade: &str, nome: &str, nivel: &Nivel) -> Result<(), Erro
     Ok(())
 }
 
-/// Os pesos do modelo humano: todo nome tem de ser uma característica que o
-/// motor conhece, e todo peso cabe no teto.
-fn validar_modelo_humano(modalidade: &str, m: &Modalidade) -> Result<(), ErroContrato> {
-    let Some(modelo) = &m.modelo_humano else { return Ok(()) };
+/// Os pesos de um modelo humano (o da modalidade ou o de um nível): todo nome
+/// tem de ser uma característica que o motor conhece, e todo peso cabe no teto.
+/// `onde` é o endereço que vai na mensagem (`tradicional` ou `tradicional.cacau`).
+fn validar_modelo_humano(onde: &str, modelo: Option<&ModeloHumano>) -> Result<(), ErroContrato> {
+    let Some(modelo) = modelo else { return Ok(()) };
     for (nome, &peso) in &modelo.pesos {
         if Caracteristica::do_nome(nome).is_none() {
             return Err(ErroContrato::Invalido(format!(
-                "{modalidade}.modelo_humano: caracteristica desconhecida: {nome}"
+                "{onde}.modelo_humano: caracteristica desconhecida: {nome}"
             )));
         }
         // `unsigned_abs` dá o valor sem sinal sem estourar no menor `i32`.
         if peso.unsigned_abs() > MAIOR_NUMERO_DO_MODELO as u32 {
             return Err(ErroContrato::Invalido(format!(
-                "{modalidade}.modelo_humano: peso de {nome} fora de -{MAIOR_NUMERO_DO_MODELO} a {MAIOR_NUMERO_DO_MODELO}"
+                "{onde}.modelo_humano: peso de {nome} fora de -{MAIOR_NUMERO_DO_MODELO} a {MAIOR_NUMERO_DO_MODELO}"
             )));
         }
     }
     Ok(())
 }
 
-/// O sorteio com peso de um nível: os dois campos juntos, nas faixas, e o peso
-/// humano só com o modelo da modalidade presente.
+/// O sorteio com peso de um nível: os dois campos juntos, nas faixas, o peso
+/// humano só com algum modelo presente (`tem_modelo`: o do nível ou o da
+/// modalidade), e o modelo do nível só com a ponderação (sem ela, ele não
+/// pesaria nada, e um contrato que o traz assim é engano de quem o escreveu).
 fn validar_ponderacao(modalidade: &str, nome: &str, nivel: &Nivel, tem_modelo: bool) -> Result<(), ErroContrato> {
     let onde = format!("{modalidade}.{nome}");
     let invalido = |motivo: &str| Err(ErroContrato::Invalido(format!("{onde}: {motivo}")));
     match (nivel.temperatura_do_erro_cp, nivel.peso_humano_milesimos) {
+        (None, None) if nivel.modelo_humano.is_some() => {
+            invalido("modelo_humano no nivel sem temperatura_do_erro_cp e peso_humano_milesimos")
+        }
         (None, None) => Ok(()),
         (Some(_), None) | (None, Some(_)) => {
             invalido("temperatura_do_erro_cp e peso_humano_milesimos vem juntos")
@@ -363,7 +392,7 @@ fn validar_ponderacao(modalidade: &str, nome: &str, nivel: &Nivel, tem_modelo: b
                 return invalido("peso_humano_milesimos fora de 0 a 100000");
             }
             if peso_humano > 0 && !tem_modelo {
-                return invalido("peso_humano_milesimos sem o modelo_humano da modalidade");
+                return invalido("peso_humano_milesimos sem o modelo_humano (do nivel ou da modalidade)");
             }
             Ok(())
         }

@@ -369,12 +369,12 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/Cargo.toml",
-      "sha256": "02b9ab4351602216414693d739ae58276401c24eea53a2ab031b450447775f93",
-      "tamanho_bytes": 3736
+      "sha256": "20c95b467e8af89fe1459cbe02e3beff83a808d5dd7c13bb7fe747ce6801ea2c",
+      "tamanho_bytes": 4219
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/Cargo.lock",
-      "sha256": "daa7b0051a87ba57a4c03f031a123bdad2bbeb76419f5726487afa43fc23c049",
+      "sha256": "1a66149a6b6a323276361d3597318c9c262ce0f335edd685493ca2443bc9b4ae",
       "tamanho_bytes": 3119
     },
     {
@@ -399,8 +399,8 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/src/contrato.rs",
-      "sha256": "80d7003689a0acfe2b67865c49803d0be50d21b500ea871416ec4ad63dd56284",
-      "tamanho_bytes": 16883
+      "sha256": "029aa2780e182e0d113a1bb6305bfefb18b97d08ecad2024246d4570a5bca2d6",
+      "tamanho_bytes": 19076
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/src/despacho.rs",
@@ -414,7 +414,7 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/src/ffi.rs",
-      "sha256": "a95904c3bdcb3c8e50f134a1e902c3d15f6fcb424b2f67b5dd99ef9631536903",
+      "sha256": "28e2a8a2cf0c080adecc8a2b454d3a5521ca07fda4a3756db58142c1c6e1d130",
       "tamanho_bytes": 7327
     },
     {
