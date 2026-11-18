@@ -1,6 +1,6 @@
 {
-  "_comentario": "FONTE do contrato do xadrez (spec 012, contracts/motor-xadrez.md §4; research.md R-09, R-21). Copias byte-identicas: arena-sagaz-frontend/assets/jogos/xadrez/contrato_xadrez.json (T027) e o espelho do servidor. Os numeros dos niveis sao PONTOS DE PARTIDA: a escada e a calibracao da fase 1 os movem. As chances viajam em MILESIMOS (350 = 35%), para nenhum sorteio passar por ponto flutuante.",
-  "versao": "1.0.0",
+  "_comentario": "FONTE do contrato do xadrez (spec 012, contracts/motor-xadrez.md §4; research.md R-09, R-11, R-21). Copias byte-identicas: arena-sagaz-frontend/assets/jogos/xadrez/contrato_xadrez.json (T027) e o espelho do servidor. Os niveis sairam da medicao contra a Maia (T051e, 18/11/2026; a meta do dono em DECISOES 8zzzz24): Cacau, Pita e Tex jogam TODO lance pelo sorteio ponderado (chance_do_erro_milesimos 1000), em que a nota da busca (temperatura_do_erro_cp) e a naturalidade do lance para uma pessoa (modelo_humano, peso_humano_milesimos) dizem a chance de cada plausivel. As chances viajam em MILESIMOS (350 = 35%), para nenhum sorteio passar por ponto flutuante.",
+  "versao": "1.1.0",
   "formula_da_semente": "semente_do_lance = (mestra + ordem * 2654435761) & 0x7FFFFFFF; ordem a partir de 1 desde fen_inicial",
   "magno_no_build": true,
   "por_modalidade": {
@@ -12,21 +12,38 @@
         "cinquenta_lances": {"limite": 50, "aviso_quando_faltam": 10, "unidade": "lances_de_cada_lado"},
         "repeticao_tripla": {"limite": 3, "aviso_quando_faltam": 1, "unidade": "ocorrencias"}
       },
+      "modelo_humano": {
+        "_origem": "destilar_modelo_humano.py (spec 012, T051d): regua maia_1100 (pesos sha256 e1cf1cd0c96b), motor 0.6.0, 9053 posicoes de treino, L2 0.0001. NAO edite a mao: rode a destilacao e copie o bloco de ia/medicoes/destilar_modelo_humano/modelo_humano.json.",
+        "pesos": {
+          "captura_valor": 111, "captura_retomada": 127, "xeque": 158, "roque": 215,
+          "promocao_dama": 391, "promocao_menor": -113,
+          "peca_peao": -7, "peca_cavalo": -4, "peca_bispo": -50, "peca_torre": -42, "peca_dama": -55, "peca_rei": -57,
+          "avanco": 10, "recuo": -28, "distancia": 0, "desenvolvimento": 86,
+          "centro": 82, "centro_ampliado": 50, "mesma_peca": 49, "fuga": 15, "cai_em_perigo": -48, "peao_da_borda": -27,
+          "ameaca_por_peao": -55, "ameaca_por_cavalo": -7, "ameaca_por_linha": -6, "ameaca_por_rei": -45,
+          "ameaca_distancia": -4, "ameaca_muro": -7, "ameaca_falsa_cobertura": -6, "ameaca_ignorada": -26,
+          "captura_defendida_por_peao": 10, "captura_defendida_por_cavalo": -38, "captura_defendida_por_linha": -34,
+          "captura_defendida_por_rei": 4, "captura_defensor_distancia": 30
+        }
+      },
       "niveis": {
         "cacau": {"profundidade_maxima": 1, "teto_de_nos": 5000, "quiescencia": "nao",
-                  "margem_do_erro_cp": 150, "chance_do_erro_milesimos": 350,
-                  "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 10, "relogio_s": null},
+                  "margem_do_erro_cp": 300, "chance_do_erro_milesimos": 1000,
+                  "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 10, "relogio_s": null,
+                  "temperatura_do_erro_cp": 10, "peso_humano_milesimos": 8000},
         "pita": {"profundidade_maxima": 2, "teto_de_nos": 20000, "quiescencia": "curta",
-                 "margem_do_erro_cp": 80, "chance_do_erro_milesimos": 200,
-                 "chance_da_cegueira_milesimos": 250, "rede_de_tempo_s": 10, "relogio_s": 60},
-        "tex": {"profundidade_maxima": 64, "teto_de_nos": 200000, "quiescencia": "sim",
-                "margem_do_erro_cp": 30, "chance_do_erro_milesimos": 50,
-                "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 15, "relogio_s": 45},
-        "magno": {"_comentario": "PRIMEIRA PROPOSTA DO DONO (14/11/2026, DECISOES 8zzzz18): 1000000 nos e rede de 10 s, como nas damas. Pior lance medido: 0,70 s no Galaxy A06 e 1,34 s no A04; estimado ~3 a 5 s no Galaxy J7 Neo (32 bits) com a avaliacao da fase 1. A T054 confirma ou troca, com a calibracao e a T056.",
-                  "profundidade_maxima": 64, "teto_de_nos": 1000000, "quiescencia": "sim",
+                 "margem_do_erro_cp": 300, "chance_do_erro_milesimos": 1000,
+                 "chance_da_cegueira_milesimos": 1000, "rede_de_tempo_s": 10, "relogio_s": 60,
+                 "temperatura_do_erro_cp": 30, "peso_humano_milesimos": 8000},
+        "tex": {"profundidade_maxima": 64, "teto_de_nos": 20000, "quiescencia": "sim",
+                "margem_do_erro_cp": 300, "chance_do_erro_milesimos": 1000,
+                "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 15, "relogio_s": 45,
+                "temperatura_do_erro_cp": 200, "peso_humano_milesimos": 8000},
+        "magno": {"_comentario": "T051e (18/11/2026): 50000 nos, o menor teto que nao perdeu contra a Maia 1100 (0 em 200; 20000 perdeu 2 e 100000 perdeu 1: a derrota real fica em ~0,5% nos tres). Era 1000000 (DECISOES 8zzzz18); a meta contra gente (8zzzz24) pede um Magno bem mais leve, e por isso folgado no 32 bits. A T054 confirma ou troca.",
+                  "profundidade_maxima": 64, "teto_de_nos": 50000, "quiescencia": "sim",
                   "margem_do_erro_cp": 0, "chance_do_erro_milesimos": 0,
                   "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 10, "relogio_s": 40},
-        "ideal": {"_comentario": "A jogada ideal (o poder, R-28): a busca do Magno, sem ruido, com os mesmos numeros dele (14/11/2026, DECISOES 8zzzz18). A T054 confirma ou troca.",
+        "ideal": {"_comentario": "A jogada ideal (o poder, R-28): a busca sem ruido. Nasceu com os numeros do Magno (14/11/2026, DECISOES 8zzzz18); na T051e o Magno desceu para 50000 nos pela meta contra gente, e o poder ficou com o teto de antes, 1000000 (o lance que a pessoa pede ao poder tem de ser o melhor que o motor acha). A T054 confirma ou troca.",
                   "profundidade_maxima": 64, "teto_de_nos": 1000000, "quiescencia": "sim",
                   "margem_do_erro_cp": 0, "chance_do_erro_milesimos": 0,
                   "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 10, "relogio_s": null}
