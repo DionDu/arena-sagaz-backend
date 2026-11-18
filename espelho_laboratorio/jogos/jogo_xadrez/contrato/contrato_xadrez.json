@@ -1,6 +1,6 @@
 {
-  "_comentario": "FONTE do contrato do xadrez (spec 012, contracts/motor-xadrez.md §4; research.md R-09, R-11, R-21). Copias byte-identicas: arena-sagaz-frontend/assets/jogos/xadrez/contrato_xadrez.json (T027) e o espelho do servidor. Os niveis sairam da medicao contra a Maia (T051e, 18/11/2026; a meta do dono em DECISOES 8zzzz24): Cacau, Pita e Tex jogam TODO lance pelo sorteio ponderado (chance_do_erro_milesimos 1000), em que a nota da busca (temperatura_do_erro_cp) e a naturalidade do lance para uma pessoa (modelo_humano, peso_humano_milesimos) dizem a chance de cada plausivel. As chances viajam em MILESIMOS (350 = 35%), para nenhum sorteio passar por ponto flutuante.",
-  "versao": "1.1.0",
+  "_comentario": "FONTE do contrato do xadrez (spec 012, contracts/motor-xadrez.md §4; research.md R-09, R-11, R-21). Copias byte-identicas: arena-sagaz-frontend/assets/jogos/xadrez/contrato_xadrez.json (T027) e o espelho do servidor. Os niveis sairam da medicao contra a Maia (T051e, 18/11/2026; a meta do dono em DECISOES 8zzzz24): Cacau, Pita e Tex jogam TODO lance pelo sorteio ponderado (chance_do_erro_milesimos 1000), em que a nota da busca (temperatura_do_erro_cp) e a naturalidade do lance para uma pessoa (modelo_humano, peso_humano_milesimos) dizem a chance de cada plausivel. Desde o 1.2.0 (T051h, 18/11/2026; motor 0.8.0) a Cacau tem o modelo humano PROPRIO, de iniciante, no nivel dela; a Pita e o Tex seguem com o da modalidade. As chances viajam em MILESIMOS (350 = 35%), para nenhum sorteio passar por ponto flutuante.",
+  "versao": "1.2.0",
   "formula_da_semente": "semente_do_lance = (mestra + ordem * 2654435761) & 0x7FFFFFFF; ordem a partir de 1 desde fen_inicial",
   "magno_no_build": true,
   "por_modalidade": {
@@ -27,10 +27,27 @@
         }
       },
       "niveis": {
-        "cacau": {"profundidade_maxima": 1, "teto_de_nos": 5000, "quiescencia": "nao",
-                  "margem_do_erro_cp": 300, "chance_do_erro_milesimos": 1000,
+        "cacau": {"_comentario": "T051h (18/11/2026, DECISOES 8zzzz31): a mescla h17. O modelo humano PROPRIO, de iniciante (a Maia-2 abaixo de 1100, as 42 caracteristicas do motor 0.8.0), que substitui o da modalidade so aqui; temperatura 100000 (a busca quase sem peso: ela sorteia como gente entre os lances a ate 600 cp do melhor) e peso humano 500 (o modelo achatado, que da a forca). A pessoa vence 88,5% contra a Maia 1 1100 em 200 partidas.",
+                  "profundidade_maxima": 1, "teto_de_nos": 5000, "quiescencia": "nao",
+                  "margem_do_erro_cp": 600, "chance_do_erro_milesimos": 1000,
                   "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 10, "relogio_s": null,
-                  "temperatura_do_erro_cp": 10, "peso_humano_milesimos": 8000},
+                  "temperatura_do_erro_cp": 100000, "peso_humano_milesimos": 500,
+                  "modelo_humano": {
+                    "_origem": "destilar_modelo_humano.py --regua maia2 --elo 1000 (spec 012, T051h): regua maia2_rapid_1000 (faixa <1100; pesos sha256 65aae8465eed), motor 0.8.0, 129343 posicoes de treino, L2 0.0001. NAO edite a mao: rode a destilacao e copie o bloco de ia/medicoes/destilar_modelo_humano_maia2/elo_1000/modelo_humano.json.",
+                    "pesos": {
+                    "captura_valor": 115, "captura_retomada": 70, "xeque": 204, "roque": 211,
+                    "promocao_dama": 434, "promocao_menor": -100,
+                    "peca_peao": -3, "peca_cavalo": 22, "peca_bispo": -49, "peca_torre": -43, "peca_dama": -82, "peca_rei": -56,
+                    "avanco": 7, "recuo": -15, "distancia": 3, "desenvolvimento": 60,
+                    "centro": 40, "centro_ampliado": 21, "mesma_peca": 22, "fuga": 10, "cai_em_perigo": -34, "peao_da_borda": -35,
+                    "ameaca_por_peao": -58, "ameaca_por_cavalo": -8, "ameaca_por_linha": -17, "ameaca_por_rei": -54,
+                    "ameaca_distancia": -6, "ameaca_muro": -12, "ameaca_falsa_cobertura": -6, "ameaca_ignorada": -19,
+                    "captura_defendida_por_peao": -23, "captura_defendida_por_cavalo": -65, "captura_defendida_por_linha": -59,
+                    "captura_defendida_por_rei": -7, "captura_defensor_distancia": 19,
+                    "ataca_valor": 16, "ataca_desprotegida": 48, "mobilidade_ganha": 9, "peao_passado": 102,
+                    "captura_ganho": -25, "troca": 109, "xeque_que_entrega": -30
+                    }
+                  }},
         "pita": {"profundidade_maxima": 2, "teto_de_nos": 20000, "quiescencia": "curta",
                  "margem_do_erro_cp": 300, "chance_do_erro_milesimos": 1000,
                  "chance_da_cegueira_milesimos": 1000, "rede_de_tempo_s": 10, "relogio_s": 60,
