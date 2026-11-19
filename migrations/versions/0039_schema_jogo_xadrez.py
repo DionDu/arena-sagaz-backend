@@ -352,6 +352,15 @@ def upgrade() -> None:
     # da recusa). Por isso nao ha FK para a jogada, a FK aponta para a PARTIDA, e
     # a `vw003_recusa` usa `LEFT JOIN`. Teto de 50 recusas por partida, contado
     # pelo app.
+    #
+    # `co_casa_destino` ACEITA NULL (decisao do dono, 19/11/2026, §8zzzz41 do
+    # `DECISOES-do-dono.md` do app): o toque numa peca SEM lance nenhum
+    # (`peca_sem_lance`, a regra 11) nao tem destino - o motor so a emite no
+    # `recusa` sem "para". NULL quer dizer "a pessoa so tocou a peca". O CHECK da
+    # casa continua valendo quando ha valor (no Postgres, um CHECK que da NULL
+    # passa; o `IS NULL OR` esta escrito para quem le nao precisar saber disso).
+    # Mudou aqui, e nao por ALTER, porque a 0039 ainda nao tinha sido aplicada em
+    # banco nenhum (§8b: ate o 1o upgrade, defeito de modelagem se refaz).
     op.execute(
         """
         CREATE TABLE jogo_xadrez.tb003_recusa (
@@ -361,12 +370,13 @@ def upgrade() -> None:
             nu_ordem        SMALLINT   NOT NULL,
             nu_sequencia    SMALLINT   NOT NULL,
             co_casa_origem  VARCHAR(2) NOT NULL,
-            co_casa_destino VARCHAR(2) NOT NULL,
+            co_casa_destino VARCHAR(2),
             nu_regra        SMALLINT   NOT NULL
                 REFERENCES jogo_xadrez.tb901_regra_recusa(nu_regra),
             dh_recusa       TIMESTAMPTZ NOT NULL,
             CONSTRAINT ck_xadrez_casa_origem CHECK (co_casa_origem ~ '^[a-h][1-8]$'),
-            CONSTRAINT ck_xadrez_casa_destino CHECK (co_casa_destino ~ '^[a-h][1-8]$'),
+            CONSTRAINT ck_xadrez_casa_destino
+                CHECK (co_casa_destino IS NULL OR co_casa_destino ~ '^[a-h][1-8]$'),
             CONSTRAINT uq_xadrez_recusa UNIQUE (id_partida, nu_ordem, nu_sequencia)
         )
         """
