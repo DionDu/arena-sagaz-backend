@@ -21,6 +21,11 @@
 //!    `temperatura_do_erro_cp` e o `peso_humano_milesimos` (T051c, motor
 //!    0.6.0), com peso: a nota da busca mais a naturalidade do lance para uma
 //!    pessoa (`humano.rs`), sorteados por softmax inteiro ([`Ponderacao`]).
+//!    ⚠️ **Com o resultado provado não há sorteio** (motor 0.9.0, T051j): se a
+//!    melhor nota é um mate, a favor ou contra, só o melhor é plausível. Sem
+//!    isso, os mates de distâncias diferentes (2 pontos de nota um do outro)
+//!    cabiam em qualquer margem, e o Magno perdido podia aceitar o mate mais
+//!    rápido (RF-XDR-082).
 //! 5. **Sem erro**: a busca comum do nível (`busca::buscar`), e o melhor lance,
 //!    com o empate desfeito pela ordem estável (R-05).
 //! 6. **A cegueira** (R-10, T039; a `chance_da_cegueira_milesimos`): os passos 4
@@ -58,7 +63,7 @@ use cozy_chess::{Board, Move, Piece, Square};
 use crate::aleatorio::SplitMix64;
 use crate::busca::{
     buscar, buscar_com_visao, chave_estavel, e_captura, notas_da_raiz_com_visao, Limites, Parada, Resultado,
-    Visao, MATE,
+    Visao, MATE, PLY_MAXIMO,
 };
 use crate::humano::{caracteristicas, indice_sorteado, nota_humana, NUMERO_DE_CARACTERISTICAS};
 use crate::posicao::{lances_legais, Posicao};
@@ -352,16 +357,25 @@ fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteio: u64, visa
     // com as notas da busca, que cabem em ±32 000; é só cuidado).
     let piso = melhor_nota.saturating_sub(ruido.margem_do_erro_cp);
     let desfaz = lance_que_desfaz(posicao);
+    // O resultado já está PROVADO (motor 0.9.0, T051j): a melhor nota é um mate,
+    // a favor ou contra. A nota do mate é `MATE - ply`, e dois mates de
+    // distâncias diferentes ficam a só 2 pontos um do outro: qualquer margem os
+    // poria entre os plausíveis, e o sorteio escolheria entre o mate rápido e o
+    // lento. Aqui só o melhor fica: quem ganha dá o mate mais curto que achou, e
+    // quem perde escolhe o que mais adia a derrota (RF-XDR-082). É a mesma conta
+    // de "decidido" da busca (`busca.rs`): um mate a até `PLY_MAXIMO` meios-lances.
+    let decidido = melhor_nota.abs() >= MATE - PLY_MAXIMO as i32;
 
     // Os plausíveis, na ordem estável (a das notas): a nota no piso ou acima, e
-    // o lance de volta só quando ele é o próprio melhor.
+    // o lance de volta só quando ele é o próprio melhor. Com o resultado
+    // decidido, só o melhor.
     let plausiveis: Vec<(Move, i32)> = notas
         .notas
         .iter()
         .copied()
         .filter(|&(lance, nota)| {
             let volta = desfaz == Some((lance.from, lance.to));
-            nota >= piso && (!volta || lance == melhor_lance)
+            nota >= piso && (!volta || lance == melhor_lance) && (!decidido || lance == melhor_lance)
         })
         .collect();
     // O melhor sempre está na lista (a nota dele é o teto, e ele nunca é

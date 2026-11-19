@@ -1,7 +1,7 @@
 [package]
 name = "motor_xadrez"
 # ⚠️ Esta é a versão que `xadrez_versao()` devolve ao app - ela vem daqui, por
-# `env!("CARGO_PKG_VERSION")`, e o app a grava no log como `rust_0.8.0`.
+# `env!("CARGO_PKG_VERSION")`, e o app a grava no log como `rust_0.9.0`.
 # Suba-a sempre que o motor mudar de comportamento (outro lance em algum vetor de
 # paridade, R-05). Um binário que mente sobre a própria versão torna o log de
 # campo inútil.
@@ -47,7 +47,12 @@ name = "motor_xadrez"
 # Com os pesos de hoje (sem as novas, que pesam 0), nenhum lance muda; a versão
 # sobe porque a lista de características (as colunas da destilação) mudou, e um
 # contrato com os nomes novos seria recusado por um binário 0.7.0.
-version = "0.8.0"
+# 0.9.0 (18/11/2026): a T051j - com o resultado provado (a melhor nota da raiz
+# é um mate, a favor ou contra) o sorteio do erro não entra, e sai o melhor
+# (`niveis.rs`). O Magno do contrato 1.4.0 sorteia entre os lances a até 30 cp,
+# e os mates de distâncias diferentes (2 pontos de nota um do outro) cabiam na
+# margem: perdido, ele aceitava o mate mais rápido (RF-XDR-082).
+version = "0.9.0"
 edition = "2021"
 
 [lib]
