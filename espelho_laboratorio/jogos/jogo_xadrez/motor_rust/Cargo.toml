@@ -1,7 +1,7 @@
 [package]
 name = "motor_xadrez"
 # ⚠️ Esta é a versão que `xadrez_versao()` devolve ao app - ela vem daqui, por
-# `env!("CARGO_PKG_VERSION")`, e o app a grava no log como `rust_0.9.0`.
+# `env!("CARGO_PKG_VERSION")`, e o app a grava no log como `rust_0.10.0`.
 # Suba-a sempre que o motor mudar de comportamento (outro lance em algum vetor de
 # paridade, R-05). Um binário que mente sobre a própria versão torna o log de
 # campo inútil.
@@ -52,7 +52,14 @@ name = "motor_xadrez"
 # (`niveis.rs`). O Magno do contrato 1.4.0 sorteia entre os lances a até 30 cp,
 # e os mates de distâncias diferentes (2 pontos de nota um do outro) cabiam na
 # margem: perdido, ele aceitava o mate mais rápido (RF-XDR-082).
-version = "0.9.0"
+# 0.10.0 (19/11/2026): a T051k - a extensão de xeque, por nível no contrato
+# (`extensao_de_xeque`, contrato 1.5.0, ligada só no Magno e no `ideal`): o
+# lance que dá xeque não gasta profundidade (até 6 por linha), e a quiescência
+# com o rei em xeque olha as fugas em vez de ficar parada (`busca.rs`). A #94 da
+# T051j (mate em três xeques) vira teste (`tests/extensao_de_xeque.rs`). Com a
+# chave desligada a árvore é a da 0.9.0: os vetores da Cacau, da Pita e do Tex
+# não mudam.
+version = "0.10.0"
 edition = "2021"
 
 [lib]

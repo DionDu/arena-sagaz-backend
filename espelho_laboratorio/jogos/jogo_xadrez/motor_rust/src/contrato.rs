@@ -190,6 +190,14 @@ pub struct Nivel {
     /// modelo no nível sem ela não pesaria nada, e o `ler` o recusa.
     #[serde(default)]
     pub modelo_humano: Option<ModeloHumano>,
+    /// A extensão de xeque (T051k, motor 0.10.0, contrato 1.5.0): o lance que
+    /// dá xeque não gasta profundidade, e a quiescência não fica parada com o
+    /// rei em xeque (`busca.rs`). Aditivo e `false` por padrão
+    /// (`#[serde(default)]` lê o campo ausente como `false`): o contrato 1.4.0
+    /// continua valendo igual. Ligado só no Magno e no `ideal`
+    /// (`docs/DECISOES-do-dono.md` §8zzzz34).
+    #[serde(default)]
+    pub extensao_de_xeque: bool,
 }
 
 impl Contrato {
@@ -284,6 +292,7 @@ impl Modalidade {
             },
             entradas_da_tt: self.entradas_da_tt,
             rede_de_tempo_s: nivel.rede_de_tempo_s,
+            extensao_de_xeque: nivel.extensao_de_xeque,
         }
     }
 }

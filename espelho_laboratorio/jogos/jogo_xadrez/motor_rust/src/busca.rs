@@ -67,6 +67,25 @@
 //! repetição" pode ser lida por outro caminho. É o compromisso de todo motor com
 //! TT, e não fere o determinismo: a TT nasce vazia a cada pedido, e o mesmo
 //! pedido percorre a mesma árvore.
+//!
+//! ## A extensão de xeque (T051k, motor 0.10.0, `docs/DECISOES-do-dono.md` §8zzzz34)
+//!
+//! Com [`Limites::extensao_de_xeque`] ligada (só o Magno e a jogada ideal, no
+//! contrato), duas coisas mudam:
+//!
+//! - **O lance que dá xeque não gasta profundidade.** Uma sequência de xeques é
+//!   forçada (quem leva xeque tem poucas respostas), e é nela que mora o mate
+//!   que a profundidade fixa não alcança: a posição #94 da T051j (research.md
+//!   R-11), em que o Magno comia um cavalo e levava mate em três xeques, que só
+//!   se confirmava no 7º meio-lance. Para uma série de xeques não alongar a conta
+//!   sem fim, cada linha estende no máximo [`LIMITE_DE_EXTENSOES_POR_LINHA`] vezes.
+//! - **A quiescência não "fica parada" com o rei em xeque.** Ficar parado (a
+//!   nota da posição, sem jogar) supõe que quem joga pode não fazer nada; em
+//!   xeque ele é OBRIGADO a sair, e a nota parada contava material numa posição
+//!   que podia ser mate. Ali a quiescência olha todas as fugas, e sem fuga é mate.
+//!
+//! Com a chave desligada, a árvore é exatamente a da 0.9.0: é o que os vetores
+//! da Cacau, da Pita e do Tex conferem (eles não podem mudar).
 
 use cozy_chess::{Board, Color, Move, Piece, Square};
 
@@ -87,6 +106,13 @@ const INFINITO: i32 = 32_000;
 /// O ply mais fundo que a busca alcança (a quiescência inclusive). Também é a
 /// faixa que separa "nota de mate" de "nota de material".
 pub const PLY_MAXIMO: usize = 128;
+
+/// Quantas extensões de xeque uma linha da árvore pode somar (T051k). Seis
+/// cobrem três xeques de cada lado, o bastante para a #94 (três xeques seguidos
+/// do adversário) com folga para as respostas que também dão xeque; mais que
+/// isso deixaria uma série de xeques sem saída (o "xeque perpétuo" antes de a
+/// repetição o pegar) gastar o orçamento inteiro numa linha só.
+pub const LIMITE_DE_EXTENSOES_POR_LINHA: u32 = 6;
 
 /// De quantos em quantos nós a rede de tempo olha o relógio. Ler a hora custa
 /// uma chamada ao sistema; a cada 2048 nós o custo some e o atraso do corte fica
@@ -126,6 +152,11 @@ pub struct Limites {
     /// Quantos meios-lances sem captura nem lance de peão encerram a partida
     /// (100 na tradicional: os "50 lances" de cada lado). `None`: sem esse empate.
     pub meios_lances_do_empate: Option<u32>,
+    /// A extensão de xeque (T051k): o lance que dá xeque não gasta
+    /// profundidade, e a quiescência não fica parada com o rei em xeque (ver o
+    /// topo do arquivo). Vem do nível, no contrato; `false` deixa a busca igual
+    /// à da 0.9.0.
+    pub extensao_de_xeque: bool,
 }
 
 /// Por que a busca parou (os códigos da `tb902` das damas, R-06).
@@ -272,7 +303,10 @@ pub fn buscar_com_visao(posicao: &Posicao, limites: &Limites, visao: Visao) -> O
             let mut depois = tabuleiro.clone();
             depois.play_unchecked(lance);
             busca.caminho.push(chave_da_posicao(&depois));
-            let nota = -busca.negamax(&depois, profundidade - 1, -INFINITO, -alfa, 1, lance.to);
+            // A extensão de xeque vale também na raiz: o lance que dá xeque é
+            // olhado uma camada mais fundo que os outros.
+            let ext = busca.extensao(&depois, 0);
+            let nota = -busca.negamax(&depois, profundidade - 1 + ext, -INFINITO, -alfa, 1, lance.to, ext);
             busca.caminho.pop();
             if busca.abortou.is_some() {
                 break;
@@ -402,8 +436,9 @@ pub fn notas_da_raiz_com_visao(posicao: &Posicao, limites: &Limites, visao: Visa
             depois.play_unchecked(lance);
             busca.caminho.push(chave_da_posicao(&depois));
             // A janela inteira para todo lance: a nota volta exata, e não só
-            // "pior que o melhor".
-            let nota = -busca.negamax(&depois, profundidade - 1, -INFINITO, INFINITO, 1, lance.to);
+            // "pior que o melhor". A extensão de xeque como na [`buscar`].
+            let ext = busca.extensao(&depois, 0);
+            let nota = -busca.negamax(&depois, profundidade - 1 + ext, -INFINITO, INFINITO, 1, lance.to, ext);
             busca.caminho.pop();
             if busca.abortou.is_some() {
                 break;
@@ -479,6 +514,20 @@ impl<'a> Busca<'a> {
         self.visao == Visao::Cega && ply == 1
     }
 
+    /// Quanto o lance que levou a `depois` estende a linha: 1 quando a chave
+    /// está ligada, `depois` tem o rei de quem joga em xeque e a linha ainda não
+    /// somou [`LIMITE_DE_EXTENSOES_POR_LINHA`] extensões; 0 nos outros casos.
+    fn extensao(&self, depois: &Board, extensoes_na_linha: u32) -> u32 {
+        // `checkers()` é o conjunto das peças que dão xeque no rei de quem joga
+        // agora; vazio = não há xeque.
+        let da_xeque = !depois.checkers().is_empty();
+        if self.limites.extensao_de_xeque && da_xeque && extensoes_na_linha < LIMITE_DE_EXTENSOES_POR_LINHA {
+            1
+        } else {
+            0
+        }
+    }
+
     /// Conta um nó. Devolve `false` quando a busca tem de parar (teto de nós ou
     /// rede de tempo), e já anota o motivo.
     fn contar_no(&mut self) -> bool {
@@ -501,7 +550,10 @@ impl<'a> Busca<'a> {
     }
 
     /// O negamax com alfa-beta. `ply` é a distância da raiz; `ultima_casa` é o
-    /// destino do lance que levou a esta posição (a quiescência curta precisa).
+    /// destino do lance que levou a esta posição (a quiescência curta precisa);
+    /// `extensoes_na_linha` é quantas extensões de xeque o caminho da raiz até
+    /// aqui já somou (sempre 0 com a chave desligada).
+    #[allow(clippy::too_many_arguments)]
     fn negamax(
         &mut self,
         tabuleiro: &Board,
@@ -510,6 +562,7 @@ impl<'a> Busca<'a> {
         beta: i32,
         ply: usize,
         ultima_casa: Square,
+        extensoes_na_linha: u32,
     ) -> i32 {
         // Os empates da modalidade vêm ANTES da TT e da quiescência: a chave da
         // TT não guarda o contador dos 50 nem o caminho, e uma posição empatada
@@ -575,7 +628,17 @@ impl<'a> Busca<'a> {
             let mut depois = tabuleiro.clone();
             depois.play_unchecked(lance);
             self.caminho.push(chave_da_posicao(&depois));
-            let nota = -self.negamax(&depois, profundidade - 1, -beta, -alfa, ply + 1, lance.to);
+            // O lance que dá xeque não gasta profundidade (com a chave ligada).
+            let ext = self.extensao(&depois, extensoes_na_linha);
+            let nota = -self.negamax(
+                &depois,
+                profundidade - 1 + ext,
+                -beta,
+                -alfa,
+                ply + 1,
+                lance.to,
+                extensoes_na_linha + ext,
+            );
             self.caminho.pop();
             if self.abortou.is_some() {
                 return 0;
@@ -675,6 +738,15 @@ impl<'a> Busca<'a> {
         if !self.contar_no() {
             return 0;
         }
+        // Com a extensão de xeque e o rei de quem joga em xeque, não há "ficar
+        // parado": ver [`Busca::quiescencia_em_xeque`].
+        if self.limites.extensao_de_xeque
+            && self.limites.quiescencia != Quiescencia::Nao
+            && ply < PLY_MAXIMO
+            && !tabuleiro.checkers().is_empty()
+        {
+            return self.quiescencia_em_xeque(tabuleiro, alfa, beta, ply);
+        }
         let parada = avaliar(tabuleiro);
         if self.limites.quiescencia == Quiescencia::Nao || ply >= PLY_MAXIMO {
             return parada;
@@ -709,6 +781,41 @@ impl<'a> Busca<'a> {
         self.ordenar(tabuleiro, &mut lances, ply, None);
 
         let mut melhor = parada;
+        for lance in lances {
+            let mut depois = tabuleiro.clone();
+            depois.play_unchecked(lance);
+            let nota = -self.quiescencia(&depois, -beta, -alfa, ply + 1, lance.to);
+            if self.abortou.is_some() {
+                return 0;
+            }
+            if nota > melhor {
+                melhor = nota;
+            }
+            if nota > alfa {
+                alfa = nota;
+            }
+            if alfa >= beta {
+                break;
+            }
+        }
+        melhor
+    }
+
+    /// A quiescência com o rei de quem joga em xeque (só com a extensão de
+    /// xeque ligada): em xeque, quem joga é obrigado a sair, então a nota parada
+    /// não vale. Olha TODAS as respostas legais (as fugas do rei, as capturas da
+    /// peça que ataca, os bloqueios); sem resposta, é mate contra quem joga.
+    ///
+    /// Cada resposta volta à quiescência comum (que só segue capturas e
+    /// promoções, e volta aqui se a captura do outro lado der xeque de novo).
+    fn quiescencia_em_xeque(&mut self, tabuleiro: &Board, mut alfa: i32, beta: i32, ply: usize) -> i32 {
+        let mut lances = lances_legais(tabuleiro);
+        if lances.is_empty() {
+            // Em xeque e sem lance: mate, a `ply` meios-lances da raiz.
+            return -(MATE - ply as i32);
+        }
+        self.ordenar(tabuleiro, &mut lances, ply, None);
+        let mut melhor = -INFINITO;
         for lance in lances {
             let mut depois = tabuleiro.clone();
             depois.play_unchecked(lance);

@@ -1,6 +1,6 @@
 {
   "_comentario": "FONTE do contrato do xadrez (spec 012, contracts/motor-xadrez.md §4; research.md R-09, R-11, R-21). Copias byte-identicas: arena-sagaz-frontend/assets/jogos/xadrez/contrato_xadrez.json (T027) e o espelho do servidor. Os niveis sairam da medicao contra a Maia (T051e, 18/11/2026; a meta do dono em DECISOES 8zzzz24): Cacau, Pita e Tex jogam TODO lance pelo sorteio ponderado (chance_do_erro_milesimos 1000), em que a nota da busca (temperatura_do_erro_cp) e a naturalidade do lance para uma pessoa (modelo_humano, peso_humano_milesimos) dizem a chance de cada plausivel. Desde o 1.2.0 (T051h, 18/11/2026; motor 0.8.0) a Cacau tem o modelo humano PROPRIO, de iniciante, no nivel dela; a Pita e o Tex seguem com o da modalidade. No 1.3.0 (T051i, 18/11/2026, DECISOES 8zzzz32) a Pita e o Tex foram aos alvos com a busca mais curta e o modelo menos nitido. No 1.4.0 (T051j, 18/11/2026, DECISOES 8zzzz33) o Magno ganhou um minimo de variedade: o sorteio do erro em metade dos lances, entre os quase iguais, com o teto maior. As chances viajam em MILESIMOS (350 = 35%), para nenhum sorteio passar por ponto flutuante.",
-  "versao": "1.4.0",
+  "versao": "1.5.0",
   "formula_da_semente": "semente_do_lance = (mestra + ordem * 2654435761) & 0x7FFFFFFF; ordem a partir de 1 desde fen_inicial",
   "magno_no_build": true,
   "por_modalidade": {
@@ -58,15 +58,17 @@
                 "margem_do_erro_cp": 300, "chance_do_erro_milesimos": 1000,
                 "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 15, "relogio_s": 45,
                 "temperatura_do_erro_cp": 200, "peso_humano_milesimos": 4000},
-        "magno": {"_comentario": "T051j (18/11/2026, DECISOES 8zzzz33): a rodada m05, o Magno com um minimo de variedade. Em metade dos lances ele sorteia entre os lances a ate 30 cp do melhor, com o peso humano do Tex (temperatura 200, peso 4000): o desvio parece de gente. O teto de 500000 nos (era 50000) paga a variedade: o sorteio da a nota a raiz inteira e divide o teto entre os lances. Contra a Maia 1 1100 a pessoa vence 1,0% em 200 partidas (o de antes: ~1%); contra o Stockfish 1956 Elo (o de antes: 1939); o favorito sai em 64% das sementes (era 100%). No 32 bits (~365 nos/ms) sao ~1,4 s por lance. A T054 confirma ou troca.",
+        "magno": {"_comentario": "T051j (18/11/2026, DECISOES 8zzzz33): a rodada m05, o Magno com um minimo de variedade. Em metade dos lances ele sorteia entre os lances a ate 30 cp do melhor, com o peso humano do Tex (temperatura 200, peso 4000): o desvio parece de gente. O teto de 500000 nos (era 50000) paga a variedade: o sorteio da a nota a raiz inteira e divide o teto entre os lances. Contra a Maia 1 1100 a pessoa vence 1,0% em 200 partidas (o de antes: ~1%); contra o Stockfish 1956 Elo (o de antes: 1939); o favorito sai em 64% das sementes (era 100%). No 32 bits (~365 nos/ms) sao ~1,4 s por lance. A T054 confirma ou troca. T051k (19/11/2026, DECISOES 8zzzz34): a extensao de xeque ligada (contrato 1.5.0, motor 0.10.0), pela posicao #94.",
                   "profundidade_maxima": 64, "teto_de_nos": 500000, "quiescencia": "sim",
                   "margem_do_erro_cp": 30, "chance_do_erro_milesimos": 500,
                   "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 10, "relogio_s": 40,
-                  "temperatura_do_erro_cp": 200, "peso_humano_milesimos": 4000},
-        "ideal": {"_comentario": "A jogada ideal (o poder, R-28): a busca sem ruido. Nasceu com os numeros do Magno (14/11/2026, DECISOES 8zzzz18); na T051e o Magno desceu para 50000 nos pela meta contra gente, e o poder ficou com o teto de antes, 1000000 (o lance que a pessoa pede ao poder tem de ser o melhor que o motor acha). A T054 confirma ou troca.",
+                  "temperatura_do_erro_cp": 200, "peso_humano_milesimos": 4000,
+                  "extensao_de_xeque": true},
+        "ideal": {"_comentario": "A jogada ideal (o poder, R-28): a busca sem ruido. Nasceu com os numeros do Magno (14/11/2026, DECISOES 8zzzz18); na T051e o Magno desceu para 50000 nos pela meta contra gente, e o poder ficou com o teto de antes, 1000000 (o lance que a pessoa pede ao poder tem de ser o melhor que o motor acha). A T054 confirma ou troca. T051k (19/11/2026, DECISOES 8zzzz34): a extensao de xeque ligada, como no Magno.",
                   "profundidade_maxima": 64, "teto_de_nos": 1000000, "quiescencia": "sim",
                   "margem_do_erro_cp": 0, "chance_do_erro_milesimos": 0,
-                  "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 10, "relogio_s": null}
+                  "chance_da_cegueira_milesimos": 0, "rede_de_tempo_s": 10, "relogio_s": null,
+                  "extensao_de_xeque": true}
       },
       "guia": {"pecas": ["peao", "cavalo", "bispo", "torre", "dama", "rei"],
                "especiais": ["roque", "en_passant", "promocao"]}
