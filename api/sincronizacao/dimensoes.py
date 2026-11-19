@@ -95,6 +95,30 @@ _DIMENSOES: dict[str, tuple[str, str, str]] = {
         "co_tipo_lance",
         "nu_tipo_lance",
     ),
+    # ---- Xadrez (spec 012 do app, migração 0039) ----
+    #
+    # São CINCO, todas do schema `jogo_xadrez`, pelo motivo do aviso acima: a
+    # regra que barrou um gesto (`regra_recusa_xadrez`), por que a busca parou
+    # (`motivo_parada_xadrez`), como a CPU escolheu o lance (`acao_xadrez`), de
+    # onde a partida partiu (`inicio_xadrez`: tradicional, adiantado, desafio)
+    # e como ela acabou (`motivo_fim_xadrez`).
+    "regra_recusa_xadrez": (
+        "jogo_xadrez.vw901_regra_recusa",
+        "co_regra",
+        "nu_regra",
+    ),
+    "motivo_parada_xadrez": (
+        "jogo_xadrez.vw902_motivo_parada_busca",
+        "co_motivo_parada_busca",
+        "nu_motivo_parada_busca",
+    ),
+    "inicio_xadrez": ("jogo_xadrez.vw904_inicio_partida", "co_inicio", "nu_inicio"),
+    "motivo_fim_xadrez": (
+        "jogo_xadrez.vw905_motivo_fim",
+        "co_motivo_fim",
+        "nu_motivo_fim",
+    ),
+    "acao_xadrez": ("jogo_xadrez.vw906_jogada_acao", "co_acao", "nu_acao"),
     # ---- Genéricas (da partida, valem para qualquer jogo) ----
     "origem_decisao": (
         "partida.vw901_jogada_origem_decisao",

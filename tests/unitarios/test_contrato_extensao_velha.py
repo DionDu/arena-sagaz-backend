@@ -169,21 +169,24 @@ class TestC3AppNovoBackendAntigo:
         passou a falhar — corretamente, porque ele deixara de testar o que dizia
         testar.
 
-        O jogo desconhecido agora e `xadrez`, que nao existe em lugar nenhum. **E
-        ele tera de ser trocado de novo** no dia em que o xadrez entrar. Isso nao
-        e defeito do teste: e o preco de guardar a tolerancia ao DESCONHECIDO
-        usando um exemplo concreto — e o preco vale, porque a alternativa (nao
-        testar) e o modo de falha que este backend nao pode ter.
+        O jogo desconhecido passou a ser `xadrez`, e **morreu de novo em
+        19/11/2026** (3a vez), quando o xadrez entrou (T109 da spec 012). Agora
+        e `jogo_que_nao_existe`: um nome que nenhum jogo vai ter, para a troca
+        nao se repetir a cada jogo novo. A tolerancia ao DESCONHECIDO continua
+        guardada por um exemplo concreto, porque a alternativa (nao testar) e o
+        modo de falha que este backend nao pode ter.
 
         A mesma armadilha ja tinha custado caro no frontend, em
         `conquista_desconhecida_app_antigo_test.dart`, e la o canario tambem
         morreu duas vezes.
         """
         with caplog.at_level(logging.WARNING):
-            _avisar_extensao_desconhecida(_jogada(xadrez={"co_casa": "e4"}))
+            _avisar_extensao_desconhecida(
+                _jogada(jogo_que_nao_existe={"co_casa": "e4"})
+            )
         # `getMessage()` aplica os args ao formato; `r.message % r.args` faria
         # a interpolacao duas vezes e estouraria.
-        assert any("xadrez" in r.getMessage() for r in caplog.records)
+        assert any("jogo_que_nao_existe" in r.getMessage() for r in caplog.records)
 
     def test_as_extensoes_CONHECIDAS_nao_geram_aviso(self, caplog):
         with caplog.at_level(logging.WARNING):
@@ -204,13 +207,19 @@ class TestC3AppNovoBackendAntigo:
 
     def test_as_extensoes_conhecidas_estao_declaradas(self):
         """As que este backend sabe gravar hoje (o Quatro em Linha entrou na
-        T077 da spec 010).
+        T077 da spec 010, e o Xadrez na T109 da spec 012).
 
         ⚠️ Chamava-se `test_as_DUAS_extensoes...` ate 20/08/2026. O numero saiu
         do nome de proposito: um nome que conta itens envelhece a cada jogo novo,
         e renomear um teste a cada release perde o historico dele no CI.
         """
-        assert _EXTENSOES_CONHECIDAS == {"pontinhos", "velha", "damas", "quatro"}
+        assert _EXTENSOES_CONHECIDAS == {
+            "pontinhos",
+            "velha",
+            "damas",
+            "quatro",
+            "xadrez",
+        }
 
 
 class TestC4CodigoDeAcaoDesconhecido:

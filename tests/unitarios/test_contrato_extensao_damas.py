@@ -155,7 +155,9 @@ class TestD2AppNovoBackendAntigo:
     """A extensao que o backend nao conhece e IGNORADA, nunca rejeitada."""
 
     def test_extensao_de_jogada_desconhecida_nao_invalida_o_evento(self):
-        evento = _evento("ev-futuro-j", [_jogada(xadrez={"co_casa": "e4"})])
+        evento = _evento(
+            "ev-futuro-j", [_jogada(jogo_que_nao_existe={"co_casa": "e4"})]
+        )
         assert validar_evento(evento) is None, (
             "rejeitar aqui faria o app DESCARTAR a partida inteira do usuario "
             "para nao perder um detalhe que este backend nao saberia guardar"
@@ -166,7 +168,7 @@ class TestD2AppNovoBackendAntigo:
         evento = _evento(
             "ev-futuro-p",
             [_jogada()],
-            partida=_partida(xadrez={"co_abertura": "siciliana"}),
+            partida=_partida(jogo_que_nao_existe={"co_abertura": "siciliana"}),
         )
         assert validar_evento(evento) is None
 
@@ -196,19 +198,19 @@ class TestD3OPontoCegoDaExtensaoDePartida:
         rastro**: nada indicava que havia um app em campo mais novo que o
         backend, nem que faltava um ingestor.
 
-        ⚠️ O jogo usado aqui e `xadrez` porque ele **nao existe**. No dia em que
-        existir, este caso falha e o exemplo tera de ser trocado — e isso e o
-        preco, ja pago duas vezes neste projeto, de guardar a tolerancia ao
-        desconhecido com um exemplo concreto.
+        ⚠️ O exemplo era `xadrez`, porque ele nao existia. No dia em que existiu
+        (19/11/2026, T109 da spec 012), este caso falhou como previsto - a 3a
+        troca de canario do projeto. O exemplo agora e `jogo_que_nao_existe`: um
+        nome que nenhum jogo vai ter, para nao pagar o mesmo preco no 6o jogo.
         """
         with caplog.at_level(logging.WARNING):
             _avisar_extensao_de_partida_desconhecida(
-                _partida(xadrez={"co_abertura": "siciliana"})
+                _partida(jogo_que_nao_existe={"co_abertura": "siciliana"})
             )
         # `getMessage()` aplica os args ao formato; `r.message % r.args` faria a
         # interpolacao duas vezes e estouraria.
         mensagens = [r.getMessage() for r in caplog.records]
-        assert any("xadrez" in m for m in mensagens)
+        assert any("jogo_que_nao_existe" in m for m in mensagens)
         assert any("partida" in m for m in mensagens), (
             "o aviso precisa dizer em que NIVEL a extensao apareceu; sem isso, "
             "quem le o log nao sabe onde procurar o ingestor que falta"

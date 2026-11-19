@@ -11448,3 +11448,34 @@ todas sem poder, e só 15 partidas contra ele usaram algum. A regra não muda ne
 
 **Alternativa considerada:** contar toda vitória. O dono preferiu que o número diga "vencer o Magno
 sozinho", e o asterisco mantém o card honesto.
+
+## 2026-11-19 — O ingestor do xadrez (T109 da spec 012) e o destino da recusa anulável
+
+**Contexto.** O app passou a mandar a partida do xadrez pelo log (T107), com a chave `xadrez` na
+partida (as recusas dentro) e em cada jogada (`arena-sagaz-frontend/specs/012-jogo-xadrez/contracts/extensao-log-xadrez.md`).
+As tabelas são as da `0039`, que ainda não foi aplicada em banco nenhum (T068).
+
+**Decisões.**
+- **`co_casa_destino` da `jogo_xadrez.tb003_recusa` aceita NULL** (decisão do dono, 19/11/2026,
+  §8zzzz41 do `DECISOES-do-dono.md` do app): o toque numa peça sem lance não tem destino. A `0039`
+  foi corrigida no próprio arquivo (`091a14140`), sem `ALTER`, porque ainda não tinha `upgrade`.
+- **O ingestor** (`api/sincronizacao/repositorio.py`): `xadrez` em `_EXTENSOES_CONHECIDAS`,
+  `_gravar_partida_xadrez`, `_gravar_recusas_xadrez` e `_gravar_jogada_xadrez`, com cinco dimensões
+  novas em `dimensoes.py` (regra da recusa, motivo da parada, início, motivo do fim, ação). Código
+  desconhecido vai ao 9999 com o texto cru em `js_extra` (a recusa não tem `js_extra`: fica no
+  aviso do log, como nas damas); início ausente vai ao 9999 em vez de estourar o `NOT NULL`;
+  `ic_xeque` nulo vira `FALSE`.
+- **`co_versao_motor` do xadrez vai como veio** (`rust_0.10.0`): a normalização das damas
+  (`_versoes_do_motor`) prefixa `dart_` no que não tem prefixo, e o xadrez nunca teve motor Dart.
+- **Casa fora da forma na recusa não estoura o `CHECK`:** a origem ruim descarta a recusa (com
+  aviso), o destino ruim vira `NULL`. Um 500 ali travaria a fila do aparelho para sempre, e uma
+  recusa é dado acessório (a mesma assimetria da V-5).
+
+**Alternativas consideradas:** passar a recusa ruim adiante e deixar o `CHECK` recusar (a fila do
+aparelho travaria); gravar o destino igual à origem (decisão do dono, recusada).
+
+**Testes:** `tests/unitarios/test_contrato_extensao_xadrez.py` (42): as travessias X-1 a X-6, com
+as linhas das dimensões lidas do SQL da `0039`, o payload conferido contra os `VARCHAR(n)` e os
+`CHECK` da migração (com o controle de que os predicados pegam o que o banco recusaria) e os códigos
+que o motor Rust espelhado emite. ⚠️ **Nada disto está no `des`:** a branch `jogo-xadrez` só existe
+local até a T002, e a `0039` sobe antes do código (T068).

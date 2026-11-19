@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from datetime import date, datetime
 from typing import Any
@@ -45,7 +46,14 @@ logger = logging.getLogger(__name__)
 # As chaves de extensao que ESTE backend sabe gravar. Tudo o que nao estiver
 # aqui e das chaves genericas da jogada e uma extensao de um jogo que ainda nao
 # existe deste lado.
-_EXTENSOES_CONHECIDAS = frozenset({"pontinhos", "velha", "damas", "quatro"})
+_EXTENSOES_CONHECIDAS = frozenset(
+    {"pontinhos", "velha", "damas", "quatro", "xadrez"}
+)
+
+# A forma de uma casa do xadrez: a coluna de `a` a `h` e a fileira de 1 a 8. E
+# o mesmo `CHECK` da `jogo_xadrez.tb003_recusa` (0039); conferir aqui antes do
+# INSERT troca um 500 (que travaria a fila do aparelho) por uma recusa a menos.
+_CASA_DO_XADREZ = re.compile(r"^[a-h][1-8]$")
 
 # Quantas recusas o servidor aceita por partida.
 #
@@ -607,6 +615,12 @@ class RepositorioSincronizacao:
         if quatro_da_partida:
             await self._gravar_partida_quatro(id_partida, quatro_da_partida)
 
+        # O Xadrez (spec 012) e o terceiro, e o segundo com recusas (que viajam
+        # dentro do objeto, como nas damas).
+        xadrez_da_partida = partida.get("xadrez")
+        if xadrez_da_partida:
+            await self._gravar_partida_xadrez(id_partida, xadrez_da_partida)
+
         # Uma extensão de partida que não é nenhuma das conhecidas: registra e
         # segue. Mesma regra da jogada (V-5) — ignorar perde o detalhe, rejeitar
         # perderia a partida.
@@ -742,6 +756,10 @@ class RepositorioSincronizacao:
         quatro = jogada.get("quatro")
         if quatro:
             await self._gravar_jogada_quatro(jogada.get("id_jogada"), quatro)
+
+        xadrez = jogada.get("xadrez")
+        if xadrez:
+            await self._gravar_jogada_xadrez(jogada.get("id_jogada"), xadrez)
 
         # Uma extensão que não é nenhuma das conhecidas: registra e segue.
         _avisar_extensao_desconhecida(jogada)
@@ -1197,6 +1215,236 @@ class RepositorioSincronizacao:
                 "nu_semente": quatro.get("nu_semente"),
                 # Sem padrao, como nas damas: `None` e "este app nao disse".
                 "co_motor_busca": quatro.get("co_motor_busca"),
+                "js_extra": json.dumps(js_extra) if js_extra is not None else None,
+            },
+        )
+
+    async def _gravar_partida_xadrez(self, id_partida: Any, xadrez: dict) -> None:
+        """Extensao de PARTIDA do Xadrez (spec 012, RF-XDR-231, migracao 0039).
+
+        Pelo mesmo motivo das damas e do Quatro: o replay precisa saber COM QUAL
+        motor e contrato a partida foi jogada, e DE ONDE ela partiu. Aqui a
+        origem e o FEN inicial (`co_fen_inicial`) mais o INICIO (`tradicional`,
+        `adiantado` ou `desafio`), e a cor do J1 varia de verdade (o J1 joga de
+        pretas quando o adversario abre).
+
+        ⚠️ **`co_versao_motor` vai como veio** (`rust_0.10.0`), e NAO passa por
+        `_versoes_do_motor`: aquela normalizacao prefixa `dart_` no que nao tem
+        prefixo, porque nas damas o motor sem nome era o Dart. O xadrez nunca
+        teve motor Dart, e nenhum app sem o prefixo manda o objeto `xadrez`.
+
+        ⚠️ **Codigo fora da dimensao vai ao 9999 com o texto cru em
+        `js_extra`** (I-1): o inicio e o motivo do fim. O inicio e NOT NULL, e
+        um inicio AUSENTE (defeito do app) tambem vira 9999 em vez de estourar
+        com 500 e travar a fila do aparelho para sempre.
+        """
+        nu_inicio, inicio_desconhecido = await dimensoes.resolver(
+            self.sessao, "inicio_xadrez", xadrez.get("co_inicio")
+        )
+        nu_fim, fim_desconhecido = await dimensoes.resolver(
+            self.sessao, "motivo_fim_xadrez", xadrez.get("co_motivo_fim")
+        )
+
+        js_extra = xadrez.get("js_extra")
+        crus = {
+            "co_inicio_desconhecido": (inicio_desconhecido, "co_inicio"),
+            "co_motivo_fim_desconhecido": (fim_desconhecido, "co_motivo_fim"),
+        }
+        for chave, (desconhecido, campo) in crus.items():
+            if desconhecido:
+                js_extra = dict(js_extra) if isinstance(js_extra, dict) else {}
+                js_extra[chave] = xadrez.get(campo)
+
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO jogo_xadrez.tb001_partida
+                  (id_partida, co_versao_motor, co_versao_contrato, nu_inicio,
+                   co_fen_inicial, co_cor_j1, nu_motivo_fim,
+                   nu_semente_partida, js_extra)
+                VALUES
+                  (:id_partida, :co_versao_motor, :co_versao_contrato,
+                   :nu_inicio, :co_fen_inicial, :co_cor_j1, :nu_motivo_fim,
+                   :nu_semente_partida, :js_extra)
+                """
+            ),
+            {
+                "id_partida": id_partida,
+                "co_versao_motor": xadrez.get("co_versao_motor"),
+                "co_versao_contrato": xadrez.get("co_versao_contrato"),
+                "nu_inicio": nu_inicio or dimensoes.NU_DESCONHECIDO,
+                "co_fen_inicial": xadrez.get("co_fen_inicial"),
+                # ⚠️ 'branca'/'preta', nunca 'azul'/'vermelho' (o CHECK cobra).
+                "co_cor_j1": xadrez.get("co_cor_j1"),
+                # `None` quando a partida nao acabou no tabuleiro: a coluna e
+                # anulavel, e "nao acabou" e a verdade.
+                "nu_motivo_fim": nu_fim,
+                "nu_semente_partida": xadrez.get("nu_semente_partida"),
+                # asyncpg quer uma STRING JSON para JSONB, e nao um dict.
+                "js_extra": json.dumps(js_extra) if js_extra is not None else None,
+            },
+        )
+
+        await self._gravar_recusas_xadrez(id_partida, xadrez.get("recusas") or [])
+
+    async def _gravar_recusas_xadrez(self, id_partida: Any, recusas: list) -> None:
+        """As tentativas que a REGRA barrou no xadrez (RF-XDR-231).
+
+        O molde e `_gravar_recusas_damas`, com tres diferencas:
+
+        * as casas sao o NOME do xadrez (`e1`, `g1`), em texto, e nao um numero;
+        * **o destino pode faltar** (decisao do dono, 19/11/2026, §8zzzz41 do
+          app): o toque numa peca sem lance nenhum nao tem destino, e `None`
+          vira `NULL` (a coluna e anulavel desde a 0039);
+        * uma casa fora da forma (`^[a-h][1-8]$`) faria o CHECK estourar com 500
+          e travar a fila do aparelho: a ORIGEM ruim descarta a recusa (com
+          aviso), e o DESTINO ruim vira `NULL` (a recusa continua dizendo qual
+          regra barrou qual peca).
+
+        ⚠️ A recusa pode ser ORFA (a pessoa desiste depois dela): a FK aponta
+        para a PARTIDA, e um `JOIN` com as jogadas precisa ser `LEFT`.
+        """
+        if len(recusas) > _TETO_DE_RECUSAS_POR_PARTIDA:
+            logger.warning(
+                "Partida %s enviou %d recusas de xadrez; o teto e %d. As "
+                "excedentes foram DESCARTADAS (o evento segue aceito).",
+                id_partida,
+                len(recusas),
+                _TETO_DE_RECUSAS_POR_PARTIDA,
+            )
+            recusas = recusas[:_TETO_DE_RECUSAS_POR_PARTIDA]
+
+        for recusa in recusas:
+            origem = recusa.get("co_casa_origem")
+            if not isinstance(origem, str) or not _CASA_DO_XADREZ.match(origem):
+                logger.warning(
+                    "Partida %s: recusa de xadrez com a origem %r fora da forma "
+                    "de uma casa; descartada (o evento segue aceito).",
+                    id_partida,
+                    origem,
+                )
+                continue
+            destino = recusa.get("co_casa_destino")
+            if destino is not None and (
+                not isinstance(destino, str) or not _CASA_DO_XADREZ.match(destino)
+            ):
+                destino = None
+
+            # O app manda a STRING (`'roque_atravessa_casa_atacada'`); a coluna
+            # guarda o NUMERO. Codigo que este backend nao conhece vira 9999 (a
+            # tabela de recusas nao tem `js_extra`: o texto cru fica no aviso
+            # do log do servidor, como nas damas).
+            nu_regra, _ = await dimensoes.resolver(
+                self.sessao, "regra_recusa_xadrez", recusa.get("co_regra")
+            )
+            await self.sessao.execute(
+                text(
+                    """
+                    INSERT INTO jogo_xadrez.tb003_recusa
+                      (id_recusa, id_partida, nu_ordem, nu_sequencia,
+                       co_casa_origem, co_casa_destino, nu_regra, dh_recusa)
+                    VALUES
+                      (:id_recusa, :id_partida, :nu_ordem, :nu_sequencia,
+                       :co_casa_origem, :co_casa_destino, :nu_regra, :dh_recusa)
+                    ON CONFLICT (id_partida, nu_ordem, nu_sequencia) DO NOTHING
+                    """
+                ),
+                {
+                    # Gerado aqui: a recusa nao tem identidade no aparelho.
+                    "id_recusa": str(uuid.uuid4()),
+                    "id_partida": id_partida,
+                    "nu_ordem": recusa.get("nu_ordem"),
+                    "nu_sequencia": recusa.get("nu_sequencia"),
+                    "co_casa_origem": origem,
+                    "co_casa_destino": destino,
+                    "nu_regra": nu_regra or dimensoes.NU_DESCONHECIDO,
+                    "dh_recusa": _dt(recusa.get("dh_recusa")),
+                },
+            )
+
+    async def _gravar_jogada_xadrez(self, id_jogada: Any, xadrez: dict) -> None:
+        """Extensao de JOGADA do Xadrez: uma linha por lance (RF-XDR-231).
+
+        O lance na notacao do motor (`e7e8q`), o FEN de ANTES (nao ha arbitro de
+        xadrez em Python: sem ele nenhuma consulta saberia a posicao) e os fatos
+        do lance como o motor os deu: a peca que andou, a comida, a promocao, o
+        roque ou o en passant e o xeque.
+
+        ⚠️ **A telemetria chega `None` no lance do HUMANO e no do relogio**
+        (I-2), e as colunas sao anulaveis de proposito: um zero gravado
+        falsearia qualquer media. A nota vem no referencial das BRANCAS (I-8),
+        como o motor a devolve: aqui ela passa sem conta.
+        """
+        # As duas dimensoes sao DO XADREZ: usar a de outro jogo mandaria tudo
+        # ao sentinela, e a telemetria nasceria cega.
+        nu_acao, acao_desconhecida = await dimensoes.resolver(
+            self.sessao, "acao_xadrez", xadrez.get("co_acao")
+        )
+        nu_motivo, motivo_desconhecido = await dimensoes.resolver(
+            self.sessao, "motivo_parada_xadrez", xadrez.get("co_motivo_parada_busca")
+        )
+
+        # Codigo fora da dimensao: a coluna guarda 9999, mas a string CRUA nao
+        # pode se perder - e a unica pista do que precisa ser cadastrado.
+        js_extra = xadrez.get("js_extra")
+        crus = {
+            "co_acao_desconhecido": (acao_desconhecida, "co_acao"),
+            "co_motivo_parada_busca_desconhecido": (
+                motivo_desconhecido,
+                "co_motivo_parada_busca",
+            ),
+        }
+        for chave, (desconhecido, campo) in crus.items():
+            if desconhecido:
+                js_extra = dict(js_extra) if isinstance(js_extra, dict) else {}
+                js_extra[chave] = xadrez.get(campo)
+
+        await self.sessao.execute(
+            text(
+                """
+                INSERT INTO jogo_xadrez.tb002_jogada
+                  (id_jogada, co_jogador, co_lance, co_fen_antes,
+                   co_peca_movida, co_peca_comida, co_promocao,
+                   co_lance_especial, ic_xeque, nu_acao, qt_nos_visitados,
+                   nu_profundidade_atingida, nu_motivo_parada_busca,
+                   nu_tempo_busca_ms, nu_avaliacao_brancas, nu_semente,
+                   co_motor_busca, js_extra)
+                VALUES
+                  (:id_jogada, :co_jogador, :co_lance, :co_fen_antes,
+                   :co_peca_movida, :co_peca_comida, :co_promocao,
+                   :co_lance_especial, :ic_xeque, :nu_acao, :qt_nos_visitados,
+                   :nu_profundidade_atingida, :nu_motivo_parada_busca,
+                   :nu_tempo_busca_ms, :nu_avaliacao_brancas, :nu_semente,
+                   :co_motor_busca, :js_extra)
+                """
+            ),
+            {
+                "id_jogada": id_jogada,
+                # +1 / -1: o SINAL do app (J1 = +1), como nos outros jogos.
+                "co_jogador": xadrez.get("co_jogador"),
+                "co_lance": xadrez.get("co_lance"),
+                "co_fen_antes": xadrez.get("co_fen_antes"),
+                # As pecas no vocabulario do motor ('peao', 'cavalo', ...). Os
+                # CHECK da 0039 cobram o rei nunca comido (I-6), so o peao
+                # promovendo (I-4) e o roque do rei / en passant de peao (I-5).
+                "co_peca_movida": xadrez.get("co_peca_movida"),
+                "co_peca_comida": xadrez.get("co_peca_comida"),
+                "co_promocao": xadrez.get("co_promocao"),
+                "co_lance_especial": xadrez.get("co_lance_especial"),
+                # NOT NULL DEFAULT FALSE: um `None` explicito passaria por cima
+                # do DEFAULT e estouraria o NOT NULL.
+                "ic_xeque": bool(xadrez.get("ic_xeque") or False),
+                "nu_acao": nu_acao,
+                "qt_nos_visitados": xadrez.get("qt_nos_visitados"),
+                "nu_profundidade_atingida": xadrez.get("nu_profundidade_atingida"),
+                "nu_motivo_parada_busca": nu_motivo,
+                "nu_tempo_busca_ms": xadrez.get("nu_tempo_busca_ms"),
+                "nu_avaliacao_brancas": xadrez.get("nu_avaliacao_brancas"),
+                # Sem ela o replay do lance da CPU nao reproduz (o CHECK
+                # `ck_xadrez_semente_da_cpu` cobra, I-3).
+                "nu_semente": xadrez.get("nu_semente"),
+                # Sem padrao, como nas damas: `None` e "este app nao disse".
+                "co_motor_busca": xadrez.get("co_motor_busca"),
                 "js_extra": json.dumps(js_extra) if js_extra is not None else None,
             },
         )
