@@ -176,6 +176,13 @@ BONUS_DAS_CONQUISTAS: dict[str, int] = {
     "xadrez_lenda_com_poder": 140,
     "xadrez_segurou_magno": 250,
     "xadrez_segurou_magno_com_poder": 100,
+    # Os feitos próprios do xadrez (T119 da spec 012, RF-XDR-162), no degrau
+    # dos feitos do Quatro: 40 · 40 · 120 · 220 · 220.
+    "xadrez_nova_dama": 40,
+    "xadrez_dama_intocada": 40,
+    "xadrez_mate_relampago": 120,
+    "xadrez_corte_completa": 220,
+    "xadrez_davi_golias": 220,
 }
 
 

@@ -500,7 +500,8 @@ PUBLICADOS_NA_1_4_0: dict[str, int] = {
     "quatro_folego_longo": 120,
 }
 
-#: As do Xadrez (T118 da spec 012, §8zzzz53), que chegam com a 1.6.0. ⚠️ **AINDA
+#: As do Xadrez (as dezesseis de sempre da T118 da spec 012, §8zzzz53, e os
+#: cinco feitos próprios da T119, RF-XDR-162), que chegam com a 1.6.0. ⚠️ **AINDA
 #: NÃO congeladas**: nenhum app em campo as conhece, e o valor pode mudar até a
 #: publicação (mudando aqui, no app e no arquivo comum, na mesma resposta). Ao
 #: publicar a 1.6.0, este grupo passa a ``PUBLICADOS_NA_1_6_0`` e entra no caso
@@ -522,6 +523,11 @@ CHEGAM_NA_1_6_0: dict[str, int] = {
     "xadrez_lenda_com_poder": 140,
     "xadrez_segurou_magno": 250,
     "xadrez_segurou_magno_com_poder": 100,
+    "xadrez_nova_dama": 40,
+    "xadrez_dama_intocada": 40,
+    "xadrez_mate_relampago": 120,
+    "xadrez_corte_completa": 220,
+    "xadrez_davi_golias": 220,
 }
 
 
@@ -536,11 +542,12 @@ def test_o_valor_de_uma_conquista_publicada_nao_muda():
 
 def test_controle_os_congelados_cobrem_a_tabela_de_hoje():
     """CONTROLE: os dois grupos congelados têm 69 + 22, e o do xadrez, que
-    chega com a 1.6.0, 16: as 107 da tabela. Se uma conquista nova entrar na
-    tabela, este caso lembra de congelá-la quando ela for publicada."""
+    chega com a 1.6.0, 21 (as 16 de sempre e os 5 feitos próprios): as 112 da
+    tabela. Se uma conquista nova entrar na tabela, este caso lembra de
+    congelá-la quando ela for publicada."""
     assert len(PUBLICADOS_ATE_A_1_3_1) == 69
     assert len(PUBLICADOS_NA_1_4_0) == 22
-    assert len(CHEGAM_NA_1_6_0) == 16
+    assert len(CHEGAM_NA_1_6_0) == 21
     assert (
         set(PUBLICADOS_ATE_A_1_3_1) | set(PUBLICADOS_NA_1_4_0) | set(CHEGAM_NA_1_6_0)
         == set(BONUS_DAS_CONQUISTAS)
