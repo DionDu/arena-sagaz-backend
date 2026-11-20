@@ -28,10 +28,17 @@ embarca. Na imagem do Railway ele é **compilado no próprio build**
    lances apareceria aqui, e não num gabarito.
 3. **Cada personagem do build acha o mate em um** (a regra que sai antes de
    todo ruído, R-12): o lance tem de ser `a1a8` e a `acao`, `mate_em_um`.
+4. **Os vetores de paridade, lance a lance** (T064, a 3ª ponta;
+   `motores/xadrez/paridade_xadrez.py`): cada pedido de `buscar` de
+   `contratos/vetores-paridade-xadrez.json` tem de dar o mesmo lance, a mesma
+   `acao` e os mesmos nós que o motor deu no laboratório. Aqui, dentro da
+   imagem, esta conferência **nunca pula**; no `pytest` local ela pula só sem o
+   executável compilado.
 
-⚠️ **Por que não os lances de uma partida do aparelho, como no Quatro:** ainda
-não há xadrez no aparelho de ninguém. Os vetores de paridade (T064) são a
-conferência lance a lance; quando eles chegarem ao backend, entram aqui.
+⚠️ **Por que os vetores, e não os lances de uma partida do aparelho, como no
+Quatro:** os vetores são gerados pelo mesmo crate, cobrem os quatro personagens,
+os três inícios, os lances especiais e as cinco `acao`, e o app os confere pela
+ponte (a 2ª ponta). Uma partida do `des` cobriria menos.
 
 ═══════════════════════════════════════════════════════════════════════════
 COMO SE USA
@@ -55,7 +62,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
-from motores.xadrez import contrato_xadrez  # noqa: E402
+from motores.xadrez import contrato_xadrez, paridade_xadrez  # noqa: E402
 from motores.xadrez.jogador_xadrez import (  # noqa: E402
     JogadorXadrez,
     MotorDartDivergente,
@@ -72,7 +79,7 @@ LANCE_DO_MATE = "a1a8"
 
 
 def main() -> int:
-    """Confere as três coisas e devolve o código de saída."""
+    """Confere as quatro coisas e devolve o código de saída."""
     # ⚠️ O console do Windows é cp1252, e os ✅/⛔ desta saída o derrubariam com
     # `UnicodeEncodeError`. Dentro da imagem (UTF-8) esta linha não faz nada.
     for canal in (sys.stdout, sys.stderr):
@@ -113,6 +120,23 @@ def main() -> int:
                         f"{modalidade}, {nivel.value}: esperava {LANCE_DO_MATE}/mate_em_um, "
                         f"veio {resposta['lance']}/{resposta['acao']}"
                     )
+
+        # 4. Os vetores: o cabeçalho primeiro (uma versão errada explica em uma
+        # linha o que, lance a lance, seriam centenas de diferenças).
+        documento = paridade_xadrez.ler_vetores()
+        cabecalho = paridade_xadrez.problemas_do_cabecalho(documento)
+        if cabecalho:
+            falhas.extend(f"vetores: {problema}" for problema in cabecalho)
+        else:
+            divergentes = paridade_xadrez.conferir_todos(motor, documento)
+            total = len(documento["vetores"])
+            if divergentes:
+                falhas.append(
+                    f"{len(divergentes)} de {total} vetores de paridade divergiram; os "
+                    "primeiros:\n    " + "\n    ".join(divergentes[:10])
+                )
+            else:
+                print(f"✅ os {total} vetores de paridade: o mesmo lance, ação e nós")
 
     if falhas:
         print("⛔ o executável do xadrez desta imagem não joga como o do aparelho:")

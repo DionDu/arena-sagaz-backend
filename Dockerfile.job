@@ -291,8 +291,9 @@ RUN python scripts/conferir_motor_dart_quatro.py
 # abertura (o carimbo contra o crate do espelho, o SHA-256 do contrato, a versão
 # do `Cargo.toml`), o perft da posição inicial a 4 meios-lances (197 281: o
 # gerador de lances desta compilação está certo) e o mate em um de cada
-# personagem do build. Os vetores de paridade, lance a lance, entram aqui quando
-# chegarem ao backend (T064).
+# personagem do build. E os 284 vetores de paridade, lance a lance (T064, a 3ª
+# ponta: `contratos/vetores-paridade-xadrez.json`, o mesmo lance, `acao` e nós
+# que o laboratório e o app). Aqui eles nunca pulam.
 RUN python scripts/conferir_motor_xadrez.py
 
 # ── 4. Usuário sem privilégios ───────────────────────────────────────────────
