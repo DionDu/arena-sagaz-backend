@@ -159,6 +159,23 @@ BONUS_DAS_CONQUISTAS: dict[str, int] = {
     "quatro_dupla": 120,
     "quatro_cinco": 220,
     "quatro_folego_longo": 120,
+    # ── Xadrez (chega com a 1.6.0; T118 da spec 012, com os bônus do Quatro, §8zzzz53).
+    "xadrez_vitorias_1": 80,
+    "xadrez_vitorias_10": 200,
+    "xadrez_vitorias_50": 400,
+    "xadrez_vitorias_100": 700,
+    "xadrez_derrotar_cacau": 80,
+    "xadrez_derrotar_pita": 140,
+    "xadrez_derrotar_tex": 200,
+    "xadrez_derrotar_magno": 300,
+    "xadrez_derrotar_cacau_com_poder": 30,
+    "xadrez_derrotar_pita_com_poder": 50,
+    "xadrez_derrotar_tex_com_poder": 80,
+    "xadrez_derrotar_magno_com_poder": 120,
+    "xadrez_lenda": 350,
+    "xadrez_lenda_com_poder": 140,
+    "xadrez_segurou_magno": 250,
+    "xadrez_segurou_magno_com_poder": 100,
 }
 
 

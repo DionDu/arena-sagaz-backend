@@ -2,7 +2,8 @@
 
 O que esta suíte trava:
   1. Cadeado de paridade entre:
-       - `BONUS_DAS_CONQUISTAS` (servidor, 91 conquistas);
+       - `BONUS_DAS_CONQUISTAS` (servidor; eram 91 conquistas na entrega, e
+         as que chegaram depois ficam fora da comparação com o `.sql`);
        - `scripts/aplicar_backfill_progressao_t171.py` (`SQL_REPARO_VDE_T170` e
          `SQL_BACKFILL_XP_T171`);
        - o arquivo `.sql` entregue ao dono em
@@ -64,6 +65,7 @@ from scripts.aplicar_backfill_progressao_t171 import (
     clausula_values_bonus,
     executar_backfill_na_conexao,
     extrair_bloco_sql,
+    montar_sql_backfill_xp_t171,
     validar_ambiente_alvo,
 )
 
@@ -494,9 +496,28 @@ def semear_cenario_completo_prd(con: sqlite3.Connection) -> None:
     )
 
 
+#: Os prefixos das conquistas que entraram na tabela DEPOIS da entrega do `.sql`
+#: (03/11/2026): o xadrez, na T118 da spec 012. O `.sql` é histórico (rodou no
+#: `prd` uma vez) e fica como foi entregue; o script continua montando o SQL com
+#: a tabela de hoje, que é a certa para quem o rodar de novo.
+CHEGARAM_DEPOIS_DA_ENTREGA: tuple[str, ...] = ("xadrez_",)
+
+
+def _tabela_da_entrega() -> dict[str, int]:
+    """A tabela de bônus como era em 03/11/2026: a de hoje sem as que chegaram
+    depois (os valores de uma conquista publicada não mudam, e
+    ``test_bonus_das_conquistas.py`` trava isso)."""
+    return {
+        codigo: bonus
+        for codigo, bonus in BONUS_DAS_CONQUISTAS.items()
+        if not codigo.startswith(CHEGARAM_DEPOIS_DA_ENTREGA)
+    }
+
+
 def test_cadeado_arquivo_sql_da_spec_bate_com_script_e_91_conquistas() -> None:
-    """O `.sql` entregue na spec 010 tem os mesmos 2 UPDATEs e as mesmas 91 conquistas do servidor."""
-    assert len(BONUS_DAS_CONQUISTAS) == 91
+    """O `.sql` entregue na spec 010 tem os mesmos 2 UPDATEs e as mesmas 91 conquistas que o servidor tinha na entrega."""
+    tabela_da_entrega = _tabela_da_entrega()
+    assert len(tabela_da_entrega) == 91
     assert ARQUIVO_SQL_SPEC.exists(), f"Arquivo SQL não encontrado: {ARQUIVO_SQL_SPEC}"
     texto = ARQUIVO_SQL_SPEC.read_text(encoding="utf-8")
 
@@ -510,11 +531,18 @@ def test_cadeado_arquivo_sql_da_spec_bate_com_script_e_91_conquistas() -> None:
         m.group(1): int(m.group(2))
         for m in re.finditer(r"\('([a-z0-9_]+)',\s*(\d+)\)", sql_xp_spec)
     }
-    assert pares_no_sql == BONUS_DAS_CONQUISTAS
+    assert pares_no_sql == tabela_da_entrega
 
-    # Normaliza espaços em branco para confirmar que a lógica SQL inteira é a mesma.
+    # Normaliza espaços em branco para confirmar que a lógica SQL inteira é a
+    # mesma: o script, montado com a tabela da entrega, dá o `.sql` entregue.
     normalizar = lambda s: re.sub(r"\s+", " ", s).strip()
-    assert normalizar(sql_xp_spec) == normalizar(SQL_BACKFILL_XP_T171)
+    assert normalizar(sql_xp_spec) == normalizar(
+        montar_sql_backfill_xp_t171(tabela_da_entrega)
+    )
+    # E o SQL padrão do script é o da tabela de HOJE (as que chegaram depois
+    # entram na CTE `bonus` de quem rodar o script de novo).
+    assert SQL_BACKFILL_XP_T171 == montar_sql_backfill_xp_t171()
+    assert "('xadrez_lenda', 350)" in SQL_BACKFILL_XP_T171
 
 
 def test_backfill_9_contas_reais_do_prd_controles_e_idempotencia() -> None:

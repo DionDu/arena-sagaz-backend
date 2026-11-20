@@ -155,6 +155,8 @@ async def test_a_conquista_do_desafio_continua_pagando_ao_ser_inserida():
         ("pontinhos_vitorias_10", 100),
         ("velha_partida_perfeita", 300),
         ("quatro_folego_longo", 120),
+        # O xadrez (T118 da spec 012): a permissiva do Magno, o maior código.
+        ("xadrez_derrotar_magno_com_poder", 120),
     ],
 )
 async def test_a_conquista_de_JOGO_agora_paga_ao_ser_inserida(co_conquista, bonus):
@@ -173,7 +175,7 @@ async def test_a_conquista_de_JOGO_agora_paga_ao_ser_inserida(co_conquista, bonu
 @pytest.mark.asyncio
 @pytest.mark.parametrize("co_conquista", sorted(BONUS_DAS_CONQUISTAS))
 async def test_toda_conquista_da_tabela_paga_o_seu_valor(co_conquista):
-    """As 91: cada uma credita exatamente o número da tabela, uma vez, para o
+    """Todas (107 desde a T118 da spec 012): cada uma credita exatamente o número da tabela, uma vez, para o
     dono do token."""
     sessao = _SessaoQueAnota(inserido=True)
     repo = RepositorioSincronizacao(sessao)  # type: ignore[arg-type]
@@ -211,16 +213,23 @@ async def test_o_reenvio_nao_paga_de_novo(co_conquista):
 @pytest.mark.asyncio
 async def test_conquista_que_o_servidor_nao_conhece_grava_e_nao_paga():
     """Um app mais novo que o servidor: a conquista fica gravada, e o bônus
-    dela chega pela reconciliação, como chegava antes da T167."""
+    dela chega pela reconciliação, como chegava antes da T167.
+
+    ⚠️ O código é de um jogo que nenhuma spec planeja (``mancala_``), como o
+    canário do app (``conquista_desconhecida_app_antigo_test.dart``). Era
+    ``xadrez_vitorias_1`` até a T118 da spec 012, quando o xadrez entrou na
+    tabela; o Gamão, o próximo do PRD, também não serve.
+    """
+    assert "mancala_vitorias_1" not in BONUS_DAS_CONQUISTAS
     sessao = _SessaoQueAnota(inserido=True)
     repo = RepositorioSincronizacao(sessao)  # type: ignore[arg-type]
 
     inserido = await repo.gravar_conquista(
-        id_usuario=DONO, co_evento="e1", payload=_evento("xadrez_vitorias_1")
+        id_usuario=DONO, co_evento="e1", payload=_evento("mancala_vitorias_1")
     )
 
     assert inserido is True
-    assert sessao.conquistas_gravadas() == ["xadrez_vitorias_1"]
+    assert sessao.conquistas_gravadas() == ["mancala_vitorias_1"]
     # Nenhum comando de crédito, nem de zero: "zero não chega a ir ao banco".
     assert sessao.creditos() == []
 
@@ -491,6 +500,30 @@ PUBLICADOS_NA_1_4_0: dict[str, int] = {
     "quatro_folego_longo": 120,
 }
 
+#: As do Xadrez (T118 da spec 012, §8zzzz53), que chegam com a 1.6.0. ⚠️ **AINDA
+#: NÃO congeladas**: nenhum app em campo as conhece, e o valor pode mudar até a
+#: publicação (mudando aqui, no app e no arquivo comum, na mesma resposta). Ao
+#: publicar a 1.6.0, este grupo passa a ``PUBLICADOS_NA_1_6_0`` e entra no caso
+#: "o valor de uma conquista publicada não muda".
+CHEGAM_NA_1_6_0: dict[str, int] = {
+    "xadrez_vitorias_1": 80,
+    "xadrez_vitorias_10": 200,
+    "xadrez_vitorias_50": 400,
+    "xadrez_vitorias_100": 700,
+    "xadrez_derrotar_cacau": 80,
+    "xadrez_derrotar_pita": 140,
+    "xadrez_derrotar_tex": 200,
+    "xadrez_derrotar_magno": 300,
+    "xadrez_derrotar_cacau_com_poder": 30,
+    "xadrez_derrotar_pita_com_poder": 50,
+    "xadrez_derrotar_tex_com_poder": 80,
+    "xadrez_derrotar_magno_com_poder": 120,
+    "xadrez_lenda": 350,
+    "xadrez_lenda_com_poder": 140,
+    "xadrez_segurou_magno": 250,
+    "xadrez_segurou_magno_com_poder": 100,
+}
+
 
 def test_o_valor_de_uma_conquista_publicada_nao_muda():
     """Conquista nova entra com valor novo; conquista publicada fica como está."""
@@ -502,11 +535,17 @@ def test_o_valor_de_uma_conquista_publicada_nao_muda():
 
 
 def test_controle_os_congelados_cobrem_a_tabela_de_hoje():
-    """CONTROLE: os dois grupos congelados têm 69 + 22 = as 91 da tabela. Se
-    uma conquista nova entrar na tabela, este caso lembra de congelá-la quando
-    ela for publicada."""
+    """CONTROLE: os dois grupos congelados têm 69 + 22, e o do xadrez, que
+    chega com a 1.6.0, 16: as 107 da tabela. Se uma conquista nova entrar na
+    tabela, este caso lembra de congelá-la quando ela for publicada."""
     assert len(PUBLICADOS_ATE_A_1_3_1) == 69
     assert len(PUBLICADOS_NA_1_4_0) == 22
-    assert set(PUBLICADOS_ATE_A_1_3_1) | set(PUBLICADOS_NA_1_4_0) == set(
-        BONUS_DAS_CONQUISTAS
+    assert len(CHEGAM_NA_1_6_0) == 16
+    assert (
+        set(PUBLICADOS_ATE_A_1_3_1) | set(PUBLICADOS_NA_1_4_0) | set(CHEGAM_NA_1_6_0)
+        == set(BONUS_DAS_CONQUISTAS)
     )
+    # O xadrez paga o que a tabela diz (os números escritos à mão acima, e não
+    # lidos dela: um teste que lesse a tabela passaria com qualquer valor).
+    for codigo, bonus in CHEGAM_NA_1_6_0.items():
+        assert BONUS_DAS_CONQUISTAS[codigo] == bonus, codigo
