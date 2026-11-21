@@ -12062,3 +12062,32 @@ uma espiã; a captura de qualquer uma vale o agora), na migração (só o 71, ne
 receitas e nos vetores; no app, as frases e o cartão nos três idiomas e os vetores pelo medidor. Cinco
 mutações (a 2ª marca tirada do medidor dos dois lados, o filtro e a nota do perseguidor, a classe
 repetida na posição), todas pegas.
+
+## 2026-11-21 (11) — A 7ª régua do xadrez: os onze passam, e as duas variantes das duas espiãs ficam
+
+**Contexto.** A 7ª régua mediu só os dois que faltavam, já com doze candidatos por dia (histórico
+"(10)"): `xadrez_duas_espias` (as duas variantes) e `xadrez_espia_alvo`, 9 dias cada, um depois do
+outro. Relatórios em `medicoes/medir_variantes_do_editorial/relatorio_xadrez_duas_espias.txt` e
+`relatorio_xadrez_espia_alvo.txt` (fora do Git).
+
+| tipo | variante | dias na escada |
+|---|---|---|
+| duas espiãs | 3 peças em 12 lances | **7/9** ✅ |
+| duas espiãs | 2 peças em 10 lances | **8/9** ✅ |
+| comer o alvo | 12 lances | **7/9** ✅ (era 5/9) |
+
+**Os doze candidatos é que fizeram o alvo passar**: dois dos sete dias dele só encaixaram no
+candidato 11 e no 12; com nove, ele teria ficado de novo em 5 de 9. Os dois dias reprovados erram por
+0,02 (o Tex 0,05 abaixo da faixa, nos dois).
+
+**Com isso, os onze tipos do xadrez da 1.6.0 estão no critério do dono** (6 de 9 dias,
+`DECISOES-do-dono.md` §8zzzz64): os nove da 6ª régua e estes dois.
+
+**Decisão (técnica, minha): as duas variantes das duas espiãs ficam no editorial.** As duas passam, e
+o odômetro do job alterna entre elas: "2 em 10" é a mais calibrada (8/9), e "3 em 12" é a que menos se
+parece com o "coma 2 com a espiã" (2 em 12), o que a pessoa nota ao ver os dois tipos na mesma semana.
+Alternativa considerada: ficar só com a de 8/9 (a diferença de um dia em nove é do tamanho do acaso).
+
+**Próximo:** a promoção (T078): os onze vão para `RECEITAS`/`EDITORIAL` (a troca fica fora do ar),
+com os vetores de verificação do xadrez nos dois lados. ⚠️ Promover não põe o xadrez na fila: quem o
+põe é a adoção (T079), e ela começa em zero.
