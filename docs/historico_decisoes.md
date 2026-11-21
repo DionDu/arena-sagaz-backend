@@ -11605,3 +11605,31 @@ existiam só como `chegada_do_tipo` no gerador dos vetores do juiz.
 do Quatro), que obrigaria o painel a saber qual valor é peça; gravar os parâmetros em cada vetor
 (vetor não se edita: a chegada já carrega os números); pontuar o critério nos tipos de marco (vale
 1 para todo mundo que cumpriu, e não separa ninguém).
+
+## 2026-11-20 (5) — As posições dos desafios do xadrez e a escolha das peças (T073)
+
+**Contexto.** Dez dos onze tipos partem da base equilibrada do início adiantado (RF-XDR-186, R-22),
+e cinco deles precisam de uma espiã, um alvo, uma classe ou um par escolhidos sobre a posição.
+
+**Decisão.** `job/posicoes_xadrez.py`, no molde dos acervos do Pontinhos e do Quatro: recebe o
+`random.Random` já semeado pelo dia (mesmo dia, mesma posição, mesmas peças) e sorteia da base
+(`espelho_laboratorio/jogos/jogo_xadrez/posicoes/posicoes_adiantadas.txt`); a posição que não serve
+(`PosicaoNaoServe`) é pulada com o mesmo sorteio, e nenhuma em 200 é `SemPosicaoXadrez`. A pessoa
+joga com a cor da vez. As regras:
+- espiã: peça da pessoa, nunca o rei (RF-XDR-192); no `atravessar`, só torre, dama ou cavalo e fora
+  da última fileira;
+- alvo: peça do adversário, nunca o rei;
+- `comer_com`: `come` é uma classe da pessoa; `comida`, uma classe do adversário com pelo menos K
+  peças, ou fica de fora (opcional no contrato);
+- `nao_perder`: uma classe que a pessoa tem (sem campo na posição: só a chegada a usa);
+- troca: um dos quatro pares (bispo↔cavalo nas duas direções, torre↔torre, dama↔dama), só se existe.
+
+⚠️ **O FEN é lido como tabela**, como o app faz em `pecas_do_fen_xadrez.dart`: nenhuma regra de
+xadrez aqui. O teste confere a leitura contra o motor (toda origem de `lances_legais` é peça da cor
+da vez) e que o motor aceita as marcas escolhidas no `aplicar`. ⚠️ **Caber não é ser possível**: se a
+espiã consegue cumprir contra a Pita, quem diz é o gabarito (T076); a posição que não passar volta
+para cá como defeito de escolha (§8zzzz57 item 5).
+
+**Alternativas consideradas:** pedir ao motor uma operação nova que liste as peças (mudaria o crate
+e os binários das três plataformas por uma leitura de texto); sortear a classe comida mesmo sem K
+peças (um desafio impossível, que o gabarito só recusaria depois de jogar).
