@@ -49,6 +49,15 @@ confere a amostra: o processo leva minutos, e nao horas.
 COMO SE RODA (T075, o dono)
 ═══════════════════════════════════════════════════════════════════════════
 
+O Lichess entrega o banco comprimido (`lichess_db_puzzle.csv.zst`). Primeiro
+descompactar: o Python 3.14 do venv do backend faz isso sem nada instalado
+(`compression.zstd`, da biblioteca padrao), em poucos segundos:
+
+    cd D:\\Desenvolvimento\\arena-sagaz\\ia\\dados\\lichess
+    ..\\..\\..\\arena-sagaz-backend\\.venv\\Scripts\\python -c "import shutil; from compression import zstd; shutil.copyfileobj(zstd.open('lichess_db_puzzle.csv.zst', 'rb'), open('lichess_db_puzzle.csv', 'wb'), 1 << 24)"
+
+Depois, a extracao (~25 s no banco de 20/11/2026, com 6,2 milhoes de linhas):
+
     cd D:\\Desenvolvimento\\arena-sagaz\\arena-sagaz-backend
     .venv\\Scripts\\python scripts\\extrair_problemas_de_mate_xadrez.py --csv ..\\ia\\dados\\lichess\\lichess_db_puzzle.csv
 
