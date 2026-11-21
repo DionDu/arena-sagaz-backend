@@ -3033,161 +3033,16 @@ RECEITAS: dict[str, Receita] = {
             figuras_quatro_mod.CHAVE_CODIGO_DA_FIGURA: p[figuras_quatro_mod.CHAVE_FIGURA],
         },
     ),
-}
-
-
-def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
-    """Uma clausula de predicado, no formato que o avaliador le.
-
-    ⚠️ Predicado e uma pergunta de sim ou nao respondida por uma funcao
-    **compilada** no aplicativo e no job (`motores/nucleo/chegada.py`). Por isso
-    tipo que usa predicado novo so vai ao ar com versao nova do aplicativo - o
-    `quatro_perdeu` chega na 1.4.0, junto com o jogo.
-    """
-    return {
-        "tipo": "predicado",
-        "chave": chave,
-        "comparador": comparador,
-        "valor": valor,
-    }
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# AS RECEITAS FORA DO AR: escritas, aprovadas, e ainda nao publicaveis
-# ═══════════════════════════════════════════════════════════════════════════
-#
-# ⚠️ **Os tipos do Quatro em Linha moram aqui, e nao em [RECEITAS]** (T115
-# da spec 010, 20/10/2026). Eram dez; desde a T124c sao cinco: a `quatro_virada`
-# passou na regua e foi promovida na T124b, o `quatro_vencer_em_n` (so a
-# variante 7) e o `quatro_segurar_magno` passaram na remedicao de 21/10, e a
-# `quatro_vencer_diagonal` e as `quatro_encostadas` passaram com o perseguidor
-# do objetivo (T124c, defeito 1). A `quatro_unica_coluna` continua aqui
-# APOSENTADA (`DECISOES-do-dono.md` §8zzzl), sem texto no app; golpe duplo e
-# linha de cinco subiram com o banco pescado (21/10), o sem o meio espera a
-# remedicao em 9 dias, e o `quatro_bloquear` tambem esta APOSENTADO
-# (`DECISOES-do-dono.md` §8zzzo, 21/10/2026: o adversario cria 1 a 2 ameacas
-# tapaveis por partida, e nem pedindo 1 o Magno chega ao piso; historico do
-# backend "2026-10-21 (14)"). Eles nao sao
-# propostas (essas ficam em
-# `tipos_propostos.py`, esperando o dono): o dono os aprovou em 13/10/2026
-# (`DECISOES-do-dono.md` §8zzz), e eles ja tem linha na `tb901_tipo_desafio`
-# (migracao `0035`, numeros 40 a 49). O que falta e o resto das portas que
-# todo tipo em [RECEITAS] precisa ter abertas:
-#
-#   1. **vetor de verificacao** (`contratos/vetores-verificacao-desafio.json`,
-#      RF-DES-198) - sem ele o aplicativo e o servidor podem julgar diferente,
-#      calados;
-#   2. **a frase declarada no aplicativo** (`medidas_do_feito.json`, gerado por
-#      `tool/gerar_manifesto_medidas_do_feito.dart`) e a chave `.arb` do
-#      enunciado - a trava do job recusa o tipo sem ela;
-#   3. **a escada da regua** (*"a Pita resolve, a Cacau nao"*, T116/T117): tipo
-#      que nao passar nela fica no banco **sem receita** (R-22, *"tipo no banco
-#      nao e tipo no ar"*).
-#
-# ⛔ **Promover e MOVER, e nao copiar**, como em `tipos_propostos.py`: no dia em
-# que as tres portas abrirem, a entrada sai daqui e entra em [RECEITAS]. Uma
-# receita escrita nos dois lugares seria duas fontes da verdade para a mesma
-# regra, e `test_receitas_do_quatro.py` recusa.
-#
-# ⚠️ **Por que escrever agora, e nao no dia da promocao.** A forma de chegada e
-# a parte que o juiz (T112) e os vetores precisam conhecer, e escrita aqui ela ja
-# passa pelos mesmos cadeados dos tipos no ar: o avaliador a aceita, ela usa so o
-# vocabulario fechado, e ninguem a cumpre sem jogar.
-#
-# ── A JANELA "ATE O FIM" E A JANELA `partida` ───────────────────────────────
-#
-# R-22 pede *"janela ate o fim"* nos tres tipos de "nao perca". ⛔ **Nao ha
-# janela nova para isso**: o predicado `quatro_perdeu` responde `None` enquanto
-# a partida nao acabou (`motores/quatro/feitos_quatro.responder_predicados`), e
-# `None` nunca e `igual false`. Com a janela `partida`, a conjuncao so pode valer
-# no lance que encerra o jogo - que e o que "ate o fim" quer dizer. E o juiz
-# avalia esse lance seja de quem for (T113, a porta `terminou_ate`).
-#
-# ── OS MARCOS SE COMPARAM COM `igual 1` ─────────────────────────────────────
-#
-# O contrato escreve *"`vitoria` atingida"*; ⛔ `atingido` nao e comparador do
-# vocabulario fechado (sao seis: `maior_ou_igual`, `menor_ou_igual`, `igual`,
-# `diferente`, `em`, `fora_de`). Os marcos valem 1 ou 0 no medidor
-# (`feitos_quatro.medir`), entao *atingido* e `igual 1` - a mesma forma que a
-# proposta `damas_vitoria_relampago` ja usa.
-
-#: Um marco atingido: as medidas `vitoria` e `vitoria_diagonal` valem 1 ou 0.
-_ATINGIDO = 1
-
-
-def _chegada_do_xadrez(lances: int, *clausulas: dict[str, Any]) -> dict[str, Any]:
-    """A linha de chegada de um tipo do xadrez: a janela dos `lances` primeiros
-    lances da PESSOA e a conjuncao das `clausulas` (contrato §2).
-
-    ⚠️ As chaves saem nesta ordem (`versao`, `janela`, `clausulas`) porque os
-    vetores do juiz foram gravados assim, e o gerador deles monta a chegada por
-    aqui: o arquivo tem de sair byte-identico.
-    """
-    return {
-        "versao": VERSAO_CHEGADA,
-        "janela": {"tipo": "lances_do_jogador", "n": lances},
-        "clausulas": list(clausulas),
-    }
-
-
-def _espia_viva() -> dict[str, Any]:
-    """"A espia nao foi comida": a clausula dos cinco tipos da espia (RF-XDR-191).
-
-    `espia_comida` so cresce, e a violacao nao volta atras: o juiz fecha o
-    desafio como nao cumprido no lance em que ela e comida. ⚠️ Uma funcao, e
-    nao uma constante: cada chegada recebe o SEU dicionario, e quem alterar um
-    nao altera os outros.
-    """
-    return _medida("espia_comida", "menor_ou_igual", 0)
-
-RECEITAS_FORA_DO_AR: dict[str, Receita] = {
-    "quatro_unica_coluna": Receita(
-        nu_tipo_desafio=42,
-        co_tipo_desafio="quatro_unica_coluna",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroUnicaColuna",
-        # ⛔ APOSENTADA em 20/10/2026 (`DECISOES-do-dono.md` §8zzzl): tudo se
-        # decidia no 1o lance (adivinhacao), e a pergunta e a mesma do Segure.
-        # Fica fora do ar e sem texto no app; nada e apagado.
-        # Era "Ache a unica coluna que nao perde": a MESMA chegada do
-        # `quatro_segurar_magno`, e o que separava os dois tipos era a POSICAO
-        # (exatamente uma coluna nao perde), provada na geracao.
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [_predicado("quatro_perdeu", "igual", False)],
-        },
-        valores_da_frase=lambda p, personagem: {"personagem": personagem},
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
-    "quatro_bloquear": Receita(
-        nu_tipo_desafio=48,
-        co_tipo_desafio="quatro_bloquear",
-        co_jogo="quatro",
-        co_chave_objetivo="desafioObjetivoQuatroBloquear",
-        # "Bloqueie N ameacas do adversario e nao perca". ⛔ O "e nao perca" e o
-        # que obriga a esperar o fim (R-22): sem o predicado, o juiz daria o
-        # desafio por cumprido no 3o bloqueio, antes de saber se a pessoa perde.
-        # "Bloqueie", e nao "tape" (decisao do dono, §8zzz).
-        montar=lambda p: {
-            "versao": VERSAO_CHEGADA,
-            "janela": {"tipo": "partida"},
-            "clausulas": [
-                _medida("ameacas_bloqueadas", "maior_ou_igual", p["ameacas"]),
-                _predicado("quatro_perdeu", "igual", False),
-            ],
-        },
-        valores_da_frase=lambda p, personagem: {
-            "ameacas": p["ameacas"],
-            "personagem": personagem,
-        },
-    ),
     # ═════════════════════════════════════════════════════════════════════
-    # Xadrez (T072 da spec 012): os onze tipos da 1a leva, TODOS fora do ar
+    # Xadrez (T072 da spec 012): os onze tipos da 1.6.0, NO AR desde 21/11/2026
+    # (T078, depois da regua da T077: 6 de 9 dias na escada, o criterio do
+    # dono, `DECISOES-do-dono.md` §8zzzz64; historico do backend "2026-11-21
+    # (10)" e "(11)"). ⚠️ No ar nao e na fila: quem poe o xadrez nos dias e a
+    # adocao (T079), e a versao minima e a 1.6.0.
     # ═════════════════════════════════════════════════════════════════════
-    # ⚠️ Moram aqui ate passarem na regua (T077), como os do Quatro: a regra
-    # (a chegada) ja existe e ja passa pelos cadeados, e a promocao (T078) os
-    # MOVE para [RECEITAS]. Os numeros 60 a 70 sao os da `0040_desafio_xadrez`.
+    # ⚠️ Moraram em [RECEITAS_FORA_DO_AR] ate passarem na regua (T077), como os
+    # do Quatro, e a promocao (T078) os MOVEU para ca. Os numeros 60 a 70 sao os
+    # da `0040_desafio_xadrez`, e o 71 (as duas espias) o da `0041`.
     #
     # ⚠️ **As chegadas sao a tabela de `contracts/desafio-xadrez.md` §2**, e
     # os vetores do juiz (`contratos/vetores-juiz-xadrez.json`) foram gerados
@@ -3386,32 +3241,6 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         },
     ),
     # ─────────────────────────────────────────────────────────────────────────
-    "xadrez_troca": Receita(
-        nu_tipo_desafio=69,
-        co_tipo_desafio="xadrez_troca",
-        co_jogo="xadrez",
-        co_chave_objetivo="desafioObjetivoXadrezTroca",
-        # ⛔ **SAIU DA 1.6.0 em 21/11/2026** (`DECISOES-do-dono.md` §8zzzz64):
-        # quem decide se a troca acontece e o adversario (que pode nao comer de
-        # volta), e nenhum N separou os niveis em seis reguas. Fica no banco
-        # (tipo 69) e aqui, fora do ar, como os tipos 7 e 10 das damas; quem
-        # entra no lugar dela e o `xadrez_duas_espias` (71). A promocao (T078)
-        # NAO a leva para [RECEITAS].
-        # "Troque um bispo seu por um cavalo de Tex em ate N lances". O par
-        # (`minha`, `dele`) vem da posicao (`js_posicao_inicial.troca`), e o
-        # medidor conta as duas ordens, no maximo uma troca por lance (T069).
-        montar=lambda p: _chegada_do_xadrez(
-            p["lances"],
-            _medida("trocas_feitas", "maior_ou_igual", 1),
-        ),
-        valores_da_frase=lambda p, personagem: {
-            "minha": p["minha"],
-            "dele": p["dele"],
-            "personagem": personagem,
-            "lances": p["lances"],
-        },
-    ),
-    # ─────────────────────────────────────────────────────────────────────────
     "xadrez_dar_mate": Receita(
         nu_tipo_desafio=70,
         co_tipo_desafio="xadrez_dar_mate",
@@ -3452,6 +3281,184 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
             "espia2": p["espia2"],
             "lances": p["lances"],
             "personagem": personagem,
+        },
+    ),
+}
+
+
+def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
+    """Uma clausula de predicado, no formato que o avaliador le.
+
+    ⚠️ Predicado e uma pergunta de sim ou nao respondida por uma funcao
+    **compilada** no aplicativo e no job (`motores/nucleo/chegada.py`). Por isso
+    tipo que usa predicado novo so vai ao ar com versao nova do aplicativo - o
+    `quatro_perdeu` chega na 1.4.0, junto com o jogo.
+    """
+    return {
+        "tipo": "predicado",
+        "chave": chave,
+        "comparador": comparador,
+        "valor": valor,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AS RECEITAS FORA DO AR: escritas, aprovadas, e ainda nao publicaveis
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **Os tipos do Quatro em Linha moram aqui, e nao em [RECEITAS]** (T115
+# da spec 010, 20/10/2026). Eram dez; desde a T124c sao cinco: a `quatro_virada`
+# passou na regua e foi promovida na T124b, o `quatro_vencer_em_n` (so a
+# variante 7) e o `quatro_segurar_magno` passaram na remedicao de 21/10, e a
+# `quatro_vencer_diagonal` e as `quatro_encostadas` passaram com o perseguidor
+# do objetivo (T124c, defeito 1). A `quatro_unica_coluna` continua aqui
+# APOSENTADA (`DECISOES-do-dono.md` §8zzzl), sem texto no app; golpe duplo e
+# linha de cinco subiram com o banco pescado (21/10), o sem o meio espera a
+# remedicao em 9 dias, e o `quatro_bloquear` tambem esta APOSENTADO
+# (`DECISOES-do-dono.md` §8zzzo, 21/10/2026: o adversario cria 1 a 2 ameacas
+# tapaveis por partida, e nem pedindo 1 o Magno chega ao piso; historico do
+# backend "2026-10-21 (14)"). Eles nao sao
+# propostas (essas ficam em
+# `tipos_propostos.py`, esperando o dono): o dono os aprovou em 13/10/2026
+# (`DECISOES-do-dono.md` §8zzz), e eles ja tem linha na `tb901_tipo_desafio`
+# (migracao `0035`, numeros 40 a 49). O que falta e o resto das portas que
+# todo tipo em [RECEITAS] precisa ter abertas:
+#
+#   1. **vetor de verificacao** (`contratos/vetores-verificacao-desafio.json`,
+#      RF-DES-198) - sem ele o aplicativo e o servidor podem julgar diferente,
+#      calados;
+#   2. **a frase declarada no aplicativo** (`medidas_do_feito.json`, gerado por
+#      `tool/gerar_manifesto_medidas_do_feito.dart`) e a chave `.arb` do
+#      enunciado - a trava do job recusa o tipo sem ela;
+#   3. **a escada da regua** (*"a Pita resolve, a Cacau nao"*, T116/T117): tipo
+#      que nao passar nela fica no banco **sem receita** (R-22, *"tipo no banco
+#      nao e tipo no ar"*).
+#
+# ⛔ **Promover e MOVER, e nao copiar**, como em `tipos_propostos.py`: no dia em
+# que as tres portas abrirem, a entrada sai daqui e entra em [RECEITAS]. Uma
+# receita escrita nos dois lugares seria duas fontes da verdade para a mesma
+# regra, e `test_receitas_do_quatro.py` recusa.
+#
+# ⚠️ **Por que escrever agora, e nao no dia da promocao.** A forma de chegada e
+# a parte que o juiz (T112) e os vetores precisam conhecer, e escrita aqui ela ja
+# passa pelos mesmos cadeados dos tipos no ar: o avaliador a aceita, ela usa so o
+# vocabulario fechado, e ninguem a cumpre sem jogar.
+#
+# ── A JANELA "ATE O FIM" E A JANELA `partida` ───────────────────────────────
+#
+# R-22 pede *"janela ate o fim"* nos tres tipos de "nao perca". ⛔ **Nao ha
+# janela nova para isso**: o predicado `quatro_perdeu` responde `None` enquanto
+# a partida nao acabou (`motores/quatro/feitos_quatro.responder_predicados`), e
+# `None` nunca e `igual false`. Com a janela `partida`, a conjuncao so pode valer
+# no lance que encerra o jogo - que e o que "ate o fim" quer dizer. E o juiz
+# avalia esse lance seja de quem for (T113, a porta `terminou_ate`).
+#
+# ── OS MARCOS SE COMPARAM COM `igual 1` ─────────────────────────────────────
+#
+# O contrato escreve *"`vitoria` atingida"*; ⛔ `atingido` nao e comparador do
+# vocabulario fechado (sao seis: `maior_ou_igual`, `menor_ou_igual`, `igual`,
+# `diferente`, `em`, `fora_de`). Os marcos valem 1 ou 0 no medidor
+# (`feitos_quatro.medir`), entao *atingido* e `igual 1` - a mesma forma que a
+# proposta `damas_vitoria_relampago` ja usa.
+
+#: Um marco atingido: as medidas `vitoria` e `vitoria_diagonal` valem 1 ou 0.
+_ATINGIDO = 1
+
+
+def _chegada_do_xadrez(lances: int, *clausulas: dict[str, Any]) -> dict[str, Any]:
+    """A linha de chegada de um tipo do xadrez: a janela dos `lances` primeiros
+    lances da PESSOA e a conjuncao das `clausulas` (contrato §2).
+
+    ⚠️ As chaves saem nesta ordem (`versao`, `janela`, `clausulas`) porque os
+    vetores do juiz foram gravados assim, e o gerador deles monta a chegada por
+    aqui: o arquivo tem de sair byte-identico.
+    """
+    return {
+        "versao": VERSAO_CHEGADA,
+        "janela": {"tipo": "lances_do_jogador", "n": lances},
+        "clausulas": list(clausulas),
+    }
+
+
+def _espia_viva() -> dict[str, Any]:
+    """"A espia nao foi comida": a clausula dos cinco tipos da espia (RF-XDR-191).
+
+    `espia_comida` so cresce, e a violacao nao volta atras: o juiz fecha o
+    desafio como nao cumprido no lance em que ela e comida. ⚠️ Uma funcao, e
+    nao uma constante: cada chegada recebe o SEU dicionario, e quem alterar um
+    nao altera os outros.
+    """
+    return _medida("espia_comida", "menor_ou_igual", 0)
+
+RECEITAS_FORA_DO_AR: dict[str, Receita] = {
+    "quatro_unica_coluna": Receita(
+        nu_tipo_desafio=42,
+        co_tipo_desafio="quatro_unica_coluna",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroUnicaColuna",
+        # ⛔ APOSENTADA em 20/10/2026 (`DECISOES-do-dono.md` §8zzzl): tudo se
+        # decidia no 1o lance (adivinhacao), e a pergunta e a mesma do Segure.
+        # Fica fora do ar e sem texto no app; nada e apagado.
+        # Era "Ache a unica coluna que nao perde": a MESMA chegada do
+        # `quatro_segurar_magno`, e o que separava os dois tipos era a POSICAO
+        # (exatamente uma coluna nao perde), provada na geracao.
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [_predicado("quatro_perdeu", "igual", False)],
+        },
+        valores_da_frase=lambda p, personagem: {"personagem": personagem},
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "quatro_bloquear": Receita(
+        nu_tipo_desafio=48,
+        co_tipo_desafio="quatro_bloquear",
+        co_jogo="quatro",
+        co_chave_objetivo="desafioObjetivoQuatroBloquear",
+        # "Bloqueie N ameacas do adversario e nao perca". ⛔ O "e nao perca" e o
+        # que obriga a esperar o fim (R-22): sem o predicado, o juiz daria o
+        # desafio por cumprido no 3o bloqueio, antes de saber se a pessoa perde.
+        # "Bloqueie", e nao "tape" (decisao do dono, §8zzz).
+        montar=lambda p: {
+            "versao": VERSAO_CHEGADA,
+            "janela": {"tipo": "partida"},
+            "clausulas": [
+                _medida("ameacas_bloqueadas", "maior_ou_igual", p["ameacas"]),
+                _predicado("quatro_perdeu", "igual", False),
+            ],
+        },
+        valores_da_frase=lambda p, personagem: {
+            "ameacas": p["ameacas"],
+            "personagem": personagem,
+        },
+    ),
+    # ═════════════════════════════════════════════════════════════════════
+    # Xadrez: a troca, que saiu da 1.6.0 (21/11/2026, `DECISOES-do-dono.md`
+    # §8zzzz64). Os outros onze foram ao ar na T078 ([RECEITAS]).
+    # ═════════════════════════════════════════════════════════════════════
+    "xadrez_troca": Receita(
+        nu_tipo_desafio=69,
+        co_tipo_desafio="xadrez_troca",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezTroca",
+        # ⛔ **SAIU DA 1.6.0 em 21/11/2026** (`DECISOES-do-dono.md` §8zzzz64):
+        # quem decide se a troca acontece e o adversario (que pode nao comer de
+        # volta), e nenhum N separou os niveis em seis reguas. Fica no banco
+        # (tipo 69) e aqui, fora do ar, como os tipos 7 e 10 das damas; quem
+        # entra no lugar dela e o `xadrez_duas_espias` (71). A promocao (T078)
+        # NAO a leva para [RECEITAS].
+        # "Troque um bispo seu por um cavalo de Tex em ate N lances". O par
+        # (`minha`, `dele`) vem da posicao (`js_posicao_inicial.troca`), e o
+        # medidor conta as duas ordens, no maximo uma troca por lance (T069).
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("trocas_feitas", "maior_ou_igual", 1),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "minha": p["minha"],
+            "dele": p["dele"],
+            "personagem": personagem,
+            "lances": p["lances"],
         },
     ),
 }

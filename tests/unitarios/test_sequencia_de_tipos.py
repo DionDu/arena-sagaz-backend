@@ -140,8 +140,10 @@ def test_o_jogo_sozinho_da_UM_pedido_por_tipo_no_ar() -> None:
 
 
 def test_jogo_sem_tipo_no_ar_e_recusado() -> None:
+    # ⚠️ Era o xadrez ate a T078 (21/11/2026), quando os onze tipos dele foram ao
+    # ar; a velha continua sem tipo nenhum.
     with pytest.raises(seq.SequenciaInvalida):
-        seq.pedidos_do_jogo("xadrez")
+        seq.pedidos_do_jogo("velha")
 
 
 # ═══════════════════════════════════════════════════════════════════════════

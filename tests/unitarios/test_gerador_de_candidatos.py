@@ -149,6 +149,7 @@ def test_tipo_sem_receita_e_RECUSADO() -> None:
 def test_a_receita_monta_uma_chegada_VALIDA() -> None:
     """O que a receita emite tem de passar pelo avaliador — senao ela e decoracao."""
     from motores.nucleo.chegada import LinhaDeChegada
+    from job.editorial import PECAS_DO_XADREZ_DE_EXEMPLO
 
     # ⚠️ **Um dicionario com TODAS as chaves de todos os tipos**, e nao um por
     # tipo: o que se testa aqui e a forma da chegada, e nao os numeros. ⛔ Chave
@@ -177,6 +178,12 @@ def test_a_receita_monta_uma_chegada_VALIDA() -> None:
         "linhas": 2,     # quatro_golpe_duplo (no ar desde 21/10/2026)
         "tamanho": 5,    # quatro_linha_de_cinco (no ar desde 21/10/2026)
         "figura": "quadrado",  # quatro_figura (no ar desde 27/10/2026, T150)
+        # O xadrez (no ar desde 21/11/2026, T078 da spec 012): os K das clausulas
+        # de contagem, e as pecas que a POSICAO poria nos parametros (o editorial
+        # nunca as guarda; os codigos de exemplo sao os do editorial).
+        "capturas": 2,   # espia_comer, comer_com, duas_espias
+        "xeques": 2,     # espia_xeque, xeques_seguidos
+        **PECAS_DO_XADREZ_DE_EXEMPLO,
     }
     for codigo, receita in RECEITAS.items():
         chegada = LinhaDeChegada.de_dado(receita.montar(parametros))

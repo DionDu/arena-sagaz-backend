@@ -12091,3 +12091,38 @@ Alternativa considerada: ficar só com a de 8/9 (a diferença de um dia em nove 
 **Próximo:** a promoção (T078): os onze vão para `RECEITAS`/`EDITORIAL` (a troca fica fora do ar),
 com os vetores de verificação do xadrez nos dois lados. ⚠️ Promover não põe o xadrez na fila: quem o
 põe é a adoção (T079), e ela começa em zero.
+
+## 2026-11-21 (12) — A promoção do xadrez (T078): os onze no ar, com 33 vetores de verificação
+
+**Contexto.** Com os onze tipos no critério (histórico "(11)"), a T078 os leva ao ar. "No ar" aqui é
+estar em `RECEITAS` e `EDITORIAL`, com vetor de verificação: ⚠️ **não põe o xadrez na fila**. Quem dá
+dias ao xadrez é a adoção (T079), que começa em zero, e a versão mínima é a 1.6.0.
+
+**O que mudou.**
+- **`job/tipos_de_desafio.py` e `job/editorial.py`**: os blocos dos onze MOVERAM de
+  `RECEITAS_FORA_DO_AR`/`EDITORIAL_FORA_DO_AR` para `RECEITAS`/`EDITORIAL`, com o texto inteiro (a
+  história das sete réguas fica ao lado dos números). A troca ficou fora do ar, nos dois.
+- **33 vetores de verificação** (`scripts/gerar_vetores_verificacao.py`, `vetores_do_xadrez`, no fim do
+  arquivo; de 101 para 134, nenhuma linha antiga mudou): para cada tipo, o "cumpre" e o "não cumpre por
+  pouco" saem dos vetores do JUIZ do xadrez (montados pelo gerador deles, e não lidos do arquivo), e o
+  "dado inválido" é o 1º lance do "cumpre" ao contrário (sai de uma casa sem peça da pessoa). O
+  veredito e os feitos são do juiz de produção, e o motor confirmou a recusa dos onze inválidos.
+  Alternativa considerada: escrever fitas novas, e foi recusada porque seriam uma segunda fonte de
+  casos para a mesma regra (os do juiz já têm en passant, roque, promoção, xeque descoberto,
+  repetição).
+- **No app**, os vetores do xadrez são julgados em
+  `test/modulos/jogos/xadrez/vetores_verificacao_xadrez_test.dart`, porque o medidor pergunta ao Rust, e a
+  biblioteca dos testes só é apontada pelo `flutter_test_config.dart` daquela pasta. O
+  `test/core/desafios/vetores_verificacao_test.dart` os pula, e ganhou um cadeado: todo jogo do arquivo é
+  julgado lá ou no arquivo declarado em `jogosJulgadosEmOutroArquivo`, e o xadrez tem os 33. O mesmo vale
+  para o "toda medida cabe no extrato" (`extrato_da_resolucao_test.dart`).
+- **Os cadeados genéricos do job** passaram a ver o xadrez: `editorial.PECAS_DO_XADREZ_DE_EXEMPLO` entra
+  em `parametros_para_conferencia` (as peças que a POSIÇÃO poria nos parâmetros; o editorial nunca as
+  guarda), as medidas de "quem não jogou" ganharam as do xadrez (todas em zero), e a comparação "a
+  proposta julga igual a um tipo no ar" passou a considerar o JOGO (o "dê mate em N" e o "vença em N" do
+  Quatro têm a mesma conjunção e não são o mesmo tipo). O exemplo de "jogo sem tipo no ar" passou do
+  xadrez para a velha.
+
+⚠️ **Fica para a T082** (a publicação no `des`): `posicao_inicial.conferir` ainda não confere o FEN do
+xadrez (a posição do xadrez, contrato §1, não tem `versao`), e a `0041` tem de estar aplicada no `des`
+antes de a adoção dar o primeiro dia ao xadrez.

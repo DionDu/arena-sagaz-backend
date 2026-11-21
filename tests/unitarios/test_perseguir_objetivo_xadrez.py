@@ -22,7 +22,12 @@ import random
 
 import pytest
 
-from job.tipos_de_desafio import RECEITAS_FORA_DO_AR
+from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR
+
+#: As receitas do xadrez no ar (os onze desde a T078) e fora dele (a troca).
+RECEITAS_DO_XADREZ = {
+    t: r for t, r in {**RECEITAS, **RECEITAS_FORA_DO_AR}.items() if r.co_jogo == "xadrez"
+}
 from motores.nucleo.papeis import NivelDeMotor
 from motores.xadrez import perseguir_objetivo_xadrez as ps
 from motores.xadrez.fen_xadrez import fen_com_a_vez_trocada
@@ -50,7 +55,7 @@ def _desafio(co_tipo: str, fen: str, parametros: dict, **extra) -> ps.DesafioXad
         **extra,
         "origem": "base_equilibrada",
     }
-    chegada = RECEITAS_FORA_DO_AR[co_tipo].montar(parametros)
+    chegada = RECEITAS_DO_XADREZ[co_tipo].montar(parametros)
     return ps.desafio_de(co_tipo, posicao, chegada)
 
 
@@ -80,13 +85,13 @@ def _persegue(motor, desafio, *, do_nivel: str = "g1h1", nivel=NivelDeMotor.SAGA
 
 def test_o_mate_nao_tem_perseguidor():
     """O `xadrez_dar_mate` fica com o motor que vence (§8zzzz57)."""
-    chegada = RECEITAS_FORA_DO_AR["xadrez_dar_mate"].montar({"lances": 5})
+    chegada = RECEITAS_DO_XADREZ["xadrez_dar_mate"].montar({"lances": 5})
     with pytest.raises(ValueError, match="nao persegue"):
         ps.desafio_de("xadrez_dar_mate", {"fen": "x"}, chegada)
 
 
 def test_os_tipos_do_perseguidor_sao_os_que_nao_pedem_vitoria_mais_o_controle():
-    tipos_do_xadrez = {t for t, r in RECEITAS_FORA_DO_AR.items() if r.co_jogo == "xadrez"}
+    tipos_do_xadrez = set(RECEITAS_DO_XADREZ)
     assert ps.TIPOS_DO_PERSEGUIDOR == (tipos_do_xadrez - {"xadrez_dar_mate"}) | {ps.TIPO_DE_CONTROLE}
 
 
@@ -141,7 +146,7 @@ def test_a_troca_na_ordem_2_cumpre_e_e_jogada(motor):
 
 def test_o_controle_da_o_mate_que_esta_na_mesa(motor):
     """No controle (so vencer) o mate cumpre, e vem antes de qualquer filtro."""
-    chegada = RECEITAS_FORA_DO_AR["xadrez_dar_mate"].montar({"lances": 5})
+    chegada = RECEITAS_DO_XADREZ["xadrez_dar_mate"].montar({"lances": 5})
     posicao = {
         "jogo": "xadrez", "modalidade": "tradicional",
         "fen": "k7/8/1K6/2Q5/8/8/8/8 w - - 0 1", "cor_da_pessoa": "branca", "origem": "base_equilibrada",

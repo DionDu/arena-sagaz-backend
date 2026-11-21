@@ -275,6 +275,9 @@ def test_o_formato_da_posicao_combina_com_o_jogo(documento: dict) -> None:
         "damas": "fen",
         # No Quatro, como no Pontinhos, a ordem dos lances e o proprio tabuleiro.
         "quatro": "sequencia_lances",
+        # O xadrez publica o FEN, com a vez e os direitos (contrato §1 da spec
+        # 012); a repeticao tripla sai da fita, que o juiz reproduz inteira.
+        "xadrez": "fen",
     }
     errados = {
         v["id"]: v["co_formato_posicao"]

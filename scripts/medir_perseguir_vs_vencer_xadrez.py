@@ -68,8 +68,13 @@ from job import posicoes_xadrez as posicoes_mod  # noqa: E402
 from job import provas_xadrez as provas_mod  # noqa: E402
 from job import semente as semente_mod  # noqa: E402
 from job import solucionadores as solucionadores_mod  # noqa: E402
-from job.editorial import EDITORIAL_FORA_DO_AR  # noqa: E402
-from job.tipos_de_desafio import RECEITAS_FORA_DO_AR  # noqa: E402
+from job.editorial import EDITORIAL, EDITORIAL_FORA_DO_AR  # noqa: E402
+from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR  # noqa: E402
+
+# Os tipos do xadrez moraram fora do ar ate a T078 (21/11/2026); desde ela, os
+# onze estao no ar e a troca fora. O script le os dois registros.
+EDITORIAL_DO_XADREZ = {**EDITORIAL, **EDITORIAL_FORA_DO_AR}
+RECEITAS_DO_XADREZ = {**RECEITAS, **RECEITAS_FORA_DO_AR}
 from motores.juiz import julgar_desafio  # noqa: E402
 from motores.nucleo.papeis import NivelDeMotor  # noqa: E402
 from motores.xadrez import perseguir_objetivo_xadrez as perseguir  # noqa: E402
@@ -146,14 +151,14 @@ def _posicao_do_tipo(
     ⚠️ Determinista pela semente: rodar de novo sorteia a MESMA posicao, e e isso
     que deixa o diario retomar sem mudar a amostra.
     """
-    publicacao = EDITORIAL_FORA_DO_AR[co_tipo][0]
+    publicacao = EDITORIAL_DO_XADREZ[co_tipo][0]
     sorteio = random.Random(f"{SEMENTE}:{co_tipo}:{indice}")
     for _ in range(TENTATIVAS_POR_POSICAO):
         escolhida = provas_mod.sortear_posicao(
             sorteio, co_tipo=co_tipo, parametros=publicacao.parametros
         )
         parametros = {**publicacao.parametros, **escolhida.pecas}
-        chegada = RECEITAS_FORA_DO_AR[co_tipo].montar(parametros)
+        chegada = RECEITAS_DO_XADREZ[co_tipo].montar(parametros)
         prova = provas_mod.provar(co_tipo, escolhida.js_posicao_inicial, chegada, motor=motor)
         if prova.passou:
             return {
@@ -269,7 +274,7 @@ def _jogar_controle(
     nu_semente: int,
 ) -> dict[str, Any]:
     """Uma partida INTEIRA do controle contra o Tex: venceu, empatou, perdeu."""
-    chegada = RECEITAS_FORA_DO_AR["xadrez_dar_mate"].montar({"lances": LANCES_DO_CONTROLE})
+    chegada = RECEITAS_DO_XADREZ["xadrez_dar_mate"].montar({"lances": LANCES_DO_CONTROLE})
     solucionador = (
         None
         if modo == "magno_cru"

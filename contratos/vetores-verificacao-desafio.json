@@ -9563,6 +9563,2510 @@
           "ameacas_bloqueadas": 0
         }
       }
+    },
+    {
+      "id": "xadrez-espia-comer-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-espia-come-en-passant`) O preto avança duas casas ao lado do peão espião, e a espiã come de passagem: o motor diz que ela comeu, e a peça comida é o peão de d5, e não uma peça em d6.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/3p4/8/4P3/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "e5"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 60,
+      "co_tipo_desafio": "xadrez_espia_comer",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e1d1"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "d7d5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e5d6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 1,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-comer-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-espia-come-e-e-comida`) O bispo espião come o cavalo de f6, e o peão de g7 o come de volta. Faltava uma captura, e com a espiã fora do tabuleiro o desafio fecha como não cumprido: a 2a captura não viria nunca mais.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/6p1/5n2/8/8/8/1B6/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "b2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 60,
+      "co_tipo_desafio": "xadrez_espia_comer",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b2f6"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "g7f6"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e1d1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 1,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 1,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 1,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-comer-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (d1e1, e nao e1d1): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/3p4/8/4P3/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "e5"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 60,
+      "co_tipo_desafio": "xadrez_espia_comer",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d1e1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-espia-proteger-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-espia-protegida-sem-en-passant`) A MESMA posição e o mesmo avanço, e o preto não come: a espiã chega viva ao 2o lance da pessoa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "e2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 61,
+      "co_tipo_desafio": "xadrez_espia_proteger",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e1d1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-proteger-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-espia-comida-en-passant`) O peão espião avança duas casas, e o peão preto o come DE PASSAGEM: a peça comida não está na casa de destino. A espiã sai do tabuleiro, e a cláusula 'a espiã não foi comida' fica violada para sempre: o 2o lance da pessoa não salva mais nada.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "e2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 61,
+      "co_tipo_desafio": "xadrez_espia_proteger",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "d4e3"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e1d1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 1,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 1,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-proteger-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (e4e2, e nao e2e4): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "e2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 61,
+      "co_tipo_desafio": "xadrez_espia_proteger",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e4e2"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-espia-atravessar-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-torre-espia-no-roque-atravessa`) A mesma torre, depois do roque, sobe a coluna f até a 8a fileira: a marca foi seguida pela identidade da peça.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "5k2/8/8/8/8/8/8/4K2R w K - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "h1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 62,
+      "co_tipo_desafio": "xadrez_espia_atravessar",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e1g1"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "f8e7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f1f8"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "espia_na_ultima_fileira",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 1,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-atravessar-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-torre-espia-no-roque-nao-atravessa-por-pouco`) A MESMA fita com a janela de um lance só: o roque leva a torre a f1, que é a 1a fileira das brancas (a dela, e não a do outro lado). A chegada à 8a cai fora da janela.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "5k2/8/8/8/8/8/8/4K2R w K - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "h1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 62,
+      "co_tipo_desafio": "xadrez_espia_atravessar",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e1g1"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "f8e7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f1f8"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "espia_na_ultima_fileira",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-atravessar-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (g1e1, e nao e1g1): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "5k2/8/8/8/8/8/8/4K2R w K - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "h1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 62,
+      "co_tipo_desafio": "xadrez_espia_atravessar",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "g1e1"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "espia_na_ultima_fileira",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-espia-xeque-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-xeque-descoberto-da-espia`) O bispo espião de a1 está atrás do cavalo de d4, na diagonal do rei preto. O cavalo sai, e o xeque é do BISPO, que não andou: conta como xeque da espiã (RF-XDR-195).",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/8/8/8/3N4/8/8/B3K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "a1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 63,
+      "co_tipo_desafio": "xadrez_espia_xeque",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d4b5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "xeques_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-xeque-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-xeque-descoberto-nao-e-da-peca-que-andou`) O MESMO lance com o CAVALO como espião: o xeque saiu do lance dele, e não é dele. Quem contasse 'o lance da espiã deu xeque' diria cumpriu.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/8/8/8/3N4/8/8/B3K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "d4"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 63,
+      "co_tipo_desafio": "xadrez_espia_xeque",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d4b5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "xeques_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-xeque-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (b5d4, e nao d4b5): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/8/8/8/3N4/8/8/B3K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "a1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 63,
+      "co_tipo_desafio": "xadrez_espia_xeque",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b5d4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "xeques_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-espia-alvo-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-espia-come-o-alvo`) O cavalo espião de c3 come a torre marcada como alvo em b5.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/1r6/p7/2N5/8/1R2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "c3",
+          "alvo": "b5"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 64,
+      "co_tipo_desafio": "xadrez_espia_alvo",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3b5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "alvo_comido_pela_espia",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 1,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 1,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-alvo-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-alvo-comido-por-outra-peca`) A espiã come um peão, e quem come a torre-alvo é a torre branca: o alvo saiu do tabuleiro, mas não pela espiã.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/1r6/p7/2N5/8/1R2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "c3",
+          "alvo": "b5"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 64,
+      "co_tipo_desafio": "xadrez_espia_alvo",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3a4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d7"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "b1b5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "alvo_comido_pela_espia",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 1,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 1,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-espia-alvo-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (b5c3, e nao c3b5): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/1r6/p7/2N5/8/1R2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "c3",
+          "alvo": "b5"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 64,
+      "co_tipo_desafio": "xadrez_espia_alvo",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b5c3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "alvo_comido_pela_espia",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-comer-com-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-comer-com-o-cavalo`) O cavalo come o peão de a4 e depois o de c5: dois peões comidos pelo cavalo.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/2p5/p7/2N5/5B2/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "classes": {
+          "come": "cavalo",
+          "comida": "peao"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 65,
+      "co_tipo_desafio": "xadrez_comer_com",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3a4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d8"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "a4c5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_classe_marcada",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 2,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 2,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-comer-com-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-comer-com-outra-peca-nao-conta`) O cavalo come o 1o peão, e o BISPO come o 2o: dois peões comidos, um só pelo cavalo.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/2p5/p7/2N5/5B2/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "classes": {
+          "come": "cavalo",
+          "comida": "peao"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 65,
+      "co_tipo_desafio": "xadrez_comer_com",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3a4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d8"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f2c5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_classe_marcada",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 2,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 1,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-comer-com-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (a4c3, e nao c3a4): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/2p5/p7/2N5/5B2/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "classes": {
+          "come": "cavalo",
+          "comida": "peao"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 65,
+      "co_tipo_desafio": "xadrez_comer_com",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "a4c3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_classe_marcada",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-nao-perder-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-nao-perder-peao-cumpre`) Três lances de abertura sem perder peão.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 66,
+      "co_tipo_desafio": "xadrez_nao_perder",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "g1f3"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "b8c6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "f1c4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_perdidas_peao",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-nao-perder-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-nao-perder-peao-perde`) O peão de d5 come o de e4 antes do 3o lance da pessoa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 66,
+      "co_tipo_desafio": "xadrez_nao_perder",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "d7d5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "g1f3"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "d5e4"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "f3g5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_perdidas_peao",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 1,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-nao-perder-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (e4e2, e nao e2e4): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 66,
+      "co_tipo_desafio": "xadrez_nao_perder",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e4e2"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_perdidas_peao",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-xeques-seguidos-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-xeques-seguidos-ate-a-repeticao`) Quatro xeques seguidos da dama, vai e vem. O 4o cai no lance 7; no 8 o rei volta a h8, a posição do início aparece pela 3a vez, e o motor empata por repetição. O objetivo caiu antes.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/7p/8/3Q4/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 67,
+      "co_tipo_desafio": "xadrez_xeques_seguidos",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d5d4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "h8g8"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "d4d5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "g8h8"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d5d4"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "h8g8"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "d4d5"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "g8h8"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 6
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "maior_sequencia_de_xeques",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 4,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-xeques-seguidos-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-xeques-seguidos-a-repeticao-empata-antes-do-5o`) A MESMA fita pedindo cinco: a repetição tripla encerra a partida antes do 5o xeque (é por isso que o tipo vai no máximo a 4, PRD §8.4). A sequência para em 4, e a partida termina empatada.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/7p/8/3Q4/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 67,
+      "co_tipo_desafio": "xadrez_xeques_seguidos",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d5d4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "h8g8"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "d4d5"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "g8h8"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d5d4"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "h8g8"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "d4d5"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "g8h8"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 6
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "maior_sequencia_de_xeques",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 1,
+          "lances_do_jogador": 4,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 4,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-xeques-seguidos-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (d4d5, e nao d5d4): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/7p/8/3Q4/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 67,
+      "co_tipo_desafio": "xadrez_xeques_seguidos",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d4d5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 6
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "maior_sequencia_de_xeques",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-sem-levar-xeque-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-sem-levar-xeque-cumpre`) Dois lances de abertura, nenhum xeque do adversário.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 68,
+      "co_tipo_desafio": "xadrez_sem_levar_xeque",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "g1f3"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "b8c6"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "xeques_recebidos",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-sem-levar-xeque-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-sem-levar-xeque-leva-mate`) O mate do louco: a dama preta dá xeque-mate em h4 no 4o meio-lance. A pessoa levou xeque e nem chegou ao 3o lance.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 68,
+      "co_tipo_desafio": "xadrez_sem_levar_xeque",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "f2f3"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "g2g4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "d8h4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "xeques_recebidos",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 1,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-sem-levar-xeque-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (e4e2, e nao e2e4): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 68,
+      "co_tipo_desafio": "xadrez_sem_levar_xeque",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e4e2"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "xeques_recebidos",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-dar-mate-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-dar-mate-em-4`) O mate do pastor: a dama come em f7 no 4o lance da pessoa, dentro dos cinco.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 70,
+      "co_tipo_desafio": "xadrez_dar_mate",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f1c4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "b8c6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d1h5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "g8f6"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "h5f7"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_comidas_peao": 1,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-dar-mate-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-dar-mate-no-6o-lance-nao-cumpre`) O mesmo mate com dois lances de espera: ele cai no 6o lance da pessoa, um depois da janela.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 70,
+      "co_tipo_desafio": "xadrez_dar_mate",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f1c4"
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "b8c6"
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d1h5"
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "a7a6"
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "a2a3"
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "a6a5"
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "b2b3"
+        },
+        {
+          "n": 10,
+          "jogador": -1,
+          "lance": "h7h6"
+        },
+        {
+          "n": 11,
+          "jogador": 1,
+          "lance": "h5f7"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-dar-mate-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (e4e2, e nao e2e4): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 70,
+      "co_tipo_desafio": "xadrez_dar_mate",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e4e2"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
+    },
+    {
+      "id": "xadrez-duas-espias-cumpre",
+      "de_vetor": "(do vetor do juiz `xadrez-duas-espias-somam-as-capturas`) O cavalo espiao come o peao de a4, e o bispo espiao, o de c5: uma captura de cada, e as duas somam as 2 do desafio.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/2p5/p7/2N5/5B2/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "c3",
+          "espia2": "f2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 71,
+      "co_tipo_desafio": "xadrez_duas_espias",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3a4"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d8"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f2c5"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 2,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 2,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-duas-espias-nao-cumpre-por-pouco",
+      "de_vetor": "(do vetor do juiz `xadrez-duas-espias-a-segunda-comida-encerra`) A torre preta come o bispo, que e a SEGUNDA espia, e o cavalo espiao come o peao depois: a captura nao salva mais nada, porque 'nenhuma espia comida' vale para as duas.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "k4r2/8/8/8/p7/2N5/5B2/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "c3",
+          "espia2": "f2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 71,
+      "co_tipo_desafio": "xadrez_duas_espias",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e1d1"
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "f8f2"
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "c3a4"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 1,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 1,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 1,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        }
+      }
+    },
+    {
+      "id": "xadrez-duas-espias-lance-ilegal-e-dado-invalido",
+      "de_vetor": "O 1o lance do 'cumpre' ao contrario (a4c3, e nao c3a4): sai de uma casa sem peca da pessoa, e o motor recusa.",
+      "co_jogo": "xadrez",
+      "co_variante": "tradicional",
+      "co_modalidade": "tradicional",
+      "co_formato_posicao": "fen",
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/2p5/p7/2N5/5B2/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "c3",
+          "espia2": "f2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "nu_tipo_desafio": 71,
+      "co_tipo_desafio": "xadrez_duas_espias",
+      "jogador": 1,
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "a4c3"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {}
+      }
     }
   ],
   "sementes": [

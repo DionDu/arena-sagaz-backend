@@ -28,7 +28,7 @@ from job import gerador as gerador_mod
 from job import posicao_inicial as posicao_mod
 from job import provas_xadrez as pv
 from job import regua as regua_mod
-from job.editorial import EDITORIAL_FORA_DO_AR
+from job.editorial import EDITORIAL, EDITORIAL_FORA_DO_AR
 from job.posicoes_xadrez import SemPosicaoXadrez
 from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR
 from motores.juiz import julgar_desafio
@@ -59,7 +59,7 @@ def _posicao(fen: str, **extra) -> dict:
 
 
 def _chegada(co_tipo: str, **parametros) -> dict:
-    return RECEITAS_FORA_DO_AR[co_tipo].montar(parametros)
+    return {**RECEITAS, **RECEITAS_FORA_DO_AR}[co_tipo].montar(parametros)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -338,8 +338,15 @@ def test_o_xadrez_aceita_o_erro_do_adversario():
 
 
 def _gerar(co_tipo: str, dia: date) -> gerador_mod.Candidato:
-    """Um candidato de [co_tipo] (fora do ar: pela porta da medicao)."""
-    publicacao = EDITORIAL_FORA_DO_AR[co_tipo][0]
+    """Um candidato de [co_tipo]: no ar (os onze desde a T078), pelo caminho
+    normal do job, que exige o vetor de verificacao; fora do ar (a troca), pela
+    porta da medicao."""
+    if co_tipo in RECEITAS:
+        publicacao = EDITORIAL[co_tipo][0]
+        porta = {"tipo_forcado": co_tipo}
+    else:
+        publicacao = EDITORIAL_FORA_DO_AR[co_tipo][0]
+        porta = {"receita_em_avaliacao": RECEITAS_FORA_DO_AR[co_tipo]}
     candidatos = gerador_mod.gerar_candidatos(
         dia,
         parametros=publicacao.parametros,
@@ -347,7 +354,7 @@ def _gerar(co_tipo: str, dia: date) -> gerador_mod.Candidato:
         tentativas_por_candidato=4,
         maximo_de_meios_lances=publicacao.nu_maximo_de_meios_lances,
         minimo_de_meios_lances=publicacao.nu_minimo_de_meios_lances,
-        receita_em_avaliacao=RECEITAS_FORA_DO_AR[co_tipo],
+        **porta,
     )
     assert candidatos, f"{co_tipo}: nenhum candidato em {dia}"
     return candidatos[0]
@@ -410,7 +417,7 @@ def test_a_bancada_da_regua_mede_um_candidato_do_xadrez(motor):
         estado_inicial=bancada.estado_inicial,
         julgar=bancada.julgar,
         nu_semente=candidato.nu_semente,
-        maximo_de_meios_lances=EDITORIAL_FORA_DO_AR["xadrez_dar_mate"][0].nu_maximo_de_meios_lances,
+        maximo_de_meios_lances=EDITORIAL["xadrez_dar_mate"][0].nu_maximo_de_meios_lances,
         co_personagem_do_dia=candidato.co_personagem,
         solucionador=bancada.solucionador,
     )

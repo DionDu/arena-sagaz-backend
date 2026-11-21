@@ -29,6 +29,7 @@ from job.tipos_propostos import (
     PROPOSTAS_PONTINHOS,
 )
 from motores.damas import feitos_damas
+from motores.xadrez import feitos_xadrez
 from motores.damas.motor_damas import MotorDamas, estado_inicial
 from motores.pontinhos import feitos_pontinhos
 from motores.pontinhos.motor_pontinhos import EstadoPontinhos
@@ -379,6 +380,13 @@ MEDIDAS_DE_QUEM_NAO_JOGOU: dict[str, float] = {
     "maior_linha": 0,
     "lances_na_coluna_central": 0,
     "ameacas_bloqueadas": 0,
+    # ── O xadrez (T078 da spec 012, 21/11/2026) ──────────────────────────────
+    # ⚠️ Todas as dezenove (mais as universais) comecam em ZERO: quem nao jogou
+    # nao comeu, nao deu xeque e nao perdeu nada. Os tres "Passe N" (proteger,
+    # nao perder, sem levar xeque) tem uma clausula que vale em zero (a espia
+    # nao foi comida...), e e a `lances_do_jogador >= N` da janela que os poe
+    # em falso aqui, como deve ser.
+    **{chave: 0 for chave in feitos_xadrez.CHAVES_DAS_MEDIDAS if chave not in ("vitoria", "empate", "lances_do_jogador")},
 }
 
 #: As respostas dos predicados para quem ainda nao jogou.
@@ -522,9 +530,13 @@ def test_nenhuma_proposta_repete_a_CHEGADA_de_um_tipo_que_ja_esta_no_ar():
             return ("figura", "")
         return (clausula.get("chave"), clausula["comparador"])
 
-    def forma(js_chegada):
+    def forma(js_chegada, co_jogo):
+        # ⚠️ O JOGO entra na forma (21/11/2026, T078 do xadrez): o "de mate em
+        # N" do xadrez e o "venca em N" do Quatro tem a mesma conjuncao, e nao
+        # sao o mesmo tipo - cada um julga a partida de um jogo.
         janela = js_chegada["janela"]
         return (
+            co_jogo,
             janela["tipo"],
             tuple(sorted(identidade(c) for c in js_chegada["clausulas"])),
         )
@@ -534,11 +546,11 @@ def test_nenhuma_proposta_repete_a_CHEGADA_de_um_tipo_que_ja_esta_no_ar():
         for variante in editorial_mod.variantes_de(co_tipo):
             parametros = dict(variante.parametros)
             parametros = editorial_mod.parametros_para_conferencia(parametros)
-            no_ar[forma(receita.montar(parametros))] = co_tipo
+            no_ar[forma(receita.montar(parametros), receita.co_jogo)] = co_tipo
 
     repetidos = []
     for co_tipo, receita in PROPOSTAS.items():
-        f = forma(_chegada(co_tipo))
+        f = forma(_chegada(co_tipo), receita.co_jogo)
         if f in no_ar:
             repetidos.append(f"{co_tipo} julga igual a {no_ar[f]}")
 

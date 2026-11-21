@@ -25,8 +25,13 @@ import random
 import pytest
 
 from job import posicoes_xadrez as px
-from job.editorial import EDITORIAL_FORA_DO_AR, parametros_para_conferencia
-from job.tipos_de_desafio import RECEITAS_FORA_DO_AR
+from job.editorial import EDITORIAL, EDITORIAL_FORA_DO_AR, parametros_para_conferencia
+from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR
+
+#: O editorial e as receitas do xadrez, no ar (os onze desde a T078) ou fora
+#: dele (a troca): a posicao serve aos dois.
+EDITORIAL_DO_XADREZ = {**EDITORIAL, **EDITORIAL_FORA_DO_AR}
+RECEITAS_DO_XADREZ = {**RECEITAS, **RECEITAS_FORA_DO_AR}
 from motores.xadrez import feitos_xadrez
 from motores.xadrez.jogador_xadrez import JogadorXadrez, MotorDartIndisponivel
 
@@ -36,7 +41,7 @@ BASE = px.carregar_base()
 SO_OS_REIS = "4k3/8/8/8/8/8/8/4K3 w - - 0 1"
 
 #: Os K do editorial, que o `xadrez_comer_com` le.
-PARAMETROS = {t: dict(EDITORIAL_FORA_DO_AR[t][0].parametros) for t in px.TIPOS_DA_BASE}
+PARAMETROS = {t: dict(EDITORIAL_DO_XADREZ[t][0].parametros) for t in px.TIPOS_DA_BASE}
 
 #: Quantos dias (sementes) cada caso parametrizado percorre.
 DIAS = range(40)
@@ -432,9 +437,9 @@ def test_o_formato_do_contrato_e_a_frase_monta(co_tipo: str) -> None:
     assert feitos_xadrez.cor_da_pessoa(js) == px.cor_da_vez(js["fen"])
     assert set(feitos_xadrez.marcas_iniciais(js)) <= {"espia", "espia2", "alvo"}
     # As pecas, somadas aos numeros do editorial, montam a chegada e a frase.
-    receita = RECEITAS_FORA_DO_AR[co_tipo]
+    receita = RECEITAS_DO_XADREZ[co_tipo]
     parametros = {
-        **parametros_para_conferencia(EDITORIAL_FORA_DO_AR[co_tipo][0].parametros),
+        **parametros_para_conferencia(EDITORIAL_DO_XADREZ[co_tipo][0].parametros),
         **posicao.pecas,
     }
     receita.montar(parametros)

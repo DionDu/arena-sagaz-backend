@@ -77,6 +77,9 @@ from motores.pontinhos.motor_pontinhos import EstadoPontinhos  # noqa: E402
 from motores.quatro import feitos_quatro  # noqa: E402
 from motores.quatro.motor_quatro import MotorQuatro  # noqa: E402
 from job import posicao_inicial as posicao_inicial_mod  # noqa: E402
+from motores.juiz import julgar_desafio  # noqa: E402
+from motores.xadrez import feitos_xadrez  # noqa: E402
+from motores.xadrez.jogador_xadrez import JogadorXadrez  # noqa: E402
 
 #: A versao do documento. ⚠️ **2 desde 26/09/2026**, quando o bloco `sementes`
 #: entrou: um leitor da versao 1 nao encontraria a chave, e e melhor que ele saiba
@@ -584,6 +587,10 @@ def provar_que_o_invalido_e_mesmo_invalido(vetores: list[dict[str, Any]]) -> Non
                 # `EstadoPontinhos` so reproduz a partida quando lhe perguntam
                 # algo — o `placar` e o que dispara a validacao da sequencia.
                 estado.placar
+            elif vetor["co_jogo"] == "xadrez":
+                # O xadrez: quem recusa e o motor em Rust, pela mesma reproducao
+                # do juiz (`MotorXadrezRecusou` e `ValueError`).
+                feitos_xadrez.reproduzir(vetor["js_posicao_inicial"], fita)
             elif vetor["co_jogo"] == "quatro":
                 motor = MotorQuatro(vetor["co_modalidade"])
                 estado = motor.de_dado(vetor["js_posicao_inicial"])
@@ -2439,6 +2446,170 @@ def sementes_de_verificacao() -> list[dict[str, Any]]:
     return casos
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O XADREZ (T078 da spec 012, 21/11/2026): os onze tipos da 1.6.0
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **As posicoes e as fitas sao as dos VETORES DO JUIZ do xadrez**
+# (`scripts/gerar_vetores_juiz_xadrez.py`, T069), escolhidas a mao, e o que se
+# repete aqui e so o formato do Desafio do Dia. Escrever outras fitas seria
+# uma segunda fonte de casos para a mesma regra, e o juiz do xadrez ja tem os
+# casos dificeis (en passant, roque, promocao, xeque descoberto, repeticao).
+# Os do juiz provam as MEDIDAS do xadrez lance a lance (com os fatos do
+# motor); estes provam o JULGAMENTO do desafio do dia, com o juiz comum dos
+# dois lados, como nos outros jogos.
+#
+# ⚠️ **Os tres casos de todo tipo** (a regra 1 do contrato): cumpre, nao cumpre
+# por pouco e dado invalido. O invalido de cada tipo e o 1o lance do "cumpre" AO
+# CONTRARIO (de onde ele chegou para onde ele saiu): a casa de partida esta
+# vazia, ou tem uma peca do adversario, e o motor recusa sempre. O
+# `provar_que_o_invalido_e_mesmo_invalido` confere, pelo motor.
+#
+# ⚠️ **A troca nao entra**: saiu da 1.6.0 (`DECISOES-do-dono.md` §8zzzz64), e
+# vetor de verificacao e o que deixa um tipo ser publicado.
+
+#: Por tipo: o vetor do juiz que cumpre e o que nao cumpre por pouco.
+XADREZ_DO_JUIZ: tuple[tuple[str, str, str], ...] = (
+    ("xadrez_espia_comer", "xadrez-espia-come-en-passant", "xadrez-espia-come-e-e-comida"),
+    (
+        "xadrez_espia_proteger",
+        "xadrez-espia-protegida-sem-en-passant",
+        "xadrez-espia-comida-en-passant",
+    ),
+    (
+        "xadrez_espia_atravessar",
+        "xadrez-torre-espia-no-roque-atravessa",
+        "xadrez-torre-espia-no-roque-nao-atravessa-por-pouco",
+    ),
+    (
+        "xadrez_espia_xeque",
+        "xadrez-xeque-descoberto-da-espia",
+        "xadrez-xeque-descoberto-nao-e-da-peca-que-andou",
+    ),
+    ("xadrez_espia_alvo", "xadrez-espia-come-o-alvo", "xadrez-alvo-comido-por-outra-peca"),
+    ("xadrez_comer_com", "xadrez-comer-com-o-cavalo", "xadrez-comer-com-outra-peca-nao-conta"),
+    ("xadrez_nao_perder", "xadrez-nao-perder-peao-cumpre", "xadrez-nao-perder-peao-perde"),
+    (
+        "xadrez_xeques_seguidos",
+        "xadrez-xeques-seguidos-ate-a-repeticao",
+        "xadrez-xeques-seguidos-a-repeticao-empata-antes-do-5o",
+    ),
+    ("xadrez_sem_levar_xeque", "xadrez-sem-levar-xeque-cumpre", "xadrez-sem-levar-xeque-leva-mate"),
+    ("xadrez_dar_mate", "xadrez-dar-mate-em-4", "xadrez-dar-mate-no-6o-lance-nao-cumpre"),
+    (
+        "xadrez_duas_espias",
+        "xadrez-duas-espias-somam-as-capturas",
+        "xadrez-duas-espias-a-segunda-comida-encerra",
+    ),
+)
+
+
+def _vetores_do_juiz_do_xadrez() -> dict[str, dict[str, Any]]:
+    """Os vetores do juiz do xadrez, pelo id, montados agora pelo gerador deles.
+
+    ⚠️ Montados, e nao lidos do arquivo: o arquivo e saida daquele gerador, e
+    ler a saida de um gerador dentro de outro faria este depender de alguem
+    ter rodado aquele antes. `importlib` carrega o script pelo caminho (a pasta
+    `scripts/` nao e pacote).
+    """
+    import importlib.util
+
+    caminho = RAIZ / "scripts" / "gerar_vetores_juiz_xadrez.py"
+    especificacao = importlib.util.spec_from_file_location("gerar_vetores_juiz_xadrez", caminho)
+    modulo = importlib.util.module_from_spec(especificacao)
+    especificacao.loader.exec_module(modulo)
+    with JogadorXadrez() as motor:
+        documento = modulo.montar(motor)
+    return {v["id"]: v for v in documento["vetores"]}
+
+
+def _vetor_do_xadrez(
+    identificador: str, descricao: str, do_juiz: dict[str, Any], lances: list[str]
+) -> dict[str, Any]:
+    """Um vetor do Desafio do Dia a partir de um do juiz do xadrez, com [lances].
+
+    O veredito e os feitos saem do JUIZ DE PRODUCAO (`motores.juiz`), agora: e
+    a mesma conta que o teste do servidor e o do app refazem.
+    """
+    posicao = do_juiz["js_posicao_inicial"]
+    fita = [
+        # A pessoa e o J1 (+1) e tem a vez na posicao publicada; a vez alterna.
+        {"n": n, "jogador": 1 if n % 2 else -1, "lance": lance}
+        for n, lance in enumerate(lances, start=1)
+    ]
+    julgamento = julgar_desafio(
+        co_jogo="xadrez",
+        js_posicao_inicial=posicao,
+        js_chegada=do_juiz["js_chegada"],
+        fita=fita,
+        jogador=1,
+        co_modalidade=posicao["modalidade"],
+    )
+    return {
+        "id": identificador,
+        "de_vetor": descricao,
+        "co_jogo": "xadrez",
+        "co_variante": posicao["modalidade"],
+        "co_modalidade": posicao["modalidade"],
+        # O xadrez publica o FEN (contrato §1 da spec 012, `formato_do_jogo`).
+        "co_formato_posicao": posicao_inicial_mod.formato_do_jogo("xadrez"),
+        "js_posicao_inicial": posicao,
+        "nu_tipo_desafio": do_juiz["nu_tipo_desafio"],
+        "co_tipo_desafio": do_juiz["co_tipo_desafio"],
+        "jogador": 1,
+        "lances": fita,
+        "js_chegada": do_juiz["js_chegada"],
+        "esperado": {
+            "veredito": julgamento.veredito,
+            # Fita recusada nao produz medida (`test_o_invalido_nao_declara_feitos`).
+            "feitos": {} if julgamento.veredito == "dado_invalido" else julgamento.feitos,
+        },
+    }
+
+
+def vetores_do_xadrez() -> list[dict[str, Any]]:
+    """Os 33 vetores do xadrez: os tres casos de cada um dos onze tipos."""
+    do_juiz = _vetores_do_juiz_do_xadrez()
+    vetores: list[dict[str, Any]] = []
+    for co_tipo, cumpre, nao_cumpre in XADREZ_DO_JUIZ:
+        nome = co_tipo.removeprefix("xadrez_").replace("_", "-")
+        sim, nao = do_juiz[cumpre], do_juiz[nao_cumpre]
+        assert sim["co_tipo_desafio"] == co_tipo == nao["co_tipo_desafio"], co_tipo
+        lances_sim = [l["lance"] for l in sim["lances"]]
+        lances_nao = [l["lance"] for l in nao["lances"]]
+        # O 1o lance ao contrario: de onde ele chegou para onde saiu (sem a
+        # letra da promocao, que so vale na chegada a ultima fileira).
+        primeiro = lances_sim[0]
+        ao_contrario = primeiro[2:4] + primeiro[0:2]
+        casos = (
+            ("cumpre", f"(do vetor do juiz `{cumpre}`) {sim['de_vetor']}", lances_sim, "cumpriu"),
+            (
+                "nao-cumpre-por-pouco",
+                f"(do vetor do juiz `{nao_cumpre}`) {nao['de_vetor']}",
+                lances_nao,
+                "nao_cumpriu",
+            ),
+            (
+                "lance-ilegal-e-dado-invalido",
+                f"O 1o lance do 'cumpre' ao contrario ({ao_contrario}, e nao "
+                f"{primeiro}): sai de uma casa sem peca da pessoa, e o motor recusa.",
+                [ao_contrario],
+                "dado_invalido",
+            ),
+        )
+        for sufixo, descricao, lances, esperado in casos:
+            base = sim if sufixo != "nao-cumpre-por-pouco" else nao
+            vetor = _vetor_do_xadrez(f"xadrez-{nome}-{sufixo}", descricao, base, lances)
+            # O veredito escrito acima e o que EU espero; o juiz de producao tem
+            # de concordar, ou o vetor nao entra (como no gerador do juiz).
+            assert vetor["esperado"]["veredito"] == esperado, (
+                f"{vetor['id']}: eu esperava {esperado}, o juiz disse "
+                f"{vetor['esperado']['veredito']}"
+            )
+            vetores.append(vetor)
+    return vetores
+
+
 def montar() -> dict[str, Any]:
     """O documento inteiro, com os vetores em ordem estavel.
 
@@ -2467,6 +2638,8 @@ def montar() -> dict[str, Any]:
         + vetores_da_figura()
         # As figuras no ar (T150), montadas pela receita, no fim.
         + vetores_das_figuras_no_ar()
+        # O xadrez (T078 da spec 012): os onze tipos da 1.6.0, no fim.
+        + vetores_do_xadrez()
     )
     provar_que_o_invalido_e_mesmo_invalido(vetores)
 

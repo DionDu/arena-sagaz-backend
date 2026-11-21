@@ -123,12 +123,20 @@ def _id(valor) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_os_doze_existem_e_TODOS_estao_fora_do_ar() -> None:
-    """⚠️ Ate a regua (T077) e a promocao (T078), nenhum tipo do xadrez e
-    publicavel: "tipo no banco nao e tipo no ar"."""
+#: Os que ficaram FORA do ar na promocao (T078): a troca, que saiu da 1.6.0
+#: (`DECISOES-do-dono.md` §8zzzz64). "Tipo no banco nao e tipo no ar."
+FORA_DO_AR = {"xadrez_troca"}
+
+
+def test_os_onze_estao_no_ar_e_a_troca_fora() -> None:
+    """🔒 A promocao (T078, 21/11/2026): os onze que passaram na regua (6 de 9
+    dias, T077) estao em RECEITAS e EDITORIAL; a troca, nos dois de fora."""
     assert sorted(RECEITAS_DO_XADREZ) == sorted(TIPOS)
-    assert not set(TIPOS) & set(RECEITAS)
-    assert not set(TIPOS) & set(EDITORIAL)
+    no_ar = set(TIPOS) - FORA_DO_AR
+    assert len(no_ar) == 11
+    assert no_ar <= set(RECEITAS) and no_ar <= set(EDITORIAL)
+    assert not FORA_DO_AR & (set(RECEITAS) | set(EDITORIAL))
+    assert FORA_DO_AR <= set(RECEITAS_FORA_DO_AR) & set(EDITORIAL_FORA_DO_AR)
 
 
 def test_os_numeros_sao_os_da_0040() -> None:
@@ -327,7 +335,7 @@ def test_as_medidas_de_saida_fecham(co_tipo, publicacao) -> None:
 
 def test_o_nao_perder_pontua_a_peca_da_POSICAO() -> None:
     """A medida que pontua e a do tipo de peca que a posicao escolheu."""
-    publicacao = EDITORIAL_FORA_DO_AR["xadrez_nao_perder"][0]
+    publicacao = EDITORIAL["xadrez_nao_perder"][0]
     for peca in ("peao", "torre", "dama"):
         linhas = publicacao.medidas({**_parametros(publicacao), "peca": peca})
         assert linhas[0]["co_feito"] == f"pecas_perdidas_{peca}"
