@@ -113,6 +113,33 @@ TIPOS_EM_QUE_A_ESPIA_AGE: frozenset[str] = frozenset(
     {"xadrez_espia_comer", "xadrez_espia_xeque", "xadrez_espia_alvo"}
 )
 
+#: As classes que NAO sao alvo do `xadrez_espia_alvo` nem a classe comida do
+#: `xadrez_comer_com` (21/11/2026, depois da regua de 9 dias; historico do
+#: backend "2026-11-21 (7)"): as torres ficam protegidas no fundo do tabuleiro.
+#: Medido em 96 partidas de cada tipo (os quatro personagens tentando, contra a
+#: Pita e o Tex): com a torre de alvo a espia a comeu em 1 de 30; "coma 2 torres"
+#: cumpriu 0 de 42. A dama continua alvo (4 de 18), mas nao classe comida: duas
+#: damas do adversario quase nunca existem.
+PECAS_LONGE_DO_ALCANCE: frozenset[str] = frozenset({"torre"})
+
+#: A distancia maxima entre a espia e o alvo, em casas (a maior das duas
+#: diferencas, de coluna e de fileira: a distancia do rei). Geometria do nome da
+#: casa, e nao regra. Medido: a 2 e 3 casas, 10 de 24; a 6 e 7, 2 de 36.
+DISTANCIA_MAXIMA_DO_ALVO = 4
+
+
+def distancia_entre_casas(a: str, b: str) -> int:
+    """A distancia entre duas casas (`c3`, `f6`), em casas: a do rei."""
+    return max(abs(ord(a[0]) - ord(b[0])), abs(int(a[1]) - int(b[1])))
+
+
+def cor_da_casa(casa: str) -> int:
+    """A cor da casa (0 ou 1), pela soma da coluna com a fileira. ⚠️ Geometria do
+    nome, como a ultima fileira: e o que diz que um bispo nunca chega a uma casa
+    da outra cor."""
+    return (ord(casa[0]) - ord("a") + int(casa[1])) % 2
+
+
 #: Os pares da troca (RF-XDR-202), como (`minha`, `dele`): pecas de forca
 #: parecida. Com pecas desiguais a CPU nunca aceitaria o mau negocio.
 PARES_DA_TROCA: tuple[tuple[str, str], ...] = (
@@ -246,13 +273,31 @@ def escolher_espia(
 
 
 def escolher_alvo(
-    sorteio: random.Random, pecas: Mapping[str, PecaNaCasa], *, cor: str
+    sorteio: random.Random,
+    pecas: Mapping[str, PecaNaCasa],
+    *,
+    cor: str,
+    espia: PecaNaCasa | None = None,
 ) -> PecaNaCasa:
-    """O alvo: uma peca do ADVERSARIO de [cor], nunca o rei."""
+    """O alvo: uma peca do ADVERSARIO de [cor], nunca o rei.
+
+    Com a [espia] (o caminho do gerador, desde 21/11/2026): o alvo nao e torre
+    ([PECAS_LONGE_DO_ALCANCE]), fica a ate [DISTANCIA_MAXIMA_DO_ALVO] casas dela
+    e, se ela e um bispo, numa casa da MESMA cor (o bispo espiao cumpriu 0 de 12
+    antes disso: metade dos alvos era inalcancavel desde o lance 1).
+    """
     adversario = _outra_cor(cor)
     candidatas = [
         p for _, p in sorted(pecas.items()) if p.cor == adversario and p.peca != "rei"
     ]
+    if espia is not None:
+        candidatas = [
+            p
+            for p in candidatas
+            if p.peca not in PECAS_LONGE_DO_ALCANCE
+            and distancia_entre_casas(p.casa, espia.casa) <= DISTANCIA_MAXIMA_DO_ALVO
+            and (espia.peca != "bispo" or cor_da_casa(p.casa) == cor_da_casa(espia.casa))
+        ]
     return _escolher(sorteio, candidatas, "alvo")
 
 
@@ -274,7 +319,13 @@ def escolher_classes(
     come = _escolher(
         sorteio, [c for c in TIPOS_COMIVEIS if minhas[c] > 0], "classe para comer"
     )
-    possiveis = [c for c in TIPOS_COMIVEIS if dele[c] >= capturas]
+    # ⚠️ A torre e a dama nao sao classe comida (ver [PECAS_LONGE_DO_ALCANCE]:
+    # "coma 2 torres" cumpriu 0 de 42; duas damas quase nunca existem).
+    possiveis = [
+        c
+        for c in TIPOS_COMIVEIS
+        if dele[c] >= capturas and c not in PECAS_LONGE_DO_ALCANCE and c != "dama"
+    ]
     classes = {"come": come}
     if possiveis:
         classes["comida"] = possiveis[sorteio.randrange(len(possiveis))]
@@ -344,7 +395,7 @@ def posicao_do_desafio(
         marcas[MARCA_DA_ESPIA] = espia.casa
         escolhidas["espia"] = espia.peca
     if co_tipo == "xadrez_espia_alvo":
-        alvo = escolher_alvo(sorteio, pecas, cor=cor)
+        alvo = escolher_alvo(sorteio, pecas, cor=cor, espia=espia)
         marcas[MARCA_DO_ALVO] = alvo.casa
         escolhidas["alvo"] = alvo.peca
     if co_tipo == "xadrez_comer_com":

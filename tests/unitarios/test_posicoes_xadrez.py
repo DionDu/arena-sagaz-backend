@@ -197,6 +197,43 @@ def test_o_alvo_e_do_adversario_e_nunca_o_rei() -> None:
         assert js["marcas"]["alvo"] != js["marcas"]["espia"]
 
 
+def test_o_alvo_fica_ao_alcance_da_espia() -> None:
+    """Desde a regua de 9 dias: o alvo nao e torre, fica a ate 4 casas da espia,
+    e o bispo espiao so tem alvo na cor das casas dele."""
+    for dia in DIAS:
+        js = _posicao("xadrez_espia_alvo", dia).js_posicao_inicial
+        tabela = px.pecas_do_fen(js["fen"])
+        espia, alvo = tabela[js["marcas"]["espia"]], tabela[js["marcas"]["alvo"]]
+        assert alvo.peca not in px.PECAS_LONGE_DO_ALCANCE
+        assert px.distancia_entre_casas(espia.casa, alvo.casa) <= px.DISTANCIA_MAXIMA_DO_ALVO
+        if espia.peca == "bispo":
+            assert px.cor_da_casa(espia.casa) == px.cor_da_casa(alvo.casa)
+
+
+def test_o_bispo_espiao_nao_ganha_alvo_na_outra_cor() -> None:
+    """⚠️ Escrito a mao: o bispo de c1 e a unica espia possivel; o cavalo preto
+    de d3 esta numa casa da OUTRA cor, e o peao de e3 na mesma. O alvo so pode
+    ser o peao (a torre de b2, da mesma cor e perto, tambem nao: torre nao e
+    alvo)."""
+    fen = "7k/8/8/8/8/3np3/1r6/2B4K w - - 0 1"
+    for semente in range(20):
+        js = px.posicao_do_desafio(
+            random.Random(semente), co_tipo="xadrez_espia_alvo", fen=fen, parametros={"lances": 12}
+        ).js_posicao_inicial
+        assert js["marcas"] == {"espia": "c1", "alvo": "e3"}
+
+
+def test_a_classe_comida_nunca_e_torre_nem_dama() -> None:
+    """Com duas torres, duas damas e dois peoes do adversario, pedir 2 capturas
+    so pode dar o peao como classe comida."""
+    fen = "rq2k1qr/pp6/8/8/8/8/8/2B1K3 w - - 0 1"
+    for semente in range(20):
+        posicao = px.posicao_do_desafio(
+            random.Random(semente), co_tipo="xadrez_comer_com", fen=fen, parametros={"capturas": 2}
+        )
+        assert posicao.js_posicao_inicial["classes"]["comida"] == "peao"
+
+
 def test_as_classes_do_comer_com() -> None:
     """`come` e da pessoa; `comida` tem pelo menos K pecas do adversario."""
     k = PARAMETROS["xadrez_comer_com"]["capturas"]

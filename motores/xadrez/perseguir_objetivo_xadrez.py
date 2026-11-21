@@ -27,8 +27,9 @@ ESCOLHE entre os lances, em tres passos:
   (b) saem os lances que perdem a partida (os que a encerram sem o objetivo, e
       os que deixam ao adversario um xeque-mate no lance seguinte) e os que
       violam uma clausula que nao volta atras (a espia comivel no lance
-      seguinte, a peca do `xadrez_nao_perder` comivel, um xeque ao alcance do
-      adversario no `xadrez_sem_levar_xeque`);
+      seguinte, o alvo comido por outra peca no `xadrez_espia_alvo`, a peca que
+      come comivel no `xadrez_comer_com`, a peca do `xadrez_nao_perder` comivel, um xeque ao alcance do adversario no
+      `xadrez_sem_levar_xeque`);
   (c) entre os que sobram, a NOTA DO OBJETIVO, uma por tipo. Empate de nota:
       o lance do nivel, se estiver entre os empatados; depois, o que deixa
       MENOS pecas comiveis (pelo Radar); por fim, o sorteio da semente.
@@ -451,7 +452,27 @@ def filtrar(
             casa = espia.get("casa") if espia is not None else None
             if casa is None or casa not in examinado.comiveis:
                 seguros.append(examinado)
-        return seguros or vivos
+        if tipo != "xadrez_espia_alvo":
+            return seguros or vivos
+    if tipo == "xadrez_espia_alvo":
+        # ⚠️ O alvo comido por OUTRA peca da pessoa: o desafio fica impossivel
+        # (21/11/2026: em 19 de 75 partidas que nao cumpriram, foi o que houve).
+        # Comido pela espia, o lance cumpre, e ja foi jogado no passo (a).
+        intactos = []
+        for examinado in seguros or vivos:
+            alvo = examinado.marca(feitos_xadrez.MARCA_DO_ALVO)
+            if alvo is None or alvo.get("casa") is not None:
+                intactos.append(examinado)
+        return intactos or seguros or vivos
+    if tipo == "xadrez_comer_com":
+        # ⚠️ A peca que come e como a espia (21/11/2026: sem este filtro, o
+        # perseguidor comia com o bispo e o deixava ser comido de volta, e sem
+        # ela o desafio acaba): ficam os lances que deixam MENOS pecas da
+        # classe que come comiveis no lance seguinte.
+        come = (desafio.posicao.get("classes") or {}).get("come")
+        contagem = {e.lance: _classes_comiveis(e, come) for e in vivos}
+        menor = min(contagem.values(), default=0)
+        return [e for e in vivos if contagem[e.lance] == menor]
     if tipo == "xadrez_nao_perder":
         # A peca DO DESAFIO comivel no lance seguinte (decisao 2 do topo).
         # Sem candidato: os que deixam MENOS pecas daquela classe comiveis.

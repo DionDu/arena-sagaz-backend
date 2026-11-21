@@ -11824,3 +11824,66 @@ erram por pouco e para os dois lados: com 10 execuções por mascote, 0,02 de di
 mascote uma partida fora. Três dias não separam o acaso do defeito; a 3ª rodada mede em **9 dias**
 (`--dias=9`, como o "sem o meio" do Quatro, 21/10/2026), os onze tipos, inclusive os quatro que
 passaram, para confirmá-los.
+
+## 2026-11-21 (6) — A 3ª régua do xadrez, em 9 dias: só o "coma 2 com a espiã" passa
+
+**Contexto.** Com os números de "2026-11-21 (5)" (xeque com a espiã, xeques seguidos e comer com a
+classe a 15 lances), o dono rodou `medir_variantes_do_editorial.py xadrez --com-regua --dias=9`. O
+critério é o da triagem do Quatro ("2026-10-22 (4)"): **6 de 9 dias na escada**.
+
+**Resultado** (dias na escada · os dias fora, por quanto e para que lado):
+- `espia_comer` (12): **6/9** ✅ — fora por 0,02 a 0,10, para os dois lados.
+- `espia_atravessar` (10) e `espia_xeque` (15): 5/9 — difícil (o Magno abaixo de 0,75, 3 vezes cada).
+- `sem_levar_xeque` (15): 4/9 — os dois lados.
+- `nao_perder` (12): 3/9 — fácil (a Cacau alta, 3 vezes). `troca` (8): 3/9 — difícil (o Tex e o Magno
+  baixos, 7 de 10). `xeques_seguidos` (15): 3/9 — só difícil (o Magno baixo, 4 vezes; por 0,02 a 0,05).
+- `espia_proteger` (15): 2/9 — fácil (a Cacau e a Pita altas, 6 de 8). `dar_mate` (3): 2/9 — difícil
+  (a Pita e o Tex baixos, 6 de 9).
+- `comer_com` (15) e `espia_alvo` (12): 1/9 — os dois lados, sem padrão.
+- **Nenhum dia sem candidato** (o `comer_com` teve 2 num dia; os outros, 3 em todos).
+- **O dia em que a Cacau é a adversária quase nunca cai na escada**: 0 de 2 em oito dos onze tipos.
+  Sem esses dias, o `espia_atravessar` fica em 5 de 7.
+
+**Leitura.** A rodada de 3 dias superestimou: a troca e o mate, que pareciam passar (2 de 3), ficam em
+3 e 2 de 9. Os erros são pequenos (o job publica o mais perto da escada, e quase todos erram por 0,02
+a 0,08), mas o critério é a escada. Os remédios ao alcance: mais lances onde erra por difícil (a
+alavanca do dono, §8zzzz61); onde erra por fácil, mais lances também, mas os "Passe N" já estão em 15 e
+12; tirar a Cacau dos adversários, como o "sem o meio" do Quatro ("2026-10-22 (1)"); e a reserva das
+duas espiãs (§8zzzz62) para o que não tem padrão. Os pontos foram ao dono antes de qualquer mudança.
+
+## 2026-11-21 (7) — Por que o "comer o alvo" e o "comer com a classe" não davam certo, e a 4ª rodada
+
+**Contexto.** O dono pediu mais tentativas nos dois piores tipos (1 de 9 na régua) antes da reserva
+das duas espiãs, com a pergunta: *"Não está dando certo por que? A peça espiã é comida antes de
+concluir o desafio?"* (`DECISOES-do-dono.md` §8zzzz63). E pôs o teto em 20 lances, mantendo a Cacau.
+
+**O diagnóstico** (16 posições de cada tipo, os quatro personagens tentando com o perseguidor,
+contra a Pita e o Tex: 96 partidas por tipo, ~30 s). **A espiã comida não é a causa**, a não ser
+quando quem tenta é a Cacau (14 de 32, o esperado). Com o Tex e o Magno, quase sempre **a janela
+acaba**:
+- **comer o alvo:** o alvo longe do alcance — torre 1 de 30 (peão 14 de 36); o bispo espião 0 de 12
+  (metade dos alvos ficava na outra cor de casa, onde o bispo nunca chega); a 2-3 casas 10 de 24, a
+  6-7 casas 2 de 36; e, em 19 das 75 que falharam, **outra peça da própria pessoa comeu o alvo**,
+  deixando o desafio impossível;
+- **comer com a classe:** a janela acabava com 0 capturas em 54 de 70; com a torre de classe comida,
+  0 de 42.
+
+**Decisão (técnica).**
+- `posicoes_xadrez`: o alvo nunca é torre (`PECAS_LONGE_DO_ALCANCE`), fica a até 4 casas da espiã
+  (`DISTANCIA_MAXIMA_DO_ALVO`, a distância do rei, pelo nome das casas) e, com o bispo espião, na
+  mesma cor de casa (`cor_da_casa`); a classe comida nunca é torre nem dama.
+- O perseguidor: no `espia_alvo`, sai o lance em que outra peça come o alvo; no `comer_com`, ficam os
+  lances que deixam MENOS peças da classe que come comíveis (a peça que come é como a espiã).
+- O editorial, até o teto de 20 (§8zzzz63), onde o erro tem lado: proteger 15 → 20, não perder 12 →
+  15, atravessar 10 → 12, xeque com a espiã e xeques seguidos 15 → 18, troca 8 → 10, comer com a classe
+  15 → 20; o mate 3 → 2 (só o mate em 2: na medida por tamanho, Cacau 0,25 / Pita 0,43 / Tex 0,76 /
+  Magno 1,00). Sem lado, o N fica (sem levar xeque 15, comer o alvo 12).
+
+**O diagnóstico depois** (as mesmas 96 partidas): comer o alvo — o Magno de 11 para **25 de 32**, o
+Tex de 3 para **11 de 16**, a Pita de 2 para 7 de 16; comer com a classe — o Magno de 3 para **12 de
+32** (0,38), ainda longe do piso dele (0,75). ⚠️ O comer com a classe é o candidato à reserva das duas
+espiãs (§8zzzz62), se a 4ª régua o confirmar.
+
+**Testes.** O alvo ao alcance (pelos dias e por um FEN escrito à mão, com o bispo em c1 e alvos nas
+duas cores), a classe comida sem torre nem dama, o alvo que outra peça comeria, a peça que come que
+seria comida de volta. Seis mutações, todas pegas. Suíte 5 113 verdes.

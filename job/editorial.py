@@ -2656,6 +2656,19 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     #   (0,50 a 0,70). Os outros ficam: erraram por 0,02 a 0,08, para lados
     #   diferentes em dias diferentes, e com 10 execucoes por mascote isso e uma
     #   partida a mais ou a menos; a 3a rodada mede em 9 dias.
+    #   A 3a regua (9 dias, historico "2026-11-21 (6)") deixou so o "coma 2 com a
+    #   espia" no criterio (6 de 9). O dono pos o TETO EM 20 LANCES
+    #   (`DECISOES-do-dono.md` §8zzzz63), e a alavanca sobe onde o erro tem lado:
+    #   os faceis demais (proteger 15 -> 20, nao perder 12 -> 15) e os dificeis
+    #   demais (atravessar 10 -> 12, xeque com a espia e xeques seguidos 15 ->
+    #   18, troca 8 -> 10). O mate (dificil: a Pita e o Tex baixos) vai a 2: so
+    #   o mate em 2 (Cacau 0,25 / Pita 0,43 / Tex 0,76 / Magno 1,00 na medida
+    #   por tamanho). Sem lado (sem levar xeque, comer com a classe, comer o
+    #   alvo), o N fica; nos dois ultimos o defeito era a POSICAO (o alvo e a
+    #   classe comida fora do alcance, `posicoes_xadrez.PECAS_LONGE_DO_ALCANCE`).
+    #   O comer com a classe vai ao teto, 15 -> 20: mesmo com a posicao e o
+    #   filtro da peca que come, o Magno perseguindo ficava em 0,19 (a maioria
+    #   das janelas acabava com UMA captura).
     #
     # ⚠️ **As pecas (espia, alvo, classes, par da troca) nao estao aqui**: sao da
     # posicao do dia (`job/posicoes_xadrez.py`, T073), que as acrescenta aos
@@ -2684,8 +2697,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_espia_proteger": (
         Publicacao(
-            parametros={"lances": 15},
-            nu_maximo_de_meios_lances=2 * 15 - 1,
+            parametros={"lances": 20},
+            nu_maximo_de_meios_lances=2 * 20 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez_binario("espia_comida"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2693,8 +2706,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_espia_atravessar": (
         Publicacao(
-            parametros={"lances": 10},
-            nu_maximo_de_meios_lances=2 * 10 - 1,
+            parametros={"lances": 12},
+            nu_maximo_de_meios_lances=2 * 12 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("espia_na_ultima_fileira", None),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2702,8 +2715,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_espia_xeque": (
         Publicacao(
-            parametros={"xeques": 2, "lances": 15},
-            nu_maximo_de_meios_lances=2 * 15 - 1,
+            parametros={"xeques": 2, "lances": 18},
+            nu_maximo_de_meios_lances=2 * 18 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("xeques_da_espia", "xeques"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2720,8 +2733,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_comer_com": (
         Publicacao(
-            parametros={"capturas": 2, "lances": 15},
-            nu_maximo_de_meios_lances=2 * 15 - 1,
+            parametros={"capturas": 2, "lances": 20},
+            nu_maximo_de_meios_lances=2 * 20 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("capturas_da_classe_marcada", "capturas"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2729,8 +2742,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_nao_perder": (
         Publicacao(
-            parametros={"lances": 12},
-            nu_maximo_de_meios_lances=2 * 12 - 1,
+            parametros={"lances": 15},
+            nu_maximo_de_meios_lances=2 * 15 - 1,
             ic_chegada_encerra_partida=False,
             # ⚠️ A medida e a do tipo de peca que a POSICAO escolheu
             # (`pecas_perdidas_<peca>`), lida dos parametros na hora.
@@ -2740,8 +2753,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_xeques_seguidos": (
         Publicacao(
-            parametros={"xeques": 3, "lances": 15},
-            nu_maximo_de_meios_lances=2 * 15 - 1,
+            parametros={"xeques": 3, "lances": 18},
+            nu_maximo_de_meios_lances=2 * 18 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("maior_sequencia_de_xeques", "xeques"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2758,8 +2771,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_troca": (
         Publicacao(
-            parametros={"lances": 8},
-            nu_maximo_de_meios_lances=2 * 8 - 1,
+            parametros={"lances": 10},
+            nu_maximo_de_meios_lances=2 * 10 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("trocas_feitas", None),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2767,10 +2780,10 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_dar_mate": (
         Publicacao(
-            parametros={"lances": 3},
-            nu_maximo_de_meios_lances=2 * 3 - 1,
+            parametros={"lances": 2},
+            nu_maximo_de_meios_lances=2 * 2 - 1,
             # Mate em 2 (o mais curto que a T074 guarda) = 3 meios-lances. Com
-            # o N em 3, o sorteio so pega mate em 2 ou em 3 (`provas_xadrez`).
+            # o N em 2, o sorteio so pega mate em 2 (`provas_xadrez`).
             nu_minimo_de_meios_lances=3,
             # O unico do xadrez que encerra a partida: `vitoria` so vale no fim.
             ic_chegada_encerra_partida=True,

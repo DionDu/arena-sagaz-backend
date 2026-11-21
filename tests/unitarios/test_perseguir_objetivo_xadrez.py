@@ -206,6 +206,31 @@ def test_os_cinco_da_espia_tiram_o_lance_que_a_deixa_comivel(motor):
         assert "c3b5" in restantes, tipo
 
 
+def test_comer_com_nao_entrega_a_peca_que_come(motor):
+    """O bispo comeria o peao de h6, mas o peao de g7 o comeria de volta, e sem
+    o bispo o desafio acaba: o lance sai, e ficam os que o deixam a salvo."""
+    desafio = _desafio(
+        "xadrez_comer_com", "k7/6p1/7p/8/8/8/P7/2B3K1 w - - 0 1",
+        {"capturas": 2, "lances": 20, "come": "bispo", "comida": "peao"},
+        classes={"come": "bispo", "comida": "peao"},
+    )
+    restantes = _restantes(motor, desafio)
+    assert "c1h6" not in restantes
+    assert {"a2a3", "g1h1"} <= restantes
+
+
+def test_espia_alvo_nunca_come_o_alvo_com_outra_peca(motor):
+    """O peao de e3 poderia comer o alvo (o peao de d4), e o lance ainda tiraria
+    a ameaca sobre a espia: mas o desafio ficaria impossivel. Sai."""
+    desafio = _desafio(
+        "xadrez_espia_alvo", "7k/p7/8/8/3p4/2N1P3/P7/6K1 w - - 0 1", {"lances": 12},
+        marcas={"espia": "c3", "alvo": "d4"},
+    )
+    restantes = _restantes(motor, desafio)
+    assert "e3d4" not in restantes
+    assert "c3e4" in restantes
+
+
 def test_nao_perder_protege_a_peca_do_desafio(motor):
     """O cavalo de f6 ataca o peao de e4: so o avanco a e5 o salva."""
     desafio = _desafio("xadrez_nao_perder", "k7/8/5n2/8/4P3/8/8/6K1 w - - 0 1", {"lances": 8, "peca": "peao"})
