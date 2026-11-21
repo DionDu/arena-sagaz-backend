@@ -103,6 +103,16 @@ MODALIDADE = contrato_xadrez.modalidades_declaradas()[0]
 #: outra peca, e o bispo nao alcanca toda casa da ultima fileira.
 ESPIAS_QUE_ATRAVESSAM: tuple[str, ...] = ("cavalo", "torre", "dama")
 
+#: Os tipos em que a espia tem de AGIR (comer, dar xeque, comer o alvo), e por
+#: isso nunca e um peao (21/11/2026, depois da regua da T077: em 8 de 12
+#: partidas medidas do "coma 2 pecas com a espia", ela era um peao, e o peao
+#: quase nunca come duas pecas em 12 lances, nem alcanca um alvo escolhido; o
+#: defeito era da POSICAO, `DECISOES-do-dono.md` §8zzzz57 item 5). No
+#: "proteja a espia" o peao continua valendo: protege-lo e um desafio.
+TIPOS_EM_QUE_A_ESPIA_AGE: frozenset[str] = frozenset(
+    {"xadrez_espia_comer", "xadrez_espia_xeque", "xadrez_espia_alvo"}
+)
+
 #: Os pares da troca (RF-XDR-202), como (`minha`, `dele`): pecas de forca
 #: parecida. Com pecas desiguais a CPU nunca aceitaria o mau negocio.
 PARES_DA_TROCA: tuple[tuple[str, str], ...] = (
@@ -218,7 +228,8 @@ def escolher_espia(
     """A espia: uma peca da pessoa, nunca o rei (RF-XDR-192).
 
     No `xadrez_espia_atravessar`, so torre, dama ou cavalo, e fora da ultima
-    fileira dela (la ja estaria do outro lado).
+    fileira dela (la ja estaria do outro lado). Nos tipos em que ela age
+    ([TIPOS_EM_QUE_A_ESPIA_AGE]), nunca um peao.
     """
     candidatas = [
         p for _, p in sorted(pecas.items()) if p.cor == cor and p.peca != "rei"
@@ -229,6 +240,8 @@ def escolher_espia(
             for p in candidatas
             if p.peca in ESPIAS_QUE_ATRAVESSAM and p.casa[-1] != ULTIMA_FILEIRA[cor]
         ]
+    if co_tipo in TIPOS_EM_QUE_A_ESPIA_AGE:
+        candidatas = [p for p in candidatas if p.peca != "peao"]
     return _escolher(sorteio, candidatas, "espia para este tipo")
 
 

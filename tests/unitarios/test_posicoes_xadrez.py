@@ -130,6 +130,33 @@ def test_a_espia_e_da_pessoa_e_nunca_o_rei(co_tipo: str) -> None:
         assert posicao.pecas["espia"] == peca.peca
 
 
+@pytest.mark.parametrize("co_tipo", sorted(px.TIPOS_EM_QUE_A_ESPIA_AGE))
+def test_a_espia_que_age_nunca_e_um_peao(co_tipo: str) -> None:
+    """Comer, dar xeque e comer o alvo: a espia nunca e um peao (T077)."""
+    for dia in DIAS:
+        js = _posicao(co_tipo, dia).js_posicao_inicial
+        assert px.pecas_do_fen(js["fen"])[js["marcas"]["espia"]].peca != "peao"
+
+
+def test_a_espia_que_age_nao_e_o_peao_mesmo_quando_ele_e_a_maioria() -> None:
+    """⚠️ Escrito a mao: oito peoes e um cavalo. No "coma com a espia" a espia
+    e sempre o cavalo; no "proteja a espia" o peao continua podendo ser ela."""
+    fen = "4k3/8/8/8/8/8/PPPPPPPP/1N2K3 w - - 0 1"
+    sorteadas_proteger = set()
+    for semente in range(20):
+        comer = px.posicao_do_desafio(
+            random.Random(semente), co_tipo="xadrez_espia_comer", fen=fen,
+            parametros={"capturas": 2, "lances": 12},
+        )
+        assert comer.pecas["espia"] == "cavalo"
+        proteger = px.posicao_do_desafio(
+            random.Random(semente), co_tipo="xadrez_espia_proteger", fen=fen,
+            parametros={"lances": 15},
+        )
+        sorteadas_proteger.add(proteger.pecas["espia"])
+    assert "peao" in sorteadas_proteger
+
+
 def test_a_espia_que_atravessa_e_torre_dama_ou_cavalo_e_ainda_nao_chegou() -> None:
     for dia in DIAS:
         js = _posicao("xadrez_espia_atravessar", dia).js_posicao_inicial

@@ -11760,3 +11760,43 @@ agora (remédio técnico provável: olhar um lance adiante), e o K = 2 em 8 lanc
 ser alto; (3) o mate e a troca, por pouco: técnicos (a escolha dos problemas pelo número de lances do
 mate, e mais tentativas por dia). Nada foi promovido: a T078 espera o dono (`tasks.md`: "se algum
 tipo não passar, o ponto vai ao dono com o número antes de qualquer remendo").
+
+## 2026-11-21 (4) — Depois da régua: mais lances, a nota um lance adiante, a espiã que age sem peão e o mate em até 3
+
+**Contexto.** A régua da T077 ("2026-11-21 (3)") reprovou dez dos onze tipos. O dono decidiu
+(`DECISOES-do-dono.md` §8zzzz61): mais lances nos "Passe N" e nos de captura e de xeque, sem baixar o
+K, e tentar embarcar os onze. O resto era técnico.
+
+**Decisão.**
+- **O editorial** (`EDITORIAL_FORA_DO_AR`): proteger a espiã e sem levar xeque 10 → 15; não perder
+  8 → 12; os cinco de captura e de xeque 8 → 12; atravessar 8 → 10; troca fica em 8; o mate
+  **5 → 3**. O mate é o tamanho do PROBLEMA que manda (o sorteio só pega mate em N ou menos), e foi
+  medido: 12 problemas por tamanho, 5 execuções por personagem, contra adversários sorteados —
+  mate em 2 = Cacau 0,25 / Pita 0,43 / Tex 0,76 / Magno 1,00; em 3 = 0,09 / 0,36 / 0,42 / 1,00; em 4 =
+  0,06 / 0,00 / 0,09 / 1,00; em 5 = 0,00 / 0,09 / 0,00 / 0,98. Só o 2 e o 3 cabem na escada.
+- **A nota um lance adiante** nos quatro de captura e de xeque (`perseguir_objetivo_xadrez`, item 5
+  do topo): cumprir agora vale `PESO_DO_AGORA` (10), e soma-se o que a pessoa alcançaria se jogasse
+  de novo, pela vez trocada no FEN (as peças que a espiã ou a classe que come poderiam comer, os
+  xeques que a espiã ou qualquer peça poderia dar).
+- **A espiã que age nunca é um peão** (`posicoes_xadrez.TIPOS_EM_QUE_A_ESPIA_AGE`: comer, xeque,
+  alvo). Olhando as partidas: em 8 de 12 do "coma 2 peças com a espiã" ela era um peão, que quase
+  nunca come duas peças em 12 lances. Era o defeito de POSIÇÃO da §8zzzz57 item 5. No "proteja a
+  espiã" o peão continua valendo.
+- **Mais tentativas por dia**: `TENTATIVAS_POR_JOGO["xadrez"] = 20` (60 por dia), o número do
+  Pontinhos; a troca tinha um dia sem candidato e os de captura, dois.
+
+**A 2ª medição pareada** (16 posições por tipo, N = 12, contra o Tex; o Magno que só vence → o Magno
+perseguindo, e a escada): `espia_comer` 0,19 → **0,62** (0,19 / 0,25 / 0,25 / 0,62; com peão e a nota
+nova, 0,06); `espia_xeque` 0,44 → **0,75** (0,06 / 0,38 / 0,62 / 0,75); `xeques_seguidos` 0,12 → 0,44;
+`comer_com` 0,06 → 0,25; `espia_alvo` 0,00 → 0,25. Com a escada crescente nos cinco, o `espia_comer`
+entra em `SOLUCIONADOR_POR_TIPO`: os dez sem vitória estão ligados (o cadeado mudou junto). A 1ª
+rodada da T076a está guardada em `medicoes/.../diario_v1_nota_do_lance_2026-11-21.jsonl` (e a
+intermediária, com peão, em `diario_v2_...`).
+
+**Testes.** As notas na escala nova (o agora vale 10; o que se alcança, 1 por peça ou xeque), dois
+casos novos do lance adiante, e a espiã sem peão (pelos 40 dias e por um FEN escrito à mão, com oito
+peões e um cavalo). Suíte do backend: 5 108 verdes.
+
+**Alternativas consideradas:** baixar o K para 1 (recusado pelo dono); escolher a espiã pela força
+(só dama, torre e cavalo, como no atravessar: o bispo come e dá xeque bem, e tirá-lo empobreceria a
+frase); uma busca dirigida em Rust (§8zzzz57 item 6: só se o perseguidor não bastar).

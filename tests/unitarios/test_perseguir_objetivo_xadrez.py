@@ -231,14 +231,30 @@ def test_nao_perder_de_outra_peca_nao_liga_para_o_peao(motor):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_espia_comer_da_nota_a_captura_da_espia(motor):
+def test_espia_comer_da_nota_a_captura_e_ao_que_ela_alcancaria(motor):
+    """Comer o peao de d5 vale o peso do agora; ir a b5 vale 1 (de la o cavalo
+    alcancaria o peao de a7); ir a e2 nao alcanca nada."""
     desafio = _desafio(
         "xadrez_espia_comer", "7k/p7/8/3p4/8/2N5/P7/6K1 w - - 0 1", {"capturas": 2, "lances": 8},
         marcas={"espia": "c3"},
     )
     notas = _notas(motor, desafio)
-    assert notas["c3d5"] == 1.0 and notas["c3b5"] == 0.0
+    assert notas["c3d5"] == ps.PESO_DO_AGORA
+    assert notas["c3b5"] == 1.0 and notas["c3e2"] == 0.0
     assert _persegue(motor, desafio) == "c3d5"
+
+
+def test_espia_comer_sem_captura_leva_a_espia_para_perto(motor):
+    """Sem nada a comer agora, o cavalo vai para onde alcanca o peao de d6 (e4
+    ou b5), e nao fica parado: e o lance adiante da T077."""
+    desafio = _desafio(
+        "xadrez_espia_comer", "7k/p7/3p4/8/8/2N5/P7/6K1 w - - 0 1", {"capturas": 2, "lances": 8},
+        marcas={"espia": "c3"},
+    )
+    notas = _notas(motor, desafio)
+    assert notas["c3e4"] >= 1.0 and notas["c3b5"] >= 1.0
+    assert notas["c3b1"] == 0.0 and notas["g1h1"] == 0.0
+    assert _persegue(motor, desafio, do_nivel="g1h1") in {"c3e4", "c3b5"}
 
 
 def test_espia_atravessar_vai_para_mais_perto_da_ultima_fileira(motor):
@@ -255,11 +271,16 @@ def test_espia_xeque_conta_o_xeque_descoberto_e_desempata_pelo_nivel(motor):
         marcas={"espia": "e1"},
     )
     notas = _notas(motor, desafio)
-    assert notas["e4d5"] == notas["e4h7"] == 1.0
-    assert notas["e1d1"] == notas["g1h1"] == 0.0
+    # O xeque agora vale o peso; e depois dele "jogar de novo" nao existe (o
+    # rei preto esta em xeque), entao nao soma o lance adiante.
+    assert notas["e4d5"] == notas["e4h7"] == ps.PESO_DO_AGORA
+    # A torre em d1 nao da xeque, mas daria um (em d8) se jogasse de novo.
+    assert notas["e1d1"] == 1.0
+    # O rei em h1: a torre continua tapada pelo bispo.
+    assert notas["g1h1"] == 0.0
     # O lance do nivel esta entre os empatados: e ele, seja qual for (cada um
     # dos lances do bispo, um por vez; um sorteio acertaria no maximo um).
-    do_bispo = sorted(l for l, n in notas.items() if n == 1.0)
+    do_bispo = sorted(l for l, n in notas.items() if n == ps.PESO_DO_AGORA)
     assert len(do_bispo) > 1
     for do_nivel in do_bispo:
         assert _persegue(motor, desafio, do_nivel=do_nivel) == do_nivel
@@ -286,13 +307,18 @@ def test_comer_com_da_nota_so_a_classe_e_a_comida_marcadas(motor):
         classes={"come": "bispo", "comida": "peao"},
     )
     notas = _notas(motor, desafio)
-    assert notas["c1h6"] == 1.0 and notas["f3e5"] == 0.0
+    assert notas["c1h6"] == ps.PESO_DO_AGORA
+    # O cavalo come o de e5, que nao conta (a classe e o bispo); o bispo de c1
+    # continua alcancando o peao de h6: 1.
+    assert notas["f3e5"] == 1.0
 
 
 def test_xeques_seguidos_da_nota_ao_xeque(motor):
     desafio = _desafio("xadrez_xeques_seguidos", "k7/8/1K6/2Q5/8/8/8/8 w - - 0 1", {"xeques": 3, "lances": 8})
     notas = _notas(motor, desafio)
-    assert notas["c5a5"] == 1.0 and notas["c5c4"] == 0.0
+    assert notas["c5a5"] == ps.PESO_DO_AGORA
+    # Sem xeque agora, a dama em c4 daria varios xeques se jogasse de novo.
+    assert 0.0 < notas["c5c4"] < ps.PESO_DO_AGORA
 
 
 def test_troca_na_ordem_1_oferece_o_bispo_onde_o_cavalo_come_e_o_peao_retoma(motor):

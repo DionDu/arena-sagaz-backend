@@ -68,6 +68,15 @@ mede o objetivo dificil, mede a propria incompetencia.
 4. **A promocao do peao e sempre a dama** nos candidatos: as outras tres
    multiplicariam as perguntas por lance de peao na 7a fileira, e nenhum dos
    onze objetivos pede outra peca.
+5. **Nos quatro de captura e de xeque, a nota olha UM LANCE ADIANTE** (21/11/2026,
+   depois da regua da T077: com a nota so do lance de agora, o perseguidor era
+   o Magno cru ate a oportunidade aparecer sozinha, e nem o Magno perseguindo
+   passava de 0,40). Cumprir a parte do objetivo AGORA (comer, dar o xeque)
+   vale [PESO_DO_AGORA]; e soma-se o que a pessoa ALCANCARIA se jogasse de novo
+   (a vez trocada no FEN, como no item 3): as pecas que a espia (ou a classe
+   que come) poderia comer, os xeques que a espia (ou qualquer peca) poderia
+   dar. E o que leva a espia para perto das pecas, em vez de esperar que elas
+   venham.
 """
 
 from __future__ import annotations
@@ -146,6 +155,12 @@ TIPOS_DO_PERSEGUIDOR: frozenset[str] = TIPOS_DA_ESPIA | frozenset(
 #: A pessoa, no vocabulario da fita (`+1`), como nos vetores do juiz: e quem
 #: tem a vez na posicao publicada, e o adversario e `-1`.
 VEZ_DA_PESSOA = 1
+
+#: O peso de cumprir a parte do objetivo NO LANCE (comer, dar o xeque), contra o
+#: que o lance deixa ao alcance (ver o item 5 do topo). ⚠️ Maior que qualquer
+#: contagem de alcance que uma posicao real produz (uma dama alcanca no maximo
+#: oito pecas): o lance que come agora vence sempre o que so se aproxima.
+PESO_DO_AGORA = 10.0
 
 #: O prefixo da medida do `xadrez_nao_perder` (`pecas_perdidas_<peca>`).
 PREFIXO_DA_PECA_PROTEGIDA = "pecas_perdidas_"
@@ -518,6 +533,96 @@ def _oferece_a_troca(
     return False
 
 
+def _estado_com_a_vez_trocada(
+    motor: JogadorXadrez, desafio: DesafioXadrez, examinado: LanceExaminado
+) -> tuple[str, dict[str, Any]] | None:
+    """O FEN de depois do lance com a vez da PESSOA de novo, e o `estado` dele.
+
+    `None` quando o motor recusa a posicao trocada (o adversario esta em xeque:
+    o lance deu xeque, e "jogar de novo" nao existe). E a mesma pergunta do
+    item 3 do topo.
+    """
+    trocado = fen_com_a_vez_trocada(examinado.fen_depois)
+    try:
+        estado = motor.estado(modalidade=desafio.modalidade, fen_inicial=trocado, lances=[])
+    except MotorXadrezRecusou:
+        return None
+    return trocado, estado
+
+
+def _capturas_ao_alcance(
+    motor: JogadorXadrez,
+    desafio: DesafioXadrez,
+    examinado: LanceExaminado,
+    *,
+    origens: set[str],
+    comida: str | None = None,
+) -> float:
+    """Quantas pecas do adversario as pecas em [origens] poderiam comer, se a
+    pessoa jogasse de novo (a vez trocada). [comida]: so essa classe conta.
+
+    A peca em cada casa vem do FEN lido como tabela; o lance legal, do motor.
+    """
+    if not origens:
+        return 0.0
+    trocado = _estado_com_a_vez_trocada(motor, desafio, examinado)
+    if trocado is None:
+        return 0.0
+    _, estado = trocado
+    tabela = pecas_do_fen(examinado.fen_depois)
+    alvos = set()
+    for origem in origens:
+        for destino in (estado.get("lances_legais") or {}).get(origem, ()):
+            peca = tabela.get(destino)
+            if (
+                peca is not None
+                and peca.cor == desafio.cor_do_adversario
+                and comida in (None, peca.peca)
+            ):
+                alvos.add(destino)
+    return float(len(alvos))
+
+
+def _xeques_ao_alcance(
+    motor: JogadorXadrez,
+    desafio: DesafioXadrez,
+    examinado: LanceExaminado,
+    *,
+    so_da_espia: bool,
+) -> float:
+    """Quantos lances dariam xeque se a pessoa jogasse de novo (a vez trocada).
+
+    [so_da_espia]: so os lances da propria espia, e so quando o xeque e DELA
+    (o `deu_xeque` da marca, que inclui o descoberto); sem ele, qualquer lance
+    com `xeque_por`. Um `aplicar` por lance, na posicao trocada.
+    """
+    trocado = _estado_com_a_vez_trocada(motor, desafio, examinado)
+    if trocado is None:
+        return 0.0
+    fen, estado = trocado
+    marcas = None
+    lances = lances_do_estado(estado, (PROMOCAO_DOS_CANDIDATOS,))
+    if so_da_espia:
+        espia = examinado.marca(feitos_xadrez.MARCA_DA_ESPIA)
+        casa = espia.get("casa") if espia else None
+        if casa is None:
+            return 0.0
+        marcas = {feitos_xadrez.MARCA_DA_ESPIA: casa}
+        # O lance comeca pela casa dela: os dois primeiros caracteres.
+        lances = [lance for lance in lances if lance[:2] == casa]
+    total = 0
+    for lance in lances:
+        resposta = motor.aplicar(
+            modalidade=desafio.modalidade, fen_inicial=fen, lances=[], lance=lance, marcas=marcas
+        )
+        if so_da_espia:
+            marca = (resposta.get("marcas") or {}).get(feitos_xadrez.MARCA_DA_ESPIA) or {}
+            total += bool(marca.get("deu_xeque"))
+        else:
+            total += bool(resposta["fatos"].get("xeque_por"))
+    return float(total)
+
+
 def nota_do_objetivo(
     motor: JogadorXadrez,
     desafio: DesafioXadrez,
@@ -534,7 +639,12 @@ def nota_do_objetivo(
     fatos = examinado.fatos
     espia = examinado.marca(feitos_xadrez.MARCA_DA_ESPIA)
     if tipo == "xadrez_espia_comer":
-        return 1.0 if espia is not None and espia.get("comeu") else 0.0
+        # Comer agora; e, um lance adiante, as pecas que ela alcancaria.
+        agora = PESO_DO_AGORA if espia is not None and espia.get("comeu") else 0.0
+        casa = espia.get("casa") if espia else None
+        return agora + _capturas_ao_alcance(
+            motor, desafio, examinado, origens={casa} if casa else set()
+        )
     if tipo == "xadrez_espia_atravessar":
         casa = espia.get("casa") if espia else None
         if casa is None:
@@ -544,23 +654,38 @@ def nota_do_objetivo(
         ultima = int(feitos_xadrez.ULTIMA_FILEIRA[desafio.cor_da_pessoa])
         return -abs(ultima - int(casa[-1]))
     if tipo == "xadrez_espia_xeque":
-        # `deu_xeque` inclui o xeque descoberto (RF-XDR-195).
-        return 1.0 if espia is not None and espia.get("deu_xeque") else 0.0
+        # `deu_xeque` inclui o xeque descoberto (RF-XDR-195). Um lance adiante:
+        # quantos lances dariam o xeque DELA.
+        agora = PESO_DO_AGORA if espia is not None and espia.get("deu_xeque") else 0.0
+        return agora + _xeques_ao_alcance(motor, desafio, examinado, so_da_espia=True)
     if tipo == "xadrez_espia_alvo":
         # Comer o alvo cumpre (passo a); aqui, deixar a espia atacando-o.
         return 1.0 if _espia_ataca_o_alvo(motor, desafio, examinado) else 0.0
     if tipo == "xadrez_comer_com":
         classes = desafio.posicao.get("classes") or {}
         comida = fatos.get("comida")
-        return (
-            1.0
+        agora = (
+            PESO_DO_AGORA
             if isinstance(comida, Mapping)
             and fatos.get("peca_movida") == classes.get("come")
             and classes.get("comida") in (None, comida.get("peca"))
             else 0.0
         )
+        # Um lance adiante: as capturas da classe que come que ficariam a mao.
+        tabela = pecas_do_fen(examinado.fen_depois)
+        origens = {
+            casa
+            for casa, peca in tabela.items()
+            if peca.cor == desafio.cor_da_pessoa and peca.peca == classes.get("come")
+        }
+        return agora + _capturas_ao_alcance(
+            motor, desafio, examinado, origens=origens, comida=classes.get("comida")
+        )
     if tipo == "xadrez_xeques_seguidos":
-        return 1.0 if fatos.get("xeque_por") else 0.0
+        # Dar o xeque agora (a sequencia so cresce assim); um lance adiante,
+        # quantos lances dariam xeque.
+        agora = PESO_DO_AGORA if fatos.get("xeque_por") else 0.0
+        return agora + _xeques_ao_alcance(motor, desafio, examinado, so_da_espia=False)
     if tipo == "xadrez_troca":
         # A ordem 2 (comer a `dele` com a `minha`) cumpre: e o passo (a).
         return 1.0 if _oferece_a_troca(motor, desafio, fita, examinado) else 0.0

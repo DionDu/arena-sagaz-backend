@@ -13,7 +13,7 @@ O que se confere:
      base (com o perseguidor), com gabarito que o juiz
      julga cumprido, e reprodutivel pela data;
   6. a bancada da regua mede um candidato do xadrez;
-  7. ⛔ os tipos do xadrez em `SOLUCIONADOR_POR_TIPO` sao os nove da T076a.
+  7. ⛔ os tipos do xadrez em `SOLUCIONADOR_POR_TIPO` sao os dez sem vitoria.
 """
 
 from __future__ import annotations
@@ -216,14 +216,14 @@ def test_o_xadrez_e_fen_tem_versao_de_motor_e_regua_paralela():
     assert gerador_mod.MODALIDADES_POR_JOGO["xadrez"] == ("tradicional",)
 
 
-def test_os_tipos_ligados_ao_perseguidor_sao_os_nove_da_t076a():
+def test_os_tipos_ligados_ao_perseguidor_sao_os_dez_sem_vitoria():
     """⛔ `DECISOES-do-dono.md` §8zzzz57: o perseguidor entra tipo a tipo, so
-    depois do controle e da medicao pareada. A T076a (21/11/2026) ligou os nove
-    com ganho e escada crescente; o `xadrez_espia_comer` ficou de fora (a escada
-    nao cresce) e o `xadrez_dar_mate` nunca entra (vencer e o objetivo). Mudou a
-    lista? Mude este teste junto, com o numero da medicao no `gerador.py`."""
+    depois do controle e da medicao pareada. A T076a ligou nove; o
+    `xadrez_espia_comer` entrou na 2a medicao (a espia que age nunca e peao).
+    O `xadrez_dar_mate` nunca entra (vencer e o objetivo). Mudou a lista? Mude
+    este teste junto, com o numero da medicao no `gerador.py`."""
     ligados = TIPOS_DO_XADREZ & set(gerador_mod.SOLUCIONADOR_POR_TIPO)
-    assert ligados == TIPOS_DO_XADREZ - {"xadrez_espia_comer", "xadrez_dar_mate"}
+    assert ligados == TIPOS_DO_XADREZ - {"xadrez_dar_mate"}
 
 
 def test_o_xadrez_aceita_o_erro_do_adversario():
