@@ -11733,3 +11733,30 @@ números da régua antes de mudar.
 **Alternativas consideradas:** ligar só os cinco que passaram com folga (os quatro de 0,10 a 0,17
 ficariam com o Magno cru, que é pior em todos eles); ligar também o `espia_comer` (a escada não
 cresce, e a regra da T076a é ganho E escada).
+
+## 2026-11-21 (3) — A régua nos onze tipos do xadrez (T077): só a troca cai na escada
+
+**Contexto.** Com o perseguidor ligado nos nove tipos da T076a, o dono rodou
+`scripts/medir_variantes_do_editorial.py xadrez --com-regua` (3 dias, 3 candidatos por dia, 10
+execuções por mascote; os números do editorial são os PALPITES da T072).
+
+**Resultado** (rótulo · dias com candidato · dias na escada):
+- `xadrez_troca` (8 lances): SEM DESAFIO · [0, 3, 1] · **2 de 3 na escada** (cacau 0,20 e 0,10,
+  pita 0,20, tex 0,50, magno 0,80). O único que passa; o defeito é o dia sem candidato.
+- **Os três "Passe N" sobram candidato e são BANAIS**: `espia_proteger` (10) FOLGA · 0 de 3 (cacau
+  0,50 / 0,40 / 0,20, pita 0,70); `sem_levar_xeque` (10) FOLGA · 0 de 3 (cacau 0,50 / 0,40, pita 0,70 /
+  0,50); `nao_perder` (8) FOLGA · 1 de 3 (cacau 0,60 num dia, magno 0,20 noutro).
+- `xadrez_dar_mate` (5): FOLGA · 0 de 3, **por pouco** (errando por 0,02, 0,02 e 0,07): a Pita
+  nunca dá o mate (0,00, com piso 0,05), e o Tex fica em 0,90 num dia e 0,30 noutro.
+- `espia_atravessar` (8): APERTADO · [3, 2, 2] · 1 de 3 (o Magno em 0,70 e 0,40).
+- **Os cinco de captura e de xeque não sobram candidato, e são duros**: `comer_com` [0, 1, 1],
+  `espia_alvo` [1, 0, 0], `espia_comer` [1, 0, 0], `espia_xeque` [2, 0, 1], `xeques_seguidos`
+  [2, 0, 2]; 0 de 3 na escada em todos, com o Magno de 0,10 a 0,40.
+
+**Leitura.** Três problemas diferentes, e cada um pede o seu remédio: (1) os "Passe N" fáceis demais
+para a Cacau e a Pita: o número de lances é a alavanca, e mexer nele é decisão do dono (a
+duração do desafio); (2) os cinco de captura e de xeque: a nota do perseguidor só enxerga o lance de
+agora (remédio técnico provável: olhar um lance adiante), e o K = 2 em 8 lances contra o Tex pode
+ser alto; (3) o mate e a troca, por pouco: técnicos (a escolha dos problemas pelo número de lances do
+mate, e mais tentativas por dia). Nada foi promovido: a T078 espera o dono (`tasks.md`: "se algum
+tipo não passar, o ponto vai ao dono com o número antes de qualquer remendo").
