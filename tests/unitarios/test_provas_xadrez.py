@@ -142,6 +142,104 @@ def test_janela_sem_problema_e_recusada():
         pv.sortear_problema_de_mate(random.Random(1), lances=1)
 
 
+def _mates_em_2(quantos: int) -> list[dict]:
+    """Os primeiros [quantos] problemas de mate em 2 do acervo."""
+    return [p for p in pv.carregar_problemas_de_mate() if p["mate_em"] == 2][:quantos]
+
+
+def _calibracao(ids_por_adversario: dict, **outros) -> dict:
+    """Uma calibracao do motor de hoje, com N = 2, para os testes."""
+    from motores.xadrez import contrato_xadrez
+
+    return {
+        "versao_do_motor": contrato_xadrez.versao_do_motor(),
+        "lances": 2,
+        "execucoes": 20,
+        "na_escada_contra": ids_por_adversario,
+        **outros,
+    }
+
+
+def test_com_o_adversario_o_mate_sai_so_dos_problemas_calibrados_contra_ele(capsys):
+    """21/11/2026: o sorteio escolhe entre os que cairam na escada contra o
+    adversario do dia, e nao entre os da Pita quando o adversario e o Tex."""
+    a, b, c = _mates_em_2(3)
+    calibracao = _calibracao({"tex": [a["id"], b["id"]], "pita": [c["id"]]})
+    sorteados = {
+        pv.sortear_problema_de_mate(
+            random.Random(semente), lances=2, co_personagem="tex", calibracao=calibracao
+        ).js_posicao_inicial["fen"]
+        for semente in range(40)
+    }
+    assert sorteados == {a["fen"], b["fen"]}
+    # Calibracao que serve nao avisa nada.
+    assert "[mate]" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "calibracao, motivo",
+    [
+        (None, "sem calibracao_do_mate.json"),
+        ({"versao_do_motor": "rust_0.0.1", "lances": 2, "na_escada_contra": {}}, "motor rust_0.0.1"),
+        ("outro N", "N=3"),
+        ("sem o adversario", "nenhum problema calibrado contra tex"),
+    ],
+)
+def test_calibracao_que_nao_serve_volta_ao_acervo_inteiro_e_avisa(capsys, calibracao, motivo):
+    """Sem arquivo, de outro motor, de outro N ou sem o adversario: o desafio sai
+    do acervo inteiro (o job nao para), e o log diz por que."""
+    a = _mates_em_2(1)[0]
+    if calibracao == "outro N":
+        calibracao = _calibracao({"tex": [a["id"]]}, lances=3)
+    elif calibracao == "sem o adversario":
+        calibracao = _calibracao({"pita": [a["id"]]})
+    cabem = _mates_em_2(50)
+    escolhidos = pv.problemas_calibrados(
+        cabem,
+        lances=2,
+        co_personagem="tex",
+        calibracao=calibracao,
+        versao_do_motor=_calibracao({})["versao_do_motor"],
+    )
+    assert escolhidos == cabem
+    saida = capsys.readouterr().out
+    assert "acervo inteiro" in saida and motivo in saida
+
+
+def test_sem_adversario_o_acervo_e_inteiro_e_calado(capsys):
+    """A medicao pareada e os testes antigos nao passam adversario: nada muda."""
+    cabem = _mates_em_2(10)
+    assert pv.problemas_calibrados(
+        cabem, lances=2, co_personagem=None, calibracao=None, versao_do_motor="x"
+    ) == cabem
+    assert capsys.readouterr().out == ""
+
+
+def test_sortear_posicao_leva_o_adversario_ao_mate(monkeypatch):
+    a = _mates_em_2(1)[0]
+    monkeypatch.setattr(pv, "carregar_calibracao_do_mate", lambda: _calibracao({"magno": [a["id"]]}))
+    escolhida = pv.sortear_posicao(
+        random.Random(5), co_tipo="xadrez_dar_mate", parametros={"lances": 2}, co_personagem="magno"
+    )
+    assert escolhida.js_posicao_inicial["fen"] == a["fen"]
+
+
+def test_o_xadrez_pede_seis_candidatos_por_dia_e_os_outros_tres():
+    """21/11/2026, depois da 4a regua: a mesma funcao serve o job e a medicao."""
+    assert gerador_mod.candidatos_por_dia("xadrez") == 6
+    for jogo in ("pontinhos", "damas", "quatro"):
+        assert gerador_mod.candidatos_por_dia(jogo) == gerador_mod.CANDIDATOS_POR_DIA_PADRAO == 3
+
+
+def test_o_job_pede_ao_gerador_o_numero_do_jogo():
+    """O job nao pode voltar a uma constante unica: o xadrez mediria 6 e publicaria de 3."""
+    from pathlib import Path
+
+    fonte = (Path(gerador_mod.__file__).parent / "__main__.py").read_text(encoding="utf-8")
+    assert "quantos=gerador_mod.candidatos_por_dia(co_jogo)" in fonte
+    assert "quantos=CANDIDATOS_POR_DIA," not in fonte
+
+
 def test_o_mate_vem_dos_problemas_e_os_outros_da_base():
     mate = pv.sortear_posicao(random.Random(3), co_tipo="xadrez_dar_mate", parametros={"lances": 5})
     assert mate.js_posicao_inicial["origem"] == pv.ORIGEM_PROBLEMAS_LICHESS
@@ -289,6 +387,16 @@ def test_o_gerador_tira_um_desafio_da_base_com_o_perseguidor(motor):
     de_novo = _gerar("xadrez_espia_proteger", dia)
     assert de_novo.js_posicao_inicial == candidato.js_posicao_inicial
     assert de_novo.js_solucao == candidato.js_solucao
+
+
+def test_o_gerador_leva_o_adversario_do_dia_ao_sorteio_do_mate(motor, monkeypatch):
+    """Com uma calibracao de um problema so para cada adversario, o candidato do
+    mate sai daquele problema: o gerador passou o personagem do dia adiante."""
+    a = _mates_em_2(1)[0]
+    todos = {p: [a["id"]] for p in ("cacau", "pita", "tex", "magno")}
+    monkeypatch.setattr(pv, "carregar_calibracao_do_mate", lambda: _calibracao(todos))
+    candidato = _gerar("xadrez_dar_mate", date(2026, 12, 3))
+    assert candidato.js_posicao_inicial["fen"] == a["fen"]
 
 
 def test_a_bancada_da_regua_mede_um_candidato_do_xadrez(motor):

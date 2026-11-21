@@ -154,6 +154,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from job import editorial as editorial_mod  # noqa: E402
 from job import gerador as gerador_mod  # noqa: E402
+from job import regua as regua_do_job_mod  # noqa: E402
 from job import tipos_de_desafio as tipos_de_desafio_mod  # noqa: E402
 from motores.nucleo import recursos_por_thread  # noqa: E402
 
@@ -162,11 +163,14 @@ from motores.nucleo import recursos_por_thread  # noqa: E402
 #: decisao, no historico.
 PASTA_DAS_MEDICOES = RAIZ / "medicoes" / "medir_variantes_do_editorial"
 
-#: Quantos candidatos pedir por dia — o mesmo do job (`CANDIDATOS_POR_DIA`).
+#: Quantos candidatos pedir por dia, num jogo sem numero proprio — o mesmo do job.
 #:
 #: ⚠️ **Medir com um numero diferente do job daria uma taxa que descreve outra
 #: execucao.** E a mesma razao pela qual a regua usa o teto de lances da geracao.
-QUANTOS_POR_DIA = 3
+#: ⚠️ Desde 21/11/2026 o numero e POR JOGO (`gerador.candidatos_por_dia`: o
+#: xadrez pede seis), e e de la que `medir_um_dia` e o relatorio o leem; este
+#: nome fica como o padrao.
+QUANTOS_POR_DIA = gerador_mod.CANDIDATOS_POR_DIA_PADRAO
 
 #: Em quantos dias diferentes cada variante e medida.
 #:
@@ -674,7 +678,7 @@ def quanto_falta(segundos: float) -> str:
     return f"{int(minutos // 60)}h{int(minutos % 60):02d}m"
 
 
-def _como_ler(dia_mais_fraco: int) -> tuple[str, str]:
+def _como_ler(dia_mais_fraco: int, quantos_por_dia: int = QUANTOS_POR_DIA) -> tuple[str, str]:
     """Traduz o numero do dia mais fraco em algo que se le sem decorar.
 
     ⚠️ **A pedido do dono, 12/09/2026:** *"consegue mudar essas expressoes 'pior
@@ -696,7 +700,8 @@ def _como_ler(dia_mais_fraco: int) -> tuple[str, str]:
         return "⛔", "SEM DESAFIO"
     if dia_mais_fraco == 1:
         return "⚠️", "NO LIMITE"
-    if dia_mais_fraco < QUANTOS_POR_DIA:
+    # ⚠️ "Todos os pedidos" depende do jogo: 3 de 3 nos outros, 6 de 6 no xadrez.
+    if dia_mais_fraco < quantos_por_dia:
         return "⚠️", "APERTADO"
     return "✅", "FOLGA"
 
@@ -849,7 +854,8 @@ def medir_um_dia(
     candidatos = gerador_mod.gerar_candidatos(
         dia,
         parametros=parametros,
-        quantos=QUANTOS_POR_DIA,
+        # O numero do JOGO, como no job (o xadrez pede seis).
+        quantos=gerador_mod.candidatos_por_dia(receita.co_jogo),
         tipos_recentes=outros,
         maximo_de_meios_lances=botoes["teto"],
         # ⛔ **O mesmo piso da publicacao.** Medir sem ele diria que a
@@ -888,8 +894,13 @@ def _linha_da_variante(
     lances_da_solucao: Sequence[int],
     segundos: float,
     proprios: str,
+    quantos_por_dia: int = QUANTOS_POR_DIA,
 ) -> str:
-    """A linha de uma variante no relatorio (o rotulo, os dias, a solucao)."""
+    """A linha de uma variante no relatorio (o rotulo, os dias, a solucao).
+
+    `quantos_por_dia` e o numero de candidatos que o job pede naquele jogo
+    (`gerador.candidatos_por_dia`): e dele que sai o "de N" da linha.
+    """
     dia_mais_fraco = min(por_dia) if por_dia else 0
     media_da_solucao = (
         sum(lances_da_solucao) / len(lances_da_solucao) if lances_da_solucao else 0.0
@@ -897,10 +908,10 @@ def _linha_da_variante(
     # ⚠️ **O DIA MAIS FRACO manda, e nao a media.** Uma variante com 3 num dia
     # e 0 no outro publica dia descoberto a cada duas aparicoes, e a media de
     # 1,5 esconderia isso.
-    selo, rotulo = _como_ler(dia_mais_fraco)
+    selo, rotulo = _como_ler(dia_mais_fraco, quantos_por_dia)
     return (
         f"  {selo} {rotulo:<12} {str(dict(parametros)):<32} "
-        f"no dia mais fraco: {dia_mais_fraco} de {QUANTOS_POR_DIA} · "
+        f"no dia mais fraco: {dia_mais_fraco} de {quantos_por_dia} · "
         f"dias {list(por_dia)} · "
         f"solucao {media_da_solucao:.1f} meios-lances · "
         f"{segundos:.0f}s{proprios}"
@@ -1016,6 +1027,7 @@ def medir(
                 lances_da_solucao,
                 time.time() - inicio,
                 _botoes_proprios(botoes, publicacao),
+                gerador_mod.candidatos_por_dia(receita.co_jogo),
             )
         )
         # ⚠️ **Depois da linha da variante, e uma por dia.** Elas nao entram na
@@ -1291,14 +1303,18 @@ def processos_pedidos(argumentos: Sequence[str]) -> int | None:
     return _inteiro_positivo(pedidos[-1][len(PREFIXO_DOS_PROCESSOS):])
 
 
-#: Quantas vezes cada mascote tenta, na medicao com regua.
+#: Quantas vezes cada mascote tenta, na medicao com regua: as MESMAS do job.
 #:
-#: ⚠️ **Menos que as 20 do job**, de proposito: aqui a pergunta e *"a taxa esta
-#: perto da banda?"*, e nao *"qual e a taxa exata deste candidato?"*. Dez
-#: execucoes x 3 mascetes x 3 dias ja separam 0,37 de 0,93 com folga — e dobrar
-#: isso dobraria a rodada para afinar um numero que o job vai remedir de qualquer
-#: jeito.
-EXECUCOES_DA_SONDA_DE_REGUA = 10
+#: ⛔ **Eram 10 ate 21/11/2026, metade das 20 do job**, com a ideia de que aqui
+#: a pergunta era so *"a taxa esta perto da banda?"*. Valia enquanto a pergunta
+#: era essa; deixou de valer quando o relatorio passou a decidir **se um tipo
+#: entra** pela escada dia a dia (o xadrez, T077). Com 10 execucoes a taxa anda
+#: de 0,10 em 0,10, e as bordas da escada (0,05, 0,45, 0,75, 0,85) ficam
+#: inalcancaveis: um Tex em 0,45, que o job aceita (9 de 20), aqui sai 0,40 ou
+#: 0,50, e a escada encolhe 0,05 de cada lado. Na 4a regua do xadrez, 18 dos 47
+#: dias reprovados erravam so por isso (um mascote 0,05 fora, os outros dentro).
+#: ⚠️ O preco e a rodada levar o dobro na parte da regua.
+EXECUCOES_DA_SONDA_DE_REGUA = regua_do_job_mod.EXECUCOES_PADRAO
 
 
 def _linha_da_regua(candidatos: Sequence[Any], *, teto: int, dia) -> str:
@@ -1426,7 +1442,7 @@ def _regua_do_dia(candidatos: Sequence[Any], *, teto: int, dia) -> tuple[bool, s
 
 
 def impressao_do_codigo() -> str:
-    """Um resumo (SHA-256, 16 hexas) dos `.py` de `job/` e `motores/`.
+    """Um resumo (SHA-256, 16 hexas) dos `.py` de `job/` e `motores/` e dos dados do xadrez.
 
     ⛔ **Entra em toda linha do diario, e uma linha de outra impressao nao vale.**
     O diario existe para nao medir de novo o que ja foi medido; mas se o gerador,
@@ -1447,6 +1463,13 @@ def impressao_do_codigo() -> str:
             # O caminho entra junto do conteudo: renomear um arquivo muda o codigo.
             resumo.update(arquivo.relative_to(RAIZ).as_posix().encode("utf-8"))
             resumo.update(arquivo.read_bytes())
+    # ⚠️ **E os DADOS que a geracao le** (21/11/2026): o acervo de problemas de
+    # mate e a calibracao dele (`provas_xadrez.CALIBRACAO_DO_MATE`) decidem que
+    # posicao o job sorteia, sem mudar uma linha de `.py`. Uma calibracao nova
+    # com o diario antigo mediria o acervo de antes.
+    for arquivo in sorted((RAIZ / "dados" / "jogo_xadrez").glob("*.json")):
+        resumo.update(arquivo.relative_to(RAIZ).as_posix().encode("utf-8"))
+        resumo.update(arquivo.read_bytes())
     return resumo.hexdigest()[:16]
 
 
@@ -1683,6 +1706,7 @@ def relatorio_da_rodada(
                 [n for r in resultados for n in r["lances_da_solucao"]],
                 sum(r["segundos"] for r in resultados),
                 _botoes_proprios(do_grupo[0]["botoes"], publicacao),
+                gerador_mod.candidatos_por_dia(receita.co_jogo),
             )
         )
         if do_grupo[0]["com_regua"]:

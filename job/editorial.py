@@ -2669,6 +2669,13 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     #   O comer com a classe vai ao teto, 15 -> 20: mesmo com a posicao e o
     #   filtro da peca que come, o Magno perseguindo ficava em 0,19 (a maioria
     #   das janelas acabava com UMA captura).
+    #   A 4a regua (historico "2026-11-21 (8)") pos tres no criterio (comer com
+    #   a classe, coma 2 com a espia, nao perder: 6 de 9). Os dois de xeque erram
+    #   para o lado dificil (o Magno em 0,40 a 0,70 nos xeques seguidos, o Tex
+    #   em 0,00 a 0,40 no xeque com a espia) e vao ao teto, 18 -> 20. Os outros
+    #   ficam: erravam para os dois lados, e 18 dos 47 dias reprovados erravam
+    #   so pela borda de 0,05 que as 10 execucoes da sonda nao alcancavam (a
+    #   sonda passou as 20 do job, e o xadrez a 6 candidatos por dia).
     #
     # ⚠️ **As pecas (espia, alvo, classes, par da troca) nao estao aqui**: sao da
     # posicao do dia (`job/posicoes_xadrez.py`, T073), que as acrescenta aos
@@ -2715,8 +2722,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_espia_xeque": (
         Publicacao(
-            parametros={"xeques": 2, "lances": 18},
-            nu_maximo_de_meios_lances=2 * 18 - 1,
+            parametros={"xeques": 2, "lances": 20},
+            nu_maximo_de_meios_lances=2 * 20 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("xeques_da_espia", "xeques"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2753,8 +2760,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_xeques_seguidos": (
         Publicacao(
-            parametros={"xeques": 3, "lances": 18},
-            nu_maximo_de_meios_lances=2 * 18 - 1,
+            parametros={"xeques": 3, "lances": 20},
+            nu_maximo_de_meios_lances=2 * 20 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("maior_sequencia_de_xeques", "xeques"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,

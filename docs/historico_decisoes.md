@@ -11887,3 +11887,65 @@ espiãs (§8zzzz62), se a 4ª régua o confirmar.
 **Testes.** O alvo ao alcance (pelos dias e por um FEN escrito à mão, com o bispo em c1 e alvos nas
 duas cores), a classe comida sem torre nem dama, o alvo que outra peça comeria, a peça que come que
 seria comida de volta. Seis mutações, todas pegas. Suíte 5 113 verdes.
+
+## 2026-11-21 (8) — A 4ª régua do xadrez: três tipos passam, e a 5ª rodada mede como o job
+
+**Contexto.** A 4ª régua (9 dias, depois das correções do "(7)") pôs três tipos no critério de 6 de 9
+dias na escada: **comer com a classe 6/9** (era 1/9, o candidato à reserva das duas espiãs), **coma 2
+com a espiã 6/9** e **não perder 6/9**. Os outros: xeque com a espiã 5/9; proteger e sem levar xeque
+4/9; comer o alvo e atravessar 3/9; troca e xeques seguidos 2/9; o mate 1/9. Relatório arquivado em
+`medicoes/medir_variantes_do_editorial/relatorio_xadrez_rodada4_2026-11-21.txt` (fora do Git).
+
+**O que os números dizem** (lidos dia a dia, e com o primeiro candidato que encaixou):
+- **A sonda era mais rígida que o job.** Ela media 10 execuções por mascote; o job mede 20
+  (`regua.EXECUCOES_PADRAO`). Com 10, a taxa anda de 0,10 em 0,10 e as bordas da escada (0,05 · 0,45 ·
+  0,75 · 0,85) ficam inalcançáveis: um Tex em 9 de 20 (0,45), que o job aceita, na sonda sai 0,40 ou
+  0,50. **18 dos 47 dias reprovados** erravam só por isso: um mascote 0,05 fora, os outros dentro.
+- **Três candidatos são poucos para o xadrez.** Pela posição em que o primeiro encaixou, a chance de
+  um candidato cair na escada vai de 8% (troca, xeques seguidos) a 30% (comer com a classe). Com três,
+  1 − (1 − 0,30)³ = 66% dos dias; com seis, 88%. A posição do xadrez varia muito de um sorteio para o
+  outro, e o custo de mais candidatos só aparece nos dias ruins (a régua para no primeiro que encaixa).
+- **O mate é tudo ou nada por problema.** Medidos 600 problemas de mate em 2 (10 execuções, um
+  adversário sorteado): a Pita dá 0,0 ou 1,0 na grande maioria, e só **27 (4,5%)** caem na escada. O
+  rating do Lichess não separa (de 3% a 6% em toda faixa). Não é o N (o dono já decidiu sem folga,
+  §8zzzz60) e não é a escada: é o acervo.
+- **Os dois de xeque erram para o lado difícil**: o Magno em 0,40 a 0,70 nos xeques seguidos, o Tex em
+  0,00 a 0,40 no xeque com a espiã.
+- Os outros (proteger, sem levar xeque, comer o alvo, atravessar, troca) erram para os dois lados em
+  dias diferentes; o N não tem lado para onde ir.
+
+**Decisão (técnica).**
+1. **A sonda mede com as 20 execuções do job** (`EXECUCOES_DA_SONDA_DE_REGUA =
+   regua.EXECUCOES_PADRAO`, cadeado em `test_medidor_de_variantes.py`). O preço: a parte da régua da
+   rodada leva o dobro.
+2. **O xadrez pede seis candidatos por dia** (`gerador.CANDIDATOS_POR_JOGO`, lido pelo job e pela
+   medição por `gerador.candidatos_por_dia`; os outros jogos continuam em três). Os seis gabaritos (2 a
+   5 s cada) são sempre pagos; a régua dos candidatos 4 a 6, só quando os três primeiros falham.
+3. **O mate sorteia de um acervo calibrado.** `scripts/calibrar_mate_xadrez.py` mede cada problema de
+   mate em 2 contra cada adversário, com a `regua.tentativa_com_motor` do job (20 execuções, o teto do
+   editorial), e grava em `dados/jogo_xadrez/calibracao_do_mate.json` (no Git) os que caíram na
+   escada, com a versão do motor. O sorteio do dia (`provas_xadrez.problemas_calibrados`) escolhe entre
+   os calibrados contra o adversário do dia; o gerador passa o personagem adiante. Sem o arquivo, com
+   outro motor, outro N ou nenhum problema daquele adversário, volta ao acervo inteiro **e avisa no
+   log** (o job não para). ⛔ A régua do dia continua medindo: a calibração escolhe o acervo, não
+   aprova o candidato. Conferido: dos 28 calibrados nos 100 primeiros problemas, **19 continuam na
+   escada** com outras sementes (68% por candidato; com seis candidatos, o dia quase nunca fica sem).
+   O script para cedo (o mascote mais seletivo primeiro, a Pita; e dentro dele, quando a contagem já
+   não volta à faixa): 100 problemas × 4 adversários em 26 s, os 2 500 em ~11 min.
+4. **Os dois de xeque vão ao teto**, 18 → 20 lances (`editorial.py`). Os outros N ficam.
+5. A impressão do código do diário da medição passa a incluir os `.json` de `dados/jogo_xadrez/`: uma
+   calibração nova muda a posição sorteada sem mudar um `.py`.
+
+**Alternativas consideradas.** (a) O N por adversário do dia (mais curto contra a Cacau, mais longo
+contra o Magno): os dias contra o Magno têm o Tex baixo, mas os dias contra a Cacau têm a Pita alta
+**e** o Magno baixo ao mesmo tempo, então não há um N que acerte; e mudaria a forma do editorial, que o
+dono pediu para manter. (b) Filtrar o mate pelo rating: medido, não separa. (c) Trocar o mate pela
+reserva das duas espiãs: é decisão do dono (§8zzzz62) e só se pergunta se a 5ª régua reprovar o mate
+com o acervo calibrado. (d) Folga de lances no mate: o dono já decidiu que não (§8zzzz60).
+
+**Testes.** O sorteio só dos calibrados contra o adversário (e não contra outro), os quatro casos em
+que a calibração não serve (com o aviso), sem adversário nada muda, o gerador levando o adversário ao
+sorteio, seis candidatos no xadrez e três nos outros, o job pedindo o número ao gerador, a sonda com
+as 20 do job, os dados do xadrez na impressão; o script de calibração com uma `tentar` de mentira (a
+faixa em acertos de 20, a semente, o parar cedo, o adversário fora da medida, o arquivo gravado). Nove
+mutações, todas pegas.

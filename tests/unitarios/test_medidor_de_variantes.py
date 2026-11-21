@@ -296,6 +296,11 @@ def test_a_bandeira_da_regua_existe_e_e_OPCIONAL():
     """
     assert MEDIDOR.BANDEIRA_COM_REGUA == "--com-regua"
     assert MEDIDOR.EXECUCOES_DA_SONDA_DE_REGUA >= 1
+    # ⛔ As MESMAS do job (21/11/2026): com 10, as bordas da escada (0,05, 0,45,
+    # 0,75, 0,85) ficavam inalcancaveis e a sonda reprovava o que o job aceita.
+    from job import regua as regua_do_job
+
+    assert MEDIDOR.EXECUCOES_DA_SONDA_DE_REGUA == regua_do_job.EXECUCOES_PADRAO
 
 
 def test_os_dias_pedidos_tem_padrao_de_TRES_e_recusam_o_invalido():
@@ -1016,7 +1021,7 @@ def test_a_chave_NAO_depende_da_ordem_da_grade():
 
 
 def test_a_impressao_do_codigo_muda_com_o_codigo(monkeypatch, tmp_path):
-    """Conteudo e nome de arquivo de `job/` e `motores/` entram; o resto nao."""
+    """Conteudo e nome de arquivo de `job/`, `motores/` e dos dados do xadrez entram; o resto nao."""
     (tmp_path / "job").mkdir()
     (tmp_path / "motores").mkdir()
     (tmp_path / "job" / "a.py").write_text("x = 1\n", encoding="utf-8")
@@ -1033,7 +1038,18 @@ def test_a_impressao_do_codigo_muda_com_o_codigo(monkeypatch, tmp_path):
     depois = MEDIDOR.impressao_do_codigo()
     assert depois != antes
     (tmp_path / "job" / "a.py").rename(tmp_path / "job" / "a2.py")
-    assert MEDIDOR.impressao_do_codigo() != depois
+    renomeado = MEDIDOR.impressao_do_codigo()
+    assert renomeado != depois
+
+    # Os dados do xadrez (o acervo de mate e a calibracao dele) tambem entram:
+    # uma calibracao nova muda a posicao sorteada sem mudar um `.py`.
+    (tmp_path / "dados" / "jogo_xadrez").mkdir(parents=True)
+    calibracao = tmp_path / "dados" / "jogo_xadrez" / "calibracao.json"
+    calibracao.write_text("{}", encoding="utf-8")
+    com_dados = MEDIDOR.impressao_do_codigo()
+    assert com_dados != renomeado
+    calibracao.write_text('{"a": 1}', encoding="utf-8")
+    assert MEDIDOR.impressao_do_codigo() != com_dados
 
 
 def test_o_processo_do_pool_poe_a_regua_em_SERIE(monkeypatch):

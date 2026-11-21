@@ -798,6 +798,39 @@ TENTATIVAS_POR_JOGO = {
 #: Quantas tentativas para um jogo que nao esta em [TENTATIVAS_POR_JOGO].
 TENTATIVAS_PADRAO = 6
 
+#: Quantos candidatos o job pede por dia, num jogo fora de [CANDIDATOS_POR_JOGO].
+#:
+#: ⚠️ **Um so nao serve, e a escada da regua e a razao.** Com um unico
+#: candidato a medicao nao tem o que decidir: ou se publica o que veio, ou se
+#: deixa o dia descoberto. Tres dao a chance de o proximo cair na escada, e o
+#: custo so aparece quando o primeiro nao cai: a regua para no primeiro que
+#: encaixa.
+CANDIDATOS_POR_DIA_PADRAO = 3
+
+#: Os jogos que pedem mais candidatos que [CANDIDATOS_POR_DIA_PADRAO].
+#:
+#: ⚠️ **O xadrez pede seis (21/11/2026, depois da 4a regua da T077, historico
+#: "2026-11-21 (8)").** A posicao do xadrez varia muito de um sorteio para o
+#: outro (que pecas estao perto da espia, se o adversario tem a troca de
+#: volta), e a regua mostrou um candidato cair na escada com 8% a 30% de
+#: chance, conforme o tipo: com tres, 1 - (1 - 0,30)^3 = 66% dos dias; com
+#: seis, 88%. ⛔ O custo nao e o dobro: os seis gabaritos (2 a 5 s cada) sao
+#: sempre pagos, mas a regua (o caro) para no primeiro que encaixa, e os
+#: candidatos 4 a 6 so sao medidos nos dias em que os tres primeiros falham.
+CANDIDATOS_POR_JOGO = {
+    "xadrez": 6,
+}
+
+
+def candidatos_por_dia(co_jogo: str) -> int:
+    """Quantos candidatos o job pede por dia para [co_jogo].
+
+    ⚠️ E a mesma funcao para o job (`job/__main__.py`) e para a medicao
+    (`scripts/medir_variantes_do_editorial.py`): medir com um numero diferente
+    do job daria uma taxa que descreve outra execucao.
+    """
+    return CANDIDATOS_POR_JOGO.get(co_jogo, CANDIDATOS_POR_DIA_PADRAO)
+
 #: As excecoes POR TIPO, que valem acima do numero do jogo dele.
 #:
 #: ⚠️ **Existe porque uma prova pode recusar quase tudo num jogo em que as
@@ -1429,8 +1462,13 @@ def gerar_candidatos(
                 co_jogo, dt_dia, evitar=vizinhos.modalidades
             )
             try:
+                # ⚠️ O adversario do dia entra: no mate, e ele que escolhe a
+                # lista de problemas calibrados (`provas_xadrez.CALIBRACAO_DO_MATE`).
                 escolhida = provas_xadrez_mod.sortear_posicao(
-                    sorteio, co_tipo=co_tipo, parametros=parametros
+                    sorteio,
+                    co_tipo=co_tipo,
+                    parametros=parametros,
+                    co_personagem=co_personagem,
                 )
             except posicoes_xadrez_mod.SemPosicaoXadrez as erro:
                 print(f"⚠️ [job] {dt_dia}: posicao descartada — {co_tipo}: {erro}")

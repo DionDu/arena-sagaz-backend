@@ -61,6 +61,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from motores.nucleo.papeis import NivelDeMotor
+from motores.xadrez import contrato_xadrez
 from motores.xadrez import feitos_xadrez
 from motores.xadrez import perseguir_objetivo_xadrez as perseguir
 from motores.xadrez.jogador_xadrez import JogadorXadrez, jogador_compartilhado
@@ -73,6 +74,21 @@ RAIZ = Path(__file__).resolve().parents[1]
 #: Os 10 000 problemas de mate em 2 a 5 do Lichess (T074/T075), para o
 #: `xadrez_dar_mate`.
 PROBLEMAS_DE_MATE = RAIZ / "dados" / "jogo_xadrez" / "problemas_de_mate.json"
+
+#: A calibracao do acervo de mate: os problemas que cairam na escada contra cada
+#: adversario (`scripts/calibrar_mate_xadrez.py`, 21/11/2026).
+#:
+#: ⚠️ **Por que o mate precisa dela, e os outros dez tipos nao.** Num problema
+#: de mate em 2 cada mascote acerta quase sempre ou quase nunca: a busca do
+#: nivel ve o mate ou nao ve, e em dois lances o erro sorteado quase nao pesa.
+#: Medidos 600 problemas (10 execucoes, um adversario sorteado), a Pita deu 0,0
+#: ou 1,0 na grande maioria, e so 27 (4,5%) cairam na escada; a 4a regua da
+#: T077 viu o mesmo, 1 dia de 9. O rating do Lichess nao separa (de 3% a 6% em
+#: toda faixa). O que separa e medir: o acervo e fixo, entao se mede uma vez e
+#: o sorteio do dia escolhe entre os que ja cairam na escada contra o
+#: adversario do dia. ⛔ A regua do dia continua medindo: a calibracao escolhe
+#: o acervo, nao aprova o candidato.
+CALIBRACAO_DO_MATE = RAIZ / "dados" / "jogo_xadrez" / "calibracao_do_mate.json"
 
 #: O valor de `js_posicao_inicial.origem` das posicoes do mate (contrato §1).
 ORIGEM_PROBLEMAS_LICHESS = "problemas_lichess"
@@ -252,11 +268,72 @@ def carregar_problemas_de_mate(caminho: Path = PROBLEMAS_DE_MATE) -> tuple[dict[
     return tuple(dados["problemas"])
 
 
+def carregar_calibracao_do_mate(caminho: Path = CALIBRACAO_DO_MATE) -> dict[str, Any] | None:
+    """A calibracao do acervo de mate ([CALIBRACAO_DO_MATE]), ou `None` sem ela.
+
+    ⚠️ **Sem o arquivo nao e erro**: o sorteio volta ao acervo inteiro, como era
+    ate 21/11/2026, e diz isso no log ([problemas_calibrados]). A regua do dia
+    continua medindo; o que se perde e a chance de o candidato cair na escada.
+    """
+    if not caminho.exists():
+        return None
+    return json.loads(caminho.read_text(encoding="utf-8"))
+
+
+def problemas_calibrados(
+    cabem: list[dict[str, Any]],
+    *,
+    lances: int,
+    co_personagem: str | None,
+    calibracao: Mapping[str, Any] | None,
+    versao_do_motor: str,
+) -> list[dict[str, Any]]:
+    """Os problemas de [cabem] que ja cairam na escada contra [co_personagem].
+
+    Volta a [cabem] inteira, com um aviso no log, quando a calibracao nao serve:
+    sem arquivo, de outro motor (a busca mudou, e o que caia na escada pode nao
+    cair mais), de outro N, ou sem nenhum problema daquele adversario.
+    ⛔ Nenhum desses casos para o job: o desafio do dia sai, so menos calibrado.
+
+    Args:
+        cabem: os problemas que cabem na janela de [lances].
+        lances: o N do desafio; a calibracao foi medida com um N so.
+        co_personagem: o adversario do dia; `None` (a medicao pareada, os testes
+            antigos) usa o acervo inteiro, sem aviso.
+        calibracao: o que [carregar_calibracao_do_mate] devolveu.
+        versao_do_motor: a de hoje (`contrato_xadrez.versao_do_motor`).
+    """
+    if co_personagem is None:
+        return cabem
+    motivo = None
+    if calibracao is None:
+        motivo = f"sem {CALIBRACAO_DO_MATE.name}"
+    elif calibracao.get("versao_do_motor") != versao_do_motor:
+        motivo = (
+            f"calibrada com o motor {calibracao.get('versao_do_motor')}, "
+            f"e o de hoje e {versao_do_motor}"
+        )
+    elif int(calibracao.get("lances", -1)) != lances:
+        motivo = f"calibrada com N={calibracao.get('lances')}, e o desafio pede N={lances}"
+    else:
+        ids = set((calibracao.get("na_escada_contra") or {}).get(co_personagem, ()))
+        escolhidos = [p for p in cabem if p["id"] in ids]
+        if escolhidos:
+            return escolhidos
+        motivo = f"nenhum problema calibrado contra {co_personagem}"
+    # ⚠️ Alto, e a cada sorteio: e o aviso de que a calibracao precisa ser
+    # refeita (`scripts/calibrar_mate_xadrez.py`), e um aviso unico se perderia.
+    print(f"⚠️ [mate] acervo inteiro, sem calibracao: {motivo}", flush=True)
+    return cabem
+
+
 def sortear_problema_de_mate(
     sorteio: random.Random,
     *,
     lances: int,
+    co_personagem: str | None = None,
     problemas: tuple[dict[str, Any], ...] | None = None,
+    calibracao: Mapping[str, Any] | None = None,
 ) -> posicoes_mod.PosicaoDoDesafioXadrez:
     """Um problema de mate que caiba na janela de [lances] lances da pessoa.
 
@@ -265,7 +342,10 @@ def sortear_problema_de_mate(
             problema).
         lances: o N do desafio ("em ate N lances"): so entram os problemas de
             mate em N ou menos.
+        co_personagem: o adversario do dia. Com ele, o sorteio fica entre os
+            problemas que ja cairam na escada contra ele ([problemas_calibrados]).
         problemas: so para os testes; sem eles, [carregar_problemas_de_mate].
+        calibracao: so para os testes; sem ela, [carregar_calibracao_do_mate].
 
     Raises:
         posicoes_mod.SemPosicaoXadrez: nenhum problema cabe na janela.
@@ -277,6 +357,15 @@ def sortear_problema_de_mate(
         raise posicoes_mod.SemPosicaoXadrez(
             f"nenhum problema de mate cabe em {lances} lance(s)"
         )
+    if co_personagem is not None and calibracao is None:
+        calibracao = carregar_calibracao_do_mate()
+    cabem = problemas_calibrados(
+        cabem,
+        lances=lances,
+        co_personagem=co_personagem,
+        calibracao=calibracao,
+        versao_do_motor=contrato_xadrez.versao_do_motor(),
+    )
     problema = cabem[sorteio.randrange(len(cabem))]
     # A ordem das chaves e a do contrato §1 (e a dos vetores do juiz).
     posicao = {
@@ -290,15 +379,24 @@ def sortear_problema_de_mate(
 
 
 def sortear_posicao(
-    sorteio: random.Random, *, co_tipo: str, parametros: Mapping[str, Any]
+    sorteio: random.Random,
+    *,
+    co_tipo: str,
+    parametros: Mapping[str, Any],
+    co_personagem: str | None = None,
 ) -> posicoes_mod.PosicaoDoDesafioXadrez:
     """A posicao do dia de [co_tipo]: um problema no mate, a base nos outros dez.
+
+    `co_personagem` (o adversario do dia) so pesa no mate: e ele que escolhe a
+    lista calibrada ([sortear_problema_de_mate]).
 
     Raises:
         posicoes_mod.SemPosicaoXadrez: nada serviu.
     """
     if co_tipo == TIPO_DO_MATE:
-        return sortear_problema_de_mate(sorteio, lances=int(parametros["lances"]))
+        return sortear_problema_de_mate(
+            sorteio, lances=int(parametros["lances"]), co_personagem=co_personagem
+        )
     return posicoes_mod.sortear(sorteio, co_tipo=co_tipo, parametros=parametros)
 
 
