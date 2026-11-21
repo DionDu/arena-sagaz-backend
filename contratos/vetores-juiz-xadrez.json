@@ -4439,6 +4439,218 @@
         "feitos": {},
         "nu_lance_cumpre_desafio": null
       }
+    },
+    {
+      "id": "xadrez-troca-ordem-1-comendo-outro-cavalo",
+      "de_vetor": "O cavalo de f6 come o bispo oferecido em e4, e a torre come OUTRO cavalo, o de a5. A ordem 1 pede comer a peça que comeu, na casa em que ela parou: não houve troca.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 69,
+      "co_tipo_desafio": "xadrez_troca",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/5n2/n7/R7/8/8/1B2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "troca": {
+          "minha": "bispo",
+          "dele": "cavalo"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b1e4",
+          "fatos": {
+            "comida": null,
+            "de": "b1",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "f6e4",
+          "fatos": {
+            "comida": {
+              "casa": "e4",
+              "peca": "bispo"
+            },
+            "de": "f6",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "a4a5",
+          "fatos": {
+            "comida": {
+              "casa": "a5",
+              "peca": "cavalo"
+            },
+            "de": "a4",
+            "en_passant": false,
+            "fim": null,
+            "para": "a5",
+            "peca_movida": "torre",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "trocas_feitas",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 1,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 1,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-comer-com-o-cavalo-um-bispo-nao-e-peao",
+      "de_vetor": "'Coma peões com o cavalo', e o cavalo come um BISPO: a peça que come é a certa, a comida não.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 65,
+      "co_tipo_desafio": "xadrez_comer_com",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/1b6/8/2N5/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "classes": {
+          "come": "cavalo",
+          "comida": "peao"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3b5",
+          "fatos": {
+            "comida": {
+              "casa": "b5",
+              "peca": "bispo"
+            },
+            "de": "c3",
+            "en_passant": false,
+            "fim": {
+              "motivo": "material_insuficiente",
+              "vencedor": null
+            },
+            "para": "b5",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_classe_marcada",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 1,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 1,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
     }
   ]
 }

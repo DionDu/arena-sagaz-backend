@@ -835,6 +835,51 @@ def vetores_das_pecas(motor: JogadorXadrez) -> list[dict[str, Any]]:
     ]
 
 
+#: A oferta da ordem 1 com um 2º cavalo preto em a5, ao alcance da torre de a4.
+FEN_TROCA_COM_OUTRO_CAVALO = "4k3/8/5n2/n7/R7/8/8/1B2K3 w - - 0 1"
+#: Cavalo branco em c3 e um bispo preto em b5, que o cavalo pode comer.
+FEN_CAVALO_E_BISPO = "4k3/8/8/1b6/8/2N5/8/4K3 w - - 0 1"
+
+
+def vetores_da_t070(motor: JogadorXadrez) -> list[dict[str, Any]]:
+    """Dois vetores que a T070 pediu (20/11/2026), no fim para o diff ser acréscimo.
+
+    As mutações do medidor do APP (`medidor_desafio_xadrez.dart`) mostraram duas
+    regras que os 32 primeiros não separavam: no servidor elas já tinham teste
+    de unidade com fatos escritos à mão, mas o lado do app só tem os vetores (o
+    estado dele vem do motor). Aqui viram vetores, e valem para os dois lados.
+    """
+    return [
+        vetor(
+            motor,
+            identificador="xadrez-troca-ordem-1-comendo-outro-cavalo",
+            descricao="O cavalo de f6 come o bispo oferecido em e4, e a torre "
+            "come OUTRO cavalo, o de a5. A ordem 1 pede comer a peça que comeu, "
+            "na casa em que ela parou: não houve troca.",
+            tipo="xadrez_troca",
+            js_posicao=posicao(
+                FEN_TROCA_COM_OUTRO_CAVALO, troca={"minha": "bispo", "dele": "cavalo"}
+            ),
+            lances=["b1e4", "f6e4", "a4a5"],
+            chegada=chegada_do_tipo("xadrez_troca", n=2),
+            veredito="nao_cumpriu",
+            confere={"trocas_feitas": 0, "pecas_comidas_cavalo": 1, "pecas_perdidas_bispo": 1},
+        ),
+        vetor(
+            motor,
+            identificador="xadrez-comer-com-o-cavalo-um-bispo-nao-e-peao",
+            descricao="'Coma peões com o cavalo', e o cavalo come um BISPO: a "
+            "peça que come é a certa, a comida não.",
+            tipo="xadrez_comer_com",
+            js_posicao=posicao(FEN_CAVALO_E_BISPO, classes={"come": "cavalo", "comida": "peao"}),
+            lances=["c3b5"],
+            chegada=chegada_do_tipo("xadrez_comer_com", n=1, k=1),
+            veredito="nao_cumpriu",
+            confere={"capturas_da_classe_marcada": 0, "pecas_comidas_bispo": 1},
+        ),
+    ]
+
+
 def montar(motor: JogadorXadrez) -> dict[str, Any]:
     """O documento inteiro, com os vetores em ordem estável.
 
@@ -846,6 +891,8 @@ def montar(motor: JogadorXadrez) -> dict[str, Any]:
         + vetores_da_troca(motor)
         + vetores_dos_xeques(motor)
         + vetores_das_pecas(motor)
+        # Os dois que as mutações do medidor do app pediram (T070), no fim.
+        + vetores_da_t070(motor)
     )
     identificadores = [v["id"] for v in vetores]
     assert len(set(identificadores)) == len(identificadores), "há id repetido"

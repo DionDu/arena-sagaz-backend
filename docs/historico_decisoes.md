@@ -11550,3 +11550,18 @@ executável `servidor_de_lances_xadrez`.
 só os lances nos vetores e deixar cada lado pedir os fatos ao seu motor (o app tem a DLL nos testes,
 mas aí o vetor não seria "fita de fatos → medidas", e o CI daqui não teria como conferir a conta sem
 o executável); contar a troca separadamente por ordem (duas trocas numa captura).
+
+## 2026-11-20 (3) — Dois vetores do juiz do xadrez a mais, pedidos pelo medidor do app (T070)
+
+**Contexto.** O medidor do app (`medidor_desafio_xadrez.dart`, T070) só é testado pelos vetores: o
+estado dele vem do motor, e não há como lhe passar fatos escritos à mão. Duas mutações escaparam
+lá (a ordem 1 sem conferir a casa da peça que comeu; o `xadrez_comer_com` sem conferir a peça
+comida), regras que aqui só tinham teste de unidade.
+
+**Decisão.** Dois vetores novos **no fim** do arquivo (34; o diff é só acréscimo, nenhum vetor
+publicado mudou): `xadrez-troca-ordem-1-comendo-outro-cavalo` e
+`xadrez-comer-com-o-cavalo-um-bispo-nao-e-peao`. Regra para os próximos: o caso que só um lado
+consegue testar à mão vira vetor, para valer nos dois.
+
+**Alternativas consideradas:** um duplo do motor no app que devolvesse fatos escritos à mão (uma
+segunda fonte de fatos, justamente o que os vetores existem para evitar).
