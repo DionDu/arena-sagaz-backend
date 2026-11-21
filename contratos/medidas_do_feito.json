@@ -244,6 +244,19 @@
       "pecas_do_objetivo": []
     },
     {
+      "co_chave_objetivo": "desafioObjetivoXadrezDuasEspias",
+      "co_jogo": "xadrez",
+      "medidas": [
+        "capturas_da_espia"
+      ],
+      "janela_gasta": true,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "espia",
+        "espia2"
+      ]
+    },
+    {
       "co_chave_objetivo": "desafioObjetivoXadrezEspiaAlvo",
       "co_jogo": "xadrez",
       "medidas": [],

@@ -24,6 +24,9 @@ posicao sorteada, conforme o tipo:
   · a ESPIA (os cinco tipos dela): uma peca da pessoa, nunca o rei
     (RF-XDR-192). No `xadrez_espia_atravessar`, so torre, dama ou cavalo
     (contrato §2), e fora da ultima fileira (ja estar la nao e atravessar);
+  · as DUAS ESPIAS (`xadrez_duas_espias`, `DECISOES-do-dono.md` §8zzzz64):
+    duas pecas da pessoa, nunca o rei nem um peao (elas tem de comer), e de
+    CLASSES diferentes (a frase as nomeia: "o cavalo e a torre");
   · o ALVO (`xadrez_espia_alvo`): uma peca do adversario, nunca o rei - rei
     nao se come;
   · as CLASSES do `xadrez_comer_com`: `come` e uma classe que a pessoa tem;
@@ -79,6 +82,7 @@ from motores.xadrez.fen_xadrez import (  # noqa: F401 (reexporte)
 from motores.xadrez.fen_xadrez import outra_cor as _outra_cor
 from motores.xadrez.feitos_xadrez import (
     MARCA_DA_ESPIA,
+    MARCA_DA_SEGUNDA_ESPIA,
     MARCA_DO_ALVO,
     TIPOS_COMIVEIS,
     ULTIMA_FILEIRA,
@@ -110,7 +114,7 @@ ESPIAS_QUE_ATRAVESSAM: tuple[str, ...] = ("cavalo", "torre", "dama")
 #: defeito era da POSICAO, `DECISOES-do-dono.md` §8zzzz57 item 5). No
 #: "proteja a espia" o peao continua valendo: protege-lo e um desafio.
 TIPOS_EM_QUE_A_ESPIA_AGE: frozenset[str] = frozenset(
-    {"xadrez_espia_comer", "xadrez_espia_xeque", "xadrez_espia_alvo"}
+    {"xadrez_espia_comer", "xadrez_espia_xeque", "xadrez_espia_alvo", "xadrez_duas_espias"}
 )
 
 #: As classes que NAO sao alvo do `xadrez_espia_alvo` nem a classe comida do
@@ -149,13 +153,15 @@ PARES_DA_TROCA: tuple[tuple[str, str], ...] = (
     ("dama", "dama"),
 )
 
-#: Os tipos que usam a espia.
+#: Os tipos que usam a espia (o das duas espias tambem: a 1a e escolhida como
+#: nos outros, e a 2a por [escolher_segunda_espia]).
 TIPOS_DA_ESPIA: tuple[str, ...] = (
     "xadrez_espia_comer",
     "xadrez_espia_proteger",
     "xadrez_espia_atravessar",
     "xadrez_espia_xeque",
     "xadrez_espia_alvo",
+    "xadrez_duas_espias",
 )
 
 #: Os dez tipos que partem da base equilibrada (todos menos o mate).
@@ -270,6 +276,29 @@ def escolher_espia(
     if co_tipo in TIPOS_EM_QUE_A_ESPIA_AGE:
         candidatas = [p for p in candidatas if p.peca != "peao"]
     return _escolher(sorteio, candidatas, "espia para este tipo")
+
+
+def escolher_segunda_espia(
+    sorteio: random.Random,
+    pecas: Mapping[str, PecaNaCasa],
+    *,
+    cor: str,
+    primeira: PecaNaCasa,
+) -> PecaNaCasa:
+    """A 2a espia do `xadrez_duas_espias`: outra peca da pessoa, nunca o rei
+    nem um peao, e de CLASSE diferente da [primeira].
+
+    ⚠️ **Classe diferente e escolha de TEXTO** (21/11/2026): a frase nomeia as
+    duas ("com o seu cavalo e a sua torre espias"), e "o bispo e o bispo" nao se
+    le. Os dois bispos do exemplo do dono (§8zzzz62) pediriam outra frase ("os
+    seus dois bispos"); fica para quando o dono quiser.
+    """
+    candidatas = [
+        p
+        for _, p in sorted(pecas.items())
+        if p.cor == cor and p.peca not in ("rei", "peao", primeira.peca)
+    ]
+    return _escolher(sorteio, candidatas, "segunda espia de outra classe")
 
 
 def escolher_alvo(
@@ -394,6 +423,10 @@ def posicao_do_desafio(
         espia = escolher_espia(sorteio, pecas, cor=cor, co_tipo=co_tipo)
         marcas[MARCA_DA_ESPIA] = espia.casa
         escolhidas["espia"] = espia.peca
+    if co_tipo == "xadrez_duas_espias":
+        segunda = escolher_segunda_espia(sorteio, pecas, cor=cor, primeira=espia)
+        marcas[MARCA_DA_SEGUNDA_ESPIA] = segunda.casa
+        escolhidas["espia2"] = segunda.peca
     if co_tipo == "xadrez_espia_alvo":
         alvo = escolher_alvo(sorteio, pecas, cor=cor, espia=espia)
         marcas[MARCA_DO_ALVO] = alvo.casa

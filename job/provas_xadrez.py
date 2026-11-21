@@ -452,6 +452,15 @@ def _espia_anda(motor: JogadorXadrez, posicao: Mapping[str, Any]) -> ProvaXadrez
     return _a_peca_anda(motor, posicao, casas={casa} if casa else set(), oque="a espia")
 
 
+def _segunda_espia_anda(motor: JogadorXadrez, posicao: Mapping[str, Any]) -> ProvaXadrez | None:
+    """A 2a espia do `xadrez_duas_espias` tem lance? Uma espia parada a jogo
+    inteiro seria uma espia de enfeite (a frase promete as duas comendo)."""
+    casa = (posicao.get("marcas") or {}).get(feitos_xadrez.MARCA_DA_SEGUNDA_ESPIA)
+    return _a_peca_anda(
+        motor, posicao, casas={casa} if casa else set(), oque="a segunda espia"
+    )
+
+
 def _classe_que_come_anda(motor: JogadorXadrez, posicao: Mapping[str, Any]) -> ProvaXadrez | None:
     come = (posicao.get("classes") or {}).get("come")
     tabela = posicoes_mod.pecas_do_fen(posicao["fen"])
@@ -469,8 +478,9 @@ Pergunta = Callable[[JogadorXadrez, Mapping[str, Any]], "ProvaXadrez | None"]
 
 #: A prova de cada tipo, pelo `co_tipo_desafio`.
 #:
-#: ⚠️ As chaves sao exatamente os onze tipos do xadrez (cadeado em
-#: `test_provas_xadrez.py`): um tipo novo sem prova seria publicado sem que
+#: ⚠️ As chaves sao exatamente os doze tipos do xadrez: os onze da 1.6.0 e a
+#: troca, que saiu do ar e continua no banco (cadeado em
+#: `test_provas_xadrez.py`). Um tipo novo sem prova seria publicado sem que
 #: ninguem tivesse perguntado se a posicao serve a ele. Os tipos de lista vazia
 #: tem so a recusa comum, e estao aqui de proposito, e nao por esquecimento.
 PROVAS: dict[str, tuple[Pergunta, ...]] = {
@@ -486,6 +496,8 @@ PROVAS: dict[str, tuple[Pergunta, ...]] = {
     "xadrez_sem_levar_xeque": (),
     "xadrez_troca": (),
     "xadrez_dar_mate": (),
+    # As duas espias tem de ter lance (21/11/2026, no lugar da troca).
+    "xadrez_duas_espias": (_espia_anda, _segunda_espia_anda),
 }
 
 

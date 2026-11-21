@@ -11992,3 +11992,73 @@ não custam tempo); se os xeques seguidos não passarem na 6ª, o ponto volta ao
 **Testes.** O xeque que continua contra o que deixa o rei escapar (Qe4+ × Qc6+), a posição trocada
 recusada depois do xeque, o lance sem xeque abaixo de qualquer xeque, nove candidatos no xadrez.
 Quatro mutações, todas pegas.
+
+## 2026-11-21 (10) — A 6ª régua do xadrez: nove de dez passam; as duas espiãs escritas, e a 7ª rodada
+
+**Contexto.** A 6ª régua (9 dias, 20 execuções, nove candidatos por dia, atravessar 11, sem levar
+xeque 14 e o perseguidor dos xeques seguidos que vê o xeque que continua; 17,4 h de unidades em 15
+processos) pôs **nove dos dez tipos que ficam** no critério de 6 de 9 dias (o dono,
+`DECISOES-do-dono.md` §8zzzz64):
+
+| tipo | 5ª | 6ª |
+|---|---|---|
+| dar mate | 9/9 | 9/9 |
+| coma 2 com a espiã | 8/9 | 9/9 |
+| xeque com a espiã | 7/9 | 9/9 |
+| comer com a classe | 8/9 | 8/9 |
+| proteger a espiã | 7/9 | 8/9 |
+| não perder | 7/9 | 8/9 |
+| atravessar | 5/9 | **8/9** |
+| sem levar xeque | 5/9 | **7/9** |
+| xeques seguidos | 4/9 | **6/9** |
+| comer o alvo | 4/9 | 5/9 |
+| troca (sai) | 2/9 | 3/9 |
+
+Relatório arquivado em `medicoes/medir_variantes_do_editorial/relatorio_xadrez_rodada6_2026-11-21.txt`
+(fora do Git). Dos 99 dias, 80 acharam um candidato na escada (21 no 1º, 21 no 2º, 14 no 3º, 24 do
+4º ao 9º) e 19 não (6 deles da troca).
+
+**O comer o alvo erra pelos dois lados, por pouco**: nos quatro dias reprovados, o menos errado
+erra por 0,02 a 0,03 na média (o Tex 0,05 abaixo duas vezes, a Pita 0,10 acima duas vezes). Mudar o N
+não conserta erro dos dois lados. Ele foi de 3 a 4 e 5 dias com 3, 6 e 9 candidatos, ~9% por
+candidato: com nove, 57% dos dias; **com doze, 68%** (`gerador.CANDIDATOS_POR_JOGO["xadrez"] = 12`).
+O custo é o dos dias ruins: os candidatos 10 a 12 só são medidos quando os nove primeiros falham.
+
+**As duas espiãs (tipo 71), escritas** (a decisão do dono, §8zzzz64):
+- **Banco**: `migrations/versions/0041_desafio_xadrez_duas_espias.py`, uma linha só na `tb901`
+  (71, `xadrez_duas_espias`, 'Coma com as duas espias'), sem medida nova; o `data-model.md` §3.1 da
+  spec 012 tem a linha, e o cadeado da 0040 lê as duas migrações. ⚠️ **Aplicada pelo dono.**
+- **Medidor** (os dois lados, `feitos_xadrez.py` e `medidor_desafio_xadrez.dart`): as marcas
+  `espia` e `espia2` (`MARCAS_DAS_ESPIAS`). As cinco medidas da espiã valem para qualquer uma; o lance
+  conta uma vez (só uma peça anda, mas um lance pode descobrir o xeque da outra). Com uma espiã, a
+  conta é a de antes: **os 34 vetores antigos saíram byte a byte iguais** ao regerar, e quatro vetores
+  novos entraram no fim (as duas somam; uma só também vale; a 2ª comida encerra; e o controle com uma
+  espiã, em que a mesma peça comida não é espiã e não viola nada).
+- **A posição** (`posicoes_xadrez.escolher_segunda_espia`): outra peça da pessoa, nunca o rei nem um
+  peão (as duas têm de comer), e de **classe diferente** da 1ª. ⚠️ Escolha de TEXTO: a frase nomeia as
+  duas ("o cavalo e a torre"), e "o bispo e o bispo" não se lê. Os dois bispos do exemplo do dono
+  pediriam outra frase; fica para quando ele quiser.
+- **A prova**: as duas espiãs têm de ter lance na posição publicada.
+- **O perseguidor**: o filtro protege as duas (nenhuma pode ficar comível) e a nota é a do "coma com a
+  espiã" com as duas: comer agora com qualquer uma, mais as peças que as duas juntas alcançariam.
+- **O editorial**: duas variantes, porque não há medida: 3 peças em 12 lances (o "coma com a espiã" é
+  2 em 12, e com duas peças comendo a mesma janela fica mais fácil) e 2 em 10. Num dia sem régua, a 2ª
+  teve várias soluções abaixo do piso (3 a 4 lances): sinal de fácil, a régua confirma.
+- **O texto** (pt/en/es): "Coma 3 peças com as suas duas espiãs, o cavalo e a torre, em até 12 lances
+  contra Tex"; o cartão: "3 peças comidas pelas espiãs, o cavalo e a torre, em 9 lances". O espaço da
+  2ª peça é `espia2`, sem sublinhado, porque vira parâmetro de método no Dart gerado.
+- **A troca** fica no banco (69), na receita e no editorial, fora do ar, com o aviso de que saiu: a
+  promoção (T078) não a leva.
+
+⚠️ **A tela da partida de desafio (T079 em diante) tem de marcar AS DUAS espiãs**: ela ainda não
+existe, e o registro fica na T078 do `tasks.md`.
+
+**Rodapé do relatório.** O "COMO LER" dizia "o job pede 3 candidatos" também no xadrez: agora diz o
+número do jogo (do mesmo `gerador.candidatos_por_dia` que o job lê).
+
+**Testes.** As duas espiãs na posição (classes diferentes, nunca peão; só uma classe além dos peões
+não serve; os outros tipos continuam com uma espiã), no perseguidor (as duas a salvo, com o controle de
+uma espiã; a captura de qualquer uma vale o agora), na migração (só o 71, nenhuma medida), nas
+receitas e nos vetores; no app, as frases e o cartão nos três idiomas e os vetores pelo medidor. Cinco
+mutações (a 2ª marca tirada do medidor dos dois lados, o filtro e a nota do perseguidor, a classe
+repetida na posição), todas pegas.

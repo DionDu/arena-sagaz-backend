@@ -56,7 +56,9 @@ CATALOGO = {
     )["feitos"]
 }
 
-#: Os onze tipos da 1a leva (PRD §8.4), na ordem dos numeros 60 a 70.
+#: Os doze tipos do xadrez no banco, na ordem dos numeros 60 a 71: os onze da
+#: 1a leva (PRD §8.4) e as duas espias (71, 21/11/2026, no lugar da troca, que
+#: fica no banco e fora do ar; `DECISOES-do-dono.md` §8zzzz64).
 TIPOS = (
     "xadrez_espia_comer",
     "xadrez_espia_proteger",
@@ -69,7 +71,11 @@ TIPOS = (
     "xadrez_sem_levar_xeque",
     "xadrez_troca",
     "xadrez_dar_mate",
+    "xadrez_duas_espias",
 )
+
+#: A migracao do 71.
+MIGRACAO_DAS_DUAS_ESPIAS = RAIZ / "migrations" / "versions" / "0041_desafio_xadrez_duas_espias.py"
 
 #: As receitas do xadrez, no ar ou fora dele (a promocao da T078 MOVE).
 RECEITAS_DO_XADREZ = {
@@ -82,6 +88,7 @@ RECEITAS_DO_XADREZ = {
 #: cada espaco, com `comida` presente (o caso sem ela tem teste proprio).
 PECAS_DE_EXEMPLO = {
     "espia": "cavalo",
+    "espia2": "torre",
     "alvo": "torre",
     "come": "cavalo",
     "comida": "peao",
@@ -116,7 +123,7 @@ def _id(valor) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_os_onze_existem_e_TODOS_estao_fora_do_ar() -> None:
+def test_os_doze_existem_e_TODOS_estao_fora_do_ar() -> None:
     """⚠️ Ate a regua (T077) e a promocao (T078), nenhum tipo do xadrez e
     publicavel: "tipo no banco nao e tipo no ar"."""
     assert sorted(RECEITAS_DO_XADREZ) == sorted(TIPOS)
@@ -126,14 +133,16 @@ def test_os_onze_existem_e_TODOS_estao_fora_do_ar() -> None:
 
 def test_os_numeros_sao_os_da_0040() -> None:
     """🔒 O numero da receita e o da linha que a migracao gravou na dimensao."""
-    texto = MIGRACAO.read_text(encoding="utf-8")
-    # As linhas da 0040 sao `(  60, 'xadrez_espia_comer', ...)`.
+    texto = MIGRACAO.read_text(encoding="utf-8") + MIGRACAO_DAS_DUAS_ESPIAS.read_text(
+        encoding="utf-8"
+    )
+    # As linhas da 0040 e da 0041 sao `(  60, 'xadrez_espia_comer', ...)`.
     gravados = {
         tipo: int(numero)
         for numero, tipo in re.findall(r"\(\s*(\d+),\s*'(xadrez_\w+)'", texto)
     }
     assert gravados == {t: RECEITAS_DO_XADREZ[t].nu_tipo_desafio for t in TIPOS}
-    assert [RECEITAS_DO_XADREZ[t].nu_tipo_desafio for t in TIPOS] == list(range(60, 71))
+    assert [RECEITAS_DO_XADREZ[t].nu_tipo_desafio for t in TIPOS] == list(range(60, 72))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -152,7 +161,7 @@ def _parametros_da_chegada(co_tipo: str, chegada: dict) -> dict:
     """
     parametros = {"lances": chegada["janela"]["n"], **PECAS_DE_EXEMPLO}
     primeira = chegada["clausulas"][0]
-    if co_tipo in ("xadrez_espia_comer", "xadrez_comer_com"):
+    if co_tipo in ("xadrez_espia_comer", "xadrez_comer_com", "xadrez_duas_espias"):
         parametros["capturas"] = primeira["valor"]
     if co_tipo in ("xadrez_espia_xeque", "xadrez_xeques_seguidos"):
         parametros["xeques"] = primeira["valor"]

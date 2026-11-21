@@ -1,4 +1,8 @@
-"""🔒 A MIGRACAO 0040 CORRESPONDE AO `data-model.md` §3 DA SPEC 012 (T067).
+"""🔒 AS MIGRACOES 0040 E 0041 CORRESPONDEM AO `data-model.md` §3 DA SPEC 012 (T067).
+
+⚠️ Desde 21/11/2026 sao duas: a 0041 acrescenta o tipo 71 (as duas espias, no
+lugar da troca, `DECISOES-do-dono.md` §8zzzz64). Os tipos do documento sao os
+das DUAS juntas; as medidas continuam so na 0040.
 
 POR QUE ESTE CADEADO EXISTE
 ---------------------------
@@ -41,6 +45,8 @@ DATA_MODEL = (
     RAIZ.parent / "arena-sagaz-frontend" / "specs" / "012-jogo-xadrez" / "data-model.md"
 )
 MIGRACAO = RAIZ / "migrations" / "versions" / "0040_desafio_xadrez.py"
+#: A que veio depois: so o tipo 71 (as duas espias).
+MIGRACAO_DAS_DUAS_ESPIAS = RAIZ / "migrations" / "versions" / "0041_desafio_xadrez_duas_espias.py"
 
 
 @pytest.fixture(scope="module")
@@ -108,9 +114,9 @@ def medidas_do_documento(secao: str) -> dict[int, tuple[str, str, str]]:
     return medidas
 
 
-def _tuplas_do_insert(tabela: str) -> list[tuple[str, ...]]:
-    """As tuplas do `VALUES` do INSERT da [tabela] na 0040, como texto."""
-    sql = sql_do_upgrade(MIGRACAO)
+def _tuplas_do_insert(tabela: str, migracao: Path = MIGRACAO) -> list[tuple[str, ...]]:
+    """As tuplas do `VALUES` do INSERT da [tabela] na [migracao], como texto."""
+    sql = sql_do_upgrade(migracao)
     inicio = sql.index(f"INSERT INTO desafio.{tabela}")
     fim = sql.find("INSERT INTO", inicio + 1)
     trecho = sql[inicio : fim if fim != -1 else len(sql)]
@@ -123,14 +129,27 @@ def _tuplas_do_insert(tabela: str) -> list[tuple[str, ...]]:
 
 
 def test_os_tipos_da_migracao_sao_os_do_documento(secao_3):
+    # Os tipos das duas migracoes juntas: 60 a 70 na 0040, o 71 na 0041.
     da_migracao = {
-        int(n): (codigo, nome, jogo) for n, codigo, nome, jogo in _tuplas_do_insert(
-            "tb901_tipo_desafio"
-        )
+        int(n): (codigo, nome, jogo)
+        for migracao in (MIGRACAO, MIGRACAO_DAS_DUAS_ESPIAS)
+        for n, codigo, nome, jogo in _tuplas_do_insert("tb901_tipo_desafio", migracao)
     }
     do_documento = tipos_do_documento(secao_3)
-    assert len(do_documento) == 11, do_documento
+    assert len(do_documento) == 12, do_documento
     assert da_migracao == do_documento
+
+
+def test_a_0041_so_tem_o_tipo_71_e_nenhuma_medida():
+    """A 0041 e uma linha so (aprovada na §8zzzz64), e nenhuma medida nova: as
+    duas espias usam `capturas_da_espia` e `espia_comida` da 0040."""
+    tuplas = _tuplas_do_insert("tb901_tipo_desafio", MIGRACAO_DAS_DUAS_ESPIAS)
+    assert tuplas == [("71", "xadrez_duas_espias", "Coma com as duas espias", "xadrez")]
+    sql = sql_do_upgrade(MIGRACAO_DAS_DUAS_ESPIAS)
+    assert "tb902_catalogo_feito" not in sql
+    texto = MIGRACAO_DAS_DUAS_ESPIAS.read_text(encoding="utf-8")
+    assert 'down_revision: Union[str, None] = "0040_desafio_xadrez"' in texto
+    assert len("0041_desafio_xadrez_duas_espias") <= 32
 
 
 def test_as_medidas_da_migracao_sao_as_do_documento(secao_3):

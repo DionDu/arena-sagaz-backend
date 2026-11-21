@@ -809,18 +809,20 @@ CANDIDATOS_POR_DIA_PADRAO = 3
 
 #: Os jogos que pedem mais candidatos que [CANDIDATOS_POR_DIA_PADRAO].
 #:
-#: ⚠️ **O xadrez pede nove (21/11/2026, historico do backend "2026-11-21 (8)"
-#: e "(9)").** A posicao do xadrez varia muito de um sorteio para o outro (que
-#: pecas estao perto da espia, por onde o rei adversario foge), e a regua
-#: mostrou um candidato cair na escada com 10% a 45% de chance, conforme o
-#: tipo. Com tres, um tipo de 30% passava em 1 - (1 - 0,30)^3 = 66% dos dias;
-#: com seis (a 5a regua), os de 10% a 15% (comer o alvo, xeques seguidos,
-#: atravessar) ficavam em 48% a 61%, e com nove vao a 62% a 76%. ⛔ O custo nao
-#: cresce na mesma conta: os nove gabaritos (2 a 5 s cada) sao sempre pagos,
-#: mas a regua (o caro) para no primeiro que encaixa, e os candidatos 4 a 9 so
-#: sao medidos nos dias em que os primeiros falham.
+#: ⚠️ **O xadrez pede doze (21/11/2026, historico do backend "2026-11-21 (8)",
+#: "(9)" e "(10)").** A posicao do xadrez varia muito de um sorteio para o
+#: outro (que pecas estao perto da espia, por onde o rei adversario foge), e a
+#: regua mostrou um candidato cair na escada com 9% a 45% de chance, conforme o
+#: tipo. Com tres, um tipo de 30% passava em 1 - (1 - 0,30)^3 = 66% dos dias.
+#: O comer o alvo passou de 3 para 4 e 5 dias em 9 com 3, 6 e 9 candidatos (o
+#: mesmo N; a 4a regua ainda com 10 execucoes), o que da uns 9% por candidato:
+#: com nove, 57% dos dias; com doze,
+#: 1 - 0,91^12 = 68%. ⛔ O custo nao cresce na mesma conta: os doze gabaritos
+#: (2 a 5 s cada) sao sempre pagos, mas a regua (o caro) para no primeiro que
+#: encaixa, e os candidatos 10 a 12 so sao medidos nos dias em que os nove
+#: primeiros falham (na 6a regua, 19 dias em 99, 6 deles da troca, que sai).
 CANDIDATOS_POR_JOGO = {
-    "xadrez": 9,
+    "xadrez": 12,
 }
 
 
@@ -927,6 +929,10 @@ SOLUCIONADOR_POR_TIPO = {
     # tinha escada.
     # (0,19 -> 0,62; 0,19 / 0,25 / 0,25 / 0,62)
     "xadrez_espia_comer": solucionadores_mod.perseguidor_do_xadrez("xadrez_espia_comer"),
+    # As duas espias (21/11/2026, no lugar da troca; §8zzzz64): o perseguidor do
+    # `espia_comer` com as duas marcas. Sem medicao pareada ainda: a regua dele
+    # e a 7a rodada.
+    "xadrez_duas_espias": solucionadores_mod.perseguidor_do_xadrez("xadrez_duas_espias"),
     # (0,44 -> 0,75; 0,06 / 0,38 / 0,62 / 0,75)
     "xadrez_espia_xeque": solucionadores_mod.perseguidor_do_xadrez("xadrez_espia_xeque"),
     # (0,12 -> 0,44; 0,00 / 0,00 / 0,19 / 0,44)

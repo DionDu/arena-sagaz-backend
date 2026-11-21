@@ -67,8 +67,10 @@ def _chegada(co_tipo: str, **parametros) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_provas_tem_exatamente_os_onze_tipos_do_xadrez():
-    assert len(TIPOS_DO_XADREZ) == 11
+def test_provas_tem_exatamente_os_doze_tipos_do_xadrez():
+    """Os onze da 1.6.0 (com as duas espias) e a troca, que saiu do ar e
+    continua no banco (§8zzzz64)."""
+    assert len(TIPOS_DO_XADREZ) == 12
     assert set(pv.PROVAS) == TIPOS_DO_XADREZ
 
 
@@ -224,15 +226,16 @@ def test_sortear_posicao_leva_o_adversario_ao_mate(monkeypatch):
     assert escolhida.js_posicao_inicial["fen"] == a["fen"]
 
 
-def test_o_xadrez_pede_nove_candidatos_por_dia_e_os_outros_tres():
-    """21/11/2026, depois da 4a e da 5a reguas: a mesma funcao serve o job e a medicao."""
-    assert gerador_mod.candidatos_por_dia("xadrez") == 9
+def test_o_xadrez_pede_doze_candidatos_por_dia_e_os_outros_tres():
+    """21/11/2026, depois da 4a, da 5a e da 6a reguas: a mesma funcao serve o
+    job e a medicao."""
+    assert gerador_mod.candidatos_por_dia("xadrez") == 12
     for jogo in ("pontinhos", "damas", "quatro"):
         assert gerador_mod.candidatos_por_dia(jogo) == gerador_mod.CANDIDATOS_POR_DIA_PADRAO == 3
 
 
 def test_o_job_pede_ao_gerador_o_numero_do_jogo():
-    """O job nao pode voltar a uma constante unica: o xadrez mediria 9 e publicaria de 3."""
+    """O job nao pode voltar a uma constante unica: o xadrez mediria 12 e publicaria de 3."""
     from pathlib import Path
 
     fonte = (Path(gerador_mod.__file__).parent / "__main__.py").read_text(encoding="utf-8")

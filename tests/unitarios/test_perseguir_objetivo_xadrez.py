@@ -85,7 +85,7 @@ def test_o_mate_nao_tem_perseguidor():
         ps.desafio_de("xadrez_dar_mate", {"fen": "x"}, chegada)
 
 
-def test_os_tipos_do_perseguidor_sao_os_dez_sem_vitoria_mais_o_controle():
+def test_os_tipos_do_perseguidor_sao_os_que_nao_pedem_vitoria_mais_o_controle():
     tipos_do_xadrez = {t for t, r in RECEITAS_FORA_DO_AR.items() if r.co_jogo == "xadrez"}
     assert ps.TIPOS_DO_PERSEGUIDOR == (tipos_do_xadrez - {"xadrez_dar_mate"}) | {ps.TIPO_DE_CONTROLE}
 
@@ -204,6 +204,39 @@ def test_os_cinco_da_espia_tiram_o_lance_que_a_deixa_comivel(motor):
         restantes = _restantes(motor, _desafio(tipo, fen, parametros, marcas={"espia": "c3"}))
         assert "c3d5" not in restantes and "c3e4" not in restantes, tipo
         assert "c3b5" in restantes, tipo
+
+
+def test_as_duas_espias_ficam_a_salvo_as_duas(motor):
+    """21/11/2026 (§8zzzz64): com duas espias, nenhuma pode ficar comivel. O
+    bispo espiao (a 2a marca) iria a e4, onde o peao de d5 o come: sai, como o
+    cavalo em d5 e em e4. O controle: com UMA espia (so o cavalo), o bispo em e4
+    nao e protegido, e o lance fica."""
+    fen = "7k/8/4p3/3p4/8/2N5/8/1B4K1 w - - 0 1"
+    duas = _desafio(
+        "xadrez_duas_espias", fen, {"capturas": 3, "lances": 12},
+        marcas={"espia": "c3", "espia2": "b1"},
+    )
+    restantes = _restantes(motor, duas)
+    assert not {"b1e4", "c3d5", "c3e4"} & restantes
+    assert {"b1d3", "c3b5"} <= restantes
+    uma = _desafio("xadrez_espia_comer", fen, {"capturas": 2, "lances": 8}, marcas={"espia": "c3"})
+    assert "b1e4" in _restantes(motor, uma)
+
+
+def test_duas_espias_da_nota_a_captura_de_qualquer_uma(motor):
+    """O cavalo (c3) e o bispo (f3), as duas espias, alcancam o peao de d5:
+    comer com qualquer uma vale o peso do agora ("vale o total"). O controle:
+    com so o cavalo espiao, o bispo comendo nao e captura da espia."""
+    fen = "7k/8/8/3p4/8/2N2B2/8/6K1 w - - 0 1"
+    duas = _desafio(
+        "xadrez_duas_espias", fen, {"capturas": 3, "lances": 12},
+        marcas={"espia": "c3", "espia2": "f3"},
+    )
+    notas = _notas(motor, duas)
+    assert notas["c3d5"] >= ps.PESO_DO_AGORA and notas["f3d5"] >= ps.PESO_DO_AGORA
+    assert notas["g1h1"] < ps.PESO_DO_AGORA
+    uma = _desafio("xadrez_espia_comer", fen, {"capturas": 2, "lances": 8}, marcas={"espia": "c3"})
+    assert _notas(motor, uma)["f3d5"] < ps.PESO_DO_AGORA
 
 
 def test_comer_com_nao_entrega_a_peca_que_come(motor):

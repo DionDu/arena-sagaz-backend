@@ -2781,6 +2781,10 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
         ),
     ),
+    # ⛔ A troca SAIU da 1.6.0 (21/11/2026, `DECISOES-do-dono.md` §8zzzz64): em
+    # seis reguas nenhum N separou os niveis, porque quem decide se a troca
+    # acontece e o adversario. A entrada fica (nada e apagado, e a regua a
+    # remede se o dono a reabrir); a promocao (T078) nao a leva para o ar.
     "xadrez_troca": (
         Publicacao(
             parametros={"lances": 10},
@@ -2800,6 +2804,28 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             # O unico do xadrez que encerra a partida: `vitoria` so vale no fim.
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_xadrez("vitoria", None),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    # As duas espias, no lugar da troca (21/11/2026, `DECISOES-do-dono.md`
+    # §8zzzz64). ⚠️ **Duas variantes, de proposito**: nao ha medida ainda, e a
+    # 7a regua mede as duas de uma vez. O ponto de partida e o `espia_comer`
+    # (2 pecas em 12 lances, 9 de 9 dias na 6a regua): com duas pecas comendo,
+    # a mesma janela fica mais facil, e a variante 1 pede uma peca a mais; a 2
+    # pede as mesmas duas em menos lances. A que nao passar sai daqui.
+    "xadrez_duas_espias": (
+        Publicacao(
+            parametros={"capturas": 3, "lances": 12},
+            nu_maximo_de_meios_lances=2 * 12 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("capturas_da_espia", "capturas"),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+        Publicacao(
+            parametros={"capturas": 2, "lances": 10},
+            nu_maximo_de_meios_lances=2 * 10 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("capturas_da_espia", "capturas"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
         ),
     ),

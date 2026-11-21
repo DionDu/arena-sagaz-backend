@@ -3391,6 +3391,12 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         co_tipo_desafio="xadrez_troca",
         co_jogo="xadrez",
         co_chave_objetivo="desafioObjetivoXadrezTroca",
+        # ⛔ **SAIU DA 1.6.0 em 21/11/2026** (`DECISOES-do-dono.md` §8zzzz64):
+        # quem decide se a troca acontece e o adversario (que pode nao comer de
+        # volta), e nenhum N separou os niveis em seis reguas. Fica no banco
+        # (tipo 69) e aqui, fora do ar, como os tipos 7 e 10 das damas; quem
+        # entra no lugar dela e o `xadrez_duas_espias` (71). A promocao (T078)
+        # NAO a leva para [RECEITAS].
         # "Troque um bispo seu por um cavalo de Tex em ate N lances". O par
         # (`minha`, `dele`) vem da posicao (`js_posicao_inicial.troca`), e o
         # medidor conta as duas ordens, no maximo uma troca por lance (T069).
@@ -3420,6 +3426,32 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         valores_da_frase=lambda p, personagem: {
             "personagem": personagem,
             "lances": p["lances"],
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_duas_espias": Receita(
+        # ⚠️ O 71 e a linha da `0041_desafio_xadrez_duas_espias` (aprovada pelo
+        # dono, `DECISOES-do-dono.md` §8zzzz64), no lugar da troca.
+        nu_tipo_desafio=71,
+        co_tipo_desafio="xadrez_duas_espias",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezDuasEspias",
+        # "Coma K pecas com o seu cavalo e a sua torre espias em ate N lances".
+        # A MESMA chegada do `xadrez_espia_comer`, com duas marcas: o medidor
+        # soma as capturas das duas em `capturas_da_espia` ("vale o total": a
+        # K pode vir de uma so), e `espia_comida` vale para qualquer uma - a
+        # comida de uma fecha o desafio como nao cumprido (RF-XDR-191).
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("capturas_da_espia", "maior_ou_igual", p["capturas"]),
+            _espia_viva(),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "capturas": p["capturas"],
+            "espia": p["espia"],
+            "espia2": p["espia2"],
+            "lances": p["lances"],
+            "personagem": personagem,
         },
     ),
 }

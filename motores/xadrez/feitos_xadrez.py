@@ -30,21 +30,28 @@ universais), uma frase cada:
   (`lib/modulos/jogos/xadrez/logica/feitos_xadrez.dart`), escrita igual;
 - `xeques_recebidos`: os lances do adversário que deixaram o rei da pessoa em
   xeque (`xeque_por` não vazio);
-- `capturas_da_espia` / `xeques_da_espia`: os lances da pessoa em que a marca
-  `espia` comeu, ou deu xeque (o `deu_xeque` do motor, que inclui o xeque
+- `capturas_da_espia` / `xeques_da_espia`: os lances da pessoa em que UMA
+  espiã comeu, ou deu xeque (o `deu_xeque` do motor, que inclui o xeque
   descoberto: RF-XDR-195);
-- `espia_comida`: 1 quando a espiã saiu do tabuleiro (a casa dela virou `null`
-  na resposta do motor), e fica 1;
-- `espia_na_ultima_fileira`: marco, 1 quando a espiã esteve na última fileira
+- `espia_comida`: 1 quando uma espiã saiu do tabuleiro (a casa dela virou
+  `null` na resposta do motor), e fica 1;
+- `espia_na_ultima_fileira`: marco, 1 quando uma espiã esteve na última fileira
   do lado da pessoa (a 8ª para as brancas, a 1ª para as pretas), e fica 1;
 - `alvo_comido_pela_espia`: marco, 1 quando o alvo saiu do tabuleiro num lance
-  em que a espiã comeu (um lance come uma peça só: se o alvo sumiu nele, foi
+  em que uma espiã comeu (um lance come uma peça só: se o alvo sumiu nele, foi
   ela quem o comeu);
 - `capturas_da_classe_marcada`: os lances da pessoa em que a peça movida é a
   classe `come` dos parâmetros e a comida é a classe `comida` (sem `comida`,
   qualquer peça);
 - `trocas_feitas`: as trocas do par `troca` (`minha` × `dele`), nas duas ordens
   de RF-XDR-201, contadas no lance da PESSOA que a fecha (ver [_fechou_troca]).
+
+⚠️ **As espiãs podem ser DUAS** (o `xadrez_duas_espias`, `DECISOES-do-dono.md`
+§8zzzz64, 21/11/2026): as marcas `espia` e `espia2` ([MARCAS_DAS_ESPIAS]). As
+cinco medidas da espiã valem para qualquer uma delas: as capturas somam as das
+duas ("vale o total"), e `espia_comida` fica 1 quando qualquer uma sai. Com uma
+espiã só (os outros cinco tipos), a conta é exatamente a de antes: a marca
+`espia2` não existe, e o laço por ela não acha nada.
 
 ⚠️ **As 19 só crescem ao longo da fita** (a coluna "evolução" da
 `data-model.md` §3.2): é o que deixa o juiz fechar como não cumprido o desafio
@@ -88,9 +95,15 @@ CORES: frozenset[str] = frozenset({"branca", "preta"})
 #: A última fileira de cada cor: onde a espiã "chega ao outro lado".
 ULTIMA_FILEIRA: dict[str, str] = {"branca": "8", "preta": "1"}
 
-#: O nome das duas marcas do desafio (`js_posicao_inicial.marcas`).
+#: O nome das marcas do desafio (`js_posicao_inicial.marcas`).
 MARCA_DA_ESPIA = "espia"
 MARCA_DO_ALVO = "alvo"
+#: A segunda espiã, só no `xadrez_duas_espias` (§8zzzz64). ⚠️ O motor segue
+#: qualquer marca pelo nome (`fatos::seguir_marcas`): a segunda não muda o crate.
+MARCA_DA_SEGUNDA_ESPIA = "espia2"
+#: As marcas que contam como espiã, na ordem: a 1ª e a 2ª. É por esta tupla que
+#: as medidas da espiã, o perseguidor e a prova procuram as espiãs.
+MARCAS_DAS_ESPIAS: tuple[str, ...] = (MARCA_DA_ESPIA, MARCA_DA_SEGUNDA_ESPIA)
 
 #: As chaves que [medir] devolve, na ordem do catálogo. O teste confere que as
 #: 19 do xadrez são exatamente as do manifesto `contratos/catalogo_feitos.json`.
@@ -316,9 +329,10 @@ def medir(
     ultima_fileira = ULTIMA_FILEIRA[cor]
 
     medidas: dict[str, int] = {chave: 0 for chave in CHAVES_DAS_MEDIDAS}
-    # A espiã e o alvo começam onde a posição publicada diz: é contra esta
-    # casa que se percebe a primeira vez em que viraram `null`.
-    casa_da_espia = marcas.get(MARCA_DA_ESPIA)
+    # As espiãs e o alvo começam onde a posição publicada diz: é contra esta
+    # casa que se percebe a primeira vez em que viraram `null`. Uma casa por
+    # espiã (uma ou duas, conforme o tipo), pelo nome da marca.
+    casas_das_espias = {nome: marcas.get(nome) for nome in MARCAS_DAS_ESPIAS if nome in marcas}
     casa_do_alvo = marcas.get(MARCA_DO_ALVO)
     sequencia = 0
 
@@ -328,7 +342,17 @@ def medir(
         da_pessoa = indice % 2 == 0
         comida = _peca_comida(fatos)
         xeque = _deu_xeque(fatos)
-        espia = _marca(passo, MARCA_DA_ESPIA)
+        # O que o motor disse de cada espiã depois deste lance (as que existem).
+        espias = {
+            nome: marca
+            for nome in MARCAS_DAS_ESPIAS
+            if (marca := _marca(passo, nome)) is not None
+        }
+        # Uma espiã comeu, ou deu xeque, NESTE lance? Só uma peça se move por
+        # lance, mas um lance de uma pode descobrir o xeque da outra: por isso
+        # "alguma", e o lance conta uma vez só.
+        espia_comeu = any(m.get("comeu") for m in espias.values())
+        espia_deu_xeque = any(m.get("deu_xeque") for m in espias.values())
         alvo = _marca(passo, MARCA_DO_ALVO)
 
         if da_pessoa:
@@ -340,9 +364,9 @@ def medir(
             medidas["maior_sequencia_de_xeques"] = max(
                 medidas["maior_sequencia_de_xeques"], sequencia
             )
-            if espia is not None and espia.get("comeu"):
+            if espia_comeu:
                 medidas["capturas_da_espia"] += 1
-            if espia is not None and espia.get("deu_xeque"):
+            if espia_deu_xeque:
                 medidas["xeques_da_espia"] += 1
             if (
                 classes.get("come") is not None
@@ -363,21 +387,17 @@ def medir(
             if xeque:
                 medidas["xeques_recebidos"] += 1
 
-        # ── A espiã e o alvo, pelo que o motor disse depois do lance ─────────
-        if espia is not None:
-            if casa_da_espia is not None and espia.get("casa") is None:
+        # ── As espiãs e o alvo, pelo que o motor disse depois do lance ───────
+        for nome, espia in espias.items():
+            if casas_das_espias.get(nome) is not None and espia.get("casa") is None:
                 medidas["espia_comida"] = 1
-            casa_da_espia = espia.get("casa")
-            if casa_da_espia is not None and casa_da_espia[-1] == ultima_fileira:
+            casas_das_espias[nome] = espia.get("casa")
+            casa = casas_das_espias[nome]
+            if casa is not None and casa[-1] == ultima_fileira:
                 medidas["espia_na_ultima_fileira"] = 1
         if alvo is not None:
-            # O alvo saiu NESTE lance, e a espiã comeu neste lance: foi ela.
-            if (
-                casa_do_alvo is not None
-                and alvo.get("casa") is None
-                and espia is not None
-                and espia.get("comeu")
-            ):
+            # O alvo saiu NESTE lance, e uma espiã comeu neste lance: foi ela.
+            if casa_do_alvo is not None and alvo.get("casa") is None and espia_comeu:
                 medidas["alvo_comido_pela_espia"] = 1
             casa_do_alvo = alvo.get("casa")
 

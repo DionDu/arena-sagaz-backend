@@ -834,6 +834,79 @@ def vetores_da_t070(motor: JogadorXadrez) -> list[dict[str, Any]]:
     ]
 
 
+#: Cavalo branco em c3 e bispo branco em f2 (as duas espias); torre preta em f8,
+#: na coluna do bispo, e peao preto em a4, que o cavalo come. O rei preto em a8.
+FEN_DUAS_ESPIAS_E_A_TORRE = "k4r2/8/8/8/p7/2N5/5B2/4K3 w - - 0 1"
+
+
+def vetores_das_duas_espias(motor: JogadorXadrez) -> list[dict[str, Any]]:
+    """As duas espias (21/11/2026, `DECISOES-do-dono.md` §8zzzz64), no fim.
+
+    As medidas da espia valem para as DUAS marcas (`espia` e `espia2`): as
+    capturas somam ("vale o total", ate de uma so), e qualquer uma comida fecha
+    o desafio. Os vetores de uma espia so, acima, nao mudaram um byte ao
+    regerar: e a prova de que, com uma espia, a conta e a de antes.
+    """
+    duas = posicao(FEN_COMER_COM, marcas={"espia": "c3", "espia2": "f2"})
+    return [
+        vetor(
+            motor,
+            identificador="xadrez-duas-espias-somam-as-capturas",
+            descricao="O cavalo espiao come o peao de a4, e o bispo espiao, o de "
+            "c5: uma captura de cada, e as duas somam as 2 do desafio.",
+            tipo="xadrez_duas_espias",
+            js_posicao=duas,
+            lances=["c3a4", "e8d8", "f2c5"],
+            chegada=chegada_do_tipo("xadrez_duas_espias", n=3, k=2),
+            veredito="cumpriu",
+            lance_que_cumpre=3,
+            confere={"capturas_da_espia": 2, "pecas_comidas_peao": 2, "espia_comida": 0},
+        ),
+        vetor(
+            motor,
+            identificador="xadrez-duas-espias-uma-so-tambem-vale",
+            descricao="A MESMA posicao, e o cavalo espiao come os dois peoes "
+            "(a4, depois c5): vale o total, e nao se exige que cada espia coma.",
+            tipo="xadrez_duas_espias",
+            js_posicao=duas,
+            lances=["c3a4", "e8d8", "a4c5"],
+            chegada=chegada_do_tipo("xadrez_duas_espias", n=3, k=2),
+            veredito="cumpriu",
+            lance_que_cumpre=3,
+            confere={"capturas_da_espia": 2},
+        ),
+        vetor(
+            motor,
+            identificador="xadrez-duas-espias-a-segunda-comida-encerra",
+            descricao="A torre preta come o bispo, que e a SEGUNDA espia, e o "
+            "cavalo espiao come o peao depois: a captura nao salva mais nada, "
+            "porque 'nenhuma espia comida' vale para as duas.",
+            tipo="xadrez_duas_espias",
+            js_posicao=posicao(
+                FEN_DUAS_ESPIAS_E_A_TORRE, marcas={"espia": "c3", "espia2": "f2"}
+            ),
+            lances=["e1d1", "f8f2", "c3a4"],
+            chegada=chegada_do_tipo("xadrez_duas_espias", n=3, k=1),
+            veredito="nao_cumpriu",
+            confere={"espia_comida": 1, "capturas_da_espia": 1, "pecas_perdidas_bispo": 1},
+        ),
+        vetor(
+            motor,
+            identificador="xadrez-uma-espia-a-outra-peca-nao-conta",
+            descricao="O controle do de cima, com UMA espia: o bispo de f2 nao e "
+            "espia, e a torre o come sem violar nada. O cavalo espiao come o "
+            "peao, e o desafio de uma espia so cumpre.",
+            tipo="xadrez_espia_comer",
+            js_posicao=posicao(FEN_DUAS_ESPIAS_E_A_TORRE, marcas={"espia": "c3"}),
+            lances=["e1d1", "f8f2", "c3a4"],
+            chegada=chegada_do_tipo("xadrez_espia_comer", n=3, k=1),
+            veredito="cumpriu",
+            lance_que_cumpre=3,
+            confere={"espia_comida": 0, "capturas_da_espia": 1, "pecas_perdidas_bispo": 1},
+        ),
+    ]
+
+
 def montar(motor: JogadorXadrez) -> dict[str, Any]:
     """O documento inteiro, com os vetores em ordem estável.
 
@@ -847,6 +920,8 @@ def montar(motor: JogadorXadrez) -> dict[str, Any]:
         + vetores_das_pecas(motor)
         # Os dois que as mutações do medidor do app pediram (T070), no fim.
         + vetores_da_t070(motor)
+        # As duas espias (21/11/2026, no lugar da troca), no fim de novo.
+        + vetores_das_duas_espias(motor)
     )
     identificadores = [v["id"] for v in vetores]
     assert len(set(identificadores)) == len(identificadores), "há id repetido"

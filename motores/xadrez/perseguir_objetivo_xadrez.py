@@ -122,7 +122,9 @@ PROMOCAO_DOS_CANDIDATOS = "q"
 #: dar o xeque que a dama nao da).
 TODAS_AS_PROMOCOES = ("q", "r", "b", "n")
 
-#: Os cinco tipos da espia: o filtro deles tira o lance que a deixa comivel.
+#: Os seis tipos da espia: o filtro deles tira o lance que a deixa comivel. No
+#: `xadrez_duas_espias` (§8zzzz64) sao duas, e o filtro protege as duas: comida
+#: qualquer uma, o desafio acaba.
 TIPOS_DA_ESPIA: frozenset[str] = frozenset(
     {
         "xadrez_espia_comer",
@@ -130,6 +132,7 @@ TIPOS_DA_ESPIA: frozenset[str] = frozenset(
         "xadrez_espia_atravessar",
         "xadrez_espia_xeque",
         "xadrez_espia_alvo",
+        "xadrez_duas_espias",
     }
 )
 
@@ -139,7 +142,7 @@ TIPOS_DA_ESPIA: frozenset[str] = frozenset(
 #: dois passos nao o fazem jogar PIOR que o motor.
 TIPO_DE_CONTROLE = "xadrez_vencer"
 
-#: Os tipos que o perseguidor sabe perseguir: os dez em que vencer nao e o
+#: Os tipos que o perseguidor sabe perseguir: os onze em que vencer nao e o
 #: objetivo, mais o controle. ⚠️ O `xadrez_dar_mate` fica de fora de proposito
 #: (`DECISOES-do-dono.md` §8zzzz57): quem o resolve e o motor que vence.
 TIPOS_DO_PERSEGUIDOR: frozenset[str] = TIPOS_DA_ESPIA | frozenset(
@@ -272,6 +275,24 @@ class LanceExaminado:
     @property
     def fatos(self) -> Mapping[str, Any]:
         return self.passo["fatos"]
+
+    @property
+    def casas_das_espias(self) -> set[str]:
+        """As casas das espias que continuam no tabuleiro depois do lance (uma
+        ou duas, pelas marcas de `feitos_xadrez.MARCAS_DAS_ESPIAS`)."""
+        casas = set()
+        for nome in feitos_xadrez.MARCAS_DAS_ESPIAS:
+            marca = self.marca(nome)
+            if marca is not None and marca.get("casa") is not None:
+                casas.add(marca["casa"])
+        return casas
+
+    @property
+    def espia_comeu(self) -> bool:
+        """Alguma espia comeu neste lance (o `comeu` da marca, do motor)."""
+        return any(
+            (self.marca(nome) or {}).get("comeu") for nome in feitos_xadrez.MARCAS_DAS_ESPIAS
+        )
 
     def marca(self, nome: str) -> Mapping[str, Any] | None:
         """O que o motor disse da marca [nome] depois do lance, ou `None`."""
@@ -453,13 +474,14 @@ def filtrar(
 
     tipo = desafio.co_tipo
     if tipo in TIPOS_DA_ESPIA:
-        # A espia comivel no lance seguinte: comida, o desafio acaba.
-        seguros = []
-        for examinado in vivos:
-            espia = examinado.marca(feitos_xadrez.MARCA_DA_ESPIA)
-            casa = espia.get("casa") if espia is not None else None
-            if casa is None or casa not in examinado.comiveis:
-                seguros.append(examinado)
+        # Uma espia comivel no lance seguinte: comida, o desafio acaba. (Com
+        # duas, nenhuma das duas pode ficar comivel.) A espia que ja saiu nao
+        # tem casa, e nao conta aqui: o desafio ja acabou de qualquer jeito.
+        seguros = [
+            examinado
+            for examinado in vivos
+            if not (examinado.casas_das_espias & set(examinado.comiveis))
+        ]
         if tipo != "xadrez_espia_alvo":
             return seguros or vivos
     if tipo == "xadrez_espia_alvo":
@@ -718,6 +740,14 @@ def nota_do_objetivo(
         casa = espia.get("casa") if espia else None
         return agora + _capturas_ao_alcance(
             motor, desafio, examinado, origens={casa} if casa else set()
+        )
+    if tipo == "xadrez_duas_espias":
+        # Como o `espia_comer`, com as duas: comer agora com qualquer uma ("vale
+        # o total", §8zzzz64) e, um lance adiante, as pecas que as duas juntas
+        # alcancariam (uma peca ao alcance das duas conta uma vez).
+        agora = PESO_DO_AGORA if examinado.espia_comeu else 0.0
+        return agora + _capturas_ao_alcance(
+            motor, desafio, examinado, origens=examinado.casas_das_espias
         )
     if tipo == "xadrez_espia_atravessar":
         casa = espia.get("casa") if espia else None

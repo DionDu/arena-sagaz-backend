@@ -157,6 +157,51 @@ def test_a_espia_que_age_nao_e_o_peao_mesmo_quando_ele_e_a_maioria() -> None:
     assert "peao" in sorteadas_proteger
 
 
+def test_as_duas_espias_sao_da_pessoa_de_classes_diferentes_e_nenhuma_e_peao() -> None:
+    """21/11/2026 (§8zzzz64): duas pecas da pessoa, em casas diferentes, de
+    classes diferentes (a frase nomeia as duas), nunca o rei nem um peao."""
+    for dia in DIAS:
+        posicao = _posicao("xadrez_duas_espias", dia)
+        js = posicao.js_posicao_inicial
+        tabela = px.pecas_do_fen(js["fen"])
+        primeira = tabela[js["marcas"]["espia"]]
+        segunda = tabela[js["marcas"]["espia2"]]
+        assert js["marcas"]["espia"] != js["marcas"]["espia2"]
+        for peca in (primeira, segunda):
+            assert peca.cor == js["cor_da_pessoa"]
+            assert peca.peca not in ("rei", "peao")
+        assert primeira.peca != segunda.peca
+        assert (posicao.pecas["espia"], posicao.pecas["espia2"]) == (primeira.peca, segunda.peca)
+
+
+def test_so_uma_classe_alem_dos_peoes_nao_serve_as_duas_espias() -> None:
+    """⚠️ Escrito a mao: os peoes e dois cavalos. A 1a espia e um cavalo, e a
+    2a nao tem classe diferente: a posicao nao serve (o sorteio tenta outra)."""
+    fen = "4k3/8/8/8/8/8/PPPPPPPP/1N2K1N1 w - - 0 1"
+    with pytest.raises(px.PosicaoNaoServe, match="segunda espia"):
+        px.posicao_do_desafio(
+            random.Random(3), co_tipo="xadrez_duas_espias", fen=fen,
+            parametros={"capturas": 3, "lances": 12},
+        )
+    # Com um bispo a mais, serve: o cavalo e o bispo, em alguma ordem.
+    fen = "4k3/8/8/8/8/8/PPPPPPPP/1N2KB2 w - - 0 1"
+    posicao = px.posicao_do_desafio(
+        random.Random(3), co_tipo="xadrez_duas_espias", fen=fen,
+        parametros={"capturas": 3, "lances": 12},
+    )
+    assert {posicao.pecas["espia"], posicao.pecas["espia2"]} == {"cavalo", "bispo"}
+
+
+def test_os_outros_tipos_da_espia_tem_uma_espia_so() -> None:
+    """A 2a marca e so do `xadrez_duas_espias`: os outros cinco seguem iguais."""
+    for co_tipo in px.TIPOS_DA_ESPIA:
+        if co_tipo == "xadrez_duas_espias":
+            continue
+        for dia in range(10):
+            js = _posicao(co_tipo, dia).js_posicao_inicial
+            assert "espia2" not in js["marcas"], co_tipo
+
+
 def test_a_espia_que_atravessa_e_torre_dama_ou_cavalo_e_ainda_nao_chegou() -> None:
     for dia in DIAS:
         js = _posicao("xadrez_espia_atravessar", dia).js_posicao_inicial
@@ -385,7 +430,7 @@ def test_o_formato_do_contrato_e_a_frase_monta(co_tipo: str) -> None:
     assert js["jogo"] == "xadrez" and js["modalidade"] == px.MODALIDADE
     # O juiz le a cor e as marcas da posicao publicada.
     assert feitos_xadrez.cor_da_pessoa(js) == px.cor_da_vez(js["fen"])
-    assert set(feitos_xadrez.marcas_iniciais(js)) <= {"espia", "alvo"}
+    assert set(feitos_xadrez.marcas_iniciais(js)) <= {"espia", "espia2", "alvo"}
     # As pecas, somadas aos numeros do editorial, montam a chegada e a frase.
     receita = RECEITAS_FORA_DO_AR[co_tipo]
     parametros = {
@@ -394,7 +439,7 @@ def test_o_formato_do_contrato_e_a_frase_monta(co_tipo: str) -> None:
     }
     receita.montar(parametros)
     valores = receita.valores_da_frase(parametros, "tex")
-    for espaco in ("espia", "alvo", "come", "comida", "peca", "minha", "dele"):
+    for espaco in ("espia", "espia2", "alvo", "come", "comida", "peca", "minha", "dele"):
         if espaco in posicao.pecas:
             assert valores[espaco] == posicao.pecas[espaco]
 
@@ -447,3 +492,6 @@ def test_o_motor_segue_a_espia_que_escolhemos(co_tipo: str, motor) -> None:
         if destinos and lance.startswith(casa):
             assert resposta["fatos"]["peca_movida"] == posicao.pecas["espia"]
         assert resposta["marcas"]["espia"]["casa"] is not None
+        # A 2a espia (so nas duas espias) tambem e seguida pelo motor, pelo nome.
+        if "espia2" in js["marcas"]:
+            assert resposta["marcas"]["espia2"]["casa"] is not None

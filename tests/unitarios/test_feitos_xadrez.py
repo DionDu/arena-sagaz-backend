@@ -71,6 +71,8 @@ TIPOS_DO_XADREZ = {
     "xadrez_sem_levar_xeque": 68,
     "xadrez_troca": 69,
     "xadrez_dar_mate": 70,
+    # A 0041 (21/11/2026, no lugar da troca; DECISOES-do-dono.md §8zzzz64).
+    "xadrez_duas_espias": 71,
 }
 
 #: As três medidas comuns a todo jogo (`lances_do_jogador`, `vitoria`, `empate`).
@@ -144,7 +146,7 @@ def test_os_casos_obrigatorios_do_contrato_tem_vetor(documento):
 
 
 def test_a_forma_do_arquivo(documento):
-    """Ids únicos, os onze tipos com os números da 0040, os três vereditos."""
+    """Ids únicos, os doze tipos com os números da 0040 e da 0041, os três vereditos."""
     assert documento["versao"] == 1
     ids = [v["id"] for v in documento["vetores"]]
     assert len(ids) == len(set(ids))

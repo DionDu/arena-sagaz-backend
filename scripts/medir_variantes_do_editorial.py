@@ -168,7 +168,7 @@ PASTA_DAS_MEDICOES = RAIZ / "medicoes" / "medir_variantes_do_editorial"
 #: ⚠️ **Medir com um numero diferente do job daria uma taxa que descreve outra
 #: execucao.** E a mesma razao pela qual a regua usa o teto de lances da geracao.
 #: ⚠️ Desde 21/11/2026 o numero e POR JOGO (`gerador.candidatos_por_dia`: o
-#: xadrez pede nove), e e de la que `medir_um_dia` e o relatorio o leem; este
+#: xadrez pede doze), e e de la que `medir_um_dia` e o relatorio o leem; este
 #: nome fica como o padrao.
 QUANTOS_POR_DIA = gerador_mod.CANDIDATOS_POR_DIA_PADRAO
 
@@ -700,7 +700,7 @@ def _como_ler(dia_mais_fraco: int, quantos_por_dia: int = QUANTOS_POR_DIA) -> tu
         return "⛔", "SEM DESAFIO"
     if dia_mais_fraco == 1:
         return "⚠️", "NO LIMITE"
-    # ⚠️ "Todos os pedidos" depende do jogo: 3 de 3 nos outros, 9 de 9 no xadrez.
+    # ⚠️ "Todos os pedidos" depende do jogo: 3 de 3 nos outros, 12 de 12 no xadrez.
     if dia_mais_fraco < quantos_por_dia:
         return "⚠️", "APERTADO"
     return "✅", "FOLGA"
@@ -854,7 +854,7 @@ def medir_um_dia(
     candidatos = gerador_mod.gerar_candidatos(
         dia,
         parametros=parametros,
-        # O numero do JOGO, como no job (o xadrez pede nove).
+        # O numero do JOGO, como no job (o xadrez pede doze).
         quantos=gerador_mod.candidatos_por_dia(receita.co_jogo),
         tipos_recentes=outros,
         maximo_de_meios_lances=botoes["teto"],
@@ -1746,9 +1746,11 @@ def relatorio_da_rodada(
     linhas += [
         "",
         "COMO LER ESTE RELATORIO",
-        "  O job pede 3 candidatos por dia e publica UM: o primeiro que cai na",
-        "  escada dos mascotes. O numero que decide e o NA ESCADA (quantos dias),",
-        "  e o do DIA MAIS FRACO diz se sobra candidato para escolher.",
+        f"  O job pede {gerador_mod.CANDIDATOS_POR_DIA_PADRAO} candidatos por dia "
+        f"(o xadrez, {gerador_mod.candidatos_por_dia('xadrez')}) e publica UM: o primeiro",
+        "  que cai na escada dos mascotes. O numero que decide e o NA ESCADA",
+        "  (quantos dias), e o do DIA MAIS FRACO diz se sobra candidato para escolher.",
+        "  Os rotulos abaixo estao com 3; no xadrez, leia o numero dele no lugar.",
         "",
         "  ✅ FOLGA         3 de 3  sobra candidato; o job escolhe o mais bem calibrado",
         "  ⚠️ APERTADO      2 de 3  ja publica, com menos escolha",
