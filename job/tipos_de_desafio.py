@@ -3114,6 +3114,32 @@ def _predicado(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
 #: Um marco atingido: as medidas `vitoria` e `vitoria_diagonal` valem 1 ou 0.
 _ATINGIDO = 1
 
+
+def _chegada_do_xadrez(lances: int, *clausulas: dict[str, Any]) -> dict[str, Any]:
+    """A linha de chegada de um tipo do xadrez: a janela dos `lances` primeiros
+    lances da PESSOA e a conjuncao das `clausulas` (contrato §2).
+
+    ⚠️ As chaves saem nesta ordem (`versao`, `janela`, `clausulas`) porque os
+    vetores do juiz foram gravados assim, e o gerador deles monta a chegada por
+    aqui: o arquivo tem de sair byte-identico.
+    """
+    return {
+        "versao": VERSAO_CHEGADA,
+        "janela": {"tipo": "lances_do_jogador", "n": lances},
+        "clausulas": list(clausulas),
+    }
+
+
+def _espia_viva() -> dict[str, Any]:
+    """"A espia nao foi comida": a clausula dos cinco tipos da espia (RF-XDR-191).
+
+    `espia_comida` so cresce, e a violacao nao volta atras: o juiz fecha o
+    desafio como nao cumprido no lance em que ela e comida. ⚠️ Uma funcao, e
+    nao uma constante: cada chegada recebe o SEU dicionario, e quem alterar um
+    nao altera os outros.
+    """
+    return _medida("espia_comida", "menor_ou_igual", 0)
+
 RECEITAS_FORA_DO_AR: dict[str, Receita] = {
     "quatro_unica_coluna": Receita(
         nu_tipo_desafio=42,
@@ -3154,6 +3180,246 @@ RECEITAS_FORA_DO_AR: dict[str, Receita] = {
         valores_da_frase=lambda p, personagem: {
             "ameacas": p["ameacas"],
             "personagem": personagem,
+        },
+    ),
+    # ═════════════════════════════════════════════════════════════════════
+    # Xadrez (T072 da spec 012): os onze tipos da 1a leva, TODOS fora do ar
+    # ═════════════════════════════════════════════════════════════════════
+    # ⚠️ Moram aqui ate passarem na regua (T077), como os do Quatro: a regra
+    # (a chegada) ja existe e ja passa pelos cadeados, e a promocao (T078) os
+    # MOVE para [RECEITAS]. Os numeros 60 a 70 sao os da `0040_desafio_xadrez`.
+    #
+    # ⚠️ **As chegadas sao a tabela de `contracts/desafio-xadrez.md` §2**, e
+    # os vetores do juiz (`contratos/vetores-juiz-xadrez.json`) foram gerados
+    # com elas: `scripts/gerar_vetores_juiz_xadrez.py` as monta por estas
+    # receitas, e `tests/unitarios/test_receitas_do_xadrez.py` confere vetor a
+    # vetor. Mudar uma chegada aqui e mudar o que os vetores ja provaram.
+    #
+    # ⚠️ **Toda janela e de LANCES DA PESSOA** (`lances_do_jogador`, o `lances`
+    # dos parametros). Nos tres "Passe N lances" (proteger, nao perder, sem
+    # levar xeque) a janela vem COM a clausula `lances_do_jogador >= N`: so a
+    # janela deixaria cumprir "proteja a espia por 10 lances" quem jogasse um
+    # lance e saisse (a forma do `pontinhos_paciencia`, T069).
+    #
+    # ⚠️ **As pecas da frase sao CODIGO** (`espia`, `alvo`, `come`, `comida`,
+    # `peca`, `minha`, `dele`, contrato §2 e `DECISOES-do-dono.md` §8zzzz58), e
+    # nao vem do editorial: quem as escolhe e a posicao do dia
+    # (`job/posicoes_xadrez.py`, T073), que as poe nos parametros junto com a
+    # `js_posicao_inicial`. O editorial guarda so os numeros (N e K).
+    "xadrez_espia_comer": Receita(
+        nu_tipo_desafio=60,
+        co_tipo_desafio="xadrez_espia_comer",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezEspiaComer",
+        # "Coma K pecas com o seu cavalo espiao em ate N lances". A espia viva e
+        # a clausula de todos os tipos da espia: `espia_comida` so cresce, e a
+        # violacao fecha o desafio como nao cumprido naquele lance (RF-XDR-191).
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("capturas_da_espia", "maior_ou_igual", p["capturas"]),
+            _espia_viva(),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "capturas": p["capturas"],
+            "espia": p["espia"],
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_espia_proteger": Receita(
+        nu_tipo_desafio=61,
+        co_tipo_desafio="xadrez_espia_proteger",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezEspiaProteger",
+        # "Passe N lances sem deixar Tex comer o seu bispo espiao".
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("lances_do_jogador", "maior_ou_igual", p["lances"]),
+            _espia_viva(),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "espia": p["espia"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_espia_atravessar": Receita(
+        nu_tipo_desafio=62,
+        co_tipo_desafio="xadrez_espia_atravessar",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezEspiaAtravessar",
+        # "Leve a sua torre espia ate o outro lado do tabuleiro em ate N lances".
+        # ⚠️ So torre, dama ou cavalo (contrato §2): o peao que chega la vira
+        # outra peca, e o bispo nao chega a toda casa. Quem garante e a escolha
+        # da espia (T073), e nao a receita.
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("espia_na_ultima_fileira", "igual", _ATINGIDO),
+            _espia_viva(),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "espia": p["espia"],
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_espia_xeque": Receita(
+        nu_tipo_desafio=63,
+        co_tipo_desafio="xadrez_espia_xeque",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezEspiaXeque",
+        # "De K xeques com a sua dama espia em ate N lances". O xeque descoberto
+        # da espia conta: quem diz que ela deu xeque e o motor (`deu_xeque`).
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("xeques_da_espia", "maior_ou_igual", p["xeques"]),
+            _espia_viva(),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "xeques": p["xeques"],
+            "espia": p["espia"],
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_espia_alvo": Receita(
+        nu_tipo_desafio=64,
+        co_tipo_desafio="xadrez_espia_alvo",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezEspiaAlvo",
+        # "Coma a torre marcada de Tex com o seu cavalo espiao em ate N lances".
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("alvo_comido_pela_espia", "igual", _ATINGIDO),
+            _espia_viva(),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "alvo": p["alvo"],
+            "personagem": personagem,
+            "espia": p["espia"],
+            "lances": p["lances"],
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_comer_com": Receita(
+        nu_tipo_desafio=65,
+        co_tipo_desafio="xadrez_comer_com",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezComerCom",
+        # "Use os seus cavalos para comer K peoes em ate N lances". Sem espia, e
+        # sem clausula que nao volta atras: perder peca nao quebra o desafio.
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("capturas_da_classe_marcada", "maior_ou_igual", p["capturas"]),
+        ),
+        # ⚠️ `comida` e OPCIONAL (contrato §2): sem ela, qualquer peca comida
+        # pela classe `come` conta, e a frase diz "pecas". So entra nos valores
+        # quando a posicao a escolheu - um `None` na frase seria um codigo que o
+        # `select` do app nao conhece.
+        valores_da_frase=lambda p, personagem: {
+            "come": p["come"],
+            "capturas": p["capturas"],
+            **({"comida": p["comida"]} if p.get("comida") else {}),
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_nao_perder": Receita(
+        nu_tipo_desafio=66,
+        co_tipo_desafio="xadrez_nao_perder",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezNaoPerder",
+        # "Passe N lances sem perder nenhum peao para Tex". ⚠️ A medida e a do
+        # TIPO de peca (`pecas_perdidas_<peca>`, uma por tipo no catalogo, 65 a
+        # 69): a pergunta F decidiu quantidades por tipo, e nao um total.
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("lances_do_jogador", "maior_ou_igual", p["lances"]),
+            _medida(f"pecas_perdidas_{p['peca']}", "menor_ou_igual", 0),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "peca": p["peca"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_xeques_seguidos": Receita(
+        nu_tipo_desafio=67,
+        co_tipo_desafio="xadrez_xeques_seguidos",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezXequesSeguidos",
+        # "De K xeques seguidos em ate N lances". ⚠️ K no maximo 4 (PRD §8.4):
+        # com mais, a repeticao tripla pode empatar a partida antes - o vetor
+        # `repeticao_tripla_nos_xeques_seguidos` mostra. Quem limita e o
+        # editorial (o teste confere), e nao a receita.
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("maior_sequencia_de_xeques", "maior_ou_igual", p["xeques"]),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "xeques": p["xeques"],
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_sem_levar_xeque": Receita(
+        nu_tipo_desafio=68,
+        co_tipo_desafio="xadrez_sem_levar_xeque",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezSemLevarXeque",
+        # "Passe N lances sem levar xeque de Tex".
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("lances_do_jogador", "maior_ou_igual", p["lances"]),
+            _medida("xeques_recebidos", "menor_ou_igual", 0),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "lances": p["lances"],
+            "personagem": personagem,
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_troca": Receita(
+        nu_tipo_desafio=69,
+        co_tipo_desafio="xadrez_troca",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezTroca",
+        # "Troque um bispo seu por um cavalo de Tex em ate N lances". O par
+        # (`minha`, `dele`) vem da posicao (`js_posicao_inicial.troca`), e o
+        # medidor conta as duas ordens, no maximo uma troca por lance (T069).
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("trocas_feitas", "maior_ou_igual", 1),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "minha": p["minha"],
+            "dele": p["dele"],
+            "personagem": personagem,
+            "lances": p["lances"],
+        },
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
+    "xadrez_dar_mate": Receita(
+        nu_tipo_desafio=70,
+        co_tipo_desafio="xadrez_dar_mate",
+        co_jogo="xadrez",
+        co_chave_objetivo="desafioObjetivoXadrezDarMate",
+        # "De xeque-mate em Tex em ate N lances" (N no maximo 5). E o unico
+        # tipo do xadrez que ENCERRA a partida: `vitoria` so vale no fim.
+        montar=lambda p: _chegada_do_xadrez(
+            p["lances"],
+            _medida("vitoria", "igual", _ATINGIDO),
+        ),
+        valores_da_frase=lambda p, personagem: {
+            "personagem": personagem,
+            "lances": p["lances"],
         },
     ),
 }

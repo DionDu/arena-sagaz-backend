@@ -190,15 +190,81 @@ def test_placeholder_SEM_VALOR_levanta() -> None:
 
 
 def test_recurso_de_ICU_nao_coberto_LEVANTA_em_vez_de_imprimir_lixo() -> None:
-    """🔒 ⛔ `select` e o resto do ICU param aqui, e isso é deliberado.
+    """🔒 `selectordinal` e o resto do ICU param aqui, e isso é deliberado.
 
     ⚠️ O renderizador cobre o que os `.arb` do projeto usam. No dia em que um
-    `select` entrar, o teste do catálogo acima falha - antes de o painel mostrar.
+    recurso novo entrar, o teste do catálogo acima falha - antes de o painel
+    mostrar. (O `select` entrou com o xadrez, T071 da spec 012: ver abaixo.)
     """
     with pytest.raises(FraseInvalida):
-        renderizar("{genero, select, f{a} other{o}}", {"genero": "f"})
+        renderizar("{n, selectordinal, one{1o} other{n-esimo}}", {"n": 1})
     with pytest.raises(FraseInvalida):
         renderizar("Coroe {damas damas", {"damas": 1})
+
+
+#: Um `select` no formato do xadrez (T071): o código da peça escolhe o nome.
+_ESPIA = (
+    "com {espia, select, cavalo{o seu cavalo espião} torre{a sua torre espiã} "
+    "other{a sua peça espiã}}"
+)
+
+
+@pytest.mark.parametrize(
+    ("codigo", "esperado"),
+    [
+        ("cavalo", "com o seu cavalo espião"),
+        ("torre", "com a sua torre espiã"),
+        # Código sem ramo vai ao `other`, como o `Intl.select` do aplicativo.
+        ("arcebispo", "com a sua peça espiã"),
+    ],
+)
+def test_o_SELECT_escolhe_o_ramo_do_codigo(codigo: str, esperado: str) -> None:
+    """🔒 O ramo é o do código da peça; o desconhecido cai no `other`."""
+    assert renderizar(_ESPIA, {"espia": codigo}) == esperado
+
+
+def test_o_SELECT_pode_conter_um_PLURAL() -> None:
+    """🔒 "Coma 2 peões": o plural dentro do ramo do select (o `comer_com`)."""
+    frase = (
+        "Coma {comida, select, peao{{n, plural, =1{1 peão} other{{n} peões}}} "
+        "other{{n, plural, =1{1 peça} other{{n} peças}}}}"
+    )
+    assert renderizar(frase, {"comida": "peao", "n": 2}) == "Coma 2 peões"
+    assert renderizar(frase, {"comida": "peao", "n": 1}) == "Coma 1 peão"
+    assert renderizar(frase, {"comida": "", "n": 3}) == "Coma 3 peças"
+
+
+def test_o_SELECT_sem_valor_ou_sem_other_LEVANTA() -> None:
+    """🔒 Placeholder sem valor levanta, como no plural; e um select sem
+    `other` não tem para onde ir com o código desconhecido."""
+    with pytest.raises(FraseInvalida):
+        renderizar(_ESPIA, {})
+    with pytest.raises(FraseInvalida):
+        renderizar("{espia, select, cavalo{c}}", {"espia": "torre"})
+
+
+def test_as_frases_do_XADREZ_saem_como_no_aplicativo() -> None:
+    """🔒 Três das onze, montadas da cópia do `.arb`, iguais às que o teste do
+    aplicativo confere (`frase_do_objetivo_test.dart`)."""
+    frases = carregar_frases()
+    if "desafioObjetivoXadrezTroca" not in frases:
+        pytest.skip("a cópia ainda não tem as frases do xadrez")
+    assert frase_do_desafio(
+        "desafioObjetivoXadrezEspiaXeque",
+        {"xeques": 3, "espia": "torre", "lances": 8, "personagem": "tex"},
+        frases=frases,
+    ) == "Dê 3 xeques com a sua torre espiã em até 8 lances contra Tex"
+    assert frase_do_desafio(
+        "desafioObjetivoXadrezComerCom",
+        {"come": "cavalo", "capturas": 2, "comida": "peao", "lances": 8,
+         "personagem": "tex"},
+        frases=frases,
+    ) == "Use os seus cavalos para comer 2 peões em até 8 lances contra Tex"
+    assert frase_do_desafio(
+        "desafioObjetivoXadrezTroca",
+        {"minha": "dama", "dele": "dama", "lances": 8, "personagem": "tex"},
+        frases=frases,
+    ) == "Troque a sua dama pela dama de Tex em até 8 lances"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

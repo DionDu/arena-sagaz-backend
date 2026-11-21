@@ -49,10 +49,16 @@ imprimiria as chaves do plural na tela**, e a frase do painel deixaria de ser *"
 frase como o usuario a le"* — que e a unica coisa que ela precisa ser.
 
 ⚠️ **Este renderizador cobre o que os `.arb` do projeto usam, e nao o ICU
-inteiro:** `{var}` e `{var, plural, =N{...} other{...}}`, com `{var}` dentro do
-ramo. ⛔ Ele **levanta** diante do que nao conhece, em vez de imprimir lixo —
-`select`, `plural` com `offset` ou aninhamento de dois niveis param aqui, e o
-teste avisa antes de o painel mostrar.
+inteiro:** `{var}`, `{var, plural, =N{...} other{...}}` e
+`{var, select, cavalo{...} other{...}}`, com qualquer um deles dentro de um
+ramo (o ramo e renderizado de novo, recursivamente). ⛔ Ele **levanta** diante do
+que nao conhece, em vez de imprimir lixo — `selectordinal`, `plural` com
+`offset` e o resto do ICU param aqui, e o teste avisa antes de o painel mostrar.
+
+⚠️ **O `select` entrou com o xadrez** (T071 da spec 012): a peca viaja como
+CODIGO (`cavalo`, `torre`) no `js_objetivo`, e o `.arb` escolhe o nome com o
+artigo e a concordancia ("o seu cavalo espiao", "a sua torre espia"). Codigo
+sem ramo cai no `other`, como no aplicativo.
 """
 
 from __future__ import annotations
@@ -148,12 +154,13 @@ def _um_nivel(texto: str, inicio: int) -> tuple[str, int]:
     raise FraseInvalida(f"chave `{{` sem fechamento: {texto!r}")
 
 
-#: `damas, plural, ` — o cabecalho de um bloco de plural.
+#: `damas, plural, ` (ou `espia, select, `) — o cabecalho de um bloco.
 _CABECALHO_PLURAL = re.compile(r"^\s*(\w+)\s*,\s*(\w+)\s*,\s*")
 
 
 def _ramos_do_plural(corpo: str) -> dict[str, str]:
-    """Os ramos `=1{...}` / `other{...}` de um bloco de plural, por rotulo."""
+    """Os ramos `=1{...}` / `other{...}` de um bloco de plural (ou os
+    `cavalo{...}` / `other{...}` de um select), por rotulo."""
     ramos: dict[str, str] = {}
     posicao = 0
     while posicao < len(corpo):
@@ -206,16 +213,28 @@ def renderizar(frase: str, valores: Mapping[str, Any]) -> str:
             saida.append(str(valores[nome]))
             continue
 
-        # ── Caso 2: `{damas, plural, =1{...} other{...}}` ─────────────────
         nome, tipo = cabecalho.group(1), cabecalho.group(2)
-        if tipo != "plural":
-            # ⛔ `select`, `selectordinal` e o resto do ICU param aqui — de
-            # proposito. Ver o cabecalho do modulo.
+        if tipo not in ("plural", "select"):
+            # ⛔ `selectordinal` e o resto do ICU param aqui — de proposito.
+            # Ver o cabecalho do modulo.
             raise FraseInvalida(f"`{tipo}` nao e suportado (chave `{nome}`)")
         if nome not in valores:
             raise FraseInvalida(f"sem valor para `{nome}` em {frase!r}")
 
         ramos = _ramos_do_plural(miolo[cabecalho.end() :])
+
+        # ── Caso 2: `{espia, select, cavalo{...} other{...}}` ─────────────
+        # O ramo e o do codigo; codigo sem ramo vai ao `other`, como o
+        # `Intl.select` do aplicativo.
+        if tipo == "select":
+            escolhido = ramos.get(str(valores[nome]), ramos.get("other"))
+            if escolhido is None:
+                raise FraseInvalida(f"select sem ramo `other` (chave `{nome}`)")
+            # ⚠️ Recursivo: o ramo pode ter um plural dentro ("2 peoes").
+            saida.append(renderizar(escolhido, valores))
+            continue
+
+        # ── Caso 3: `{damas, plural, =1{...} other{...}}` ─────────────────
         quantidade = valores[nome]
         # ⚠️ `=1` ganha de `one`/`other`, como manda o ICU: o ramo exato e mais
         # especifico que a categoria.

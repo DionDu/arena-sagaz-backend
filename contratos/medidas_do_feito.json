@@ -1,7 +1,7 @@
 {
   "de_documento": "O que cada frase de feito (o cartao de quem resolveu, \"4 caixas em 2 turnos\") le do retrato da resolucao (tb003_resolucao.js_feito). Gerado por tool/gerar_manifesto_medidas_do_feito.dart - NAO edite a mao.",
   "co_fonte_da_verdade": "arena-sagaz-frontend/lib/modulos/desafio_do_dia/logica/medidas_do_feito.dart",
-  "nu_versao": 1,
+  "nu_versao": 2,
   "frases": [
     {
       "co_chave_objetivo": "desafioObjetivoCadeiaLonga",
@@ -10,7 +10,8 @@
         "maior_cadeia_capturada"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoCapturaMultipla",
@@ -19,7 +20,8 @@
         "maior_captura"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoChegarAoPlacar",
@@ -28,7 +30,8 @@
         "caixas_fechadas"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoCoroarEmLances",
@@ -37,7 +40,8 @@
         "damas_coroadas"
       ],
       "janela_gasta": true,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoEconomiaDeLances",
@@ -46,7 +50,8 @@
         "caixas_fechadas"
       ],
       "janela_gasta": true,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoFecharCaixasEmTurnos",
@@ -55,7 +60,8 @@
         "caixas_fechadas"
       ],
       "janela_gasta": true,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoNaoEntregar",
@@ -64,7 +70,8 @@
         "lances_do_jogador"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoPaciencia",
@@ -73,7 +80,8 @@
         "lances_do_jogador"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroBloquear",
@@ -82,7 +90,8 @@
         "ameacas_bloqueadas"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroEncostadas",
@@ -91,7 +100,8 @@
         "pecas_encostadas"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroEncoste",
@@ -100,14 +110,16 @@
         "pecas_encostadas"
       ],
       "janela_gasta": true,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroFigura",
       "co_jogo": "quatro",
       "medidas": [],
       "janela_gasta": true,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroGolpeDuplo",
@@ -116,7 +128,8 @@
         "linhas_no_lance_final"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroLinhaDeCinco",
@@ -125,7 +138,8 @@
         "maior_linha"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroSegurarMagno",
@@ -134,7 +148,8 @@
         "lances_do_jogador"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroSemOMeio",
@@ -143,7 +158,8 @@
         "lances_do_jogador"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroVencerDiagonal",
@@ -152,7 +168,8 @@
         "lances_do_jogador"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroVencerEmN",
@@ -161,7 +178,8 @@
         "lances_do_jogador"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoQuatroVirada",
@@ -170,7 +188,8 @@
         "lances_do_jogador"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoSacrificio",
@@ -180,7 +199,8 @@
       "valores_do_objetivo": [
         "entregar",
         "capturar"
-      ]
+      ],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoSobreviver",
@@ -189,7 +209,8 @@
         "lances_do_jogador"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     },
     {
       "co_chave_objetivo": "desafioObjetivoTrocaFavoravel",
@@ -199,7 +220,128 @@
         "caixas_do_adversario"
       ],
       "janela_gasta": false,
-      "valores_do_objetivo": []
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezComerCom",
+      "co_jogo": "xadrez",
+      "medidas": [
+        "capturas_da_classe_marcada"
+      ],
+      "janela_gasta": true,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "come"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezDarMate",
+      "co_jogo": "xadrez",
+      "medidas": [],
+      "janela_gasta": true,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezEspiaAlvo",
+      "co_jogo": "xadrez",
+      "medidas": [],
+      "janela_gasta": true,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "alvo",
+        "espia"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezEspiaAtravessar",
+      "co_jogo": "xadrez",
+      "medidas": [],
+      "janela_gasta": true,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "espia"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezEspiaComer",
+      "co_jogo": "xadrez",
+      "medidas": [
+        "capturas_da_espia"
+      ],
+      "janela_gasta": true,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "espia"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezEspiaProteger",
+      "co_jogo": "xadrez",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "espia"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezEspiaXeque",
+      "co_jogo": "xadrez",
+      "medidas": [
+        "xeques_da_espia"
+      ],
+      "janela_gasta": true,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "espia"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezNaoPerder",
+      "co_jogo": "xadrez",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "peca"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezSemLevarXeque",
+      "co_jogo": "xadrez",
+      "medidas": [
+        "lances_do_jogador"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezTroca",
+      "co_jogo": "xadrez",
+      "medidas": [],
+      "janela_gasta": true,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": [
+        "minha",
+        "dele"
+      ]
+    },
+    {
+      "co_chave_objetivo": "desafioObjetivoXadrezXequesSeguidos",
+      "co_jogo": "xadrez",
+      "medidas": [
+        "maior_sequencia_de_xeques"
+      ],
+      "janela_gasta": false,
+      "valores_do_objetivo": [],
+      "pecas_do_objetivo": []
     }
   ]
 }

@@ -11565,3 +11565,43 @@ consegue testar à mão vira vetor, para valer nos dois.
 
 **Alternativas consideradas:** um duplo do motor no app que devolvesse fatos escritos à mão (uma
 segunda fonte de fatos, justamente o que os vetores existem para evitar).
+
+## 2026-11-20 (4) — Os textos do xadrez no painel (T071) e as receitas dos onze tipos (T072)
+
+**Contexto.** A T071 pôs no app as frases dos onze objetivos do xadrez, e o dono pediu a peça com
+nome e concordância também no cartão de feito (`arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8zzzz58). A peça viaja como código no `js_objetivo`, e o `.arb` escolhe o nome com `select` — que o
+renderizador do painel de curadoria recusava de propósito. A T072 cria as receitas, que até aqui
+existiam só como `chegada_do_tipo` no gerador dos vetores do juiz.
+
+**Decisão.**
+- **O painel aprendeu o `select`** (`api/desafios/painel/frase_objetivo.py`): o ramo do código, ou o
+  `other`; recursivo, para o plural dentro do ramo (o `comer_com`: "2 peões"). O que ele continua
+  recusando é o `selectordinal` e o resto do ICU. A cópia `contratos/frases_objetivo_pt.json` ganhou
+  as onze frases; `contratos/medidas_do_feito.json` subiu para `nu_versao` 2, com
+  `pecas_do_objetivo` (os códigos de peça que o cartão repete).
+- **As onze receitas em `RECEITAS_FORA_DO_AR`** (`job/tipos_de_desafio.py`, números 60 a 70 da
+  `0040`), com as chegadas do contrato §2: janela `lances_do_jogador`, a cláusula
+  `lances_do_jogador ≥ N` nos três "Passe N", e a espiã viva (`espia_comida ≤ 0`) nos cinco da espiã,
+  montada por função (cada chegada recebe o seu dicionário).
+- **O gerador dos vetores do juiz monta as chegadas pelas receitas**, e o arquivo saiu
+  byte-idêntico (SHA-256 `9df826e9…` antes e depois, nas duas cópias). O teste novo
+  `tests/unitarios/test_receitas_do_xadrez.py` confere vetor a vetor que a receita devolve
+  exatamente a chegada gravada (os parâmetros são lidos dela: N da janela, K da 1ª cláusula, o tipo
+  de peça do `nao_perder`), e que os valores da frase são exatamente os espaços da frase.
+- **As peças não vêm do editorial**: espiã, alvo, classes e o par da troca são da posição do dia
+  (`job/posicoes_xadrez.py`, T073), que os acrescenta aos parâmetros. O editorial
+  (`EDITORIAL_FORA_DO_AR`, `VERSAO_MINIMA_DO_XADREZ = "1.6.0"`) guarda só os números, como **palpite
+  de partida sem medida**: K = 2 nas contagens, 3 nos xeques seguidos (teto 4, PRD §8.4), N = 8 nos
+  "em até N", 10 nos "Passe N" e 5 no mate; teto do gabarito = a janela (`2N − 1` meios-lances),
+  piso 9, e 3 no mate (o mate em 2 da T074). A régua (T077) decide.
+- **As medidas de saída seguem o molde das damas**: nos tipos de contagem, o número do objetivo
+  0,6 (faixa de 0 a K) e a economia de lances 0,4; nos de marco (atravessar, alvo, troca, mate), a
+  economia sozinha, com o marco a peso zero; nos três "Passe N", a própria cláusula que não volta
+  atrás com peso 1 (binários por natureza, como a Paciência e o Sobreviva), com
+  `lances_do_jogador` a peso zero.
+
+**Alternativas consideradas:** um nome de peça por chave (`desafioNomePecaXadrez*`, como as figuras
+do Quatro), que obrigaria o painel a saber qual valor é peça; gravar os parâmetros em cada vetor
+(vetor não se edita: a chegada já carrega os números); pontuar o critério nos tipos de marco (vale
+1 para todo mundo que cumpriu, e não separa ninguém).

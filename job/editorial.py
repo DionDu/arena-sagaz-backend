@@ -77,6 +77,14 @@ VERSAO_MINIMA_DOS_TIPOS_FUNDADORES = "1.3.0"
 #: o numero existe. A T134 confere que o `pubspec.yaml` sobe para o mesmo numero.
 VERSAO_MINIMA_DO_QUATRO = "1.4.0"
 
+#: A versao do aplicativo que traz o Xadrez (spec 012, RF-XDR-187).
+#:
+#: ⚠️ **Os onze tipos saem com ela, todos**, pelo mesmo motivo do Quatro: o
+#: jogo, as dezenove medidas e os textos do objetivo (T071) so existem a partir
+#: dela. Um aplicativo 1.5 que recebesse um desafio do xadrez cai na tela de
+#: atualizar, e o dia nao conta contra a chama (T080 confere o corpo da 1.5.0).
+VERSAO_MINIMA_DO_XADREZ = "1.6.0"
+
 #: Os adversarios das variantes do "Forme a figura" que so ficam na escada sem
 #: a Cacau (DECISOES §8zzzt, 23/10/2026). ⚠️ E restricao POR VARIANTE, e nao do
 #: tipo: nas figuras aprovadas com os quatro, a Cacau continua no rodizio.
@@ -964,6 +972,75 @@ def _medidas_do_quatro_vencer_em_n(p: Mapping[str, Any]) -> list[dict[str, Any]]
         linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.400"),
         linha_so_medida("pecas_encostadas_do_adversario", nu_ordem=3),
     ]
+
+
+def _medidas_do_xadrez(
+    criterio: str, chave_do_alvo: str | None
+) -> Callable[[Mapping[str, Any]], list[dict[str, Any]]]:
+    """As medidas de saida de um tipo do xadrez que se cumpre DENTRO da janela
+    (T072 da spec 012; palpite de partida, a confirmar na regua).
+
+    Args:
+        criterio: a medida da frase (`capturas_da_espia`, `trocas_feitas`...).
+        chave_do_alvo: o parametro com o K da frase (`capturas`, `xeques`), nos
+            tipos de CONTAGEM; `None` nos de MARCO (chegar ao outro lado, comer
+            o alvo, a troca, o mate), em que o criterio vale 0 ou 1.
+
+    ⚠️ **O molde e o das damas** (`_medidas_do_damas_coroar`):
+
+      · nos tipos de contagem, o numero do objetivo pesa 0,6 (faixa de 0 a K)
+        e a economia de lances 0,4 (de `L` a `3L`, a parcela de sempre do hub);
+      · nos de marco, o criterio nao separa ninguem que cumpriu (vale 1 para
+        todos), e so a economia pesa; ele aparece com peso zero, no Raio-X.
+    """
+
+    def medidas(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+        if chave_do_alvo is None:
+            return [
+                linha_da_economia_de_lances(p, nu_ordem=1, vr_peso="1.000"),
+                linha_so_medida(criterio, nu_ordem=2),
+            ]
+        return [
+            linha_de_faixa(
+                criterio,
+                nu_ordem=1,
+                vr_peso="0.600",
+                vr_min=0,
+                vr_max=p[chave_do_alvo],
+            ),
+            linha_da_economia_de_lances(p, nu_ordem=2, vr_peso="0.400"),
+        ]
+
+    return medidas
+
+
+def _medidas_do_xadrez_binario(
+    clausula: str,
+) -> Callable[[Mapping[str, Any]], list[dict[str, Any]]]:
+    """As medidas de saida dos "Passe N lances" do xadrez (proteger a espia e
+    sem levar xeque): a propria clausula que nao volta atras, com peso 1.
+
+    ⚠️ **Binarios por natureza, como a Paciencia e o Sobreviva**: a pessoa joga
+    a janela inteira (a economia de lances nao existe: todo mundo joga N), e ou
+    a espia sobreviveu, ou nao. `espia_comida` e `xeques_recebidos` sao
+    `menor_melhor` no catalogo, e aqui tambem: a faixa de 0 a 1 da a nota cheia
+    a quem cumpriu. `lances_do_jogador` aparece com peso zero, e de proposito:
+    ele e `menor_melhor`, e aqui aguentar mais e o pedido.
+    """
+
+    def medidas(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+        return [
+            linha_de_faixa(clausula, nu_ordem=1, vr_peso="1.000", vr_min=0, vr_max=1),
+            linha_so_medida("lances_do_jogador", nu_ordem=2),
+        ]
+
+    return medidas
+
+
+def _medidas_do_xadrez_nao_perder(p: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """O `xadrez_nao_perder`: binario como os outros "Passe N", sobre a medida do
+    tipo de peca que a posicao escolheu (`pecas_perdidas_<peca>`, T073)."""
+    return _medidas_do_xadrez_binario(f"pecas_perdidas_{p['peca']}")(p)
 
 
 #: ⚠️ **CADA TIPO TEM UMA LISTA DE VARIANTES, e nao um dicionario so** (T049f).
@@ -2545,6 +2622,136 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
             ic_chegada_encerra_partida=True,
             medidas=_medidas_do_quatro("ameacas_bloqueadas"),
             co_versao_minima=VERSAO_MINIMA_DO_QUATRO,
+        ),
+    ),
+    # ═════════════════════════════════════════════════════════════════════
+    # Xadrez (T072 da spec 012): os onze tipos, fora do ar ate a regua (T077)
+    # ═════════════════════════════════════════════════════════════════════
+    # ⚠️ **Os numeros sao PALPITE DE PARTIDA, e nenhum foi medido.** A regra do
+    # `EDITORIAL` continua valendo: nenhuma variante vai ao ar sem a rodada da
+    # regua anotada ao lado (T077), e a promocao (T078) MOVE o tipo daqui. Eles
+    # sairam da faixa do hub (5 a 10 lances da pessoa) e dos exemplos do PRD
+    # §8.4: K = 2 nas contagens, 3 nos xeques seguidos (no maximo 4, PRD §8.4),
+    # N = 8 nos "em ate N", 10 nos "Passe N" e 5 no mate.
+    #
+    # ⚠️ **As pecas (espia, alvo, classes, par da troca) nao estao aqui**: sao da
+    # posicao do dia (`job/posicoes_xadrez.py`, T073), que as acrescenta aos
+    # parametros. O editorial guarda so os numeros.
+    #
+    # ⚠️ **Os botoes da geracao tambem sao palpite.** O teto do gabarito e a
+    # janela inteira (`2N - 1` meios-lances: N da pessoa e N - 1 do adversario,
+    # porque o xadrez alterna estritamente); o piso e o padrao (9, ~5 lances),
+    # menos no mate, cujo piso e o do problema mais curto do banco do Lichess
+    # (mate em 2 = 3 meios-lances, T074). O preparo e o padrao: no xadrez a
+    # posicao nao sai de autoplay, e quem decide o que ele quer dizer e a T073.
+    #
+    # ⚠️ **Os pesos das medidas de saida seguem o molde das damas** (ver
+    # `_medidas_do_xadrez`): o numero do objetivo 0,6 e a economia de lances
+    # 0,4 nos tipos com contagem; a economia sozinha nos de marco; e, nos tres
+    # "Passe N", a propria clausula que nao volta atras, com peso 1 (binarios
+    # por natureza, como a Paciencia e o Sobreviva).
+    "xadrez_espia_comer": (
+        Publicacao(
+            parametros={"capturas": 2, "lances": 8},
+            nu_maximo_de_meios_lances=2 * 8 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("capturas_da_espia", "capturas"),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_espia_proteger": (
+        Publicacao(
+            parametros={"lances": 10},
+            nu_maximo_de_meios_lances=2 * 10 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez_binario("espia_comida"),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_espia_atravessar": (
+        Publicacao(
+            parametros={"lances": 8},
+            nu_maximo_de_meios_lances=2 * 8 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("espia_na_ultima_fileira", None),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_espia_xeque": (
+        Publicacao(
+            parametros={"xeques": 2, "lances": 8},
+            nu_maximo_de_meios_lances=2 * 8 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("xeques_da_espia", "xeques"),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_espia_alvo": (
+        Publicacao(
+            parametros={"lances": 8},
+            nu_maximo_de_meios_lances=2 * 8 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("alvo_comido_pela_espia", None),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_comer_com": (
+        Publicacao(
+            parametros={"capturas": 2, "lances": 8},
+            nu_maximo_de_meios_lances=2 * 8 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("capturas_da_classe_marcada", "capturas"),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_nao_perder": (
+        Publicacao(
+            parametros={"lances": 8},
+            nu_maximo_de_meios_lances=2 * 8 - 1,
+            ic_chegada_encerra_partida=False,
+            # ⚠️ A medida e a do tipo de peca que a POSICAO escolheu
+            # (`pecas_perdidas_<peca>`), lida dos parametros na hora.
+            medidas=_medidas_do_xadrez_nao_perder,
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_xeques_seguidos": (
+        Publicacao(
+            parametros={"xeques": 3, "lances": 8},
+            nu_maximo_de_meios_lances=2 * 8 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("maior_sequencia_de_xeques", "xeques"),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_sem_levar_xeque": (
+        Publicacao(
+            parametros={"lances": 10},
+            nu_maximo_de_meios_lances=2 * 10 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez_binario("xeques_recebidos"),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_troca": (
+        Publicacao(
+            parametros={"lances": 8},
+            nu_maximo_de_meios_lances=2 * 8 - 1,
+            ic_chegada_encerra_partida=False,
+            medidas=_medidas_do_xadrez("trocas_feitas", None),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
+        ),
+    ),
+    "xadrez_dar_mate": (
+        Publicacao(
+            parametros={"lances": 5},
+            nu_maximo_de_meios_lances=2 * 5 - 1,
+            # Mate em 2 (o mais curto que a T074 guarda) = 3 meios-lances.
+            nu_minimo_de_meios_lances=3,
+            # O unico do xadrez que encerra a partida: `vitoria` so vale no fim.
+            ic_chegada_encerra_partida=True,
+            medidas=_medidas_do_xadrez("vitoria", None),
+            co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
         ),
     ),
 }

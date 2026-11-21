@@ -28,10 +28,12 @@ O QUE É ESCRITO À MÃO, E O QUE SAI DO MOTOR
   (`juiz.julgar_desafio`). Recontar aqui seria uma terceira escrita da regra que
   o vetor existe para conferir.
 
-⚠️ **As chegadas são as de `contracts/desafio-xadrez.md` §2, montadas aqui** e
-não pelas receitas, porque as receitas do xadrez só nascem na T072. Quando
-nascerem, o teste delas tem de conferir que montam exatamente as chegadas
-destes vetores (a nota está na T072 do `tasks.md`).
+⚠️ **As chegadas são montadas pelas RECEITAS do job** (`job/tipos_de_desafio.py`,
+desde a T072): até ela, este arquivo escrevia a tabela de
+`contracts/desafio-xadrez.md` §2 à mão, porque as receitas ainda não existiam.
+A troca não mudou um byte do arquivo de vetores (foi conferido ao regerar), e
+`tests/unitarios/test_receitas_do_xadrez.py` confere, vetor a vetor, que cada
+receita monta exatamente a chegada gravada.
 
 ═══════════════════════════════════════════════════════════════════════════
 OS CASOS OBRIGATÓRIOS (`contracts/desafio-xadrez.md` §3)
@@ -71,8 +73,8 @@ from typing import Any
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 
+from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR  # noqa: E402
 from motores.juiz import julgar_desafio  # noqa: E402
-from motores.nucleo.chegada import VERSAO_SUPORTADA  # noqa: E402
 from motores.xadrez import contrato_xadrez, feitos_xadrez  # noqa: E402
 from motores.xadrez.jogador_xadrez import (  # noqa: E402
     JogadorXadrez,
@@ -107,25 +109,20 @@ CASOS_OBRIGATORIOS: tuple[str, ...] = (
     "repeticao_tripla_nos_xeques_seguidos",
 )
 
-#: O número de cada tipo, como a `0040_desafio_xadrez` os gravou
-#: (`data-model.md` §3.1; o cadeado da migração confere a tabela).
-NUMERO_DO_TIPO: dict[str, int] = {
-    "xadrez_espia_comer": 60,
-    "xadrez_espia_proteger": 61,
-    "xadrez_espia_atravessar": 62,
-    "xadrez_espia_xeque": 63,
-    "xadrez_espia_alvo": 64,
-    "xadrez_comer_com": 65,
-    "xadrez_nao_perder": 66,
-    "xadrez_xeques_seguidos": 67,
-    "xadrez_sem_levar_xeque": 68,
-    "xadrez_troca": 69,
-    "xadrez_dar_mate": 70,
+#: As receitas do xadrez, no ar ou fora dele (a promoção da T078 MOVE uma
+#: receita de um registro para o outro, e o gerador não pode depender de onde
+#: ela mora).
+RECEITAS_DO_XADREZ = {
+    co_tipo: receita
+    for co_tipo, receita in {**RECEITAS_FORA_DO_AR, **RECEITAS}.items()
+    if receita.co_jogo == "xadrez"
 }
 
-#: O valor de um marco atingido (o `_ATINGIDO` das receitas: 1, e não `True`,
-#: porque a coluna do extrato é numérica).
-ATINGIDO = 1
+#: O número de cada tipo, lido da receita (que tem os números da
+#: `0040_desafio_xadrez`; `test_receitas_do_xadrez.py` confere os dois).
+NUMERO_DO_TIPO: dict[str, int] = {
+    co_tipo: receita.nu_tipo_desafio for co_tipo, receita in RECEITAS_DO_XADREZ.items()
+}
 
 #: A modalidade do xadrez, LIDA do contrato (o nome não se escreve aqui: é
 #: dado, RF-XDR-013).
@@ -137,68 +134,25 @@ MODALIDADE = contrato_xadrez.modalidades_declaradas()[0]
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _medida(chave: str, comparador: str, valor: Any) -> dict[str, Any]:
-    """Uma cláusula de medida, no formato que o avaliador lê."""
-    return {"tipo": "medida", "chave": chave, "comparador": comparador, "valor": valor}
-
-
-def _chegada(n: int, *clausulas: dict[str, Any]) -> dict[str, Any]:
-    """A linha de chegada com a janela "os N primeiros lances da pessoa"."""
-    return {
-        "versao": VERSAO_SUPORTADA,
-        "janela": {"tipo": "lances_do_jogador", "n": n},
-        "clausulas": list(clausulas),
-    }
-
-
-#: "A espiã não foi comida": a cláusula de todos os tipos da espiã (RF-XDR-191).
-_ESPIA_VIVA = _medida("espia_comida", "menor_ou_igual", 0)
-
-
 def chegada_do_tipo(tipo: str, *, n: int, k: int = 1, peca: str = "peao") -> dict[str, Any]:
-    """A chegada de [tipo], como a tabela do §2 a descreve.
+    """A chegada de [tipo], montada pela RECEITA do job (T072).
 
     Args:
-        n: o N da janela (no `xadrez_dar_mate`, o 5 da tabela).
-        k: o K da cláusula de quantidade, onde há.
+        n: o N da janela (`lances`; no `xadrez_dar_mate`, o 5 da tabela).
+        k: o K da cláusula de quantidade, onde há (`capturas` ou `xeques`,
+            conforme o tipo: a receita lê só o que usa).
         peca: o tipo de peça do `xadrez_nao_perder`.
 
     ⚠️ **"`lances_do_jogador = N`" da tabela é a janela de N lances MAIS a
-    cláusula `lances_do_jogador ≥ N`**: só a janela não basta, porque quem
-    jogasse um lance só (e saísse) cumpriria "não deixe a espiã ser comida por
-    10 lances". É a forma do `pontinhos_paciencia` e das damas.
+    cláusula `lances_do_jogador ≥ N`**, e quem a escreve agora é a receita.
+
+    Raises:
+        KeyError: tipo que não é do xadrez, ou sem receita.
     """
-    if tipo == "xadrez_espia_comer":
-        return _chegada(n, _medida("capturas_da_espia", "maior_ou_igual", k), _ESPIA_VIVA)
-    if tipo == "xadrez_espia_proteger":
-        return _chegada(n, _medida("lances_do_jogador", "maior_ou_igual", n), _ESPIA_VIVA)
-    if tipo == "xadrez_espia_atravessar":
-        return _chegada(n, _medida("espia_na_ultima_fileira", "igual", ATINGIDO), _ESPIA_VIVA)
-    if tipo == "xadrez_espia_xeque":
-        return _chegada(n, _medida("xeques_da_espia", "maior_ou_igual", k), _ESPIA_VIVA)
-    if tipo == "xadrez_espia_alvo":
-        return _chegada(n, _medida("alvo_comido_pela_espia", "igual", ATINGIDO), _ESPIA_VIVA)
-    if tipo == "xadrez_comer_com":
-        return _chegada(n, _medida("capturas_da_classe_marcada", "maior_ou_igual", k))
-    if tipo == "xadrez_nao_perder":
-        return _chegada(
-            n,
-            _medida("lances_do_jogador", "maior_ou_igual", n),
-            _medida(f"pecas_perdidas_{peca}", "menor_ou_igual", 0),
-        )
-    if tipo == "xadrez_xeques_seguidos":
-        return _chegada(n, _medida("maior_sequencia_de_xeques", "maior_ou_igual", k))
-    if tipo == "xadrez_sem_levar_xeque":
-        return _chegada(
-            n,
-            _medida("lances_do_jogador", "maior_ou_igual", n),
-            _medida("xeques_recebidos", "menor_ou_igual", 0),
-        )
-    if tipo == "xadrez_troca":
-        return _chegada(n, _medida("trocas_feitas", "maior_ou_igual", 1))
-    if tipo == "xadrez_dar_mate":
-        return _chegada(n, _medida("vitoria", "igual", ATINGIDO))
-    raise KeyError(f"tipo de desafio do xadrez desconhecido: {tipo!r}")
+    receita = RECEITAS_DO_XADREZ.get(tipo)
+    if receita is None:
+        raise KeyError(f"tipo de desafio do xadrez desconhecido: {tipo!r}")
+    return receita.montar({"lances": n, "capturas": k, "xeques": k, "peca": peca})
 
 
 # ═══════════════════════════════════════════════════════════════════════════
