@@ -220,6 +220,177 @@
       "co_jogo": "quatro"
     },
     {
+      "nu_feito": 60,
+      "co_feito": "pecas_comidas_peao",
+      "no_feito": "Peoes comidos",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 61,
+      "co_feito": "pecas_comidas_cavalo",
+      "no_feito": "Cavalos comidos",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 62,
+      "co_feito": "pecas_comidas_bispo",
+      "no_feito": "Bispos comidos",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 63,
+      "co_feito": "pecas_comidas_torre",
+      "no_feito": "Torres comidas",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 64,
+      "co_feito": "pecas_comidas_dama",
+      "no_feito": "Damas comidas",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 65,
+      "co_feito": "pecas_perdidas_peao",
+      "no_feito": "Peoes perdidos",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 66,
+      "co_feito": "pecas_perdidas_cavalo",
+      "no_feito": "Cavalos perdidos",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 67,
+      "co_feito": "pecas_perdidas_bispo",
+      "no_feito": "Bispos perdidos",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 68,
+      "co_feito": "pecas_perdidas_torre",
+      "no_feito": "Torres perdidas",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 69,
+      "co_feito": "pecas_perdidas_dama",
+      "no_feito": "Damas perdidas",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 70,
+      "co_feito": "capturas_da_espia",
+      "no_feito": "Capturas da espia",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 71,
+      "co_feito": "xeques_da_espia",
+      "no_feito": "Xeques da espia",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 72,
+      "co_feito": "espia_comida",
+      "no_feito": "Espia comida",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 73,
+      "co_feito": "espia_na_ultima_fileira",
+      "no_feito": "Espia na ultima fileira",
+      "co_unidade": "marco",
+      "co_direcao": "marco_atingido",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 74,
+      "co_feito": "alvo_comido_pela_espia",
+      "no_feito": "Alvo comido pela espia",
+      "co_unidade": "marco",
+      "co_direcao": "marco_atingido",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 75,
+      "co_feito": "capturas_da_classe_marcada",
+      "no_feito": "Capturas da classe marcada",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 76,
+      "co_feito": "maior_sequencia_de_xeques",
+      "no_feito": "Maior sequencia de xeques",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 77,
+      "co_feito": "xeques_recebidos",
+      "no_feito": "Xeques recebidos",
+      "co_unidade": "contagem",
+      "co_direcao": "menor_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
+      "nu_feito": 78,
+      "co_feito": "trocas_feitas",
+      "no_feito": "Trocas feitas",
+      "co_unidade": "contagem",
+      "co_direcao": "maior_melhor",
+      "co_procedencia": "tabuleiro",
+      "co_jogo": "xadrez"
+    },
+    {
       "nu_feito": 9999,
       "co_feito": "desconhecido",
       "no_feito": "Desconhecido",

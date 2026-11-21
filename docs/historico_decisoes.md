@@ -11479,3 +11479,30 @@ as linhas das dimensões lidas do SQL da `0039`, o payload conferido contra os `
 `CHECK` da migração (com o controle de que os predicados pegam o que o banco recusaria) e os códigos
 que o motor Rust espelhado emite. ⚠️ **Nada disto está no `des`:** a branch `jogo-xadrez` só existe
 local até a T002, e a `0039` sobe antes do código (T068).
+
+## 2026-11-20 — Os vetores do xadrez no portão do build (T064) e a 0040 com o bloco 60-79 (T067)
+
+**Contexto.** A fase 2 da spec 012 (o servidor do desafio). A T064 pedia os vetores de paridade
+do xadrez em `tests/dados/`; a T067, os onze tipos e as dezenove medidas do `data-model.md` §3 da
+spec, nos dois lados do catálogo de feitos.
+
+**Decisões.**
+- **Os vetores moram em `contratos/vetores-paridade-xadrez.json`, e não em `tests/dados/`:** o
+  `.dockerignore` deixa `tests/` fora da imagem do job, e a conferência que importa (o executável
+  compilado para Linux joga igual ao laboratório e ao app) é a do portão 3e do `Dockerfile.job`,
+  onde ela nunca pula. Os vetores das damas e do Quatro já moram em `contratos/`. O código é um
+  só, `motores/xadrez/paridade_xadrez.py`, usado pelo `pytest` e por
+  `scripts/conferir_motor_xadrez.py`. 284 de 284.
+- **A `0040_desafio_xadrez`:** tipos 60-70 e medidas 60-78, conferidos livres contra o head da
+  `main` (a `0038`) e a `0039`. As dezenove medidas passam do bloco de dez: o cadeado de blocos
+  (`test_catalogo_feito_paridade.py`) diz `xadrez: (60, 79)`, e o próximo jogo começa no 80.
+- **Um cadeado novo, `test_migracao_desafio_xadrez_bate_com_data_model.py`:** as linhas da `0040`
+  contra as duas tabelas do `data-model.md` §3 que o dono validou (abrindo as linhas agrupadas
+  `60-64 | pecas_comidas_peao · _cavalo ...`). A `versao` do catálogo fica 1, como na entrada das
+  sete do Quatro.
+- **O push com a `0040` ainda não aplicada não quebra o `des`:** o job só traduz chave em número
+  nos tipos com receita, e o xadrez não tem nenhuma até a T078.
+
+**Alternativas consideradas:** `tests/dados/` com uma exceção no `.dockerignore` (um arquivo de
+teste dentro da imagem, contra a regra do arquivo); a faixa 60-69 para as medidas, deixando nove
+para outro bloco (o mesmo jogo partido em dois blocos).
