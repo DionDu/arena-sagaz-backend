@@ -86,6 +86,9 @@ contratos/vetores-paridade-quatro.json -text
 # E os do xadrez (spec 012, T064): gerados pelo crate Rust do laboratorio,
 # comparados com a fonte e com a copia do app, e conferidos no portao do build.
 contratos/vetores-paridade-xadrez.json -text
+# E os do JUIZ do xadrez (spec 012, T069): fita de fatos -> medidas ->
+# veredito, comparados por SHA-256 com a copia do app (T070).
+contratos/vetores-juiz-xadrez.json -text
 contratos/bancada-paridade-quatro.json -text
 # As figuras do Quatro no ar (T152): o app guarda uma copia, comparada por bytes.
 contratos/figuras_quatro_no_ar.json -text

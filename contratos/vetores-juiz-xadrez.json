@@ -1,0 +1,4444 @@
+{
+  "de_documento": "Vetores do juiz do xadrez (spec 012, T069; contracts/desafio-xadrez.md §3): a fita com os fatos do motor, as medidas e o veredito. GERADO por scripts/gerar_vetores_juiz_xadrez.py - nao edite a mao. Vetor nunca e apagado nem editado: corrigir e vetor NOVO.",
+  "versao": 1,
+  "casos_obrigatorios": [
+    "espia_comida_en_passant",
+    "torre_espia_no_roque",
+    "peao_espiao_promovido",
+    "xeque_descoberto_da_espia",
+    "troca_ordem_1",
+    "troca_ordem_2",
+    "troca_ordem_2_sem_retomada",
+    "repeticao_tripla_nos_xeques_seguidos"
+  ],
+  "chaves_das_medidas": [
+    "vitoria",
+    "empate",
+    "lances_do_jogador",
+    "pecas_comidas_peao",
+    "pecas_comidas_cavalo",
+    "pecas_comidas_bispo",
+    "pecas_comidas_torre",
+    "pecas_comidas_dama",
+    "pecas_perdidas_peao",
+    "pecas_perdidas_cavalo",
+    "pecas_perdidas_bispo",
+    "pecas_perdidas_torre",
+    "pecas_perdidas_dama",
+    "capturas_da_espia",
+    "xeques_da_espia",
+    "espia_comida",
+    "espia_na_ultima_fileira",
+    "alvo_comido_pela_espia",
+    "capturas_da_classe_marcada",
+    "maior_sequencia_de_xeques",
+    "xeques_recebidos",
+    "trocas_feitas"
+  ],
+  "vetores": [
+    {
+      "id": "xadrez-espia-comida-en-passant",
+      "de_vetor": "O peão espião avança duas casas, e o peão preto o come DE PASSAGEM: a peça comida não está na casa de destino. A espiã sai do tabuleiro, e a cláusula 'a espiã não foi comida' fica violada para sempre: o 2o lance da pessoa não salva mais nada.",
+      "caso_obrigatorio": "espia_comida_en_passant",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 61,
+      "co_tipo_desafio": "xadrez_espia_proteger",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "e2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4",
+          "fatos": {
+            "comida": null,
+            "de": "e2",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "e4",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "d4e3",
+          "fatos": {
+            "comida": {
+              "casa": "e4",
+              "peca": "peao"
+            },
+            "de": "d4",
+            "en_passant": true,
+            "fim": null,
+            "para": "e3",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": null,
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e1d1",
+          "fatos": {
+            "comida": null,
+            "de": "e1",
+            "en_passant": false,
+            "fim": null,
+            "para": "d1",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": null,
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 1,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 1,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-espia-protegida-sem-en-passant",
+      "de_vetor": "A MESMA posição e o mesmo avanço, e o preto não come: a espiã chega viva ao 2o lance da pessoa.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 61,
+      "co_tipo_desafio": "xadrez_espia_proteger",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "e2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4",
+          "fatos": {
+            "comida": null,
+            "de": "e2",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "e4",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d7",
+          "fatos": {
+            "comida": null,
+            "de": "e8",
+            "en_passant": false,
+            "fim": null,
+            "para": "d7",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "e4",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e1d1",
+          "fatos": {
+            "comida": null,
+            "de": "e1",
+            "en_passant": false,
+            "fim": null,
+            "para": "d1",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "e4",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 3
+      }
+    },
+    {
+      "id": "xadrez-espia-come-en-passant",
+      "de_vetor": "O preto avança duas casas ao lado do peão espião, e a espiã come de passagem: o motor diz que ela comeu, e a peça comida é o peão de d5, e não uma peça em d6.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 60,
+      "co_tipo_desafio": "xadrez_espia_comer",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/3p4/8/4P3/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "e5"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e1d1",
+          "fatos": {
+            "comida": null,
+            "de": "e1",
+            "en_passant": false,
+            "fim": null,
+            "para": "d1",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "e5",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "d7d5",
+          "fatos": {
+            "comida": null,
+            "de": "d7",
+            "en_passant": false,
+            "fim": null,
+            "para": "d5",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "e5",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e5d6",
+          "fatos": {
+            "comida": {
+              "casa": "d5",
+              "peca": "peao"
+            },
+            "de": "e5",
+            "en_passant": true,
+            "fim": null,
+            "para": "d6",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "d6",
+              "comeu": true,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 1,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 3
+      }
+    },
+    {
+      "id": "xadrez-torre-espia-no-roque-da-xeque",
+      "de_vetor": "A torre espiã de h1 anda no roque (o lance é do REI, e1 para g1) e para em f1, de frente para o rei preto: é ela quem dá o xeque. Quem seguisse a casa h1 não veria xeque nenhum.",
+      "caso_obrigatorio": "torre_espia_no_roque",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 63,
+      "co_tipo_desafio": "xadrez_espia_xeque",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "5k2/8/8/8/8/8/8/4K2R w K - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "h1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e1g1",
+          "fatos": {
+            "comida": null,
+            "de": "e1",
+            "en_passant": false,
+            "fim": null,
+            "para": "g1",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": {
+              "lado": "curto",
+              "torre_de": "h1",
+              "torre_para": "f1"
+            },
+            "xeque_por": [
+              "f1"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "f1",
+              "comeu": false,
+              "deu_xeque": true
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "xeques_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 1
+      }
+    },
+    {
+      "id": "xadrez-torre-espia-no-roque-atravessa",
+      "de_vetor": "A mesma torre, depois do roque, sobe a coluna f até a 8a fileira: a marca foi seguida pela identidade da peça.",
+      "caso_obrigatorio": "torre_espia_no_roque",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 62,
+      "co_tipo_desafio": "xadrez_espia_atravessar",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "5k2/8/8/8/8/8/8/4K2R w K - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "h1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e1g1",
+          "fatos": {
+            "comida": null,
+            "de": "e1",
+            "en_passant": false,
+            "fim": null,
+            "para": "g1",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": {
+              "lado": "curto",
+              "torre_de": "h1",
+              "torre_para": "f1"
+            },
+            "xeque_por": [
+              "f1"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "f1",
+              "comeu": false,
+              "deu_xeque": true
+            }
+          }
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "f8e7",
+          "fatos": {
+            "comida": null,
+            "de": "f8",
+            "en_passant": false,
+            "fim": null,
+            "para": "e7",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "f1",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f1f8",
+          "fatos": {
+            "comida": null,
+            "de": "f1",
+            "en_passant": false,
+            "fim": null,
+            "para": "f8",
+            "peca_movida": "torre",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "f8",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "espia_na_ultima_fileira",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 1,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 3
+      }
+    },
+    {
+      "id": "xadrez-torre-espia-no-roque-nao-atravessa-por-pouco",
+      "de_vetor": "A MESMA fita com a janela de um lance só: o roque leva a torre a f1, que é a 1a fileira das brancas (a dela, e não a do outro lado). A chegada à 8a cai fora da janela.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 62,
+      "co_tipo_desafio": "xadrez_espia_atravessar",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "5k2/8/8/8/8/8/8/4K2R w K - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "h1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e1g1",
+          "fatos": {
+            "comida": null,
+            "de": "e1",
+            "en_passant": false,
+            "fim": null,
+            "para": "g1",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": {
+              "lado": "curto",
+              "torre_de": "h1",
+              "torre_para": "f1"
+            },
+            "xeque_por": [
+              "f1"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "f1",
+              "comeu": false,
+              "deu_xeque": true
+            }
+          }
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "f8e7",
+          "fatos": {
+            "comida": null,
+            "de": "f8",
+            "en_passant": false,
+            "fim": null,
+            "para": "e7",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "f1",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f1f8",
+          "fatos": {
+            "comida": null,
+            "de": "f1",
+            "en_passant": false,
+            "fim": null,
+            "para": "f8",
+            "peca_movida": "torre",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "f8",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "espia_na_ultima_fileira",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-peao-espiao-promovido-come",
+      "de_vetor": "O peão espião vira dama em b8, e é a DAMA nova que desce a coluna e come o cavalo de b1: a marca passou para a peça nova.",
+      "caso_obrigatorio": "peao_espiao_promovido",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 60,
+      "co_tipo_desafio": "xadrez_espia_comer",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/1P6/8/8/8/8/8/1n2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "b7"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b7b8q",
+          "fatos": {
+            "comida": null,
+            "de": "b7",
+            "en_passant": false,
+            "fim": null,
+            "para": "b8",
+            "peca_movida": "peao",
+            "promocao": "dama",
+            "roque": null,
+            "xeque_por": [
+              "b8"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "b8",
+              "comeu": false,
+              "deu_xeque": true
+            }
+          }
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "h8h7",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "h7",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "b8",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "b8b1",
+          "fatos": {
+            "comida": {
+              "casa": "b1",
+              "peca": "cavalo"
+            },
+            "de": "b8",
+            "en_passant": false,
+            "fim": null,
+            "para": "b1",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "b1"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "b1",
+              "comeu": true,
+              "deu_xeque": true
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 1,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 2,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 1,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 2,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 3
+      }
+    },
+    {
+      "id": "xadrez-peao-espiao-promovido-atravessa",
+      "de_vetor": "A promoção em b8 é a chegada à 8a fileira: o marco cai no próprio lance da promoção.",
+      "caso_obrigatorio": "peao_espiao_promovido",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 62,
+      "co_tipo_desafio": "xadrez_espia_atravessar",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/1P6/8/8/8/8/8/1n2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "b7"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b7b8q",
+          "fatos": {
+            "comida": null,
+            "de": "b7",
+            "en_passant": false,
+            "fim": null,
+            "para": "b8",
+            "peca_movida": "peao",
+            "promocao": "dama",
+            "roque": null,
+            "xeque_por": [
+              "b8"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "b8",
+              "comeu": false,
+              "deu_xeque": true
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "espia_na_ultima_fileira",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 1,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 1
+      }
+    },
+    {
+      "id": "xadrez-xeque-descoberto-da-espia",
+      "de_vetor": "O bispo espião de a1 está atrás do cavalo de d4, na diagonal do rei preto. O cavalo sai, e o xeque é do BISPO, que não andou: conta como xeque da espiã (RF-XDR-195).",
+      "caso_obrigatorio": "xeque_descoberto_da_espia",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 63,
+      "co_tipo_desafio": "xadrez_espia_xeque",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/8/8/8/3N4/8/8/B3K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "a1"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d4b5",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "b5",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "a1"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "a1",
+              "comeu": false,
+              "deu_xeque": true
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "xeques_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 1
+      }
+    },
+    {
+      "id": "xadrez-xeque-descoberto-nao-e-da-peca-que-andou",
+      "de_vetor": "O MESMO lance com o CAVALO como espião: o xeque saiu do lance dele, e não é dele. Quem contasse 'o lance da espiã deu xeque' diria cumpriu.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 63,
+      "co_tipo_desafio": "xadrez_espia_xeque",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/8/8/8/3N4/8/8/B3K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "d4"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d4b5",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "b5",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "a1"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "b5",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "xeques_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-espia-come-o-alvo",
+      "de_vetor": "O cavalo espião de c3 come a torre marcada como alvo em b5.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 64,
+      "co_tipo_desafio": "xadrez_espia_alvo",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/1r6/p7/2N5/8/1R2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "c3",
+          "alvo": "b5"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3b5",
+          "fatos": {
+            "comida": {
+              "casa": "b5",
+              "peca": "torre"
+            },
+            "de": "c3",
+            "en_passant": false,
+            "fim": null,
+            "para": "b5",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "alvo": {
+              "casa": null,
+              "comeu": false,
+              "deu_xeque": false
+            },
+            "espia": {
+              "casa": "b5",
+              "comeu": true,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "alvo_comido_pela_espia",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 1,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 1,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 1
+      }
+    },
+    {
+      "id": "xadrez-alvo-comido-por-outra-peca",
+      "de_vetor": "A espiã come um peão, e quem come a torre-alvo é a torre branca: o alvo saiu do tabuleiro, mas não pela espiã.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 64,
+      "co_tipo_desafio": "xadrez_espia_alvo",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/1r6/p7/2N5/8/1R2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "c3",
+          "alvo": "b5"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3a4",
+          "fatos": {
+            "comida": {
+              "casa": "a4",
+              "peca": "peao"
+            },
+            "de": "c3",
+            "en_passant": false,
+            "fim": null,
+            "para": "a4",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "alvo": {
+              "casa": "b5",
+              "comeu": false,
+              "deu_xeque": false
+            },
+            "espia": {
+              "casa": "a4",
+              "comeu": true,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d7",
+          "fatos": {
+            "comida": null,
+            "de": "e8",
+            "en_passant": false,
+            "fim": null,
+            "para": "d7",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "alvo": {
+              "casa": "b5",
+              "comeu": false,
+              "deu_xeque": false
+            },
+            "espia": {
+              "casa": "a4",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "b1b5",
+          "fatos": {
+            "comida": {
+              "casa": "b5",
+              "peca": "torre"
+            },
+            "de": "b1",
+            "en_passant": false,
+            "fim": null,
+            "para": "b5",
+            "peca_movida": "torre",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "alvo": {
+              "casa": null,
+              "comeu": false,
+              "deu_xeque": false
+            },
+            "espia": {
+              "casa": "a4",
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "alvo_comido_pela_espia",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 1,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 1,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-espia-preta-atravessa",
+      "de_vetor": "A pessoa joga de PRETAS: a última fileira dela é a 1a. A torre espiã desce a coluna h até h1.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 62,
+      "co_tipo_desafio": "xadrez_espia_atravessar",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k2r/8/8/8/8/8/8/R3K3 b - - 0 1",
+        "cor_da_pessoa": "preta",
+        "marcas": {
+          "espia": "h8"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "h8h1",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "h1",
+            "peca_movida": "torre",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "h1"
+            ]
+          },
+          "marcas": {
+            "espia": {
+              "casa": "h1",
+              "comeu": false,
+              "deu_xeque": true
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "espia_na_ultima_fileira",
+            "comparador": "igual",
+            "valor": 1
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 1,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 1,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 1
+      }
+    },
+    {
+      "id": "xadrez-espia-come-e-e-comida",
+      "de_vetor": "O bispo espião come o cavalo de f6, e o peão de g7 o come de volta. Faltava uma captura, e com a espiã fora do tabuleiro o desafio fecha como não cumprido: a 2a captura não viria nunca mais.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 60,
+      "co_tipo_desafio": "xadrez_espia_comer",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/6p1/5n2/8/8/8/1B6/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {
+          "espia": "b2"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b2f6",
+          "fatos": {
+            "comida": {
+              "casa": "f6",
+              "peca": "cavalo"
+            },
+            "de": "b2",
+            "en_passant": false,
+            "fim": null,
+            "para": "f6",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": "f6",
+              "comeu": true,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "g7f6",
+          "fatos": {
+            "comida": {
+              "casa": "f6",
+              "peca": "bispo"
+            },
+            "de": "g7",
+            "en_passant": false,
+            "fim": null,
+            "para": "f6",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": null,
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e1d1",
+          "fatos": {
+            "comida": null,
+            "de": "e1",
+            "en_passant": false,
+            "fim": null,
+            "para": "d1",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {
+            "espia": {
+              "casa": null,
+              "comeu": false,
+              "deu_xeque": false
+            }
+          }
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_espia",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "espia_comida",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 1,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 1,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 1,
+          "xeques_da_espia": 0,
+          "espia_comida": 1,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-troca-ordem-1-oferece-e-retoma",
+      "de_vetor": "Ordem 1: a pessoa põe o bispo em e4, o cavalo preto o come, e a torre branca come o cavalo. A troca conta no lance da retomada.",
+      "caso_obrigatorio": "troca_ordem_1",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 69,
+      "co_tipo_desafio": "xadrez_troca",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/5n2/8/R7/8/8/1B2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "troca": {
+          "minha": "bispo",
+          "dele": "cavalo"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b1e4",
+          "fatos": {
+            "comida": null,
+            "de": "b1",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "f6e4",
+          "fatos": {
+            "comida": {
+              "casa": "e4",
+              "peca": "bispo"
+            },
+            "de": "f6",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "a4e4",
+          "fatos": {
+            "comida": {
+              "casa": "e4",
+              "peca": "cavalo"
+            },
+            "de": "a4",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "torre",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "e4"
+            ]
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "trocas_feitas",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 1,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 1,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 1
+        },
+        "nu_lance_cumpre_desafio": 3
+      }
+    },
+    {
+      "id": "xadrez-troca-ordem-1-sem-retomar-nao-cumpre",
+      "de_vetor": "A MESMA oferta, e a pessoa não retoma: perdeu o bispo e não trocou nada.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 69,
+      "co_tipo_desafio": "xadrez_troca",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/5n2/8/R7/8/8/1B2K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "troca": {
+          "minha": "bispo",
+          "dele": "cavalo"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b1e4",
+          "fatos": {
+            "comida": null,
+            "de": "b1",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "f6e4",
+          "fatos": {
+            "comida": {
+              "casa": "e4",
+              "peca": "bispo"
+            },
+            "de": "f6",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "e1f1",
+          "fatos": {
+            "comida": null,
+            "de": "e1",
+            "en_passant": false,
+            "fim": null,
+            "para": "f1",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "trocas_feitas",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 1,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-troca-ordem-2-com-retomada",
+      "de_vetor": "Ordem 2: o bispo come o cavalo em f6, e o peão de g7 retoma. A troca conta já no lance da captura.",
+      "caso_obrigatorio": "troca_ordem_2",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 69,
+      "co_tipo_desafio": "xadrez_troca",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/6p1/5n2/8/8/8/1B6/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "troca": {
+          "minha": "bispo",
+          "dele": "cavalo"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b2f6",
+          "fatos": {
+            "comida": {
+              "casa": "f6",
+              "peca": "cavalo"
+            },
+            "de": "b2",
+            "en_passant": false,
+            "fim": null,
+            "para": "f6",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "g7f6",
+          "fatos": {
+            "comida": {
+              "casa": "f6",
+              "peca": "bispo"
+            },
+            "de": "g7",
+            "en_passant": false,
+            "fim": null,
+            "para": "f6",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "trocas_feitas",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 1,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 1
+        },
+        "nu_lance_cumpre_desafio": 1
+      }
+    },
+    {
+      "id": "xadrez-troca-ordem-2-sem-retomada",
+      "de_vetor": "O bispo come o cavalo, e o preto não retoma: conta como cumprido do mesmo jeito (RF-XDR-201).",
+      "caso_obrigatorio": "troca_ordem_2_sem_retomada",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 69,
+      "co_tipo_desafio": "xadrez_troca",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/6p1/5n2/8/8/8/1B6/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "troca": {
+          "minha": "bispo",
+          "dele": "cavalo"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b2f6",
+          "fatos": {
+            "comida": {
+              "casa": "f6",
+              "peca": "cavalo"
+            },
+            "de": "b2",
+            "en_passant": false,
+            "fim": null,
+            "para": "f6",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d7",
+          "fatos": {
+            "comida": null,
+            "de": "e8",
+            "en_passant": false,
+            "fim": null,
+            "para": "d7",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "trocas_feitas",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 1,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 1
+        },
+        "nu_lance_cumpre_desafio": 1
+      }
+    },
+    {
+      "id": "xadrez-troca-par-errado",
+      "de_vetor": "A MESMA captura com o par torre por torre: comer um cavalo com um bispo não é trocar torre.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 69,
+      "co_tipo_desafio": "xadrez_troca",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/6p1/5n2/8/8/8/1B6/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "troca": {
+          "minha": "torre",
+          "dele": "torre"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "b2f6",
+          "fatos": {
+            "comida": {
+              "casa": "f6",
+              "peca": "cavalo"
+            },
+            "de": "b2",
+            "en_passant": false,
+            "fim": null,
+            "para": "f6",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "g7f6",
+          "fatos": {
+            "comida": {
+              "casa": "f6",
+              "peca": "bispo"
+            },
+            "de": "g7",
+            "en_passant": false,
+            "fim": null,
+            "para": "f6",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 1
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "trocas_feitas",
+            "comparador": "maior_ou_igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 1,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 1,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 1,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-xeques-seguidos-ate-a-repeticao",
+      "de_vetor": "Quatro xeques seguidos da dama, vai e vem. O 4o cai no lance 7; no 8 o rei volta a h8, a posição do início aparece pela 3a vez, e o motor empata por repetição. O objetivo caiu antes.",
+      "caso_obrigatorio": "repeticao_tripla_nos_xeques_seguidos",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 67,
+      "co_tipo_desafio": "xadrez_xeques_seguidos",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/7p/8/3Q4/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d5d4",
+          "fatos": {
+            "comida": null,
+            "de": "d5",
+            "en_passant": false,
+            "fim": null,
+            "para": "d4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d4"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "h8g8",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "g8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "d4d5",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "d5",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d5"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "g8h8",
+          "fatos": {
+            "comida": null,
+            "de": "g8",
+            "en_passant": false,
+            "fim": null,
+            "para": "h8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d5d4",
+          "fatos": {
+            "comida": null,
+            "de": "d5",
+            "en_passant": false,
+            "fim": null,
+            "para": "d4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d4"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "h8g8",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "g8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "d4d5",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "d5",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d5"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "g8h8",
+          "fatos": {
+            "comida": null,
+            "de": "g8",
+            "en_passant": false,
+            "fim": {
+              "motivo": "repeticao_tripla",
+              "vencedor": null
+            },
+            "para": "h8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 6
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "maior_sequencia_de_xeques",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 4,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 7
+      }
+    },
+    {
+      "id": "xadrez-xeques-seguidos-a-repeticao-empata-antes-do-5o",
+      "de_vetor": "A MESMA fita pedindo cinco: a repetição tripla encerra a partida antes do 5o xeque (é por isso que o tipo vai no máximo a 4, PRD §8.4). A sequência para em 4, e a partida termina empatada.",
+      "caso_obrigatorio": "repeticao_tripla_nos_xeques_seguidos",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 67,
+      "co_tipo_desafio": "xadrez_xeques_seguidos",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/7p/8/3Q4/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d5d4",
+          "fatos": {
+            "comida": null,
+            "de": "d5",
+            "en_passant": false,
+            "fim": null,
+            "para": "d4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d4"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "h8g8",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "g8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "d4d5",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "d5",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d5"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "g8h8",
+          "fatos": {
+            "comida": null,
+            "de": "g8",
+            "en_passant": false,
+            "fim": null,
+            "para": "h8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d5d4",
+          "fatos": {
+            "comida": null,
+            "de": "d5",
+            "en_passant": false,
+            "fim": null,
+            "para": "d4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d4"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "h8g8",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "g8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "d4d5",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "d5",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d5"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "g8h8",
+          "fatos": {
+            "comida": null,
+            "de": "g8",
+            "en_passant": false,
+            "fim": {
+              "motivo": "repeticao_tripla",
+              "vencedor": null
+            },
+            "para": "h8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 6
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "maior_sequencia_de_xeques",
+            "comparador": "maior_ou_igual",
+            "valor": 5
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 1,
+          "lances_do_jogador": 4,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 4,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-lance-depois-da-repeticao-e-dado-invalido",
+      "de_vetor": "A MESMA fita com o 5o xeque DEPOIS do empate: o motor recusa (partida terminada), e a fita não é a gravação de uma partida. Dado inválido, e não 'não cumpriu'.",
+      "caso_obrigatorio": "repeticao_tripla_nos_xeques_seguidos",
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 67,
+      "co_tipo_desafio": "xadrez_xeques_seguidos",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/7p/8/3Q4/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d5d4",
+          "fatos": {
+            "comida": null,
+            "de": "d5",
+            "en_passant": false,
+            "fim": null,
+            "para": "d4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d4"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "h8g8",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "g8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "d4d5",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "d5",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d5"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "g8h8",
+          "fatos": {
+            "comida": null,
+            "de": "g8",
+            "en_passant": false,
+            "fim": null,
+            "para": "h8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d5d4",
+          "fatos": {
+            "comida": null,
+            "de": "d5",
+            "en_passant": false,
+            "fim": null,
+            "para": "d4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d4"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "h8g8",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "g8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "d4d5",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "d5",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d5"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "g8h8",
+          "fatos": {
+            "comida": null,
+            "de": "g8",
+            "en_passant": false,
+            "fim": {
+              "motivo": "repeticao_tripla",
+              "vencedor": null
+            },
+            "para": "h8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "d5d4",
+          "recusa": "partida_terminada"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 6
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "maior_sequencia_de_xeques",
+            "comparador": "maior_ou_igual",
+            "valor": 4
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {},
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-xeques-interrompidos-nao-somam",
+      "de_vetor": "Xeque, um lance da dama sem xeque, e xeque de novo: são dois xeques, e nenhum par SEGUIDO. A sequência é 1.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 67,
+      "co_tipo_desafio": "xadrez_xeques_seguidos",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "7k/7p/8/3Q4/8/8/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "d5d4",
+          "fatos": {
+            "comida": null,
+            "de": "d5",
+            "en_passant": false,
+            "fim": null,
+            "para": "d4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d4"
+            ]
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "h8g8",
+          "fatos": {
+            "comida": null,
+            "de": "h8",
+            "en_passant": false,
+            "fim": null,
+            "para": "g8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "d4d1",
+          "fatos": {
+            "comida": null,
+            "de": "d4",
+            "en_passant": false,
+            "fim": null,
+            "para": "d1",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "g8h8",
+          "fatos": {
+            "comida": null,
+            "de": "g8",
+            "en_passant": false,
+            "fim": null,
+            "para": "h8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d1d4",
+          "fatos": {
+            "comida": null,
+            "de": "d1",
+            "en_passant": false,
+            "fim": null,
+            "para": "d4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "d4"
+            ]
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "maior_sequencia_de_xeques",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-sem-levar-xeque-cumpre",
+      "de_vetor": "Dois lances de abertura, nenhum xeque do adversário.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 68,
+      "co_tipo_desafio": "xadrez_sem_levar_xeque",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4",
+          "fatos": {
+            "comida": null,
+            "de": "e2",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5",
+          "fatos": {
+            "comida": null,
+            "de": "e7",
+            "en_passant": false,
+            "fim": null,
+            "para": "e5",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "g1f3",
+          "fatos": {
+            "comida": null,
+            "de": "g1",
+            "en_passant": false,
+            "fim": null,
+            "para": "f3",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "b8c6",
+          "fatos": {
+            "comida": null,
+            "de": "b8",
+            "en_passant": false,
+            "fim": null,
+            "para": "c6",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          },
+          {
+            "tipo": "medida",
+            "chave": "xeques_recebidos",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 3
+      }
+    },
+    {
+      "id": "xadrez-sem-levar-xeque-leva-mate",
+      "de_vetor": "O mate do louco: a dama preta dá xeque-mate em h4 no 4o meio-lance. A pessoa levou xeque e nem chegou ao 3o lance.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 68,
+      "co_tipo_desafio": "xadrez_sem_levar_xeque",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "f2f3",
+          "fatos": {
+            "comida": null,
+            "de": "f2",
+            "en_passant": false,
+            "fim": null,
+            "para": "f3",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5",
+          "fatos": {
+            "comida": null,
+            "de": "e7",
+            "en_passant": false,
+            "fim": null,
+            "para": "e5",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "g2g4",
+          "fatos": {
+            "comida": null,
+            "de": "g2",
+            "en_passant": false,
+            "fim": null,
+            "para": "g4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "d8h4",
+          "fatos": {
+            "comida": null,
+            "de": "d8",
+            "en_passant": false,
+            "fim": {
+              "motivo": "xeque_mate",
+              "vencedor": "preta"
+            },
+            "para": "h4",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "h4"
+            ]
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "xeques_recebidos",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 1,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-comer-com-o-cavalo",
+      "de_vetor": "O cavalo come o peão de a4 e depois o de c5: dois peões comidos pelo cavalo.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 65,
+      "co_tipo_desafio": "xadrez_comer_com",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/2p5/p7/2N5/5B2/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "classes": {
+          "come": "cavalo",
+          "comida": "peao"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3a4",
+          "fatos": {
+            "comida": {
+              "casa": "a4",
+              "peca": "peao"
+            },
+            "de": "c3",
+            "en_passant": false,
+            "fim": null,
+            "para": "a4",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d8",
+          "fatos": {
+            "comida": null,
+            "de": "e8",
+            "en_passant": false,
+            "fim": null,
+            "para": "d8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "a4c5",
+          "fatos": {
+            "comida": {
+              "casa": "c5",
+              "peca": "peao"
+            },
+            "de": "a4",
+            "en_passant": false,
+            "fim": null,
+            "para": "c5",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_classe_marcada",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 2,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 2,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 3
+      }
+    },
+    {
+      "id": "xadrez-comer-com-outra-peca-nao-conta",
+      "de_vetor": "O cavalo come o 1o peão, e o BISPO come o 2o: dois peões comidos, um só pelo cavalo.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 65,
+      "co_tipo_desafio": "xadrez_comer_com",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/2p5/p7/2N5/5B2/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "classes": {
+          "come": "cavalo",
+          "comida": "peao"
+        },
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "c3a4",
+          "fatos": {
+            "comida": {
+              "casa": "a4",
+              "peca": "peao"
+            },
+            "de": "c3",
+            "en_passant": false,
+            "fim": null,
+            "para": "a4",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e8d8",
+          "fatos": {
+            "comida": null,
+            "de": "e8",
+            "en_passant": false,
+            "fim": null,
+            "para": "d8",
+            "peca_movida": "rei",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f2c5",
+          "fatos": {
+            "comida": {
+              "casa": "c5",
+              "peca": "peao"
+            },
+            "de": "f2",
+            "en_passant": false,
+            "fim": null,
+            "para": "c5",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 2
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "capturas_da_classe_marcada",
+            "comparador": "maior_ou_igual",
+            "valor": 2
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 2,
+          "pecas_comidas_peao": 2,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 1,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-nao-perder-peao-cumpre",
+      "de_vetor": "Três lances de abertura sem perder peão.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 66,
+      "co_tipo_desafio": "xadrez_nao_perder",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4",
+          "fatos": {
+            "comida": null,
+            "de": "e2",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5",
+          "fatos": {
+            "comida": null,
+            "de": "e7",
+            "en_passant": false,
+            "fim": null,
+            "para": "e5",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "g1f3",
+          "fatos": {
+            "comida": null,
+            "de": "g1",
+            "en_passant": false,
+            "fim": null,
+            "para": "f3",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "b8c6",
+          "fatos": {
+            "comida": null,
+            "de": "b8",
+            "en_passant": false,
+            "fim": null,
+            "para": "c6",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "f1c4",
+          "fatos": {
+            "comida": null,
+            "de": "f1",
+            "en_passant": false,
+            "fim": null,
+            "para": "c4",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_perdidas_peao",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 5
+      }
+    },
+    {
+      "id": "xadrez-nao-perder-peao-perde",
+      "de_vetor": "O peão de d5 come o de e4 antes do 3o lance da pessoa.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 66,
+      "co_tipo_desafio": "xadrez_nao_perder",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4",
+          "fatos": {
+            "comida": null,
+            "de": "e2",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "d7d5",
+          "fatos": {
+            "comida": null,
+            "de": "d7",
+            "en_passant": false,
+            "fim": null,
+            "para": "d5",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "g1f3",
+          "fatos": {
+            "comida": null,
+            "de": "g1",
+            "en_passant": false,
+            "fim": null,
+            "para": "f3",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "d5e4",
+          "fatos": {
+            "comida": {
+              "casa": "e4",
+              "peca": "peao"
+            },
+            "de": "d5",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "f3g5",
+          "fatos": {
+            "comida": null,
+            "de": "f3",
+            "en_passant": false,
+            "fim": null,
+            "para": "g5",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 3
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "lances_do_jogador",
+            "comparador": "maior_ou_igual",
+            "valor": 3
+          },
+          {
+            "tipo": "medida",
+            "chave": "pecas_perdidas_peao",
+            "comparador": "menor_ou_igual",
+            "valor": 0
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 3,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 1,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-dar-mate-em-4",
+      "de_vetor": "O mate do pastor: a dama come em f7 no 4o lance da pessoa, dentro dos cinco.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 70,
+      "co_tipo_desafio": "xadrez_dar_mate",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4",
+          "fatos": {
+            "comida": null,
+            "de": "e2",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5",
+          "fatos": {
+            "comida": null,
+            "de": "e7",
+            "en_passant": false,
+            "fim": null,
+            "para": "e5",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f1c4",
+          "fatos": {
+            "comida": null,
+            "de": "f1",
+            "en_passant": false,
+            "fim": null,
+            "para": "c4",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "b8c6",
+          "fatos": {
+            "comida": null,
+            "de": "b8",
+            "en_passant": false,
+            "fim": null,
+            "para": "c6",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d1h5",
+          "fatos": {
+            "comida": null,
+            "de": "d1",
+            "en_passant": false,
+            "fim": null,
+            "para": "h5",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "g8f6",
+          "fatos": {
+            "comida": null,
+            "de": "g8",
+            "en_passant": false,
+            "fim": null,
+            "para": "f6",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "h5f7",
+          "fatos": {
+            "comida": {
+              "casa": "f7",
+              "peca": "peao"
+            },
+            "de": "h5",
+            "en_passant": false,
+            "fim": {
+              "motivo": "xeque_mate",
+              "vencedor": "branca"
+            },
+            "para": "f7",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "f7"
+            ]
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "cumpriu",
+        "feitos": {
+          "vitoria": 1,
+          "empate": 0,
+          "lances_do_jogador": 4,
+          "pecas_comidas_peao": 1,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 1,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": 7
+      }
+    },
+    {
+      "id": "xadrez-dar-mate-no-6o-lance-nao-cumpre",
+      "de_vetor": "O mesmo mate com dois lances de espera: ele cai no 6o lance da pessoa, um depois da janela.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 70,
+      "co_tipo_desafio": "xadrez_dar_mate",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e4",
+          "fatos": {
+            "comida": null,
+            "de": "e2",
+            "en_passant": false,
+            "fim": null,
+            "para": "e4",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 2,
+          "jogador": -1,
+          "lance": "e7e5",
+          "fatos": {
+            "comida": null,
+            "de": "e7",
+            "en_passant": false,
+            "fim": null,
+            "para": "e5",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 3,
+          "jogador": 1,
+          "lance": "f1c4",
+          "fatos": {
+            "comida": null,
+            "de": "f1",
+            "en_passant": false,
+            "fim": null,
+            "para": "c4",
+            "peca_movida": "bispo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 4,
+          "jogador": -1,
+          "lance": "b8c6",
+          "fatos": {
+            "comida": null,
+            "de": "b8",
+            "en_passant": false,
+            "fim": null,
+            "para": "c6",
+            "peca_movida": "cavalo",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 5,
+          "jogador": 1,
+          "lance": "d1h5",
+          "fatos": {
+            "comida": null,
+            "de": "d1",
+            "en_passant": false,
+            "fim": null,
+            "para": "h5",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 6,
+          "jogador": -1,
+          "lance": "a7a6",
+          "fatos": {
+            "comida": null,
+            "de": "a7",
+            "en_passant": false,
+            "fim": null,
+            "para": "a6",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 7,
+          "jogador": 1,
+          "lance": "a2a3",
+          "fatos": {
+            "comida": null,
+            "de": "a2",
+            "en_passant": false,
+            "fim": null,
+            "para": "a3",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 8,
+          "jogador": -1,
+          "lance": "a6a5",
+          "fatos": {
+            "comida": null,
+            "de": "a6",
+            "en_passant": false,
+            "fim": null,
+            "para": "a5",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 9,
+          "jogador": 1,
+          "lance": "b2b3",
+          "fatos": {
+            "comida": null,
+            "de": "b2",
+            "en_passant": false,
+            "fim": null,
+            "para": "b3",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 10,
+          "jogador": -1,
+          "lance": "h7h6",
+          "fatos": {
+            "comida": null,
+            "de": "h7",
+            "en_passant": false,
+            "fim": null,
+            "para": "h6",
+            "peca_movida": "peao",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": []
+          },
+          "marcas": {}
+        },
+        {
+          "n": 11,
+          "jogador": 1,
+          "lance": "h5f7",
+          "fatos": {
+            "comida": {
+              "casa": "f7",
+              "peca": "peao"
+            },
+            "de": "h5",
+            "en_passant": false,
+            "fim": {
+              "motivo": "xeque_mate",
+              "vencedor": "branca"
+            },
+            "para": "f7",
+            "peca_movida": "dama",
+            "promocao": null,
+            "roque": null,
+            "xeque_por": [
+              "f7"
+            ]
+          },
+          "marcas": {}
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "nao_cumpriu",
+        "feitos": {
+          "vitoria": 0,
+          "empate": 0,
+          "lances_do_jogador": 5,
+          "pecas_comidas_peao": 0,
+          "pecas_comidas_cavalo": 0,
+          "pecas_comidas_bispo": 0,
+          "pecas_comidas_torre": 0,
+          "pecas_comidas_dama": 0,
+          "pecas_perdidas_peao": 0,
+          "pecas_perdidas_cavalo": 0,
+          "pecas_perdidas_bispo": 0,
+          "pecas_perdidas_torre": 0,
+          "pecas_perdidas_dama": 0,
+          "capturas_da_espia": 0,
+          "xeques_da_espia": 0,
+          "espia_comida": 0,
+          "espia_na_ultima_fileira": 0,
+          "alvo_comido_pela_espia": 0,
+          "capturas_da_classe_marcada": 0,
+          "maior_sequencia_de_xeques": 0,
+          "xeques_recebidos": 0,
+          "trocas_feitas": 0
+        },
+        "nu_lance_cumpre_desafio": null
+      }
+    },
+    {
+      "id": "xadrez-lance-ilegal-e-dado-invalido",
+      "de_vetor": "Um peão que anda três casas: o motor recusa o lance, e a fita é dado inválido.",
+      "caso_obrigatorio": null,
+      "co_jogo": "xadrez",
+      "co_modalidade": "tradicional",
+      "nu_tipo_desafio": 70,
+      "co_tipo_desafio": "xadrez_dar_mate",
+      "jogador": 1,
+      "js_posicao_inicial": {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "cor_da_pessoa": "branca",
+        "origem": "base_equilibrada"
+      },
+      "lances": [
+        {
+          "n": 1,
+          "jogador": 1,
+          "lance": "e2e5",
+          "recusa": "lance_ilegal"
+        }
+      ],
+      "js_chegada": {
+        "versao": 1,
+        "janela": {
+          "tipo": "lances_do_jogador",
+          "n": 5
+        },
+        "clausulas": [
+          {
+            "tipo": "medida",
+            "chave": "vitoria",
+            "comparador": "igual",
+            "valor": 1
+          }
+        ]
+      },
+      "esperado": {
+        "veredito": "dado_invalido",
+        "feitos": {},
+        "nu_lance_cumpre_desafio": null
+      }
+    }
+  ]
+}

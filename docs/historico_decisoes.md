@@ -11506,3 +11506,47 @@ spec, nos dois lados do catálogo de feitos.
 **Alternativas consideradas:** `tests/dados/` com uma exceção no `.dockerignore` (um arquivo de
 teste dentro da imagem, contra a regra do arquivo); a faixa 60-69 para as medidas, deixando nove
 para outro bloco (o mesmo jogo partido em dois blocos).
+
+## 2026-11-20 (2) — O juiz do xadrez e os vetores dele (T069 da spec 012)
+
+**Contexto.** A fase 2 da spec 012. O desafio do xadrez é julgado no aparelho (o medidor do app,
+T070) e aqui (o juiz), e o xadrez é o primeiro jogo sem árbitro em Python: toda regra vem do
+executável `servidor_de_lances_xadrez`.
+
+**Decisões.**
+- **Duas metades em `motores/xadrez/feitos_xadrez.py`:** `reproduzir` pergunta ao executável
+  (`aplicar` com as marcas, lance a lance, sempre com a posição inteira para a repetição tripla
+  contar) e devolve os passos (fatos e marcas depois de cada lance); `medir` é pura sobre os
+  passos e devolve as 22 medidas (as 19 do xadrez mais `vitoria`, `empate`, `lances_do_jogador`).
+  `jogador_xadrez.aplicar` ganhou o parâmetro `marcas`. Nenhuma regra de xadrez em Python: a única
+  leitura de casa é a fileira no nome (`"f8"[-1]`), para o marco da última fileira.
+- **No juiz, a fita é reproduzida UMA vez**, e os prefixos medem os passos guardados (o `julgar`
+  pede cada prefixo; reproduzir cada um seria um processo conversando ao quadrado). A modalidade
+  vem da posição publicada, e não de `co_modalidade`. O `jogador` de cada lance tem de alternar
+  (no xadrez não há lance extra); fora disso é `dado_invalido`. **Sem `terminou_ate`**: nenhum dos
+  onze tipos se cumpre num lance do adversário.
+- **A troca** (RF-XDR-201): ordem 2 = a peça `minha` come a `dele`, contada no lance da captura;
+  ordem 1 = a `dele` comeu a `minha` no lance anterior e a pessoa come essa peça na casa em que
+  ela parou. **No máximo uma troca por lance** (retomar o cavalo com outro bispo cumpre as duas
+  ordens com uma captura só).
+- **`classes.comida` é opcional** no `xadrez_comer_com` (sem ela, qualquer peça comida pela classe
+  `come` conta), para a T073 poder publicar "coma 2 peças com o cavalo" sem formato novo.
+- **"`lances_do_jogador = N`" da tabela do contrato §2 é a janela de N lances MAIS a cláusula
+  `lances_do_jogador ≥ N`**, a forma do `pontinhos_paciencia`: só a janela deixaria cumprir quem
+  jogasse um lance e saísse. As chegadas dos vetores são montadas pelo gerador até a T072, que tem
+  de montar as mesmas pelas receitas.
+- **Os vetores** (32: os oito casos obrigatórios do contrato §3 e um "cumpre" e um "não cumpre" por
+  tipo) moram em `contratos/vetores-juiz-xadrez.json`, com a cópia do app em
+  `test/modulos/jogos/xadrez/vetores_juiz_xadrez.json` (o gerador escreve as duas). Cada lance leva
+  os fatos e as marcas do motor; o lance recusado leva o código (`recusa`). O veredito e algumas
+  medidas são escritos à mão, e o gerador para se o juiz discordar (pegou um vetor meu errado no
+  1º dia: o rei para d2, casa que o cavalo atacava).
+- **`test_feitos_xadrez.py` em três níveis:** a medida sobre os fatos gravados (nunca pula, com o
+  executável desligado), o motor de hoje (pula só sem compilar: os mesmos fatos, o juiz inteiro, o
+  gerador reproduz o arquivo) e as cópias (pula sem o app ao lado). Os três testes da auditoria que
+  usavam `"xadrez"` como jogo sem medidor passaram ao canário `mancala`.
+
+**Alternativas consideradas:** reproduzir cada prefixo pelo executável (correto e lento); guardar
+só os lances nos vetores e deixar cada lado pedir os fatos ao seu motor (o app tem a DLL nos testes,
+mas aí o vetor não seria "fita de fatos → medidas", e o CI daqui não teria como conferir a conta sem
+o executável); contar a troca separadamente por ordem (duas trocas numa captura).

@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from motores.nucleo import recursos_por_thread
 from motores.nucleo.papeis import NivelDeMotor
@@ -208,14 +208,35 @@ class JogadorXadrez(ProcessoDart):
         return self._pedir_ok("estado", modalidade, fen_inicial, lances)
 
     def aplicar(
-        self, *, modalidade: str, fen_inicial: str, lances: Sequence[str], lance: str
+        self,
+        *,
+        modalidade: str,
+        fen_inicial: str,
+        lances: Sequence[str],
+        lance: str,
+        marcas: Mapping[str, str | None] | None = None,
     ) -> dict[str, Any]:
         """Aplica um lance e devolve os fatos dele, inclusive o fim (§2.2).
 
+        Args:
+            marcas: as peças marcadas (`{"espia": "c3", "alvo": "f6"}`), com a
+                casa de cada uma ANTES do lance; `None` é a peça que já foi
+                comida. A resposta traz o mesmo mapa DEPOIS do lance, seguido
+                pelo motor (a torre do roque, o peão promovido, a peça comida),
+                e é dela que o medidor do desafio lê a espiã e o alvo
+                (`motores/xadrez/feitos_xadrez.py`, T069). Sem marcas, a
+                resposta traz `"marcas": {}`.
+
         Raises:
-            MotorXadrezRecusou: `lance_ilegal`, `partida_terminada`...
+            MotorXadrezRecusou: `lance_ilegal`, `partida_terminada`, ou
+                `pedido_invalido` (uma marca numa casa vazia)...
         """
-        return self._pedir_ok("aplicar", modalidade, fen_inicial, lances, lance=lance)
+        campos: dict[str, Any] = {"lance": lance}
+        if marcas is not None:
+            # `dict(...)`: o pedido vira JSON, e um `Mapping` qualquer (um
+            # `MappingProxyType`, por exemplo) não se serializa sozinho.
+            campos["marcas"] = dict(marcas)
+        return self._pedir_ok("aplicar", modalidade, fen_inicial, lances, **campos)
 
     def recusa(
         self,

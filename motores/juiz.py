@@ -46,6 +46,7 @@ from .pontinhos import feitos_pontinhos
 from .pontinhos.motor_pontinhos import EstadoPontinhos
 from .quatro import feitos_quatro
 from .quatro.motor_quatro import MotorQuatro
+from .xadrez import feitos_xadrez
 
 
 class JogoDesconhecido(ValueError):
@@ -171,6 +172,61 @@ def _medidor_do_quatro(
     return medir_ate, predicados_ate, terminou_ate, grade_ate
 
 
+def _medidor_do_xadrez(
+    posicao: Mapping[str, Any],
+    fita: Sequence[Mapping[str, Any]],
+    jogador: int,
+):
+    """Devolve a função `medir_ate` do xadrez (spec 012, T069).
+
+    A posição inicial é um **FEN com a vez da pessoa**, mais as peças marcadas
+    e os parâmetros do tipo (`contracts/desafio-xadrez.md` §1). A modalidade
+    vem DELA, e não de `co_modalidade`: no xadrez a posição publicada já a
+    carrega, e o juiz não escreve o nome de modalidade nenhuma.
+
+    ⚠️ **A fita é reproduzida UMA vez, pelo executável, e os prefixos são
+    medidos sobre os fatos guardados.** O `julgar` pede `medir_ate` para cada
+    prefixo; reproduzir cada um do começo custaria um processo conversando
+    lance a lance, ao quadrado. Os fatos de um lance não mudam com o que vem
+    depois dele, então medir o prefixo dos passos é medir o prefixo da fita.
+
+    ⚠️ **Fita torta é dado inválido.** Um lance ilegal ou depois do fim é
+    recusado pelo motor (`ValueError`); a reprodução falhada é guardada e
+    relançada a cada pergunta, e o `julgar` a lê como `dado_invalido` na
+    primeira. E o `jogador` de cada lance tem de alternar a partir de quem o
+    desafio é: no xadrez não há lance extra, e uma fita que diz o contrário
+    não é a gravação de uma partida.
+    """
+    reproducao: dict[str, Any] = {}
+
+    def passos() -> list[dict[str, Any]]:
+        # A reprodução só acontece na primeira pergunta, e o resultado (ou o
+        # erro) fica guardado para as seguintes.
+        if not reproducao:
+            try:
+                for indice, lance in enumerate(fita):
+                    esperado = jogador if indice % 2 == 0 else -jogador
+                    if lance["jogador"] != esperado:
+                        raise ValueError(
+                            f"o lance {indice + 1} da fita é do jogador "
+                            f"{lance['jogador']:+d}, e no xadrez a vez alterna: "
+                            f"era a vez do {esperado:+d}"
+                        )
+                reproducao["passos"] = feitos_xadrez.reproduzir(
+                    posicao, [lance["lance"] for lance in fita]
+                )
+            except (ValueError, KeyError) as erro:
+                reproducao["erro"] = erro
+        if "erro" in reproducao:
+            raise reproducao["erro"]
+        return reproducao["passos"]
+
+    def medir_ate(quantos: int) -> dict[str, float]:
+        return feitos_xadrez.medir(posicao, passos()[:quantos])
+
+    return medir_ate
+
+
 def julgar_desafio(
     *,
     co_jogo: str,
@@ -184,7 +240,7 @@ def julgar_desafio(
     """Julga uma tentativa: reproduz a fita e responde se o objetivo caiu.
 
     Args:
-        co_jogo: `pontinhos`, `damas` ou `quatro`.
+        co_jogo: `pontinhos`, `damas`, `quatro` ou `xadrez`.
         js_posicao_inicial: a posição de onde a fita parte.
         js_chegada: a linha de chegada, no formato de `desafio.tb001_desafio`.
         fita: os lances, no vocabulário do log.
@@ -193,7 +249,8 @@ def julgar_desafio(
             posição inicial põe a pessoa com as pretas.
         co_modalidade: para as damas e o Quatro em Linha. ⚠️ O padrão
             `brasileira` é das damas; o Quatro exige que quem chama a passe
-            (o juiz não escreve o nome de modalidade nenhuma do Quatro).
+            (o juiz não escreve o nome de modalidade nenhuma do Quatro). O
+            xadrez não o lê: a modalidade vem da posição publicada.
         predicados: as respostas dos predicados, quando a chegada os consulta.
 
     Returns:
@@ -223,6 +280,13 @@ def julgar_desafio(
         medir_ate, predicados_ate, terminou_ate, grade_ate = _medidor_do_quatro(
             js_posicao_inicial, fita, jogador, co_modalidade
         )
+    elif co_jogo == "xadrez":
+        # ⚠️ Sem `terminou_ate`: nenhum dos onze tipos do xadrez se cumpre
+        # num lance do adversário (os de "N lances" fecham no N-ésimo lance da
+        # pessoa; a vitória é sempre num lance dela), então o fim que cai no
+        # lance dele (o mate na pessoa, o afogamento, a repetição) não muda
+        # veredito nenhum, e a regra de sempre basta.
+        medir_ate = _medidor_do_xadrez(js_posicao_inicial, fita, jogador)
     else:
         raise JogoDesconhecido(
             f"nao ha medidor para o jogo {co_jogo!r}. ⚠️ Jogo novo entra com "

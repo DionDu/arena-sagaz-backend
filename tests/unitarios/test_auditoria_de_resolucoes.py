@@ -190,7 +190,10 @@ def test_jogo_sem_medidor_e_AUDITORIA_IMPOSSIVEL():
     """
     vetor = POR_ID["P1-escada-fecha-4-em-1-turno-cumpre"]
     linha = _linha_do_vetor(vetor)
-    linha["co_jogo"] = "xadrez"
+    # ⚠️ Um jogo que nenhuma spec planeja. Era "xadrez" até a T069 da spec 012,
+    # quando o xadrez ganhou medidor no juiz: o jogo do canário tem de ser um
+    # que nunca vai chegar, ou o teste passa a provar outra coisa sem avisar.
+    linha["co_jogo"] = "mancala"
 
     with pytest.raises(AuditoriaImpossivel):
         auditar(linha=linha, fita=_fita(vetor))
@@ -387,7 +390,7 @@ async def test_uma_resolucao_torta_NAO_derruba_o_lote():
     """
     cumpre = POR_ID["P1-escada-fecha-4-em-1-turno-cumpre"]
     quebrada = _linha_do_vetor(cumpre)
-    quebrada["co_jogo"] = "xadrez"  # jogo sem medidor
+    quebrada["co_jogo"] = "mancala"  # jogo sem medidor (nenhuma spec o planeja)
     boa = _linha_do_vetor(cumpre, nu_lance=len(_fita(cumpre)))
 
     def jogadas(_parametros):
@@ -567,7 +570,7 @@ async def test_desafio_quebrado_deixa_a_resolucao_PENDENTE():
     consertado. Marcar como divergente acusaria a pessoa e apagaria o rastro."""
     cumpre = POR_ID["P1-escada-fecha-4-em-1-turno-cumpre"]
     quebrada = _linha_do_vetor(cumpre)
-    quebrada["co_jogo"] = "xadrez"
+    quebrada["co_jogo"] = "mancala"
 
     sessao = FakeSessaoSQL(
         respostas={
