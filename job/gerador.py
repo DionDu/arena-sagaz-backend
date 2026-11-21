@@ -809,16 +809,18 @@ CANDIDATOS_POR_DIA_PADRAO = 3
 
 #: Os jogos que pedem mais candidatos que [CANDIDATOS_POR_DIA_PADRAO].
 #:
-#: ⚠️ **O xadrez pede seis (21/11/2026, depois da 4a regua da T077, historico
-#: "2026-11-21 (8)").** A posicao do xadrez varia muito de um sorteio para o
-#: outro (que pecas estao perto da espia, se o adversario tem a troca de
-#: volta), e a regua mostrou um candidato cair na escada com 8% a 30% de
-#: chance, conforme o tipo: com tres, 1 - (1 - 0,30)^3 = 66% dos dias; com
-#: seis, 88%. ⛔ O custo nao e o dobro: os seis gabaritos (2 a 5 s cada) sao
-#: sempre pagos, mas a regua (o caro) para no primeiro que encaixa, e os
-#: candidatos 4 a 6 so sao medidos nos dias em que os tres primeiros falham.
+#: ⚠️ **O xadrez pede nove (21/11/2026, historico do backend "2026-11-21 (8)"
+#: e "(9)").** A posicao do xadrez varia muito de um sorteio para o outro (que
+#: pecas estao perto da espia, por onde o rei adversario foge), e a regua
+#: mostrou um candidato cair na escada com 10% a 45% de chance, conforme o
+#: tipo. Com tres, um tipo de 30% passava em 1 - (1 - 0,30)^3 = 66% dos dias;
+#: com seis (a 5a regua), os de 10% a 15% (comer o alvo, xeques seguidos,
+#: atravessar) ficavam em 48% a 61%, e com nove vao a 62% a 76%. ⛔ O custo nao
+#: cresce na mesma conta: os nove gabaritos (2 a 5 s cada) sao sempre pagos,
+#: mas a regua (o caro) para no primeiro que encaixa, e os candidatos 4 a 9 so
+#: sao medidos nos dias em que os primeiros falham.
 CANDIDATOS_POR_JOGO = {
-    "xadrez": 6,
+    "xadrez": 9,
 }
 
 

@@ -2676,6 +2676,11 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     #   ficam: erravam para os dois lados, e 18 dos 47 dias reprovados erravam
     #   so pela borda de 0,05 que as 10 execucoes da sonda nao alcancavam (a
     #   sonda passou as 20 do job, e o xadrez a 6 candidatos por dia).
+    #   A 5a regua (historico "2026-11-21 (9)") pos seis no criterio. Dos que
+    #   faltam, dois erram para o lado FACIL nos dias reprovados e descem um
+    #   lance: atravessar 12 -> 11 (a Pita em 0,55 e 0,60, a Cacau e o Tex 0,05
+    #   acima) e sem levar xeque 15 -> 14 (a Pita em 0,50 e 0,65). O comer o alvo
+    #   erra para os dois lados (fica), e os xeques seguidos ja estao no teto.
     #
     # ⚠️ **As pecas (espia, alvo, classes, par da troca) nao estao aqui**: sao da
     # posicao do dia (`job/posicoes_xadrez.py`, T073), que as acrescenta aos
@@ -2713,8 +2718,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_espia_atravessar": (
         Publicacao(
-            parametros={"lances": 12},
-            nu_maximo_de_meios_lances=2 * 12 - 1,
+            parametros={"lances": 11},
+            nu_maximo_de_meios_lances=2 * 11 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("espia_na_ultima_fileira", None),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2769,8 +2774,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_sem_levar_xeque": (
         Publicacao(
-            parametros={"lances": 15},
-            nu_maximo_de_meios_lances=2 * 15 - 1,
+            parametros={"lances": 14},
+            nu_maximo_de_meios_lances=2 * 14 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez_binario("xeques_recebidos"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,

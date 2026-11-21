@@ -163,6 +163,14 @@ VEZ_DA_PESSOA = 1
 #: oito pecas): o lance que come agora vence sempre o que so se aproxima.
 PESO_DO_AGORA = 10.0
 
+#: Nos xeques seguidos, quanto vale (no maximo) o xeque que deixa outro xeque
+#: para depois de toda resposta do adversario ([_xeque_que_continua]).
+#:
+#: ⚠️ Menor que [PESO_DO_AGORA]: um xeque que nao continua ainda vale mais que
+#: um lance sem xeque (que quebra a sequencia na hora), e entre dois xeques
+#: ganha o que continua.
+PESO_DA_SEQUENCIA = 5.0
+
 #: O prefixo da medida do `xadrez_nao_perder` (`pecas_perdidas_<peca>`).
 PREFIXO_DA_PECA_PROTEGIDA = "pecas_perdidas_"
 
@@ -644,6 +652,51 @@ def _xeques_ao_alcance(
     return float(total)
 
 
+def _xeque_que_continua(
+    motor: JogadorXadrez, desafio: DesafioXadrez, examinado: LanceExaminado
+) -> float:
+    """Depois de um lance que DEU xeque: em que fracao das respostas do
+    adversario a pessoa ainda tem um xeque para dar (de 0 a 1).
+
+    ⚠️ **Por que nao serve o [_xeques_ao_alcance] aqui (21/11/2026, depois da 5a
+    regua).** Ele troca a vez no FEN para "jogar de novo", e depois de um xeque
+    o adversario esta em xeque: o motor recusa a posicao (e invalida), e a conta
+    dava 0 para TODO lance que da xeque. Nos xeques seguidos, entao, todos os
+    xeques empatavam, e o perseguidor escolhia qualquer um, inclusive o que
+    deixa a sequencia morrer no lance seguinte. Aqui a pergunta e a de verdade:
+    o adversario responde (cada resposta legal, um `aplicar`), e na posicao de
+    depois procura-se um lance da pessoa com `xeque_por` (para no primeiro).
+
+    O custo: um `aplicar` por resposta e, nela, ate um por lance da pessoa, mas
+    so nos lances que dao xeque (poucos), e as respostas a um xeque sao poucas.
+    """
+    respostas = lances_do_estado(examinado.estado_depois, (PROMOCAO_DOS_CANDIDATOS,))
+    if not respostas:
+        return 0.0
+    continua = 0
+    for resposta in respostas:
+        depois = motor.aplicar(
+            modalidade=desafio.modalidade,
+            fen_inicial=examinado.fen_depois,
+            lances=[],
+            lance=resposta,
+        )
+        if depois["fatos"].get("fim") is not None:
+            # A resposta encerrou a partida (nao ha o que continuar).
+            continue
+        for lance in lances_do_estado(depois["estado"], (PROMOCAO_DOS_CANDIDATOS,)):
+            seguinte = motor.aplicar(
+                modalidade=desafio.modalidade,
+                fen_inicial=depois["fen_depois"],
+                lances=[],
+                lance=lance,
+            )
+            if seguinte["fatos"].get("xeque_por"):
+                continua += 1
+                break
+    return continua / len(respostas)
+
+
 def nota_do_objetivo(
     motor: JogadorXadrez,
     desafio: DesafioXadrez,
@@ -703,10 +756,22 @@ def nota_do_objetivo(
             motor, desafio, examinado, origens=origens, comida=classes.get("comida")
         )
     if tipo == "xadrez_xeques_seguidos":
-        # Dar o xeque agora (a sequencia so cresce assim); um lance adiante,
-        # quantos lances dariam xeque.
-        agora = PESO_DO_AGORA if fatos.get("xeque_por") else 0.0
-        return agora + _xeques_ao_alcance(motor, desafio, examinado, so_da_espia=False)
+        # Dar o xeque agora (a sequencia so cresce assim) e, entre os xeques, o
+        # que deixa outro xeque para depois de qualquer resposta
+        # ([_xeque_que_continua]). Sem xeque agora, um lance adiante: quantos
+        # lances dariam xeque se a pessoa jogasse de novo.
+        if fatos.get("xeque_por"):
+            return PESO_DO_AGORA + PESO_DA_SEQUENCIA * _xeque_que_continua(
+                motor, desafio, examinado
+            )
+        # ⚠️ Com teto abaixo de um xeque: com a dama no centro, um lance sem
+        # xeque chegava a 10 xeques ao alcance e empatava com o xeque, e
+        # escolhe-lo quebra a sequencia que vinha (o teste
+        # `test_xeques_seguidos_prefere_o_xeque_que_continua` pegou).
+        return min(
+            _xeques_ao_alcance(motor, desafio, examinado, so_da_espia=False),
+            PESO_DO_AGORA - 1.0,
+        )
     if tipo == "xadrez_troca":
         # A ordem 2 (comer a `dele` com a `minha`) cumpre: e o passo (a).
         return 1.0 if _oferece_a_troca(motor, desafio, fita, examinado) else 0.0

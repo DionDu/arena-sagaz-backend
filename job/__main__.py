@@ -129,7 +129,7 @@ JANELA_DO_RODIZIO_EM_DIAS = 30
 #: Quantos candidatos gerar por dia, antes de escolher, num jogo sem numero proprio.
 #:
 #: ⚠️ **O numero mora no gerador desde 21/11/2026** (`gerador.candidatos_por_dia`,
-#: com o xadrez em seis): a medicao do editorial precisa do MESMO numero do job, e
+#: com o xadrez em nove): a medicao do editorial precisa do MESMO numero do job, e
 #: um segundo lugar com ele seria o primeiro a envelhecer calado. Este nome fica
 #: como o padrao, para quem o lia daqui.
 CANDIDATOS_POR_DIA = gerador_mod.CANDIDATOS_POR_DIA_PADRAO
@@ -643,7 +643,7 @@ async def cobrir_um_dia(
         # ⚠️ **Mais de um, e e a banda que exige isso.** Com um candidato so, a
         # medicao da regua nao tem o que decidir: ou publica o que veio, ou deixa
         # o dia descoberto. Gerar tres da a chance de o proximo cair na banda;
-        # o xadrez pede seis (`gerador.CANDIDATOS_POR_JOGO`).
+        # o xadrez pede nove (`gerador.CANDIDATOS_POR_JOGO`).
         quantos=gerador_mod.candidatos_por_dia(co_jogo),
         tipos_recentes=recentes,
         # ⚠️ **Os dois botoes vem do TIPO**, e nao de uma constante global — ver

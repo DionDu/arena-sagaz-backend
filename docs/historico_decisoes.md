@@ -11949,3 +11949,46 @@ sorteio, seis candidatos no xadrez e três nos outros, o job pedindo o número a
 as 20 do job, os dados do xadrez na impressão; o script de calibração com uma `tentar` de mentira (a
 faixa em acertos de 20, a semente, o parar cedo, o adversário fora da medida, o arquivo gravado). Nove
 mutações, todas pegas.
+
+## 2026-11-21 (9) — A 5ª régua do xadrez: seis passam; a troca sai para as duas espiãs, e a 6ª rodada
+
+**Contexto.** A 5ª régua (9 dias, com as 20 execuções do job, 6 candidatos por dia, o mate de acervo
+calibrado e os dois de xeque a 20 lances; ~1 h, 14,6 h de unidades em 15 processos) pôs seis tipos
+no critério: **mate 9/9** (era 1/9), **comer com a classe 8/9**, **coma 2 com a espiã 8/9**,
+**proteger 7/9**, **xeque com a espiã 7/9**, **não perder 7/9**. Faltam atravessar e sem levar xeque
+(5/9), comer o alvo e xeques seguidos (4/9) e a troca (2/9). A calibração do mate (2 500 problemas × 4
+adversários, ~35 min no Ryzen) deixou na escada 68 problemas contra a Cacau, 174 contra a Pita, 354
+contra o Tex e 52 contra o Magno (`dados/jogo_xadrez/calibracao_do_mate.json`, commit `5718a3b2d`).
+Relatório em `medicoes/medir_variantes_do_editorial/relatorio_xadrez.txt` (fora do Git; arquivado como
+`relatorio_xadrez_rodada5_2026-11-21.txt` antes da 6ª).
+
+**Decisões do dono** (`DECISOES-do-dono.md` §8zzzz64): a troca sai e as duas espiãs entram no lugar
+dela (linha 71 do `tb901` aprovada, sem medida nova; as N capturas valem de qualquer uma das duas); o
+critério continua 6 de 9.
+
+**Os dias reprovados, por lado** (o candidato menos errado de cada dia):
+- **atravessar** erra para o lado fácil (a Pita em 0,55 e 0,60; a Cacau e o Tex 0,05 acima) → 12 → 11;
+- **sem levar xeque**, também fácil (a Pita em 0,50 e 0,65; a Cacau 0,05 acima) → 15 → 14;
+- **comer o alvo** erra para os dois lados (o Tex 0,05 abaixo duas vezes, a Pita 0,10 acima duas vezes,
+  a Cacau 0,10 acima): o N fica;
+- **xeques seguidos** erra para o lado difícil (o Magno de 0,65 a 0,70 em quatro dias) e já está no teto.
+
+**A chance por candidato** (pela posição do primeiro que encaixou): de 10% a 15% nos quatro que faltam,
+45% no mate. Com seis candidatos, 48% a 61% dos dias; com nove, 62% a 76%. **O xadrez passa a pedir
+nove** (`gerador.CANDIDATOS_POR_JOGO`). A régua para no primeiro que encaixa, e os candidatos 7 a 9 só
+são medidos nos dias em que os seis primeiros falham.
+
+**Um defeito do perseguidor nos xeques seguidos**, achado ao investigar o Magno baixo: o "um lance
+adiante" troca a vez no FEN, e depois de um lance que DÁ xeque o adversário está em xeque, e o motor
+recusa a posição trocada (é inválida). A conta dava 0 para todo xeque, e todos empatavam. Agora
+(`_xeque_que_continua`): para um xeque, a fração das respostas do adversário depois das quais a pessoa
+ainda tem xeque, a peso `PESO_DA_SEQUENCIA = 5` (menor que o `PESO_DO_AGORA`); e o "ao alcance" de um
+lance sem xeque fica abaixo de um xeque (com a dama no centro ele chegava a 10 e empatava com o
+xeque). ⚠️ **O ganho medido foi nenhum**: nas 96 partidas do diagnóstico, o Magno cumpre 11 de 32
+antes e depois. A maioria das falhas chega a 2 xeques seguidos e não ao 3º: o rei que se defende
+escapa, e isso pede uma busca de sequência forçada, não uma nota. As correções ficam (estão certas e
+não custam tempo); se os xeques seguidos não passarem na 6ª, o ponto volta ao dono.
+
+**Testes.** O xeque que continua contra o que deixa o rei escapar (Qe4+ × Qc6+), a posição trocada
+recusada depois do xeque, o lance sem xeque abaixo de qualquer xeque, nove candidatos no xadrez.
+Quatro mutações, todas pegas.

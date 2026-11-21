@@ -341,9 +341,32 @@ def test_comer_com_da_nota_so_a_classe_e_a_comida_marcadas(motor):
 def test_xeques_seguidos_da_nota_ao_xeque(motor):
     desafio = _desafio("xadrez_xeques_seguidos", "k7/8/1K6/2Q5/8/8/8/8 w - - 0 1", {"xeques": 3, "lances": 8})
     notas = _notas(motor, desafio)
-    assert notas["c5a5"] == ps.PESO_DO_AGORA
+    # Qa5+ so deixa ao rei b8, e de la ha xeque de novo (Qe5+): o xeque vale
+    # o agora mais a sequencia inteira.
+    assert notas["c5a5"] == ps.PESO_DO_AGORA + ps.PESO_DA_SEQUENCIA
     # Sem xeque agora, a dama em c4 daria varios xeques se jogasse de novo.
     assert 0.0 < notas["c5c4"] < ps.PESO_DO_AGORA
+
+
+def test_xeques_seguidos_prefere_o_xeque_que_continua(motor):
+    """21/11/2026, depois da 5a regua: o "um lance adiante" troca a vez no FEN,
+    e depois de um xeque o motor recusa a posicao trocada (o adversario esta em
+    xeque). Ate aqui todo xeque empatava; agora conta-se, em cada resposta do
+    adversario, se ainda ha xeque para dar."""
+    desafio = _desafio("xadrez_xeques_seguidos", "4k3/pp6/8/8/8/8/PP6/4K2Q w - - 0 1", {"xeques": 3, "lances": 8})
+    _, examinados = ps.examinar_todos(motor, desafio, [])
+    por_lance = {e.lance: e for e in examinados}
+    # O defeito: com o adversario em xeque, nao ha "jogar de novo".
+    assert ps._estado_com_a_vez_trocada(motor, desafio, por_lance["h1e4"]) is None
+    # Qe4+ deixa xeque depois de qualquer resposta; Qc6+ deixa o rei escapar
+    # de algum xeque (uma das respostas acaba com a sequencia).
+    assert ps._xeque_que_continua(motor, desafio, por_lance["h1e4"]) == 1.0
+    assert 0.0 < ps._xeque_que_continua(motor, desafio, por_lance["h1c6"]) < 1.0
+    notas = {lance: ps.nota_do_objetivo(motor, desafio, [], e) for lance, e in por_lance.items()}
+    assert notas["h1e4"] > notas["h1c6"] >= ps.PESO_DO_AGORA
+    # Um lance sem xeque nunca vale mais que um xeque (quebraria a sequencia).
+    sem_xeque = [n for lance, n in notas.items() if not por_lance[lance].fatos.get("xeque_por")]
+    assert max(sem_xeque) < ps.PESO_DO_AGORA
 
 
 def test_troca_na_ordem_1_oferece_o_bispo_onde_o_cavalo_come_e_o_peao_retoma(motor):

@@ -168,7 +168,7 @@ PASTA_DAS_MEDICOES = RAIZ / "medicoes" / "medir_variantes_do_editorial"
 #: ⚠️ **Medir com um numero diferente do job daria uma taxa que descreve outra
 #: execucao.** E a mesma razao pela qual a regua usa o teto de lances da geracao.
 #: ⚠️ Desde 21/11/2026 o numero e POR JOGO (`gerador.candidatos_por_dia`: o
-#: xadrez pede seis), e e de la que `medir_um_dia` e o relatorio o leem; este
+#: xadrez pede nove), e e de la que `medir_um_dia` e o relatorio o leem; este
 #: nome fica como o padrao.
 QUANTOS_POR_DIA = gerador_mod.CANDIDATOS_POR_DIA_PADRAO
 
@@ -700,7 +700,7 @@ def _como_ler(dia_mais_fraco: int, quantos_por_dia: int = QUANTOS_POR_DIA) -> tu
         return "⛔", "SEM DESAFIO"
     if dia_mais_fraco == 1:
         return "⚠️", "NO LIMITE"
-    # ⚠️ "Todos os pedidos" depende do jogo: 3 de 3 nos outros, 6 de 6 no xadrez.
+    # ⚠️ "Todos os pedidos" depende do jogo: 3 de 3 nos outros, 9 de 9 no xadrez.
     if dia_mais_fraco < quantos_por_dia:
         return "⚠️", "APERTADO"
     return "✅", "FOLGA"
@@ -854,7 +854,7 @@ def medir_um_dia(
     candidatos = gerador_mod.gerar_candidatos(
         dia,
         parametros=parametros,
-        # O numero do JOGO, como no job (o xadrez pede seis).
+        # O numero do JOGO, como no job (o xadrez pede nove).
         quantos=gerador_mod.candidatos_por_dia(receita.co_jogo),
         tipos_recentes=outros,
         maximo_de_meios_lances=botoes["teto"],

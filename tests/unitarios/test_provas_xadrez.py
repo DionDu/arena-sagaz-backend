@@ -224,15 +224,15 @@ def test_sortear_posicao_leva_o_adversario_ao_mate(monkeypatch):
     assert escolhida.js_posicao_inicial["fen"] == a["fen"]
 
 
-def test_o_xadrez_pede_seis_candidatos_por_dia_e_os_outros_tres():
-    """21/11/2026, depois da 4a regua: a mesma funcao serve o job e a medicao."""
-    assert gerador_mod.candidatos_por_dia("xadrez") == 6
+def test_o_xadrez_pede_nove_candidatos_por_dia_e_os_outros_tres():
+    """21/11/2026, depois da 4a e da 5a reguas: a mesma funcao serve o job e a medicao."""
+    assert gerador_mod.candidatos_por_dia("xadrez") == 9
     for jogo in ("pontinhos", "damas", "quatro"):
         assert gerador_mod.candidatos_por_dia(jogo) == gerador_mod.CANDIDATOS_POR_DIA_PADRAO == 3
 
 
 def test_o_job_pede_ao_gerador_o_numero_do_jogo():
-    """O job nao pode voltar a uma constante unica: o xadrez mediria 6 e publicaria de 3."""
+    """O job nao pode voltar a uma constante unica: o xadrez mediria 9 e publicaria de 3."""
     from pathlib import Path
 
     fonte = (Path(gerador_mod.__file__).parent / "__main__.py").read_text(encoding="utf-8")
