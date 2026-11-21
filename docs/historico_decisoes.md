@@ -11680,9 +11680,10 @@ perseguidor, a prova de cada tipo e o caminho da posição da T073 até o gabari
 
 ⚠️ **Pendente para a publicação (T078/T082):** `posicao_inicial.conferir` não conhece o FEN do
 xadrez (o ramo `fen` é o das damas, e pede `versao`); por ora um candidato do xadrez só sai do gerador
-para a medição. ⚠️ **E a folga do prazo** (pedido do dono, 21/11, escrito na T076a): a T076a grava em
-que lance o objetivo caiu e quantos erros sorteados do adversário houve antes, para decidir se o N
-publicado sai do gabarito com uma folga.
+para a medição. ⚠️ **E a folga do prazo** (pedido do dono, 21/11): a T076a grava em que lance o objetivo caiu e
+quantos erros sorteados do adversário houve antes; o dono decidiu no mesmo dia que **não há folga**
+(`DECISOES-do-dono.md` §8zzzz60): o N continua o do editorial, e os dois números ficam como
+informação.
 
 **Testes.** `test_perseguir_objetivo_xadrez.py` (26, posições montadas à mão, cada passo e cada nota)
 e `test_provas_xadrez.py` (20: o cadeado, a prova de que cada thread fala com o seu processo, as recusas, os problemas, o jogador, o gerador de ponta a

@@ -20,8 +20,9 @@ contra o MESMO adversario e com as MESMAS sementes (PAREADO):
      Cacau 0-0,20 · Pita 0,05-0,45 · Tex 0,45-0,85 · Magno 0,75-1).
   4. **A FOLGA DO PRAZO** (pedido do dono, 21/11/2026) - em que lance da
      pessoa o objetivo caiu, e quantos ERROS SORTEADOS do adversario
-     (`erro_sorteado`/`cegueira`) houve antes dele. E com isso que se decide se
-     o N publicado ("em ate N lances") deve sair do gabarito com uma folga.
+     (`erro_sorteado`/`cegueira`) houve antes dele. ⚠️ So INFORMACAO: o dono
+     decidiu que o N publicado continua o do editorial, sem folga
+     (`DECISOES-do-dono.md` §8zzzz60, 21/11/2026).
 
 Tipo com ganho e escada crescente entra em `SOLUCIONADOR_POR_TIPO`; tipo em que
 nem o Magno perseguindo chega volta a T073 (o defeito e da posicao).
