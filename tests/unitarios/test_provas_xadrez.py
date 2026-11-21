@@ -10,10 +10,10 @@ O que se confere:
   4. o jogador do desafio (o estado com o FEN de depois, a vez que alterna, a
      semente obrigatoria);
   5. o gerador de ponta a ponta: um candidato do mate (o Magno cru) e um da
-     base (com o perseguidor ligado SO neste teste), com gabarito que o juiz
+     base (com o perseguidor), com gabarito que o juiz
      julga cumprido, e reprodutivel pela data;
   6. a bancada da regua mede um candidato do xadrez;
-  7. ⛔ nenhum tipo do xadrez em `SOLUCIONADOR_POR_TIPO` antes da T076a.
+  7. ⛔ os tipos do xadrez em `SOLUCIONADOR_POR_TIPO` sao os nove da T076a.
 """
 
 from __future__ import annotations
@@ -28,7 +28,6 @@ from job import gerador as gerador_mod
 from job import posicao_inicial as posicao_mod
 from job import provas_xadrez as pv
 from job import regua as regua_mod
-from job import solucionadores as solucionadores_mod
 from job.editorial import EDITORIAL_FORA_DO_AR
 from job.posicoes_xadrez import SemPosicaoXadrez
 from job.tipos_de_desafio import RECEITAS, RECEITAS_FORA_DO_AR
@@ -217,11 +216,14 @@ def test_o_xadrez_e_fen_tem_versao_de_motor_e_regua_paralela():
     assert gerador_mod.MODALIDADES_POR_JOGO["xadrez"] == ("tradicional",)
 
 
-def test_nenhum_tipo_do_xadrez_tem_solucionador_antes_da_t076a():
+def test_os_tipos_ligados_ao_perseguidor_sao_os_nove_da_t076a():
     """⛔ `DECISOES-do-dono.md` §8zzzz57: o perseguidor entra tipo a tipo, so
-    depois do controle e da medicao pareada. Quando a T076a ligar um tipo, este
-    teste muda junto, com o numero da medicao ao lado."""
-    assert not TIPOS_DO_XADREZ & set(gerador_mod.SOLUCIONADOR_POR_TIPO)
+    depois do controle e da medicao pareada. A T076a (21/11/2026) ligou os nove
+    com ganho e escada crescente; o `xadrez_espia_comer` ficou de fora (a escada
+    nao cresce) e o `xadrez_dar_mate` nunca entra (vencer e o objetivo). Mudou a
+    lista? Mude este teste junto, com o numero da medicao no `gerador.py`."""
+    ligados = TIPOS_DO_XADREZ & set(gerador_mod.SOLUCIONADOR_POR_TIPO)
+    assert ligados == TIPOS_DO_XADREZ - {"xadrez_espia_comer", "xadrez_dar_mate"}
 
 
 def test_o_xadrez_aceita_o_erro_do_adversario():
@@ -274,15 +276,10 @@ def test_o_gerador_tira_um_desafio_de_mate_do_banco_de_problemas(motor):
     _conferir_gabarito(candidato)
 
 
-def test_o_gerador_tira_um_desafio_da_base_com_o_perseguidor(motor, monkeypatch):
-    """Com o perseguidor ligado SO neste teste (ele ainda nao esta no registro),
-    o `xadrez_espia_proteger` sai com a espia e o gabarito cumprido, e a mesma
-    data da o mesmo desafio."""
-    monkeypatch.setitem(
-        gerador_mod.SOLUCIONADOR_POR_TIPO,
-        "xadrez_espia_proteger",
-        solucionadores_mod.perseguidor_do_xadrez("xadrez_espia_proteger"),
-    )
+def test_o_gerador_tira_um_desafio_da_base_com_o_perseguidor(motor):
+    """Com o perseguidor (ligado na T076a), o `xadrez_espia_proteger` sai com a
+    espia e o gabarito cumprido, e a mesma data da o mesmo desafio."""
+    assert "xadrez_espia_proteger" in gerador_mod.SOLUCIONADOR_POR_TIPO
     dia = date(2026, 12, 2)
     candidato = _gerar("xadrez_espia_proteger", dia)
     assert "espia" in candidato.js_posicao_inicial["marcas"]

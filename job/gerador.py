@@ -858,6 +858,40 @@ SOLUCIONADOR_POR_TIPO = {
     # "quase sempre" da proposta, e o porque esta no historico do backend
     # "2026-10-23 (3)". Fora do ar: so a regua decide se uma figura sobe.
     "quatro_figura": solucionadores_mod.perseguidor_do_quatro("quatro_figura"),
+    # ── O XADREZ (T076a da spec 012, 21/11/2026; historico do backend
+    # "2026-11-21 (2)") ─────────────────────────────────────────────────────
+    #
+    # A medicao pareada (`scripts/medir_perseguir_vs_vencer_xadrez.py`, 30
+    # posicoes por tipo contra o Tex) passou no CONTROLE (o perseguidor de "so
+    # vencer" venceu 30 de 30, como o Magno cru) e mostrou ganho e escada
+    # crescente nestes nove. Entre parenteses: o Magno que so vence -> o Magno
+    # perseguindo, e a escada Cacau / Pita / Tex / Magno.
+    #
+    # ⛔ O `xadrez_espia_comer` NAO entra: a escada nao cresce (0,00 / 0,10 /
+    # 0,13 / 0,07). E o `xadrez_dar_mate` nunca: vencer e o objetivo dele, e
+    # quem o resolve e o Magno cru (§8zzzz57).
+    # (0,73 -> 0,93; 0,63 / 0,60 / 0,77 / 0,93)
+    "xadrez_espia_proteger": solucionadores_mod.perseguidor_do_xadrez("xadrez_espia_proteger"),
+    # (0,43 -> 0,87; 0,33 / 0,50 / 0,70 / 0,87)
+    "xadrez_sem_levar_xeque": solucionadores_mod.perseguidor_do_xadrez("xadrez_sem_levar_xeque"),
+    # (0,67 -> 0,83; 0,50 / 0,53 / 0,63 / 0,83)
+    "xadrez_nao_perder": solucionadores_mod.perseguidor_do_xadrez("xadrez_nao_perder"),
+    # (0,40 -> 0,53; 0,30 / 0,43 / 0,47 / 0,53)
+    "xadrez_troca": solucionadores_mod.perseguidor_do_xadrez("xadrez_troca"),
+    # (0,03 -> 0,43; 0,23 / 0,33 / 0,37 / 0,43)
+    "xadrez_espia_atravessar": solucionadores_mod.perseguidor_do_xadrez("xadrez_espia_atravessar"),
+    # ⚠️ Os quatro abaixo tem ganho e escada, mas pequenos: nem o Magno
+    # perseguindo passa de 0,17 contra o Tex. Ligados porque o perseguidor e
+    # melhor que o Magno cru em todos; o gerador descarta a posicao em que o
+    # gabarito nao chega, e a regua (T077) diz se sobra desafio por dia.
+    # (0,07 -> 0,17; 0,00 / 0,03 / 0,13 / 0,17)
+    "xadrez_comer_com": solucionadores_mod.perseguidor_do_xadrez("xadrez_comer_com"),
+    # (0,07 -> 0,17; 0,00 / 0,03 / 0,07 / 0,17)
+    "xadrez_espia_alvo": solucionadores_mod.perseguidor_do_xadrez("xadrez_espia_alvo"),
+    # (0,13 -> 0,17; 0,00 / 0,00 / 0,13 / 0,17)
+    "xadrez_xeques_seguidos": solucionadores_mod.perseguidor_do_xadrez("xadrez_xeques_seguidos"),
+    # (0,00 -> 0,10; 0,00 / 0,00 / 0,03 / 0,10)
+    "xadrez_espia_xeque": solucionadores_mod.perseguidor_do_xadrez("xadrez_espia_xeque"),
 }
 
 #: Tipos em que a recusa por erro do adversario NAO se aplica.

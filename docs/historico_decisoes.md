@@ -11695,3 +11695,41 @@ troca sem retomada). O canário de "jogo desconhecido mede em série" (`test_reg
 das três plataformas antes de saber se precisa: §8zzzz57 item 6); a prova pela busca do Magno em cada
 candidato (cara demais por lance); o Radar sem saber qual peça ataca o alvo (mais barato, e mediria
 outra coisa).
+
+## 2026-11-21 (2) — A medição pareada do perseguidor do xadrez, e os nove tipos ligados (T076a)
+
+**Contexto.** A §8zzzz57 manda medir o perseguidor antes da régua: o controle e, tipo a tipo, o
+perseguidor contra o Magno que só vence, nas mesmas posições e sementes. O dono rodou
+`scripts/medir_perseguir_vs_vencer_xadrez.py` com os dez tipos (30 posições por tipo e 30 partidas
+inteiras do controle, contra o Tex; 330 unidades, ~6 s a 14 s cada).
+
+**Resultado.**
+- **Controle:** o perseguidor de "só vencer" venceu 30 de 30, como o Magno cru (0 empates, 0
+  derrotas). Os filtros não o fazem jogar pior.
+- **Por tipo** (Magno que só vence → Magno perseguindo; a escada Cacau / Pita / Tex / Magno):
+  `espia_proteger` 0,73 → 0,93 (0,63 / 0,60 / 0,77 / 0,93); `sem_levar_xeque` 0,43 → 0,87 (0,33 /
+  0,50 / 0,70 / 0,87); `nao_perder` 0,67 → 0,83 (0,50 / 0,53 / 0,63 / 0,83); `troca` 0,40 → 0,53
+  (0,30 / 0,43 / 0,47 / 0,53); `espia_atravessar` 0,03 → 0,43 (0,23 / 0,33 / 0,37 / 0,43);
+  `comer_com` 0,07 → 0,17; `espia_alvo` 0,07 → 0,17; `xeques_seguidos` 0,13 → 0,17; `espia_xeque`
+  0,00 → 0,10 (os quatro com escada crescente a partir de zero); `espia_comer` 0,03 → 0,07, com a
+  escada 0,00 / 0,10 / 0,13 / 0,07, que não cresce.
+- **A folga** (só informação, §8zzzz60): nos tipos "em até N", poucos cumpriram no último lance (0 a
+  3 de 30), com 1 a 4 erros sorteados do adversário antes, em média.
+
+**Decisão (técnica).** Os nove tipos com ganho e escada crescente entram em
+`gerador.SOLUCIONADOR_POR_TIPO`, com os números ao lado. O `espia_comer` fica com o Magno cru (sem
+escada), e o `dar_mate` nunca entra. Nos sete em que nem o Magno perseguindo passa de 0,75 contra o
+Tex, o defeito é da posição (§8zzzz57 item 5), e o gerador já o filtra: a posição em que o gabarito
+não chega é descartada. A pergunta que sobra é se sobra candidato por dia, e é a régua (T077) que
+responde. Medido antes de passar o comando: o `xadrez_troca` com a régua levou 56 s nos 3 dias e
+saiu `SEM DESAFIO` (dias com 0, 3 e 1 candidatos), na escada em 2 de 3 dias.
+
+⚠️ **Leitura para a T077:** os três "Passe N" ficam fáceis para a Cacau contra o Tex (0,50 a 0,63),
+e a escada da régua pede 0 a 0,20 para ela: o risco é "banal". Nos quatro de 0,10 a 0,17, o risco é
+o contrário, `SEM DESAFIO`. A nota desses quatro e a do `espia_comer` só enxerga o que o lance faz
+agora (a captura, o xeque); olhar um lance adiante é o remédio provável, e vai ao dono com os
+números da régua antes de mudar.
+
+**Alternativas consideradas:** ligar só os cinco que passaram com folga (os quatro de 0,10 a 0,17
+ficariam com o Magno cru, que é pior em todos eles); ligar também o `espia_comer` (a escada não
+cresce, e a regra da T076a é ganho E escada).
