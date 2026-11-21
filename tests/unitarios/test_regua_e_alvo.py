@@ -91,6 +91,30 @@ def test_o_perfil_do_quatro_traz_os_numeros_do_CONTRATO_por_modalidade() -> None
         assert "tradicional" in linha["js_perfil"]
 
 
+def test_o_perfil_do_xadrez_traz_os_numeros_do_CONTRATO_por_modalidade() -> None:
+    """O xadrez na forma do Quatro (T082 da spec 012): um bloco por modalidade
+    que oferece o nivel, com os campos do contrato, e o hash do contrato dele."""
+    import dataclasses
+
+    from motores.xadrez import contrato_xadrez
+
+    linhas = [l for l in linhas_da_dimensao() if l["co_jogo"] == "xadrez"]
+    assert len(linhas) == 4
+    for linha in linhas:
+        nivel = NIVEL_POR_PERSONAGEM[linha["co_personagem"]]
+        assert linha["co_arquivo"].endswith("jogo_xadrez/contrato/contrato_xadrez.json")
+        for modalidade, numeros in linha["js_perfil"].items():
+            assert numeros == dataclasses.asdict(
+                contrato_xadrez.parametros_do_nivel(modalidade, nivel)
+            )
+        # Todo personagem que o contrato oferece tem os números dele na linha.
+        oferecido = any(
+            nivel in contrato_xadrez.niveis_disponiveis(m)
+            for m in contrato_xadrez.modalidades_declaradas()
+        )
+        assert bool(linha["js_perfil"]) is oferecido
+
+
 def test_a_linha_carrega_os_NUMEROS_e_o_hash_do_arquivo() -> None:
     """⚠️ Copiar para EXPLICAR nao e segunda fonte da verdade.
 

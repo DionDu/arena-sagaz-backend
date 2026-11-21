@@ -170,6 +170,9 @@ SELECT r.id_resolucao,
 #: `||` do Postgres converte o inteiro em texto, e com a letra `NULL` (tipo
 #: `desconhecido`) o resultado inteiro e `NULL` — nunca um `4` sem tipo.
 #:
+#: ⚠️ **O xadrez entrou em 21/11/2026** (T082 da spec 012), ANTES do 1o desafio
+#: dele no `des`: o `co_lance` dele ja e o texto do motor (`e2e4`).
+#:
 #: ⛔ **Ate 11/11/2026 o Quatro faltava aqui**, e cada lance dele chegava `NULL`.
 #: A primeira resolucao de Desafio do Dia do Quatro que entrou na fila derrubou
 #: o job inteiro, todo dia, em `des` e `prd` (`TypeError` no `_ler_lance`),
@@ -186,7 +189,8 @@ SELECT j.nu_ordem,
        COALESCE(
            p.co_aresta,
            dm.co_lance,
-           ({LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna
+           ({LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna,
+           x.co_lance
        ) AS co_lance
   FROM partida.tb002_jogada j
   LEFT JOIN jogo_pontinhos.tb002_jogada p ON p.id_jogada = j.id_jogada
@@ -194,6 +198,9 @@ SELECT j.nu_ordem,
   -- A VIEW, e nao a tabela: e ela que traz o tipo por extenso (`soltar`), que
   -- o `CASE` traduz na letra. A tabela so tem o numero da dimensao.
   LEFT JOIN jogo_quatro.vw002_jogada q    ON q.id_jogada = j.id_jogada
+  -- O xadrez (T082 da spec 012) guarda o lance escrito, na notacao do motor
+  -- (`e2e4`, `e7e8q`), que e a que o juiz le.
+  LEFT JOIN jogo_xadrez.vw002_jogada x    ON x.id_jogada = j.id_jogada
  WHERE j.id_partida = :id_partida
  ORDER BY j.nu_ordem ASC
 """

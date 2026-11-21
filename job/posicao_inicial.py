@@ -48,6 +48,22 @@ e a que o arbitro grava (`MotorQuatro.para_dado`, T116 da spec 010): ela traz
 formato: os dois usam o mesmo rotulo, e a posicao do Pontinhos nao carrega
 `co_jogo`. Uma posicao do Quatro sem ele cairia na conferencia do Pontinhos, e
 ela falha alto (a lista do Quatro se chama `sequencia_lances`, e nao `lances`).
+
+═══════════════════════════════════════════════════════════════════════════
+⚠️ O XADREZ TAMBEM E 'fen' - MAS NAO E O FEN DAS DAMAS (T082 da spec 012)
+═══════════════════════════════════════════════════════════════════════════
+
+A posicao do xadrez segue o contrato §1 da spec 012 (`desafio-xadrez.md`): o
+`jogo`, a `modalidade`, o `fen`, a `cor_da_pessoa`, a `origem` e, nos tipos que
+os usam, as `marcas`, as `classes` e a `troca`. **Ela nao tem `versao` nem
+`vez_de`**, de proposito: a vez e a do proprio FEN, e quem resolve e sempre o
+`+1` da fita (`vez_de_quem_resolve`). E, como no Quatro, e pelo `jogo` de dentro
+da posicao que `conferir` a separa das damas, e nao pelo formato.
+
+⛔ **Nenhuma regra de xadrez aqui.** Se o FEN e legivel, de quem e a vez e se a
+partida ja acabou quem responde e o motor em Rust (`estado`); o FEN so e lido
+como tabela ("que peca esta em que casa", `motores/xadrez/fen_xadrez.py`), para
+conferir que as marcas apontam para pecas da cor certa.
 """
 
 from __future__ import annotations
@@ -209,6 +225,16 @@ def conferir(
         PosicaoInvalida: quando o formato nao existe, a posicao nao e
             reproduzivel, ou os derivados divergem.
     """
+    if posicao.get("jogo") == "xadrez":
+        # ⚠️ Antes da `versao`: a posicao do xadrez nao a tem (ver o topo).
+        if co_formato != FORMATO_FEN:
+            raise PosicaoInvalida(
+                f"a posicao do xadrez chegou como {co_formato!r}; o formato dele e "
+                f"{FORMATO_FEN!r}. ⛔ Nao publique este desafio."
+            )
+        _conferir_xadrez(posicao, co_modalidade)
+        return
+
     if posicao.get("versao") != VERSAO:
         raise PosicaoInvalida(
             f"js_posicao_inicial versao {posicao.get('versao')!r}; esperada {VERSAO}"
@@ -311,6 +337,159 @@ def _conferir_fen(posicao: Mapping[str, Any], co_modalidade: str) -> None:
         )
 
 
+#: As chaves que a posicao do xadrez pode ter (contrato §1 da spec 012). Uma
+#: chave fora daqui e defeito do job: o contrato e fechado.
+CHAVES_DA_POSICAO_DO_XADREZ = frozenset(
+    {"jogo", "modalidade", "fen", "cor_da_pessoa", "marcas", "classes", "troca", "origem"}
+)
+
+#: De onde a posicao do xadrez pode vir (`origem`, contrato §1): a base
+#: equilibrada da T073 ou o banco de problemas de mate do Lichess (T074).
+ORIGENS_DO_XADREZ = frozenset({"base_equilibrada", "problemas_lichess"})
+
+
+def _conferir_xadrez(
+    posicao: Mapping[str, Any], co_modalidade: str, *, motor: Any = None
+) -> None:
+    """A conferencia do xadrez: o motor diz se a posicao vale, o FEN diz as pecas.
+
+    O que se confere, na ordem:
+
+      1. as chaves sao as do contrato, a `modalidade` e a do desafio e a
+         `origem` e uma das duas;
+      2. **o motor** (`estado`, sem lance nenhum) le o FEN, diz de quem e a vez
+         e se a partida ja acabou: a vez tem de ser a da `cor_da_pessoa` (um
+         desafio com a vez errada seria julgado do lado errado), e a partida
+         nao pode ter acabado (um desafio precisa de um lance a jogar);
+      3. as `marcas` apontam para pecas de verdade: a espia (e a 2a espia) da
+         pessoa, o alvo do adversario; as duas espias em classes diferentes
+         (`DECISOES-do-dono.md` §8zzzz65: a frase nomeia as duas);
+      4. as `classes` e a `troca` falam de pecas que existem no tabuleiro, do
+         lado certo.
+
+    Args:
+        motor: o executavel do xadrez; sem ele, o desta thread
+            (`jogador_compartilhado`). So os testes o passam.
+
+    ⚠️ **Os itens 3 e 4 sao leitura do FEN como tabela**, e nao regra: "ha um
+    cavalo branco em f3" se le no 1o campo do FEN, como o app faz para desenhar
+    o tabuleiro.
+    """
+    # Importados aqui, e nao no topo: os tres primeiros jogos nao precisam do
+    # executavel do xadrez para conferir a posicao deles.
+    from motores.xadrez import contrato_xadrez
+    from motores.xadrez.feitos_xadrez import (
+        MARCA_DA_ESPIA,
+        MARCA_DA_SEGUNDA_ESPIA,
+        MARCA_DO_ALVO,
+    )
+    from motores.xadrez.fen_xadrez import PECA_DA_LETRA, outra_cor, pecas_do_fen
+    from motores.xadrez.jogador_xadrez import jogador_compartilhado
+
+    def recusar(motivo: str) -> None:
+        """Sobe a `PosicaoInvalida` com o prefixo comum (uma frase por motivo)."""
+        raise PosicaoInvalida(f"posicao do xadrez: {motivo}. ⛔ Nao publique este desafio.")
+
+    # ── 1. A forma ──────────────────────────────────────────────────────────
+    # `set(posicao)` sao as chaves do dicionario; `-` e a diferenca de conjuntos.
+    sobrando = set(posicao) - CHAVES_DA_POSICAO_DO_XADREZ
+    if sobrando:
+        recusar(f"chaves fora do contrato §1: {sorted(sobrando)}")
+    modalidade = posicao.get("modalidade")
+    if modalidade != co_modalidade:
+        recusar(f"a posicao diz modalidade {modalidade!r}, e o desafio, {co_modalidade!r}")
+    if modalidade not in contrato_xadrez.modalidades_declaradas():
+        recusar(f"a modalidade {modalidade!r} nao esta no contrato do xadrez")
+    if posicao.get("origem") not in ORIGENS_DO_XADREZ:
+        recusar(f"origem {posicao.get('origem')!r}; as origens sao {sorted(ORIGENS_DO_XADREZ)}")
+    fen = posicao.get("fen")
+    if not isinstance(fen, str) or not fen:
+        recusar("sem `fen`")
+    cor = posicao.get("cor_da_pessoa")
+    if cor not in ("branca", "preta"):
+        recusar(f"`cor_da_pessoa` = {cor!r}; as cores sao 'branca' e 'preta'")
+
+    # ── 2. O motor ──────────────────────────────────────────────────────────
+    motor = motor or jogador_compartilhado()
+    try:
+        estado = motor.estado(modalidade=modalidade, fen_inicial=fen, lances=[])
+    except ValueError as erro:
+        # `MotorXadrezRecusou` e um `ValueError`: o motor recusou o FEN, e o
+        # codigo dele vai na mensagem.
+        recusar(f"o motor recusou o FEN {fen!r} ({erro})")
+    if estado.get("vez") != cor:
+        recusar(
+            f"a pessoa joga de {cor}, e a vez no FEN e das {estado.get('vez')}s: o "
+            "desafio seria julgado do lado errado"
+        )
+    if estado.get("fim") is not None:
+        recusar(f"a partida ja acabou no FEN ({estado['fim']}): nao ha lance a jogar")
+
+    # ── 3. As marcas ────────────────────────────────────────────────────────
+    # O FEN ja foi aceito pelo motor, entao a leitura como tabela nao falha aqui.
+    pecas = pecas_do_fen(fen)
+    marcas = posicao.get("marcas")
+    if marcas is not None:
+        if not isinstance(marcas, Mapping) or not marcas:
+            recusar(f"`marcas` = {marcas!r}; sem marca, a chave nao vai")
+        conhecidas = {MARCA_DA_ESPIA, MARCA_DA_SEGUNDA_ESPIA, MARCA_DO_ALVO}
+        if set(marcas) - conhecidas:
+            recusar(f"marcas desconhecidas: {sorted(set(marcas) - conhecidas)}")
+        if MARCA_DA_ESPIA not in marcas:
+            # O alvo e a 2a espia so existem ao lado da espia.
+            recusar("ha marca sem a espia")
+        # De que cor tem de ser a peca de cada marca.
+        dono_da_marca = {
+            MARCA_DA_ESPIA: cor,
+            MARCA_DA_SEGUNDA_ESPIA: cor,
+            MARCA_DO_ALVO: outra_cor(cor),
+        }
+        for nome, casa in marcas.items():
+            peca = pecas.get(casa) if isinstance(casa, str) else None
+            if peca is None:
+                recusar(f"a marca {nome!r} aponta para {casa!r}, onde nao ha peca")
+            if peca.cor != dono_da_marca[nome]:
+                recusar(
+                    f"a marca {nome!r} esta numa peca {peca.cor} ({casa}), e tinha de "
+                    f"ser {dono_da_marca[nome]}"
+                )
+        if MARCA_DA_SEGUNDA_ESPIA in marcas:
+            primeira = pecas[marcas[MARCA_DA_ESPIA]]
+            segunda = pecas[marcas[MARCA_DA_SEGUNDA_ESPIA]]
+            if primeira.casa == segunda.casa:
+                recusar("as duas espias estao na mesma casa")
+            if primeira.peca == segunda.peca:
+                recusar(
+                    f"as duas espias sao {primeira.peca}: tem de ser de classes "
+                    "diferentes (a frase nomeia as duas)"
+                )
+
+    # ── 4. As classes e a troca ─────────────────────────────────────────────
+    nomes = set(PECA_DA_LETRA.values())
+
+    def exigir_peca(papel: str, classe: Any, de_quem: str) -> None:
+        """A [classe] e um nome de peca, e o lado [de_quem] tem ao menos uma."""
+        if classe not in nomes:
+            recusar(f"{papel} = {classe!r} nao e peca")
+        # `any(...)` e verdadeiro se ao menos uma peca do tabuleiro casa.
+        if not any(p.peca == classe and p.cor == de_quem for p in pecas.values()):
+            recusar(f"{papel} = {classe!r}, e as {de_quem}s nao tem nenhum")
+
+    classes = posicao.get("classes")
+    if classes is not None:
+        if not isinstance(classes, Mapping) or set(classes) - {"come", "comida"}:
+            recusar(f"`classes` = {classes!r}; as chaves sao 'come' e 'comida'")
+        exigir_peca("classes.come", classes.get("come"), cor)
+        if "comida" in classes:
+            exigir_peca("classes.comida", classes["comida"], outra_cor(cor))
+    troca = posicao.get("troca")
+    if troca is not None:
+        if not isinstance(troca, Mapping) or set(troca) != {"minha", "dele"}:
+            recusar(f"`troca` = {troca!r}; as chaves sao 'minha' e 'dele'")
+        exigir_peca("troca.minha", troca["minha"], cor)
+        exigir_peca("troca.dele", troca["dele"], outra_cor(cor))
+
+
 def formato_do_jogo(co_jogo: str) -> str:
     """Qual formato aquele jogo usa.
 
@@ -323,8 +502,8 @@ def formato_do_jogo(co_jogo: str) -> str:
         "damas": FORMATO_FEN,
         "quatro": FORMATO_SEQUENCIA,
         # ⚠️ O xadrez tambem e FEN (contrato §1 da spec 012), mas o FEN dele nao
-        # e o das damas: `conferir` ainda nao o confere (fica para a publicacao,
-        # T082), e um candidato do xadrez so sai do gerador para a medicao.
+        # e o das damas: quem o confere e `_conferir_xadrez`, pelo `jogo` de
+        # dentro da posicao.
         "xadrez": FORMATO_FEN,
     }
     if co_jogo not in formatos:

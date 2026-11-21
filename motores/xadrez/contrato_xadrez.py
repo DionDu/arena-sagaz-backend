@@ -49,6 +49,16 @@ CAMINHO_DO_CONTRATO = (
 #: O `Cargo.toml` do crate espelhado: é dele que sai a versão do motor, a mesma
 #: que o executável anuncia na abertura (`versao`, `env!("CARGO_PKG_VERSION")`).
 CAMINHO_DO_CARGO = ESPELHO / "jogos" / "jogo_xadrez" / "motor_rust" / "Cargo.toml"
+#: O manifesto do espelho, com o SHA-256 de cada arquivo (o mesmo dos outros
+#: jogos, `MANIFESTO_HASHES.json`).
+CAMINHO_DO_MANIFESTO = ESPELHO / "MANIFESTO_HASHES.json"
+
+#: Os arquivos do espelho que, mudando, mudam **o desafio que o job gera**: o
+#: crate inteiro (os fontes, o `Cargo.toml`, o `Cargo.lock`, o `rust-toolchain`),
+#: o contrato, com os números de cada personagem, e a base de posições de onde
+#: o job sorteia. É deles que sai o carimbo do desafio (`versao_do_motor_no_espelho`),
+#: com o prefixo da pasta do jogo, como no Quatro (`contrato_quatro.PREFIXO_DO_MOTOR`).
+PREFIXO_DO_MOTOR = "jogos/jogo_xadrez/"
 
 #: A chave do contrato para cada degrau do hub.
 #:
@@ -302,3 +312,42 @@ def versao_do_motor() -> str:
     leem igual no banco.
     """
     return f"rust_{versao_do_crate()}"
+
+
+def arquivos_do_motor() -> tuple[dict[str, str], ...]:
+    """Os arquivos do espelho que DEFINEM este motor, com o SHA-256 de cada um.
+
+    Ordenada pelo caminho, como a das damas e a do Quatro, para a dimensão
+    `desafio.tb904_motor` tornar o carimbo decifrável com a MESMA lista de que ele
+    saiu (`job/motor.py`, T082 da spec 012).
+    """
+    manifesto = json.loads(CAMINHO_DO_MANIFESTO.read_text(encoding="utf-8"))
+    return tuple(
+        {"caminho": item["caminho"], "sha256": item["sha256"]}
+        for item in sorted(
+            (
+                item
+                for item in manifesto["arquivos"]
+                if item["caminho"].startswith(PREFIXO_DO_MOTOR)
+            ),
+            key=lambda item: item["caminho"],
+        )
+    )
+
+
+def versao_do_motor_no_espelho() -> str:
+    """O carimbo do DESAFIO do xadrez: `xadrez-rust-<8 hex>` (T082 da spec 012).
+
+    É o que o job grava em `desafio.tb001_desafio.co_versao_motor`, e sai dos
+    hashes do espelho (`arquivos_do_motor`), com a conta das damas, do Pontinhos
+    e do Quatro: os hashes ordenados entre si, concatenados, e o SHA-256 disso.
+
+    ⚠️ **Não é o [versao_do_motor]** (`rust_0.10.0`), e de propósito, como nos
+    outros jogos: o `rust_X` é o que o APP grava no log (a versão do binário) e
+    o que a calibração do mate guarda; o carimbo do desafio é o que torna a linha
+    da `tb904_motor` decifrável sem o Git. Uma versão do crate esquecida sem
+    subir continuaria `rust_0.10.0` com fontes diferentes; o resumo, não.
+    """
+    hashes = sorted(arquivo["sha256"] for arquivo in arquivos_do_motor())
+    digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
+    return f"xadrez-rust-{digesto[:8]}"

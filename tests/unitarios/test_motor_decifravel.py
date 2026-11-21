@@ -34,6 +34,8 @@ from motores.pontinhos import jogador_dart_pontinhos
 from motores.pontinhos import motor_pontinhos
 from motores.quatro import contrato_quatro
 from motores.quatro import jogador_dart_quatro
+from motores.xadrez import contrato_xadrez
+from motores.xadrez import jogador_xadrez
 from job.gerador import JOGOS_DO_RODIZIO, JOGOS_EM_ADOCAO
 from tests.unitarios.fakes_desafio import FakeSessaoSQL
 from tests.unitarios.leitura_de_migracao import sql_da_migracao, tabelas_do_sql
@@ -51,7 +53,13 @@ PREFIXO_ESPERADO = {
     "damas": "damas-dart-",
     "pontinhos": "pontinhos-dart-",
     "quatro": "quatro-dart-",
+    # O xadrez e so Rust (T082 da spec 012): a conta e a mesma.
+    "xadrez": "xadrez-rust-",
 }
+
+#: Quem escolhe o lance em cada jogo: o motor Dart compilado nos tres primeiros,
+#: o executavel Rust no xadrez.
+MOTOR_QUE_ESCOLHE = {"damas": "dart", "pontinhos": "dart", "quatro": "dart", "xadrez": "rust"}
 
 
 @pytest.fixture(scope="module")
@@ -84,7 +92,7 @@ def _resumo_a_partir_da_linha(linha: dict) -> str:
     return hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()[:8]
 
 
-@pytest.mark.parametrize("co_jogo", ["damas", "pontinhos", "quatro"])
+@pytest.mark.parametrize("co_jogo", ["damas", "pontinhos", "quatro", "xadrez"])
 def test_o_carimbo_SE_REFAZ_a_partir_da_linha(linhas, co_jogo) -> None:
     """🔒 ⛔ O cadeado mais importante do arquivo: a linha basta.
 
@@ -133,7 +141,7 @@ def test_o_cadeado_acima_ENXERGA_uma_lista_estragada(linhas) -> None:
     )
 
 
-@pytest.mark.parametrize("co_jogo", ["damas", "pontinhos", "quatro"])
+@pytest.mark.parametrize("co_jogo", ["damas", "pontinhos", "quatro", "xadrez"])
 def test_os_ARQUIVOS_da_linha_existem_no_disco_com_aquele_hash(
     linhas, co_jogo
 ) -> None:
@@ -195,6 +203,11 @@ def test_os_dois_motores_expoem_a_lista_QUE_ELES_MESMOS_resumem() -> None:
         hashes = sorted(a["sha256"] for a in modulo.arquivos_do_motor())
         digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
         assert modulo.versao_do_motor() == f"{prefixo}{digesto[:8]}"
+    # ⚠️ No xadrez o carimbo do desafio e `versao_do_motor_no_espelho`: o
+    # `versao_do_motor` dele e o `rust_X` que o APP grava (a versao do crate).
+    hashes = sorted(a["sha256"] for a in contrato_xadrez.arquivos_do_motor())
+    digesto = hashlib.sha256("".join(hashes).encode("ascii")).hexdigest()
+    assert contrato_xadrez.versao_do_motor_no_espelho() == f"xadrez-rust-{digesto[:8]}"
 
 
 def test_a_lista_cobre_TODO_o_manifesto_daquele_motor() -> None:
@@ -212,6 +225,7 @@ def test_a_lista_cobre_TODO_o_manifesto_daquele_motor() -> None:
         (contrato_damas, (contrato_damas.PREFIXO_DO_MOTOR,)),
         (motor_pontinhos, motor_pontinhos.PREFIXOS_DO_MOTOR),
         (contrato_quatro, (contrato_quatro.PREFIXO_DO_MOTOR,)),
+        (contrato_xadrez, (contrato_xadrez.PREFIXO_DO_MOTOR,)),
     ):
         esperados = {
             item["caminho"]
@@ -229,7 +243,7 @@ def test_a_lista_vem_ORDENADA_pelo_caminho() -> None:
     uma lista que oscila faria duas linhas iguais parecerem diferentes na
     revisao, e o `json` gravado mudaria sem motivo.
     """
-    for modulo in (contrato_damas, motor_pontinhos, contrato_quatro):
+    for modulo in (contrato_damas, motor_pontinhos, contrato_quatro, contrato_xadrez):
         caminhos = [a["caminho"] for a in modulo.arquivos_do_motor()]
         assert caminhos == sorted(caminhos)
 
@@ -279,6 +293,7 @@ def test_a_lista_do_servidor_declara_o_CONTRATO_que_o_aplicativo_carrega(
         "damas": contrato_damas.versao_do_contrato(),
         "pontinhos": str(motor_pontinhos.contrato_de_codificacao()["versao"]),
         "quatro": contrato_quatro.versao_do_contrato(),
+        "xadrez": contrato_xadrez.versao_do_contrato(),
     }
     for linha in linhas:
         versoes = {
@@ -309,11 +324,13 @@ def test_TODO_jogo_declara_o_motor_DART_que_escolheu_o_lance(linhas) -> None:
             registro["co_motor"]: registro["co_versao"]
             for registro in linha["js_motores"]["motores"]
         }
-        assert "dart" in registros, (
-            f"o jogo {linha['co_jogo']!r} ⛔ declara o motor `dart` em "
-            "`js_motores`, e e ele quem escolhe o lance desde a T093."
+        # O motor de cada jogo (`dart` nos tres primeiros, `rust` no xadrez).
+        motor = MOTOR_QUE_ESCOLHE[linha["co_jogo"]]
+        assert motor in registros, (
+            f"o jogo {linha['co_jogo']!r} ⛔ declara o motor `{motor}` em "
+            "`js_motores`, e e ele quem escolhe o lance."
         )
-        assert registros["dart"] == linha["co_versao_motor"]
+        assert registros[motor] == linha["co_versao_motor"]
 
 
 def test_nenhum_registro_chama_o_decisor_de_PYTHON(linhas) -> None:
@@ -359,6 +376,7 @@ def test_o_resumo_do_carimbo_e_o_MESMO_que_o_executavel_confere(linhas) -> None:
         "damas": jogador_dart_damas.resumo_dos_fontes(),
         "pontinhos": jogador_dart_pontinhos.resumo_dos_fontes(),
         "quatro": jogador_dart_quatro.resumo_dos_fontes(),
+        "xadrez": jogador_xadrez.resumo_dos_fontes(),
     }
     for linha in linhas:
         registros = {
@@ -487,17 +505,19 @@ def test_a_0022_encadeia_na_0021() -> None:
 
 @pytest.mark.asyncio
 async def test_garantir_motor_grava_UMA_linha_por_jogo(linhas) -> None:
-    """Uma linha por jogo (tres desde o Quatro), e os JSON viajam como texto
-    para o `CAST(... AS JSONB)`."""
+    """Uma linha por jogo (quatro desde o xadrez, T082 da spec 012), e os JSON
+    viajam como texto para o `CAST(... AS JSONB)`."""
     sessao = FakeSessaoSQL(
         respostas={"INSERT INTO desafio.tb904_motor": [{"id_motor": "m"}]}
     )
     repositorio = repositorio_mod.RepositorioDoJob(sessao)
 
-    assert await repositorio.garantir_motor(linhas) == len(linhas) == 3
+    # O numero sai dos jogos do job, e nao e escrito a mao (era `3` ate o xadrez).
+    jogos = len(set(JOGOS_DO_RODIZIO) | set(JOGOS_EM_ADOCAO))
+    assert await repositorio.garantir_motor(linhas) == len(linhas) == jogos == 4
 
     parametros = [p for texto, p in sessao.executadas if "tb904_motor" in texto]
-    assert len(parametros) == 3
+    assert len(parametros) == jogos
     for p in parametros:
         # ⚠️ `json.loads` e a prova de que o que sobe e **texto**: passar o dict
         # direto faria o asyncpg recusar o parametro, e so no banco de verdade.

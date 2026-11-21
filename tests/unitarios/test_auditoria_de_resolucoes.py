@@ -590,3 +590,113 @@ def test_o_veredito_nunca_e_pendente():
     """Este objeto so existe porque a auditoria rodou."""
     assert Veredito(CONFERE).co_auditoria != PENDENTE
     assert Veredito(DIVERGENTE, "x").divergiu is True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O xadrez na auditoria (T082 da spec 012)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_toda_consulta_de_lances_junta_todo_jogo_que_o_job_publica():
+    """🔒 A fita da auditoria e a do replay juntam a extensão de CADA jogo do job.
+
+    ⚠️ **A lista sai do gerador, e não daqui**: o Quatro faltou na `SQL_FITA` até
+    11/11/2026 e derrubou o job todo dia; o xadrez faltou nas duas consultas até
+    21/11/2026, e só não derrubou porque nenhum desafio dele tinha ido ao ar. Um
+    jogo novo em `JOGOS_EM_ADOCAO` que esquecer as consultas falha aqui.
+    """
+    from api.desafios.quadro import SQL_LANCES
+    from job.gerador import JOGOS_DO_RODIZIO, JOGOS_EM_ADOCAO
+
+    for co_jogo in (*JOGOS_DO_RODIZIO, *JOGOS_EM_ADOCAO):
+        assert f"LEFT JOIN jogo_{co_jogo}." in auditoria.SQL_FITA, co_jogo
+        assert f"LEFT JOIN jogo_{co_jogo}." in SQL_LANCES, co_jogo
+    # O xadrez pela VIEW (regra do ecossistema), com o lance escrito.
+    for sql in (auditoria.SQL_FITA, SQL_LANCES):
+        assert "LEFT JOIN jogo_xadrez.vw002_jogada x" in sql
+        assert "x.co_lance" in sql
+    # E o replay leva a FEN de antes de cada lance do xadrez também.
+    assert "COALESCE(dm.co_fen_antes, x.co_fen_antes) AS co_fen_antes" in SQL_LANCES
+
+
+VETORES_DO_XADREZ = [v for v in VETORES if v["co_jogo"] == "xadrez"]
+
+
+def _jogadas_do_log(vetor: dict):
+    """As linhas de `SQL_FITA` de uma partida do xadrez: a pessoa é o J1 do app."""
+
+    def jogadas(_parametros):
+        return [
+            {"nu_ordem": l["n"], "nu_jogador": 1 if l["jogador"] == 1 else 2,
+             "co_lance": l["lance"]}
+            for l in _fita(vetor)
+        ]
+
+    return jogadas
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "vetor",
+    [v for v in VETORES_DO_XADREZ if v["esperado"]["veredito"] == "cumpriu"],
+    ids=lambda v: v["id"],
+)
+async def test_a_resolucao_do_XADREZ_que_cumpre_confere_pelo_lote(vetor):
+    """O caminho inteiro do xadrez: linha pendente → fita do log → juiz → CONFERE.
+
+    ⚠️ Pelo executável de verdade (o juiz do xadrez reproduz a fita pelo motor);
+    sem ele compilado, o caso pula com a receita.
+    """
+    from motores.juiz import julgar_desafio
+    from motores.xadrez import jogador_xadrez as jx
+
+    try:
+        jx.caminho_do_executavel()
+    except jx.MotorDartIndisponivel as erro:
+        pytest.skip(f"sem o executavel do xadrez compilado: {erro}")
+
+    julgamento = julgar_desafio(
+        co_jogo="xadrez",
+        js_posicao_inicial=vetor["js_posicao_inicial"],
+        js_chegada=vetor["js_chegada"],
+        fita=_fita(vetor),
+        jogador=vetor["jogador"],
+    )
+    linha = _linha_do_vetor(vetor, nu_lance=julgamento.nu_lance_cumpre_desafio)
+    sessao = FakeSessaoSQL(
+        respostas={
+            "co_auditoria = 'pendente'": [linha],
+            "FROM partida.tb002_jogada": _jogadas_do_log(vetor),
+            "UPDATE desafio_dia.tb003_resolucao": [{"id_resolucao": uuid4()}],
+        }
+    )
+
+    contagem = await auditar_lote(sessao)
+
+    assert contagem == {"conferem": 1, "divergentes": 0, "impossiveis": 0}
+
+
+@pytest.mark.asyncio
+async def test_lance_NULO_do_xadrez_e_divergencia_de_DADO_e_nao_estouro():
+    """⛔ A regressão de 11/2026 do Quatro, agora com o xadrez: um lance `NULL`
+    (jogada sem extensão) sai DIVERGENTE com o motivo, e o job não cai."""
+    vetor = next(v for v in VETORES_DO_XADREZ if v["esperado"]["veredito"] == "cumpriu")
+    linha = _linha_do_vetor(vetor)
+
+    def jogadas(_parametros):
+        return [
+            {"nu_ordem": l["n"], "nu_jogador": 1 if l["jogador"] == 1 else 2, "co_lance": None}
+            for l in _fita(vetor)
+        ]
+
+    sessao = FakeSessaoSQL(
+        respostas={
+            "co_auditoria = 'pendente'": [linha],
+            "FROM partida.tb002_jogada": jogadas,
+            "UPDATE desafio_dia.tb003_resolucao": [{"id_resolucao": uuid4()}],
+        }
+    )
+
+    contagem = await auditar_lote(sessao)
+
+    assert contagem == {"conferem": 0, "divergentes": 1, "impossiveis": 0}

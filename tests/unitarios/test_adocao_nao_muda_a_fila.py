@@ -87,7 +87,7 @@ def test_a_epoca_do_rodizio_e_a_da_copia():
 def test_o_rodizio_ainda_e_dos_dois_jogos():
     """⛔ O jogo novo nunca entra nesta tupla (a fase dos tipos dela depende)."""
     assert gerador_mod.JOGOS_DO_RODIZIO == ("pontinhos", "damas")
-    assert "quatro" in gerador_mod.JOGOS_EM_ADOCAO
+    assert gerador_mod.JOGOS_EM_ADOCAO == ("quatro", "xadrez")
     assert not set(gerador_mod.JOGOS_EM_ADOCAO) & set(gerador_mod.JOGOS_DO_RODIZIO)
 
 
@@ -96,7 +96,19 @@ def test_o_rodizio_ainda_e_dos_dois_jogos():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@pytest.mark.parametrize("frequencias", [None, {}, {"quatro": NAO_APARECE}])
+@pytest.mark.parametrize(
+    "frequencias",
+    [
+        None,
+        {},
+        {"quatro": NAO_APARECE},
+        # ⚠️ T079 da spec 012: os DOIS jogos em adoção, nenhum aparelho em
+        # nenhuma das duas versões - é o `prd` no dia em que o backend da
+        # 1.6.0 vai ao ar antes de o app chegar às lojas.
+        {"quatro": NAO_APARECE, "xadrez": NAO_APARECE},
+        {"xadrez": NAO_APARECE},
+    ],
+)
 @pytest.mark.parametrize("evitar", VIZINHOS_POSSIVEIS)
 def test_com_adocao_zero_365_dias_dao_a_mesma_fila(frequencias, evitar):
     for dia in UM_ANO:
@@ -224,13 +236,17 @@ async def test_ler_frequencias_le_a_janela_e_escreve_no_log(capsys):
         RepositorioDoJob(sessao), dt_hoje=date(2026, 10, 21), relatorio=relatorio
     )
 
-    assert frequencias == {"quatro": Frequencia(um_dia_em=4)}
+    # ⚠️ O xadrez entra na mesma leitura (T079 da spec 012): nenhum aparelho
+    # na 1.6.0, e ele não aparece.
+    assert frequencias == {"quatro": Frequencia(um_dia_em=4), "xadrez": NAO_APARECE}
     leituras = [p for sql, p in sessao.executadas if "log.vw004_aparelho_dia" in sql]
     assert leituras == [{"dt_inicio": date(2026, 10, 14), "dt_fim": date(2026, 10, 20)}]
     # O número com o denominador e a consequência na fila.
     assert relatorio.adocao == [
         "quatro (>= 1.4.0): 2 de 5 aparelhos (40.0%) entre 2026-10-14 e "
-        "2026-10-20 -> 1 dia em 4"
+        "2026-10-20 -> 1 dia em 4",
+        "xadrez (>= 1.6.0): 0 de 5 aparelhos (0.0%) entre 2026-10-14 e "
+        "2026-10-20 -> não aparece",
     ]
     assert "[job] adocao de quatro (>= 1.4.0): 2 de 5" in capsys.readouterr().out
 
@@ -241,7 +257,7 @@ async def test_amostra_vazia_tira_o_jogo_novo_do_ar():
     frequencias = await principal_mod.ler_frequencias(
         RepositorioDoJob(FakeSessaoSQL()), dt_hoje=date(2026, 10, 21), relatorio=relatorio
     )
-    assert frequencias == {"quatro": NAO_APARECE}
+    assert frequencias == {"quatro": NAO_APARECE, "xadrez": NAO_APARECE}
     assert relatorio.adocao[0].endswith("0 de 0 aparelhos (0.0%) entre 2026-10-14 e 2026-10-20 -> não aparece")
 
 
@@ -261,7 +277,7 @@ async def test_a_execucao_le_a_adocao_uma_vez_e_entrega_a_mesma_a_todo_dia(monke
     leituras = [sql for sql, _ in sessao.executadas if "log.vw004_aparelho_dia" in sql]
     assert len(leituras) == 1
     assert len(recebidas) >= 2  # o plano tem vários dias
-    esperado = {"quatro": Frequencia(um_dia_em=3, rodizio_pleno=True)}
+    esperado = {"quatro": Frequencia(um_dia_em=3, rodizio_pleno=True), "xadrez": NAO_APARECE}
     assert all(f == esperado for f in recebidas)
     # O MESMO objeto, e não uma releitura por dia.
     assert all(f is recebidas[0] for f in recebidas)
@@ -330,15 +346,99 @@ def test_o_gerador_escolhe_o_jogo_com_a_adocao_que_recebe(monkeypatch):
 
 
 def test_dois_jogos_novos_ao_mesmo_tempo_dividem_os_dias():
-    """Genérico: um 2º jogo em adoção começa a janela noutro ponto da volta.
+    """O Quatro e o xadrez em adoção juntos: cada um fica com a parte dele.
 
     ⚠️ Sem o deslocamento os dois teriam as MESMAS janelas, e o 1º da ordem
     ficaria com todos os dias - o 2º nunca sairia, sem erro nenhum.
     """
-    frequencias = {"quatro": Frequencia(um_dia_em=6), "outro": Frequencia(um_dia_em=6)}
+    frequencias = {"quatro": Frequencia(um_dia_em=6), "xadrez": Frequencia(um_dia_em=6)}
     jogos = [escolher_jogo(dia, frequencias=frequencias) for dia in UM_ANO]
     assert abs(jogos.count("quatro") - 365 / 6) <= 4
-    assert abs(jogos.count("outro") - 365 / 6) <= 4
+    assert abs(jogos.count("xadrez") - 365 / 6) <= 4
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. O xadrez em adoção (T079 da spec 012)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: As faixas que cada jogo novo pode ter (`None` = não aparece).
+FAIXAS = [None, 6, 4, 3]
+
+
+def _faixa(n: int | None) -> Frequencia:
+    return NAO_APARECE if n is None else Frequencia(um_dia_em=n)
+
+
+def test_cada_jogo_em_adocao_tem_o_seu_deslocamento():
+    """⛔ Um jogo novo sem deslocamento cairia nas janelas de outro."""
+    assert set(gerador_mod.DESLOCAMENTO_DA_ADOCAO) == set(gerador_mod.JOGOS_EM_ADOCAO)
+    # O Quatro continua em 0: o deslocamento que ele tinha sozinho (`0 / 1`).
+    assert gerador_mod.DESLOCAMENTO_DA_ADOCAO["quatro"] == 0.0
+    assert gerador_mod.DESLOCAMENTO_DA_ADOCAO["xadrez"] == 0.5
+
+
+def test_jogo_novo_sem_deslocamento_e_recusado():
+    with pytest.raises(ValueError, match="deslocamento"):
+        escolher_jogo(INICIO, frequencias={"mancala": Frequencia(um_dia_em=6)})
+
+
+@pytest.mark.parametrize("n_quatro", [6, 4, 3])
+@pytest.mark.parametrize("n_xadrez", FAIXAS)
+@pytest.mark.parametrize("evitar", VIZINHOS_POSSIVEIS)
+def test_o_xadrez_em_adocao_nao_muda_os_dias_do_quatro(n_quatro, n_xadrez, evitar):
+    """⚠️ Os dias do Quatro, com o xadrez em qualquer faixa, são os de hoje.
+
+    "Hoje" é o Quatro sozinho em adoção (antes da T079). O caso vale nos dois
+    sentidos: nenhum dia do Quatro some, e nenhum dia novo vira do Quatro.
+    """
+    so_o_quatro = {"quatro": Frequencia(um_dia_em=n_quatro)}
+    os_dois = {"quatro": Frequencia(um_dia_em=n_quatro), "xadrez": _faixa(n_xadrez)}
+    for dia in UM_ANO:
+        antes = escolher_jogo(dia, evitar=evitar, frequencias=so_o_quatro)
+        agora = escolher_jogo(dia, evitar=evitar, frequencias=os_dois)
+        assert (antes == "quatro") == (agora == "quatro"), dia
+        if agora != "xadrez":
+            # Dia que o xadrez não tomou: a resposta inteira é a de antes,
+            # e o tipo do jogo antigo também.
+            assert agora == antes, dia
+            if agora != "quatro":
+                assert escolher_tipo(agora, dia) == _escolher_tipo_de_antes(agora, dia), dia
+
+
+@pytest.mark.parametrize("n_quatro", [6, 4, 3])
+@pytest.mark.parametrize("n_xadrez", [6, 4, 3])
+def test_as_janelas_do_quatro_e_do_xadrez_nunca_se_tocam(n_quatro, n_xadrez):
+    """Sozinhos, os dias de um nunca são dias do outro: a ordem da tupla não decide nada."""
+    dias_do_quatro = {
+        d for d in UM_ANO if escolher_jogo(d, frequencias={"quatro": Frequencia(um_dia_em=n_quatro)}) == "quatro"
+    }
+    dias_do_xadrez = {
+        d for d in UM_ANO if escolher_jogo(d, frequencias={"xadrez": Frequencia(um_dia_em=n_xadrez)}) == "xadrez"
+    }
+    assert dias_do_quatro and dias_do_xadrez
+    assert not dias_do_quatro & dias_do_xadrez
+
+
+@pytest.mark.parametrize("n", [6, 4, 3])
+def test_o_xadrez_no_ar_toma_a_parte_dele_e_o_resto_e_o_de_antes(n):
+    frequencias = {"quatro": NAO_APARECE, "xadrez": Frequencia(um_dia_em=n)}
+    tomados = 0
+    for dia in UM_ANO:
+        jogo = escolher_jogo(dia, frequencias=frequencias)
+        if jogo == "xadrez":
+            tomados += 1
+            continue
+        assert jogo == _escolher_jogo_de_antes(dia), dia
+        assert escolher_tipo(jogo, dia) == _escolher_tipo_de_antes(jogo, dia), dia
+    assert abs(tomados - 365 / n) <= 4
+
+
+def test_o_xadrez_desvia_do_vizinho_que_ja_e_dele():
+    frequencias = {"xadrez": Frequencia(um_dia_em=3)}
+    dia = next(d for d in UM_ANO if escolher_jogo(d, frequencias=frequencias) == "xadrez")
+    assert escolher_jogo(dia, evitar=("xadrez",), frequencias=frequencias) == (
+        _escolher_jogo_de_antes(dia, evitar=("xadrez",))
+    )
 
 
 def test_a_versao_minima_e_a_menor_por_numero(monkeypatch):

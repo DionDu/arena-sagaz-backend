@@ -54,6 +54,12 @@ T095 — antes dela as damas declaravam `python` e o Pontinhos ⛔ declarava o D
                  `tflite`            = os pesos que produzem a softmax
                  `codificacao`       = o contrato de codificacao, byte-identico
                                        no aplicativo
+    quatro     → `dart`, `resumo_do_carimbo` e `contrato`, a forma das damas
+    xadrez     → `rust`              = o executavel Rust (T082 da spec 012): o
+                                       xadrez nunca teve motor Dart
+                 `resumo_do_carimbo` = o SHA-256 dos fontes do crate, carimbado
+                                       no executavel (T063)
+                 `contrato`          = `contrato_xadrez.json`, que o app carrega
 
 ⚠️ **O contrato entra na lista de proposito, e o carimbo entrou depois.** Ate
 25/09/2026 o servidor jogava com um port Python e o aparelho com Dart: duas
@@ -94,6 +100,8 @@ from motores.pontinhos import jogador_dart_pontinhos
 from motores.pontinhos import motor_pontinhos
 from motores.quatro import contrato_quatro
 from motores.quatro import jogador_dart_quatro
+from motores.xadrez import contrato_xadrez
+from motores.xadrez import jogador_xadrez
 
 #: A versao do formato de `js_motores` e de `js_arquivos`.
 #:
@@ -265,6 +273,34 @@ def _motores_do_quatro() -> list[dict[str, str]]:
     ]
 
 
+def _motores_do_xadrez() -> list[dict[str, str]]:
+    """Os registros do jogador do xadrez - a forma do Quatro, com o Rust.
+
+    ⚠️ **O motor que escolhe o lance e o `rust`, e nao `dart`** (T082 da spec
+    012): o xadrez e so Rust, no aparelho e no servidor. O `co_versao` dele e o
+    carimbo do desafio (`xadrez-rust-<sha>`), como o `dart` dos outros e o
+    `co_versao_motor` da linha. O `resumo_do_carimbo` e o dos fontes do crate,
+    o mesmo que o executavel anuncia e o jogador confere na abertura (T063).
+    """
+    return [
+        {
+            "co_jogo": "xadrez",
+            "co_motor": "rust",
+            "co_versao": contrato_xadrez.versao_do_motor_no_espelho(),
+        },
+        {
+            "co_jogo": "xadrez",
+            "co_motor": "resumo_do_carimbo",
+            "co_versao": jogador_xadrez.resumo_dos_fontes()[:DIGITOS_DO_RESUMO_DART],
+        },
+        {
+            "co_jogo": "xadrez",
+            "co_motor": "contrato",
+            "co_versao": contrato_xadrez.versao_do_contrato(),
+        },
+    ]
+
+
 def linhas_da_dimensao() -> list[dict[str, Any]]:
     """As linhas de `desafio.tb904_motor` dos motores vigentes — uma por jogo.
 
@@ -304,6 +340,11 @@ def linhas_da_dimensao() -> list[dict[str, Any]]:
             contrato_quatro.versao_do_motor(),
             contrato_quatro.arquivos_do_motor(),
             _motores_do_quatro(),
+        ),
+        "xadrez": (
+            contrato_xadrez.versao_do_motor_no_espelho(),
+            contrato_xadrez.arquivos_do_motor(),
+            _motores_do_xadrez(),
         ),
     }
 

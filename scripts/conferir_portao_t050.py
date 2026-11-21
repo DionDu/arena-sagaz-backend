@@ -51,6 +51,7 @@ COMO SE USA
     .venv\\Scripts\\python scripts\\conferir_portao_t050.py
     .venv\\Scripts\\python scripts\\conferir_portao_t050.py --sem-escrita
     .venv\\Scripts\\python scripts\\conferir_portao_t050.py --jogo quatro
+    .venv\\Scripts\\python scripts\\conferir_portao_t050.py --jogo xadrez
 
 `--jogo` (T121 da spec 010, o portao 4a do Quatro em Linha, R-24) pede as
 quatro condicoes **tambem** para um jogo em adocao: (a) cobra o jogo publicado,
@@ -93,7 +94,7 @@ JOGOS_DO_RODIZIO = ("pontinhos", "damas")
 #: `DATABASE_URL` antes de importar a API, e importar o job no topo arriscaria
 #: carregar o banco com a URL errada. O teste `test_portao_t050_por_jogo.py`
 #: confere que as duas listas sao iguais.
-JOGOS_EM_ADOCAO = ("quatro",)
+JOGOS_EM_ADOCAO = ("quatro", "xadrez")
 
 #: O formato da posicao inicial de cada jogo. ⚠️ Um formato trocado abriria o
 #: tabuleiro vazio, e o aplicativo nao tem como denunciar isso.
@@ -101,6 +102,9 @@ FORMATO_POR_JOGO = {
     "pontinhos": "sequencia_lances",
     "damas": "fen",
     "quatro": "sequencia_lances",
+    # ⚠️ O xadrez tambem e `fen`, mas o FEN dele e o do xadrez (contrato §1 da
+    # spec 012), e quem o confere e `posicao_inicial._conferir_xadrez`.
+    "xadrez": "fen",
 }
 
 #: O `co_versao_motor` que o app grava numa partida do Quatro: `dart_` e a
@@ -119,6 +123,17 @@ CADEADOS_POR_JOGO = {
         "tests/unitarios/test_feitos_quatro.py",
         "tests/unitarios/test_jogador_dart_quatro.py",
         "tests/unitarios/test_contrato_extensao_quatro.py",
+    ],
+    # O xadrez (T082 da spec 012): o contrato espelhado, a paridade das regras
+    # com o app (os vetores do motor), as medidas e o juiz (`feitos_xadrez`), o
+    # executavel que joga no servidor, a extensao do log e a posicao publicada.
+    "xadrez": [
+        "tests/unitarios/test_contrato_xadrez.py",
+        "tests/unitarios/test_vetores_paridade_xadrez.py",
+        "tests/unitarios/test_feitos_xadrez.py",
+        "tests/unitarios/test_jogador_xadrez.py",
+        "tests/unitarios/test_contrato_extensao_xadrez.py",
+        "tests/unitarios/test_posicao_inicial_xadrez.py",
     ],
 }
 
@@ -309,17 +324,7 @@ async def _condicao_a_o_job_produz(
         # esteja **completa**, e nao so presente. Uma posicao sem a vez e ambigua,
         # e o aplicativo abriria o tabuleiro com o lado errado a jogar.
         incompletas = (
-            await conexao.execute(
-                text(
-                    # ⚠️ `jsonb_exists(...)` e nao o operador `?`: o driver
-                    # asyncpg usa `$1` para parametro e nao escapa `?`, entao o
-                    # operador chega ao Postgres partido ao meio. A funcao faz
-                    # exatamente a mesma pergunta.
-                    "SELECT count(*) FROM desafio.vw001_desafio "
-                    " WHERE js_posicao_inicial IS NULL "
-                    "    OR NOT jsonb_exists(js_posicao_inicial, 'vez_de')"
-                )
-            )
+            await conexao.execute(text(SQL_POSICOES_INCOMPLETAS))
         ).scalar()
 
     jogos = {linha["co_jogo"] for linha in linhas}
@@ -345,9 +350,10 @@ async def _condicao_a_o_job_produz(
     relatorio.anotar(
         condicao,
         incompletas == 0,
-        "toda posicao inicial tem `vez_de`"
+        "toda posicao inicial diz quem resolve (`vez_de`; no xadrez, `cor_da_pessoa`)"
         if incompletas == 0
-        else f"⛔ {incompletas} posicao(oes) inicial(is) sem `vez_de`",
+        else f"⛔ {incompletas} posicao(oes) inicial(is) sem `vez_de` "
+        "(ou, no xadrez, sem `cor_da_pessoa`)",
     )
 
     # ⚠️ As damas rodiziam as quatro modalidades. Com a fila curta nem todas
@@ -374,6 +380,24 @@ async def _condicao_a_o_job_produz(
             if sem_modalidade == 0
             else f"⛔ {sem_modalidade} linha(s) de {co_jogo} sem modalidade",
         )
+
+
+#: As posicoes publicadas que nao dizem quem resolve o desafio.
+#:
+#: ⚠️ **O xadrez nao tem `vez_de`, e e de proposito** (contrato §1 da spec 012):
+#: a posicao dele diz a COR da pessoa (`cor_da_pessoa`), e a pessoa e sempre o
+#: `+1` da fita (`posicao_inicial.vez_de_quem_resolve`). Cobrar `vez_de` de todo
+#: jogo deixaria o portao da 009 vermelho no 1o desafio de xadrez do `des`.
+#:
+#: ⚠️ `jsonb_exists(...)` e nao o operador `?`: o driver asyncpg usa `$1` para
+#: parametro e nao escapa `?`, entao o operador chega ao Postgres partido ao
+#: meio. A funcao faz exatamente a mesma pergunta.
+SQL_POSICOES_INCOMPLETAS = """
+SELECT count(*) FROM desafio.vw001_desafio
+ WHERE js_posicao_inicial IS NULL
+    OR (co_jogo <> 'xadrez' AND NOT jsonb_exists(js_posicao_inicial, 'vez_de'))
+    OR (co_jogo = 'xadrez' AND NOT jsonb_exists(js_posicao_inicial, 'cor_da_pessoa'))
+"""
 
 
 def julgar_jogos_publicados(
@@ -600,6 +624,8 @@ def partida_do_portao(dia) -> dict[str, Any]:
       * a semente do desafio, o contrato vigente e a versao do motor que o
         app grava (`VERSAO_DO_MOTOR_QUATRO_NO_APP`).
     """
+    if dia["co_jogo"] == "xadrez":
+        return _partida_do_xadrez(dia)
     if dia["co_jogo"] != "quatro":
         return {"co_variante": "pequeno"}
 
@@ -620,6 +646,46 @@ def partida_do_portao(dia) -> dict[str, Any]:
             "nu_jogador_abertura": 1 if publicados % 2 == 0 else -1,
             "co_preferencia_abertura": "j1",
             "nu_semente_partida": dia["nu_semente"],
+            "js_extra": None,
+        },
+    }
+
+
+def _partida_do_xadrez(dia) -> dict[str, Any]:
+    """O corpo da partida de um dia de xadrez (T082 da spec 012).
+
+    ⚠️ **Leva a extensao do xadrez** (`contracts/extensao-log-xadrez.md` §1), pelo
+    mesmo motivo do Quatro: ela grava em `jogo_xadrez.tb001_partida`, que tem
+    cinco colunas `NOT NULL` (0039), e um corpo sem ela nao exerceria essa
+    escrita. O que se manda e o que o app grava numa partida de desafio:
+
+      * `co_variante` = a modalidade (`tradicional`);
+      * `co_inicio` = `desafio`, e `co_fen_inicial` = o FEN publicado;
+      * `co_cor_j1` = a cor da pessoa (`cor_da_pessoa`): no desafio o J1 e
+        sempre ela, e a cor de regra dela e a do FEN;
+      * `co_motivo_fim` = `None`: a partida de mentira nao acabou no tabuleiro
+        (a coluna e anulavel, e "nao acabou" e a verdade);
+      * a semente do desafio, o contrato vigente e a versao do motor no formato
+        que o app grava (`rust_<versao do crate>`, a mesma do manifesto do
+        binario do app; cadeado em `test_portao_t050_por_jogo.py`).
+    """
+    from motores.xadrez import contrato_xadrez
+
+    posicao = dia["js_posicao_inicial"]
+    # O driver pode devolver o JSONB como texto; nos dois casos vira dicionario.
+    if isinstance(posicao, str):
+        posicao = json.loads(posicao)
+    return {
+        "co_variante": dia["co_modalidade"],
+        "xadrez": {
+            "co_versao_motor": contrato_xadrez.versao_do_motor(),
+            "co_versao_contrato": contrato_xadrez.versao_do_contrato(),
+            "co_inicio": "desafio",
+            "co_fen_inicial": posicao["fen"],
+            "co_cor_j1": posicao["cor_da_pessoa"],
+            "co_motivo_fim": None,
+            "nu_semente_partida": dia["nu_semente"],
+            "recusas": [],
             "js_extra": None,
         },
     }
@@ -1208,7 +1274,10 @@ def main() -> int:
         "--jogo",
         choices=JOGOS_EM_ADOCAO,
         default=None,
-        help="confere tambem um jogo em adocao (o portao 4a do Quatro: `--jogo quatro`)",
+        help=(
+            "confere tambem um jogo em adocao (o portao 4a do Quatro: `--jogo quatro`; "
+            "o 2 do xadrez: `--jogo xadrez`)"
+        ),
     )
     argumentos = analisador.parse_args()
 

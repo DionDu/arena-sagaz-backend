@@ -12126,3 +12126,72 @@ dias ao xadrez é a adoção (T079), que começa em zero, e a versão mínima é
 ⚠️ **Fica para a T082** (a publicação no `des`): `posicao_inicial.conferir` ainda não confere o FEN do
 xadrez (a posição do xadrez, contrato §1, não tem `versao`), e a `0041` tem de estar aplicada no `des`
 antes de a adoção dar o primeiro dia ao xadrez.
+
+## 2026-11-21 (13) — O xadrez em adoção (T079), a posição dele conferida, e a 1.5.0 e a sonda (T080, T081)
+
+**Contexto.** Os onze tipos estão no ar no código (histórico "(12)") e a `0041` está aplicada no `des`.
+Faltava o xadrez ganhar dias (a adoção) e o job conseguir publicá-lo: até aqui a posição do xadrez caía
+na conferência das DAMAS (o formato dos dois é `fen`) e morria pela falta da `versao`.
+
+**O que mudou.**
+- **A adoção (T079).** `JOGOS_EM_ADOCAO = ("quatro", "xadrez")`, nunca em `JOGOS_DO_RODIZIO`. ⚠️ O
+  deslocamento passou a ser **fixo por jogo** (`gerador.DESLOCAMENTO_DA_ADOCAO = {"quatro": 0.0,
+  "xadrez": 0.5}`), e não `indice / len(...)`: a conta antiga dava o mesmo 0 ao Quatro só porque ele
+  vinha primeiro na tupla, e uma reordenação trocaria os dias dele calada. Com 0 e 0,5 as janelas
+  (`[d, d + 1/N)`, N ≥ 3) nunca se tocam, em nenhuma combinação de faixas: o xadrez nunca toma um dia
+  do Quatro. Jogo em adoção sem deslocamento declarado é `ValueError`. Cadeados em
+  `test_adocao_nao_muda_a_fila.py`: com adoção 0 (os dois jogos), 365 dias dão a fila de antes; os dias
+  do Quatro com o xadrez em qualquer faixa são os de hoje; as janelas não se tocam; e em
+  `test_adocao.py`, a versão mínima do xadrez é a 1.6.0 (o 1.5.0 não o faz aparecer). Alternativa
+  considerada: manter `indice / len` e só travar a ordem da tupla, recusada porque o 3º jogo mudaria o
+  denominador de todos.
+- **A conferência do FEN do xadrez.** `posicao_inicial.conferir` separa o xadrez pelo `jogo` de dentro da
+  posição (como o Quatro, pelo `co_jogo`), antes da `versao`. `_conferir_xadrez`: as chaves do contrato
+  §1 e nenhuma outra, a modalidade do desafio, a `origem`; **o motor** (`estado`, sem lance) lê o FEN,
+  diz a vez (tem de ser a `cor_da_pessoa`) e se a partida acabou (não pode); e, lendo o FEN como tabela,
+  as marcas apontam para peças da cor certa (as espiãs da pessoa, o alvo do adversário, as duas espiãs
+  de classes diferentes) e as `classes`/`troca` falam de peças que existem. Nenhuma regra de xadrez em
+  Python. Teste: `test_posicao_inicial_xadrez.py` (a posição que o job sorteia nos onze tipos, três
+  sementes cada, passa; 25 defeitos recusados com o motivo).
+- **O portão (para a T082).** `conferir_portao_t050.py` aceita `--jogo xadrez`: o formato `fen`, os seis
+  cadeados do xadrez em (d), a partida de prova com a extensão do xadrez (`co_inicio = desafio`, o FEN
+  publicado, a cor da pessoa como J1, a versão do motor no formato do app) e, em (a), o xadrez cobrado
+  pela `cor_da_pessoa` no lugar do `vez_de` (`SQL_POSICOES_INCOMPLETAS`): sem isso, o 1º desafio de
+  xadrez no `des` deixaria vermelho também o portão da 009.
+- ⛔ **A fita da auditoria e a do replay não juntavam o xadrez** (`job/auditoria.SQL_FITA`,
+  `api/desafios/quadro.SQL_LANCES`): é o defeito que derrubou o job todo dia com o Quatro em 11/11/2026,
+  e só não se repetiu porque nenhum desafio de xadrez tinha ido ao ar. As duas ganharam o
+  `LEFT JOIN jogo_xadrez.vw002_jogada x` e o `x.co_lance` (o replay, também a FEN de antes). O cadeado
+  agora sai da lista do gerador (todo jogo de `JOGOS_DO_RODIZIO` e `JOGOS_EM_ADOCAO` tem o seu `JOIN`
+  nas duas), e a auditoria do xadrez de ponta a ponta confere os onze "cumpre" pelo lote.
+- **A 1.5.0 recebendo o dia de xadrez (T080).** `test_xadrez_num_app_1_5.py`, no molde do Quatro na 1.3:
+  os cabeçalhos da 1.5.0 (a `main` do app, `958fd93c`), o desafio servido em cada um dos onze tipos
+  passa no parser da 1.5.0 (`fen` com `tabuleiro` texto e `posicao` nula), o dia impedido gravado com
+  `1.5.0`/`1.6.0`, a chama segura. E a partida de xadrez de um app 1.6.0 num backend sem o ingestor (o da
+  `main`) é aceita pela validação (que não mudou) e vai ao aviso de extensão desconhecida.
+- **A sonda (T081).** `test_sonda_xadrez.py` cresceu: a sonda atravessa `feitos_xadrez` e o juiz pela
+  `modalidade` da posição, e a regra dela (o empate dos 30 lances) chega ao veredito: a mesma fita, com o
+  relógio em 58 meios-lances, empata na sonda (o "proteja a espiã por 3 lances" não é cumprido, e o
+  lance depois do fim é dado inválido) e cumpre no tradicional. O cadeado de fonte se estendeu a
+  `motores/juiz.py` e `motores/nucleo/`.
+
+- ⛔ **As duas dimensões que o job grava antes de tudo não conheciam o xadrez** (`job/perfil.py`, a
+  `tb903`, e `job/motor.py`, a `tb904`): é a 1ª tentativa da T125 do Quatro de novo, e os dois cadeados
+  que saem da lista do gerador (`test_todo_jogo_do_job_tem_PERFIL` e `..._MOTOR`) pegaram assim que o
+  xadrez entrou na adoção. O perfil ganhou o contrato do xadrez (um bloco por modalidade, a forma do
+  Quatro; ⚠️ a versão do perfil muda para todos, como na entrada do Quatro, sem mudar número nenhum).
+  O motor ganhou a linha do xadrez com `rust` (quem escolhe o lance), o `resumo_do_carimbo` dos fontes
+  do crate e a versão do contrato. ⚠️ **E o carimbo do desafio do xadrez mudou de forma**: era
+  `rust_0.10.0` (a versão do crate, o que o APP grava no log), e passou a `xadrez-rust-<8 hex>`
+  (`contrato_xadrez.versao_do_motor_no_espelho`), dos hashes do espelho com o prefixo
+  `jogos/jogo_xadrez/`, como `quatro-dart-<8 hex>`: é o que torna a linha da `tb904` decifrável sem o
+  Git (o cadeado "o carimbo se refaz a partir da linha"). O `contrato_xadrez.versao_do_motor` (o
+  `rust_X`) não mudou: é o do log do app e o da calibração do mate. Nenhum desafio de xadrez estava
+  gravado com o formato antigo. Alternativa considerada: abrir no cadeado uma exceção para o xadrez
+  (um carimbo que não se decifra), recusada: a linha valeria menos que a dos outros três jogos.
+
+⚠️ **Achado, para decidir antes das telas do desafio** (não trava a T082): para o formato `fen`, a API
+serve só o `tabuleiro` (o FEN) e descarta a `posicao` (`api/desafios/publicacao.posicao_publicada`). Nas
+damas basta; no xadrez, a `cor_da_pessoa`, as `marcas`, as `classes` e a `troca` ficam no banco e não
+chegam ao app 1.6.0, cujo medidor as lê. ⛔ Servir a posição inteira em `posicao` junto com o `tabuleiro`
+quebraria a 1.5.0 (o parser dela recusa os dois juntos, e o `DesafioInvalido` não grava o dia impedido).

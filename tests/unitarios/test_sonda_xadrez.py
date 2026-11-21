@@ -173,3 +173,175 @@ def test_o_nome_da_modalidade_nao_esta_escrito_no_codigo_do_xadrez_nem_no_job():
         "o nome de uma modalidade está escrito no código; leia-o do contrato "
         "(contrato_xadrez.modalidades_declaradas()):\n  " + "\n  ".join(achados)
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A SONDA CRESCE (fase 2, T081): ela atravessa os feitos e o JUIZ do desafio
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# A sonda entra no juiz pela mesma porta da modalidade de verdade: a
+# `modalidade` da POSIÇÃO publicada (no xadrez o juiz não lê `co_modalidade`),
+# o contrato e o executável. Se fazê-la passar exigisse uma linha em
+# `motores/juiz.py` ou em `motores/xadrez/feitos_xadrez.py` que a citasse, seria
+# o defeito que ela existe para achar.
+#
+# ⚠️ **E ela tem o que a de verdade não tem: o empate dos 30 lances**, no lugar
+# dos 50. A mesma fita, na mesma posição, termina empatada na sonda e segue no
+# tradicional: é a prova de que a regra chega ao veredito pelo contrato, e não
+# por um número escrito no caminho.
+
+from motores.juiz import julgar_desafio  # noqa: E402
+from motores.nucleo.medidor_por_fita import CUMPRIU, DADO_INVALIDO, NAO_CUMPRIU  # noqa: E402
+from motores.xadrez import feitos_xadrez as fx  # noqa: E402
+
+#: Brancas a jogar, com o relógio dos lances sem captura em 58 MEIOS-lances
+#: (29 lances de cada lado): dois lances quietos o levam a 60, que é o limite da
+#: sonda (30 lances) e não o do tradicional (50). Os peões são para a posição
+#: não ser material insuficiente, que acabaria a partida antes.
+FEN_DO_RELOGIO = "4k3/p7/8/8/8/8/P2N4/4K3 w - - 58 80"
+
+#: A pessoa de brancas, com o cavalo de d2 como espiã.
+ESPIA = "d2"
+
+#: Três lances da pessoa, todos com o cavalo espião, e dois do adversário.
+FITA_LONGA = ["d2f3", "e8d8", "f3e5", "d8e8", "e5f3"]
+
+
+def _posicao_do_relogio(modalidade: str) -> dict:
+    """A posição publicada, no formato do contrato §1, na [modalidade]."""
+    return {
+        "jogo": "xadrez",
+        "modalidade": modalidade,
+        "fen": FEN_DO_RELOGIO,
+        "cor_da_pessoa": "branca",
+        "marcas": {"espia": ESPIA},
+        "origem": "base_equilibrada",
+    }
+
+
+#: "Proteja a espiã por 3 lances" (o `xadrez_espia_proteger`), na forma que a
+#: receita monta: a janela de 3 lances da pessoa, os 3 lances jogados e a espiã
+#: nunca comida.
+CHEGADA_PROTEGER_3 = {
+    "versao": 1,
+    "janela": {"tipo": "lances_do_jogador", "n": 3},
+    "clausulas": [
+        {"tipo": "medida", "chave": "lances_do_jogador", "comparador": "maior_ou_igual", "valor": 3},
+        {"tipo": "medida", "chave": "espia_comida", "comparador": "menor_ou_igual", "valor": 0},
+    ],
+}
+
+
+def _fita(lances: list[str]) -> list[dict]:
+    """A fita do juiz: a pessoa (`+1`) abre, e a vez alterna."""
+    return [
+        {"n": i, "jogador": 1 if i % 2 == 1 else -1, "lance": lance}
+        for i, lance in enumerate(lances, start=1)
+    ]
+
+
+@pytest.fixture
+def motor_da_sonda(na_sonda, monkeypatch):
+    """Um executável aberto com o contrato da sonda, entregue aos feitos.
+
+    ⚠️ **Os feitos usam o executável DESTA THREAD** (`jogador_compartilhado`),
+    e um que outro teste já abriu com o contrato de verdade não conhece a
+    sonda. A troca é só aqui, no teste: a produção continua chamando o mesmo
+    `reproduzir`, sem saber qual contrato o motor leu.
+    """
+    try:
+        jx.caminho_do_executavel()
+    except jx.MotorDartIndisponivel as erro:
+        pytest.skip(f"o executável do xadrez não está compilado: {erro}")
+    with jx.JogadorXadrez() as motor:
+        assert motor.abertura["modalidades"] == [SONDA]
+        monkeypatch.setattr(fx, "jogador_compartilhado", lambda: motor)
+        yield motor
+
+
+@pytest.fixture
+def motor_de_verdade(monkeypatch):
+    """O executável com o contrato de verdade, entregue aos feitos do mesmo jeito."""
+    try:
+        jx.caminho_do_executavel()
+    except jx.MotorDartIndisponivel as erro:
+        pytest.skip(f"o executável do xadrez não está compilado: {erro}")
+    with jx.JogadorXadrez() as motor:
+        monkeypatch.setattr(fx, "jogador_compartilhado", lambda: motor)
+        yield motor
+
+
+def test_a_sonda_atravessa_os_feitos_e_empata_nos_30_lances(motor_da_sonda):
+    """Os fatos do motor da sonda chegam às medidas: dois lances, e é empate."""
+    posicao = _posicao_do_relogio(SONDA)
+    passos = fx.reproduzir(posicao, FITA_LONGA[:2])
+    assert passos[-1]["fatos"]["fim"] == {"motivo": "cinquenta_lances", "vencedor": None}
+    medidas = fx.medir(posicao, passos)
+    assert medidas["empate"] == 1 and medidas["vitoria"] == 0
+    assert medidas["lances_do_jogador"] == 1
+    # E a espiã foi seguida pelo motor da sonda (ela andou, não foi comida).
+    assert passos[0]["marcas"]["espia"]["casa"] == "f3"
+    assert medidas["espia_comida"] == 0
+
+
+def test_no_tradicional_a_mesma_fita_segue_e_nao_empata(motor_de_verdade):
+    """O controle: com os 50 lances, o relógio em 60 meios-lances não é fim."""
+    modalidade = cx.modalidades_declaradas()[0]
+    posicao = _posicao_do_relogio(modalidade)
+    passos = fx.reproduzir(posicao, FITA_LONGA)
+    assert all(passo["fatos"]["fim"] is None for passo in passos)
+    assert fx.medir(posicao, passos)["empate"] == 0
+
+
+def test_a_sonda_atravessa_o_juiz(motor_da_sonda):
+    """O "proteja a espiã por 3 lances", julgado na sonda.
+
+    A partida empata no 2º meio-lance, com 1 lance da pessoa: o desafio NÃO é
+    cumprido (ela não chegou aos 3). E a fita que continua depois do fim é dado
+    inválido: o motor da sonda recusa o lance, e o juiz não inventa um veredito.
+    """
+    args = dict(
+        co_jogo="xadrez",
+        js_posicao_inicial=_posicao_do_relogio(SONDA),
+        js_chegada=CHEGADA_PROTEGER_3,
+        jogador=1,
+    )
+    curta = julgar_desafio(fita=_fita(FITA_LONGA[:2]), **args)
+    assert curta.veredito == NAO_CUMPRIU
+    assert curta.feitos["empate"] == 1
+    assert julgar_desafio(fita=_fita(FITA_LONGA), **args).veredito == DADO_INVALIDO
+
+
+def test_no_tradicional_o_mesmo_desafio_e_cumprido(motor_de_verdade):
+    """O controle do juiz: sem o empate dos 30, os três lances cumprem."""
+    modalidade = cx.modalidades_declaradas()[0]
+    julgamento = julgar_desafio(
+        co_jogo="xadrez",
+        js_posicao_inicial=_posicao_do_relogio(modalidade),
+        js_chegada=CHEGADA_PROTEGER_3,
+        fita=_fita(FITA_LONGA),
+        jogador=1,
+    )
+    assert julgamento.veredito == CUMPRIU
+    # O instante do objetivo é o 3º lance da pessoa, o 5º da fita.
+    assert julgamento.nu_lance_cumpre_desafio == 5
+
+
+def test_a_chegada_e_a_que_a_receita_monta():
+    """A chegada acima não é escrita à mão por gosto: é a da receita de verdade."""
+    from job.tipos_de_desafio import RECEITAS
+
+    assert RECEITAS["xadrez_espia_proteger"].montar({"lances": 3, "espia": "cavalo"}) == (
+        CHEGADA_PROTEGER_3
+    )
+
+
+def test_o_juiz_e_o_nucleo_tambem_nao_citam_a_modalidade():
+    """O cadeado de fonte, estendido ao que a sonda atravessa nesta fase."""
+    achados = []
+    arquivos = [RAIZ / "motores" / "juiz.py", *sorted((RAIZ / "motores" / "nucleo").rglob("*.py"))]
+    for arquivo in arquivos:
+        for n, linha in enumerate(arquivo.read_text(encoding="utf-8").splitlines(), 1):
+            if _LITERAL.search(linha):
+                achados.append(f"{arquivo.relative_to(RAIZ)}:{n}: {linha.strip()}")
+    assert not achados, "\n  ".join(achados)

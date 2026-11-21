@@ -340,3 +340,47 @@ def test_o_deslocamento_separa_dois_jogos_novos():
     outro = set(_dias(Frequencia(um_dia_em=6), deslocamento=0.5))
     assert um and outro
     assert not um & outro
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A versão mínima de cada jogo em adoção (T079 da spec 012)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_versao_minima_do_xadrez_e_a_1_6_0():
+    """O xadrez só toma dia quando algum aparelho tem a 1.6.0 (R-33, R-35).
+
+    ⚠️ Vem do editorial, e não é escrita aqui à mão no gerador: é a mesma
+    versão que a tela de atualizar usa. Uma publicação nova do xadrez com uma
+    mínima mais baixa puxaria o jogo para aparelhos que não o abrem.
+    """
+    from job import gerador as gerador_mod
+    from job.editorial import EDITORIAL, VERSAO_MINIMA_DO_XADREZ
+
+    assert VERSAO_MINIMA_DO_XADREZ == "1.6.0"
+    assert gerador_mod.versao_minima_do_jogo("xadrez") == "1.6.0"
+    # E toda publicação no ar do xadrez pede a mesma.
+    versoes = {
+        publicacao.co_versao_minima
+        for co_tipo in gerador_mod.tipos_do_jogo("xadrez")
+        for publicacao in EDITORIAL[co_tipo]
+    }
+    assert versoes == {"1.6.0"}
+
+
+@pytest.mark.parametrize(
+    "versao, aparece",
+    [
+        ("1.5.0+19", False),  # a 1.5.0, em campo: o xadrez não aparece
+        ("1.5.9", False),
+        ("1.6.0+20", True),  # basta UM aparelho na 1.6.0
+        ("1.10.0", True),
+    ],
+)
+def test_o_xadrez_aparece_a_partir_da_1_6_0(versao, aparece):
+    from job import gerador as gerador_mod
+
+    adocao = medir_adocao(
+        [("a", "1.4.0+18"), ("b", versao)], gerador_mod.versao_minima_do_jogo("xadrez")
+    )
+    assert frequencia_do_jogo_novo(adocao).aparece is aparece

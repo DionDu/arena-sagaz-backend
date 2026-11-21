@@ -32,6 +32,7 @@ sys.path.insert(0, str(RAIZ))
 
 from job import gerador as gerador_mod  # noqa: E402
 from motores.quatro import contrato_quatro  # noqa: E402
+from motores.xadrez import contrato_xadrez  # noqa: E402
 from scripts import conferir_portao_t050 as portao  # noqa: E402
 from tests.unitarios.fakes_desafio import FakeSessaoSQL  # noqa: E402
 
@@ -54,6 +55,11 @@ HOJE = date(2026, 10, 21)
         ({"pontinhos", "damas"}, "quatro", False),  # pediu o Quatro e ele não está
         ({"pontinhos", "damas", "quatro"}, "quatro", True),
         ({"pontinhos", "quatro"}, "quatro", False),  # o rodízio continua exigido
+        # O xadrez (T082 da spec 012): em adoção, publicado não reprova.
+        ({"pontinhos", "damas", "xadrez"}, None, True),
+        ({"pontinhos", "damas", "quatro", "xadrez"}, None, True),
+        ({"pontinhos", "damas", "quatro"}, "xadrez", False),
+        ({"pontinhos", "damas", "quatro", "xadrez"}, "xadrez", True),
     ],
 )
 def test_os_jogos_publicados(jogos, jogo, passou):
@@ -67,7 +73,22 @@ def test_o_formato_de_cada_jogo():
         "pontinhos": "sequencia_lances",
         "damas": "fen",
         "quatro": "sequencia_lances",
+        "xadrez": "fen",
     }
+
+
+def test_a_posicao_do_xadrez_e_cobrada_pela_cor_da_pessoa_e_nao_pelo_vez_de():
+    """⚠️ O xadrez não tem `vez_de` (contrato §1); cobrá-lo reprovaria o portão.
+
+    E os outros jogos continuam cobrados pelo `vez_de`: o filtro por jogo vale
+    nos dois sentidos.
+    """
+    sql = " ".join(portao.SQL_POSICOES_INCOMPLETAS.split())
+    assert "co_jogo <> 'xadrez' AND NOT jsonb_exists(js_posicao_inicial, 'vez_de')" in sql
+    assert "co_jogo = 'xadrez' AND NOT jsonb_exists(js_posicao_inicial, 'cor_da_pessoa')" in sql
+    assert "js_posicao_inicial IS NULL" in sql
+    # O operador `?` partiria o SQL no asyncpg (ver o comentário da constante).
+    assert "?" not in sql
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -171,6 +192,76 @@ def test_quem_abriu_a_sequencia_inteira(lances, abertura):
     assert corpo["quatro"]["nu_jogador_abertura"] == abertura
 
 
+FEN_DO_XADREZ = "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
+
+
+@pytest.mark.parametrize("como_texto", [False, True])
+def test_a_partida_do_xadrez_leva_a_extensao_do_contrato(como_texto):
+    posicao = {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": FEN_DO_XADREZ,
+        "cor_da_pessoa": "branca",
+        "marcas": {"espia": "f3"},
+        "origem": "base_equilibrada",
+    }
+    corpo = portao.partida_do_portao(
+        {
+            "co_jogo": "xadrez",
+            "co_modalidade": "tradicional",
+            "js_posicao_inicial": json.dumps(posicao) if como_texto else posicao,
+            "nu_semente": -123456789,
+        }
+    )
+    assert corpo["co_variante"] == "tradicional"
+    extensao = corpo["xadrez"]
+    # As MESMAS chaves do exemplo do contrato (`extensao-log-xadrez.md` §1),
+    # mais o `js_extra`, que o ingestor lê.
+    assert set(extensao) == {
+        "co_versao_motor",
+        "co_versao_contrato",
+        "co_inicio",
+        "co_fen_inicial",
+        "co_cor_j1",
+        "co_motivo_fim",
+        "nu_semente_partida",
+        "recusas",
+        "js_extra",
+    }
+    assert extensao["co_inicio"] == "desafio"
+    assert extensao["co_fen_inicial"] == FEN_DO_XADREZ
+    # No desafio o J1 é a pessoa, e a cor de regra dela é a da posição.
+    assert extensao["co_cor_j1"] == "branca"
+    assert extensao["co_motivo_fim"] is None
+    assert extensao["nu_semente_partida"] == -123456789
+    assert extensao["co_versao_contrato"] == contrato_xadrez.versao_do_contrato()
+    assert extensao["recusas"] == []
+
+
+def test_a_versao_do_motor_do_xadrez_e_a_que_o_app_grava():
+    """O app grava `rust_<versão do binário>`, lida do manifesto ao lado dele."""
+    manifesto = (
+        RAIZ.parent
+        / "arena-sagaz-frontend"
+        / "android"
+        / "app"
+        / "src"
+        / "main"
+        / "jniLibs"
+        / "manifesto_motor_xadrez.json"
+    )
+    versao = json.loads(manifesto.read_text(encoding="utf-8"))["versao"]
+    corpo = portao.partida_do_portao(
+        {
+            "co_jogo": "xadrez",
+            "co_modalidade": "tradicional",
+            "js_posicao_inicial": {"fen": FEN_DO_XADREZ, "cor_da_pessoa": "preta"},
+            "nu_semente": 1,
+        }
+    )
+    assert corpo["xadrez"]["co_versao_motor"] == f"rust_{versao}"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. As listas escritas à mão
 # ═══════════════════════════════════════════════════════════════════════════
@@ -185,8 +276,9 @@ def test_as_listas_do_portao_sao_as_do_job():
         assert portao.CADEADOS_POR_JOGO[co_jogo]
 
 
-def test_os_cadeados_do_quatro_existem():
-    for caminho in portao.CADEADOS_POR_JOGO["quatro"]:
+@pytest.mark.parametrize("co_jogo", ["quatro", "xadrez"])
+def test_os_cadeados_de_cada_jogo_existem(co_jogo):
+    for caminho in portao.CADEADOS_POR_JOGO[co_jogo]:
         assert (RAIZ / caminho).is_file(), caminho
 
 
@@ -238,7 +330,14 @@ def test_o_jogo_chega_a_conferencia(monkeypatch):
     }
 
 
-@pytest.mark.parametrize("jogo", ["pontinhos", "velha", "xadrez"])
+def test_o_xadrez_chega_a_conferencia(monkeypatch):
+    assert _rodar_main(monkeypatch, ["--jogo", "xadrez"]) == {
+        "com_escrita": True,
+        "jogo": "xadrez",
+    }
+
+
+@pytest.mark.parametrize("jogo", ["pontinhos", "velha", "mancala"])
 def test_so_jogo_em_adocao_e_aceito(monkeypatch, jogo):
     with pytest.raises(SystemExit):
         _rodar_main(monkeypatch, ["--jogo", jogo])
@@ -257,4 +356,16 @@ def test_os_cadeados_do_quatro_sao_os_cinco():
         "tests/unitarios/test_feitos_quatro.py",
         "tests/unitarios/test_jogador_dart_quatro.py",
         "tests/unitarios/test_contrato_extensao_quatro.py",
+    ]
+
+
+def test_os_cadeados_do_xadrez_sao_os_seis():
+    """Por extenso, como os do Quatro."""
+    assert portao.CADEADOS_POR_JOGO["xadrez"] == [
+        "tests/unitarios/test_contrato_xadrez.py",
+        "tests/unitarios/test_vetores_paridade_xadrez.py",
+        "tests/unitarios/test_feitos_xadrez.py",
+        "tests/unitarios/test_jogador_xadrez.py",
+        "tests/unitarios/test_contrato_extensao_xadrez.py",
+        "tests/unitarios/test_posicao_inicial_xadrez.py",
     ]

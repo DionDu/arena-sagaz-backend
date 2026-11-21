@@ -20,6 +20,7 @@ Os numeros de dificuldade ja existem, e tem dono:
     damas      → `espelho_laboratorio/.../contrato_damas.json`
     Pontinhos  → `espelho_laboratorio/contrato_dificuldade_pontinhos.json`
     Quatro     → `espelho_laboratorio/jogos/jogo_quatro/contrato/contrato_quatro.json`
+    xadrez     → `espelho_laboratorio/jogos/jogo_xadrez/contrato/contrato_xadrez.json`
 
 ⛔ **Um perfil com os numeros escritos de novo seria uma SEGUNDA fonte da
 verdade** — exatamente o que os contratos existem para impedir. As duas
@@ -39,6 +40,7 @@ indistinguiveis das velhas.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 from pathlib import Path
@@ -48,6 +50,7 @@ from motores.damas import contrato_damas
 from motores.nucleo.papeis import NivelDeMotor
 from motores.pontinhos import politica
 from motores.quatro import contrato_quatro
+from motores.xadrez import contrato_xadrez
 
 #: Os quatro mascotes e o degrau de cada um.
 #:
@@ -115,6 +118,10 @@ def _contratos() -> dict[str, Path]:
         "damas": contrato_damas.CAMINHO_DO_CONTRATO,
         "pontinhos": politica.CAMINHO_DO_CONTRATO,
         "quatro": contrato_quatro.CAMINHO_DO_CONTRATO,
+        # O xadrez (T082 da spec 012). ⚠️ Entrar aqui muda a versao do perfil de
+        # todos (o hash e de todos os contratos juntos), como na entrada do
+        # Quatro: inofensivo, e os numeros dos outros jogos nao mudam.
+        "xadrez": contrato_xadrez.CAMINHO_DO_CONTRATO,
     }
 
 
@@ -166,10 +173,29 @@ def _numeros_do_quatro(nivel: NivelDeMotor) -> dict[str, Any]:
     }
 
 
+def _numeros_do_xadrez(nivel: NivelDeMotor) -> dict[str, Any]:
+    """Os parametros daquele degrau, POR MODALIDADE, lidos do contrato do xadrez.
+
+    A forma do Quatro (um bloco por modalidade que oferece o nivel), com os
+    campos de `ParametrosDoNivelXadrez`: sao os numeros que o executavel recebe.
+    Uma modalidade sem o nivel (a sonda sem a Pita, ou o Magno fora do build)
+    nao entra, e o bloco fica vazio - a linha existe do mesmo jeito, porque a FK
+    e por (jogo, mascote).
+
+    `dataclasses.asdict` copia os campos da dataclass num dicionario comum, que
+    e o que o `JSONB` aceita.
+    """
+    return {
+        modalidade: dataclasses.asdict(contrato_xadrez.parametros_do_nivel(modalidade, nivel))
+        for modalidade in contrato_xadrez.modalidades_declaradas()
+        if nivel in contrato_xadrez.niveis_disponiveis(modalidade)
+    }
+
+
 def linhas_da_dimensao() -> list[dict[str, Any]]:
     """As linhas de `desafio.tb903_perfil_dificuldade` do perfil vigente.
 
-    Uma por `(perfil, jogo, mascote)` — doze no total, com tres jogos.
+    Uma por `(perfil, jogo, mascote)` — dezesseis no total, com quatro jogos.
 
     ⚠️ **E o JOB que grava estas linhas, nunca a migracao.** Uma migracao que
     soubesse a taxa de erro da Cacau estaria publicando calibracao por `INSERT`,
@@ -186,6 +212,7 @@ def linhas_da_dimensao() -> list[dict[str, Any]]:
         "damas": _numeros_das_damas,
         "pontinhos": _numeros_do_pontinhos,
         "quatro": _numeros_do_quatro,
+        "xadrez": _numeros_do_xadrez,
     }
 
     linhas: list[dict[str, Any]] = []

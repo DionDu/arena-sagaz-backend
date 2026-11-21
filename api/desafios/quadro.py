@@ -339,7 +339,9 @@ SELECT j.nu_ordem,
        COALESCE(
            p.co_aresta,
            dm.co_lance,
-           ({LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna
+           ({LETRA_DO_LANCE_QUATRO_SQL}) || q.nu_coluna,
+           -- O xadrez (T082 da spec 012): o lance escrito, `e2e4`.
+           x.co_lance
        ) AS co_lance,
        -- ⚠️ **A POSICAO ANTES DAQUELE LANCE** (T074a), e so as damas a gravam.
        -- Ela e o que torna o replay TRUNCADO possivel (RF-DES-039): com o
@@ -350,7 +352,11 @@ SELECT j.nu_ordem,
        -- ⛔ **Vem `NULL` no Pontinhos**, e ⛔ isso nao e falta: la a posicao E a
        -- sequencia de tracos (quem fecha caixa joga de novo), e uma "FEN do
        -- Pontinhos" seria um formato inventado para este campo.
-       dm.co_fen_antes,
+       --
+       -- ⚠️ O xadrez tambem grava a sua (a extensao, `co_fen_antes`), no FEN
+       -- dele: cada jogada mora na extensao de UM jogo, entao o `COALESCE` nunca
+       -- mistura as duas.
+       COALESCE(dm.co_fen_antes, x.co_fen_antes) AS co_fen_antes,
        j.nu_tempo_decisao_ms
   FROM partida.tb002_jogada j
   LEFT JOIN jogo_pontinhos.tb002_jogada p ON p.id_jogada = j.id_jogada
@@ -358,6 +364,7 @@ SELECT j.nu_ordem,
   -- A VIEW, e nao a tabela: e ela que traz o tipo por extenso (o JOIN com a
   -- dimensao `tb903_tipo_lance` ja esta la dentro).
   LEFT JOIN jogo_quatro.vw002_jogada q    ON q.id_jogada = j.id_jogada
+  LEFT JOIN jogo_xadrez.vw002_jogada x    ON x.id_jogada = j.id_jogada
  WHERE j.id_partida = :id_partida
  ORDER BY j.nu_ordem ASC
 """

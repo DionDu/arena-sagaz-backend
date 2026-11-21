@@ -109,7 +109,31 @@ JOGOS_DO_RODIZIO = ("pontinhos", "damas")
 #: ⚠️ **Estar aqui não põe o jogo no ar sozinho.** Enquanto nenhum aparelho tiver
 #: a versão mínima do jogo (`versao_minima_do_jogo`), a faixa é "não aparece", e a
 #: fila é exatamente a de antes - é o caso do `des` e do `prd` até o app 1.4.0.
-JOGOS_EM_ADOCAO = ("quatro",)
+#:
+#: ⚠️ **O xadrez entrou em 21/11/2026** (T079 da spec 012, R-33), pedindo a
+#: 1.6.0 (`editorial.VERSAO_MINIMA_DO_XADREZ`): até um aparelho ter essa versão,
+#: ele não toma dia nenhum, e a fila do Quatro, do Pontinhos e das damas é a de
+#: antes (`tests/unitarios/test_adocao_nao_muda_a_fila.py`).
+JOGOS_EM_ADOCAO = ("quatro", "xadrez")
+
+#: Onde começa, na volta da regra dos dias (`adocao.dia_do_jogo_novo`), a janela
+#: de cada jogo em adoção.
+#:
+#: ⚠️ **Escrito por jogo, e não calculado pela posição na tupla.** Até a T079 o
+#: deslocamento era `indice / len(JOGOS_EM_ADOCAO)`: com o Quatro sozinho, 0; um
+#: 2º jogo na tupla não mudava o do Quatro só porque ele era o primeiro. Uma
+#: reordenação, ou um 3º jogo, trocaria os dias do Quatro sem erro nenhum. Fixo
+#: aqui, o dia de um jogo não depende de quem mais está em adoção.
+#:
+#: ⚠️ **Por que 0,5 para o xadrez.** A janela de cada jogo é `[d, d + 1/N)`, e
+#: o maior pedaço que uma faixa dá é 1/3 (o "1 em 3"). Com o Quatro em
+#: `[0, 1/3)` e o xadrez em `[0,5; 0,833)`, as duas janelas nunca se tocam, em
+#: nenhuma combinação de faixas: o xadrez nunca toma um dia do Quatro, e o Quatro
+#: nunca perde um dia para ele (cadeado em `test_adocao_nao_muda_a_fila.py`).
+#: A faixa forçada do `des` (`--forcar-jogo`, "1 em 1") ocupa a volta inteira, e
+#: por isso ela é de um jogo só (`rodar_job_local.frequencias_forcadas`): com
+#: dois jogos em "1 em 1", o primeiro do dicionário levaria todo dia.
+DESLOCAMENTO_DA_ADOCAO = {"quatro": 0.0, "xadrez": 0.5}
 
 #: Os quatro mascotes, na ordem da escada de dificuldade.
 PERSONAGENS = ("cacau", "pita", "tex", "magno")
@@ -383,18 +407,23 @@ def escolher_jogo(
     dias = (dt_dia - EPOCA_DO_RODIZIO).days
 
     # ── O jogo novo toma o dia? ─────────────────────────────────────────────
-    novos = list((frequencias or {}).items())
-    for indice, (co_jogo, frequencia) in enumerate(novos):
+    for co_jogo, frequencia in (frequencias or {}).items():
         if co_jogo in JOGOS_DO_RODIZIO:
             # Um jogo do rodízio passado como "novo" tomaria dias dele mesmo, e
             # a fila dos outros sairia de fase sem nenhum erro: recusar alto.
             raise ValueError(f"{co_jogo!r} ja e do rodizio; nao entra pela adocao")
+        if co_jogo not in DESLOCAMENTO_DA_ADOCAO:
+            # Sem deslocamento declarado, o jogo cairia nas janelas de outro (ou
+            # tomaria dias que já são de alguém): recusar alto, e não adivinhar.
+            raise ValueError(
+                f"{co_jogo!r} nao tem deslocamento em `DESLOCAMENTO_DA_ADOCAO`"
+            )
         if co_jogo in evitar:
             continue
-        # Cada jogo novo começa a sua janela num ponto diferente da volta
-        # (`indice / quantos`), para dois deles não disputarem os mesmos dias.
+        # Cada jogo novo começa a sua janela no ponto fixo dele na volta, para
+        # dois deles não disputarem os mesmos dias (ver `DESLOCAMENTO_DA_ADOCAO`).
         if adocao_mod.dia_do_jogo_novo(
-            dias, frequencia, deslocamento=indice / len(novos)
+            dias, frequencia, deslocamento=DESLOCAMENTO_DA_ADOCAO[co_jogo]
         ):
             return co_jogo
 
@@ -2102,9 +2131,10 @@ def versao_do_motor_de(co_jogo: str) -> str:
         # mesmo que o executavel carimba e confere na abertura.
         return contrato_quatro.versao_do_motor()
     if co_jogo == "xadrez":
-        # O resumo dos fontes do crate no espelho, o mesmo que o executavel
-        # carimba e confere na abertura (T063).
-        return contrato_xadrez.versao_do_motor()
+        # ⚠️ O carimbo do ESPELHO (`xadrez-rust-<sha>`), como o do Quatro, e nao
+        # o `rust_X` do app (T082 da spec 012): e ele que a `tb904_motor`
+        # decifra pela lista de arquivos (`job/motor.py`).
+        return contrato_xadrez.versao_do_motor_no_espelho()
     raise SemCandidato(
         f"o jogo {co_jogo!r} nao esta no rodizio e nao tem versao de motor a "
         f"carimbar. Os do rodizio sao {JOGOS_DO_RODIZIO}."
