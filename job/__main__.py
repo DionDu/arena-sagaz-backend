@@ -880,7 +880,7 @@ async def cobrir_um_dia(
             **candidato.parametros,
             medidas_mod.PARAMETRO_LANCES_DA_SOLUCAO: medidas_mod.lances_do_solucionador(
                 candidato.js_solucao,
-                vez_de=candidato.js_posicao_inicial["vez_de"],
+                vez_de=posicao_mod.vez_de_quem_resolve(candidato.js_posicao_inicial),
             ),
         }
     )

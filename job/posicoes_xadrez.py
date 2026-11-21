@@ -64,6 +64,19 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from motores.xadrez import contrato_xadrez
+# ⚠️ A leitura do FEN como tabela mora em `motores/xadrez/fen_xadrez.py` desde
+# a T076: o perseguidor (em `motores/`) tambem a usa, e `motores/` nao importa
+# de `job/`. Os nomes continuam valendo aqui (`px.pecas_do_fen`...), como
+# reexporte.
+from motores.xadrez.fen_xadrez import (  # noqa: F401 (reexporte)
+    COLUNAS,
+    COR_DA_VEZ,
+    PECA_DA_LETRA,
+    PecaNaCasa,
+    cor_da_vez,
+    pecas_do_fen,
+)
+from motores.xadrez.fen_xadrez import outra_cor as _outra_cor
 from motores.xadrez.feitos_xadrez import (
     MARCA_DA_ESPIA,
     MARCA_DO_ALVO,
@@ -85,22 +98,6 @@ ORIGEM_BASE_EQUILIBRADA = "base_equilibrada"
 #: dado, RF-XDR-013).
 MODALIDADE = contrato_xadrez.modalidades_declaradas()[0]
 
-#: As letras do FEN -> o nome da peca, no vocabulario do motor (`peca_movida`
-#: nos fatos do lance). E a tabela `_pecaDaLetra` do app.
-PECA_DA_LETRA: dict[str, str] = {
-    "p": "peao",
-    "n": "cavalo",
-    "b": "bispo",
-    "r": "torre",
-    "q": "dama",
-    "k": "rei",
-}
-
-#: A vez no 2o campo do FEN -> a cor de regra.
-COR_DA_VEZ: dict[str, str] = {"w": "branca", "b": "preta"}
-
-#: As colunas, da esquerda para a direita vistas pelas brancas.
-COLUNAS = "abcdefgh"
 
 #: As espias que podem "atravessar" (contrato §2): o peao que chega la vira
 #: outra peca, e o bispo nao alcanca toda casa da ultima fileira.
@@ -151,16 +148,6 @@ class SemPosicaoXadrez(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
-class PecaNaCasa:
-    """Uma peca numa casa: `casa` (`a1` a `h8`), `cor` (`branca`/`preta`) e
-    `peca` (`peao` ... `rei`)."""
-
-    casa: str
-    cor: str
-    peca: str
-
-
-@dataclass(frozen=True, slots=True)
 class PosicaoDoDesafioXadrez:
     """O que a posicao do dia entrega ao gerador.
 
@@ -177,7 +164,7 @@ class PosicaoDoDesafioXadrez:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 1. A base e a leitura do FEN
+# 1. A base (a leitura do FEN mora em `motores/xadrez/fen_xadrez.py`)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -194,59 +181,6 @@ def carregar_base(caminho: Path = BASE_EQUILIBRADA) -> tuple[str, ...]:
     """
     linhas = caminho.read_text(encoding="utf-8").splitlines()
     return tuple(linha.strip() for linha in linhas if linha.strip())
-
-
-def pecas_do_fen(fen: str) -> dict[str, PecaNaCasa]:
-    """As pecas do [fen], pela casa. Casa vazia nao aparece.
-
-    Le so o 1o campo do FEN (as oito fileiras, da 8a a 1a, cada uma da coluna
-    a a h; letra = peca, maiuscula = branca, numero = casas vazias). E a
-    `pecasDoFenXadrez` do app, linha a linha.
-
-    Raises:
-        ValueError: FEN sem oito fileiras, letra desconhecida ou fileira que
-            nao soma oito casas. ⚠️ Pular a letra em silencio sumiria com uma
-            peca do tabuleiro.
-    """
-    fileiras = fen.strip().split(" ")[0].split("/")
-    if len(fileiras) != 8:
-        raise ValueError(f"o FEN nao tem 8 fileiras: {fen!r}")
-    pecas: dict[str, PecaNaCasa] = {}
-    for indice, texto in enumerate(fileiras):
-        # A 1a fileira do texto e a 8a do tabuleiro.
-        fileira = 8 - indice
-        coluna = 0
-        for letra in texto:
-            if letra.isdigit():
-                coluna += int(letra)
-                continue
-            peca = PECA_DA_LETRA.get(letra.lower())
-            if peca is None or coluna > 7:
-                raise ValueError(f"letra {letra!r} fora do FEN na fileira {fileira}: {fen!r}")
-            casa = f"{COLUNAS[coluna]}{fileira}"
-            cor = "branca" if letra.isupper() else "preta"
-            pecas[casa] = PecaNaCasa(casa=casa, cor=cor, peca=peca)
-            coluna += 1
-        if coluna != 8:
-            raise ValueError(f"a fileira {fileira} nao tem 8 casas: {fen!r}")
-    return pecas
-
-
-def cor_da_vez(fen: str) -> str:
-    """De quem e a vez no [fen] (o 2o campo): `branca` ou `preta`.
-
-    Raises:
-        ValueError: o campo nao e `w` nem `b`.
-    """
-    campos = fen.strip().split(" ")
-    if len(campos) < 2 or campos[1] not in COR_DA_VEZ:
-        raise ValueError(f"o FEN nao diz de quem e a vez: {fen!r}")
-    return COR_DA_VEZ[campos[1]]
-
-
-def _outra_cor(cor: str) -> str:
-    """A cor do adversario."""
-    return "preta" if cor == "branca" else "branca"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

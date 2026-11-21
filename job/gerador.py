@@ -55,6 +55,7 @@ from motores.pontinhos.politica import JogadorPontinhos
 from motores.quatro import contrato_quatro, feitos_quatro
 from motores.quatro.jogador_quatro import JogadorQuatro
 from motores.quatro.motor_quatro import EstadoQuatro
+from motores.xadrez import contrato_xadrez
 
 from api.aparelhos.regras import chave_da_versao
 
@@ -67,6 +68,8 @@ from . import posicoes_de_autoplay_pontinhos as autoplay_mod
 from . import posicoes_de_autoplay_quatro as autoplay_quatro_mod
 from . import posicao_inicial as posicao_mod
 from . import provas_quatro as provas_quatro_mod
+from . import posicoes_xadrez as posicoes_xadrez_mod
+from . import provas_xadrez as provas_xadrez_mod
 from . import semente as semente_mod
 from . import solucionadores as solucionadores_mod
 from . import vizinhanca as vizinhanca_mod
@@ -185,6 +188,9 @@ MODALIDADES_POR_JOGO: dict[str, tuple[str, ...]] = {
         for co_modalidade in contrato_quatro.modalidades_declaradas()
         if autoplay_quatro_mod.caminho_do_acervo(co_modalidade).is_file()
     ),
+    # O xadrez (T076 da spec 012): as modalidades do contrato, lidas (hoje so a
+    # `tradicional`). As posicoes de todas vem da mesma base equilibrada.
+    "xadrez": contrato_xadrez.modalidades_declaradas(),
 }
 
 #: O ORCAMENTO de busca por lance, na geracao.
@@ -736,6 +742,13 @@ def _preparar_pontinhos(sorteio: random.Random, lances_de_preparo: int) -> Estad
 #: exige busca e vira opiniao. O segundo e que um jogo que nao esta aqui **nao e
 #: recusado**, e isso fica visivel: a ausencia da chave e a declaracao de que
 #: aquele jogo ainda nao tem a regra, em vez de um `else` silencioso.
+#:
+#: ⚠️ **O xadrez fica de fora POR DECISAO DO DONO** (`DECISOES-do-dono.md`
+#: §8zzzz59, 21/11/2026: *"Vamos aceitar os erros no Xadrez, diferentemente do
+#: Pontinhos"*), como as damas e o Quatro: errar e o que faz a Cacau e a Pita
+#: mais faceis, e o erro sorteado fica a vista no gabarito (o `co_acao` do
+#: passo, `erro_sorteado` ou `cegueira`). A regua, com 20 sementes por
+#: personagem, e quem barra o desafio que so existe por causa de um erro.
 RECUSA_POR_JOGO = {"pontinhos": abertura_forcada.dependeu_de_erro}
 
 #: Quantas posicoes de partida tentar por candidato, **por jogo**.
@@ -1361,6 +1374,34 @@ def gerar_candidatos(
             # ⚠️ `co_variante` do Quatro E a modalidade: e o que o app grava no
             # log da partida (`coVariante: estado.modalidade.id`), como nas damas.
             co_variante = co_modalidade
+        elif co_jogo == "xadrez":
+            # ── O XADREZ (T076 da spec 012): a posicao da T073, ou um problema ──
+            #
+            # Dez tipos partem da base equilibrada (`posicoes_xadrez.sortear`, que
+            # tambem escolhe a espia, o alvo, as classes ou o par da troca); o
+            # mate parte de um problema do Lichess que caiba na janela
+            # (`provas_xadrez.sortear_problema_de_mate`). ⚠️ O MESMO `sorteio` do
+            # candidato: mesmo dia e mesma tentativa, mesma posicao e mesmas
+            # pecas (a idempotencia da T038).
+            co_modalidade = escolher_modalidade(
+                co_jogo, dt_dia, evitar=vizinhos.modalidades
+            )
+            try:
+                escolhida = provas_xadrez_mod.sortear_posicao(
+                    sorteio, co_tipo=co_tipo, parametros=parametros
+                )
+            except posicoes_xadrez_mod.SemPosicaoXadrez as erro:
+                print(f"⚠️ [job] {dt_dia}: posicao descartada — {co_tipo}: {erro}")
+                continue
+            js_posicao = escolhida.js_posicao_inicial
+            # ⚠️ As PECAS escolhidas (a classe da espia, o par da troca...) entram
+            # nos parametros: e delas que a receita monta a chegada e a frase
+            # (T071, T072). O editorial guarda so os numeros.
+            pecas_da_posicao = dict(escolhida.pecas)
+            base = provas_xadrez_mod.estado_inicial(js_posicao)
+            jogador = provas_xadrez_mod.JogadorDoDesafioXadrez()
+            # ⚠️ `co_variante` do xadrez E a modalidade, como nas damas e no Quatro.
+            co_variante = co_modalidade
         else:
             co_modalidade = (
                 escolher_modalidade(co_jogo, dt_dia, evitar=vizinhos.modalidades)
@@ -1445,7 +1486,7 @@ def gerar_candidatos(
                 jogador,
                 getattr(jogador, "arbitro", jogador),
                 base,
-                js_posicao["vez_de"],
+                posicao_mod.vez_de_quem_resolve(js_posicao),
                 nivel=NivelDeMotor.SAGAZ,
                 nivel_do_adversario=NIVEL_POR_PERSONAGEM[co_personagem],
                 semente_do_lance=semente_mod.semente_do_lance,
@@ -1532,6 +1573,25 @@ def gerar_candidatos(
                     f"{prova.motivo}. Lances {base.sequencia}"
                 )
                 continue
+        elif co_jogo == "xadrez":
+            # Os numeros do editorial e as pecas da posicao (ver acima).
+            parametros_daqui = {**parametros, **pecas_da_posicao}
+            # ── A PROVA DO TIPO, ANTES DO GABARITO (T076) ────────────────────
+            #
+            # As recusas baratas (`provas_xadrez.PROVAS`): a partida viva, o
+            # objetivo que NAO cai no 1o lance, a espia ou a classe que come com
+            # lance agora. ⚠️ A prova de verdade de que o desafio e possivel e o
+            # gabarito, logo abaixo (RF-XDR-183): ele e jogado contra o
+            # personagem do dia, com a semente publicada, ate a chegada.
+            prova = provas_xadrez_mod.provar(
+                co_tipo, js_posicao, receita.montar(parametros_daqui)
+            )
+            if not prova.passou:
+                print(
+                    f"⚠️ [job] {dt_dia}: posicao descartada — {co_tipo}: "
+                    f"{prova.motivo}. FEN {js_posicao['fen']}"
+                )
+                continue
         else:
             parametros_daqui = dict(parametros)
 
@@ -1549,7 +1609,7 @@ def gerar_candidatos(
                 js_posicao_inicial=js_posicao,
                 js_chegada=js_chegada,
                 fita=fita,
-                jogador=js_posicao["vez_de"],
+                jogador=posicao_mod.vez_de_quem_resolve(js_posicao),
                 co_modalidade=co_modalidade or "brasileira",
             )
 
@@ -1598,7 +1658,7 @@ def gerar_candidatos(
             None
             if objetivo_cancela_o_erro
             else motivo_de_erro_do_adversario(
-                co_jogo, jogador, base, fita, js_posicao["vez_de"]
+                co_jogo, jogador, base, fita, posicao_mod.vez_de_quem_resolve(js_posicao)
             )
         )
         if recusa is not None:
@@ -1887,6 +1947,12 @@ def bancada(candidato: Candidato) -> Bancada:
         # regua: cada uma fala com o seu processo (`JogadorQuatro.motor_dart`).
         jogador = JogadorQuatro(candidato.co_modalidade)
         arbitro = jogador.arbitro
+    elif candidato.co_jogo == "xadrez":
+        # ⚠️ No xadrez quem joga e quem aplica e o executavel, um processo por
+        # thread da regua (`JogadorDoDesafioXadrez.motor`); o "arbitro" so diz
+        # de quem e a vez (T076).
+        jogador = provas_xadrez_mod.JogadorDoDesafioXadrez()
+        arbitro = jogador.arbitro
     else:
         # Nas damas o mesmo objeto joga e arbitra — e isso e do motor, nao uma
         # escolha daqui.
@@ -1901,7 +1967,7 @@ def bancada(candidato: Candidato) -> Bancada:
             js_posicao_inicial=candidato.js_posicao_inicial,
             js_chegada=candidato.js_chegada,
             fita=fita,
-            jogador=candidato.js_posicao_inicial["vez_de"],
+            jogador=posicao_mod.vez_de_quem_resolve(candidato.js_posicao_inicial),
             co_modalidade=candidato.co_modalidade or "brasileira",
         )
 
@@ -1947,6 +2013,10 @@ def versao_do_motor_de(co_jogo: str) -> str:
         # O resumo dos fontes do motor no espelho (`quatro-dart-<sha>`), o
         # mesmo que o executavel carimba e confere na abertura.
         return contrato_quatro.versao_do_motor()
+    if co_jogo == "xadrez":
+        # O resumo dos fontes do crate no espelho, o mesmo que o executavel
+        # carimba e confere na abertura (T063).
+        return contrato_xadrez.versao_do_motor()
     raise SemCandidato(
         f"o jogo {co_jogo!r} nao esta no rodizio e nao tem versao de motor a "
         f"carimbar. Os do rodizio sao {JOGOS_DO_RODIZIO}."

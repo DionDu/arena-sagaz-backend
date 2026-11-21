@@ -11633,3 +11633,64 @@ para cá como defeito de escolha (§8zzzz57 item 5).
 **Alternativas consideradas:** pedir ao motor uma operação nova que liste as peças (mudaria o crate
 e os binários das três plataformas por uma leitura de texto); sortear a classe comida mesmo sem K
 peças (um desafio impossível, que o gabarito só recusaria depois de jogar).
+
+## 2026-11-21 — O perseguidor do xadrez, as provas e o xadrez no gerador (T076 da spec 012)
+
+**Contexto.** Em dez dos onze tipos do xadrez vencer não é o objetivo, e o dono decidiu que eles
+nascem com o perseguidor (`DECISOES-do-dono.md` §8zzzz57), antes da primeira régua. Faltavam o
+perseguidor, a prova de cada tipo e o caminho da posição da T073 até o gabarito.
+
+**Decisão.**
+- `motores/xadrez/perseguir_objetivo_xadrez.py`, no molde do Quatro e sem regra de xadrez em Python:
+  (a) o lance que cumpre agora, pelo medidor de produção (`feitos_xadrez.medir`) e pelo avaliador da
+  chegada, dentro da janela (`prefixo_da_janela`); (b) saem o lance que encerra a partida sem o
+  objetivo, o que deixa ao adversário um mate em um, e o que viola o que não volta atrás (a espiã
+  comível, a peça do `nao_perder` comível, um xeque ao alcance no `sem_levar_xeque`); (c) a nota do
+  tipo (a tabela da T076 no `tasks.md`); empate de nota: o lance do nível, se estiver entre os
+  empatados, depois o que deixa menos peças comíveis, depois o sorteio da semente do lance. O nível é a
+  mistura do Quatro (0,25 · 0,50 · 0,80 · 1,00), com o lance cru fora da probabilidade. Mais o
+  pseudo-tipo de controle `xadrez_vencer`, para a T076a.
+- **As perguntas ao motor, por lance da pessoa** (medido em 20 posições da base: 34 lances legais em
+  média; `aplicar` 0,16 ms, `radar` 0,05 ms, `buscar` da Cacau 1,5 ms, do Magno 117 ms): um `aplicar`
+  com as marcas e um `radar` por candidato, um `buscar` da Cacau por candidato (o mate em um sai em todo
+  nível antes do sorteio), e o próprio do tipo (até ~1 150 `aplicar` no `sem_levar_xeque`; 1 a 3 na
+  ordem 1 da troca; um `estado` com a vez trocada no `espia_alvo`). No ensaio, ~1,2 s por partida de
+  oito lances contra o Tex (2,3 s no `sem_levar_xeque`).
+- **As quatro decisões técnicas** (o dono deixou as técnicas comigo, 21/11): "perde a partida" = o
+  mate em um, sem prova mais funda (~4 s por lance com o Magno por candidato); no `nao_perder` o
+  filtro olha a peça DO DESAFIO, a da cláusula, e as outras só desempatam; no `espia_alvo` "a espiã
+  ataca o alvo" é perguntado ao motor com a vez trocada no FEN (`fen_xadrez.fen_com_a_vez_trocada`;
+  o motor recusa com `fen_invalido` quando o outro lado está em xeque, e a nota é 0); a promoção dos
+  candidatos é sempre a dama.
+- `job/provas_xadrez.py`: `EstadoXadrez` (com o FEN de depois, para o painel), o
+  `JogadorDoDesafioXadrez` (`decidir`/`escolher_lance` pelo `buscar`, com a `acao` do motor como
+  `co_acao`; `aplicar`; o processo é o da thread), os problemas de mate (`mate_em ≤ N`, origem
+  `problemas_lichess`) e as `PROVAS` dos 11 tipos (cadeado): a recusa comum (partida viva, objetivo que
+  não cai no 1º lance) e, nos tipos em que a peça tem de andar, a espiã ou a classe com lance agora.
+- `job/gerador.py`: o ramo do xadrez (a posição da T073 ou o problema, com o mesmo sorteio do
+  candidato; as peças nos parâmetros; a prova antes do gabarito), a bancada, a versão do motor e a
+  modalidade lida do contrato; `regua.PARALELISMO_POR_JOGO["xadrez"] = "maquina"`;
+  `posicao_inicial.vez_de_quem_resolve` (a posição do xadrez não tem `vez_de`: a pessoa é `+1`).
+  ⚠️ **O xadrez fica fora de `RECUSA_POR_JOGO`** por decisão do dono (§8zzzz59): o desafio pode
+  depender de um erro sorteado do adversário, como nas damas e no Quatro.
+- A leitura do FEN como tabela subiu de `job/posicoes_xadrez.py` para `motores/xadrez/fen_xadrez.py`
+  (o perseguidor a usa, e `motores/` não importa de `job/`); os nomes antigos continuam como
+  reexporte. `solucionadores.perseguidor_do_xadrez` está escrito, e ⛔ **nenhum tipo do xadrez entra
+  em `SOLUCIONADOR_POR_TIPO` antes da T076a** (há teste).
+
+⚠️ **Pendente para a publicação (T078/T082):** `posicao_inicial.conferir` não conhece o FEN do
+xadrez (o ramo `fen` é o das damas, e pede `versao`); por ora um candidato do xadrez só sai do gerador
+para a medição. ⚠️ **E a folga do prazo** (pedido do dono, 21/11, escrito na T076a): a T076a grava em
+que lance o objetivo caiu e quantos erros sorteados do adversário houve antes, para decidir se o N
+publicado sai do gabarito com uma folga.
+
+**Testes.** `test_perseguir_objetivo_xadrez.py` (26, posições montadas à mão, cada passo e cada nota)
+e `test_provas_xadrez.py` (20: o cadeado, a prova de que cada thread fala com o seu processo, as recusas, os problemas, o jogador, o gerador de ponta a
+ponta no mate e na base com o perseguidor ligado só no teste, a bancada da régua). Doze mutações,
+todas pegas (duas escaparam na primeira rodada e ganharam caso: o desempate pelo lance do nível e a
+troca sem retomada). O canário de "jogo desconhecido mede em série" (`test_regua_e_alvo.py`) era o xadrez, e passou a ser a `mancala`. Suíte do backend: 5 101 verdes antes do ajuste do canário (a única falha era ele).
+
+**Alternativas consideradas:** uma busca dirigida em Rust (mais forte, e muda o crate e os binários
+das três plataformas antes de saber se precisa: §8zzzz57 item 6); a prova pela busca do Magno em cada
+candidato (cara demais por lance); o Radar sem saber qual peça ataca o alvo (mais barato, e mediria
+outra coisa).

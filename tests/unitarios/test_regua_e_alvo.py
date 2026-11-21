@@ -695,11 +695,16 @@ def test_um_jogo_DESCONHECIDO_mede_em_serie() -> None:
     horas — ou, pior, respostas trocadas sem erro nenhum. Quem paralelize entra
     em `PARALELISMO_POR_JOGO` de propria vontade, tendo olhado o motor.
     """
-    assert trabalhadores_para("xadrez") == 1
+    # ⚠️ O canario e a `mancala`, um jogo que o hub nao tem (o mesmo dos outros
+    # cadeados): o xadrez era o canario ate entrar, na T076 da spec 012.
+    assert trabalhadores_para("mancala") == 1
     assert trabalhadores_para("") == 1
     # O Quatro entrou na T117 (spec 010): o motor dele e um processo por thread,
     # e o `JogadorQuatro` deixou de guardar o da 1ª thread (`test_regua_do_quatro.py`).
-    assert set(PARALELISMO_POR_JOGO) == {"damas", "pontinhos", "quatro"}, (
+    # O xadrez entrou na T076 (spec 012), pela mesma razao: o
+    # `JogadorDoDesafioXadrez` pede o processo da thread a cada pergunta
+    # (`test_provas_xadrez.py`, "cada thread fala com o seu processo").
+    assert set(PARALELISMO_POR_JOGO) == {"damas", "pontinhos", "quatro", "xadrez"}, (
         "um jogo entrou ou saiu de PARALELISMO_POR_JOGO. Se e jogo novo, o motor "
         "dele foi conferido quanto a threads?"
     )

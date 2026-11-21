@@ -322,6 +322,10 @@ def formato_do_jogo(co_jogo: str) -> str:
         "pontinhos": FORMATO_SEQUENCIA,
         "damas": FORMATO_FEN,
         "quatro": FORMATO_SEQUENCIA,
+        # ⚠️ O xadrez tambem e FEN (contrato §1 da spec 012), mas o FEN dele nao
+        # e o das damas: `conferir` ainda nao o confere (fica para a publicacao,
+        # T082), e um candidato do xadrez so sai do gerador para a medicao.
+        "xadrez": FORMATO_FEN,
     }
     if co_jogo not in formatos:
         raise PosicaoInvalida(
@@ -329,3 +333,25 @@ def formato_do_jogo(co_jogo: str) -> str:
             "em `formato_do_jogo`, ou nao e publicavel."
         )
     return formatos[co_jogo]
+
+
+#: De quem e o desafio no xadrez, no vocabulario da fita: a pessoa e `+1`, como
+#: nos vetores do juiz (`contratos/vetores-juiz-xadrez.json`).
+VEZ_DA_PESSOA_NO_XADREZ = 1
+
+
+def vez_de_quem_resolve(posicao: Mapping[str, Any]) -> int:
+    """O sinal de quem resolve o desafio (`+1`/`-1`), o `jogador` do juiz.
+
+    ⚠️ **Os tres primeiros jogos o gravam na posicao** (`vez_de`, conferido por
+    [conferir]); **o xadrez nao** (T076 da spec 012): a posicao dele diz a COR
+    da pessoa (`cor_da_pessoa`), a pessoa e sempre `+1` na fita, e o
+    `js_posicao_inicial` segue o formato do contrato §1, sem campo a mais.
+
+    Raises:
+        KeyError: posicao de jogo que deveria ter `vez_de` e nao tem. ⚠️ Falha
+            alto: um `1` de reserva julgaria o desafio do lado errado calado.
+    """
+    if posicao.get("jogo") == "xadrez":
+        return VEZ_DA_PESSOA_NO_XADREZ
+    return posicao["vez_de"]

@@ -145,3 +145,42 @@ def perseguidor_do_quatro(co_tipo: str) -> Solucionador:
         )
 
     return solucionar
+
+
+def perseguidor_do_xadrez(co_tipo: str) -> Solucionador:
+    """O perseguidor do objetivo do xadrez, para um tipo (spec 012, T076).
+
+    ⚠️ **Escrito, e ainda nao ligado**: `gerador.SOLUCIONADOR_POR_TIPO` so ganha
+    um tipo do xadrez depois da medicao pareada e com controle (T076a,
+    `DECISOES-do-dono.md` §8zzzz57). O `xadrez_dar_mate` nunca o usa.
+
+    ⚠️ A pergunta vai ao executavel DA THREAD (`jogador.motor`), como o lance do
+    nivel: a regua roda as execucoes em paralelo, um processo por thread.
+    """
+    # Importados aqui: o xadrez so e carregado por quem o usa (o mesmo cuidado
+    # do `motores.juiz` no gerador).
+    from motores.xadrez import perseguir_objetivo_xadrez as perseguir_xadrez
+
+    def solucionar(contexto: ContextoDoSolucionador) -> str:
+        if contexto.js_chegada is None:
+            # O mesmo cuidado do Quatro: sem a chegada nao ha o que perseguir.
+            raise RuntimeError(
+                f"o perseguidor de {co_tipo} foi chamado sem a linha de chegada "
+                "(falta `solucionadores.com_chegada` em quem o montou)"
+            )
+        iniciais = tuple(contexto.estado_inicial.lances)
+        fita = tuple(contexto.estado.lances)[len(iniciais):]
+        desafio = perseguir_xadrez.desafio_de(
+            co_tipo, contexto.estado_inicial.posicao, contexto.js_chegada
+        )
+        return perseguir_xadrez.lance_de_quem_persegue(
+            contexto.jogador.motor,
+            desafio,
+            fita,
+            nivel=contexto.nivel,
+            # Um sorteio NOVO por lance, da semente do lance (como no Quatro).
+            sorteio=random.Random(contexto.semente),
+            lance_do_nivel=contexto.lance_do_nivel,
+        )
+
+    return solucionar

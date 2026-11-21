@@ -114,6 +114,10 @@ PARALELISMO_POR_JOGO: Mapping[str, str] = {
     # `readline()`. ⛔ So e seguro porque o `JogadorQuatro` NAO guarda o processo
     # da primeira thread que perguntou - cadeado em `test_regua_do_quatro.py`.
     "quatro": "maquina",
+    # ⚠️ O xadrez tambem (T076 da spec 012): quem joga e o executavel Rust, um
+    # processo por thread (`jogador_xadrez.jogador_compartilhado`), e o
+    # `JogadorDoDesafioXadrez` nao guarda o processo de thread nenhuma.
+    "xadrez": "maquina",
 }
 
 #: A variavel que desliga (ou fixa) o paralelismo.
