@@ -11800,3 +11800,27 @@ peões e um cavalo). Suíte do backend: 5 108 verdes.
 **Alternativas consideradas:** baixar o K para 1 (recusado pelo dono); escolher a espiã pela força
 (só dama, torre e cavalo, como no atravessar: o bispo come e dá xeque bem, e tirá-lo empobreceria a
 frase); uma busca dirigida em Rust (§8zzzz57 item 6: só se o perseguidor não bastar).
+
+## 2026-11-21 (5) — A 2ª régua do xadrez: quatro tipos na escada, todos com candidato
+
+**Contexto.** Com os ajustes de "2026-11-21 (4)", o dono rodou de novo
+`scripts/medir_variantes_do_editorial.py xadrez --com-regua` (3 dias, 10 execuções por mascote).
+
+**Resultado** (dias na escada · o que errou):
+- **Na escada (2 de 3 dias):** `xadrez_dar_mate` (3 lances; FOLGA), `xadrez_espia_atravessar` (10),
+  `xadrez_espia_comer` (12) e `xadrez_troca` (8; agora FOLGA, sem o dia vazio).
+- **1 de 3**, errando por 0,02 a 0,12 nos outros dias, para lados diferentes: `espia_proteger` (15; o
+  Tex em 0,40 num dia, a Pita em 0,50 noutro), `nao_perder` (12; a Cacau em 0,30 e 0,40),
+  `sem_levar_xeque` (15; a Cacau em 0,30 num dia, o Tex em 0,10 noutro) e `xeques_seguidos` (12; o
+  Magno em 0,60 nos dois dias que erraram).
+- **0 de 3:** `espia_alvo` (12; errando por 0,02, 0,03 e 0,05), `espia_xeque` (12; o Magno em 0,50 e
+  0,70) e `comer_com` (12; APERTADO, o Magno em 0,50 e 0,70).
+- **Todos os onze tiveram candidato todos os dias**, menos o `comer_com` num dia (2, 3, 3). Na 1ª
+  régua, seis ficavam sem desafio.
+
+**Leitura.** Dois casos. (1) Onde o Magno não chega ao piso dele (0,75), a alavanca é a decidida pelo
+dono, mais lances: `espia_xeque`, `xeques_seguidos` e `comer_com` vão de 12 para 15. (2) Os outros
+erram por pouco e para os dois lados: com 10 execuções por mascote, 0,02 de distância média é UM
+mascote uma partida fora. Três dias não separam o acaso do defeito; a 3ª rodada mede em **9 dias**
+(`--dias=9`, como o "sem o meio" do Quatro, 21/10/2026), os onze tipos, inclusive os quatro que
+passaram, para confirmá-los.

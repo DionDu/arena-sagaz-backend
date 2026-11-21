@@ -2648,6 +2648,14 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     #     / 0,09 / 1,00; em 5 = 0,00 / 0,09 / 0,00 / 0,98. So o 2 e o 3 cabem na
     #     escada (o Tex desaba no 4).
     #   · a troca fica (a unica na escada, 2 de 3 dias).
+    #   A 2a regua (historico "2026-11-21 (5)") pos na escada a troca, o mate, o
+    #   atravessar e o "coma 2 com a espia" (2 de 3 dias cada), e todos os tipos
+    #   passaram a ter candidato. Nos tres em que o Magno ficou abaixo do piso
+    #   dele (0,75) nos dias que erraram, o N sobe de novo, 12 -> 15: o xeque com
+    #   a espia (0,50 a 0,70), os xeques seguidos (0,60) e o comer com a classe
+    #   (0,50 a 0,70). Os outros ficam: erraram por 0,02 a 0,08, para lados
+    #   diferentes em dias diferentes, e com 10 execucoes por mascote isso e uma
+    #   partida a mais ou a menos; a 3a rodada mede em 9 dias.
     #
     # ⚠️ **As pecas (espia, alvo, classes, par da troca) nao estao aqui**: sao da
     # posicao do dia (`job/posicoes_xadrez.py`, T073), que as acrescenta aos
@@ -2694,8 +2702,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_espia_xeque": (
         Publicacao(
-            parametros={"xeques": 2, "lances": 12},
-            nu_maximo_de_meios_lances=2 * 12 - 1,
+            parametros={"xeques": 2, "lances": 15},
+            nu_maximo_de_meios_lances=2 * 15 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("xeques_da_espia", "xeques"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2712,8 +2720,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_comer_com": (
         Publicacao(
-            parametros={"capturas": 2, "lances": 12},
-            nu_maximo_de_meios_lances=2 * 12 - 1,
+            parametros={"capturas": 2, "lances": 15},
+            nu_maximo_de_meios_lances=2 * 15 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("capturas_da_classe_marcada", "capturas"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
@@ -2732,8 +2740,8 @@ EDITORIAL_FORA_DO_AR: dict[str, tuple[Publicacao, ...]] = {
     ),
     "xadrez_xeques_seguidos": (
         Publicacao(
-            parametros={"xeques": 3, "lances": 12},
-            nu_maximo_de_meios_lances=2 * 12 - 1,
+            parametros={"xeques": 3, "lances": 15},
+            nu_maximo_de_meios_lances=2 * 15 - 1,
             ic_chegada_encerra_partida=False,
             medidas=_medidas_do_xadrez("maior_sequencia_de_xeques", "xeques"),
             co_versao_minima=VERSAO_MINIMA_DO_XADREZ,
