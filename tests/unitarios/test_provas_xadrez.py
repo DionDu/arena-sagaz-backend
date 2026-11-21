@@ -423,3 +423,93 @@ def test_a_bancada_da_regua_mede_um_candidato_do_xadrez(motor):
     )
     # O Magno da o mate forcado do problema, com qualquer semente.
     assert tentar("magno", 1) is True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O veredito do arbitro, que a prova de termino do job pergunta (T082)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⛔ Faltou ate 21/11/2026: a regua da T077 nao passa pela prova de termino
+# (`estado_terminal.provar_termino`), e o primeiro job do xadrez no `des` caiu
+# em todo candidato com `'ArbitroXadrez' object has no attribute 'veredito'`.
+
+#: As brancas a jogar, e `h5f7` e mate (o mate do pastor).
+FEN_ANTES_DO_MATE = "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"
+
+
+def _posicao_de(fen: str, cor: str) -> dict:
+    return {
+        "jogo": "xadrez", "modalidade": "tradicional", "fen": fen,
+        "cor_da_pessoa": cor, "origem": "base_equilibrada",
+    }
+
+
+def test_o_veredito_sem_fim_e_nao_acabou(motor):
+    jogador = pv.JogadorDoDesafioXadrez(motor)
+    estado = pv.estado_inicial(_posicao_de(FEN_ANTES_DO_MATE, "branca"))
+    veredito = jogador.arbitro.veredito(estado)
+    assert veredito.acabou is False and veredito.vencedor is None
+
+
+def test_o_mate_da_pessoa_e_vitoria_do_mais_um(motor):
+    jogador = pv.JogadorDoDesafioXadrez(motor)
+    inicial = pv.estado_inicial(_posicao_de(FEN_ANTES_DO_MATE, "branca"))
+    depois = jogador.aplicar(inicial, "h5f7")
+    veredito = jogador.arbitro.veredito(depois)
+    assert (veredito.acabou, veredito.co_motivo, veredito.vencedor) == (True, "xeque_mate", 1)
+
+
+def test_o_mate_do_adversario_e_vitoria_do_menos_um(motor):
+    """A pessoa de PRETAS: a cor que vence se compara com a dela, nao com `branca`."""
+    jogador = pv.JogadorDoDesafioXadrez(motor)
+    # A mesma partida, com a pessoa do outro lado: quem dá o mate é o adversário.
+    inicial = pv.estado_inicial(_posicao_de(FEN_ANTES_DO_MATE, "preta"))
+    depois = jogador.aplicar(inicial, "h5f7")
+    assert jogador.arbitro.veredito(depois).vencedor == -1
+
+
+def test_o_empate_e_vencedor_zero(motor):
+    jogador = pv.JogadorDoDesafioXadrez(motor)
+    estado = pv.estado_inicial(_posicao_de("4k3/8/8/8/8/8/8/4K3 w - - 0 1", "branca"))
+    veredito = jogador.arbitro.veredito(estado)
+    assert (veredito.acabou, veredito.co_motivo, veredito.vencedor) == (
+        True, "material_insuficiente", 0,
+    )
+
+
+def test_a_prova_de_termino_do_job_roda_no_xadrez(motor):
+    """O caminho exato do `cobrir_um_dia`: a bancada do gerador e `provar_termino`."""
+    from job import estado_terminal as terminal_mod
+
+    jogador = pv.JogadorDoDesafioXadrez(motor)
+    prova = terminal_mod.provar_termino(
+        jogador=jogador,
+        estado_inicial=pv.estado_inicial(_posicao_de(FEN_ANTES_DO_MATE, "branca")),
+        veredito_de=jogador.arbitro.veredito,
+        nu_semente=12345,
+    )
+    assert prova.tem_fim is True
+    assert prova.co_motivo in {"xeque_mate", "afogamento", "repeticao_tripla",
+                               "cinquenta_lances", "material_insuficiente"}
+
+
+def test_o_arbitro_de_TODO_jogo_do_job_responde_o_que_o_job_pergunta():
+    """🔒 `cobrir_um_dia` pergunta ao arbitro o `veredito` (a prova de termino).
+
+    A lista sai do gerador: um jogo novo cujo arbitro nao tenha os dois falha
+    aqui, e nao no primeiro job do `des`.
+    """
+    from motores.damas.motor_damas import MotorDamas
+    from motores.pontinhos.motor_pontinhos import MotorPontinhos
+    from motores.quatro.jogador_quatro import JogadorQuatro
+
+    arbitros = {
+        "pontinhos": MotorPontinhos(),
+        "damas": MotorDamas("brasileira"),
+        "quatro": JogadorQuatro("tradicional").arbitro,
+        "xadrez": pv.JogadorDoDesafioXadrez().arbitro,
+    }
+    jogos = set(gerador_mod.JOGOS_DO_RODIZIO) | set(gerador_mod.JOGOS_EM_ADOCAO)
+    assert jogos <= set(arbitros), sorted(jogos - set(arbitros))
+    for co_jogo in jogos:
+        assert callable(getattr(arbitros[co_jogo], "veredito", None)), co_jogo

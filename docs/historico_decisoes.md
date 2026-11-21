@@ -12195,3 +12195,21 @@ serve só o `tabuleiro` (o FEN) e descarta a `posicao` (`api/desafios/publicacao
 damas basta; no xadrez, a `cor_da_pessoa`, as `marcas`, as `classes` e a `troca` ficam no banco e não
 chegam ao app 1.6.0, cujo medidor as lê. ⛔ Servir a posição inteira em `posicao` junto com o `tabuleiro`
 quebraria a 1.5.0 (o parser dela recusa os dois juntos, e o `DesafioInvalido` não grava o dia impedido).
+
+## 2026-11-21 (14) — O 1º job do xadrez no `des`: faltava o `veredito` do árbitro
+
+**Contexto.** O dono rodou o passo 1 da T082 (`--sequencia "xadrez_dar_mate, xadrez_espia_comer"`). As
+dimensões entraram (perfil: 16 linhas novas; motor: a linha do xadrez), mas os dois pedidos caíram em
+`AttributeError: 'ArbitroXadrez' object has no attribute 'veredito'`: a prova de término do job
+(`estado_terminal.provar_termino`, chamada por `cobrir_um_dia`) pergunta ao árbitro se a partida acabou,
+e o do xadrez só sabia de quem é a vez. A régua da T077 não passa por essa prova, e por isso nada a
+denunciou antes. Nenhum desafio foi gravado; o portão reprovou só em (a) e (c), pela falta dele.
+
+**O que mudou.** `ArbitroXadrez.veredito` pergunta ao motor (`estado`, §2.1) e traduz o fim: o motivo
+como veio e o vencedor no sinal do log (a cor que venceu comparada com a `cor_da_pessoa`: ela é o `+1`;
+empate, `0`). O árbitro pergunta ao MESMO motor do jogador (o injetado, ou o da thread). Medido antes de
+devolver o comando: a prova de término (o Magno dos dois lados, até 200 meios-lances) levou 0 s no mate
+e de 8 a 11 s nas três posições da base, todas terminando (mate, repetição, material insuficiente).
+Cadeados em `test_provas_xadrez.py`: sem fim, o mate da pessoa (`+1`) e o do adversário (`-1`, com a
+pessoa de pretas), o empate (`0`), a prova de término pelo caminho do job, e o árbitro de todo jogo do
+gerador respondendo `veredito`.

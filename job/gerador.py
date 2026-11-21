@@ -2066,8 +2066,9 @@ def bancada(candidato: Candidato) -> Bancada:
         arbitro = jogador.arbitro
     elif candidato.co_jogo == "xadrez":
         # ⚠️ No xadrez quem joga e quem aplica e o executavel, um processo por
-        # thread da regua (`JogadorDoDesafioXadrez.motor`); o "arbitro" so diz
-        # de quem e a vez (T076).
+        # thread da regua (`JogadorDoDesafioXadrez.motor`); o "arbitro" diz de
+        # quem e a vez (T076) e, perguntando ao MESMO motor, se a partida acabou
+        # (`veredito`, que a prova de termino usa; T082).
         jogador = provas_xadrez_mod.JogadorDoDesafioXadrez()
         arbitro = jogador.arbitro
     else:

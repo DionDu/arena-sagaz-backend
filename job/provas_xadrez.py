@@ -60,7 +60,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from motores.nucleo.papeis import NivelDeMotor
+from motores.nucleo.papeis import NivelDeMotor, Veredito
 from motores.xadrez import contrato_xadrez
 from motores.xadrez import feitos_xadrez
 from motores.xadrez import perseguir_objetivo_xadrez as perseguir
@@ -157,17 +157,52 @@ class DecisaoXadrez:
 
 
 class ArbitroXadrez:
-    """O que o laco do gerador pergunta ao "arbitro": de quem e a vez.
+    """O que o job pergunta ao "arbitro": de quem e a vez, e se acabou.
 
     No xadrez a vez alterna a cada lance, e a posicao publicada e sempre da
     vez da pessoa (`feitos_xadrez.reproduzir` confere isso pelo motor): o lance
     de indice par e dela (`+1`), o impar e do adversario (`-1`).
+
+    Args:
+        motor_de: devolve o executavel a perguntar. ⚠️ Uma FUNCAO, e nao o
+            processo: o jogador do desafio entrega o da thread que pergunta
+            (`JogadorDoDesafioXadrez.motor`), e a regua roda em varias.
     """
 
     co_jogo = "xadrez"
 
+    def __init__(self, motor_de: Callable[[], JogadorXadrez] = jogador_compartilhado) -> None:
+        self._motor_de = motor_de
+
     def vez_de(self, estado: EstadoXadrez) -> int:
         return VEZ_DA_PESSOA if len(estado.lances) % 2 == 0 else -VEZ_DA_PESSOA
+
+    def veredito(self, estado: EstadoXadrez) -> Veredito:
+        """Acabou? Por que? Quem venceu? - perguntado ao motor (`estado`, §2.1).
+
+        E o que a prova de termino do job (`estado_terminal.provar_termino`)
+        pergunta a cada lance. ⛔ Nenhuma regra de fim escrita aqui: o mate, o
+        afogamento e os empates sao do motor, pelo contrato da modalidade.
+
+        O `vencedor` vai no sinal do log: a pessoa e o `+1` (`VEZ_DA_PESSOA`),
+        e o motor responde a COR que venceu (`branca`/`preta`), que se compara
+        com a `cor_da_pessoa` da posicao publicada.
+        """
+        fim = self._motor_de().estado(
+            modalidade=estado.modalidade,
+            fen_inicial=estado.fen_inicial,
+            lances=list(estado.lances),
+        )["fim"]
+        if fim is None:
+            return Veredito(acabou=False)
+        cor = fim.get("vencedor")
+        if cor is None:
+            vencedor = 0
+        elif cor == estado.posicao["cor_da_pessoa"]:
+            vencedor = VEZ_DA_PESSOA
+        else:
+            vencedor = -VEZ_DA_PESSOA
+        return Veredito(acabou=True, co_motivo=fim["motivo"], vencedor=vencedor)
 
 
 class JogadorDoDesafioXadrez:
@@ -182,7 +217,9 @@ class JogadorDoDesafioXadrez:
 
     def __init__(self, motor: JogadorXadrez | None = None) -> None:
         self._motor = motor
-        self._arbitro = ArbitroXadrez()
+        # O arbitro pergunta ao MESMO motor que o jogador usa (o injetado, ou o
+        # da thread que pergunta).
+        self._arbitro = ArbitroXadrez(lambda: self.motor)
 
     @property
     def arbitro(self) -> ArbitroXadrez:
