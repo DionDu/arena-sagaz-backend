@@ -32,7 +32,7 @@ from api.desafios.quadro import (
     fracao_servivel,
     replays_liberados,
 )
-from api.desafios.publicacao import posicao_publicada
+from api.desafios.publicacao import complemento_publicado, posicao_publicada
 from api.nucleo.excecoes import ErroNaoAutorizado, ErroNaoEncontrado
 
 
@@ -418,6 +418,13 @@ class ServicoQuadro:
             "formato_posicao": contexto.co_formato_posicao,
             "tabuleiro": tabuleiro,
             "posicao": posicao,
+            # ⚠️ **E o complemento, pelo mesmo motivo** (21/11/2026, spec 012):
+            # o replay do xadrez parte da posicao com a espia marcada, e sem as
+            # marcas o Raio-X desenharia o tabuleiro certo e o desafio errado.
+            # `null` nas damas e no Pontinhos. Campo ADITIVO.
+            "complemento_posicao": complemento_publicado(
+                contexto.co_formato_posicao, contexto.js_posicao_inicial
+            ),
             # ⚠️ **A linha de chegada, com o MESMO nome do desafio publicado**
             # (`parametros`, T156 da spec 010, 28/10/2026). O Raio-X do Quatro
             # realca a figura formada na parada do objetivo, como a partida

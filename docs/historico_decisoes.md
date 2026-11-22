@@ -12213,3 +12213,24 @@ e de 8 a 11 s nas três posições da base, todas terminando (mate, repetição,
 Cadeados em `test_provas_xadrez.py`: sem fim, o mate da pessoa (`+1`) e o do adversário (`-1`, com a
 pessoa de pretas), o empate (`0`), a prova de término pelo caminho do job, e o árbitro de todo jogo do
 gerador respondendo `veredito`.
+
+## 2026-11-21 (15) — O resto da posição do xadrez chega ao app: `complemento_posicao`
+
+**Contexto.** Achado da T080: no formato `fen` a resposta de `/v1/desafios/*` (e a do Raio-X) servia só
+a FEN, em `tabuleiro` (`publicacao.posicao_publicada`). A `cor_da_pessoa`, as `marcas`, as `classes` e a
+`troca` que o job grava em `js_posicao_inicial` não chegavam ao app 1.6.0, e sem elas a tela não sabe
+qual peça é a espiã. A posição inteira em `posicao` junto com o `tabuleiro` é `DesafioInvalido` na 1.5.0,
+que não grava o dia impedido (a chama de quem não atualizou cairia).
+
+**Decisão** (delegada pelo dono, `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzz66): campo novo
+e opcional `complemento_posicao` no `DesafioPublicado` e no `_de_onde_se_parte` do Raio-X, montado por
+`publicacao.complemento_publicado`: no formato `fen`, o `js_posicao_inicial` menos `fen`, `versao` e
+`vez_de` (`CHAVES_QUE_A_FEN_JA_DIZ`); vazio vira `null`. Nas damas (`{versao, fen, vez_de}`) e no
+`sequencia_lances` sai `null`, e a resposta delas não muda.
+
+**Alternativas consideradas:** a posição inteira com a FEN dentro (a FEN em duas fontes); `formato_posicao`
+novo (quebra a 1.5.0); as marcas em `parametros` (mistura posição com chegada); rota própria.
+
+**Cadeados.** `tests/unitarios/test_xadrez_num_app_1_5.py`: os tipos do xadrez no ar continuam passando no
+parser da 1.5.0 e agora trazem o complemento (tudo menos a FEN, com a `cor_da_pessoa`); as damas continuam
+com `null`; e a função pura nas três formas de posição.

@@ -197,6 +197,13 @@ class DesafioPublicado(BaseModel):
     formato_posicao: Literal["sequencia_lances", "fen"]
     tabuleiro: Optional[str] = None
     posicao: Optional[dict[str, Any]] = None
+    #: ⚠️ **O que a posicao `fen` tem alem da FEN** (desde 21/11/2026, spec 012:
+    #: a cor da pessoa, as marcas, as classes e a troca do xadrez). `null` nas
+    #: damas e no formato `sequencia_lances`. ⛔ Nunca traz a FEN, que ja vai no
+    #: `tabuleiro`. Campo ADITIVO: a 1.5.0 o ignora, e por isso ele existe - a
+    #: posicao inteira em `posicao`, ao lado do `tabuleiro`, seria recusada por
+    #: ela (`publicacao.complemento_publicado`).
+    complemento_posicao: Optional[dict[str, Any]] = None
 
     #: O tamanho do tabuleiro no Pontinhos (`null` nas damas). E o `co_variante`
     #: com o nome que o contrato lhe deu.

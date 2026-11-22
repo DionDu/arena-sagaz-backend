@@ -277,6 +277,41 @@ async def test_cada_tipo_do_xadrez_passa_no_parser_da_1_5(co_tipo, monkeypatch, 
     # O FEN servido é o da posição publicada.
     assert corpo["tabuleiro"] == linha["js_posicao_inicial"]["fen"]
 
+    # ⚠️ E o resto da posição chega pelo campo NOVO (§8zzzz66), que a 1.5.0
+    # ignora: tudo o que o job gravou, menos a FEN (que já veio no `tabuleiro`).
+    # Sem ele, a 1.6.0 não saberia a cor da pessoa, nem qual peça é a espiã.
+    esperado = {
+        chave: valor
+        for chave, valor in linha["js_posicao_inicial"].items()
+        if chave != "fen"
+    }
+    assert corpo["complemento_posicao"] == esperado
+    assert "fen" not in corpo["complemento_posicao"], "a FEN tem uma fonte só"
+    assert corpo["complemento_posicao"]["cor_da_pessoa"] in ("branca", "preta")
+
+
+async def test_nas_DAMAS_o_complemento_continua_nulo(monkeypatch, cliente):
+    """🔒 O campo novo não muda as damas: a posição delas é `{versao, fen, vez_de}`,
+    tudo o que a FEN já diz, e o complemento sai `null`.
+
+    ⚠️ É o que deixa a decisão de 21/11/2026 sem efeito nos três jogos que já
+    estão em campo.
+    """
+    linha = _linha()
+    assert linha["co_formato_posicao"] == "fen", "o molde é o das damas"
+    app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(hoje=linha)
+    app.dependency_overrides[usuario_atual_opcional] = lambda: None
+    monkeypatch.setattr(rotas_desafios, "agora_utc", lambda: MADRUGADA_UTC)
+    try:
+        resposta = await cliente.get("/v1/desafios/hoje", headers=CABECALHOS_1_5)
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["jogo"] == "damas"
+    assert corpo["complemento_posicao"] is None
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. O dia impedido, gravado com a versão do cabeçalho
@@ -385,3 +420,40 @@ def test_e_neste_backend_o_xadrez_e_conhecido(caplog):
         _avisar_extensao_de_partida_desconhecida(evento["payload"]["partida"])
         _avisar_extensao_desconhecida(evento["payload"]["jogadas"][0])
     assert caplog.records == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1b. O complemento da posição, sem o HTTP (§8zzzz66)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_o_complemento_e_so_do_formato_fen_e_nunca_traz_a_fen():
+    """🔒 As três formas de posição que existem, uma por linha."""
+    from api.desafios.publicacao import complemento_publicado
+
+    # As damas: tudo o que a posição tem a FEN já diz, e o complemento é nulo.
+    damas = {"versao": 1, "fen": "W:W18,24,K27:B12,16,K22", "vez_de": 1}
+    assert complemento_publicado("fen", damas) is None
+    # O Pontinhos e o Quatro: a posição inteira já vai em `posicao`.
+    sequencia = {"versao": 1, "lances": [], "vez_de": 1}
+    assert complemento_publicado("sequencia_lances", sequencia) is None
+    # Posição ausente não derruba a resposta.
+    assert complemento_publicado("fen", None) is None
+    # O xadrez: sobra tudo menos a FEN.
+    xadrez = {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "fen": "4k3/8/8/8/8/2N5/8/4K3 w - - 0 1",
+        "cor_da_pessoa": "branca",
+        "marcas": {"espia": "c3"},
+        "origem": "base_equilibrada",
+    }
+    assert complemento_publicado("fen", xadrez) == {
+        "jogo": "xadrez",
+        "modalidade": "tradicional",
+        "cor_da_pessoa": "branca",
+        "marcas": {"espia": "c3"},
+        "origem": "base_equilibrada",
+    }
+    # E a posição gravada não é alterada (a função copia, não remove).
+    assert "fen" in xadrez

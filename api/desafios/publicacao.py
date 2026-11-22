@@ -65,6 +65,58 @@ def posicao_publicada(
     return None, js_posicao
 
 
+#: As chaves da posicao `fen` que **nao** viajam no complemento: a propria FEN
+#: (que ja vai no `tabuleiro`) e as duas que a FEN ja diz por conta propria - a
+#: `versao` do formato e o `vez_de`, que o prefixo `W:`/`B:` das damas carrega.
+#:
+#: ⚠️ **E esta lista que deixa as damas como eram**: o `js_posicao_inicial` das
+#: damas e exatamente `{versao, fen, vez_de}` (`job/posicao_inicial.py`), entao o
+#: complemento delas sai vazio, e a resposta continua dizendo `null`.
+CHAVES_QUE_A_FEN_JA_DIZ = frozenset({"fen", "versao", "vez_de"})
+
+
+def complemento_publicado(
+    co_formato_posicao: str, js_posicao_inicial: Any
+) -> Optional[dict[str, Any]]:
+    """O que a posicao `fen` tem ALEM da FEN, para o campo `complemento_posicao`.
+
+    Args:
+        co_formato_posicao: `fen` ou `sequencia_lances`.
+        js_posicao_inicial: o `js_posicao_inicial` cru do desafio.
+
+    Returns:
+        Um dicionario com as chaves que a FEN nao diz (no xadrez: `jogo`,
+        `modalidade`, `cor_da_pessoa`, `marcas`, `classes`, `troca`, `origem`),
+        ou `None` quando nao sobra nada (as damas) e no formato
+        `sequencia_lances` (la a posicao inteira ja vai em `posicao`).
+
+    ⚠️ **Por que um campo NOVO, e nao a posicao inteira em `posicao`** (decisao
+    de 21/11/2026, `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzz66): o
+    parser da 1.5.0 (`Desafio.doJson`) recusa `tabuleiro` e `posicao` juntos, e a
+    recusa e `DesafioInvalido`, que nao grava o dia impedido - quem esta na 1.5.0
+    perderia a chama num dia de xadrez. Um campo desconhecido, ao contrario, a
+    1.5.0 ignora (a tolerancia a campos aditivos).
+
+    ⚠️ **E por que SEM a FEN**: a FEN ja vai no `tabuleiro`. Manda-la duas vezes
+    seria a mesma informacao em duas fontes, e no dia em que divergissem a que
+    estivesse errada mandaria - e o motivo de `tabuleiro` e `posicao` serem
+    excludentes.
+    """
+    if co_formato_posicao != "fen":
+        return None
+    js_posicao = js_posicao_inicial or {}
+    # Compreensao de dicionario: copia cada par (chave, valor) cuja chave NAO
+    # esta na lista do que a FEN ja diz.
+    sobra = {
+        chave: valor
+        for chave, valor in js_posicao.items()
+        if chave not in CHAVES_QUE_A_FEN_JA_DIZ
+    }
+    # Dicionario vazio vira `None`: as damas continuam com `null`, e ninguem
+    # do outro lado precisa distinguir "vazio" de "ausente".
+    return sobra or None
+
+
 def para_resposta(
     linha: Mapping[str, Any], *, agora: datetime
 ) -> DesafioPublicado:
@@ -103,6 +155,9 @@ def para_resposta(
         formato_posicao=co_formato,
         tabuleiro=tabuleiro,
         posicao=posicao,
+        complemento_posicao=complemento_publicado(
+            co_formato, linha["js_posicao_inicial"]
+        ),
         tamanho=co_variante if co_jogo in JOGOS_COM_TAMANHO else None,
         variante=co_variante,
         objetivo=ObjetivoPublicado(
