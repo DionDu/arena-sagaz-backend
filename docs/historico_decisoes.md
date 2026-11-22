@@ -12256,3 +12256,39 @@ aceita. 21 casos verdes.
 
 **Alternativa considerada:** manter o nome `..._1_5.py` e só trocar o conteúdo (o nome mentiria sobre
 o app que o arquivo simula).
+
+## 2026-11-22 (2) — O painel de curadoria desenha o xadrez
+
+**Contexto.** O dono vai testar no aparelho os 12 tipos do xadrez pelo ciclo do Quatro (resolver
+o de hoje, limpar as resoluções, trazer outro para hoje; `arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8zzzz69), e pediu o painel "funcionando perfeitamente" com o xadrez. Até aqui `desenho.posicao` e a
+fita mandavam todo formato `fen` para as damas: a FEN do xadrez virava um tabuleiro de damas sem
+sentido, e o lado de quem resolve vinha do `vez_de`, que a posição do xadrez não tem.
+
+**Decisão.** Um bloco "Xadrez" em `api/desafios/painel/desenho.py`, separado por
+`eh_do_xadrez` (`"jogo": "xadrez"` na posição) antes das damas, em `posicao` e em `_quadros`:
+- **a FEN lida como tabela** (`ler_fen_xadrez`), sem regra de xadrez: o motor é o executável Rust
+  da imagem do job, que a API não tem;
+- o tabuleiro **virado para quem resolve** (`cor_da_pessoa`), com as peças dela em azul embaixo e as
+  do adversário em vermelho (as cores do app, `pictogramas_xadrez.dart`), as coordenadas nas
+  bordas, a espiã com o selo do olho e o alvo com a estrela (os cantos do app);
+- a fita (gabarito e raio-x) com o quadro de ANTES de cada lance, como nas damas: o trajeto, as
+  comidas (`comidas_no_lance_xadrez`) e as marcas que andam com a peça (`seguir_marcas_xadrez`),
+  as duas pela diferença entre a FEN de antes e a de depois que o motor gravou (o en passant, o
+  roque que leva a torre espiã e a promoção sem regra); o título em palavras
+  (`descrever_lance_xadrez`, "dama d3 > h3, come o(a) peao");
+- quem resolve no xadrez é o `+1` (o J1), no gabarito e no log;
+- `pagina.py`: "Xadrez"/"Xdz" nos rótulos e uma legenda das cores sob o tabuleiro.
+
+**Alternativas consideradas:** perguntar ao motor do xadrez (a API não o tem, e um painel que
+dependesse dele cairia no Railway); peças por letra (o dono não é enxadrista); um campo novo com as
+marcas a cada lance no log ou no gabarito (migração e mudança no job por uma página interna, quando
+a diferença das FENs basta).
+
+**Testes.** `tests/unitarios/test_desenho_xadrez_no_painel.py` (18): o dia do xadrez abre com o
+xadrez e a legenda; as damas continuam nas damas; a FEN como tabela; de brancas e de pretas (azul
+embaixo, colunas viradas); os selos; en passant, roque, promoção e captura comum pela diferença das
+FENs; a fita do gabarito REAL do 28/11 do `des` (títulos, lados e o lance-chave); a fita que segue a
+espiã; a fita do log; FEN e lance tortos sem 500. Os 182 do painel continuam verdes. E as páginas
+foram montadas com os dois desafios de xadrez reais do `des`, numa transação somente-leitura, e
+vistas no navegador.

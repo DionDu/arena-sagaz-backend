@@ -102,9 +102,23 @@ BASE = "/painel/desafios"
 
 #: Como cada jogo aparece por extenso e na celula do calendario (que e estreita).
 #: ⚠️ O Quatro entrou em 27/10/2026, quando o 1o dia dele no calendario do
-#: painel apareceu com o codigo cru (`quatro`) no lugar do nome.
-ROTULO_DO_JOGO = {"pontinhos": "Pontinhos", "damas": "Damas", "quatro": "Quatro em Linha"}
-SIGLA_DO_JOGO = {"pontinhos": "Pont", "damas": "Dama", "quatro": "Q4"}
+#: painel apareceu com o codigo cru (`quatro`) no lugar do nome. O Xadrez entrou
+#: em 22/11/2026 (spec 012), antes do 1o dia dele no calendario de testes.
+ROTULO_DO_JOGO = {
+    "pontinhos": "Pontinhos",
+    "damas": "Damas",
+    "quatro": "Quatro em Linha",
+    "xadrez": "Xadrez",
+}
+SIGLA_DO_JOGO = {"pontinhos": "Pont", "damas": "Dama", "quatro": "Q4", "xadrez": "Xdz"}
+
+#: A legenda do tabuleiro do xadrez: as cores sao as da tela do app (azul =
+#: quem resolve, embaixo), e nao o branco e preto das pecas, e o olho e a
+#: estrela sao as marcas do desafio (`desenho.xadrez`).
+LEGENDA_DO_XADREZ = (
+    '<p class="nota">azul = voce (quem resolve, embaixo) &middot; vermelho = o '
+    "adversario &middot; olho dourado = a espia &middot; estrela = a peca-alvo</p>"
+)
 
 #: O estado de curadoria como o dono le. ⚠️ `candidato` virou "aguardando":
 #: desde 02/10/2026 so os candidatos ANTIGOS existem, e o nome tecnico fazia
@@ -684,8 +698,10 @@ def _fita_da_solucao(item: DesafioNoPainel) -> str:
         )
     nota = (
         '<p class="nota">Cada tabuleiro e a posicao ANTES do lance: o tracejado e '
-        "o caminho da peca, e o &times; marca as pecas que ele come, na ordem."
-        "</p>"
+        "o caminho da peca, e o &times; marca as pecas que ele come"
+        # ⚠️ So as damas comem em sequencia; no xadrez cada lance come uma.
+        + (" (azul = voce, embaixo)." if item.co_jogo == "xadrez" else ", na ordem.")
+        + "</p>"
         if item.co_formato_posicao == "fen"
         else ""
     )
@@ -921,7 +937,8 @@ def _cartao_do_desafio(
         '<article class="cartao">'
         f'<div class="tabuleiro">'
         f"{desenho.posicao(item.co_formato_posicao, item.js_posicao_inicial, numerar=True, maior=True, co_variante=item.co_variante)}"
-        "</div>"
+        + (LEGENDA_DO_XADREZ if item.co_jogo == "xadrez" else "")
+        + "</div>"
         '<div class="corpo">'
         f"<h2 class=\"titulo-desafio\">{_txt(item.no_tipo_desafio)}</h2>"
         f"<div>{''.join(etiquetas)}</div>"

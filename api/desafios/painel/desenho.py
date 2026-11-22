@@ -49,6 +49,7 @@ contrario do que os jogadores vao ver.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from html import escape
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -1150,6 +1151,461 @@ def figura_quatro(linhas: Sequence[str]) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Xadrez (22/11/2026, spec 012)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ **O xadrez grava o MESMO formato das damas** (`fen`), com uma FEN de
+# xadrez dentro e `"jogo": "xadrez"` na posicao (contrato §1 da spec 012). Ate
+# 22/11/2026 o desenho mandava todo `fen` para as damas, e a FEN do xadrez saia
+# como um tabuleiro de damas sem sentido. Quem separa e `eh_do_xadrez`.
+#
+# ⛔ **Nenhuma regra de xadrez aqui** (a mesma razao das damas, no topo da fita):
+# o motor do xadrez e um executavel em Rust que a imagem da API nao tem. O que
+# este bloco faz e LER A FEN COMO TABELA (que peca esta em que casa) e comparar
+# duas FENs que o motor ja gravou - a de antes e a de depois de cada lance:
+#
+#   · as pecas comidas num lance sao as do adversario de quem jogou que estavam
+#     no tabuleiro antes e nao estao depois (vale para o "en passant", em que a
+#     peca comida nao esta na casa de destino);
+#   · a espia e o alvo andam com a peca: se o lance sai da casa da marca, ela vai
+#     para o destino; se a peca da marca sumiu da casa sem ser a origem do lance,
+#     ou foi comida (quem jogou foi o adversario) ou andou junto (o roque leva a
+#     torre), e ai ela esta na unica casa nova com a mesma peca.
+#
+# ⚠️ **As cores sao as da tela do aplicativo, e nao branco e preto**: as pecas
+# de quem resolve sao AZUIS e ficam EMBAIXO (de brancas ou de pretas), e as do
+# adversario sao VERMELHAS, em cima (`pictogramas_xadrez.dart`, RF-XDR-004/005).
+# As casas sao as do tabuleiro das damas do painel (o tabuleiro do xadrez no
+# app e o das damas).
+
+#: Lado do tabuleiro de xadrez, em casas.
+LADO_XADREZ = 8
+
+#: As colunas, da esquerda para a direita de quem joga de brancas.
+COLUNAS_XADREZ = "abcdefgh"
+
+#: O nome de cada peca, pela letra da FEN (minuscula). E o que vai no titulo
+#: de cada quadro: o dono nao e enxadrista, e "d3h3" sozinho nao diz que peca
+#: andou.
+NOME_DA_PECA_XADREZ = {
+    "k": "rei",
+    "q": "dama",
+    "r": "torre",
+    "b": "bispo",
+    "n": "cavalo",
+    "p": "peao",
+}
+
+#: O desenho de cada peca: o simbolo cheio do Unicode, o mesmo para os dois
+#: lados (quem pinta o lado e a cor). ⚠️ O `︎` pede a forma de TEXTO: sem
+#: ele, alguns sistemas desenham o peao como emoji, e a cor do lado se perde.
+GLIFO_XADREZ = {
+    "k": "♚︎",
+    "q": "♛︎",
+    "r": "♜︎",
+    "b": "♝︎",
+    "n": "♞︎",
+    "p": "♟︎",
+}
+
+#: Um lance do xadrez na notacao do motor: origem, destino e, na promocao, a
+#: letra da peca que nasce (`e2e4`, `b7b8q`). `re.compile` prepara a expressao
+#: uma vez so, no carregamento do modulo.
+_LANCE_XADREZ = re.compile(r"^([a-h][1-8])([a-h][1-8])([qrbn])?$")
+
+
+def eh_do_xadrez(posicao: Mapping[str, Any] | None) -> bool:
+    """A posicao publicada e de xadrez? (`"jogo": "xadrez"`, contrato §1)."""
+    return bool(posicao) and posicao.get("jogo") == "xadrez"
+
+
+def ler_fen_xadrez(fen: str) -> dict[str, str]:
+    """A 1a parte da FEN de xadrez como tabela: `{"e1": "K", "e8": "k", ...}`.
+
+    ⚠️ **So leitura de tabela**: maiuscula e branca, minuscula e preta, digito e
+    casa vazia, `/` troca de fileira (a 8a vem primeiro). Nada de regra.
+
+    Returns:
+        As casas ocupadas. ⚠️ FEN torta devolve o que deu para ler ate o erro:
+        o painel desenha o que ha, e nao derruba a pagina.
+    """
+    tabela: dict[str, str] = {}
+    fileiras = (fen.split(" ")[0] if fen else "").split("/")
+    for indice, fileira in enumerate(fileiras[:LADO_XADREZ]):
+        # A 1a fileira da FEN e a 8a do tabuleiro: `8 - indice`.
+        numero = LADO_XADREZ - indice
+        coluna = 0
+        for simbolo in fileira:
+            if simbolo.isdigit():
+                coluna += int(simbolo)
+            elif simbolo.lower() in NOME_DA_PECA_XADREZ and coluna < LADO_XADREZ:
+                tabela[f"{COLUNAS_XADREZ[coluna]}{numero}"] = simbolo
+                coluna += 1
+            else:
+                return tabela
+    return tabela
+
+
+def casas_do_lance_xadrez(lance: str) -> Optional[tuple[str, str, Optional[str]]]:
+    """`(origem, destino, promocao)` de um lance do motor, ou `None` se torto."""
+    achado = _LANCE_XADREZ.match(lance or "")
+    if achado is None:
+        return None
+    return achado.group(1), achado.group(2), achado.group(3)
+
+
+def comidas_no_lance_xadrez(
+    antes: Mapping[str, str], depois: Mapping[str, str], lance: str
+) -> list[str]:
+    """As casas das pecas que o lance come, pela diferenca entre as duas FENs.
+
+    Sao as pecas do ADVERSARIO de quem jogou que estavam antes e nao estao mais
+    (a casa ficou vazia ou mudou de dono). ⚠️ Vale para o "en passant" sem
+    saber o que ele e: o peao comido some de uma casa que nao e o destino.
+    """
+    casas = casas_do_lance_xadrez(lance)
+    if casas is None or casas[0] not in antes:
+        return []
+    quem_jogou_e_branca = antes[casas[0]].isupper()
+    return sorted(
+        casa
+        for casa, peca in antes.items()
+        if peca.isupper() != quem_jogou_e_branca and depois.get(casa) != peca
+    )
+
+
+def seguir_marcas_xadrez(
+    marcas: Mapping[str, Optional[str]],
+    antes: Mapping[str, str],
+    depois: Mapping[str, str],
+    lance: str,
+) -> dict[str, Optional[str]]:
+    """Onde cada marca (espia, alvo) esta DEPOIS do lance; `None` = comida.
+
+    Ver a nota do bloco: a marca anda com a peca, e quem diz onde a peca esta
+    sao as duas FENs que o motor gravou.
+    """
+    casas = casas_do_lance_xadrez(lance)
+    origem, destino = (casas[0], casas[1]) if casas else (None, None)
+    quem_jogou = antes.get(origem) if origem else None
+    novas: dict[str, Optional[str]] = {}
+    for nome, casa in marcas.items():
+        peca = antes.get(casa) if casa else None
+        if peca is None:
+            # Ja comida antes (ou a marca nao apontava para peca nenhuma).
+            novas[nome] = None
+        elif casa == origem:
+            # A peca da marca foi a que andou (inclusive na promocao).
+            novas[nome] = destino
+        elif depois.get(casa) == peca:
+            # Ninguem mexeu nela.
+            novas[nome] = casa
+        elif quem_jogou is not None and quem_jogou.isupper() == peca.isupper():
+            # Saiu da casa num lance do PROPRIO lado sem ser a peca que andou:
+            # andou junto (o roque). Esta na unica casa nova com a mesma peca.
+            chegaram = [
+                c for c, p in depois.items() if p == peca and antes.get(c) != peca
+            ]
+            novas[nome] = chegaram[0] if len(chegaram) == 1 else None
+        else:
+            # O adversario jogou e a peca sumiu da casa: foi comida.
+            novas[nome] = None
+    return novas
+
+
+def descrever_lance_xadrez(
+    antes: Mapping[str, str], lance: str, comidas: Sequence[str]
+) -> str:
+    """O titulo de um quadro em palavras: `"dama d3 > h3, come o(a) peao"`.
+
+    ⚠️ So o que a tabela diz: a peca que estava na origem, e a que estava em
+    cada casa comida. A promocao vem da letra do lance.
+    """
+    casas = casas_do_lance_xadrez(lance)
+    if casas is None:
+        return lance
+    origem, destino, promocao = casas
+    peca = antes.get(origem)
+    nome = NOME_DA_PECA_XADREZ.get(peca.lower(), "peca") if peca else "peca"
+    partes = [f"{nome} {origem} > {destino}"]
+    for casa in comidas:
+        comida = antes.get(casa)
+        if comida:
+            partes.append(f"come o(a) {NOME_DA_PECA_XADREZ[comida.lower()]}")
+    if promocao:
+        partes.append(f"vira {NOME_DA_PECA_XADREZ[promocao]}")
+    return ", ".join(partes)
+
+
+def _selo_da_marca(nome: str, cx: float, cy: float, raio: float) -> str:
+    """O selo de uma marca do desafio, no canto da casa.
+
+    O mesmo vocabulario do aplicativo (`peca_xadrez.dart`): a ESPIA e um selo
+    com um olho no canto superior esquerdo, o ALVO um selo com uma estrela no
+    canto superior direito - cantos opostos, para os dois nunca se cobrirem.
+    """
+    if nome.startswith("espia"):
+        return (
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio:.1f}" fill="{OURO}" '
+            f'stroke="{MADEIRA_ESC}" stroke-width="1"/>'
+            f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" rx="{raio * 0.72:.1f}" '
+            f'ry="{raio * 0.42:.1f}" fill="{CREME}"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio * 0.26:.1f}" fill="{TINTA}"/>'
+        )
+    # A estrela de cinco pontas: dez vertices, alternando o raio de fora e o de
+    # dentro, comecando pelo topo (angulo de -90 graus).
+    vertices = []
+    for i in range(10):
+        r = raio * (0.85 if i % 2 == 0 else 0.38)
+        angulo = math.radians(-90 + i * 36)
+        vertices.append(
+            f"{cx + r * math.cos(angulo):.1f},{cy + r * math.sin(angulo):.1f}"
+        )
+    return (
+        f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{raio:.1f}" fill="{TINTA}" '
+        f'stroke="{MADEIRA_ESC}" stroke-width="1"/>'
+        f'<polygon points="{" ".join(vertices)}" fill="{OURO}"/>'
+    )
+
+
+def xadrez(
+    posicao: Mapping[str, Any],
+    *,
+    lado_px: int = 30,
+    lance: Optional[str] = None,
+    comidas: Sequence[str] = (),
+    marcas: Optional[Mapping[str, Optional[str]]] = None,
+) -> str:
+    """Desenha a posicao de xadrez a partir da FEN.
+
+    Args:
+        posicao: o `js_posicao_inicial` (ou uma copia com a FEN de outro
+            quadro). A `cor_da_pessoa` decide quem fica embaixo.
+        lado_px: o lado de uma casa, em pixels.
+        lance: o lance que VAI ser jogado nesta posicao (o quadro mostra a
+            posicao de ANTES, como nas damas): anel na peca que sai, tracejado
+            com seta e um fantasma no destino.
+        comidas: as casas das pecas que o lance come; ganham um ×.
+        marcas: `{nome: casa}` das marcas do desafio AGORA (a espia, a 2a
+            espia, o alvo). Sem o parametro, valem as da posicao publicada.
+
+    Returns:
+        O `<svg>`, ou o aviso desenhado quando nao ha FEN.
+    """
+    fen = posicao.get("fen")
+    if not isinstance(fen, str) or not fen:
+        return _svg_vazio("posicao de xadrez sem FEN")
+    tabela = ler_fen_xadrez(fen)
+    # Quem resolve fica embaixo, e as pecas dele sao azuis.
+    pessoa_de_brancas = posicao.get("cor_da_pessoa") != "preta"
+    if marcas is None:
+        marcas = {
+            str(k): v
+            for k, v in (posicao.get("marcas") or {}).items()
+            if isinstance(v, str)
+        }
+
+    margem = 16  # Cabe a letra da coluna embaixo e o numero da fileira a esquerda.
+    tamanho = LADO_XADREZ * lado_px + 2 * margem
+
+    def centro(casa: str) -> tuple[float, float]:
+        """O centro da casa na tela, ja com o tabuleiro virado para quem resolve."""
+        coluna = COLUNAS_XADREZ.index(casa[0])
+        fileira = int(casa[1])
+        if pessoa_de_brancas:
+            x, y = coluna, LADO_XADREZ - fileira
+        else:
+            x, y = LADO_XADREZ - 1 - coluna, fileira - 1
+        return margem + x * lado_px + lado_px / 2, margem + y * lado_px + lado_px / 2
+
+    partes: list[str] = [
+        f'<svg viewBox="0 0 {tamanho} {tamanho}" width="{tamanho}" '
+        f'height="{tamanho}" role="img" aria-label="tabuleiro de xadrez, voce de '
+        f'{"brancas" if pessoa_de_brancas else "pretas"}">',
+        f'<rect width="{tamanho}" height="{tamanho}" fill="{MADEIRA}" rx="6"/>',
+    ]
+
+    # 1) As casas. a1 e escura: `(coluna + fileira)` par, com os dois contados
+    #    a partir de zero. O par/impar nao muda quando o tabuleiro vira.
+    for coluna, letra in enumerate(COLUNAS_XADREZ):
+        for fileira in range(1, LADO_XADREZ + 1):
+            escura = (coluna + fileira - 1) % 2 == 0
+            cx, cy = centro(f"{letra}{fileira}")
+            partes.append(
+                f'<rect x="{cx - lado_px / 2:.1f}" y="{cy - lado_px / 2:.1f}" '
+                f'width="{lado_px}" height="{lado_px}" '
+                f'fill="{PAPEL_2 if escura else PAPEL}"/>'
+            )
+
+    # 2) As coordenadas, na madeira: as letras embaixo e os numeros a esquerda,
+    #    na ordem de quem resolve. Sao elas que ligam o "d3 > h3" ao desenho.
+    for letra in COLUNAS_XADREZ:
+        cx, _ = centro(f"{letra}1")
+        partes.append(
+            f'<text x="{cx:.1f}" y="{tamanho - 4}" text-anchor="middle" '
+            f'font-size="10" fill="{CREME}">{letra}</text>'
+        )
+    for fileira in range(1, LADO_XADREZ + 1):
+        _, cy = centro(f"a{fileira}")
+        partes.append(
+            f'<text x="{margem / 2:.1f}" y="{cy + 3.5:.1f}" text-anchor="middle" '
+            f'font-size="10" fill="{CREME}">{fileira}</text>'
+        )
+
+    casas = casas_do_lance_xadrez(lance) if lance else None
+
+    # 3) As duas casas do lance, acesas por baixo das pecas.
+    if casas:
+        for casa in casas[:2]:
+            cx, cy = centro(casa)
+            partes.append(
+                f'<rect x="{cx - lado_px / 2:.1f}" y="{cy - lado_px / 2:.1f}" '
+                f'width="{lado_px}" height="{lado_px}" fill="{OURO}" opacity="0.38"/>'
+            )
+
+    # 4) As pecas: o simbolo pintado na cor do LADO (azul = quem resolve).
+    for casa, peca in sorted(tabela.items()):
+        cx, cy = centro(casa)
+        da_pessoa = peca.isupper() == pessoa_de_brancas
+        partes.append(
+            f'<text x="{cx:.1f}" y="{cy + lado_px * 0.3:.1f}" text-anchor="middle" '
+            f'font-size="{lado_px * 0.82:.0f}" '
+            'font-family="Segoe UI Symbol, DejaVu Sans, Noto Sans Symbols 2, sans-serif" '
+            f'fill="{AZUL_J1 if da_pessoa else VERMELHO_J2}" '
+            f'stroke="{MADEIRA_ESC}" stroke-width="0.6">{GLIFO_XADREZ[peca.lower()]}</text>'
+        )
+
+    # 5) As comidas: um × por cima da peca (o contorno claro o deixa visivel
+    #    sobre as duas cores de casa).
+    for casa in comidas:
+        if casa not in tabela:
+            continue
+        cx, cy = centro(casa)
+        braco = lado_px * 0.24
+        for sinal in (1, -1):
+            # Duas linhas cruzadas: (-b,-b)->(b,b) e (-b,b)->(b,-b).
+            linha = (
+                f'x1="{cx - braco:.1f}" y1="{cy - sinal * braco:.1f}" '
+                f'x2="{cx + braco:.1f}" y2="{cy + sinal * braco:.1f}"'
+            )
+            partes.append(
+                f'<line {linha} stroke="{CREME}" stroke-width="3.5" stroke-linecap="round"/>'
+                f'<line {linha} stroke="{VERMELHO_J2}" stroke-width="1.5" '
+                'stroke-linecap="round"/>'
+            )
+
+    # 6) O trajeto: anel na origem, tracejado com seta e fantasma no destino -
+    #    o vocabulario das damas no painel e do replay no app.
+    if casas:
+        (ox, oy), (dx, dy) = centro(casas[0]), centro(casas[1])
+        raio = lado_px * 0.42
+        partes.append(
+            f'<circle cx="{ox:.1f}" cy="{oy:.1f}" r="{raio:.1f}" fill="none" '
+            f'stroke="{OURO}" stroke-width="2.5"/>'
+            f'<line x1="{ox:.1f}" y1="{oy:.1f}" x2="{dx:.1f}" y2="{dy:.1f}" '
+            f'stroke="{CREME}" stroke-width="5" stroke-linecap="round" opacity="0.85"/>'
+            f'<line x1="{ox:.1f}" y1="{oy:.1f}" x2="{dx:.1f}" y2="{dy:.1f}" '
+            f'stroke="{MADEIRA_ESC}" stroke-width="2.5" stroke-dasharray="6 4" '
+            'stroke-linecap="round"/>'
+        )
+        # A ponta da seta: um triangulo na direcao do trecho, recuado do centro.
+        comprimento = max(math.hypot(dx - ox, dy - oy), 1.0)
+        ux, uy = (dx - ox) / comprimento, (dy - oy) / comprimento
+        px, py = dx - ux * raio * 0.9, dy - uy * raio * 0.9
+        base = lado_px * 0.22
+        # `(-uy, ux)` e a perpendicular do trecho: abre a base do triangulo.
+        partes.append(
+            f'<polygon points="{px:.1f},{py:.1f} '
+            f'{px - ux * base - uy * base * 0.7:.1f},{py - uy * base + ux * base * 0.7:.1f} '
+            f'{px - ux * base + uy * base * 0.7:.1f},{py - uy * base - ux * base * 0.7:.1f}" '
+            f'fill="{MADEIRA_ESC}"/>'
+            f'<circle cx="{dx:.1f}" cy="{dy:.1f}" r="{raio:.1f}" fill="none" '
+            f'stroke="{MADEIRA_ESC}" stroke-width="2" stroke-dasharray="4 3"/>'
+        )
+
+    # 7) Os selos das marcas, por cima de tudo: a espia no canto superior
+    #    esquerdo da casa, o alvo no superior direito.
+    for nome, casa in sorted(marcas.items()):
+        if not casa or casa not in tabela:
+            continue
+        cx, cy = centro(casa)
+        lado_do_selo = -1 if nome.startswith("espia") else 1
+        partes.append(
+            _selo_da_marca(
+                nome,
+                cx + lado_do_selo * lado_px * 0.3,
+                cy - lado_px * 0.3,
+                lado_px * 0.17,
+            )
+        )
+
+    partes.append("</svg>")
+    return "".join(partes)
+
+
+def _quadros_do_xadrez(
+    js_posicao_inicial: Mapping[str, Any],
+    lances: list[Mapping[str, Any]],
+    fens_depois: list[Optional[str]],
+    base: Callable[[int, Mapping[str, Any]], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """A fita do xadrez: cada quadro e a posicao de ANTES do lance, como nas damas.
+
+    As comidas e o caminho das marcas saem da FEN de antes e da de depois de
+    cada lance (ver a nota do bloco). Quando a de depois nao se sabe (o ultimo
+    lance de uma partida do log), o quadro vai sem as comidas e sem o final.
+    """
+    fen_antes: Optional[str] = js_posicao_inicial.get("fen")
+    marcas: dict[str, Optional[str]] = {
+        str(k): v
+        for k, v in (js_posicao_inicial.get("marcas") or {}).items()
+        if isinstance(v, str)
+    }
+    lado_px = 30
+    quadros: list[dict[str, Any]] = []
+    for indice, (lance, fen_depois) in enumerate(zip(lances, fens_depois), 1):
+        quadro = base(indice, lance)
+        antes = ler_fen_xadrez(fen_antes or "")
+        depois = ler_fen_xadrez(fen_depois) if fen_depois else None
+        comidas = (
+            comidas_no_lance_xadrez(antes, depois, quadro["lance"]) if depois else []
+        )
+        quadro["titulo"] = descrever_lance_xadrez(antes, quadro["lance"], comidas)
+        quadro["svg"] = xadrez(
+            {**js_posicao_inicial, "fen": fen_antes or ""},
+            lado_px=lado_px,
+            lance=quadro["lance"],
+            comidas=comidas,
+            marcas=marcas,
+        )
+        quadros.append(quadro)
+        if depois is None:
+            # Sem a FEN de depois, nao se sabe o que veio: para aqui.
+            return quadros
+        marcas = seguir_marcas_xadrez(marcas, antes, depois, quadro["lance"])
+        fen_antes = fen_depois
+    if fen_antes:
+        quadros.append(
+            {
+                "n": len(lances) + 1,
+                "tipo": "final",
+                "titulo": "posicao final",
+                "lance": None,
+                "jogador": None,
+                "de_quem": None,
+                "chave": False,
+                "errou_de_proposito": False,
+                "svg": xadrez(
+                    {**js_posicao_inicial, "fen": fen_antes},
+                    lado_px=lado_px,
+                    marcas=marcas,
+                ),
+            }
+        )
+    return quadros
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # A porta de entrada
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1208,6 +1664,9 @@ def posicao(
             destaque=destaque if isinstance(destaque, str) else None,
             co_variante=co_variante,
         )
+    # ⚠️ ANTES das damas: o xadrez grava o mesmo formato (ver o bloco dele).
+    if co_formato == "fen" and eh_do_xadrez(js_posicao_inicial):
+        return xadrez(js_posicao_inicial, lado_px=34 if maior else 26)
     if co_formato == "fen":
         return damas(
             js_posicao_inicial,
@@ -1300,6 +1759,10 @@ def _quadros(
     # 11/09/2026: o painel chamou de "adversario" o primeiro lance da propria
     # pessoa, porque o lado estava fixo em vez de vir de `vez_de`.
     solucionador = js_posicao_inicial.get("vez_de")
+    # ⚠️ O xadrez nao tem `vez_de`: quem resolve e a `cor_da_pessoa`, e no
+    # gabarito e no log do desafio o lado dela e sempre o `+1` (o J1).
+    if solucionador is None and eh_do_xadrez(js_posicao_inicial):
+        solucionador = 1
 
     def de_quem(jogador: Any) -> str:
         if solucionador is None or jogador is None:
@@ -1326,6 +1789,8 @@ def _quadros(
         fen_inicial = js_posicao_inicial.get("fen")
         if not isinstance(fen_inicial, str) or fens_depois is None:
             return []
+        if eh_do_xadrez(js_posicao_inicial):
+            return _quadros_do_xadrez(js_posicao_inicial, lances, fens_depois, base)
         quadros: list[dict[str, Any]] = []
         fen_antes: Optional[str] = fen_inicial
         for indice, (lance, fen_depois) in enumerate(zip(lances, fens_depois), 1):
