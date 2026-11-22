@@ -506,6 +506,12 @@ PUBLICADOS_NA_1_4_0: dict[str, int] = {
 #: publicação (mudando aqui, no app e no arquivo comum, na mesma resposta). Ao
 #: publicar a 1.6.0, este grupo passa a ``PUBLICADOS_NA_1_6_0`` e entra no caso
 #: "o valor de uma conquista publicada não muda".
+#:
+#: ⚠️ **Não há grupo da 1.5.0**: a versão em campo é a 1.4.0+18, e a 1.5.0 (os
+#: cards, spec 011) não foi às lojas sozinha - a 1.6.0 leva os cards e o xadrez
+#: juntos (``arena-sagaz-frontend/docs/DECISOES-do-dono.md`` §8zzzz67). E os
+#: cards não trouxeram conquista nenhuma: o catálogo do app é o mesmo entre a
+#: 1.4.0+18 e a 1.5.0+19 (conferido em 22/11/2026).
 CHEGAM_NA_1_6_0: dict[str, int] = {
     "xadrez_vitorias_1": 80,
     "xadrez_vitorias_10": 200,

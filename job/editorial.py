@@ -81,8 +81,9 @@ VERSAO_MINIMA_DO_QUATRO = "1.4.0"
 #:
 #: ⚠️ **Os onze tipos saem com ela, todos**, pelo mesmo motivo do Quatro: o
 #: jogo, as dezenove medidas e os textos do objetivo (T071) so existem a partir
-#: dela. Um aplicativo 1.5 que recebesse um desafio do xadrez cai na tela de
-#: atualizar, e o dia nao conta contra a chama (T080 confere o corpo da 1.5.0).
+#: dela. Um aplicativo mais antigo (a 1.4.0, a versao em campo) que receba um
+#: desafio do xadrez cai na tela de atualizar, e o dia nao conta contra a chama
+#: (T080 confere o corpo da 1.4.0, `tests/unitarios/test_xadrez_num_app_1_4.py`).
 VERSAO_MINIMA_DO_XADREZ = "1.6.0"
 
 #: Os adversarios das variantes do "Forme a figura" que so ficam na escada sem

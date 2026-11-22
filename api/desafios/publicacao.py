@@ -92,10 +92,11 @@ def complemento_publicado(
 
     ⚠️ **Por que um campo NOVO, e nao a posicao inteira em `posicao`** (decisao
     de 21/11/2026, `arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzz66): o
-    parser da 1.5.0 (`Desafio.doJson`) recusa `tabuleiro` e `posicao` juntos, e a
-    recusa e `DesafioInvalido`, que nao grava o dia impedido - quem esta na 1.5.0
-    perderia a chama num dia de xadrez. Um campo desconhecido, ao contrario, a
-    1.5.0 ignora (a tolerancia a campos aditivos).
+    parser da 1.4.0, a versao em campo (`Desafio.doJson`, o mesmo na 1.5.0, que
+    nao foi as lojas), recusa `tabuleiro` e `posicao` juntos, e a recusa e
+    `DesafioInvalido`, que nao grava o dia impedido - quem esta na 1.4.0 perderia
+    a chama num dia de xadrez. Um campo desconhecido, ao contrario, a 1.4.0
+    ignora (a tolerancia a campos aditivos).
 
     ⚠️ **E por que SEM a FEN**: a FEN ja vai no `tabuleiro`. Manda-la duas vezes
     seria a mesma informacao em duas fontes, e no dia em que divergissem a que

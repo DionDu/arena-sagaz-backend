@@ -371,7 +371,10 @@ def test_a_versao_minima_do_xadrez_e_a_1_6_0():
 @pytest.mark.parametrize(
     "versao, aparece",
     [
-        ("1.5.0+19", False),  # a 1.5.0, em campo: o xadrez não aparece
+        ("1.4.0+18", False),  # a 1.4.0, a versão EM CAMPO: o xadrez não aparece
+        # A 1.5.0 (os cards) não foi às lojas sozinha (§8zzzz67 do app), mas um
+        # aparelho de teste com ela continua sem o xadrez.
+        ("1.5.0+19", False),
         ("1.5.9", False),
         ("1.6.0+20", True),  # basta UM aparelho na 1.6.0
         ("1.10.0", True),

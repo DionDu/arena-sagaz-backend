@@ -12234,3 +12234,25 @@ novo (quebra a 1.5.0); as marcas em `parametros` (mistura posição com chegada)
 **Cadeados.** `tests/unitarios/test_xadrez_num_app_1_5.py`: os tipos do xadrez no ar continuam passando no
 parser da 1.5.0 e agora trazem o complemento (tudo menos a FEN, com a `cor_da_pessoa`); as damas continuam
 com `null`; e a função pura nas três formas de posição.
+
+## 2026-11-22 — O app antigo dos cadeados do xadrez é a 1.4.0, e não a 1.5.0
+
+**Contexto.** A 1.5.0+19 (os cards de compartilhamento) não foi às lojas: a próxima versão
+publicada, a **1.6.0+20**, leva os cards e o xadrez juntos (`arena-sagaz-frontend/docs/DECISOES-do-dono.md`
+§8zzzz67). A versão em campo é a 1.4.0+18 (frontend `2f35759a`), e os cadeados que simulavam "o app
+antigo" falavam da 1.5.0.
+
+**Decisão.** Os cadeados passam a valer para a 1.4.0. `tests/unitarios/test_xadrez_num_app_1_5.py`
+virou `test_xadrez_num_app_1_4.py` (`git mv`), com os cabeçalhos da 1.4.0 (`X-App-Version: 1.4.0`, e o
+`Accept-Language` só com a língua, `pt`, que é o que a 1.4.0 manda). O `test_adocao.py` ganha a
+1.4.0+18 como a versão em campo (a 1.5.0+19 continua no caso, como aparelho de teste). O comentário do
+`CHEGAM_NA_1_6_0` diz por que não há grupo da 1.5.0 (os cards não trouxeram conquista). A
+`VERSAO_MINIMA_DO_XADREZ` fica em `1.6.0`.
+
+**Por que bastou trocar o número.** O caminho do desafio no app é idêntico entre a 1.4.0+18 e a
+1.5.0+19 (`desafio.dart`, `compatibilidade.dart`, `capacidades_deste_app.dart`, `cliente_api.dart`,
+`registro_de_impedimento.dart`, conferido por `git diff` em 22/11/2026): o que a 1.5.0 aceitava, a 1.4.0
+aceita. 21 casos verdes.
+
+**Alternativa considerada:** manter o nome `..._1_5.py` e só trocar o conteúdo (o nome mentiria sobre
+o app que o arquivo simula).

@@ -1,28 +1,35 @@
-"""O desafio do xadrez num app 1.5.0: a tela de atualizar, e a chama (T080 da spec 012).
+"""O desafio do xadrez num app 1.4.0: a tela de atualizar, e a chama (T080 da spec 012).
 
 ⚠️ **Nada aqui é código novo: é a CONFERÊNCIA de um caminho que já existe**
 (RF-DES-021/024, spec 009; RF-XDR-187, RF-XDR-235, SC-015 da 012), no molde de
-`test_quatro_num_app_1_3.py`. O xadrez chega na 1.6.0; quem está na 1.5.0 e abre
+`test_quatro_num_app_1_3.py`. O xadrez chega na 1.6.0; quem está na 1.4.0 e abre
 o app num dia de desafio de xadrez precisa (1) receber o desafio numa forma que o
-parser da 1.5.0 aceita, (2) cair na tela de atualizar e (3) **não perder a chama**
+parser da 1.4.0 aceita, (2) cair na tela de atualizar e (3) **não perder a chama**
 por isso. Os passos atravessam a porta HTTP de verdade, com os cabeçalhos que a
-1.5.0 manda.
+1.4.0 manda.
 
-⚠️ **O que é "a 1.5.0" aqui.** Não há tag da 1.5.0 no app: ela é a `main` do
-frontend (`version: 1.5.0+19`, `958fd93c` em 21/11/2026), enviada às lojas pelo
-dono. Os trechos citados abaixo são de lá:
+⚠️ **O que é "a 1.4.0" aqui.** É a versão EM CAMPO nas duas lojas, a 1.4.0+18
+(`version: 1.4.0+18`, commit `2f35759a` do frontend, tag `v1.4.0+18`). Até
+21/11/2026 este arquivo falava da 1.5.0 (os cards, spec 011), mas ela não foi às
+lojas sozinha: a próxima versão publicada leva os cards E o xadrez
+(`arena-sagaz-frontend/docs/DECISOES-do-dono.md` §8zzzz67). ⚠️ Nada do que este
+arquivo confere mudou de uma para a outra: os cinco arquivos citados abaixo são
+idênticos entre `2f35759a` (1.4.0+18) e `958fd93c` (1.5.0+19), conferido por
+`git diff` em 22/11/2026. A única diferença no caminho é o `Accept-Language`, que a
+1.4.0 monta com `locale?.languageCode ?? 'pt'` (o código da língua, sem região).
+Os trechos citados abaixo são da 1.4.0+18:
 
   * os cabeçalhos: `lib/core/rede/cliente_api.dart` (`_aoEnviar`): a versão é o
-    `PackageInfo.version`, **sem** o build (`1.5.0`), mais `X-Platform`,
+    `PackageInfo.version`, **sem** o build (`1.4.0`), mais `X-Platform`,
     `Accept-Language`, `X-Install-Id` e `X-Utc-Offset` (desde a 1.4);
   * o parser: `lib/core/desafios/desafio.dart` (`Desafio.doJson`). ⚠️ No
     formato `fen` ele EXIGE `tabuleiro` como texto e recusa `tabuleiro` e
     `posicao` juntos: um desafio de xadrez servido com a posição inteira no
-    `posicao` seria `DesafioInvalido`, que sobe como defeito do dado - a 1.5.0
+    `posicao` seria `DesafioInvalido`, que sobe como defeito do dado - a 1.4.0
     não grava o dia impedido, e a chama da pessoa quebra. É o defeito caro, e o
     1º caso abaixo o trava para os onze tipos;
   * a compatibilidade: `lib/modulos/desafio_do_dia/logica/compatibilidade.dart`
-    confere o JOGO antes de tudo (`app.jogos[desafio.jogo]`), e a 1.5.0 conhece
+    confere o JOGO antes de tudo (`app.jogos[desafio.jogo]`), e a 1.4.0 conhece
     `damas`, `pontinhos` e `quatro` (`capacidades_deste_app.dart`): o xadrez é
     `jogo_desconhecido`;
   * o dia impedido: `lib/modulos/desafio_do_dia/dados/registro_de_impedimento.dart`
@@ -92,12 +99,13 @@ from tests.unitarios.test_rotas_desafio_publicado import RepoFalso, _linha
 sqlite3.register_adapter(uuid.UUID, str)
 sqlite3.register_adapter(datetime, lambda d: d.isoformat())
 
-#: Os cabeçalhos da 1.5.0 (`cliente_api.dart` da `main`): a versão SEM o build,
-#: o código da instalação e o deslocamento em minutos, como texto.
-CABECALHOS_1_5 = {
-    "X-App-Version": "1.5.0",
+#: Os cabeçalhos da 1.4.0 (`cliente_api.dart` da 1.4.0+18): a versão SEM o build,
+#: o idioma só com a língua (`languageCode`), o código da instalação e o
+#: deslocamento em minutos, como texto.
+CABECALHOS_1_4 = {
+    "X-App-Version": "1.4.0",
     "X-Platform": "android",
-    "Accept-Language": "pt-BR",
+    "Accept-Language": "pt",
     "X-Install-Id": "5b0c8f3e-2d4a-4c1e-9f7b-0a6d3e8c1b2f",
     "X-Utc-Offset": "-180",
 }
@@ -105,8 +113,8 @@ CABECALHOS_1_5 = {
 #: Os tipos do xadrez no ar (T078): todo dia de xadrez é um deles.
 TIPOS_NO_AR = sorted(t for t, r in RECEITAS.items() if r.co_jogo == "xadrez")
 
-#: Os jogos que a 1.5.0 julga no desafio (`capacidades_deste_app.dart` da `main`).
-JOGOS_DA_1_5 = frozenset({"damas", "pontinhos", "quatro"})
+#: Os jogos que a 1.4.0 julga no desafio (`capacidades_deste_app.dart` da 1.4.0+18).
+JOGOS_DA_1_4 = frozenset({"damas", "pontinhos", "quatro"})
 
 #: As extensões que o backend da `main` sabe gravar (`_EXTENSOES_CONHECIDAS` de
 #: `api/sincronizacao/repositorio.py` na `main`): sem o xadrez.
@@ -195,7 +203,7 @@ async def cliente():
 
 
 def _corpo_do_impedido(linha: dict) -> dict:
-    """O que a 1.5.0 manda (`registro_de_impedimento.dart` da `main`)."""
+    """O que a 1.4.0 manda (`registro_de_impedimento.dart` da 1.4.0+18)."""
     return {
         "id_desafio_dia": str(linha["id_desafio_dia"]),
         "motivo": "jogo_desconhecido",
@@ -205,8 +213,8 @@ def _corpo_do_impedido(linha: dict) -> dict:
     }
 
 
-def _o_parser_da_1_5_aceita(corpo: dict) -> None:
-    """As exigências de `Desafio.doJson` da 1.5.0, campo a campo.
+def _o_parser_da_1_4_aceita(corpo: dict) -> None:
+    """As exigências de `Desafio.doJson` da 1.4.0, campo a campo.
 
     ⚠️ Qualquer uma que falhe é `DesafioInvalido` lá: o app nem chega à
     compatibilidade, e o dia impedido não é gravado.
@@ -226,11 +234,11 @@ def _o_parser_da_1_5_aceita(corpo: dict) -> None:
     assert isinstance(corpo["semente"], int) and 1 <= corpo["semente"] <= 4294967295
     assert isinstance(corpo["teto_log_meios_lances"], int) and corpo["teto_log_meios_lances"] >= 1
     assert 0 < corpo["tempo_piso_ms"] < corpo["tempo_teto_ms"]
-    assert corpo["medidas_de_saida"], "lista vazia é DesafioInvalido na 1.5.0"
+    assert corpo["medidas_de_saida"], "lista vazia é DesafioInvalido na 1.4.0"
     for medida in corpo["medidas_de_saida"]:
         assert isinstance(medida["chave"], str) and medida["chave"]
         assert 0 <= medida["peso"] <= 1
-        # As três normalizações que a 1.5.0 conhece, com o que cada uma exige.
+        # As três normalizações que a 1.4.0 conhece, com o que cada uma exige.
         assert medida["normalizacao"] in {"faixa", "fracao", "nenhuma"}, medida
         if medida["normalizacao"] == "faixa":
             assert isinstance(medida["minimo"], (int, float)), medida
@@ -241,43 +249,43 @@ def _o_parser_da_1_5_aceita(corpo: dict) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 1. O servidor entrega, numa forma que a 1.5.0 lê; quem decide é o app
+# 1. O servidor entrega, numa forma que a 1.4.0 lê; quem decide é o app
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-async def test_a_1_5_RECEBE_o_desafio_do_xadrez_com_a_versao_minima_dele(banco, cliente):
-    resposta = await cliente.get("/v1/desafios/hoje", headers=CABECALHOS_1_5)
+async def test_a_1_4_RECEBE_o_desafio_do_xadrez_com_a_versao_minima_dele(banco, cliente):
+    resposta = await cliente.get("/v1/desafios/hoje", headers=CABECALHOS_1_4)
 
     assert resposta.status_code == 200
     corpo = resposta.json()
     assert corpo["jogo"] == "xadrez"
     assert corpo["versao_minima_app"] == VERSAO_MINIMA_DO_XADREZ == "1.6.0"
-    # A versão da 1.5.0 é MENOR que a exigida, pela régua do servidor.
-    assert chave_da_versao(CABECALHOS_1_5["X-App-Version"]) < chave_da_versao("1.6.0")
-    # E o jogo não é nenhum dos que a 1.5.0 julga: a compatibilidade dela para
+    # A versão da 1.4.0 é MENOR que a exigida, pela régua do servidor.
+    assert chave_da_versao(CABECALHOS_1_4["X-App-Version"]) < chave_da_versao("1.6.0")
+    # E o jogo não é nenhum dos que a 1.4.0 julga: a compatibilidade dela para
     # no 1º passo, com `jogo_desconhecido`.
-    assert corpo["jogo"] not in JOGOS_DA_1_5
+    assert corpo["jogo"] not in JOGOS_DA_1_4
 
 
 @pytest.mark.parametrize("co_tipo", TIPOS_NO_AR)
-async def test_cada_tipo_do_xadrez_passa_no_parser_da_1_5(co_tipo, monkeypatch, cliente):
-    """🔒 Os onze, um por um: a forma que o parser da 1.5.0 exige."""
+async def test_cada_tipo_do_xadrez_passa_no_parser_da_1_4(co_tipo, monkeypatch, cliente):
+    """🔒 Os onze, um por um: a forma que o parser da 1.4.0 exige."""
     linha = _linha_do_xadrez(co_tipo)
     app.dependency_overrides[obter_repositorio] = lambda: RepoFalso(hoje=linha)
     app.dependency_overrides[usuario_atual_opcional] = lambda: None
     monkeypatch.setattr(rotas_desafios, "agora_utc", lambda: MADRUGADA_UTC)
     try:
-        resposta = await cliente.get("/v1/desafios/hoje", headers=CABECALHOS_1_5)
+        resposta = await cliente.get("/v1/desafios/hoje", headers=CABECALHOS_1_4)
     finally:
         app.dependency_overrides.clear()
 
     assert resposta.status_code == 200
     corpo = resposta.json()
-    _o_parser_da_1_5_aceita(corpo)
+    _o_parser_da_1_4_aceita(corpo)
     # O FEN servido é o da posição publicada.
     assert corpo["tabuleiro"] == linha["js_posicao_inicial"]["fen"]
 
-    # ⚠️ E o resto da posição chega pelo campo NOVO (§8zzzz66), que a 1.5.0
+    # ⚠️ E o resto da posição chega pelo campo NOVO (§8zzzz66), que a 1.4.0
     # ignora: tudo o que o job gravou, menos a FEN (que já veio no `tabuleiro`).
     # Sem ele, a 1.6.0 não saberia a cor da pessoa, nem qual peça é a espiã.
     esperado = {
@@ -303,7 +311,7 @@ async def test_nas_DAMAS_o_complemento_continua_nulo(monkeypatch, cliente):
     app.dependency_overrides[usuario_atual_opcional] = lambda: None
     monkeypatch.setattr(rotas_desafios, "agora_utc", lambda: MADRUGADA_UTC)
     try:
-        resposta = await cliente.get("/v1/desafios/hoje", headers=CABECALHOS_1_5)
+        resposta = await cliente.get("/v1/desafios/hoje", headers=CABECALHOS_1_4)
     finally:
         app.dependency_overrides.clear()
 
@@ -318,11 +326,11 @@ async def test_nas_DAMAS_o_complemento_continua_nulo(monkeypatch, cliente):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-async def test_o_dia_impedido_da_1_5_e_GRAVADO_no_dia_local(banco, cliente):
+async def test_o_dia_impedido_da_1_4_e_GRAVADO_no_dia_local(banco, cliente):
     sessao, linha = banco
 
     resposta = await cliente.post(
-        "/v1/desafios/impedido", headers=CABECALHOS_1_5, json=_corpo_do_impedido(linha)
+        "/v1/desafios/impedido", headers=CABECALHOS_1_4, json=_corpo_do_impedido(linha)
     )
 
     assert resposta.status_code == 204
@@ -333,7 +341,7 @@ async def test_o_dia_impedido_da_1_5_e_GRAVADO_no_dia_local(banco, cliente):
             "co_motivo": "jogo_desconhecido",
             "co_desconhecido": "xadrez",
             # Do CABEÇALHO...
-            "co_versao_app": "1.5.0",
+            "co_versao_app": "1.4.0",
             "co_plataforma": "android",
             # ... e do BANCO: os dois lados do par de diagnóstico.
             "co_versao_minima_exigida": "1.6.0",
@@ -345,7 +353,7 @@ async def test_abrir_o_app_de_novo_no_mesmo_dia_NAO_duplica(banco, cliente):
     sessao, linha = banco
     for _ in range(3):
         resposta = await cliente.post(
-            "/v1/desafios/impedido", headers=CABECALHOS_1_5, json=_corpo_do_impedido(linha)
+            "/v1/desafios/impedido", headers=CABECALHOS_1_4, json=_corpo_do_impedido(linha)
         )
         assert resposta.status_code == 204
     assert len(await _impedidos(sessao)) == 1
@@ -359,7 +367,7 @@ async def test_abrir_o_app_de_novo_no_mesmo_dia_NAO_duplica(banco, cliente):
 async def test_a_chama_LE_o_dia_que_a_rota_gravou(banco, cliente):
     sessao, linha = banco
     await cliente.post(
-        "/v1/desafios/impedido", headers=CABECALHOS_1_5, json=_corpo_do_impedido(linha)
+        "/v1/desafios/impedido", headers=CABECALHOS_1_4, json=_corpo_do_impedido(linha)
     )
 
     dias = await linhas(sessao, _ramo_dos_dias_impedidos(), id=ID_USUARIO)
@@ -369,7 +377,7 @@ async def test_a_chama_LE_o_dia_que_a_rota_gravou(banco, cliente):
 
 
 def test_o_dia_impedido_SEGURA_a_sequencia():
-    """Jogou em 17 e 18/10, abriu a 1.5.0 no dia do xadrez (19/10) e jogou em 20/10."""
+    """Jogou em 17 e 18/10, abriu a 1.4.0 no dia do xadrez (19/10) e jogou em 20/10."""
     jogados = [date(2026, 10, 17), date(2026, 10, 18), date(2026, 10, 20)]
 
     assert calcular_sequencia_de_dias(sorted([*jogados, DIA_LOCAL])) == 4

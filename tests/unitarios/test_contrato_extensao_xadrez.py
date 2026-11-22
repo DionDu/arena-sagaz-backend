@@ -8,8 +8,9 @@ e o replay pelo motor, I-7) e testado no proprio app (T107).
 
 AS TRAVESSIAS
 -------------
-- **X-1, app ANTIGO x backend NOVO.** A 1.5.0 nunca manda `xadrez`: o evento
-  dela continua valendo como antes (SC-015).
+- **X-1, app ANTIGO x backend NOVO.** A 1.4.0 (a versao em campo; a 1.5.0, que
+  nao foi as lojas, e igual nisto) nunca manda `xadrez`: o evento dela continua
+  valendo como antes (SC-015).
 - **X-2, a chave e CONHECIDA**: `xadrez` nao gera o aviso de "extensao
   desconhecida", nem na partida nem na jogada.
 - **X-3, as dimensoes sao DO XADREZ** (procurar a acao dele na tabela do Quatro
@@ -206,7 +207,7 @@ def _evento(jogadas: list[dict[str, Any]], partida: dict[str, Any]) -> dict[str,
 
 class TestX1AppAntigoBackendNovo:
     def test_partida_sem_xadrez_continua_valida(self):
-        """O payload de quem tem a 1.5.0, que nunca manda `xadrez`."""
+        """O payload de quem tem a 1.4.0 (a versao em campo), que nunca manda `xadrez`."""
         evento = _evento(
             [_jogada()], partida=_partida(co_jogo="quatro", co_variante="tradicional")
         )
