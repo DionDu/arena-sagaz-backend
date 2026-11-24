@@ -196,6 +196,19 @@ def test_os_quatro_juntos_contam_a_derrota_de_qualquer_jogo():
     assert {n.jogo for n in escopos} == {None, "velha", "quatro"}
 
 
+def test_o_xadrez_tem_escopo_proprio_e_entra_no_de_todos():
+    """O 5º jogo (T132b da spec 012): uma derrota do Magno no xadrez zera o
+    escopo de todos os jogos juntos, e o xadrez ganha o escopo dele."""
+    partidas = [_p("damas", date(2026, 9, 1)), _p("xadrez", date(2026, 11, 10), derrota=True)]
+    escopos, _ = magno.calcular_escopos(partidas, QUARTA)
+    assert "xadrez" in magno.JOGOS
+    assert {n.jogo for n in escopos} == {None, "damas", "xadrez"}
+    juntos = next(n for n in escopos if n.jogo is None)
+    assert juntos.dias_sem_perder == 8
+    xadrez = next(n for n in escopos if n.jogo == "xadrez")
+    assert xadrez.derrotas_no_periodo == 1
+
+
 def test_partida_depois_do_dia_de_publicacao_nao_entra():
     """O card de um dia não pode mudar por uma derrota que veio depois dele."""
     partidas = [_p("damas", date(2026, 9, 1)), _p("damas", QUARTA + timedelta(days=1), derrota=True)]
@@ -279,6 +292,34 @@ def test_rota_com_desafio(cliente: TestClient):
     assert corpo["stories"][0]["card"] == "convite"
     assert r.headers["cache-control"] == "no-store"
     assert r.headers["x-robots-tag"] == "noindex"
+
+
+def test_rota_com_desafio_de_xadrez(cliente: TestClient):
+    """O xadrez chega à página com o FEN no `tabuleiro` e a cor da pessoa e as
+    marcas no `complemento_posicao` (T132b): é o que a página precisa para
+    desenhar o tabuleiro do lado certo e com os selos. Sem grade do Quatro."""
+    linha = _linha(co_jogo="xadrez", co_formato="fen", dt_dia=QUINTA)
+    fen = "2q3k1/5ppp/pp3bn1/4p3/2P5/1PB2N1P/P2Q1PP1/6K1 b - - 0 1"
+    linha.update(
+        co_modalidade="tradicional",
+        co_variante="tradicional",
+        js_posicao_inicial={
+            "versao": 1,
+            "fen": fen,
+            "jogo": "xadrez",
+            "modalidade": "tradicional",
+            "cor_da_pessoa": "preta",
+            "marcas": {"espia": "f6", "alvo": "f2"},
+        },
+    )
+    app.dependency_overrides[rotas_card.ler_desafio_vigente] = lambda: linha
+    corpo = cliente.get("/v1/card-do-dia").json()
+    assert corpo["desafio"]["jogo"] == "xadrez"
+    assert corpo["desafio"]["tabuleiro"] == fen
+    complemento = corpo["desafio"]["complemento_posicao"]
+    assert complemento["cor_da_pessoa"] == "preta"
+    assert complemento["marcas"] == {"espia": "f6", "alvo": "f2"}
+    assert corpo["grade_quatro"] is None
 
 
 def test_rota_sem_desafio_aprovado(cliente: TestClient):

@@ -52,6 +52,11 @@ PRIMEIRA_QUARTA_DO_MAGNO = date(2026, 11, 18)
 # rotação anda UM passo por dia de publicação, e não por dia do calendário: assim
 # dois posts seguidos nunca repetem o layout nem o papel. Como 3 e 4 não têm
 # divisor comum, a mesma combinação só volta depois de 12 publicações (~3 semanas).
+#
+# ⚠️ O xadrez não tem papel próprio (24/11/2026, T132b da spec 012): os papéis
+# são os fundos da moldura do vídeo, e uma moldura do xadrez é desenho do Claude
+# Design. Um papel novo aqui mudaria a rotação (3 e 5 também não têm divisor
+# comum: 15 publicações até repetir), e só entra junto com o desenho.
 LAYOUTS_CONVITE = (1, 2, 3)
 PAPEIS = ("caderno", "damas", "quatro", "pontinhos")
 #: O ponto zero da contagem de publicações (uma quarta qualquer do passado).
@@ -84,6 +89,10 @@ LEGENDA_AJUDA = (
     "partida e, se curtir, deixe sua avaliação na loja. Faz muita diferença pra "
     "um app pequeno."
 )
+#
+# ⚠️ "dos quatro" ficou velho com o xadrez (o 5º jogo, 24/11/2026). A troca
+# ("de todos" ou "dos cinco") espera o aval do dono: a legenda foi aprovada
+# por ele, palavra por palavra (T132b da spec 012).
 LEGENDAS_MAGNO = (
     "Alguém se habilita a vencer o Magno? Ele é o mais difícil dos quatro.",
     "Será que você é quem vai quebrar a sequência do Magno?",
@@ -106,7 +115,7 @@ Card = Literal["convite", "magno", "ajuda"]
 
 @dataclass(frozen=True)
 class NumerosDoMagno:
-    """Os números de UM escopo (um jogo, ou os quatro juntos, com `jogo` None).
+    """Os números de UM escopo (um jogo, ou todos juntos, com `jogo` None).
 
     `frozen=True` torna o objeto imutável: depois de criado, nenhum campo muda,
     e dá para usá-lo como dado puro sem medo de alguém o alterar no caminho.
@@ -194,7 +203,7 @@ def escolher_magno(
 ) -> Optional[EscolhaDoMagno]:
     """Escolhe a variante e o escopo do card D, ou `None` se nada impressiona.
 
-    `escopos` traz os quatro jogos juntos (`jogo` None) e cada jogo à parte.
+    `escopos` traz todos os jogos juntos (`jogo` None) e cada jogo à parte.
 
     - **D1, a placa** ("estamos há N dias sem o Magno perder"): vale quando os
       dias sem perder chegam ao limite.
@@ -202,14 +211,14 @@ def escolher_magno(
       período tem partidas suficientes e **nenhuma** derrota. Com uma derrota que
       seja, o placar não impressiona, e ele não sai.
 
-    Preferência: os quatro jogos juntos antes de um jogo só (é o feito maior);
+    Preferência: todos os jogos juntos antes de um jogo só (é o feito maior);
     entre jogos, o de número maior. A variante alterna a cada ocorrência (par = a
     placa, ímpar = o placar), para o mesmo card não sair duas vezes seguidas; se a
     preferida não vale, vale a outra.
     """
 
     # A chave de ordenação é uma tupla: o Python compara o 1º item e, no empate,
-    # o 2º. `n.jogo is not None` é False (0) para os quatro juntos, que vêm
+    # o 2º. `n.jogo is not None` é False (0) para todos juntos, que vêm
     # primeiro; o número com sinal de menos põe o MAIOR na frente.
     placas = sorted(
         (n for n in escopos if n.dias_sem_perder >= LIMITE_DIAS_SEM_PERDER),

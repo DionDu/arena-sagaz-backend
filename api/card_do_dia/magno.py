@@ -47,8 +47,13 @@ from api.card_do_dia.agenda import NumerosDoMagno
 #: horário de verão desde 2019.
 BRASILIA = timezone(timedelta(hours=-3))
 
-#: Os quatro jogos do hub, como `partida.tb001_partida.co_jogo` os escreve.
-JOGOS = ("pontinhos", "velha", "damas", "quatro")
+#: Os jogos do hub, como `partida.tb001_partida.co_jogo` os escreve: cada um
+#: vira um escopo à parte do card D ("no Xadrez", "nas Damas"...).
+#:
+#: ⚠️ O xadrez entrou em 24/11/2026 (T132b da spec 012). O escopo "todos
+#: juntos" (`jogo` None) já o contava sem precisar disto, porque a consulta
+#: abaixo não filtra o jogo; esta lista só decide quais jogos têm escopo próprio.
+JOGOS = ("pontinhos", "velha", "damas", "quatro", "xadrez")
 
 #: Cada partida contra o Magno que terminou: o jogo, quando começou, quando
 #: acabou e se ele perdeu. ⛔ Nenhuma coluna de usuário.
@@ -165,7 +170,7 @@ def _numeros(
 def calcular_escopos(
     partidas: list[PartidaDoMagno], dia: date
 ) -> tuple[list[NumerosDoMagno], str]:
-    """Os números dos quatro jogos juntos e de cada jogo, e o rótulo do período.
+    """Os números de todos os jogos juntos e de cada jogo, e o rótulo do período.
 
     Um jogo em que o Magno nunca jogou fica de fora (não há o que contar).
     """

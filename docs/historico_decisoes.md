@@ -12292,3 +12292,28 @@ FENs; a fita do gabarito REAL do 28/11 do `des` (títulos, lados e o lance-chave
 espiã; a fita do log; FEN e lance tortos sem 500. Os 182 do painel continuam verdes. E as páginas
 foram montadas com os dois desafios de xadrez reais do `des`, numa transação somente-leitura, e
 vistas no navegador.
+
+## 2026-11-24 — O card do dia conhece o xadrez (T132b da spec 012)
+
+**Contexto.** O dono pediu que o card do dia (a página `card-do-dia/` dos stories e o
+`GET /v1/card-do-dia`) previsse o 5º jogo. O levantamento mostrou que a rota já entregava tudo o que
+o xadrez precisa (o `DesafioPublicado` traz o FEN no `tabuleiro` e a cor da pessoa e as marcas no
+`complemento_posicao`, desde 21/11), e que a consulta do Magno já contava as partidas do xadrez no
+escopo "todos juntos" (ela não filtra o jogo). Faltavam o escopo próprio do xadrez e a página.
+
+**Decisão.**
+- `api/card_do_dia/magno.py`: `"xadrez"` em `JOGOS`, para o card D poder dizer "no Xadrez" quando
+  só ele impressiona. Nenhum campo novo na rota: a página lê o FEN e o complemento do `desafio`.
+- **O que fica de propósito como está**, com o motivo no código: os papéis da rotação (`PAPEIS`; um
+  papel do xadrez é desenho do Claude Design e mudaria a rotação) e a legenda "o mais difícil dos
+  quatro" (aprovada pelo dono palavra por palavra; a troca espera o aval dele).
+- A consulta da raiz `ferramentas/consultas_sql/card_do_dia_magno.sql`: o grupo "(os quatro)" virou
+  "(todos)".
+
+**Alternativas consideradas:** um campo `grade_xadrez` pronto, como a `grade_quatro` (desnecessário:
+o FEN é texto e a página o lê; a grade do Quatro existe porque o motor dele não compila para web);
+excluir o xadrez do escopo "todos juntos" até a frase mudar (esconderia uma derrota real do Magno
+num número que se diz verdadeiro).
+
+**Testes.** `tests/unitarios/test_card_do_dia.py`: o xadrez ganha escopo e entra no "todos juntos";
+a rota com um desafio de xadrez entrega o FEN e o complemento (a cor e as marcas) e nenhuma grade.

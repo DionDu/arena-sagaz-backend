@@ -74,7 +74,7 @@ class MagnoDoDia(BaseModel):
     """O que o card D mostra. Só vem na quarta do Magno, e se os números valem."""
 
     variante: Literal["placa", "placar"]
-    #: `None` = os quatro jogos juntos; senão, o `co_jogo` do escopo.
+    #: `None` = todos os jogos juntos; senão, o `co_jogo` do escopo.
     jogo: Optional[str] = None
     dias_sem_perder: int
     recorde_dias: int
@@ -100,6 +100,10 @@ class CardDoDia(BaseModel):
     #: `None` = o desafio de hoje não foi aprovado na curadoria; a página diz
     #: isso e não há post.
     desafio: Optional[DesafioPublicado] = None
+    #: ⚠️ No xadrez não há campo à parte (T132b): o FEN vem no `tabuleiro` do
+    #: `desafio`, e a cor da pessoa e as marcas no `complemento_posicao` dele,
+    #: como no app; a página os lê sozinha (o FEN é texto).
+    #:
     #: Só no Quatro em Linha: a posição inicial já reproduzida, de cima para
     #: baixo (`.` vazia, `a` azul = quem resolve, `v` vermelho). A página não
     #: consegue reproduzi-la sozinha (ver `grade_quatro.py`).
