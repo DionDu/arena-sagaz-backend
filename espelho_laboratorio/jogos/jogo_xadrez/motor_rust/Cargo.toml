@@ -67,7 +67,12 @@ name = "motor_xadrez"
 # acabou de mexer (`niveis.rs`, o passo 7). Os dois campos são aditivos (ausente
 # = zero = a busca da 0.10.0; `tests/apego_e_distracao.rs`), mas os quatro
 # personagens os usam no contrato 1.6.0, e os lances deles mudam.
-version = "0.11.0"
+# 0.12.0 (24/11/2026): a T051m - o VACILO (`vacilo` por nível, contrato 1.7.0):
+# o 5º número do sorteio; num vacilo, o lance sai da janela dos que perdem de
+# `perda_minima_cp` a `perda_maxima_cp` em relação ao melhor (`niveis.rs`, o
+# passo 8). Aditivo (ausente = nunca vacila = a 0.11.0; `tests/vacilo.rs`); só
+# a Cacau o usa, e ela muda de jeito (§8zzzz74).
+version = "0.12.0"
 edition = "2021"
 
 [lib]

@@ -25,7 +25,7 @@ use serde::Deserialize;
 use crate::busca::{Limites, Quiescencia, SEM_APEGO};
 use crate::fim_de_partida::{Motivo, RegrasDoFim, MAIOR_LIMITE_DOS_CINQUENTA};
 use crate::humano::{Caracteristica, NUMERO_DE_CARACTERISTICAS};
-use crate::niveis::{Ponderacao, Ruido};
+use crate::niveis::{Ponderacao, Ruido, Vacilo};
 
 /// O nível que a operação `jogada_ideal` usa (R-28): a busca do Magno sem ruído,
 /// com os números dele no contrato. É nome de NÍVEL, e não de modalidade: toda
@@ -213,7 +213,33 @@ pub struct Nivel {
     /// campo ausente é zero, e o nível joga como na 0.10.0.
     #[serde(default)]
     pub chance_da_distracao_milesimos: u32,
+    /// **O vacilo** (T051m, motor 0.12.0, contrato 1.7.0; §8zzzz74): em parte
+    /// dos lances o personagem escolhe um lance que perde material, como quem
+    /// não percebeu o ataque (`niveis.rs`, o passo 8). Aditivo: o campo ausente
+    /// é "nunca vacila", e o nível joga como na 0.11.0.
+    #[serde(default)]
+    pub vacilo: Option<VaciloNoContrato>,
 }
+
+/// O vacilo de um nível como o contrato o escreve (T051m):
+/// `{"chance_milesimos": 200, "perda_minima_cp": 250, "perda_maxima_cp": 1400}`.
+/// Os três campos são obrigatórios quando o objeto existe (um vacilo sem
+/// janela não tem sentido), e `deny_unknown_fields` recusa um nome errado.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VaciloNoContrato {
+    /// Em quantos lances de cada 1000 ele vacila (0 a 1000).
+    pub chance_milesimos: u32,
+    /// A menor perda, em centipeões abaixo do melhor, que conta como vacilo.
+    pub perda_minima_cp: i32,
+    /// A maior perda aceita (até [`MAIOR_PERDA_DO_VACILO_CP`]).
+    pub perda_maxima_cp: i32,
+}
+
+/// A maior perda que um vacilo pode ter: a dama com o maior apego (900 + 900),
+/// com folga. Mais que isso já não é "deixar a peça no ar", e sim jogar fora
+/// a partida (e a nota de mate, ±32 000, nunca cabe na janela).
+pub const MAIOR_PERDA_DO_VACILO_CP: i32 = 3000;
 
 /// O apego de um nível como o contrato o escreve: um número por peça, em
 /// centipeões, de 0 a [`MAIOR_APEGO_CP`]. A peça que não aparece tem apego zero.
@@ -318,6 +344,12 @@ impl Modalidade {
             chance_da_cegueira_milesimos: nivel.chance_da_cegueira_milesimos,
             chance_da_distracao_milesimos: nivel.chance_da_distracao_milesimos,
             ponderacao,
+            // O formato do contrato vira o do sorteio, campo a campo.
+            vacilo: nivel.vacilo.map(|v| Vacilo {
+                chance_milesimos: v.chance_milesimos,
+                perda_minima_cp: v.perda_minima_cp,
+                perda_maxima_cp: v.perda_maxima_cp,
+            }),
         }
     }
 
@@ -413,6 +445,21 @@ fn validar_nivel(modalidade: &str, nome: &str, nivel: &Nivel) -> Result<(), Erro
         // mate valeria menos que a peça (ver `MAIOR_APEGO_CP`).
         if apego.por_peca().iter().any(|&a| !(0..=MAIOR_APEGO_CP).contains(&a)) {
             return Err(ErroContrato::Invalido(format!("{onde}: apego_cp fora de 0 a {MAIOR_APEGO_CP}")));
+        }
+    }
+    if let Some(vacilo) = nivel.vacilo {
+        if vacilo.chance_milesimos > 1000 {
+            return Err(ErroContrato::Invalido(format!("{onde}: vacilo.chance_milesimos fora de 0 a 1000")));
+        }
+        // A janela: a mínima acima de zero (senão o melhor lance cabe nela, e o
+        // vacilo deixa de ser erro), a máxima não menor que a mínima e no teto.
+        if vacilo.perda_minima_cp < 1
+            || vacilo.perda_maxima_cp < vacilo.perda_minima_cp
+            || vacilo.perda_maxima_cp > MAIOR_PERDA_DO_VACILO_CP
+        {
+            return Err(ErroContrato::Invalido(format!(
+                "{onde}: vacilo fora de 1 <= perda_minima_cp <= perda_maxima_cp <= {MAIOR_PERDA_DO_VACILO_CP}"
+            )));
         }
     }
     Ok(())

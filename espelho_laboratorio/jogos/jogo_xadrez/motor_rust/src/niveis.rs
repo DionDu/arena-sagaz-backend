@@ -44,6 +44,25 @@
 //!    melhor e a margem (senão a captura invisível, muito melhor que o resto,
 //!    empurraria todos os outros para fora da margem). Se ele não vê nenhum
 //!    lance (só havia capturas invisíveis), a lista fica inteira.
+//! 8. **O vacilo** (T051m, motor 0.12.0, contrato 1.7.0; o `vacilo` do nível,
+//!    `docs/DECISOES-do-dono.md` §8zzzz74): o erro de quem está começando, que
+//!    joga direito e de repente deixa a peça no ar. Num vacilo, o sorteio do
+//!    passo 4 não é entre os plausíveis: é entre os lances que **perdem** de
+//!    `perda_minima_cp` a `perda_maxima_cp` em relação ao melhor (a janela),
+//!    pesados pela mesma [`Ponderacao`] (o lance que parece natural sai mais, e
+//!    a perda menor, também). Fora da janela ficam o melhor e os quase iguais (o
+//!    vacilo é erro de verdade) e os absurdos (a dama de graça sem motivo). É a
+//!    ideia do dono para os Pontinhos (o sorteio entre os lances não ótimos, sem
+//!    o melhor e sem os piores), aqui só nos lances de vacilo: nos outros o
+//!    personagem joga com propósito. O vacilo passa pelo passo 4 mesmo sem o
+//!    sorteio do erro (a raiz inteira precisa de nota), respeita a distração (a
+//!    janela é medida na lista que ele vê), não devolve o lance que desfaz o
+//!    anterior e não age com o resultado provado (um mate na melhor nota: aí só
+//!    o melhor, como no passo 4) nem quando o melhor lance é uma **captura** (a
+//!    atenção está na peça que ele pode comer: quem está começando come). Janela
+//!    vazia: o sorteio comum do passo 4. A
+//!    `acao` é `erro_sorteado`, como na distração: o banco tem a lista das ações
+//!    fechada, e o vacilo não ganha código novo.
 //!
 //! ## Os sorteios saem TODOS antes de qualquer busca
 //!
@@ -63,7 +82,8 @@
 //!
 //! A distração (T051l) é o **4º** número, tirado DEPOIS dos três de antes, pelo
 //! mesmo motivo: os três primeiros continuam iguais para a mesma semente, e os
-//! níveis sem distração jogam exatamente como na 0.10.0.
+//! níveis sem distração jogam exatamente como na 0.10.0. O vacilo (T051m) é o
+//! **5º**, depois da distração, e os níveis sem vacilo jogam como na 0.11.0.
 //!
 //! ## A `acao` da resposta
 //!
@@ -100,6 +120,23 @@ pub struct Ruido {
     /// Em quantos lances de cada 1000 o personagem fica "distraído" (T051l, o
     /// passo 7 do topo do arquivo). Zero = nunca, como na 0.10.0.
     pub chance_da_distracao_milesimos: u32,
+    /// O vacilo do nível (T051m, o passo 8 do topo do arquivo). `None` = nunca
+    /// vacila, como na 0.11.0.
+    pub vacilo: Option<Vacilo>,
+}
+
+/// O vacilo de um nível (T051m, o passo 8 do topo do arquivo): com que chance
+/// ele sai e a janela de perda, em centipeões abaixo do melhor lance, da qual
+/// sai o lance do vacilo. O contrato garante `0 < mínima ≤ máxima`
+/// (`contrato.rs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Vacilo {
+    /// Em quantos lances de cada 1000 o personagem vacila.
+    pub chance_milesimos: u32,
+    /// A menor perda que conta como vacilo (abaixo disto é o erro comum).
+    pub perda_minima_cp: i32,
+    /// A maior perda que o vacilo aceita (acima disto é absurdo, e não vacilo).
+    pub perda_maxima_cp: i32,
 }
 
 /// Como o erro pesa cada plausível (T051c; `humano.rs`): os **pontos** de um
@@ -209,10 +246,12 @@ pub struct Sorteios {
     pub plausivel: u64,
     /// O personagem está "distraído" neste lance? (T051l, o 4º número.)
     pub distracao: bool,
+    /// O personagem vacila neste lance? (T051m, o 5º número.)
+    pub vacilo: bool,
 }
 
-/// Tira os quatro números do lance, na ordem fixa: erro, cegueira, plausível e
-/// distração (este, o mais novo, no fim: ver o topo do arquivo).
+/// Tira os cinco números do lance, na ordem fixa: erro, cegueira, plausível,
+/// distração e vacilo (os mais novos no fim: ver o topo do arquivo).
 ///
 /// "Sai em N de cada 1000" é `abaixo_de(1000) < N`: com N = 0 nunca sai, com
 /// N = 1000 sempre sai.
@@ -223,11 +262,16 @@ pub fn sortear(semente: u64, ruido: &Ruido) -> Sorteios {
     let cegueira = gerador.abaixo_de(1000) < u64::from(ruido.chance_da_cegueira_milesimos);
     let plausivel = gerador.proximo();
     let distracao = gerador.abaixo_de(1000) < u64::from(ruido.chance_da_distracao_milesimos);
+    // Sem vacilo no nível, a chance é zero; o número sai do mesmo jeito.
+    // `map_or(0, ...)` lê a chance do `Some`, ou 0 do `None`.
+    let chance_do_vacilo = ruido.vacilo.map_or(0, |v| v.chance_milesimos);
+    let vacilo = gerador.abaixo_de(1000) < u64::from(chance_do_vacilo);
     Sorteios {
         erro,
         cegueira,
         plausivel,
         distracao,
+        vacilo,
     }
 }
 
@@ -385,7 +429,8 @@ fn escolher_com_visao(
     sorteios: &Sorteios,
     visao: Visao,
 ) -> Option<Escolha> {
-    if sorteios.erro {
+    // O vacilo também passa pelo passo do erro: só ali a raiz inteira tem nota.
+    if sorteios.erro || sorteios.vacilo {
         if let Some(escolha) = errar(posicao, limites, ruido, sorteios, visao) {
             return Some(escolha);
         }
@@ -396,7 +441,8 @@ fn escolher_com_visao(
 }
 
 /// O passo do erro: busca a raiz inteira e sorteia entre os plausíveis (com a
-/// mesma chance, ou com o peso da [`Ponderacao`] do nível). `None` se a busca
+/// mesma chance, ou com o peso da [`Ponderacao`] do nível), ou, num vacilo,
+/// entre os lances da janela (o passo 8 do topo do arquivo). `None` se a busca
 /// não deu nenhuma nota.
 fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteios: &Sorteios, visao: Visao) -> Option<Escolha> {
     let notas = notas_da_raiz_com_visao(posicao, limites, visao)?;
@@ -432,16 +478,46 @@ fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteios: &Sorteio
     // Os plausíveis, na ordem estável (a das notas): a nota no piso ou acima, e
     // o lance de volta só quando ele é o próprio melhor. Com o resultado
     // decidido, só o melhor. Saem da `lista` (a visível, com a distração).
-    let plausiveis: Vec<(Move, i32)> = lista
-        .iter()
-        .copied()
-        .filter(|&(lance, nota)| {
-            let volta = desfaz == Some((lance.from, lance.to));
-            nota >= piso && (!volta || lance == melhor_lance) && (!decidido || lance == melhor_lance)
-        })
-        .collect();
-    // O melhor sempre está na lista (a nota dele é o teto, e ele nunca é
-    // excluído), então ela nunca é vazia e o resto da divisão existe.
+    // `comuns` é um closure (uma função sem nome guardada numa variável): a
+    // lista só é montada se o vacilo não a substituir.
+    let comuns = || -> Vec<(Move, i32)> {
+        lista
+            .iter()
+            .copied()
+            .filter(|&(lance, nota)| {
+                let volta = desfaz == Some((lance.from, lance.to));
+                nota >= piso && (!volta || lance == melhor_lance) && (!decidido || lance == melhor_lance)
+            })
+            .collect()
+    };
+    // O vacilo (o passo 8 do topo do arquivo): os lances que perdem de
+    // `perda_minima_cp` a `perda_maxima_cp` em relação ao melhor da lista, sem o
+    // lance de volta. Com o resultado provado não há vacilo. O `filter` de um
+    // `Option` devolve o `Some(v)` só quando a condição vale: aqui, quando o
+    // nível tem vacilo E o sorteio dele saiu neste lance.
+    // E não há vacilo quando o melhor lance é uma CAPTURA: a atenção está na
+    // peça que ele pode comer, e quem está começando come (sem esta regra, o
+    // vacilo tirava a peça de graça do sorteio, e a Cacau voltava a "recusar"
+    // peça solta, a queixa do dono que abriu a T051m).
+    let melhor_come = e_captura(&posicao.tabuleiro, melhor_lance);
+    let janela: Vec<(Move, i32)> = match ruido.vacilo.filter(|_| sorteios.vacilo && !decidido && !melhor_come) {
+        Some(v) => {
+            // A janela em notas: [melhor − máxima, melhor − mínima].
+            let de = melhor_nota.saturating_sub(v.perda_maxima_cp);
+            let ate = melhor_nota.saturating_sub(v.perda_minima_cp);
+            lista
+                .iter()
+                .copied()
+                .filter(|&(lance, nota)| (de..=ate).contains(&nota) && desfaz != Some((lance.from, lance.to)))
+                .collect()
+        }
+        None => Vec::new(),
+    };
+    // Janela vazia (nenhum lance perde naquela faixa): o sorteio comum.
+    let plausiveis: Vec<(Move, i32)> = if janela.is_empty() { comuns() } else { janela };
+    // A lista nunca é vazia: a janela só é usada quando tem lance, e nos
+    // comuns o melhor sempre está (a nota dele é o teto, e ele nunca é
+    // excluído). Por isso o resto da divisão existe.
     let indice = match &ruido.ponderacao {
         // A 0.5.0: a mesma chance para todo plausível.
         None => (sorteio % plausiveis.len() as u64) as usize,

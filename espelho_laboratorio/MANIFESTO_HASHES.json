@@ -369,12 +369,12 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/Cargo.toml",
-      "sha256": "f02a3d0580f18c64a21bd613bf455badfd49bc1e0b95c97b9cd348e687c293a8",
-      "tamanho_bytes": 6383
+      "sha256": "fca51ff0793b37a3ec13bb7d5b4c03c00b3083d5bd7a26be7b3af9979c8f1a60",
+      "tamanho_bytes": 6654
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/Cargo.lock",
-      "sha256": "66a4a378930628e758fb6d8e786f6dd6fa60305cf82ee3af2d5c99fefbc04e8b",
+      "sha256": "8ab7cdcf58e312c8b605383aeac39075e3f24a6b9470d3e3f682bde9d630171c",
       "tamanho_bytes": 3120
     },
     {
@@ -399,8 +399,8 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/src/contrato.rs",
-      "sha256": "b7d91d62d4e107ad1fa82850d14ae7288eaf96b924865051b08797f6cd7a61e4",
-      "tamanho_bytes": 23022
+      "sha256": "abcb5b9cb8b06118d8c41a9abc5ee7d74ba7123d96008288901ed8c432a613ff",
+      "tamanho_bytes": 24943
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/src/despacho.rs",
@@ -414,7 +414,7 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/src/ffi.rs",
-      "sha256": "31824cc4bca454111ce95cf834bfdd6ce98fe4333e2e51c554bb90e80e731329",
+      "sha256": "305d02bbcf60cf2bed8e6ebd98bab0094595c7e4b083a84de748bfeb59646f51",
       "tamanho_bytes": 7329
     },
     {
@@ -434,8 +434,8 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/src/niveis.rs",
-      "sha256": "fe57f5842a45295305a818338dd9a4d592de5260f555dadf526bb5ef2853f601",
-      "tamanho_bytes": 22370
+      "sha256": "3b5bf685183d42ac1641071f53473d2415974f6af3b478afa019ed6a4e4cdf05",
+      "tamanho_bytes": 27067
     },
     {
       "caminho": "jogos/jogo_xadrez/motor_rust/src/posicao.rs",
@@ -464,8 +464,8 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/contrato/contrato_xadrez.json",
-      "sha256": "78f7ca4229b1797cad265420e310de078c0c0ac6a2b83a564ea637499e148903",
-      "tamanho_bytes": 10801
+      "sha256": "afea638766a7a1f9c95ff4d12b8bcc61db43af4c949351cdc8f5dda7ea0d9253",
+      "tamanho_bytes": 12000
     },
     {
       "caminho": "jogos/jogo_xadrez/posicoes/posicoes_adiantadas.txt",
