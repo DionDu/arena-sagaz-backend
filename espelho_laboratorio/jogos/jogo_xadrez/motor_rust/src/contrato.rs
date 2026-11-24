@@ -22,7 +22,7 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use crate::busca::{Limites, Quiescencia};
+use crate::busca::{Limites, Quiescencia, SEM_APEGO};
 use crate::fim_de_partida::{Motivo, RegrasDoFim, MAIOR_LIMITE_DOS_CINQUENTA};
 use crate::humano::{Caracteristica, NUMERO_DE_CARACTERISTICAS};
 use crate::niveis::{Ponderacao, Ruido};
@@ -198,6 +198,53 @@ pub struct Nivel {
     /// (`docs/DECISOES-do-dono.md` §8zzzz34).
     #[serde(default)]
     pub extensao_de_xeque: bool,
+    /// **O apego às peças** (T051l, motor 0.11.0, contrato 1.6.0;
+    /// `docs/DECISOES-do-dono.md` §8zzzz73): quantos centipeões a MAIS o
+    /// personagem sente ao perder cada peça DELE (a dama, a torre, o bispo, o
+    /// cavalo). Com a dama dele valendo 900 + apego e a do adversário 900,
+    /// trocar dama por dama vira "perder o apego", e ele recua como gente (ver
+    /// `busca.rs`, "O apego"). Aditivo: campo ausente é apego zero, e a busca
+    /// fica exatamente a da 0.10.0.
+    #[serde(default)]
+    pub apego_cp: Option<ApegoNoContrato>,
+    /// **A distração** (T051l, motor 0.11.0, contrato 1.6.0; §8zzzz73): em
+    /// quantos lances de cada 1000 o personagem só enxerga a captura da peça
+    /// que o adversário acabou de mexer (`niveis.rs`, o passo 7). Aditivo: o
+    /// campo ausente é zero, e o nível joga como na 0.10.0.
+    #[serde(default)]
+    pub chance_da_distracao_milesimos: u32,
+}
+
+/// O apego de um nível como o contrato o escreve: um número por peça, em
+/// centipeões, de 0 a [`MAIOR_APEGO_CP`]. A peça que não aparece tem apego zero.
+/// O peão e o rei não têm apego (o dono pediu as quatro peças, §8zzzz73: perder
+/// peão não assusta ninguém, e o rei não sai do tabuleiro).
+/// `deny_unknown_fields` recusa um nome errado (`"rainha"`), que de outro modo
+/// passaria calado como apego zero.
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApegoNoContrato {
+    #[serde(default)]
+    pub dama: i32,
+    #[serde(default)]
+    pub torre: i32,
+    #[serde(default)]
+    pub bispo: i32,
+    #[serde(default)]
+    pub cavalo: i32,
+}
+
+/// O maior apego aceito por peça: o valor da própria dama. Mais que isso, o
+/// personagem preferiria levar mate a perder uma peça, o que não é gente.
+pub const MAIOR_APEGO_CP: i32 = 900;
+
+impl ApegoNoContrato {
+    /// O apego no formato da busca: um número por peça, na ordem do `Piece` da
+    /// `cozy-chess` (peão, cavalo, bispo, torre, dama, rei), com o peão e o rei
+    /// em zero.
+    pub fn por_peca(&self) -> [i32; 6] {
+        [0, self.cavalo, self.bispo, self.torre, self.dama, 0]
+    }
 }
 
 impl Contrato {
@@ -269,6 +316,7 @@ impl Modalidade {
             margem_do_erro_cp: nivel.margem_do_erro_cp,
             chance_do_erro_milesimos: nivel.chance_do_erro_milesimos,
             chance_da_cegueira_milesimos: nivel.chance_da_cegueira_milesimos,
+            chance_da_distracao_milesimos: nivel.chance_da_distracao_milesimos,
             ponderacao,
         }
     }
@@ -293,6 +341,9 @@ impl Modalidade {
             entradas_da_tt: self.entradas_da_tt,
             rede_de_tempo_s: nivel.rede_de_tempo_s,
             extensao_de_xeque: nivel.extensao_de_xeque,
+            // Sem o campo no contrato, o apego é zero em todas as peças (a busca
+            // da 0.10.0). `map_or` dá o padrão quando o `Option` é `None`.
+            apego_cp: nivel.apego_cp.map_or(SEM_APEGO, |a| a.por_peca()),
         }
     }
 }
@@ -342,7 +393,10 @@ fn validar_fim(modalidade: &str, m: &Modalidade) -> Result<(), ErroContrato> {
 /// O que o `serde` não confere: as faixas.
 fn validar_nivel(modalidade: &str, nome: &str, nivel: &Nivel) -> Result<(), ErroContrato> {
     let onde = format!("{modalidade}.{nome}");
-    if nivel.chance_do_erro_milesimos > 1000 || nivel.chance_da_cegueira_milesimos > 1000 {
+    if nivel.chance_do_erro_milesimos > 1000
+        || nivel.chance_da_cegueira_milesimos > 1000
+        || nivel.chance_da_distracao_milesimos > 1000
+    {
         return Err(ErroContrato::Invalido(format!("{onde}: chance fora de 0 a 1000")));
     }
     if nivel.profundidade_maxima == 0 {
@@ -353,6 +407,13 @@ fn validar_nivel(modalidade: &str, nome: &str, nivel: &Nivel) -> Result<(), Erro
     }
     if nivel.margem_do_erro_cp < 0 {
         return Err(ErroContrato::Invalido(format!("{onde}: margem_do_erro_cp negativa")));
+    }
+    if let Some(apego) = nivel.apego_cp {
+        // O apego negativo seria "torcer para perder a peça"; acima da dama, o
+        // mate valeria menos que a peça (ver `MAIOR_APEGO_CP`).
+        if apego.por_peca().iter().any(|&a| !(0..=MAIOR_APEGO_CP).contains(&a)) {
+            return Err(ErroContrato::Invalido(format!("{onde}: apego_cp fora de 0 a {MAIOR_APEGO_CP}")));
+        }
     }
     Ok(())
 }

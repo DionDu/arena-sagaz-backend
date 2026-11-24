@@ -86,6 +86,32 @@
 //!
 //! Com a chave desligada, a árvore é exatamente a da 0.9.0: é o que os vetores
 //! da Cacau, da Pita e do Tex conferem (eles não podem mudar).
+//!
+//! ## O apego (T051l, motor 0.11.0, `docs/DECISOES-do-dono.md` §8zzzz73)
+//!
+//! A avaliação (`avaliacao.rs`) é simétrica: a dama vale 900 para os dois lados,
+//! e trocar dama por dama dá zero. É o certo no xadrez, e é por isso que os
+//! personagens trocavam a dama sem hesitar. Gente iniciante não faz isso: ela
+//! tem **apego** às peças fortes e recua a dama atacada, mesmo protegida.
+//!
+//! Com [`Limites::apego_cp`], cada peça **do personagem** (a cor de quem joga na
+//! raiz) vale para ele o valor de sempre MAIS o apego. A conta é feita como
+//! diferença em relação à raiz: `apego(posição) − apego(raiz)`, em que
+//! `apego(...)` soma o apego de cada peça do personagem no tabuleiro. Na raiz a
+//! diferença é zero; perder a dama a deixa em `−apego_da_dama`. Assim:
+//!
+//! - trocar dama por dama sai `−apego` para o personagem, e recuar sai 0;
+//! - entregar a dama por um cavalo fica ainda pior do que já era;
+//! - o empate (nota 0) continua sendo "igual à situação de agora", e não
+//!   ganha nem perde por causa do apego (com a soma inteira, e não a diferença,
+//!   o personagem acharia toda posição melhor que o empate).
+//!
+//! A diferença entra só onde a busca dá nota a uma posição parada
+//! ([`Busca::avaliar_no`], na quiescência). Ela é do ponto de vista do
+//! personagem e vira para quem joga pelo sinal, como toda nota do negamax. A TT
+//! nasce vazia a cada pedido e a cor do personagem não muda dentro dele: a mesma
+//! posição tem sempre a mesma nota, e o determinismo fica (R-05). Com o apego
+//! todo em zero, a conta nem roda, e a árvore é a da 0.10.0.
 
 use cozy_chess::{Board, Color, Move, Piece, Square};
 
@@ -157,7 +183,16 @@ pub struct Limites {
     /// topo do arquivo). Vem do nível, no contrato; `false` deixa a busca igual
     /// à da 0.9.0.
     pub extensao_de_xeque: bool,
+    /// O apego do personagem às peças dele (T051l; ver o topo do arquivo), em
+    /// centipeões, um número por peça na ordem do `Piece` da `cozy-chess`
+    /// (peão, cavalo, bispo, torre, dama, rei). [`SEM_APEGO`] deixa a busca
+    /// igual à da 0.10.0.
+    pub apego_cp: [i32; 6],
 }
+
+/// O apego zero em todas as peças: a busca sem apego (o `ideal` e todo nível
+/// cujo contrato não traz o campo).
+pub const SEM_APEGO: [i32; 6] = [0; 6];
 
 /// Por que a busca parou (os códigos da `tb902` das damas, R-06).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -242,6 +277,25 @@ struct Busca<'a> {
     caminho: Vec<u64>,
     /// Se o personagem enxerga tudo ou está "cego" neste lance (T039).
     visao: Visao,
+    /// A cor do personagem: quem joga na raiz. É a dona das peças do apego.
+    cor_do_personagem: Color,
+    /// O apego somado na raiz (ver o topo do arquivo, "O apego"): a referência
+    /// da diferença. Zero quando o nível não tem apego.
+    apego_na_raiz: i32,
+}
+
+/// A soma do apego das peças de uma cor no tabuleiro: para cada peça, quantas
+/// ela tem vezes o apego daquela peça (T051l).
+fn apego_no_tabuleiro(tabuleiro: &Board, cor: Color, apego_cp: &[i32; 6]) -> i32 {
+    let mut soma = 0;
+    // `Piece::ALL` são as seis peças, na ordem do índice (`peca as usize`).
+    for peca in Piece::ALL {
+        let apego = apego_cp[peca as usize];
+        if apego != 0 {
+            soma += tabuleiro.colored_pieces(cor, peca).len() as i32 * apego;
+        }
+    }
+    soma
 }
 
 /// O que o personagem enxerga na árvore (research.md R-10, T039).
@@ -383,7 +437,7 @@ impl NotasDaRaiz {
 
 /// O melhor par (lance, nota) de uma lista NÃO vazia na ordem estável: a maior
 /// nota, e no empate o primeiro (o `>` estrito não troca por um igual).
-fn melhor_de(notas: &[(Move, i32)]) -> (Move, i32) {
+pub fn melhor_de(notas: &[(Move, i32)]) -> (Move, i32) {
     let mut melhor = notas[0];
     // `&notas[1..]` é a fatia do 2º item em diante.
     for &(lance, nota) in &notas[1..] {
@@ -505,6 +559,32 @@ impl<'a> Busca<'a> {
             // O histórico da partida é copiado: a busca empilha e desempilha nele.
             caminho: posicao.historico_de_chaves.clone(),
             visao,
+            cor_do_personagem: posicao.tabuleiro.side_to_move(),
+            apego_na_raiz: apego_no_tabuleiro(
+                &posicao.tabuleiro,
+                posicao.tabuleiro.side_to_move(),
+                &limites.apego_cp,
+            ),
+        }
+    }
+
+    /// A nota parada da posição, do ponto de vista de quem joga, com o apego do
+    /// personagem (ver o topo do arquivo, "O apego"). Sem apego, é a
+    /// [`avaliar`] de sempre, sem conta nenhuma a mais.
+    fn avaliar_no(&self, tabuleiro: &Board) -> i32 {
+        let nota = avaliar(tabuleiro);
+        if self.limites.apego_cp == SEM_APEGO {
+            return nota;
+        }
+        // Quanto apego o personagem perdeu desde a raiz (zero ou negativo; a
+        // promoção a dama pode deixar positivo, e está certo: dama nova é dama).
+        let diferenca = apego_no_tabuleiro(tabuleiro, self.cor_do_personagem, &self.limites.apego_cp)
+            - self.apego_na_raiz;
+        // A diferença é do personagem; para o adversário, o sinal se inverte.
+        if tabuleiro.side_to_move() == self.cor_do_personagem {
+            nota + diferenca
+        } else {
+            nota - diferenca
         }
     }
 
@@ -747,7 +827,8 @@ impl<'a> Busca<'a> {
         {
             return self.quiescencia_em_xeque(tabuleiro, alfa, beta, ply);
         }
-        let parada = avaliar(tabuleiro);
+        // A nota parada com o apego do personagem (igual à `avaliar` sem ele).
+        let parada = self.avaliar_no(tabuleiro);
         if self.limites.quiescencia == Quiescencia::Nao || ply >= PLY_MAXIMO {
             return parada;
         }

@@ -59,7 +59,15 @@ name = "motor_xadrez"
 # T051j (mate em três xeques) vira teste (`tests/extensao_de_xeque.rs`). Com a
 # chave desligada a árvore é a da 0.9.0: os vetores da Cacau, da Pita e do Tex
 # não mudam.
-version = "0.10.0"
+# 0.11.0 (23/11/2026): a T051l - o APEGO (`apego_cp` por nível, contrato 1.6.0):
+# na busca, cada peça do personagem vale para ele o valor de sempre mais o apego,
+# contado como diferença em relação à raiz (`busca.rs`, "O apego"), e a troca de
+# dama por dama vira perda; e a DISTRAÇÃO (`chance_da_distracao_milesimos`): o 4º
+# número do sorteio, e o distraído só vê a captura da peça que o adversário
+# acabou de mexer (`niveis.rs`, o passo 7). Os dois campos são aditivos (ausente
+# = zero = a busca da 0.10.0; `tests/apego_e_distracao.rs`), mas os quatro
+# personagens os usam no contrato 1.6.0, e os lances deles mudam.
+version = "0.11.0"
 edition = "2021"
 
 [lib]

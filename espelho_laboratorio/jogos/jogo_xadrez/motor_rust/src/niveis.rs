@@ -33,6 +33,17 @@
 //!    adversário não existem as capturas de [`o_cego_nao_ve`]), com os mesmos
 //!    sorteios, e sai o lance do cego. A `acao` é `cegueira` quando ele difere
 //!    do lance que o personagem jogaria enxergando tudo.
+//! 7. **A distração** (T051l, motor 0.11.0; a `chance_da_distracao_milesimos`,
+//!    `docs/DECISOES-do-dono.md` §8zzzz73): é a cegueira do OUTRO lado. A
+//!    cegueira esconde a ameaça do adversário; a distração esconde a
+//!    OPORTUNIDADE do próprio personagem. Distraído, ele só enxerga a captura da
+//!    peça que o adversário ACABOU de mexer (a atenção está no último lance); a
+//!    peça que ficou solta por um lance no outro canto do tabuleiro, ele não vê
+//!    ([`a_distraida_nao_ve`]). Ela age no passo 4, no sorteio entre os
+//!    plausíveis: os lances que ele não vê saem da lista ANTES de achar o
+//!    melhor e a margem (senão a captura invisível, muito melhor que o resto,
+//!    empurraria todos os outros para fora da margem). Se ele não vê nenhum
+//!    lance (só havia capturas invisíveis), a lista fica inteira.
 //!
 //! ## Os sorteios saem TODOS antes de qualquer busca
 //!
@@ -50,6 +61,10 @@
 //!   ligou a cegueira, a Cacau, o Tex e o Magno (chance zero de cegueira)
 //!   continuaram com o mesmo erro e o mesmo plausível para a mesma semente.
 //!
+//! A distração (T051l) é o **4º** número, tirado DEPOIS dos três de antes, pelo
+//! mesmo motivo: os três primeiros continuam iguais para a mesma semente, e os
+//! níveis sem distração jogam exatamente como na 0.10.0.
+//!
 //! ## A `acao` da resposta
 //!
 //! Diz o que aconteceu, para o log e para a calibração: `lance_unico`,
@@ -62,7 +77,7 @@ use cozy_chess::{Board, Move, Piece, Square};
 
 use crate::aleatorio::SplitMix64;
 use crate::busca::{
-    buscar, buscar_com_visao, chave_estavel, e_captura, notas_da_raiz_com_visao, Limites, Parada, Resultado,
+    buscar, buscar_com_visao, chave_estavel, e_captura, melhor_de, notas_da_raiz_com_visao, Limites, Parada, Resultado,
     Visao, MATE, PLY_MAXIMO,
 };
 use crate::humano::{caracteristicas, indice_sorteado, nota_humana, NUMERO_DE_CARACTERISTICAS};
@@ -82,6 +97,9 @@ pub struct Ruido {
     /// O sorteio do erro com peso (T051c). `None` = a mesma chance para todo
     /// plausível, como na 0.5.0.
     pub ponderacao: Option<Ponderacao>,
+    /// Em quantos lances de cada 1000 o personagem fica "distraído" (T051l, o
+    /// passo 7 do topo do arquivo). Zero = nunca, como na 0.10.0.
+    pub chance_da_distracao_milesimos: u32,
 }
 
 /// Como o erro pesa cada plausível (T051c; `humano.rs`): os **pontos** de um
@@ -189,9 +207,12 @@ pub struct Sorteios {
     /// O número cru que escolhe o plausível: o índice é o resto da divisão pelo
     /// tamanho da lista, que só se conhece depois da busca.
     pub plausivel: u64,
+    /// O personagem está "distraído" neste lance? (T051l, o 4º número.)
+    pub distracao: bool,
 }
 
-/// Tira os três números do lance, na ordem fixa: erro, cegueira, plausível.
+/// Tira os quatro números do lance, na ordem fixa: erro, cegueira, plausível e
+/// distração (este, o mais novo, no fim: ver o topo do arquivo).
 ///
 /// "Sai em N de cada 1000" é `abaixo_de(1000) < N`: com N = 0 nunca sai, com
 /// N = 1000 sempre sai.
@@ -201,11 +222,38 @@ pub fn sortear(semente: u64, ruido: &Ruido) -> Sorteios {
     let erro = gerador.abaixo_de(1000) < u64::from(ruido.chance_do_erro_milesimos);
     let cegueira = gerador.abaixo_de(1000) < u64::from(ruido.chance_da_cegueira_milesimos);
     let plausivel = gerador.proximo();
+    let distracao = gerador.abaixo_de(1000) < u64::from(ruido.chance_da_distracao_milesimos);
     Sorteios {
         erro,
         cegueira,
         plausivel,
+        distracao,
     }
+}
+
+/// O distraído não vê este lance? (T051l, o passo 7 do topo do arquivo.)
+///
+/// Some toda captura, MENOS a da peça que o adversário acabou de mexer: é para
+/// ela que a atenção está voltada. A peça que ficou solta porque um lance no
+/// outro canto do tabuleiro tirou a proteção dela é justamente a que o
+/// iniciante não percebe (o erro que o dono descreveu: ele avança um peão,
+/// desprotege a dama, e gente fraca nem sempre nota). O en passant come
+/// sempre o peão que acabou de andar duas casas, e por isso é visto. Na posição
+/// sem lance anterior (o começo da lista), toda captura some. Lance que não
+/// captura nunca some.
+pub fn a_distraida_nao_ve(posicao: &Posicao, lance: Move) -> bool {
+    let tabuleiro = &posicao.tabuleiro;
+    if !e_captura(tabuleiro, lance) {
+        return false;
+    }
+    // O en passant: o peão anda na diagonal para uma casa VAZIA.
+    let en_passant = tabuleiro.piece_on(lance.to).is_none();
+    if en_passant {
+        return false;
+    }
+    // `last()` é o último lance da lista: o do adversário, que acabou de jogar.
+    // Vê a captura só quando a vítima está na casa de chegada desse lance.
+    posicao.lances.last().map_or(true, |ultimo| ultimo.to != lance.to)
 }
 
 /// O lance que dá mate em um, se houver: o primeiro na ordem estável (R-05),
@@ -338,7 +386,7 @@ fn escolher_com_visao(
     visao: Visao,
 ) -> Option<Escolha> {
     if sorteios.erro {
-        if let Some(escolha) = errar(posicao, limites, ruido, sorteios.plausivel, visao) {
+        if let Some(escolha) = errar(posicao, limites, ruido, sorteios, visao) {
             return Some(escolha);
         }
         // Sem nota nenhuma (o teto não coube nem na 1ª volta): segue para a
@@ -350,9 +398,24 @@ fn escolher_com_visao(
 /// O passo do erro: busca a raiz inteira e sorteia entre os plausíveis (com a
 /// mesma chance, ou com o peso da [`Ponderacao`] do nível). `None` se a busca
 /// não deu nenhuma nota.
-fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteio: u64, visao: Visao) -> Option<Escolha> {
+fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteios: &Sorteios, visao: Visao) -> Option<Escolha> {
     let notas = notas_da_raiz_com_visao(posicao, limites, visao)?;
-    let (melhor_lance, melhor_nota) = notas.melhor();
+    let sorteio = sorteios.plausivel;
+    // O melhor DE VERDADE: é ele que decide a `acao` (o lance distraído que não
+    // é este é um `erro_sorteado`, como qualquer outro erro: a fronteira não
+    // ganha código novo, e o app que lê a `acao` não muda).
+    let (melhor_de_verdade, _) = notas.melhor();
+    // A distração (passo 7 do topo do arquivo): os lances que o distraído não vê
+    // saem ANTES de achar o melhor e a margem. Se não sobrar nenhum, fica tudo.
+    let visiveis: Vec<(Move, i32)> = if sorteios.distracao {
+        notas.notas.iter().copied().filter(|&(lance, _)| !a_distraida_nao_ve(posicao, lance)).collect()
+    } else {
+        Vec::new()
+    };
+    // `&[...]` é uma fatia: a lista visível, ou a inteira quando a distração não
+    // saiu (ou não sobrou nada visível).
+    let lista: &[(Move, i32)] = if visiveis.is_empty() { &notas.notas } else { &visiveis };
+    let (melhor_lance, melhor_nota) = melhor_de(lista);
     // `saturating_sub` para no menor `i32` em vez de dar a volta (não acontece
     // com as notas da busca, que cabem em ±32 000; é só cuidado).
     let piso = melhor_nota.saturating_sub(ruido.margem_do_erro_cp);
@@ -368,9 +431,8 @@ fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteio: u64, visa
 
     // Os plausíveis, na ordem estável (a das notas): a nota no piso ou acima, e
     // o lance de volta só quando ele é o próprio melhor. Com o resultado
-    // decidido, só o melhor.
-    let plausiveis: Vec<(Move, i32)> = notas
-        .notas
+    // decidido, só o melhor. Saem da `lista` (a visível, com a distração).
+    let plausiveis: Vec<(Move, i32)> = lista
         .iter()
         .copied()
         .filter(|&(lance, nota)| {
@@ -396,7 +458,8 @@ fn errar(posicao: &Posicao, limites: &Limites, ruido: &Ruido, sorteio: u64, visa
     let (lance, nota) = plausiveis[indice];
     Some(Escolha {
         lance,
-        acao: if lance == melhor_lance {
+        // Comparado com o melhor DE VERDADE (com ou sem distração, ver acima).
+        acao: if lance == melhor_de_verdade {
             Acao::BuscaMelhor
         } else {
             Acao::ErroSorteado
