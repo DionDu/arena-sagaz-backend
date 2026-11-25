@@ -111,7 +111,7 @@ def test_quarta_do_magno_com_numeros_bons_traz_o_card_d():
 
 
 def test_os_quatro_jogos_juntos_vencem_um_jogo_so():
-    """Um jogo pode ter mais dias, mas "nos quatro jogos" é o feito maior."""
+    """Um jogo pode ter mais dias, mas "em todos os jogos" é o feito maior."""
     L = regras.LIMITE_DIAS_SEM_PERDER
     escolha = regras.escolher_magno([_n("velha", dias=L + 90), _n(None, dias=L)], ocorrencia=0)
     assert escolha.numeros.jogo is None
