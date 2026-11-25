@@ -90,9 +90,10 @@ LEGENDA_AJUDA = (
     "um app pequeno."
 )
 #
-# ⚠️ "dos quatro" ficou velho com o xadrez (o 5º jogo, 24/11/2026). A troca
-# ("de todos" ou "dos cinco") espera o aval do dono: a legenda foi aprovada
-# por ele, palavra por palavra (T132b da spec 012).
+# "o mais difícil dos quatro" fala dos QUATRO PERSONAGENS (Cacau, Pita, Tex e
+# Magno), e não dos jogos: por isso não muda com o xadrez, o 5º jogo. Conferido
+# com o dono em 25/11/2026 (T132b da spec 012). A legenda foi aprovada por
+# ele, palavra por palavra.
 LEGENDAS_MAGNO = (
     "Alguém se habilita a vencer o Magno? Ele é o mais difícil dos quatro.",
     "Será que você é quem vai quebrar a sequência do Magno?",
