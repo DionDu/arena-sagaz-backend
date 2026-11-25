@@ -464,8 +464,8 @@
     },
     {
       "caminho": "jogos/jogo_xadrez/contrato/contrato_xadrez.json",
-      "sha256": "c6e4e394ba99870d5fbca4d46c1a5d9ea28f8bbd8f6243422d7ef2f170a89c49",
-      "tamanho_bytes": 12666
+      "sha256": "ab0a0674e06061cae9c88e188708645281a6f2a18b7a16607e2c786a1e772b9d",
+      "tamanho_bytes": 13905
     },
     {
       "caminho": "jogos/jogo_xadrez/posicoes/posicoes_adiantadas.txt",
