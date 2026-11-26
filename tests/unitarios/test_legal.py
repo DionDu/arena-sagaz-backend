@@ -118,6 +118,47 @@ def test_todos_documentos_idiomas(client):
             assert r.status_code == 200, f"{idioma}/{doc}"
 
 
+# O nome do app na loja, a marca e o desenvolvedor, por idioma: o que a Google
+# Play exige que a página cite. Repetidos aqui de propósito (e não importados de
+# `rotas.py`): se alguém apagar o bloco de lá, o teste não pode apagar junto.
+_ENTIDADE_POR_IDIOMA = {
+    "pt": ("Xadrez, Damas e Jogo da Velha", "Arena Sagaz", "Sharp Arena"),
+    "en": ("Chess, Checkers &amp; Tic Tac Toe", "Sharp Arena", "Arena Sagaz"),
+    "es": ("Ajedrez, Damas y Tres en Raya", "Arena Sagaz", "Sharp Arena"),
+}
+
+
+@pytest.mark.parametrize("idioma", ["pt", "en", "es"])
+@pytest.mark.parametrize("doc", ["termos", "privacidade", "exclusao-conta"])
+def test_pagina_cita_o_app_e_o_desenvolvedor_da_ficha(client, idioma, doc):
+    """A Google Play recusou a 1.6.0 (26/11/2026): o link de exclusão de conta
+    "não faz referência à entidade mencionada na ficha". A página só dizia
+    "Arena Sagaz", e a ficha em inglês chama o app de "Chess, Checkers & Tic Tac
+    Toe", da marca Sharp Arena, do desenvolvedor Fernando da Silva.
+
+    Toda página legal, nos três idiomas, tem de citar o título da ficha, a marca
+    nos dois nomes e o desenvolvedor como a Play o exibe, e a da exclusão em
+    inglês é a que está no formulário de segurança de dados.
+    """
+    html = client.get(f"/legal/{idioma}/{doc}").text
+    for trecho in _ENTIDADE_POR_IDIOMA[idioma]:
+        assert trecho in html, (idioma, doc, trecho)
+    assert "Fernando da Silva" in html
+    assert "com.santiagodata.arenasagaz" in html
+
+
+def test_identificacao_nao_entra_no_texto_versionado(client):
+    """O bloco do app é MOLDURA da página, e não texto do documento.
+
+    O app compara a versão do texto (`co_versao`) para pedir um novo aceite dos
+    termos. Se o bloco entrasse no markdown, a recusa da Play teria custado um
+    re-aceite de todos os jogadores por uma linha que não muda nenhum direito.
+    """
+    api = client.get("/v1/legal/en/exclusao-conta").json()
+    assert "Fernando da Silva" not in api["tx_conteudo"]
+    assert api["co_versao"] == VERSAO_LEGAL
+
+
 # ── API JSON para o app (/v1/legal) ──────────────────────────────────────────
 #
 # É por esta rota que o app deixa de depender do texto EMBUTIDO na build. Sem

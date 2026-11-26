@@ -101,6 +101,54 @@ _TITULOS = {
     },
 }
 
+# Quem é o app e quem o publica, como as LOJAS o mostram. Aparece no topo de
+# toda página legal, acima do texto do documento.
+#
+# ⚠️ POR QUE ISTO EXISTE (26/11/2026): a Google Play recusou a 1.6.0 porque o link
+# de exclusão de conta do formulário de segurança de dados
+# (`/legal/en/exclusao-conta`) "não faz referência à entidade mencionada na
+# ficha" - o nome do app ou o do desenvolvedor. O texto do documento só dizia
+# "Arena Sagaz", e na ficha em inglês o app se chama "Sharp Arena" (até a 1.4.0)
+# e, a partir da 1.6.0, "Chess, Checkers & Tic Tac Toe", com o desenvolvedor
+# "Fernando da Silva". Por isso o bloco cita os TRÊS: o título da loja, a marca
+# (nos dois nomes) e o desenvolvedor exatamente como a Play o exibe.
+#
+# ⚠️ POR QUE AQUI, E NÃO NO `.md` do documento: o texto em `legal/<versao>/` é
+# versionado e o app compara a versão (`co_versao`) para decidir se pede um novo
+# aceite dos termos. Mudar o texto pediria uma `legal/1.1` e faria TODOS os
+# jogadores aceitarem de novo, por uma linha que não muda nenhum direito. Este
+# bloco é moldura da página, como o rodapé: não entra no markdown que a API
+# entrega ao app, e por isso não mexe na versão.
+#
+# ⚠️ Mudou o título do app numa loja (as fichas da versão, em
+# `arena-sagaz-frontend/specs/<spec>/textos-fichas-lojas.md`) ou o nome do
+# desenvolvedor? Este texto muda junto. O teste `test_legal.py` confere que cada
+# página cita o título, a marca e o desenvolvedor.
+_IDENTIFICACAO = {
+    "pt": (
+        "Este documento vale para o app <strong>Xadrez, Damas e Jogo da Velha</strong>, "
+        "da marca <strong>Arena Sagaz</strong> (em inglês, <strong>Sharp Arena</strong>), "
+        "publicado pelo desenvolvedor <strong>Fernando da Silva</strong> (Santiago Data) "
+        "na Google Play (<code>com.santiagodata.arenasagaz</code>) e na App Store."
+    ),
+    "en": (
+        "This document applies to the app <strong>Chess, Checkers &amp; Tic Tac Toe</strong>, "
+        "from the <strong>Sharp Arena</strong> brand (<strong>Arena Sagaz</strong> in "
+        "Portuguese and Spanish), published by the developer <strong>Fernando da Silva</strong> "
+        "(Santiago Data) on Google Play (<code>com.santiagodata.arenasagaz</code>) and the App Store."
+    ),
+    "es": (
+        "Este documento se aplica a la app <strong>Ajedrez, Damas y Tres en Raya</strong>, "
+        "de la marca <strong>Arena Sagaz</strong> (en inglés, <strong>Sharp Arena</strong>), "
+        "publicada por el desarrollador <strong>Fernando da Silva</strong> (Santiago Data) "
+        "en Google Play (<code>com.santiagodata.arenasagaz</code>) y en la App Store."
+    ),
+}
+
+# A marca como cada idioma a conhece: em inglês o app se chama Sharp Arena. Usada
+# no <title> e no rodapé, que antes diziam "Arena Sagaz" nos três idiomas.
+_MARCA = {"pt": "Arena Sagaz", "en": "Sharp Arena", "es": "Arena Sagaz"}
+
 # CSS mínimo no tema "papel & madeira" do app, com suporte a tema escuro do SO.
 _CSS = """
 :root { color-scheme: light dark; }
@@ -122,6 +170,9 @@ blockquote { margin: 1rem 0; padding: .25rem 1rem;
 code { background: #E9E1D2; padding: .1rem .3rem; border-radius: 4px; }
 nav.idiomas { max-width: 720px; margin: 0 auto .75rem; text-align: right;
   font-size: .9rem; }
+/* O bloco "este documento vale para o app ..." (ver `_IDENTIFICACAO`). */
+p.app { margin: 0 0 1.25rem; padding: .6rem .9rem; font-size: .92rem;
+  background: #E9E1D2; border-radius: 10px; }
 footer { max-width: 720px; margin: 1.5rem auto 0; text-align: center;
   font-size: .8rem; color: #6E6052; }
 @media (prefers-color-scheme: dark) {
@@ -130,6 +181,7 @@ footer { max-width: 720px; margin: 1.5rem auto 0; text-align: center;
   h1 { color: #F4EFE3; } h2, h3 { color: #B9C4B4; }
   blockquote { background: #4A6553; }
   code { background: #4A6553; }
+  p.app { background: #4A6553; }
 }
 """
 
@@ -145,16 +197,23 @@ def _pagina(*, titulo: str, idioma: str, corpo_html: str, idiomas_base: str) -> 
         f'<a href="{idiomas_base}/{lng}/{{doc}}">{lng.upper()}</a>'
         for lng in IDIOMAS
     )
+    # A marca no idioma da página (Sharp Arena em inglês) e o bloco que diz a
+    # qual app o documento se aplica. `.get(..., pt)` porque a página de 404 e
+    # o índice não passam pela lista de idiomas; ali vale o português.
+    marca = _MARCA.get(idioma, _MARCA["pt"])
+    identificacao = _IDENTIFICACAO.get(idioma, _IDENTIFICACAO["pt"])
     return (
         "<!DOCTYPE html>\n"
         f'<html lang="{idioma}">\n<head>\n'
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f"<title>{titulo} — Arena Sagaz</title>\n"
+        f"<title>{titulo} - {marca}</title>\n"
         f"<style>{_CSS}</style>\n</head>\n<body>\n"
         f'<nav class="idiomas">{troca}</nav>\n'
-        f"<main>\n{corpo_html}\n</main>\n"
-        "<footer>Arena Sagaz · Santiago Data</footer>\n"
+        # O bloco vem ANTES do texto do documento: é a primeira coisa que quem
+        # revisa a página (a Play, a Apple) lê, e não depende do markdown.
+        f'<main>\n<p class="app">{identificacao}</p>\n{corpo_html}\n</main>\n'
+        f"<footer>{marca} · Fernando da Silva · Santiago Data</footer>\n"
         "</body>\n</html>\n"
     )
 

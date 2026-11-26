@@ -12317,3 +12317,35 @@ num número que se diz verdadeiro).
 
 **Testes.** `tests/unitarios/test_card_do_dia.py`: o xadrez ganha escopo e entra no "todos juntos";
 a rota com um desafio de xadrez entrega o FEN e o complemento (a cor e as marcas) e nenhuma grade.
+
+## 2026-11-26 — As páginas legais dizem a qual app se aplicam (recusa da Play na 1.6.0)
+
+**Contexto.** A Google Play recusou a 1.6.0 em 26/11/2026 (decisão automática): o link de exclusão
+de conta do formulário de segurança de dados (`https://arenasagaz.santiagodata.com/legal/en/exclusao-conta`)
+"não faz referência à entidade (nome do aplicativo, desenvolvedor ou empresa) mencionada na ficha".
+O texto da página só dizia "Arena Sagaz". Na ficha em inglês o app se chamava "Sharp Arena: Checkers
+& Dots" até a 1.4.0 e, desde a v7 das fichas (1.6.0), "Chess, Checkers & Tic Tac Toe", sem a marca no
+título; o desenvolvedor exibido é "Fernando da Silva". A página não citava nenhum dos três.
+
+**Decisão.**
+1. Toda página legal (`/legal/...`, os três documentos nos três idiomas) abre com um bloco que diz
+   a qual app ela se aplica: o **título da ficha** no idioma da página, a **marca nos dois nomes**
+   (Arena Sagaz e Sharp Arena), o **desenvolvedor como a Play o exibe** (Fernando da Silva, Santiago
+   Data) e o pacote `com.santiagodata.arenasagaz` (`_IDENTIFICACAO` em `api/legal/rotas.py`). O
+   `<title>` e o rodapé passam a usar a marca do idioma (Sharp Arena em inglês).
+2. **O bloco é moldura da página, e não texto do documento.** O markdown de `legal/1.0/` não muda,
+   e o `/v1/legal` continua entregando o mesmo texto e a mesma versão ao app.
+3. Teste: cada uma das nove páginas cita título, marcas, desenvolvedor e pacote; e o texto que a
+   API entrega ao app não leva o bloco.
+
+**Alternativas consideradas.**
+- *Uma `legal/1.1` com o nome do app no texto:* o app compara `co_versao` para pedir um novo aceite
+  dos termos, e todos os jogadores teriam de aceitar de novo por uma linha que não muda nenhum
+  direito.
+- *Recorrer da decisão:* a página de fato não cita o título nem o desenvolvedor da ficha; o recurso
+  leva até 7 dias e provavelmente perderia.
+- *Trocar o link do formulário para a página em português:* ela também não cita o título nem o
+  desenvolvedor, e a ficha padrão da Play é a em inglês.
+
+⚠️ **Mudou o título do app numa loja ou o nome do desenvolvedor? O `_IDENTIFICACAO` muda junto**, e
+o teste `test_pagina_cita_o_app_e_o_desenvolvedor_da_ficha` com ele.
