@@ -12318,34 +12318,56 @@ num número que se diz verdadeiro).
 **Testes.** `tests/unitarios/test_card_do_dia.py`: o xadrez ganha escopo e entra no "todos juntos";
 a rota com um desafio de xadrez entrega o FEN e o complemento (a cor e as marcas) e nenhuma grade.
 
-## 2026-11-26 — As páginas legais dizem a qual app se aplicam (recusa da Play na 1.6.0)
+## 2026-11-26 — As páginas legais dizem a qual app se aplicam (recusa da Play na 1.6.0, 1ª e 2ª rodadas)
 
 **Contexto.** A Google Play recusou a 1.6.0 em 26/11/2026 (decisão automática): o link de exclusão
 de conta do formulário de segurança de dados (`https://arenasagaz.santiagodata.com/legal/en/exclusao-conta`)
 "não faz referência à entidade (nome do aplicativo, desenvolvedor ou empresa) mencionada na ficha".
-O texto da página só dizia "Arena Sagaz". Na ficha em inglês o app se chamava "Sharp Arena: Checkers
-& Dots" até a 1.4.0 e, desde a v7 das fichas (1.6.0), "Chess, Checkers & Tic Tac Toe", sem a marca no
-título; o desenvolvedor exibido é "Fernando da Silva". A página não citava nenhum dos três.
+Até a 1.4.0 a página passava porque os títulos em pt-BR/es-419 traziam "Arena Sagaz"; na 1.6.0 (v7)
+a marca saiu dos títulos nos três idiomas (`Xadrez, Damas e Jogo da Velha` / `Chess, Checkers & Tic Tac Toe`
+/ `Ajedrez, Damas y Tres en Raya`), com o desenvolvedor exibido como `Fernando da Silva`.
+
+Na **1ª tentativa** (`c4909aee1`), incluiu-se apenas um `<p class="app">` no idioma da página e
+reenviou-se minutos depois; a Play recusou pela **2ª vez** com a mesma mensagem automática, por quatro
+motivos combinados:
+1. **Peso semântico de `<title>` e `<h1>`:** o `<title>` (`Account Deletion - Sharp Arena`) e o `<h1>`
+   do Markdown (`Account Deletion - Arena Sagaz`) continuavam citando apenas as marcas, ausentes dos
+   títulos da 1.6.0.
+2. **Link único global × múltiplos idiomas e versões na loja:** o formulário de segurança de dados
+   aceita um único URL (`/legal/en/exclusao-conta`), mas o próprio e-mail de recusa identificou o app
+   pelo título em português (`Xadrez, Damas e Jogo da Velha`), e na loja pública ainda estavam no ar
+   os títulos da 1.4.0 (`Sharp Arena: Checkers & Dots`, `Arena Sagaz: Damas e Velha`, `Arena Sagaz:
+   Damas y Raya`) retidos pela publicação gerenciada. A página em inglês só citava o título novo em inglês.
+3. **Cache HTTP de 1 hora (`Cache-Control: public, max-age=3600`):** a rota vigente autorizava o
+   crawler do Google a reaproveitar por 60 minutos a página antiga lida no 1º envio (~19h30).
+4. **Robôs de verificação (`HEAD` e rate limit):** `@router.get` respondia `405` a pedidos `HEAD`, e
+   `/legal/*` não estava na lista de isentos de `api/nucleo/rate_limit.py`.
 
 **Decisão.**
-1. Toda página legal (`/legal/...`, os três documentos nos três idiomas) abre com um bloco que diz
-   a qual app ela se aplica: o **título da ficha** no idioma da página, a **marca nos dois nomes**
-   (Arena Sagaz e Sharp Arena), o **desenvolvedor como a Play o exibe** (Fernando da Silva, Santiago
-   Data) e o pacote `com.santiagodata.arenasagaz` (`_IDENTIFICACAO` em `api/legal/rotas.py`). O
-   `<title>` e o rodapé passam a usar a marca do idioma (Sharp Arena em inglês).
-2. **O bloco é moldura da página, e não texto do documento.** O markdown de `legal/1.0/` não muda,
-   e o `/v1/legal` continua entregando o mesmo texto e a mesma versão ao app.
-3. Teste: cada uma das nove páginas cita título, marcas, desenvolvedor e pacote; e o texto que a
-   API entrega ao app não leva o bloco.
+1. **Entidade no `<title>`, no `<h1>` único e no bloco de abertura (`api/legal/rotas.py`):** nas nove
+   páginas legais (`/legal/{pt,en,es}/{termos,privacidade,exclusao-conta}`), o `<h1>` vindo do Markdown
+   é substituído na renderização web para que tanto `<title>` quanto o único `<h1>` tragam o nome do
+   documento, o título da 1.6.0 no idioma da página, as duas marcas (`Sharp Arena` / `Arena Sagaz`) e
+   o desenvolvedor (`Fernando da Silva`, sem sobrenome do meio, por decisão do dono). Logo abaixo do
+   `<h1>`, `<p class="app">` cita os títulos da 1.6.0 nos **três** idiomas, os títulos anteriores da
+   1.4.0, as duas marcas, `Fernando da Silva` (`Santiago Data`) e o pacote `com.santiagodata.arenasagaz`.
+2. **Continua sendo moldura da página web, e não texto do documento:** o markdown de `legal/1.0/` não
+   muda, e `/v1/legal` continua entregando o mesmo texto e `co_versao == "1.0"` ao app.
+3. **Entrega HTTP para robôs das lojas:** a rota vigente (`/legal/<idioma>/<doc>`) e o índice passam a
+   responder `Cache-Control: no-cache` (a rota versionada `/legal/1.0/...` permanece `immutable`);
+   todas as rotas HTML sob `/legal` atendem `GET` e `HEAD`; e `/legal` + `/legal/*` entram nos isentos
+   do rate limit (`api/nucleo/rate_limit.py`), mantendo `/v1/legal/*` sob o limite normal.
+4. **URL mantida:** o endereço cadastrado no Play Console permanece
+   `https://arenasagaz.santiagodata.com/legal/en/exclusao-conta`, sem query string (decisão do dono).
 
 **Alternativas consideradas.**
-- *Uma `legal/1.1` com o nome do app no texto:* o app compara `co_versao` para pedir um novo aceite
-  dos termos, e todos os jogadores teriam de aceitar de novo por uma linha que não muda nenhum
-  direito.
-- *Recorrer da decisão:* a página de fato não cita o título nem o desenvolvedor da ficha; o recurso
-  leva até 7 dias e provavelmente perderia.
-- *Trocar o link do formulário para a página em português:* ela também não cita o título nem o
-  desenvolvedor, e a ficha padrão da Play é a em inglês.
+- *Uma `legal/1.1` mudando os `.md`:* forçaria todos os jogadores a aceitarem os termos novamente no app
+  por uma linha de identificação que não altera direitos.
+- *Adicionar query string na URL do formulário da Play:* descartado pelo dono para manter o endereço
+  limpo no cadastro; `Cache-Control: no-cache` resolve o cache do lado do servidor.
+- *Voltar a marca para o título da ficha:* desnecessário — a política da Play aceita título descritivo
+  desde que a página legal referencie o título da ficha e o desenvolvedor.
 
-⚠️ **Mudou o título do app numa loja ou o nome do desenvolvedor? O `_IDENTIFICACAO` muda junto**, e
-o teste `test_pagina_cita_o_app_e_o_desenvolvedor_da_ficha` com ele.
+⚠️ **Mudou o título do app numa loja ou o nome do desenvolvedor? Atualize `_TITULO_LOJA` e
+`_IDENTIFICACAO` em `api/legal/rotas.py`**, e os testes em `tests/unitarios/test_legal.py` e
+`tests/unitarios/test_rate_limit.py`.

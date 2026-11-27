@@ -79,8 +79,9 @@ def test_recente_200_html(client):
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert "Política de Privacidade" in r.text
-    # "Mais recente" tem cache curto (não imutável).
-    assert "immutable" not in r.headers.get("cache-control", "")
+    # A rota vigente manda `no-cache` para que ajustes entrem em vigor na hora
+    # sem ficarem retidos em cache do navegador ou de robôs das lojas.
+    assert r.headers.get("cache-control") == "no-cache"
 
 
 def test_versionado_imutavel(client):
@@ -118,33 +119,95 @@ def test_todos_documentos_idiomas(client):
             assert r.status_code == 200, f"{idioma}/{doc}"
 
 
-# O nome do app na loja, a marca e o desenvolvedor, por idioma: o que a Google
-# Play exige que a página cite. Repetidos aqui de propósito (e não importados de
-# `rotas.py`): se alguém apagar o bloco de lá, o teste não pode apagar junto.
-_ENTIDADE_POR_IDIOMA = {
-    "pt": ("Xadrez, Damas e Jogo da Velha", "Arena Sagaz", "Sharp Arena"),
-    "en": ("Chess, Checkers &amp; Tic Tac Toe", "Sharp Arena", "Arena Sagaz"),
-    "es": ("Ajedrez, Damas y Tres en Raya", "Arena Sagaz", "Sharp Arena"),
+# Títulos principais por idioma (1.6.0) e lista completa de títulos/entidades que
+# TODA página legal deve citar (1.6.0 nos três idiomas + 1.4.0 ainda no ar na
+# transição da publicação gerenciada + marcas + desenvolvedor + pacote).
+# Repetidos aqui de propósito (e não importados de `rotas.py`): se alguém apagar
+# o bloco de lá, o teste precisa falhar em vez de apagar junto.
+_TITULO_PRINCIPAL_POR_IDIOMA = {
+    "pt": "Xadrez, Damas e Jogo da Velha",
+    "en": "Chess, Checkers &amp; Tic Tac Toe",
+    "es": "Ajedrez, Damas y Tres en Raya",
 }
+
+_TODAS_AS_ENTIDADES = (
+    # Títulos da 1.6.0 nos 3 idiomas (o link de Segurança de Dados na Play é
+    # único e global, mas o e-mail de recusa cruza com o título em pt-BR).
+    "Xadrez, Damas e Jogo da Velha",
+    "Chess, Checkers &amp; Tic Tac Toe",
+    "Ajedrez, Damas y Tres en Raya",
+    # Títulos da 1.4.0 ainda publicados enquanto a publicação gerenciada segura a 1.6.0.
+    "Arena Sagaz: Damas e Velha",
+    "Sharp Arena: Checkers &amp; Dots",
+    "Arena Sagaz: Damas y Raya",
+    # Marcas, desenvolvedor, empresa e pacote.
+    "Arena Sagaz",
+    "Sharp Arena",
+    "Fernando da Silva",
+    "Santiago Data",
+    "com.santiagodata.arenasagaz",
+)
 
 
 @pytest.mark.parametrize("idioma", ["pt", "en", "es"])
 @pytest.mark.parametrize("doc", ["termos", "privacidade", "exclusao-conta"])
 def test_pagina_cita_o_app_e_o_desenvolvedor_da_ficha(client, idioma, doc):
-    """A Google Play recusou a 1.6.0 (26/11/2026): o link de exclusão de conta
-    "não faz referência à entidade mencionada na ficha". A página só dizia
-    "Arena Sagaz", e a ficha em inglês chama o app de "Chess, Checkers & Tic Tac
-    Toe", da marca Sharp Arena, do desenvolvedor Fernando da Silva.
-
-    Toda página legal, nos três idiomas, tem de citar o título da ficha, a marca
-    nos dois nomes e o desenvolvedor como a Play o exibe, e a da exclusão em
-    inglês é a que está no formulário de segurança de dados.
+    """A Google Play recusou a 1.6.0 duas vezes (26/11/2026): o link global de
+    exclusão de conta (`/legal/en/exclusao-conta`) precisava trazer a entidade da
+    ficha tanto nos elementos principais (`<title>` e `<h1>` único) quanto para
+    qualquer idioma/versão da ficha (1.6.0 em revisão e 1.4.0 no ar).
     """
+    import re
+
     html = client.get(f"/legal/{idioma}/{doc}").text
-    for trecho in _ENTIDADE_POR_IDIOMA[idioma]:
+
+    # Deve existir exatamente UM `<h1>` na página (o do Markdown foi substituído
+    # pelo cabeçalho completo, evitando dois `<h1>` conflitantes).
+    h1s = re.findall(r"<h1>(.*?)</h1>", html, flags=re.DOTALL)
+    assert len(h1s) == 1, (idioma, doc, h1s)
+    titulos_head = re.findall(r"<title>(.*?)</title>", html, flags=re.DOTALL)
+    assert len(titulos_head) == 1, (idioma, doc, titulos_head)
+
+    # Tanto `<title>` quanto `<h1>` precisam citar o título da loja daquele
+    # idioma, as duas marcas e o desenvolvedor.
+    titulo_esperado = _TITULO_PRINCIPAL_POR_IDIOMA[idioma]
+    for elemento in (titulos_head[0], h1s[0]):
+        assert titulo_esperado in elemento, (idioma, doc, elemento)
+        assert "Arena Sagaz" in elemento, (idioma, doc, elemento)
+        assert "Sharp Arena" in elemento, (idioma, doc, elemento)
+        assert "Fernando da Silva" in elemento, (idioma, doc, elemento)
+
+    # O corpo da página cita todos os títulos (1.6.0 e 1.4.0), marcas e pacote.
+    for trecho in _TODAS_AS_ENTIDADES:
         assert trecho in html, (idioma, doc, trecho)
-    assert "Fernando da Silva" in html
-    assert "com.santiagodata.arenasagaz" in html
+
+    # Regra expressa do dono: na moldura (`<title>`, `<h1>`, `<p class="app">` e
+    # `<footer>`) manter "Fernando da Silva", sem adicionar o sobrenome do meio
+    # onde ainda não existia (`termos.md` e `privacidade.md` já trazem o nome
+    # civil completo no corpo do documento por exigência da LGPD; `exclusao-conta`
+    # não traz).
+    bloco_app = re.findall(r'<p class="app">(.*?)</p>', html, flags=re.DOTALL)
+    rodape = re.findall(r"<footer>(.*?)</footer>", html, flags=re.DOTALL)
+    assert len(bloco_app) == 1 and len(rodape) == 1
+    for moldura in (titulos_head[0], h1s[0], bloco_app[0], rodape[0]):
+        assert "Fernando Santiago da Silva" not in moldura, (idioma, doc, moldura)
+    if doc == "exclusao-conta":
+        assert "Fernando Santiago da Silva" not in html, idioma
+
+
+def test_rotas_legais_respondem_head(client):
+    """Robôs de verificação de link testam `HEAD` antes de `GET`. `@router.get`
+    sozinho devolveria 405; `@router.head` devolve 200 sem corpo."""
+    for caminho in (
+        "/legal",
+        "/legal/",
+        "/legal/en/exclusao-conta",
+        "/legal/en/privacidade",
+        f"/legal/{VERSAO_LEGAL}/en/exclusao-conta",
+    ):
+        r = client.head(caminho)
+        assert r.status_code == 200, caminho
+        assert r.content == b"", caminho
 
 
 def test_identificacao_nao_entra_no_texto_versionado(client):

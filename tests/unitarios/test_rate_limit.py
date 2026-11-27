@@ -60,3 +60,34 @@ def test_ips_diferentes_nao_compartilham_balde(monkeypatch):
         assert c.get("/v1/naoexiste", headers={"X-Forwarded-For": "203.0.113.40"}).status_code != 429
     # Outro IP começa do zero.
     assert c.get("/v1/naoexiste", headers={"X-Forwarded-For": "203.0.113.41"}).status_code != 429
+
+
+def test_paginas_legais_sao_isentas_mas_api_json_e_prefixo_falso_nao(monkeypatch):
+    """Os robôs das lojas (Google Play Data Safety / Privacidade e App Store)
+    visitam `/legal/*` a partir de IPs compartilhados de datacenter e nunca podem
+    receber 429. Já `/v1/legal/*` e um caminho como `/legalizar` continuam sob
+    o limite normal por IP."""
+    _ligar(monkeypatch, leitura=1)
+    c = TestClient(app)
+    ip = {"X-Forwarded-For": "203.0.113.50"}
+
+    for caminho in (
+        "/legal",
+        "/legal/",
+        "/legal/en/exclusao-conta",
+        "/legal/en/privacidade",
+        "/legal/pt/exclusao-conta",
+    ):
+        for _ in range(3):
+            assert c.get(caminho, headers=ip).status_code == 200, caminho
+            assert c.head(caminho, headers=ip).status_code == 200, caminho
+
+    # Prefixo parecido (`/legalizar`) NÃO entra na isenção de `/legal/`: a 1ª dá
+    # 404 e consome a única ficha do minuto; a 2ª leva 429.
+    assert c.get("/legalizar", headers=ip).status_code == 404
+    assert c.get("/legalizar", headers=ip).status_code == 429
+
+    # A rota JSON do app (`/v1/legal/...`) também continua protegida pelo limite.
+    ip_api = {"X-Forwarded-For": "203.0.113.51"}
+    assert c.get("/v1/legal/en/exclusao-conta", headers=ip_api).status_code == 200
+    assert c.get("/v1/legal/en/exclusao-conta", headers=ip_api).status_code == 429
