@@ -121,7 +121,7 @@ def _carregar_imagens() -> dict[str, tuple[bytes, str]]:
 
     Este dicionário **é** a lista de permissão da rota `/img/`: só se serve o que
     está aqui. Por isso a rota não precisa validar caminho — não existe caminho,
-    existe uma chave. São ~1 MB no total desde o site dos quatro jogos (33 telas
+    existe uma chave. São ~1 MB no total desde o site dos cinco jogos (36 telas
     + 6 selos, novembro/2026); carregar uma vez custa menos que abrir o disco a
     cada visita, e a pasta não muda enquanto o processo vive.
     """

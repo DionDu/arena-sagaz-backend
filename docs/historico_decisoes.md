@@ -12371,3 +12371,45 @@ motivos combinados:
 ⚠️ **Mudou o título do app numa loja ou o nome do desenvolvedor? Atualize `_TITULO_LOJA` e
 `_IDENTIFICACAO` em `api/legal/rotas.py`**, e os testes em `tests/unitarios/test_legal.py` e
 `tests/unitarios/test_rate_limit.py`.
+
+## 2026-11-27 — O site com o Xadrez: cinco jogos, o texto da v7 e as telas da 1.6.0
+
+**Contexto.** O site (`site/index.html`, o "marketing URL" e a "Support URL" das duas lojas) tinha os
+quatro jogos e o texto das fichas da 1.4.0 (entrada de 11/11/2026). A 1.6.0 traz o Xadrez, e o hub
+e a aba do desafio do app mudaram junto: o hub mostra cinco jogos com o selo "Novo" no Xadrez, e o
+desafio pode ser de xadrez.
+
+**Decisão** (pedido do dono, 26/11/2026; branch `site-xadrez`, merge só com o aval dele, porque o
+push da `main` é o deploy e o site só anuncia o xadrez quando o app estiver no ar):
+1. **O texto sai das fichas da v7** (`arena-sagaz-frontend/specs/012-jogo-xadrez/textos-fichas-lojas.md`),
+   nos 3 idiomas: o hero e o título com os cinco jogos, "Cinco clássicos", o exemplo do desafio de
+   xadrez da ficha ("Coma 2 peças com o seu bispo espião em até 12 lances contra Pita"), "os cinco
+   jogos" no "Sem internet" e no FAQ. O cartão do Xadrez resume o bloco "Novidade: Xadrez" da ficha,
+   e o FAQ ganhou "Não sei jogar xadrez. Dá para aprender?", com a resposta tirada das novidades
+   da App Store (o guia de cada peça, o roque, o en passant e a promoção, e a Cacau que ainda está
+   aprendendo).
+2. **Telas da 1.6.0, com nomes novos** (o cache das imagens é de 1 dia), das capturas cruas de iOS
+   de 26/11/2026 (1320x2868 → 440x956, WebP 82): `jogo_xadrez_<idioma>` (a `16_xadrez_partida`, a
+   tela de partida limpa, como as dos outros jogos; a `15_xadrez_roque` tem a folha do lance especial
+   por cima), `desafio_xadrez_<idioma>` (a aba Hoje com um desafio de xadrez) e
+   `vitrine_inicio_<idioma>[_escuro]` (o hub de cinco jogos, também o pôster do vídeo). As telas dos
+   rivais e do ranking não mudaram e ficaram.
+3. **O vídeo do topo é a prévia da App Store da 1.6.0**, `previa_xadrez_<idioma>.mp4` (886x1920, 27 s,
+   ~4,7 MB, o mesmo formato da anterior).
+4. **As peças da 1.4.0 foram arquivadas** em `site/_arquivo/site_1.4.0_nov2026/` pelo
+   `mover_com_log.ps1` (o hub de quatro jogos, o desafio do Quatro em Linha e a prévia antiga), com o
+   de-para em `docs/reorganizacao/de_para_reorganizacao.csv` da raiz.
+5. **A grade dos jogos virou `flex` centralizado**: cinco cartões em quatro colunas deixariam o 5º
+   sozinho no canto. Agora são 3 + 2 no computador, 2 + 2 + 1 no tablet e um por linha no celular,
+   com as mesmas peças (`.fone`, `.jogo-item`).
+6. **Testes novos**: o vídeo e o pôster que o JS monta existem nos três idiomas (eles ficam fora do
+   `data-tela` que o teste das capturas varre, e um nome velho deixaria o vídeo sem tocar); e o texto
+   visível não diz mais "quatro jogos".
+
+**Alternativas consideradas.**
+- *Só acrescentar o cartão do Xadrez e manter o hub e o desafio da 1.4.0:* o site mostraria um hub
+  de quatro jogos logo abaixo de um título que fala de cinco.
+- *Cinco colunas no computador:* cada cartão ficaria com ~186 px, e as descrições quebrariam em seis
+  ou sete linhas.
+- *Desenhar no Claude Design antes:* como em 11/11, só peças que o site já tinha; a única mudança de
+  arranjo é a grade 3 + 2, perguntada ao dono junto com a página local.

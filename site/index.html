@@ -628,8 +628,8 @@ footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 
 // Textos da página nos 3 idiomas. Cada chave casa com um `data-i="<chave>"` no
 // HTML: `setLang` troca o conteúdo de cada elemento pelo texto do idioma ativo.
 //
-// ⚠️ DE ONDE VEM ESTE COPY: das fichas das lojas da versão 1.4.0
-// (`arena-sagaz-frontend/specs/010-jogo-quatro-em-linha/textos-fichas-lojas.md`).
+// ⚠️ DE ONDE VEM ESTE COPY: das fichas das lojas da versão 1.6.0, a v7
+// (`arena-sagaz-frontend/specs/012-jogo-xadrez/textos-fichas-lojas.md`).
 // Site e loja falam do mesmo app e não podem se contradizer: se a ficha mudar o
 // que promete (um jogo novo, um poder novo), estes textos mudam junto.
 //
@@ -639,15 +639,17 @@ footer{background:var(--sup); border-top:1px solid var(--borda); padding:44px 0 
 //   • nada de travessão longo: só o hífen comum "-" (pedido de 11/11/2026).
 const T = {
   pt: {
-    meta_title: "Arena Sagaz - Damas, Velha, Pontinhos e Quatro em Linha",
+    meta_title: "Arena Sagaz - Xadrez, Damas, Jogo da Velha, Pontinhos e Quatro em Linha",
     video_alt: "Prévia em vídeo do app",
     nome_1: "Arena", nome_2: "Sagaz",
-    hero_tag: "Damas, Jogo da Velha, Pontinhos e Quatro em Linha contra quatro rivais com inteligência própria. E um desafio novo todo dia.",
+    hero_tag: "Xadrez, Damas, Jogo da Velha, Pontinhos e Quatro em Linha contra quatro rivais com inteligência própria. E um desafio novo todo dia.",
     hero_nota: "Já disponível na App Store e na Google Play.",
     badge_play_alt: "Disponível no Google Play", badge_apple_alt: "Baixe na App Store",
     jogos_kicker: "Os jogos",
-    jogos_title: "Quatro clássicos, uma arena",
+    jogos_title: "Cinco clássicos, uma arena",
     jogos_sub: "Daqueles que você aprende em um minuto e passa meses tentando dominar.",
+    jogo_xadrez_t: "Xadrez",
+    jogo_xadrez_d: "O clássico dos tabuleiros, com os quatro rivais. Comece do tabuleiro cheio ou no meio de uma partida de verdade, sorteada e equilibrada.",
     jogo_damas_t: "Damas",
     jogo_damas_d: "Quatro modalidades: brasileiras, portuguesas, anglo-americanas e as damas de casa. Com guia de regras dentro do jogo.",
     jogo_velha_t: "Jogo da Velha",
@@ -658,13 +660,13 @@ const T = {
     jogo_quatro_d: "Solte as peças e alinhe quatro da sua cor antes do rival. Contra o Magno, um descuido basta.",
     dif_kicker: "Sem internet",
     dif_title: "A inteligência joga dentro do seu aparelho",
-    dif_body: "Nada de servidores, nada de espera. A inteligência que move seus adversários roda inteira no seu celular: nenhum lance dela é decidido num servidor. No avião, no metrô, sem sinal, os quatro jogos continuam ali, pensando cada jogada.",
+    dif_body: "Nada de servidores, nada de espera. A inteligência que move seus adversários roda inteira no seu celular: nenhum lance dela é decidido num servidor. No avião, no metrô, sem sinal, os cinco jogos continuam ali, pensando cada jogada.",
     dif_p1_t: "Offline de verdade", dif_p1_d: "Funciona até no modo avião",
     dif_p2_t: "Privado", dif_p2_d: "Nada sai do seu aparelho",
     dif_p3_t: "Instantâneo", dif_p3_d: "Sem espera de servidor",
     des_kicker: "Todo dia",
     des_title: "Um desafio novo todo dia",
-    des_body: "Uma posição nova de Damas, de Pontinhos ou de Quatro em Linha, um objetivo a cumprir e um rival do outro lado da mesa. “Forme um Z em até 7 lances contra Magno”: parece simples, até você tentar.",
+    des_body: "Uma posição nova de Xadrez, de Damas, de Pontinhos ou de Quatro em Linha, um objetivo a cumprir e um rival do outro lado da mesa. “Coma 2 peças com o seu bispo espião em até 12 lances contra Pita”: parece simples, até você tentar.",
     des_p1_t: "Vale XP", des_p1_d: "Quanto melhor a sua solução, mais ela vale",
     des_p2_t: "O quadro do dia", des_p2_d: "Veja como se saiu, assista ao replay de quem resolveu e reaja",
     des_p3_t: "Resolva sem sinal", des_p3_d: "O desafio fica guardado no aparelho e o resultado sobe depois",
@@ -686,11 +688,13 @@ const T = {
     sup_sub: "Dúvidas, sugestões ou problemas? A gente responde.",
     sup_contato_t: "Fale com a gente", sup_contato_d: "Escreva a qualquer hora: respondemos por e-mail.",
     faq1_q: "O jogo funciona sem internet?",
-    faq1_a: "Sim. Os quatro jogos rodam inteiros no seu aparelho. A conexão só entra para receber o desafio do dia (que depois fica guardado e pode ser resolvido sem sinal), para o ranking e para baixar atualizações.",
+    faq1_a: "Sim. Os cinco jogos rodam inteiros no seu aparelho. A conexão só entra para receber o desafio do dia (que depois fica guardado e pode ser resolvido sem sinal), para o ranking e para baixar atualizações.",
     faq2_q: "É grátis? Tem anúncios?",
     faq2_a: "O jogo é gratuito. Exibimos alguns anúncios discretos para manter o projeto de pé, e os poderes (como a jogada ideal e a dica do desafio) são liberados por um anúncio curto. Nenhuma partida precisa deles para ser jogada até o fim.",
     faq6_q: "Dá para jogar com um amigo?",
-    faq6_a: "Sim. Os quatro jogos têm o modo 2 jogadores, no mesmo aparelho, para desafiar quem está do lado.",
+    faq6_a: "Sim. Os cinco jogos têm o modo 2 jogadores, no mesmo aparelho, para desafiar quem está do lado.",
+    faq8_q: "Não sei jogar xadrez. Dá para aprender?",
+    faq8_a: "Dá. Um guia dentro do jogo explica cada peça, o roque, o en passant e a promoção, e a Cacau joga como quem ainda está aprendendo.",
     faq7_q: "Preciso criar uma conta?",
     faq7_a: "Não. Dá para entrar como convidado e jogar na hora.",
     faq3_q: "A partir de que idade?",
@@ -701,21 +705,23 @@ const T = {
     faq5_q: "Em quais idiomas está disponível?",
     faq5_a: "Português, inglês e espanhol. O jogo segue o idioma do seu aparelho.",
     passo_perfil: "Ajustes", passo_conta: "Minha conta", passo_excluir: "Excluir conta",
-    foot_tag: "Damas, Velha, Pontinhos e Quatro em Linha com IA no aparelho. Feito com carinho.",
+    foot_tag: "Xadrez, Damas, Velha, Pontinhos e Quatro em Linha com IA no aparelho. Feito com carinho.",
     foot_legal_t: "Legal", foot_termos: "Termos de uso", foot_priv: "Privacidade", foot_excluir: "Exclusão de conta",
     foot_nav_t: "Contato", nav_suporte: "Suporte", foot_idioma_t: "Idioma",
     foot_idade: "Classificação 13+ · Android e iOS"
   },
   en: {
-    meta_title: "Sharp Arena - Checkers, Tic Tac Toe, Dots and Boxes, Four in a Row",
+    meta_title: "Sharp Arena - Chess, Checkers, Tic Tac Toe, Dots and Boxes, Four in a Row",
     video_alt: "App preview video",
     nome_1: "Sharp", nome_2: "Arena",
-    hero_tag: "Checkers, Tic Tac Toe, Dots and Boxes and Four in a Row against four rivals with a mind of their own. And a new challenge every day.",
+    hero_tag: "Chess, Checkers, Tic Tac Toe, Dots and Boxes and Four in a Row against four rivals with a mind of their own. And a new challenge every day.",
     hero_nota: "Out now on the App Store and Google Play.",
     badge_play_alt: "Get it on Google Play", badge_apple_alt: "Download on the App Store",
     jogos_kicker: "The games",
-    jogos_title: "Four classics, one arena",
+    jogos_title: "Five classics, one arena",
     jogos_sub: "The kind you learn in a minute and spend months trying to master.",
+    jogo_xadrez_t: "Chess",
+    jogo_xadrez_d: "The classic of all board games, with all four rivals. Start from the full board or in the middle of a real game, drawn at random and balanced.",
     jogo_damas_t: "Checkers",
     jogo_damas_d: "Four rule sets: Brazilian, Portuguese, Anglo-American and the house rules everyone grew up with. Rules guide built in.",
     jogo_velha_t: "Tic Tac Toe",
@@ -726,13 +732,13 @@ const T = {
     jogo_quatro_d: "Drop your pieces and line up four of your colour before your rival. Against Magno, one slip is enough.",
     dif_kicker: "No internet",
     dif_title: "The intelligence plays inside your device",
-    dif_body: "No servers, no waiting. The intelligence behind your opponents runs entirely on your phone: none of its moves is decided on a server. On a plane, on the subway, with no signal, all four games are still there, thinking through every move.",
+    dif_body: "No servers, no waiting. The intelligence behind your opponents runs entirely on your phone: none of its moves is decided on a server. On a plane, on the subway, with no signal, all five games are still there, thinking through every move.",
     dif_p1_t: "Truly offline", dif_p1_d: "Works even in airplane mode",
     dif_p2_t: "Private", dif_p2_d: "Nothing leaves your device",
     dif_p3_t: "Instant", dif_p3_d: "No server round-trips",
     des_kicker: "Every day",
     des_title: "A new challenge every day",
-    des_body: "A new Checkers, Dots and Boxes or Four in a Row position, a goal to reach and a rival across the table. “Make a Z within 7 moves against Magno”: it sounds simple, until you try.",
+    des_body: "A new Chess, Checkers, Dots and Boxes or Four in a Row position, a goal to reach and a rival across the table. “Capture 2 pieces with your spy bishop within 12 moves against Pita”: it sounds simple, until you try.",
     des_p1_t: "Worth XP", des_p1_d: "The better your solution, the more it earns",
     des_p2_t: "The daily board", des_p2_d: "See where you landed, watch the others' replays and react",
     des_p3_t: "Solve it offline", des_p3_d: "The challenge is saved on your device and your result is sent later",
@@ -754,11 +760,13 @@ const T = {
     sup_sub: "Questions, ideas or problems? We answer.",
     sup_contato_t: "Get in touch", sup_contato_d: "Write anytime: we reply by email.",
     faq1_q: "Does the game work without internet?",
-    faq1_a: "Yes. All four games run entirely on your device. A connection is only needed to receive the daily challenge (which is then saved, so you can solve it with no signal), for the rankings and to download updates.",
+    faq1_a: "Yes. All five games run entirely on your device. A connection is only needed to receive the daily challenge (which is then saved, so you can solve it with no signal), for the rankings and to download updates.",
     faq2_q: "Is it free? Are there ads?",
     faq2_a: "The game is free. We show a few discreet ads to keep the project going, and the powers (like Best move and the challenge Hint) are unlocked by a short ad. No match ever needs one to be played to the end.",
     faq6_q: "Can I play with a friend?",
-    faq6_a: "Yes. All four games have a local 2-player mode, on one device, to challenge the person next to you.",
+    faq6_a: "Yes. All five games have a local 2-player mode, on one device, to challenge the person next to you.",
+    faq8_q: "I don't know how to play chess. Can I learn?",
+    faq8_a: "Yes. A guide inside the game explains each piece, castling, en passant and promotion, and Cacau plays like someone who is still learning.",
     faq7_q: "Do I need an account?",
     faq7_a: "No. You can come in as a guest and play right away.",
     faq3_q: "What is the minimum age?",
@@ -769,21 +777,23 @@ const T = {
     faq5_q: "Which languages are supported?",
     faq5_a: "Portuguese, English and Spanish. The game follows your device language.",
     passo_perfil: "Settings", passo_conta: "My account", passo_excluir: "Delete account",
-    foot_tag: "Checkers, Tic Tac Toe, Dots and Boxes and Four in a Row with on-device AI. Made with care.",
+    foot_tag: "Chess, Checkers, Tic Tac Toe, Dots and Boxes and Four in a Row with on-device AI. Made with care.",
     foot_legal_t: "Legal", foot_termos: "Terms of use", foot_priv: "Privacy", foot_excluir: "Account deletion",
     foot_nav_t: "Contact", nav_suporte: "Support", foot_idioma_t: "Language",
     foot_idade: "Rated 13+ · Android and iOS"
   },
   es: {
-    meta_title: "Arena Sagaz - Damas, Tres en Raya, Puntos y Cuatro en Raya",
+    meta_title: "Arena Sagaz - Ajedrez, Damas, Tres en Raya, Puntos y Cuatro en Raya",
     video_alt: "Vídeo de vista previa de la app",
     nome_1: "Arena", nome_2: "Sagaz",
-    hero_tag: "Damas, Tres en Raya, Puntos y Cajas y Cuatro en Raya contra cuatro rivales con inteligencia propia. Y un desafío nuevo cada día.",
+    hero_tag: "Ajedrez, Damas, Tres en Raya, Puntos y Cajas y Cuatro en Raya contra cuatro rivales con inteligencia propia. Y un desafío nuevo cada día.",
     hero_nota: "Ya disponible en la App Store y en Google Play.",
     badge_play_alt: "Disponible en Google Play", badge_apple_alt: "Descárgalo en la App Store",
     jogos_kicker: "Los juegos",
-    jogos_title: "Cuatro clásicos, una arena",
+    jogos_title: "Cinco clásicos, una arena",
     jogos_sub: "De esos que aprendes en un minuto y pasas meses intentando dominar.",
+    jogo_xadrez_t: "Ajedrez",
+    jogo_xadrez_d: "El clásico de los tableros, con los cuatro rivales. Empieza con el tablero completo o en medio de una partida real, sorteada y equilibrada.",
     jogo_damas_t: "Damas",
     jogo_damas_d: "Cuatro modalidades: brasileñas, portuguesas (y españolas), angloamericanas y las damas de casa. Con guía de reglas en el juego.",
     jogo_velha_t: "Tres en Raya",
@@ -794,13 +804,13 @@ const T = {
     jogo_quatro_d: "Suelta las fichas y alinea cuatro de tu color antes que tu rival. Contra Magno, basta un descuido.",
     dif_kicker: "Sin internet",
     dif_title: "La inteligencia juega dentro de tu dispositivo",
-    dif_body: "Sin servidores, sin esperas. La inteligencia detrás de tus rivales funciona por completo en tu móvil: ninguna de sus jugadas se decide en un servidor. En el avión, en el metro, sin señal, los cuatro juegos siguen ahí, pensando cada jugada.",
+    dif_body: "Sin servidores, sin esperas. La inteligencia detrás de tus rivales funciona por completo en tu móvil: ninguna de sus jugadas se decide en un servidor. En el avión, en el metro, sin señal, los cinco juegos siguen ahí, pensando cada jugada.",
     dif_p1_t: "Sin conexión de verdad", dif_p1_d: "Funciona hasta en modo avión",
     dif_p2_t: "Privado", dif_p2_d: "Nada sale de tu dispositivo",
     dif_p3_t: "Instantáneo", dif_p3_d: "Sin esperas de servidor",
     des_kicker: "Cada día",
     des_title: "Un desafío nuevo cada día",
-    des_body: "Una posición nueva de Damas, de Puntos y Cajas o de Cuatro en Raya, un objetivo que cumplir y un rival al otro lado de la mesa. “Forma una Z en 7 jugadas contra Magno”: parece fácil, hasta que lo intentas.",
+    des_body: "Una posición nueva de Ajedrez, de Damas, de Puntos y Cajas o de Cuatro en Raya, un objetivo que cumplir y un rival al otro lado de la mesa. “Come 2 piezas con tu alfil espía en 12 jugadas contra Pita”: parece fácil, hasta que lo intentas.",
     des_p1_t: "Vale XP", des_p1_d: "Cuanto mejor sea tu solución, más vale",
     des_p2_t: "La tabla del día", des_p2_d: "Mira cómo te fue, ve la repetición de los demás y reacciona",
     des_p3_t: "Resuélvelo sin señal", des_p3_d: "El desafío queda guardado y el resultado se envía después",
@@ -822,11 +832,13 @@ const T = {
     sup_sub: "¿Dudas, ideas o problemas? Te respondemos.",
     sup_contato_t: "Escríbenos", sup_contato_d: "Escribe cuando quieras: respondemos por correo.",
     faq1_q: "¿El juego funciona sin internet?",
-    faq1_a: "Sí. Los cuatro juegos funcionan por completo en tu dispositivo. Solo necesitas conexión para recibir el desafío del día (que luego queda guardado y se puede resolver sin señal), para la clasificación y para descargar actualizaciones.",
+    faq1_a: "Sí. Los cinco juegos funcionan por completo en tu dispositivo. Solo necesitas conexión para recibir el desafío del día (que luego queda guardado y se puede resolver sin señal), para la clasificación y para descargar actualizaciones.",
     faq2_q: "¿Es gratis? ¿Tiene anuncios?",
     faq2_a: "El juego es gratuito. Mostramos algunos anuncios discretos para mantener el proyecto en pie, y los poderes (como la jugada ideal y la pista del desafío) se liberan con un anuncio corto. Ninguna partida los necesita para jugarse hasta el final.",
     faq6_q: "¿Puedo jugar con un amigo?",
-    faq6_a: "Sí. Los cuatro juegos tienen modo 2 jugadores en el mismo dispositivo, para retar a quien tienes al lado.",
+    faq6_a: "Sí. Los cinco juegos tienen modo 2 jugadores en el mismo dispositivo, para retar a quien tienes al lado.",
+    faq8_q: "No sé jugar al ajedrez. ¿Puedo aprender?",
+    faq8_a: "Sí. Una guía dentro del juego explica cada pieza, el enroque, la captura al paso y la promoción, y Cacau juega como quien aún está aprendiendo.",
     faq7_q: "¿Necesito una cuenta?",
     faq7_a: "No. Puedes entrar como invitado y jugar al instante.",
     faq3_q: "¿A partir de qué edad?",
@@ -837,7 +849,7 @@ const T = {
     faq5_q: "¿En qué idiomas está disponible?",
     faq5_a: "Portugués, inglés y español. El juego sigue el idioma de tu dispositivo.",
     passo_perfil: "Ajustes", passo_conta: "Mi cuenta", passo_excluir: "Eliminar cuenta",
-    foot_tag: "Damas, Tres en Raya, Puntos y Cajas y Cuatro en Raya con IA en el dispositivo. Hecho con cariño.",
+    foot_tag: "Ajedrez, Damas, Tres en Raya, Puntos y Cajas y Cuatro en Raya con IA en el dispositivo. Hecho con cariño.",
     foot_legal_t: "Legal", foot_termos: "Términos de uso", foot_priv: "Privacidad", foot_excluir: "Eliminación de cuenta",
     foot_nav_t: "Contacto", nav_suporte: "Soporte", foot_idioma_t: "Idioma",
     foot_idade: "Clasificación 13+ · Android e iOS"
@@ -915,13 +927,13 @@ function atualizarTelas(){
   });
   const video = document.getElementById('videoPrevia');
   if(video){
-    const src = '/video/previa_app_'+lang+'.mp4';
+    const src = '/video/previa_xadrez_'+lang+'.mp4';
     // Só reatribui quando o idioma mudou: atribuir o MESMO src recarrega o
     // vídeo e o faria voltar ao início a cada clique no botão de tema.
     if(video.getAttribute('src') !== src) video.setAttribute('src', src);
     // O poster é a imagem que aparece antes do play (o vídeo não baixa nada
     // até lá, por causa do preload="none").
-    video.poster = '/img/vitrine_hub_'+lang+'.webp';
+    video.poster = '/img/vitrine_inicio_'+lang+'.webp';
     video.setAttribute('aria-label', d.video_alt || '');
   }
 }

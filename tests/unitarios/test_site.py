@@ -146,11 +146,13 @@ def test_imagens_da_vitrine_respondem(cliente: TestClient):
     A landing deixou de ser um HTML único em 04/08/2026: 9 capturas (3 telas × 3
     idiomas) e 6 selos de loja em base64 levariam o HTML de 210 KB para ~450 KB,
     que todo visitante baixaria inteiro — inclusive os idiomas que ele não vê.
-    Desde o site dos quatro jogos (11/11/2026) são 33 telas, e o argumento só
-    ficou mais forte.
+    Desde o site dos quatro jogos (11/11/2026) eram 33 telas, e desde o do
+    xadrez (1.6.0) são 36: o argumento só ficou mais forte.
     """
     for nome, tipo in [
-        ("vitrine_hub_pt.webp", "image/webp"),
+        ("vitrine_inicio_pt.webp", "image/webp"),
+        ("jogo_xadrez_es.webp", "image/webp"),
+        ("desafio_xadrez_en.webp", "image/webp"),
         ("vitrine_rivais_en_escuro.webp", "image/webp"),
         ("jogo_quatro_es.webp", "image/webp"),
         ("appstore_pt.svg", "image/svg+xml"),
@@ -178,8 +180,8 @@ def test_todo_idioma_tem_captura_e_selo(cliente: TestClient):
     # como EXEMPLO, e isso não é uma tela da página.
     html = re.sub(r"<script>.*?</script>", "", cliente.get("/").text, flags=re.DOTALL)
     telas = re.findall(r'<img data-tela="([a-z_]+)"( data-tema)?', html)
-    # Os 4 jogos + o Desafio do Dia + o trio "por dentro".
-    assert len(telas) == 8, telas
+    # Os 5 jogos + o Desafio do Dia + o trio "por dentro".
+    assert len(telas) == 9, telas
     for idioma in ("pt", "en", "es"):
         for chave, tem_tema in telas:
             assert cliente.get(f"/img/{chave}_{idioma}.webp").status_code == 200, (chave, idioma)
@@ -196,12 +198,12 @@ def test_moldura_de_celular_sem_notch_proprio(cliente: TestClient):
     assert ".fone::before" not in cliente.get("/").text
 
 
-def test_os_quatro_jogos_estao_na_pagina(cliente: TestClient):
+def test_os_cinco_jogos_estao_na_pagina(cliente: TestClient):
     """O site nasceu quando só existia o Jogo dos Pontinhos e ficou três versões
-    do app falando só dele. Este teste trava a vitrine dos quatro jogos: cada um
-    tem o seu cartão, com captura, nome e descrição."""
+    do app falando só dele. Este teste trava a vitrine dos cinco jogos (o xadrez
+    desde a 1.6.0): cada um tem o seu cartão, com captura, nome e descrição."""
     html = cliente.get("/").text
-    for jogo in ("damas", "velha", "pontinhos", "quatro"):
+    for jogo in ("xadrez", "damas", "velha", "pontinhos", "quatro"):
         assert f'data-tela="jogo_{jogo}"' in html, jogo
         assert f'data-i="jogo_{jogo}_d"' in html, jogo
     assert 'id="desafio"' in html  # a seção do Desafio do Dia
@@ -225,13 +227,47 @@ def test_nome_de_terceiros_fora_do_site(cliente: TestClient):
     assert not re.search(r"connect\s*-?\s*4|connect four|lig\s*-?\s*4|conecta\s*-?\s*4", html)
 
 
+def test_o_video_e_o_poster_que_o_script_pede_existem(cliente: TestClient):
+    """O endereço do vídeo e o do poster são montados no JS (`atualizarTelas`),
+    fora do `data-tela` que o teste de capturas varre. Quando a prévia ganha nome
+    novo (a cada versão, por causa do cache de 1 dia) e a antiga é arquivada, um
+    JS esquecido no nome velho deixaria o hero com um vídeo que não toca, e
+    nenhum outro teste perceberia."""
+    import re
+
+    html = cliente.get("/").text
+    video = re.search(r"'/video/([a-z_]+)_'\+lang\+'\.mp4'", html)
+    poster = re.search(r"'/img/([a-z_]+)_'\+lang\+'\.webp'", html)
+    assert video and poster
+    for idioma in ("pt", "en", "es"):
+        r = cliente.get(f"/video/{video.group(1)}_{idioma}.mp4", headers={"Range": "bytes=0-99"})
+        assert r.status_code == 206, (video.group(1), idioma)
+        assert cliente.get(f"/img/{poster.group(1)}_{idioma}.webp").status_code == 200, idioma
+
+
+def test_o_site_fala_dos_cinco_jogos(cliente: TestClient):
+    """O texto sai das fichas da 1.6.0 (a v7): cinco jogos, nos três idiomas. O
+    "quatro jogos" da 1.4.0 só pode sobrar nos comentários que contam a história
+    (fora do `<script>` e do texto visível), e o FAQ responde quem não sabe xadrez."""
+    import re
+
+    script = re.search(r"<script>(.*?)</script>", cliente.get("/").text, flags=re.DOTALL).group(1)
+    # As linhas de comentário (`//`) saem: lá o histórico pode citar a 1.4.0.
+    textos = "\n".join(l for l in script.splitlines() if not l.strip().startswith("//"))
+    for velho in ("quatro jogos", "four games", "cuatro juegos", "Quatro clássicos", "Four classics"):
+        assert velho not in textos, velho
+    for novo in ('jogo_xadrez_t: "Xadrez"', 'jogo_xadrez_t: "Chess"', 'jogo_xadrez_t: "Ajedrez"'):
+        assert novo in textos, novo
+    assert textos.count("faq8_q:") == 3
+
+
 # ── O vídeo da vitrine ───────────────────────────────────────────────────────
 
 
 def test_video_existe_nos_tres_idiomas(cliente: TestClient):
     """A prévia do hero troca com o idioma, como as capturas."""
     for idioma in ("pt", "en", "es"):
-        r = cliente.get(f"/video/previa_app_{idioma}.mp4", headers={"Range": "bytes=0-1023"})
+        r = cliente.get(f"/video/previa_xadrez_{idioma}.mp4", headers={"Range": "bytes=0-1023"})
         assert r.status_code == 206, idioma
         assert r.headers["content-type"].startswith("video/mp4"), idioma
 
@@ -243,7 +279,7 @@ def test_video_atende_faixa_de_bytes(cliente: TestClient):
     preto justamente no aparelho do público do app. O pedido de uma faixa tem
     de voltar `206`, com exatamente os bytes pedidos e o `Content-Range`.
     """
-    r = cliente.get("/video/previa_app_pt.mp4", headers={"Range": "bytes=0-99"})
+    r = cliente.get("/video/previa_xadrez_pt.mp4", headers={"Range": "bytes=0-99"})
     assert r.status_code == 206
     assert len(r.content) == 100
     assert r.headers["content-range"].startswith("bytes 0-99/")
