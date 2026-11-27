@@ -47,6 +47,12 @@ _METODOS_ESCRITA = {"POST", "PUT", "PATCH", "DELETE"}
 #   `429` aqui é uma instalação perdida, sem erro visível para ninguém. Custo do
 #   abuso: quase zero, porque a resposta é um 302 ou uma página já pronta na
 #   memória, sem banco nem disco (o mesmo raciocínio da `/`).
+# - `/legal` e `/legal/*` → as páginas públicas de Termos, Privacidade e Exclusão
+#   de Conta exigidas pelas lojas (decisão de 2026-11-26). Os robôs de revisão da
+#   Google Play (Segurança de Dados e Política de Privacidade) e da App Store
+#   saem de blocos de IP compartilhados de datacenter; um `429` numa verificação
+#   automática reprova o envio do app na loja. As rotas usam whitelist fechada de
+#   3 idiomas × 3 documentos curtos, sem banco de dados.
 _ISENTOS = {
     "/v1/health",
     "/health",
@@ -55,7 +61,18 @@ _ISENTOS = {
     "/baixar",
     "/download",
     "/descargar",
+    "/legal",
 }
+
+# Prefixos de caminhos públicos isentos. A barra no fim (`"/legal/"`) é crucial:
+# casa `/legal/en/exclusao-conta`, mas NÃO casa um hipotético `/legalizar` nem a
+# rota JSON `/v1/legal/...` (cujo prefixo começa com `/v1/`).
+_PREFIXOS_ISENTOS = ("/legal/",)
+
+
+def caminho_isento_rate_limit(caminho: str) -> bool:
+    """Retorna `True` se o [caminho] da URL não deve consumir cota por IP."""
+    return caminho in _ISENTOS or caminho.startswith(_PREFIXOS_ISENTOS)
 
 _JANELA_SEGUNDOS = 60.0
 
@@ -83,7 +100,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Desligado (ex.: testes) ou preflight/health → passa direto.
         if not configuracoes.RATE_LIMIT_ENABLED:
             return await call_next(request)
-        if request.method == "OPTIONS" or request.url.path in _ISENTOS:
+        if request.method == "OPTIONS" or caminho_isento_rate_limit(request.url.path):
             return await call_next(request)
 
         escrita = request.method in _METODOS_ESCRITA
